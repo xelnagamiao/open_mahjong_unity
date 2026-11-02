@@ -32,6 +32,8 @@ from .game_fuzhou import FuzhouGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
 from .game_nanchang.NanchangGameState import NanchangGameState
 from .game_shangrao.ShangraoGameState import ShangraoGameState
+from .game_beijing.BeijingGameState import BeijingGameState
+from .game_duocai.DuocaiGameState import DuocaiGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
 from .game_jiujiang.JiujiangGameState import JiujiangGameState
 from .game_singapore.SingaporeGameState import SingaporeGameState
@@ -92,6 +94,8 @@ class GameStateManager:
         self.user_id_to_game_state: Dict[int, Any] = {}
         self.room_id_to_NanchangGameState: Dict[str, NanchangGameState] = {}
         self.room_id_to_ShangraoGameState: Dict[str, ShangraoGameState] = {}
+        self.room_id_to_BeijingGameState: Dict[str, BeijingGameState] = {}
+        self.room_id_to_DuocaiGameState: Dict[str, DuocaiGameState] = {}
         self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
         self.room_id_to_ShenyangGameState: Dict[str, ShenyangGameState] = {}
         self.room_id_to_NanjingGameState: Dict[str, NanjingGameState] = {}
@@ -127,11 +131,18 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="自动匹配正在安排入座，请稍候")
         
         # 检查是否是房主
-        player = self.game_server.players[Connect_id]
+        from ..room.room_seats import is_full_bot_table
+        from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
+        pair = self.sichuan_duplicate_matches.get(room_data.get("duplicate_match_id"))
+        bot_peer_prepare = (_paired_prepare and pair is not None and pair.lock.locked()
+                            and pair.data["room_ids"].get(room_data.get("duplicate_table")) == room_id
+                            and is_duplicate_sub_rule(room_data.get("sub_rule"))
+                            and is_full_bot_table(room_data))
+        player = self.game_server.players.get(Connect_id)
         self.game_server.room_manager._sync_room_host(room_data)
-        if player.user_id != room_data.get("host_user_id"):
+        if not bot_peer_prepare and (player is None or player.user_id != room_data.get("host_user_id")):
             return Response(type="error_message", success=False, message="只有房主能开始游戏")
-            
+
         # 三人立直默认满 3 人；其余默认满 4 人，自由模式可声明最少 1 人。
         from .public.player_count import player_count_for_sub_rule
         default_min_players = player_count_for_sub_rule(room_data.get("sub_rule"))
@@ -187,6 +198,7 @@ class GameStateManager:
                             profiles[key][field] = settings.get(field,default) if settings else default
 
         classes = {
+            "duocai": DuocaiGameState,
             "guobiao": GuobiaoGameState, "qingque": QingqueGameState,
             "changsha": ChangshaGameState, "classical": ClassicalGameState,
             "riichi": RiichiGameState, "sichuan": SichuanGameState,
@@ -194,7 +206,7 @@ class GameStateManager:
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
-            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "shangrao": ShangraoGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
+            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "shangrao": ShangraoGameState, "beijing": BeijingGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
         }
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
@@ -328,7 +340,7 @@ class GameStateManager:
                     try:
                         await state.player_disconnect(user_id)
                     finally:
-                        if all_humans_offline(state):
+                        if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
                             await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         await self.remove_spectator_from_all_games(user_id)
     
@@ -374,7 +386,7 @@ class GameStateManager:
                 try:
                     await state.player_disconnect(user_id)
                 finally:
-                    if all_humans_offline(state):
+                    if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
                         await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         room_manager = self.game_server.room_manager
         room = room_manager.rooms.get(state.room_id)

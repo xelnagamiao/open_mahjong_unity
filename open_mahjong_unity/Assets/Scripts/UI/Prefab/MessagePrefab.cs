@@ -254,10 +254,10 @@ public class MessagePrefab : MonoBehaviour {
         float width = Mathf.Min(Mathf.Max(minimumWidth, preferredWidth), Mathf.Max(1, lastAvailableSize.x - ScreenMargin * 2));
         float horizontalPadding = width < 480 ? 24 : 40;
         float bodyWidth = Mathf.Max(1, width - horizontalPadding * 2);
-        HeaderText.fontSize = 32;
+        HeaderText.fontSize = 28;
         HeaderText.enableAutoSizing = true;
         HeaderText.fontSizeMin = 22;
-        HeaderText.fontSizeMax = 32;
+        HeaderText.fontSizeMax = 28;
         HeaderText.textWrappingMode = TextWrappingModes.NoWrap;
         HeaderText.alignment = TextAlignmentOptions.Center;
         HeaderText.margin = Vector4.zero;
@@ -277,7 +277,7 @@ public class MessagePrefab : MonoBehaviour {
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
         rect.anchoredPosition = Vector2.zero;
         rect.sizeDelta = new Vector2(width, bodyHeight + BodyTop + BodyBottom);
-        PlaceMessageRect(HeaderText.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(0, -24), new Vector2(-horizontalPadding * 2, 44));
+        PlaceMessageRect(HeaderText.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(0, -10), new Vector2(-horizontalPadding * 2, 44));
         PlaceMessageRect(bodyViewport, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(0, -BodyTop), new Vector2(-horizontalPadding * 2, bodyHeight));
         PlaceMessageRect(ContentText.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(overflow ? -10 : 0, 0), new Vector2(overflow ? -20 : 0, overflow ? preferredHeight : bodyHeight));
         bodyScroll.vertical = overflow;
@@ -338,7 +338,27 @@ public class MessagePrefab : MonoBehaviour {
     }
 
 #if UNITY_EDITOR
-    public void BakeFixedBody() { EnsureBodyViewport(); LayoutMessage(); }
+    public void BakeFixedBody() {
+        // Runtime actions are not bound in edit mode. Use the authored visible
+        // buttons so the saved example follows the same layout as Show().
+        var slots = new List<ButtonSlot>();
+        if (BackButton != null && BackButton.gameObject.activeSelf) {
+            slots.Add(new ButtonSlot(BackButton, BackButtonText));
+        }
+        for (int i = 0; i < transform.childCount; i++) {
+            Transform child = transform.GetChild(i);
+            if (child.name != "MessageButtonExtra" || !child.gameObject.activeSelf) continue;
+            var button = child.GetComponent<Button>();
+            if (button != null) slots.Add(new ButtonSlot(button, button.GetComponentInChildren<TMP_Text>(true)));
+        }
+        if (YesButton != null && YesButton.gameObject.activeSelf) {
+            slots.Add(new ButtonSlot(YesButton, YesButtonText));
+        }
+        activeSlots = slots.ToArray();
+        EnsureBodyViewport();
+        LayoutMessage();
+        WireNavigation();
+    }
 
     private void EnsureBodyViewport() {
         if (bodyViewport != null) return;

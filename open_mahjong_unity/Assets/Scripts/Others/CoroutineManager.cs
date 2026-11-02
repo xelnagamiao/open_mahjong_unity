@@ -46,7 +46,6 @@ public class CoroutineManager : MonoBehaviour {
         if (_quitting || !Application.isPlaying) return;
         var go = new GameObject(nameof(CoroutineManager));
         _instance = go.AddComponent<CoroutineManager>();
-        DontDestroyOnLoad(go);
     }
 
     private void Awake() {
@@ -55,6 +54,7 @@ public class CoroutineManager : MonoBehaviour {
             return;
         }
         _instance = this;
+        transform.SetParent(null);
         DontDestroyOnLoad(gameObject);
     }
 

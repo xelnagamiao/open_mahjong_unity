@@ -98,6 +98,7 @@ def test_adding_bot_broadcasts_disabled_state_then_keeps_disabled_after_removal(
         socket = SimpleNamespace(send_json=AsyncMock())
         manager.game_server.user_id_to_connection = {101:SimpleNamespace(websocket=socket)}
         manager._broadcast_room_info = lambda rid: RoomManager._broadcast_room_info(manager,rid)
+        manager._seat_room_bot = RoomManager._seat_room_bot.__get__(manager)
         response = await RoomManager._add_room_bot(manager,'c','123456',bot_id,1)
         assert response.success and room['tactical_call'] is False
         assert socket.send_json.call_args.args[0]['room_info']['tactical_call'] is False

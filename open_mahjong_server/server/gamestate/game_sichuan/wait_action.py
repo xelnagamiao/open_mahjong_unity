@@ -3,7 +3,7 @@
 事件/优先级引擎沿用古典实现；动作处理替换为四川逻辑：
 - 无吃牌；
 - 切牌强制先打定缺花色（非定缺花色暗杠除外）；
-- 刮风下雨（点杠/摸杠加杠/暗杠）即时收分并记录用于退税；
+- 刮风下雨记录用于退税；血战双打在副末支付，其他模式沿用原结算时机；
 - 和牌（自摸/点炮/抢杠）不立即结束，交由主循环 settle_win 处理血战续打。
 """
 import asyncio
@@ -313,6 +313,7 @@ async def wait_action(self):
                     await broadcast_do_action(self, action_list=["angang"], action_player=self.current_player_index,
                                               combination_mask=add_mask, combination_target=f"G{angang_tile}",
                                               is_mo_gang=is_mo_gang, gang_score_changes=gang_changes, gang_score_type="xiayu2")
+                    await self._broadcast_kong_reveals()
                     self.last_action_was_gang = True
                     self.game_status = "deal_card_after_gang"
 
@@ -356,6 +357,8 @@ async def wait_action(self):
                         gang_changes = self._record_gang_score(self.current_player_index, normal_jia, "xiayu1")
                     elif is_mo_gang:
                         gang_changes = self._record_gang_score(self.current_player_index, normal_jia, "xiayu1")
+                    elif getattr(self, "is_doubles", False):
+                        gang_changes = self._record_gang_score(self.current_player_index, normal_jia, "non_timely")
                     else:
                         self._clear_paofen_pending(self.current_player_index)
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang,
@@ -371,6 +374,7 @@ async def wait_action(self):
                         self.game_status = "waiting_action_qianggang"
                     else:
                         self.game_status = "deal_card_after_gang"
+                        await self._broadcast_kong_reveals()
                     return
 
                 elif action_type == "hu_self":
@@ -514,6 +518,7 @@ async def wait_action(self):
                                                   combination_mask=combination_mask, combination_target=combination_target,
                                                   gang_score_changes=gang_changes, gang_score_type="guafeng",
                                                   cut_from_player=discarder, cut_tile=tile_id)
+                        await self._broadcast_kong_reveals()
                         self.last_action_was_gang = True
                         self.game_status = "deal_card_after_gang"
                     else:
@@ -635,6 +640,7 @@ async def wait_action(self):
                 if apply_passed_win_shunhe(self, passed_indexes):
                     await broadcast_refresh_player_tag_list(self)
                 self.game_status = "deal_card_after_gang"
+                await self._broadcast_kong_reveals()
                 return
 
         case "waiting_ready":

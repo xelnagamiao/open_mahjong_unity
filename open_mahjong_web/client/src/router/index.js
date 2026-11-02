@@ -42,6 +42,7 @@ import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
 import AdminUsers from '@/views/admin/Users.vue'
 import AdminTitles from '@/views/admin/Titles.vue'
+import AdminRedemption from '@/views/admin/Redemption.vue'
 import AdminInventory from '@/views/admin/Inventory.vue'
 import AdminUserDetail from '@/views/admin/UserDetail.vue'
 import AdminRank from '@/views/admin/Rank.vue'
@@ -54,7 +55,6 @@ import AdminIpBans from '@/views/admin/IpBans.vue'
 import AdminStats from '@/views/admin/Stats.vue'
 import AdminEvents from '@/views/admin/Events.vue'
 import AdminEventDetail from '@/views/admin/EventDetail.vue'
-import AdminEventApplications from '@/views/admin/EventApplications.vue'
 import AdminActivities from '@/views/admin/Activities.vue'
 import AdminClassicRecords from '@/views/admin/ClassicRecords.vue'
 import AdminTileContent from '@/views/admin/TileContent.vue'
@@ -75,6 +75,7 @@ const routes = [
     path: '/',
     component: DefaultLayout,
     children: [
+      { path: 'community', name: 'Community', component: () => import('@/views/Community.vue'), meta: { title: '社群' } },
       {
         path: '',
         name: 'Home',
@@ -118,14 +119,15 @@ const routes = [
       {
         path: 'paili',
         name: 'Paili',
-        component: PailiView,
-        meta: { title: '牌理 - salasasa.cn' }
+        component: PailiView
       },
       {
         path: 'paili/hongque',
         name: 'PailiHongque',
         component: PailiView
       },
+      { path: 'paili/qingque', name: 'PailiQingque', component: PailiView },
+      { path: 'paili/riichi', name: 'PailiRiichi', component: PailiView },
       {
         path: 'calc/chinese',
         name: 'CalculatorChinese',
@@ -136,6 +138,8 @@ const routes = [
         name: 'CalculatorHongque',
         component: CalculatorView
       },
+      { path: 'calc/qingque', name: 'CalculatorQingque', component: CalculatorView },
+      { path: 'calc/riichi', name: 'CalculatorRiichi', component: CalculatorView },
       {
         path: 'calc',
         redirect: '/calc/chinese'
@@ -365,6 +369,7 @@ const routes = [
       { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
       { path: 'titles', name: 'AdminTitles', component: AdminTitles, meta: { title: '头衔管理' } },
       { path: 'inventory', name: 'AdminInventory', component: AdminInventory, meta: { title: '物品管理' } },
+      { path: 'redemption', name: 'AdminRedemption', component: AdminRedemption, meta: { title: '兑换码' } },
       {
         path: 'users/:userId',
         name: 'AdminUserDetail',
@@ -388,14 +393,12 @@ const routes = [
       {
         path: 'event-applications',
         name: 'AdminEventApplications',
-        component: AdminEventApplications,
-        meta: { title: '办赛申请', venueKind: 'event' }
+        redirect: (to) => ({ name: 'AdminEvents', query: to.query, hash: '#applications' })
       },
       {
         path: 'base-applications',
         name: 'AdminBaseApplications',
-        component: AdminEventApplications,
-        meta: { title: '基地申请', venueKind: 'base' }
+        redirect: (to) => ({ name: 'AdminBases', query: to.query, hash: '#applications' })
       },
       { path: 'tile-content', name: 'AdminTileContent', component: AdminTileContent, meta: { title: '牌面审核' } },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
@@ -406,6 +409,7 @@ const routes = [
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
       { path: 'activities', name: 'AdminActivities', component: AdminActivities, meta: { title: '活动设计' } },
       { path: 'classic-records', name: 'AdminClassicRecords', component: AdminClassicRecords, meta: { title: '经典牌谱' } },
+      { path: 'platform-content', name: 'AdminPlatformContent', component: () => import('@/views/admin/PlatformContent.vue'), meta: { title: '鸣谢与社群' } },
       { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }

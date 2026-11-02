@@ -25,9 +25,9 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       CREATE TABLE game_player_records (game_id varchar(16), user_id bigint, username text, score int, rank int, original_player_index int,
         title_used int, character_used int, profile_used int, voice_used int, rule text, sub_rule text, room_type text, match_type text);
       INSERT INTO events VALUES ('event-a','Test event','event','active');
-      INSERT INTO events VALUES ('registered-a','Approved application','event','registered'), ('closed-a','Closed event','event','closed'), ('pending-a','Unapproved status','event','pending'), ('base-a','Not a competition','base','active');
+      INSERT INTO events VALUES ('registered-a','Approved application','event','registered'), ('closed-a','Closed event','event','closed'), ('pending-a','Unapproved status','event','pending'), ('base-a','Test base','base','active');
       INSERT INTO event_admins VALUES ('event-a', 101), ('event-a', 102);
-      INSERT INTO event_admins VALUES ('registered-a', 101), ('closed-a', 101), ('pending-a', 101), ('base-a', 101);
+      INSERT INTO event_admins VALUES ('registered-a', 101), ('closed-a', 101), ('pending-a', 101), ('base-a', 101), ('base-a', 102);
     `);
     const service = createDuplicateWallService(pool);
     const body = { scope: 'personal', wall_type: 'key', rule: 'guobiao' };
@@ -63,12 +63,21 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       try {
         const catalogResponse = await request('/catalog');
         assert.equal(catalogResponse.status, 200);
-        assert.deepEqual((await catalogResponse.json()).data.rules.map((item) => item.rule), ['guobiao', 'guobiao/lanshi', 'sichuan/xueliu']);
+        assert.deepEqual((await catalogResponse.json()).data.rules.map((item) => item.rule), ['guobiao', 'guobiao/lanshi', 'sichuan/xueliu', 'sichuan/sbr']);
         assert.equal((await request('/mine')).status, 401);
         assert.equal((await request('', 'POST', undefined, body)).status, 401);
         assert.equal((await request('', 'POST', 'invalid-token', body)).status, 401);
         assert.equal((await request('', 'POST', token(901, { aud: 'wrong' }), body)).status, 401);
         assert.equal((await request('', 'POST', token(901), { ...body, scope: 'event', event_id: 'event-a' })).status, 403);
+        assert.equal((await request('', 'POST', token(901), { ...body, scope: 'event', event_id: 'base-a' })).status, 403);
+        const baseCreated = await request('', 'POST', token(101), { ...body, scope: 'event', event_id: 'base-a' });
+        assert.equal(baseCreated.status, 201);
+        const baseWall = (await baseCreated.json()).data.wall;
+        const baseList = await request('/mine?scope=event&event_id=base-a', 'GET', token(102));
+        assert.equal(baseList.status, 200);
+        assert.equal((await baseList.json()).data.items.length, 1);
+        assert.equal((await request(`/${baseWall.id}`, 'PATCH', token(102), { is_unlocked: true })).status, 200);
+        assert.equal((await request(`/${baseWall.id}`, 'DELETE', token(101))).status, 200);
         for (const rule of ['riichi', 'qingque', 'classical', 'changsha', 'sichuan', 'taiwan', 'jiandan']) {
           assert.equal((await request('', 'POST', token(901), { ...body, rule })).status, 400);
         }
@@ -131,11 +140,14 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       } finally { await new Promise((resolve) => server.close(resolve)); }
     });
 
-    await t.test('bloodflow manual, seed and key walls persist the 108-tile layout and keep hidden keys private', async () => {
+    await t.test('bloodflow doubles manual, seed and key walls require venue scope and keep hidden keys private', async () => {
       for (const [index, wall_type] of ['manual', 'seed', 'key'].entries()) {
         const owner = 81200 + index;
-        const input = { scope: 'personal', rule: 'sichuan/xueliu', wall_type, round_count: 4,
+        const input = { scope: 'event', event_id: `bloodflow-${index}`, rule: 'sichuan/xueliu', wall_type, round_count: 4,
           seed: 'bloodflow-db', round_tiles: Array.from({ length: 4 }, () => fullWall('sichuan/xueliu')) };
+        await pool.query("INSERT INTO events VALUES ($1,'Bloodflow doubles','base','active')", [input.event_id]);
+        await pool.query('INSERT INTO event_admins VALUES ($1,$2)', [input.event_id, owner]);
+        await assert.rejects(service.create(owner, { ...input, scope: 'personal' }), { status: 400 });
         const { wall } = await service.create(owner, input);
         assert.equal(wall.wall_layout, 'xueliu');
         assert.equal(wall.tile_count, 108);
@@ -147,7 +159,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
           assert.equal(tiles.slice(84).length, 24);
           assert.deepEqual([...tiles].sort((a,b)=>a-b), fullWall('sichuan/xueliu'));
         }
-        const mine = (await service.mine(owner)).items[0];
+        const mine = (await service.mine(owner, 'event', input.event_id)).items[0];
         if (wall_type === 'key') {
           assert.equal('tiles' in mine, false);
           assert.equal('round_tiles' in mine, false);
@@ -177,7 +189,11 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       await assert.rejects(service.create(999, input), { status: 403 });
       assert.equal((await service.create(101, { ...input, event_id: 'registered-a' })).wall.event_id, 'registered-a');
       for (const event_id of ['closed-a', 'pending-a']) await assert.rejects(service.create(101, { ...input, event_id }), { status: 409 });
-      await assert.rejects(service.create(101, { ...input, event_id: 'base-a' }), { status: 403 });
+      const baseWall = await service.create(101, { ...input, event_id: 'base-a' });
+      assert.equal(baseWall.wall.event_id, 'base-a');
+      assert.equal((await service.mine(102, 'event', 'base-a')).items.length, 1);
+      await assert.rejects(service.create(999, { ...input, event_id: 'base-a' }), { status: 403 });
+      assert.equal((await service.manage(102, baseWall.wall.id, { is_unlocked: true })).wall.is_unlocked, true);
       const results = await Promise.allSettled(Array.from({ length: 26 }, (_, i) => service.create(i % 2 ? 101 : 102, input)));
       assert.equal(results.filter((r) => r.status === 'fulfilled').length, 25);
       const mine = await service.mine(102, 'event', 'event-a');

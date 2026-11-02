@@ -14,7 +14,7 @@
         >
           <div class="decomp-header">
             <span class="decomp-rank">#{{ idx + 1 }}</span>
-            <span class="decomp-score">{{ item.fan }} 番</span>
+            <span class="decomp-score">{{ calculatorScoreText(item) }}</span>
           </div>
           <div class="decomp-tiles">
             <div
@@ -30,7 +30,7 @@
           </div>
           <div class="decomp-fans">
             <el-tag v-for="(name, fIdx) in item.fanNames" :key="fIdx" size="small" effect="plain">
-              {{ formatGuobiaoFanComposition(name) }}
+              {{ item.rule ? name : formatGuobiaoFanComposition(name) }}
             </el-tag>
           </div>
         </div>
@@ -41,6 +41,7 @@
 <script setup>
 import TileMiniGlyph from './TileMiniGlyph.vue'
 import { formatGuobiaoFanComposition } from '../constants/guobiaoFanDict'
+import { calculatorScoreText } from '../utils/calculatorScoreText.js'
 defineProps({ decompositions: { type: Array, required: true } })
 </script>
 <style scoped>

@@ -27,7 +27,7 @@ internal static class GameAppBindings {
         }
 
         public void SetBackToGameVisible(bool visible) {
-            HeaderPanel.Instance?.SetBackToGameVisible(visible);
+            WindowsManager.Instance?.SetBackToGameVisible(visible);
         }
 
         public string CurrentWindow => WindowsManager.Instance != null
@@ -45,6 +45,7 @@ internal static class GameAppBindings {
         public bool ForcePassEnabled => Cfg != null && Cfg.ForcePassEnabled;
         public bool OpeningAutoBuhuaEnabled => Cfg == null || Cfg.OpeningAutoBuhuaEnabled;
         public bool ActionButtonColorEnabled => Cfg != null && Cfg.ActionButtonColorEnabled;
+        public bool MeldSpacingEnabled => Cfg != null && Cfg.MeldSpacingEnabled;
         public bool IsEnglish => ConfigManager.IsEnglish;
         public bool UseBlankWhiteDragonFace(int tileId) => Cfg != null && Cfg.UseBlankWhiteDragonFace(tileId);
         public Color DefaultTableFaceFallbackColor => ConfigManager.DefaultTableFaceFallbackColor;

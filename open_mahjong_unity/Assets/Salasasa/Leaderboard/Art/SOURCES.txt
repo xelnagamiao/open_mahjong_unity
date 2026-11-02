@@ -1,0 +1,60 @@
+Salasasa 五套首页配图 — 2026-10-18
+
+本轮仅用于本机设计评审。图像取自已有作品及作者素材页，没有生成新图；源文件未改写。
+Unity 以原图比例铺满背景，使用透明边界 UV 适配人物，并在渲染时调整位置、缩放、背景着色和渐变遮罩。
+详细原图链接、尺寸和使用备注见 character-sources.json、background-sources.json。
+
+花间 / wafu
+角色：博丽灵梦，东方深秘录 / 东方凭依华官方立绘。
+来源：https://thwiki.cc/文件:博丽灵梦（深秘录凭依华立绘）.png
+背景：彩 雅介 / きまぐれアフター，暖色和室。
+来源：https://gakaisozai.seesaa.net/article/200806article_25.html
+
+街区 / metro
+角色：藤原妹红，东方深秘录 / 东方凭依华官方立绘。
+来源：https://thwiki.cc/文件:藤原妹红（深秘录凭依华立绘）.png
+背景：彩 雅介 / きまぐれアフター，夜间车站。
+来源：https://gakaisozai.seesaa.net/article/201208article_1.html
+
+终端 / tactical
+角色：阿米娅，明日方舟剧情立绘，版权属于上海鹰角网络科技有限公司及其关联公司。
+来源：https://prts.wiki/w/文件:Avg_char_002_amiya_6.png
+背景：みんちりえ，机械配电室。
+来源：https://min-chi.material.jp/fm/bg_c/machine_room/
+作者允许在作品内使用、加工及商用，禁止作为独立素材重新分发。原图有绿色调，本例在 Unity 中施加冷蓝着色。
+
+晴空 / campus
+角色：铃仙·优昙华院·因幡，东方深秘录 / 东方凭依华官方立绘。
+来源：https://thwiki.cc/文件:铃仙·优昙华院·因幡（深秘录凭依华立绘）.png
+背景：彩 雅介 / きまぐれアフター，晴天校园操场。
+来源：https://gakaisozai.seesaa.net/article/202102article_3.html
+
+旧信 / archive
+角色：十六夜咲夜，东方绯想天官方立绘。原图 428×480，放大后较软。
+来源：https://thwiki.cc/文件:十六夜咲夜（绯想天立绘）.png
+背景：1900s Office Visual Novel Backgrounds (desk2.jpg) by Spiral Atlas。
+来源：https://spiralatlas.itch.io/1900s-office-visual-novel-backgrounds
+许可：CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+原图未修改；本例在 Unity 中叠加深色渐变以保持文字对比度。作者说明素材经场景渲染及滤镜处理，不是纯手绘。
+
+其他许可说明
+东方及明日方舟角色均为已有游戏美术，版权归原权利人。资料页没有提供本例可依赖的商用授权，不能把这些角色当作原创或已获商用许可的正式产品素材。
+彩 雅介 / きまぐれアフター的使用说明：https://gakaisozai.seesaa.net/article/202102article_1.html
+本轮未将这些素材发布到网站、远端仓库或公共素材包。
+
+原版风格追加搭配 / 2026-10-19
+1. 暖色和室 + 博丽灵梦：沿用 wafu-background / wafu-character。
+2. 晴天屋顶 + 铃仙：roof-day-background / campus-character。
+   背景作者：彩 雅介 / きまぐれアフター。
+   来源：https://gakaisozai.seesaa.net/article/200912article_2.html
+3. 黄昏河桥 + 茨木华扇：river-dusk-background / kasen-character。
+4. 夜景河桥 + 雾雨魔理沙：river-night-background / marisa-character。
+   河桥作者：彩 雅介 / きまぐれアフター。
+   来源：https://gakaisozai.seesaa.net/article/520481560.html
+   华扇：https://thwiki.cc/文件:茨木华扇（深秘录凭依华立绘）.png
+   魔理沙：https://thwiki.cc/文件:雾雨魔理沙（深秘录凭依华立绘）.png
+5. 夜站原方案 + 藤原妹红：沿用 metro-background / metro-character。
+背景原文件保持原样，Unity 使用等比例适配与右侧渐变遮罩；角色保持原始透明图。
+背景使用上述画师条款；两张新增角色均为春河もえ绘制的东方官方游戏立绘，仅在本地界面评审中使用。
+完整原始链接、尺寸、透明范围及 SHA256：original-style-art-sources.json。
+本构建不使用机械配电室或经渲染及滤镜处理的旧办公室背景。

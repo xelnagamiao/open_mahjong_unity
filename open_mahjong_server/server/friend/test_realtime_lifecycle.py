@@ -3,7 +3,7 @@
 import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from server.friend.friend_manager import (
     FriendManager,
@@ -100,6 +100,20 @@ class RealtimeLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assert_host_list_empty(101)
         self.assert_host_list_empty(102)
 
+    async def test_stalled_host_and_viewer_cannot_hold_game_cleanup(self):
+        async def stall(_):
+            await asyncio.Event().wait()
+        self.websockets[101].send_json.side_effect = stall
+        self.websockets[201].send_json.side_effect = stall
+        request = self.add_request()
+        with patch("server.gamestate.public.connection_delivery.SEND_TIMEOUT_SECONDS", .02):
+            await asyncio.wait_for(self.manager.on_game_end(self.game), .5)
+        self.assertEqual(self.game.realtime_spectators, [])
+        self.assertFalse(self.manager.pending_requests)
+        self.assert_host_list_empty(102)
+        self.assertTrue(self.messages(202, "friend/realtime_request_declined"))
+        await asyncio.gather(request.timer_task, return_exceptions=True)
+
     async def test_game_end_revokes_pending_request_without_active_spectators(self):
         self.game.realtime_spectators.clear()
         request = self.add_request()
@@ -151,7 +165,18 @@ class RealtimeLifecycleTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(response.success)
         self.assert_host_list_empty()
-        self.assertEqual(len(self.messages(201, "friend/realtime_kicked")), 1)
+        kicked = self.messages(201, "friend/realtime_kicked")
+        self.assertEqual(len(kicked), 1)
+        self.assertEqual(kicked[0]["realtime_gamestate_id"], self.game.gamestate_id)
+
+    async def test_host_disconnect_identifies_the_closed_spectator_session(self):
+        await self.manager.on_player_disconnect(101)
+
+        self.assert_host_list_empty()
+        self.assertEqual(self.game.realtime_spectators, [])
+        kicked = self.messages(201, "friend/realtime_kicked")
+        self.assertEqual(len(kicked), 1)
+        self.assertEqual(kicked[0]["realtime_gamestate_id"], self.game.gamestate_id)
 
     async def test_spectator_disconnect_clears_host_list(self):
         await self.manager.on_player_disconnect(201)

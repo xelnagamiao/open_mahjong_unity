@@ -32,7 +32,7 @@ public partial class RoundEndPresentation {
                 EndResultPanel.Instance.StopActivePresentation();
             }
         }
-        _sichuanEndgameRunner = StartCoroutine(RunSichuanEndgameStep(step));
+        _sichuanEndgameRunner = StartCoroutine(SettlementSync.PreserveContext(RunSichuanEndgameStep(step)));
     }
 
     private IEnumerator RunSichuanEndgameStep(IEnumerator step) {
@@ -55,12 +55,12 @@ public partial class RoundEndPresentation {
             }
         }
         _sichuanEndgamePanelStarted = true;
-        PreparePresentationRoot(true);
+        PreparePresentationRoot(EndResultPanel.Instance?.IsRestoringPresentation != true);
     }
 
     private bool _sichuanEndgamePanelStarted;
 
     private IEnumerator CoFadeInSichuanEndgamePanel() {
-        yield return PlayPresentationFade(true);
+        yield return PlayPresentationFade(EndResultPanel.Instance?.IsRestoringPresentation != true);
     }
 }

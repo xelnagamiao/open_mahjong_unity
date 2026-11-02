@@ -12,7 +12,9 @@ public sealed class RoomCreationInput {
     public bool PasswordEnabled, RandomSeedEnabled, HepaiLimitEnabled, HepaiLimitVisible, DuplicateEnabled;
     public bool Tips, CountTips, PointerTips, TouristLimit, AllowSpectator, ClaimProtection, TacticalCall;
     public bool CuoHe, RedDora, AllowKuikae, OpenXiru, OpenTobi, UseFlowers, TianDiRenHe, JokerMultiWait, BloodBattle;
+    public bool ShanghaiLajiheDadiao;
     public bool GuangdongMinimumScore, ShanghaiQing3Hun2Peng2, ShanghaiTianQiao, ShanghaiSelfDrawExtraBase, YixingSevenPairs;
+    public bool TuidaoPingjiZimoNoChow;
     public int OpenKongCount, BirdCount, SmallHuScore, BigHuScore;
     public int ExchangeSelectionSeconds = 30;
     public bool SmallHuSelfDrawOnly;

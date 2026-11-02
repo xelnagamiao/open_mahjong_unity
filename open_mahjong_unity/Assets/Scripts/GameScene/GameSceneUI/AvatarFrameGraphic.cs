@@ -5,6 +5,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(CanvasRenderer))]
 public sealed class AvatarFrameGraphic : MaskableGraphic {
     public const int DefaultItemId = 2201;
+    public const int A1ItemId = 2201;
     public const int B1ItemId = 2202;
     private const float Thickness = 3f;
     private const float OuterCornerRadius = 8f;
@@ -12,7 +13,7 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
     private UnityEngine.UI.Image portraitOwner;
 
     public static Color BuiltinColor(int itemId) {
-        if (itemId == 0 || itemId == DefaultItemId) return new Color32(239, 194, 61, 255);
+        if (itemId == 0 || itemId == A1ItemId) return new Color32(239, 194, 61, 255);
         if (itemId == B1ItemId) return new Color32(122, 205, 228, 255);
         return Color.clear;
     }
@@ -79,7 +80,7 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
             for (int i = 0; i < count; i++) {
                 float angle = (-90 + i / (segments + 1) * 90 + (i % (segments + 1)) * 90f / segments) * Mathf.Deg2Rad;
                 float light = Mathf.Clamp01((-.6f * Mathf.Cos(angle) + .8f * Mathf.Sin(angle) + 1) * .5f);
-                var shade = appearanceItemId == DefaultItemId ? GoldShade(strip, light)
+                var shade = appearanceItemId == A1ItemId ? GoldShade(strip, light)
                     : strip <= 1 ? Tint(.78f + .14f * light)
                     : strip == 2 ? Color.Lerp(color, new Color(1, 1, 1, color.a), .12f + .46f * light)
                     : strip == 3 ? Tint(.86f + .14f * light)

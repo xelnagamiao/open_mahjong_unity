@@ -1,13 +1,13 @@
 # 统一仓库系统
 
-更新：2026-09-24。玩家端统一称为“仓库”，头衔是其中一种可装配物品，改名卡是可使用的消耗物品。统一网格、选择、搜索、详情和操作，不再提供两套独立页面。管理后台继续分别维护头衔目录/授权与物品目录/库存。账号原有 6 张表、44 个字段见 [user-schema.md](user-schema.md)；本文列出库存 5 张表的全部 40 个字段，本次不修改表结构。
+更新：2026-10-28。玩家端统一称为“仓库”，头衔是其中一种可装配物品，改名卡在账号中心改名成功时直接消耗。统一网格、选择、搜索、详情和操作，不再提供两套独立页面。管理后台继续分别维护头衔目录/授权与物品目录/库存。账号原有 6 张表、44 个字段见 [user-schema.md](user-schema.md)；本文列出库存 5 张表的全部 40 个字段。历史次数折算见 [rename-cards.md](rename-cards.md)，不新增余额表。
 
 ## 使用方式
 
 - 登录后点击主菜单侧栏“背包”打开仓库（场景对象为 `OverlayCanvas/StorePanel`），通过面板的关闭按钮退出。
 - 左侧竖排标签为“背包 / 头衔 / 角色 / 装扮”，每次正常打开默认进入背包，无“全部”标签。头衔包含默认“暂无头衔”；角色按角色目录/角色槽归类；装扮收纳外观装备；背包收纳改名卡等普通物品。空分类显示获得提示，不生成预设库存。搜索在当前分类内按物品名称/类型匹配。卡片显示名称、图标、数量或佩戴状态，右侧展示说明与可执行操作。
 - “暂无头衔”（内部 title:1）是永久可用的默认物品，无需授权。所有头衔物品共用一个装配位置；装配新物品替换旧物品，点击已装配物品的“卸下”恢复默认。大厅、个人资料和对局均显示对应名称。
-- 改名卡显示在同一网格，每次可使用 1–100 张，受实际持有量限制；每张增加一次网页账号中心的改名机会。游客可以查看，但使用按钮禁用并说明原因。
+- 改名卡显示在同一网格，详情按钮为“前往改名”，打开网页账号中心；改名成功时自动消耗 1 张，无需提前使用或兑换。游客可以查看，但改名按钮禁用并说明原因。
 - 管理后台 `/admin/titles` 管理头衔、`/admin/inventory` 管理道具；用户详情支持授权、发放、回收和数量流水。头衔与背包卡片仍位于段位之后、最近登录 IP 之前。
 - 发放/授予不自动使用或佩戴。停用或回收头衔会取消相关佩戴；改名卡停用保留数量并禁止使用。
 
@@ -16,13 +16,20 @@
 | 类型 | ID | 名称 | 功能 |
 |---|---|---|---|
 | 装配物品（头衔） | 2 | 最初的初段 | 后台授予后进入仓库；1 表示默认项“暂无头衔” |
-| 消耗物品 | 3001 | 改名卡 | 每张增加 1 次 users.rename_count；编码 rename_coupon 保持稳定 |
+| 装配物品（头衔） | 自动分配 | 冠绝一世、千恋万花 | 管理员手动授权，未授权不进入玩家仓库 |
+| 消耗物品 | 3001 | 改名卡 | 账号中心改名成功时消耗 1 张；编码 rename_coupon 保持稳定 |
+| 收藏物品 | 3011 | 草牌 | 手动发放，可累计数量，不可使用或消耗 |
+| 收藏物品 | 3012 | 好牌 | 手动发放，可累计数量，不可使用或消耗 |
+
+2026-10-29 新增的四项均由管理员手动发放。两种礼物说明中的“随机掉落”仅为展示文案，不接入对局事件、QQ群或自动发放。收藏品使用 `effect=collectible`，无装备槽；客户端显示“仅供收藏”并隐藏使用数量，服务端拒绝使用请求且不扣除库存。新物品不复用已退役的礼包 ID 3002。
+
+图标位于 Unity 的 `Assets/Resources/image/Inventory/`：`grass_tile.jpg` 原样使用用户提供的草牌图片；`good_tile.png` 使用内置 ImageGen 基于项目空白牌面 `image/Cards/Surfaces/backgrounds/hand-default.png` 绘制，并按用户要求改为红色印刷体。最终提示要求：仅将原绿色书法字替换为普通红色黑体印刷字“好”，字形端正、笔画规整，保留原牌体、白色牌面、深蓝顶边与灰色圆角轮廓；牌面和边框完全不透明，仅牌体外透明，无书法笔触、阴影、其他文字或装饰。
 
 角色、头像、头像框、礼包及对应创建模板均已移出目录。原游戏基础头像与语音资源继续供正常游戏使用，不作为背包预设。默认角色不再自动生成库存或装备项。
 
 ## 状态与事务
 
-改名卡数量上限为 1,000,000。写操作先取得目录锁、再锁用户行；扣卡、增加改名次数、写流水在同一事务内完成。
+改名卡数量上限为 1,000,000。写操作先取得目录锁、再锁用户行；改名、扣卡、更新历史牌谱和写流水在同一事务内完成。账号和库存的 rename_card_count / rename_card_usable_count 从库存实时聚合，旧 rename_count 仅供一次性迁移，正常操作不再累加或消耗它。
 
 写请求携带 8–64 位 request_id（字母/数字/下划线/连字符）。同一用户、编号和请求只执行一次；编号用于不同请求则返回冲突。客户端关闭后仍保留未确认的使用操作，重试不会重复扣卡。
 
@@ -87,7 +94,7 @@ Unity 固定界面保存在 MainScene 的 OverlayCanvas，通过 InventoryPanel.
 | user_id | BIGINT | FK users，ON DELETE CASCADE，库存所属用户 |
 | request_id | VARCHAR(64) | 调用方稳定操作编号 |
 | request_hash | VARCHAR(64) | 操作、操作者、请求正文的 SHA-256 |
-| action | VARCHAR(32) | equip / use / grant / revoke |
+| action | VARCHAR(32) | equip / use / grant / revoke / rename / migrate_rename_cards |
 | actor_id | BIGINT，可空 | 发放/回收的管理员；玩家自行操作为空 |
 | reason | VARCHAR(500) | 默认空字符串；管理操作必填 |
 | result | JSONB | 默认 `{}`；提交结果、提示和数量变化 |
@@ -107,11 +114,11 @@ Unity 固定界面保存在 MainScene 的 OverlayCanvas，通过 InventoryPanel.
 | quantity_after | INTEGER | CHECK >=0，变更后余额 |
 | created_at | TIMESTAMPTZ | 流水时间 |
 
-索引 (user_id,entry_id DESC) 用于最近流水查询。每次改名卡发放、回收或使用产生对应数量流水。
+索引 (user_id,entry_id DESC) 用于最近流水查询。每次改名卡发放、回收、改名消耗或历史折算产生对应数量流水。
 
 ## 网络、显示与牌谱
 
-WebSocket：inventory/catalog 是公开资源目录；inventory/get 只返回已登录用户的库存；inventory/equip、inventory/use 从连接读取身份，忽略伪造 user_id。
+WebSocket：inventory/catalog 是公开资源目录；inventory/get 只返回已登录用户的库存；inventory/equip、inventory/use 从连接读取身份，忽略伪造 user_id。旧客户端用 inventory/use 兑换改名卡的请求被拒绝，不扣卡；改名由网页 POST /api/player/auth/rename 直接扣卡。
 
 Unity 接收 inventory/state（自己的持有量和装备）及 inventory/update（目录和公开外观）。其他玩家不会收到库存数量。修改同步到房间缓存与对局人物；开局或重连加载权威状态。
 
@@ -135,12 +142,12 @@ Node 代理到既有 calcServer.baseUrl 的 Python `/admin/inventory/...`，传�
 
 商品目录的一次性迁移已经完成，迁移脚本已归档，Python 正常启动不再清空或重置目录、持有记录、装备和数量流水。正常建表和默认物品初始化保留，重复执行必须保留现有库存、余额、装备以及管理员添加的定义。
 
-旧迁移的审计标记为 store.catalog_reset / 20260923_minimal_store，改动前数据保存在 admin_audit_log.payload，留作追溯及回退，不作为正常启动触发器。Python 与 Node 的初始头衔统一为“最初的初段”；物品初始化仅生成改名卡。
+旧迁移的审计标记为 store.catalog_reset / 20260923_minimal_store，改动前数据保存在 admin_audit_log.payload，留作追溯及回退，不作为正常启动触发器。Python 与 Node 均初始化“最初的初段”“冠绝一世”“千恋万花”；物品目录初始化改名卡、草牌、好牌及现有默认头像框。初始化不授予新增头衔或礼物，不重置玩家已有数量。
 
 自动化覆盖独立 PostgreSQL schema 的正常建表、重复初始化保留目录/余额/外观、不创建目录重置审计、防重、并发扣卡、停用、鉴权、事务回滚及历史牌谱字段；头衔测试覆盖授权与单选/取消佩戴。运行方式：
 
 - Python：python -m unittest server.database.test_inventory server.database.test_titles -v，分别设置 INVENTORY_TEST_DATABASE_URL / TITLES_TEST_DATABASE_URL；测试只操作各自创建的独立 schema。
 - Node：node --test server/services/inventory.integration.test.js server/services/titles.integration.test.js。
-- Unity：编译、场景仓库引用/网格检查、目录 ID 冲突与默认项验证、搜索/筛选、主菜单背包入口与面板关闭按钮、装配/卸下、改名卡使用与后台实时回收。
+- Unity：编译、场景仓库引用/网格检查、目录 ID 冲突与默认项验证、搜索/筛选、主菜单背包入口与面板关闭按钮、装配/卸下、改名卡跳转与后台实时回收。
 
 此次未生成发布版 Unity/WebGL 包或部署。发布需同步更新 Python、Node/Vue 与 Unity。

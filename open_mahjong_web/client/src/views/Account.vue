@@ -10,7 +10,7 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="用户名">{{ auth.username }}</el-descriptions-item>
           <el-descriptions-item label="用户 ID">{{ auth.userId }}</el-descriptions-item>
-          <el-descriptions-item label="剩余改名次数">{{ auth.renameCount }}</el-descriptions-item>
+          <el-descriptions-item label="改名卡">{{ t('持有 {count} 张', { count: auth.renameCardCount }) }}<span v-if="auth.renameCardUsableCount !== auth.renameCardCount">{{ t('（可用 {count} 张）', { count: auth.renameCardUsableCount }) }}</span></el-descriptions-item>
           <el-descriptions-item label="邮箱" :span="2">
             <template v-if="auth.emailVerified">
               <el-tag type="success" size="small">已绑定</el-tag>
@@ -86,6 +86,7 @@
 
         <el-divider content-position="left">修改用户名</el-divider>
         <el-form label-width="88px" class="bind-form" @submit.prevent="onRename">
+          <p class="hint">改名成功时自动消耗 1 张改名卡，无需提前在背包中使用。</p>
           <p class="hint">用户名最多16个字符，显示长度2–20（中日韩及全角字符计2，其他字符计1）。</p>
           <el-form-item label="新用户名">
             <el-input
@@ -104,15 +105,125 @@
             <el-button type="primary" :loading="renameLoading" :disabled="!canRename" @click="onRename">
               改名
             </el-button>
-            <span v-if="!canRename" class="rename-disabled-hint">暂无改名次数</span>
+            <span v-if="!canRename" class="rename-disabled-hint">{{ renameDisabledHint }}</span>
           </el-form-item>
         </el-form>
       </el-card>
 
+      <RedeemItemsPanel v-if="activeSection === 'sec-redeem'" />
       <TileContentPanel v-show="activeSection === 'sec-uploads'" />
       <DuplicateWallsPanel v-if="activeSection === 'sec-duplicate-personal' || activeSection === 'sec-duplicate-event'" :key="activeSection" :scope="activeSection === 'sec-duplicate-event' ? 'event' : 'personal'" :events="myEvents" />
 
-      <el-card v-show="isApplySection" class="block section">
+      <el-card v-show="isManageSection" class="block section">
+        <template #header>
+          <div class="section-header">
+            <span>{{ isBaseManage ? '基地管理' : '赛事管理' }}</span>
+            <el-button type="primary" @click="openApplicationForm()">{{ applyCardTitle }}</el-button>
+          </div>
+        </template>
+        <p class="hint">
+          {{ isBaseManage
+            ? '查看基地申请与已注册基地；点击「管理」在下方展开管理面板。'
+            : '查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。' }}
+        </p>
+
+        <el-divider content-position="left">申请记录</el-divider>
+        <div class="fit-table-wrap">
+          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
+            <el-table-column prop="name" label="名称" min-width="140" />
+            <el-table-column label="拟定时间" min-width="150">
+              <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
+            </el-table-column>
+            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="负责人" min-width="140">
+              <template #default="{ row }">{{ organizerText(row) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="提交时间" width="160">
+              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="230">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
+                <el-button
+                  v-if="row.status === 'pending' || row.status === 'rejected'"
+                  link
+                  type="warning"
+                  @click="editApplication(row)"
+                >{{ row.status === 'rejected' ? '修改重提' : '修改申请' }}</el-button>
+                <el-button v-if="row.status === 'approved' && ownedEvents.has(row.event_id)"
+                  link type="warning" @click="openProfileEditor(ownedEvents.get(row.event_id))">修改资料</el-button>
+                <el-button
+                  v-if="row.event_id"
+                  link
+                  type="primary"
+                  @click="$router.push(`/events/${row.event_id}`)"
+                >公开页</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <el-divider content-position="left">{{ isBaseManage ? '已注册基地' : '已注册赛事' }}</el-divider>
+        <div class="fit-table-wrap">
+          <el-table
+            v-loading="eventsLoading"
+            :data="visibleEvents"
+            size="small"
+            :empty-text="isBaseManage ? '暂无管理中的基地' : '暂无管理中的赛事'"
+            class="fit-table"
+          >
+            <el-table-column prop="name" label="名称" min-width="160" />
+            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.description || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="角色" width="120">
+              <template #default="{ row }">{{ eventRoleLabel(row.role, row.kind) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="eventStatusTagType(row.status)" size="small">
+                  {{ eventStatusLabel(row.status) }}
+                </el-tag>
+                <el-tag v-if="row.reopen_requested" type="warning" size="small" style="margin-left: 4px">
+                  待再开
+                </el-tag>
+                <el-tag v-if="row.profile_change_pending" type="warning" size="small">资料待审</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="牌谱" width="70">
+              <template #default="{ row }">{{ row.record_count || 0 }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="220">
+              <template #default="{ row }">
+                <el-button
+                  link
+                  :type="managingEventId === row.event_id ? 'warning' : 'danger'"
+                  @click="toggleManage(row.event_id)"
+                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
+                <el-button v-if="row.role === 'owner'" link type="warning" @click="openProfileEditor(row)">修改</el-button>
+                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <EventManagePanel
+          v-if="managingEventId"
+          :profile-revision="profileRevision"
+          :event-id="managingEventId"
+          @close="managingEventId = null"
+          @updated="loadMyEvents"
+        />
+      </el-card>
+
+      <el-card v-show="isManageSection" :id="venueApplyHash(currentVenueKind).slice(1)" class="block section application-section">
         <template #header>{{ applyCardTitle }}</template>
         <div class="event-application-rules">
           <strong>{{ isBaseApply ? 'Salasasa 平台基地规约' : 'Salasasa 平台赛事规约' }}</strong>
@@ -222,104 +333,7 @@
         </el-form>
       </el-card>
 
-      <el-card v-show="isManageSection" class="block section">
-        <template #header>{{ isBaseManage ? '基地管理' : '赛事管理' }}</template>
-        <p class="hint">
-          {{ isBaseManage
-            ? '查看基地申请与已注册基地；点击「管理」在下方展开管理面板。'
-            : '查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。' }}
-        </p>
-
-        <el-divider content-position="left">申请记录</el-divider>
-        <div class="fit-table-wrap">
-          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
-            <el-table-column prop="name" label="名称" min-width="140" />
-            <el-table-column label="拟定时间" min-width="150">
-              <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
-            </el-table-column>
-            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
-            </el-table-column>
-            <el-table-column label="负责人" min-width="140">
-              <template #default="{ row }">{{ organizerText(row) }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="提交时间" width="160">
-              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="190">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
-                <el-button
-                  v-if="row.status === 'pending' || row.status === 'rejected'"
-                  link
-                  type="warning"
-                  @click="editApplication(row)"
-                >{{ row.status === 'rejected' ? '修改重提' : '修改申请' }}</el-button>
-                <el-button
-                  v-if="row.event_id"
-                  link
-                  type="primary"
-                  @click="$router.push(`/events/${row.event_id}`)"
-                >公开页</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-
-        <el-divider content-position="left">{{ isBaseManage ? '已注册基地' : '已注册赛事' }}</el-divider>
-        <div class="fit-table-wrap">
-          <el-table
-            v-loading="eventsLoading"
-            :data="visibleEvents"
-            size="small"
-            :empty-text="isBaseManage ? '暂无管理中的基地' : '暂无管理中的赛事'"
-            class="fit-table"
-          >
-            <el-table-column prop="name" label="名称" min-width="160" />
-            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.description || '—' }}</template>
-            </el-table-column>
-            <el-table-column label="角色" width="120">
-              <template #default="{ row }">{{ eventRoleLabel(row.role, row.kind) }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="110">
-              <template #default="{ row }">
-                <el-tag :type="eventStatusTagType(row.status)" size="small">
-                  {{ eventStatusLabel(row.status) }}
-                </el-tag>
-                <el-tag v-if="row.reopen_requested" type="warning" size="small" style="margin-left: 4px">
-                  待再开
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="牌谱" width="70">
-              <template #default="{ row }">{{ row.record_count || 0 }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="180">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  :type="managingEventId === row.event_id ? 'warning' : 'danger'"
-                  @click="toggleManage(row.event_id)"
-                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
-                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-
-        <EventManagePanel
-          v-if="managingEventId"
-          :event-id="managingEventId"
-          @close="managingEventId = null"
-          @updated="loadMyEvents"
-        />
-      </el-card>
+      <VenueProfileDialog v-model="profileDialogVisible" :venue="profileEditingEvent" @updated="onProfileUpdated" />
 
       <el-dialog v-model="applicationPreviewVisible" :title="isBaseApply || previewedApplication?.kind === 'base' ? '基地页面预览' : '赛事页面预览'" width="720px">
         <EventPreviewCard v-if="previewedApplication" :event="previewedApplication" />
@@ -335,22 +349,28 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import playerApi from '@/api/playerClient'
+import RedeemItemsPanel from '@/components/RedeemItemsPanel.vue'
 import { RenameResultUnconfirmedError } from '@/api/playerRename'
 import EventManagePanel from '@/components/EventManagePanel.vue'
+import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
 import TileContentPanel from '@/views/account/TileContentPanel.vue'
 import DuplicateWallsPanel from '@/views/account/DuplicateWallsPanel.vue'
 import { eventRoleLabel, eventStatusLabel, eventStatusTagType, parseVenueKind, venueApplyHash, venueManageHash } from '@/utils/eventMeta'
+import { useI18n } from '@/i18n'
 
 const auth = usePlayerAuthStore()
 const eventAuth = useEventAdminAuthStore()
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
-const SECTION_IDS = ['sec-account', 'sec-uploads', 'sec-duplicate-personal', 'sec-duplicate-event', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
+const SECTION_IDS = ['sec-account', 'sec-redeem', 'sec-uploads', 'sec-duplicate-personal', 'sec-duplicate-event', 'sec-manage-event', 'sec-manage-base']
 const LEGACY_HASH = {
-  'sec-apply': 'sec-apply-event',
+  'sec-apply': 'sec-manage-event',
+  'sec-apply-event': 'sec-manage-event',
+  'sec-apply-base': 'sec-manage-base',
   'sec-manage': 'sec-manage-event',
 }
 let cooldownTimer = null
@@ -361,20 +381,16 @@ const activeSection = computed(() => {
   if (SECTION_IDS.includes(mapped)) return mapped
   return 'sec-account'
 })
-const isApplySection = computed(() => activeSection.value === 'sec-apply-event' || activeSection.value === 'sec-apply-base')
 const isManageSection = computed(() => activeSection.value === 'sec-manage-event' || activeSection.value === 'sec-manage-base')
 const isBaseManage = computed(() => activeSection.value === 'sec-manage-base')
-const currentVenueKind = computed(() => {
-  if (isApplySection.value) return activeSection.value === 'sec-apply-base' ? 'base' : 'event'
-  if (isManageSection.value) return isBaseManage.value ? 'base' : 'event'
-  return 'event'
-})
+const currentVenueKind = computed(() => isBaseManage.value ? 'base' : 'event')
 
 const pwd = reactive({ old: '', next: '', confirm: '' })
 const pwdLoading = ref(false)
 const renameForm = reactive({ newUsername: '' })
 const renameLoading = ref(false)
-const canRename = computed(() => Number(auth.renameCount) > 0)
+const canRename = computed(() => Number(auth.renameCardUsableCount) > 0)
+const renameDisabledHint = computed(() => auth.renameCardCount > 0 ? '改名卡暂不可用' : '暂无改名卡')
 
 const emailForm = reactive({ email: '', code: '' })
 const emailSending = ref(false)
@@ -402,7 +418,11 @@ const myApplications = ref([])
 const myEvents = ref([])
 const eventsLoading = ref(false)
 const managingEventId = ref(null)
-const isBaseApply = computed(() => currentVenueKind.value === 'base' && isApplySection.value)
+const profileDialogVisible = ref(false)
+const profileEditingEvent = ref(null)
+const profileRevision = ref(0)
+const ownedEvents = computed(() => new Map(myEvents.value.filter((row) => row.role === 'owner').map((row) => [row.event_id, row])))
+const isBaseApply = computed(() => currentVenueKind.value === 'base')
 const visibleApplications = computed(() =>
   myApplications.value.filter((row) => parseVenueKind(row.kind) === currentVenueKind.value)
 )
@@ -423,6 +443,16 @@ const applySubmitLabel = computed(() => {
 
 function toggleManage(eventId) {
   managingEventId.value = managingEventId.value === eventId ? null : eventId
+}
+
+function openProfileEditor(row) {
+  profileEditingEvent.value = row
+  profileDialogVisible.value = true
+}
+
+function onProfileUpdated() {
+  profileRevision.value += 1
+  loadMyEvents()
 }
 
 function organizerText(row) {
@@ -448,14 +478,29 @@ function editApplication(row) {
   editingApplicationId.value = row.application_id
   editingApplicationStatus.value = row.status
   applyApplicationToForm(row)
-  router.push({ path: '/account', hash: venueApplyHash(row.kind) })
+  openApplicationForm(row.kind)
+}
+
+async function openApplicationForm(kind = currentVenueKind.value) {
+  await router.push({ path: '/account', hash: venueApplyHash(kind) })
+  await scrollToSection()
+}
+
+async function scrollToSection() {
+  await nextTick()
+  if (/^#sec-apply(?:-event|-base)?$/.test(route.hash)) {
+    document.getElementById(venueApplyHash(currentVenueKind.value).slice(1))?.scrollIntoView({ block: 'start' })
+  } else {
+    const main = document.querySelector('.account-main')
+    if (main) main.scrollTop = 0
+  }
 }
 
 function cancelApplicationEdit() {
   editingApplicationId.value = null
   editingApplicationStatus.value = ''
   editingRemarkHistory.value = []
-  applyForm.kind = isApplySection.value && activeSection.value === 'sec-apply-base' ? 'base' : 'event'
+  applyForm.kind = currentVenueKind.value
   applyForm.name = ''
   applyForm.planned_start_at = null
   applyForm.planned_end_at = null
@@ -567,6 +612,7 @@ onMounted(async () => {
   await Promise.all([loadMyApplications(), loadMyEvents()])
   await nextTick()
   openManageFromQuery()
+  await scrollToSection()
 })
 
 watch(
@@ -576,21 +622,17 @@ watch(
   }
 )
 
-watch(activeSection, async (section) => {
-  if (section === 'sec-apply-event' || section === 'sec-apply-base') {
-    const kind = section === 'sec-apply-base' ? 'base' : 'event'
-    if (editingApplicationId.value && applyForm.kind !== kind) cancelApplicationEdit()
-    applyForm.kind = kind
-  }
+watch(activeSection, (section) => {
   if (section === 'sec-manage-event' || section === 'sec-manage-base') {
     const kind = section === 'sec-manage-base' ? 'base' : 'event'
+    if (applyForm.kind !== kind) cancelApplicationEdit()
+    applyForm.kind = kind
     const current = myEvents.value.find((item) => item.event_id === managingEventId.value)
     if (current && parseVenueKind(current.kind) !== kind) managingEventId.value = null
   }
-  await nextTick()
-  const main = document.querySelector('.account-main')
-  if (main) main.scrollTop = 0
-})
+}, { immediate: true })
+
+watch(() => route.hash, scrollToSection)
 
 onBeforeUnmount(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -606,7 +648,7 @@ async function onRename() {
   if (renameLoading.value) return
   const newName = renameForm.newUsername.trim()
   if (!canRename.value) {
-    ElMessage.warning('改名次数不足')
+    ElMessage.warning(renameDisabledHint.value)
     return
   }
   if (!newName) {
@@ -621,7 +663,7 @@ async function onRename() {
   try {
     try {
       await ElMessageBox.confirm(
-        `确定将用户名改为「${newName}」？将消耗 1 次改名次数，并追溯更新该账号全部历史牌谱中的名字。此操作不可撤销。`,
+        `确定将用户名改为「${newName}」？改名成功时将消耗 1 张改名卡，并追溯更新该账号全部历史牌谱中的名字。此操作不可撤销。`,
         '确认改名',
         { type: 'warning', confirmButtonText: '确认改名', cancelButtonText: '取消' }
       )
@@ -792,6 +834,16 @@ async function submitApplication() {
 .block {
   margin-bottom: 16px;
   min-width: 0;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.application-section {
+  scroll-margin-top: 16px;
 }
 .actions {
   margin-top: 16px;

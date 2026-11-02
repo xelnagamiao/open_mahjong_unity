@@ -1,4 +1,4 @@
-const LOCKED_MESSAGE = '该复式密钥仍处于锁定状态，牌谱暂不可查看或下载';
+const LOCKED_MESSAGE = '该复式密钥未解禁，牌谱暂不可查看或下载';
 
 // Use both the durable association and the title, so a missing association cannot expose a record.
 // Expressions passed here are server-owned SQL, never request input.

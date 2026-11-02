@@ -4,6 +4,7 @@
 返回可使其和牌的牌集合（不做定缺过滤，由调用方按需排除定缺花色）。
 """
 from typing import List, Set
+from ..physical_waits import exclude_fifth_copy_waits
 
 
 class SichuanTingTiles:
@@ -129,7 +130,7 @@ class Sichuan_Tingpai_Check:
         if not combination_list:
             result |= self._seven_pair_waits(hand_tile_list)
         result = {i for i in result if i not in {10, 20, 30, 40} and 11 <= i <= 39}
-        return result
+        return exclude_fifth_copy_waits(hand_tile_list, combination_list, result)
 
 
 if __name__ == "__main__":

@@ -36,8 +36,9 @@ public partial class GameRecordManager {
         Button button = buttonObject.GetComponent<Button>();
         TMP_Text text = buttonObject.GetComponentInChildren<TMP_Text>(true);
         if (text != null) {
-            text.text = label;
-            text.enableAutoSizing = false;
+            TableText.Set(text, label);
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 16; text.fontSizeMax = 32;
             text.fontSize = 32f;
         }
         buttonObject.SetActive(false);

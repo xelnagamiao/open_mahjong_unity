@@ -50,7 +50,7 @@
       </el-table>
       <p class="muted">共 {{ filteredItems.length }} 个房间。赛事、基地及管理员创建的房间允许保留空房，玩家创建的普通房间无人后自动解散。</p>
     </el-card>
-    <VenueRoomDialog v-model="createVisible" :form="form" :loading="creating" :room-rule-options="roomRuleOptions" :show-auto-duplicate="selectedVenue?.kind === 'event'" :load-duplicate-quota="loadDuplicateQuota" show-reason @confirm="createRoom">
+    <VenueRoomDialog v-model="createVisible" :form="form" :loading="creating" :room-rule-options="roomRuleOptions" :show-auto-duplicate="Boolean(selectedVenue)" :allow-paired="Boolean(selectedVenue)" :load-duplicate-quota="loadDuplicateQuota" show-reason @confirm="createRoom">
       <template #before-settings>
         <el-form-item label="房间所属">
           <el-select v-model="venueId" filterable placeholder="普通房间" style="width: 100%" aria-label="房间所属">
@@ -89,11 +89,14 @@ const loadDuplicateQuota = computed(() => {
 })
 watch(venueId, () => {
   form.auto_duplicate = false
-  if (selectedVenue.value?.kind !== 'event' && ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule)) {
+  if (!selectedVenue.value && ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule)) {
     form.sub_rule = form.sub_rule.replace('_duplicate', '')
   }
 })
 const roomRuleOptions = [
+  ['hongque', '虹雀'],
+  ['beijing', '北京麻将（吃碰提）'],
+  ['duocai', '夺彩麻将'],
   ['guobiao', '国标'], ['riichi', '立直'], ['qingque', '青雀'], ['classical', '古典'], ['sichuan', '四川'],
   ['changsha', '长沙麻将'], ['taiwan', '台湾麻将'], ['hongkong', '香港麻将'], ['guizhou', '贵州麻将'],
   ['yixing', '宜兴麻将'], ['shenyang', '沈阳麻将'], ['nanjing', '南京麻将'], ['fuzhou', '福州麻将'], ['wuhan', '武汉麻将'],
@@ -133,8 +136,8 @@ async function openCreate() {
 async function createRoom() {
   if (!form.reason.trim()) { ElMessage.warning('请填写操作原因'); return }
   const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule)
-  if (paired && venues.value.find(venue => venue.event_id === venueId.value)?.kind !== 'event') {
-    ElMessage.warning('复式双打请选择比赛场创建'); return
+  if (paired && !selectedVenue.value) {
+    ElMessage.warning('复式双打请选择赛事或基地创建'); return
   }
   creating.value = true
   try {

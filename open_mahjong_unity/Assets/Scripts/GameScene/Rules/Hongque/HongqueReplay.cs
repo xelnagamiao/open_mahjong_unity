@@ -18,7 +18,7 @@ internal static class HongqueRecordTips {
     private static readonly Dictionary<string, Dictionary<int, HongqueScoreHintInfo>> HintCache =
         new Dictionary<string, Dictionary<int, HongqueScoreHintInfo>>();
     private static Dictionary<int, HongqueScoreHintInfo> Hints(List<int> hand, List<int[]> melds) {
-        string key = string.Join(",", hand.OrderBy(tile => tile)) + "|"
+        string key = RuleRegistry.CurrentSubRule + ":" + HongqueWTips.Colourless + ":" + HongqueWTips.MinimumFan + ":" + HongqueWTips.MinimumPoints + ":" + string.Join(",", hand.OrderBy(tile => tile)) + "|"
             + string.Join("/", (melds ?? new List<int[]>()).Select(mask =>
                 mask == null ? "" : string.Join(",", mask)));
         if (HintCache.TryGetValue(key, out var cached)) return cached;
@@ -48,6 +48,7 @@ internal static class HongqueRecordTips {
         var hand = new List<int>(query.HandWithWin);
         if (!hand.Remove(query.HepaiTile)) return null;
         if (!Hints(hand, query.MeldMasks).TryGetValue(query.HepaiTile, out var hint)) return null;
+        if (HongqueWTips.IsActive) return HongqueWTips.Describe(hint);
         string label = hint.points + "点";
         return hint.self_draw_only ? WaitTileHint.TsumoOnly(label) : WaitTileHint.Ron(label);
     }

@@ -30,14 +30,13 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
     private MahjongFanCatalog.Document catalog;
     private string entryRuleId;
     private string entryRulebookPath;
-    private bool dropdownWasExpanded;
     public string CurrentRuleId => catalog?.id;
     public string CurrentCategory { get; private set; }
     public string CurrentRulebookPath { get; private set; }
     public int CurrentFan { get; private set; }
     public int VisibleCount { get; private set; }
     public int CurrentPage { get; private set; }
-    public bool IsOpen => gameObject.activeSelf;
+    public bool IsOpen => popup ? popup.IsOpen : gameObject.activeInHierarchy;
 
     private void Awake() => Initialize();
 
@@ -47,7 +46,7 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
         rowTemplate.gameObject.SetActive(false);
         guideTemplate.gameObject.SetActive(false);
         closeButton.onClick.AddListener(Close);
-        backdropButton.onClick.AddListener(Close);
+        backdropButton.interactable = false;
         fullRulebookButton.onClick.AddListener(OpenFullRulebook);
         ruleDropdown.ClearOptions();
         ruleDropdown.AddOptions(new List<string>(MahjongFanCatalog.RuleNames));
@@ -202,12 +201,6 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
         popup.Show();
         RefreshLayout();
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(fullRulebookButton.gameObject);
-    }
-
-    private void Update() {
-        bool expanded = ruleDropdown.IsExpanded;
-        if (Input.GetKeyDown(KeyCode.Escape) && !expanded && !dropdownWasExpanded) Close();
-        dropdownWasExpanded = expanded;
     }
 
     private void OnRectTransformDimensionsChange() => RefreshLayout();

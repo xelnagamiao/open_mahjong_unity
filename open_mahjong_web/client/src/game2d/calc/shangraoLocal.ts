@@ -51,9 +51,22 @@ export class ShangraoLocal {
     if(this.memo.size>=50000)this.memo.clear()
     this.memo.set(key,result);return result
   }
-  private pairs(hand:number[],triplets=false):number[] {
+  private pairs(hand:number[],triplets=false,win:number|null=null):number[] {
     if(triplets&&this.melds.some(m=>m[0]==='s'))return []
     const wild=hand.filter(t=>t===this.bao).length,counts=TILES.map(t=>t===this.bao?0:hand.filter(x=>x===t).length),result=new Set<number>()
+    if(wild){
+      const natural=TILES.map(t=>hand.filter(x=>x===t).length)
+      for(let i=0;i<natural.length;i++){
+        if(natural[i]<2)continue
+        const rest=[...natural];rest[i]-=2
+        if(this.groups(rest,0,4-this.melds.length,triplets)){result.add(0);break}
+      }
+    }
+    if(wild&&win!==null){
+      const rest=[...counts]
+      if(win!==this.bao)rest[INDEX.get(win)!]--
+      if(!this.groups(rest,wild-1-Number(win===this.bao),4-this.melds.length,triplets))return [...result]
+    }
     if(wild>=2&&this.groups(counts,wild-2,4-this.melds.length,triplets))result.add(2)
     for(let i=0;i<counts.length;i++){
       const used=wild?1:2;if(counts[i]<used)continue
@@ -95,7 +108,8 @@ export class ShangraoLocal {
     if(!this.valid(hand)||!hand.includes(win))return null
     const legacy=this.config.rule_version==='shangrao-v1'
     const wild=hand.filter(t=>t===this.bao).length,firstBao=!opening&&win===this.bao&&wild===1
-    const pairs=firstBao?[]:this.pairs(hand),triplets=firstBao?[]:this.pairs(hand,true)
+    const pairWin=opening?null:win
+    const pairs=this.pairs(hand,false,pairWin),triplets=this.pairs(hand,true,pairWin)
     const counts=new Map<number,number>();for(const t of hand)if(t!==this.bao)counts.set(t,(counts.get(t)??0)+1)
     const seven=!firstBao&&this.seven(hand,win,opening)
     const luxury=seven&&[...counts.values()].includes(4),allowBao=!!this.config.allow_special_bao
@@ -104,7 +118,7 @@ export class ShangraoLocal {
     if(cut===this.bao&&HONORS.includes(this.bao)){const before=[...hand];before.splice(before.indexOf(win),1);before.push(cut);flown||=!legacy||this.stars(before,false,false)}
     const stars=this.stars(hand,legacy&&allowBao,!!this.config.flying_seven_stars&&flown)
     const candidates:[string,number,string,number[]][]=[]
-    if(pairs.length)candidates.push([wild?'钓头':'平和',1,'standard',pairs])
+    if(pairs.length)candidates.push([pairs.some(used=>used>0)?'钓头':'平和',1,'standard',pairs])
     if(triplets.length)candidates.push([wild?'碰碰和':'清碰',wild?2:4,'triplets',triplets])
     const sevenPairBao=wild>=2&&[...counts.values()].reduce((n,c)=>n+c%2,0)<=wild-2?2:Math.min(1,wild)
     if(seven)candidates.push([(luxury?'豪华':'')+(wild?'七对':'硬七对'),(wild?2:4)*(luxury?2:1),'seven',[sevenPairBao]])
@@ -123,6 +137,7 @@ export class ShangraoLocal {
     const zi=!!this.config.ziyise&&nine&&natural.every(t=>HONORS.includes(t))&&(legacy||!wild||HONORS.includes(win)),flying=(this.context.flying_bao??0)+Number(cut===this.bao)
     if(!legacy){
       if(qing)for(const [name,base,shape,pairChoices] of [...candidates])if(['standard','triplets','seven'].includes(shape)){
+        if(wild&&!pairChoices.some(used=>used>0)&&!suits.includes(Math.floor(this.bao/10)))continue
         const label=shape==='standard'?(wild?'清一色':'无宝清一色'):'清一色'+name
         candidates.push([label,shape==='standard'&&!wild?4:base*2,shape,pairChoices])
       }
@@ -138,12 +153,12 @@ export class ShangraoLocal {
     let best:Score|null=null
     for(const [name,base,shape,pairChoices] of candidates){
       const multipliers:Record<string,number>={}
-      if(legacy&&qing&&shape!=='nine'&&shape!=='lan')multipliers['清一色']=2
+      if(legacy&&qing&&shape!=='nine'&&shape!=='lan'&&(pairChoices.some(used=>used>0)||!wild||suits.includes(Math.floor(this.bao/10))))multipliers['清一色']=2
       if(legacy&&zi)multipliers['字一色']=2
       if(!this.melds.length&&shape!=='seven'&&shape!=='lan')multipliers['门清']=2
       if(this.melds.length===4)multipliers['单钓']=2
       if(afterKong)multipliers['杠上开花']=2
-      if(pairChoices.length&&wild&&win===this.bao)multipliers['宝钓宝']=2
+      if(pairChoices.some(used=>used>0)&&win===this.bao)multipliers['宝钓宝']=2
       if(win!==this.bao&&pairChoices.includes(2))multipliers['宝还原']=2
       if(flying)multipliers['飞宝']=2**flying
       const points=Object.values(multipliers).reduce((a,b)=>a*b,base)

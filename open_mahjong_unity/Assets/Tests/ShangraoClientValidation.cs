@@ -24,6 +24,19 @@ public static class ShangraoClientValidation {
         foreach (string key in new[] {"qingyise","ziyise","allow_special_bao","four_bao_reward","flying_seven_stars"})
             Check((bool?)packet["detailed_config"][key] == false, "default off: " + key);
         Check(PlayerInfoRuleCatalog.Supports("shangrao") && !PlayerInfoRuleCatalog.HasFanStats("shangrao"), "basic statistics enabled, fan distribution disabled");
+        var invalid = new List<int> {23,23,13,15,16,24,24,14};
+        var strict = new ShangraoLocal(new List<string> {"k14","g17"},new JObject {["indicator"]=22});
+        Check(strict.Score(invalid,14)==null && (string)strict.Describe(invalid,14)["label"]=="未满足", "reported two bao hand cannot use the draw to finish groups");
+        var naturalHand = new List<int> {16,14,14,17,17,18,18,19,24,25,26,27,28,26};
+        var naturalSolver = new ShangraoLocal(new List<string>(),new JObject {["indicator"]=15});
+        foreach (int win in new[] {26,16}) {
+            var result = naturalSolver.Score(naturalHand,win);
+            Check((string)result?["pattern"]=="平和" && (int?)result?["points"]==2 && result["multipliers"]["宝钓宝"]==null, "printed bao forms a natural sequence, draw " + win);
+            Check((string)naturalSolver.Describe(naturalHand,win)["label"]=="仅自摸\n2分", "natural bao win exposes self draw points, draw " + win);
+        }
+        Check(typeof(RuleManifest).GetField("SettlementFootnote")==null, "rules cannot add settlement annotations");
+        foreach (string rule in new[] {"shangrao","nanchang","beijing","singapore","hangzhou","riichi","sichuan"})
+            Check(GuobiaoAngangCheck.BuildSummary(rule,null)==null, "concealed kong area stays hidden for " + rule);
         var response = JsonConvert.DeserializeObject<Response>("{\"do_action_info\":{\"action_player\":2,\"action\":\"shangrao_payment\",\"gang_score_changes\":{\"0\":-1,\"1\":-1,\"2\":3,\"3\":-1},\"shangrao_burnt_tile\":31},\"game_info\":{\"shangrao_info\":{\"start_scores\":[0,0,0,0],\"burnt_river_indices\":[[],[],[1],[]]}}}");
         Check(response.do_action_info.gang_score_changes[2] == 3 && response.do_action_info.shangrao_burnt_tile == 31, "immediate payments and burn codec");
         Check(response.game_info.shangrao_info.start_scores.Length == 4 && response.game_info.shangrao_info.burnt_river_indices[2][0] == 1, "reconnect baseline and river marks codec");

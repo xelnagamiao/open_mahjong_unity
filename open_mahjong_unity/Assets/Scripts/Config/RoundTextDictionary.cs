@@ -75,6 +75,7 @@ public static class RoundTextDictionary {
 
     public static string GetMatchTypeDisplay(string rule, string matchType) {
         if (string.IsNullOrEmpty(matchType)) return "";
+        if (matchType == "unlimited/4_rank") return "无固定时限";
         string normalized = matchType;
         if (normalized.EndsWith("_rank")) {
             normalized = normalized.Substring(0, normalized.Length - "_rank".Length);

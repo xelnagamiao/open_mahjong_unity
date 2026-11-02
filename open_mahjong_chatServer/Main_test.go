@@ -27,13 +27,14 @@ func TestWebSocketLoginReplacementAndSingleDelivery(t *testing.T) {
 
 	second := dialTestWebSocket(t, wsURL+"second")
 	t.Cleanup(func() { _ = second.Close() })
+	t.Cleanup(func() { _ = first.Close(); _ = second.Close(); waitForChatCleanup(t) })
 	loginTestWebSocket(t, second, "salasasa", roomManager.secretKey)
 
 	readResponseType(t, first, "login_kickout")
 	if _, _, err := first.ReadMessage(); err == nil {
 		t.Fatal("replaced connection remained open")
-	} else if closeError, ok := err.(*websocket.CloseError); !ok || closeError.Code != 4001 {
-		t.Fatalf("replaced connection closed with %v, want close code 4001", err)
+	} else if closeError, ok := err.(*websocket.CloseError); !ok || closeError.Code != websocket.ClosePolicyViolation {
+		t.Fatalf("replaced connection closed with %v, want policy violation", err)
 	}
 	readResponseType(t, second, "Tips")
 

@@ -1,31 +1,35 @@
-"""Only event administration can create a Sichuan open/closed pair."""
+"""Venue administration creates Sichuan open/closed pairs for events and bases."""
 from copy import deepcopy
 import secrets
 import uuid
 
 from ..response import Response, public_room_data
-from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat, board_from_tiles
+from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat, board_from_tiles, rule_profile
 from ..database.sichuan_duplicate import PairedMatchStore
 from ..gamestate.public.sichuan_duplicate import PairedMatch, new_match
 
 
 async def create_pair(manager, event_id, sub_rule, config, password, created_by):
     event = manager.game_server.db_manager.get_event(event_id)
-    if not event or event.get("kind", "event") != "event":
-        return Response(type="tips", success=False, message="复式双打只能在比赛场中创建")
+    if not event or event.get("kind", "event") not in ("event", "base"):
+        return Response(type="tips", success=False, message="复式双打只能在赛事或基地中创建")
     count = config.get("duplicate_round_count", 8 if sub_rule == "sichuan/doubles_duplicate" else 16)
     if type(count) is not int or count not in BOARD_COUNTS:
         return Response(type="tips", success=False, message="复式副数必须为 1、4、8、12 或 16")
+    sync_mode = config.get("duplicate_sync_mode", False)
+    if type(sync_mode) is not bool:
+        return Response(type="tips", success=False, message="复式同步模式必须为布尔值")
+    if config.get("random_seed"):
+        return Response(type="tips", success=False, message="复式双打请选择自动生成或输入已有密钥")
     source = None
-    if config.get("duplicate_key") and sub_rule == "sichuan/xueliu_doubles_duplicate":
+    if config.get("duplicate_key"):
         from ..database.duplicate_walls import load_duplicate_wall, validate_duplicate_wall
         source = load_duplicate_wall(manager.game_server.db_manager, config["duplicate_key"])
         validate_duplicate_wall(source, {"room_rule": "sichuan", "sub_rule": sub_rule, "event_id": event_id})
         if source.get("event_id") != event_id:
-            return Response(type="tips", success=False, message="开闭室须使用本比赛的血流复式密钥")
+            return Response(type="tips", success=False, message="开闭室须使用本赛事或基地的川麻复式密钥")
         count = source["round_count"]
-    if config.get("random_seed") or (config.get("duplicate_key") and source is None):
-        return Response(type="tips", success=False, message="复式双打的牌墙由比赛后台统一生成")
+    layout = rule_profile(sub_rule)["wall_layout"]
     match_id, seed = str(uuid.uuid4()), secrets.token_hex(32)
     rooms = {}
     try:
@@ -40,8 +44,8 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
             room_id = response.room_info["room_id"]
             rooms[table] = manager.rooms[room_id]
         snapshot = new_match(match_id, sub_rule, {table: room["room_id"] for table, room in rooms.items()},
-                             [board_from_tiles(tiles, n) for n, tiles in enumerate(source["round_tiles"], 1)] if source else
-                             [make_board(seed, n) for n in range(1, count + 1)], seed)
+                             [board_from_tiles(tiles, n, layout=layout) for n, tiles in enumerate(source["round_tiles"], 1)] if source else
+                             [make_board(seed, n, layout=layout) for n in range(1, count + 1)], seed, sync_mode=sync_mode)
         if source:
             snapshot.update(source_wall_id=source["id"], key=source["key"], wall_type=source["wall_type"])
             if source.get("seed") is not None:
@@ -51,6 +55,7 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
             room.update(duplicate_match_id=match_id, duplicate_table=table,
                         duplicate_peer_room_id=rooms["closed" if table == "open" else "open"]["room_id"],
                         duplicate_round_count=count, duplicate_scoring=snapshot["profile"]["scoring"],
+                        duplicate_sync_mode=sync_mode,
                         duplicate_status="waiting", is_duplicate=True, allow_spectator=False,
                         team_by_seat=team_by_seat(table), roster_revision=0)
         snapshot["room_snapshots"] = deepcopy(rooms)
@@ -73,7 +78,7 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
 
 async def request_start(manager, room, connection_id):
     import asyncio
-    from .room_seats import get_seats
+    from .room_seats import get_seats, is_full_bot_table
     from .room_teams import validate_team_start
     from ..database.duplicate_walls import reserve_duplicate_game
     pair = manager.sichuan_duplicate_matches.get(room.get("duplicate_match_id"))
@@ -88,6 +93,10 @@ async def request_start(manager, room, connection_id):
         for t, other in rooms.items():
             if other is None:
                 return Response(type="tips", success=False, message="配对房间不存在")
+            # An all-bot peer has no human host to press Start. Its fixed roster
+            # becomes ready when the other table's host starts the pair.
+            if is_full_bot_table(other):
+                pair.ready[t] = (other["roster_revision"], tuple(get_seats(other)))
             if pair.ready.get(t) != (other.get("roster_revision"), tuple(get_seats(other))) or not manager.game_server.room_manager.all_players_ready(other):
                 pair.ready.pop(t, None)
                 other["duplicate_status"] = "waiting"
@@ -97,22 +106,21 @@ async def request_start(manager, room, connection_id):
             return Response(type="tips", success=True, message="本室已就绪，等待另一室房主开始")
         try:
             human_ids = [uid for r in rooms.values() for uid in get_seats(r) if uid > 10]
-            if len(human_ids) != 8:
-                raise ValueError("双打复式需要八名真人选手")
             if len(human_ids) != len(set(human_ids)):
                 raise ValueError("同一玩家不能同时参加开室和闭室")
             for t, other in rooms.items():
                 if pair.ready.get(t) != (other.get("roster_revision"), tuple(get_seats(other))):
                     raise ValueError("房间阵容已变化，请两室重新准备")
                 validate_team_start(other, other["roster_revision"])
-                host_connection = manager.game_server.user_id_to_connection.get(other["host_user_id"])
-                if not host_connection:
-                    raise ValueError("两室房主均须在线")
+                bot_table = is_full_bot_table(other)
+                host_connection = manager.game_server.user_id_to_connection.get(other.get("host_user_id"))
+                if not bot_table and not host_connection:
+                    raise ValueError("有真人的房间，其房主须在线")
                 if pair.data["completed_boards"] and get_seats(other) != [m["user_id"] for m in pair.data["members"][t]]:
-                    raise ValueError("续赛须由原八名选手按原座位入座")
+                    raise ValueError("续赛须由原阵容按原座位入座")
                 if not other.get("duplicate_game_id"):
                     other["duplicate_game_id"] = reserve_duplicate_game(manager.game_server.db_manager, pair.data["wall_id"])
-                error = await manager.start_game(host_connection.Connect_id, other["room_id"], roster_revision=other["roster_revision"], _paired_prepare=True)
+                error = await manager.start_game(None if bot_table else host_connection.Connect_id, other["room_id"], roster_revision=other["roster_revision"], _paired_prepare=True)
                 if error is not None:
                     raise ValueError(error.message)
             candidate = deepcopy(pair.data)
@@ -167,10 +175,10 @@ async def restart_pair(manager, room_id, event_id):
             raise ValueError("请等待两室完成中断清理")
         pair.restart_unfinished_board()
         for r in rooms:
-            r.update(duplicate_status="waiting", ready_list=[], duplicate_progress=pair.public_info())
+            r.update(duplicate_status="waiting", ready_list=[], duplicate_progress=pair.public_info(r["duplicate_table"]))
             r["roster_revision"] += 1
             await manager._broadcast_room_info(r["room_id"])
-    return {"success": True, "message": "未完成副已为两室同时换牌，已完成副的分数保留；原选手入座准备后续赛"}
+    return {"success": True, "message": "未配对完成的副已为两室重新发牌，已配对结算的分数保留；原选手入座准备后续赛"}
 
 
 def restore_pairs(server):
@@ -216,7 +224,7 @@ def restore_pairs(server):
             room.update(instance_id=str(uuid.uuid4()), player_list=[], seat_list=[-1]*4,
                         ready_list=[], host_user_id=None, player_settings={}, is_game_running=False,
                         duplicate_key=snapshot["key"], duplicate_status=pair.data["status"],
-                        duplicate_progress=pair.public_info())
+                        duplicate_sync_mode=pair.synchronous, duplicate_progress=pair.public_info(table))
             room.pop("active_gamestate_id", None)
             room["roster_revision"] = room.get("roster_revision", 0) + 1
             server.room_manager.rooms[room["room_id"]] = room

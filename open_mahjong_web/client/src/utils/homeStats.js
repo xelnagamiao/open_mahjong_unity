@@ -1,6 +1,7 @@
 import { buildPlayerStatsRows, buildPlatformStatsRows, SCENE_TOTAL_KEYS, ratio } from './statsDisplay.js';
 
 import { STATISTICS_RULES, statisticsSelection, statisticRuleKey, statisticsGameType } from './statisticsCatalog.js';
+import { statisticsLadderTiers, STATISTICS_SCENE_LABELS } from './statisticsScenes.js';
 
 export const HOME_RULE_DEFS = STATISTICS_RULES.filter(r => r.home_header)
   .map(r => ({ value: r.key, label: r.home_label || r.stats_name }));
@@ -13,11 +14,10 @@ const isSichuanHomeRule = rule => statisticsSelection(rule)?.rule === 'sichuan';
 
 export function homeSceneOptions(rule) {
   const other = [{ value: 'custom', label: '自定义' }, { value: 'events', label: '比赛场' }];
-  const tiers = [{ value: 'beginner', label: '初级' }, { value: 'intermediate', label: '中级' },
-    { value: 'advanced', label: '高级' }, { value: 'mcrpl', label: 'mcrpl' }];
-  if (['riichi','riichi_sanma'].includes(rule)) return [...tiers.slice(0, 3), ...other];
-  if (['sichuan','sichuan_xueliu_exchange','hongque'].includes(rule) || rule === 'qingque') return [{ value: 'rank', label: '段位场' }, ...other];
-  return rule === 'guobiao' ? [...tiers, ...other] : other;
+  const tiers = statisticsLadderTiers(rule).map(value => value === 'elo'
+    ? { value: 'rank', label: '段位场' }
+    : { value, label: STATISTICS_SCENE_LABELS[value].replace(/场$/, '') });
+  return [...tiers, ...other];
 }
 
 export const homeDefaultScene = rule => homeSceneOptions(rule)[0].value;
@@ -33,7 +33,8 @@ export function homeModeOptions(rule, scene) {
 }
 
 export function homeGameType(row) {
-  if (displayRule(row) === 'hongque') return statisticsGameType('hongque', row.mode);
+  const rule = displayRule(row);
+  if (statisticsSelection(rule)?.rule === 'hongque') return statisticsGameType(rule, row.mode);
   if (row.game_type) return row.game_type;
   const match = /^(\d+)\/(?:3|4)(?:_sanma)?(?:_rank)?$/.exec(String(row.mode || ''));
   return ({ 1: 'dongfeng', 2: 'banzhuang', 3: 'xifeng', 4: 'quanzhuang' })[match?.[1]] || null;

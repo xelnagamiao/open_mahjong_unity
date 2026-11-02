@@ -18,6 +18,14 @@ export interface SalasasaRankData {
 }
 
 export interface SalasasaResponse {
+  received_monotonic_ms?: number
+  settlement_sync?: {
+    gamestate_id: string; round_id: string; result_id: string
+    sequence: number; revision: number; phase: string; restore: boolean
+    remaining_ms: number | null; server_time_ms: number; deadline_ms: number | null
+    player_to_ready: Record<string, boolean>
+  }
+  settlement_restore?: SalasasaResponse[]
   type: string
   success?: boolean
   message?: string

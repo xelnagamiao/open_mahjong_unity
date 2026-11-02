@@ -10,6 +10,7 @@ public sealed class HongqueMeldShape {
     public int ColourStep;
     public int NumberStep;
     public bool IsRainbow;
+    public bool IsDouble;
 }
 
 /// <summary>虹雀和牌分解：暗组列表 + 雀头（规则书 5.1.1 不允许雀头，恒为空）。</summary>
@@ -23,6 +24,7 @@ public sealed class HongqueWinScore {
     public int Points;
     public int Base;
     public int FanTotal;
+    public HongqueFanInfo[] Fans = Array.Empty<HongqueFanInfo>();
 }
 
 /// <summary>
@@ -37,6 +39,7 @@ public static class HongqueScoring {
 
     public static HongqueScoreHintInfo BuildWinHint(
         List<int> hand, List<int[]> melds, HongqueWinHintContext context) {
+        if (HongqueWTips.IsActive) return HongqueWTips.BuildWinHint(hand, melds, context);
         if (context == null || hand == null) return null;
         var completeHand = new List<int>(hand);
         if (!context.self_draw) {
@@ -328,6 +331,15 @@ public static class HongqueScoring {
         }
     }
 
+    private static bool IsMirror(List<List<int>> groups) {
+        var counts = groups.GroupBy(group => string.Join(",", group.Select(NumberOf).OrderBy(n => n)))
+            .ToDictionary(group => group.Key, group => group.Count());
+        return counts.Count > 0 && counts.All(group => {
+            string mirror = string.Join(",", group.Key.Split(',').Select(int.Parse).Reverse().Select(n => 10 - n));
+            return counts.TryGetValue(mirror, out int count) && count == group.Value;
+        });
+    }
+
     private static HongqueWinScore ScorePartition(
         List<List<int>> concealedPartition,
         List<int[]> meldMasks,
@@ -375,7 +387,7 @@ public static class HongqueScoring {
         fans.AddRange(SameShapeFans(shapes, "triplet",
             new Dictionary<int, (string, int)> { { 2, ("双同刻", 2) }, { 3, ("三同刻", 6) }, { 4, ("四同刻", 12) } }));
         fans.AddRange(SameShapeFans(shapes, "sequence",
-            new Dictionary<int, (string, int)> { { 2, ("双同顺", 2) }, { 3, ("三同顺", 6) }, { 4, ("四同顺", 12) } }));
+            new Dictionary<int, (string, int)> { { 2, ("双同顺", 1) }, { 3, ("三同顺", 3) }, { 4, ("四同顺", 6) } }));
         fans.AddRange(SameColourLayoutFans(shapes));
         FanEntry consecutive = ConsecutiveSequenceFan(shapes);
         if (consecutive != null) fans.Add(consecutive);
@@ -418,6 +430,8 @@ public static class HongqueScoring {
                 }))) {
             fans.Add(new FanEntry { Name = "全带幺", Value = 2 });
         }
+
+        if (IsMirror(groups)) fans.Add(new FanEntry { Name = "镜像", Value = 2 });
 
         bool heavenly = selfDraw && beforeFirstDiscard && concealed;
         if (heavenly) fans.Add(new FanEntry { Name = "天和", Value = 18 });

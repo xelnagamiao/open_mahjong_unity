@@ -256,7 +256,8 @@ Shader "Custom/ThreeDTiles"
                 // 牌背大面：颜色打底，图片按自身 alpha 叠加在上方（不乘算颜色）。
                 // 无图片时 _BackTexBlend=0，整面为纯 _BackColor。
                 half4 backSample = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV);
-                half3 backRgb = lerp(backColor.rgb, backSample.rgb, saturate(_BackTexBlend) * backSample.a);
+                half backTextureBlend = saturate(_BackTexBlend) * (1 - saturate(instanceParams.w));
+                half3 backRgb = lerp(backColor.rgb, backSample.rgb, backTextureBlend * backSample.a);
                 half4 back = half4(backRgb, 1.0h);
                 float2 sideUV = input.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
                 half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV)
@@ -269,7 +270,7 @@ Shader "Custom/ThreeDTiles"
                 // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。
                 half backEdgeMask = saturate(1.0h - (input.color.r + input.color.g + input.color.b));
                 // 默认背面边缘用纯色；开启延伸后把牌背图铺到背部边缘，方便整张渐变图。
-                half extendEdge = saturate(_BackTexExtendEdge) * saturate(_BackTexBlend) * backSample.a;
+                half extendEdge = saturate(_BackTexExtendEdge) * backTextureBlend * backSample.a;
                 half3 edgeRgb = lerp(backEdgeColor.rgb, backSample.rgb, extendEdge);
                 half4 col = front * input.color.r + back * input.color.g
                           + side * input.color.b

@@ -1,0 +1,18 @@
+PlatformUI.json contains the platform's Simplified Chinese, Traditional Chinese
+and English interface text. Player names, chat and backend-authored content are
+not translated by these presentation bindings.
+
+The supplemental Simplified-to-Traditional character table and Traditional
+Chinese normalization use OpenCC dictionary data through
+opencc-python-reimplemented 0.1.7. OpenCC: Copyright 2010-2020 BYVoid.
+Licensed under the Apache License, Version 2.0; see OpenCC-LICENSE.txt.
+https://github.com/BYVoid/OpenCC
+https://github.com/yichen0831/opencc-python
+
+The conversion tool runs only when preparing the catalog; the player has no
+Python or OpenCC package dependency.
+
+EnglishSourceHan font assets are generated from the project's Source Han Sans
+SC Regular, Medium and Bold sources. They use the SIL Open Font License 1.1;
+see Assets/font/思源黑体/LICENSE.txt. The matching dynamic fallback assets
+preserve the same typeface and weight for player names and untranslated content.

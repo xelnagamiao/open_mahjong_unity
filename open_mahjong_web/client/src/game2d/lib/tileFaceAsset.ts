@@ -11,6 +11,7 @@ export const STANDARD_FACE_IDS: number[] = [
   ...Array.from({ length: 8 }, (_, i) => 51 + i),
   59, 105, 205, 305, 61,62,63,64,71,72,73,74,81,
 ]
+export const DUOCAI_FACE_IDS=[...Array.from({length:40},(_,i)=>5000+i),...[13,17,23,27,33,37].flatMap(t=>[1000+t,2000+t]),...[41,42,43,44,46].map(t=>3000+t)]
 
 export function isFlowerFaceId(id: number): boolean {
   return id >= 51 && id <= 58
@@ -34,6 +35,7 @@ type FaceStyleOptions = { black?: boolean, guobiao?: boolean, unityFlower?: bool
 
 /** Shared by DOM images and Pixi so every view selects the same artwork. */
 export function tileFaceAssetVariant(faceId: number, options: FaceStyleOptions): 'guobiao' | 'unity' | 'black' | 'regular' {
+  if(DUOCAI_FACE_IDS.includes(faceId))return 'regular'
   const flower = isFlowerFaceId(faceId)
   if (options.guobiao && GUOBIAO_FACE_IDS.includes(faceId) && (!flower || options.unityFlower)) return 'guobiao'
   if (flower && options.unityFlower) return 'unity'
@@ -53,6 +55,7 @@ export function salasasaFaceId(tile: number): number {
 export function mmcrFaceId(tid: number): number {
   const value = Number(tid)
   if (!value) return 0
+  if(value>=0x10000)return value-0x10000
   if ([61,62,63,64,71,72,73,74,81].includes(value - 0x100)) return value - 0x100
   const suit = value & 0xe0
   const rank = value & 0x0f
@@ -68,6 +71,8 @@ export function tileFaceAssetUrl(
   faceId: number,
   options: { baseUrl: string } & FaceStyleOptions,
 ): string {
+  if(faceId>=5000&&faceId<5040)return `${options.baseUrl}rulebooks/duocai/tiles/${faceId}.png`
+  if(DUOCAI_FACE_IDS.includes(faceId))return `${options.baseUrl}game2d-assets/textures/duocai/${faceId}.svg`
   const variant = tileFaceAssetVariant(faceId, options)
   if (variant === 'guobiao') return `${options.baseUrl}${GUOBIAO_FACE_ROOT}/${faceId}.png`
   const root = `${options.baseUrl}game2d-assets/textures/riichi-mahjong-tiles`

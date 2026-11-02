@@ -120,8 +120,26 @@ public static class GamePlayerPanelUiBaker {
         }
         serialized.FindProperty("playerVariablesLayout").objectReferenceValue = layout;
         var waits = serialized.FindProperty("recordWaits").objectReferenceValue as RecordPlayerWaits;
-        if (waits != null && waits.transform.parent != group) {
-            Undo.SetTransformParent(waits.transform, group, "Group record waits");
+        if (waits != null) {
+            bool self = panel.name == "#SelfPlayer";
+            Transform waitsParent = self ? group : panel.transform;
+            if (waits.transform.parent != waitsParent)
+                Undo.SetTransformParent(waits.transform, waitsParent, "Separate record waits from player status rows");
+            var rect = (RectTransform)waits.transform;
+            if (!self) {
+                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+                rect.localScale = Vector3.one;
+                var edge = (UnityEngine.UI.Image)serialized.FindProperty("playerProfileEdgePicture").objectReferenceValue;
+                Bounds avatar = RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, edge.rectTransform);
+                if (downward) {
+                    rect.pivot = new Vector2(1f, 0f);
+                    rect.anchoredPosition = new Vector2(avatar.min.x - 8f, avatar.min.y);
+                } else {
+                    Bounds title = RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, panel.transform.Find("Title"));
+                    rect.pivot = new Vector2(.5f, 1f);
+                    rect.anchoredPosition = new Vector2(avatar.center.x, title.min.y - 8f);
+                }
+            }
             waits.transform.SetAsLastSibling();
             waits.gameObject.SetActive(false);
         }
@@ -201,6 +219,8 @@ public static class GamePlayerPanelUiBaker {
                 throw new InvalidOperationException(panel.name + " 玩家变量仍拦截射线：" + key);
         }
         if (Keys.Any(key => !keys.Contains(key))) throw new InvalidOperationException(panel.name + " 玩家变量示例未全部烘焙。");
+        if (panel.RecordWaits && panel.name != "#SelfPlayer" && panel.RecordWaits.transform.parent != panel.transform)
+            throw new InvalidOperationException(panel.name + " 听牌条不能参与状态标签的自动排列。");
         foreach (string field in new[] { "actionMenu", "infoButton", "muteButton", "recordPerspectiveButton", "showStickerPos", "stickerDisplay" })
             if (serialized.FindProperty(field).objectReferenceValue == null)
                 throw new InvalidOperationException(panel.name + " 固定 UI 未烘焙：" + field);

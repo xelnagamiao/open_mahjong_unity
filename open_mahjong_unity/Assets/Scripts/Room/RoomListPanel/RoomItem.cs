@@ -111,7 +111,7 @@ public class RoomItem : MonoBehaviour {
 
     public static string BuildSummary(RoomInfo room) {
         if (!string.IsNullOrEmpty(room.duplicate_match_id))
-            return $"{(room.duplicate_table == "closed" ? "闭室" : "开室")} · 对室 #{room.duplicate_peer_room_id}  ·  {room.duplicate_round_count} 副  ·  {(room.duplicate_scoring == "imp" ? "IMP" : "分差累计")}";
+            return $"{(room.duplicate_table == "closed" ? "闭室" : "开室")} · {(room.duplicate_sync_mode == false ? "非同步" : "同步")} · 对室 #{room.duplicate_peer_room_id}  ·  {room.duplicate_round_count} 副  ·  {(room.duplicate_scoring == "imp" ? "IMP" : "分差累计")}";
         string switches = $"  ·  错和{(room.open_cuohe ? "开" : "关")}  ·  提示{(room.tips ? "开" : "关")}";
         if (room.is_duplicate)
             switches += "  ·  " + DuplicateWallDisplay.TypeName(room.duplicate_wall_type);

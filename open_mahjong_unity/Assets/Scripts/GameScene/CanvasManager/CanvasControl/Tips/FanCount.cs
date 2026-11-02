@@ -12,6 +12,18 @@ public class FanCount : MonoBehaviour {
     [Header("番数颜色")]
     [SerializeField] private Color fanColor = new Color(0.55f, 0.70f, 1f);
 
+    private string sourceValue;
+    private bool fuValue;
+
+    private void OnEnable() {
+        ConfigManager.OnLanguageChanged += RefreshValue;
+        RefreshValue();
+    }
+    private void OnDisable() => ConfigManager.OnLanguageChanged -= RefreshValue;
+    private void RefreshValue() {
+        if (sourceValue != null) TableText.Set(FanValue, fuValue ? TableText.FuValue(sourceValue) : sourceValue);
+    }
+
     private void Awake() {
         ConfigureText(FanName, 18f);
         ConfigureText(FanValue, 16f);
@@ -21,8 +33,9 @@ public class FanCount : MonoBehaviour {
         ConfigureText(FanName, 18f);
         ConfigureText(FanValue, 16f);
         SplitLongChangshaDetail(ref name, ref valueDisplay);
-        FanName.text = name;
-        FanValue.text = valueDisplay;
+        TableText.Set(FanName, name);
+        sourceValue = valueDisplay;
+        RefreshValue();
 
         EndResultPanel endResultPanel = GetComponentInParent<EndResultPanel>(true);
         Transform boundary = endResultPanel != null ? endResultPanel.transform : null;
@@ -58,10 +71,14 @@ public class FanCount : MonoBehaviour {
     }
 
     public void ApplyFuColor() {
+        fuValue = true;
+        RefreshValue();
         BackgroundImage.color = fuColor;
     }
 
     public void ApplyFanColor() {
+        fuValue = false;
+        RefreshValue();
         BackgroundImage.color = fanColor;
     }
 }

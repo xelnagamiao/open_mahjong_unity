@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet, remember_result
 from ..public.action_window import prepare_action_window, prepare_ready_window
 from ..public.ready_phase import ready_status_by_seat
 from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
@@ -167,7 +168,7 @@ async def broadcast_game_start(self):
                 game_info=game_info,
             )
 
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             await self.send_to_realtime_spectators(current_player.player_index, response)
             logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
         except Exception as e:
@@ -197,7 +198,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         message="实时观战初始化",
         game_info=GameInfo(**payload),
     )
-    await conn.websocket.send_json(response.dict(exclude_none=True))
+    await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
     logger.info(f"已向实时观战玩家 {spectator_user_id} 发送长沙 game_start（视角座位 {view_player_index}）")
     await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
@@ -401,7 +402,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     ),
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang", "waiting_gang_replacement_ron"):
         if self.action_dict.get(view_player_index):
@@ -423,7 +424,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     action_tick=self.server_action_tick,
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_other 给玩家 {player.username}，剩余时间 {remaining_sent}s")
 
 
@@ -507,7 +508,7 @@ async def _deliver_do_action_payload_to_viewer(
         message="返回操作内容",
         do_action_info=Do_action_info(**payload),
     )
-    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     await self.send_to_realtime_spectators(current_player.player_index, response)
 
 
@@ -702,6 +703,36 @@ async def broadcast_result(self,
     for i, current_player in enumerate(self.player_list):
         try:
             # 如果玩家掉线，跳过广播
+            response = Response(
+                type="gamestate/changsha/show_result",
+                success=True,
+                message="显示结算结果",
+                show_result_info=Show_result_info(
+                    hepai_player_index=hepai_player_index, # 和牌玩家索引
+                    player_to_score=player_to_score, # 所有玩家分数
+                    hu_score=hu_score, # 和牌分数
+                    hu_fan=hu_fan, # 和牌番种
+                    hu_class=hu_class, # 和牌类别
+                    hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
+                    hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
+                    hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
+                    action_tick=self.server_action_tick,
+                    score_changes=score_changes,
+                    initial_hu_dice=initial_hu_dice,
+                    initial_hu_bird_seats=initial_hu_bird_seats,
+                    initial_hu_payer_details=initial_hu_payer_details,
+                    bird_tiles=bird_tiles,
+                    hepai_tile=hepai_tile,
+                    multi_ron=multi_ron,
+                    simultaneous_hu_hands=simultaneous_hu_hands,
+                    ron_discarder_index=ron_discarder_index,
+                    round_continues=round_continues,
+                    recycle_discard=recycle_discard,
+                    silent=True if silent else None,
+                    next_status=next_status,
+                )
+            )
+            remember_result(self, response, current_player.player_index)
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
@@ -713,39 +744,10 @@ async def broadcast_result(self,
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
-                response = Response(
-                    type="gamestate/changsha/show_result",
-                    success=True,
-                    message="显示结算结果",
-                    show_result_info=Show_result_info(
-                        hepai_player_index=hepai_player_index, # 和牌玩家索引
-                        player_to_score=player_to_score, # 所有玩家分数
-                        hu_score=hu_score, # 和牌分数
-                        hu_fan=hu_fan, # 和牌番种
-                        hu_class=hu_class, # 和牌类别
-                        hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
-                        hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
-                        hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
-                        action_tick=self.server_action_tick,
-                        score_changes=score_changes,
-                        initial_hu_dice=initial_hu_dice,
-                        initial_hu_bird_seats=initial_hu_bird_seats,
-                        initial_hu_payer_details=initial_hu_payer_details,
-                        bird_tiles=bird_tiles,
-                        hepai_tile=hepai_tile,
-                        multi_ron=multi_ron,
-                        simultaneous_hu_hands=simultaneous_hu_hands,
-                        ron_discarder_index=ron_discarder_index,
-                        round_continues=round_continues,
-                        recycle_discard=recycle_discard,
-                        silent=True if silent else None,
-                        next_status=next_status,
-                    )
-                )
                 from ..public.outbound_pipe import send_to_viewer
 
                 async def _do(conn=player_conn, resp=response, idx=current_player.player_index):
-                    await conn.websocket.send_json(resp.dict(exclude_none=True))
+                    await send_game_packet(self, conn.websocket, resp.dict(exclude_none=True))
                     await self.send_to_realtime_spectators(idx, resp)
 
                 await send_to_viewer(self, i, _do, delay_before=take_post_meld_gap_delay(self, i))
@@ -799,7 +801,7 @@ async def broadcast_game_end(self):
                     )
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
             else:
@@ -837,7 +839,7 @@ async def broadcast_switch_seat(self):
                     switch_seat_info=switch_seat_info
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送换位信息")
             else:
@@ -880,7 +882,7 @@ async def broadcast_refresh_player_tag_list(self):
                     refresh_player_tag_list_info=refresh_tag_info
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
             else:
@@ -921,7 +923,7 @@ async def broadcast_ready_status(self):
                     ready_status_info=ready_info
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送准备状态信息")
             else:

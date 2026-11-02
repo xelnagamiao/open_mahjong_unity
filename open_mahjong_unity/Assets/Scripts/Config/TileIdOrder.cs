@@ -36,7 +36,7 @@ public static class TileIdOrder {
 
     /// <summary>固定本次排序的癞子集合；普通牌仍遵循用户花色设置，且不修改实体牌 id。</summary>
     public static IComparer<int> HandComparer(IEnumerable<int> tiles, IEnumerable<int> jokerTiles) {
-        if (tiles.All(HongqueTileVisual.IsHongqueId)) return Comparer;
+        if (RuleRegistry.Current?.RuleId != "duocai" && tiles.All(HongqueTileVisual.IsHongqueId)) return Comparer;
         var jokers = new HashSet<int>(jokerTiles ?? Array.Empty<int>());
         if (jokers.Count == 0) return Comparer;
         return Comparer<int>.Create((a, b) => {
@@ -142,29 +142,38 @@ public static class TileIdOrder {
     }
 
     public static int Compare(int a, int b) {
-        int ka = SortKey(a);
-        int kb = SortKey(b);
+        return CompareInContext(a, b, IsRiichiContext());
+    }
+
+    /// <summary>设置牌例显式指定普通/日麻三元顺序，不切换实际对局规则。</summary>
+    public static void SortPreview(int[] tiles, bool riichi = false) {
+        Array.Sort(tiles, (a, b) => CompareInContext(a, b, riichi));
+    }
+
+    private static int CompareInContext(int a, int b, bool riichi) {
+        int ka = SortKey(a, riichi);
+        int kb = SortKey(b, riichi);
         if (ka != kb) return ka.CompareTo(kb);
         // 排序键相同时（普通 5 与赤 5 同色）按原 id 升序：普通 5(=15/25/35) 在前，赤 5(=105/205/305) 在后
         return a.CompareTo(b);
     }
 
     // 组排名占高位、组内排序值占低位。字牌组内：风牌 0-3，三元牌 10+dragonRank。
-    private static int SortKey(int tile) {
+    private static int SortKey(int tile, bool riichi) {
         int suit = SuitOf(tile);
-        int inner = suit == 3 ? HonorSortValue(tile) : Normalize(tile);
+        int inner = suit == 3 ? HonorSortValue(tile, riichi) : Normalize(tile);
         return groupRank[suit] * 1000 + inner;
     }
 
-    private static int HonorSortValue(int tile) {
+    private static int HonorSortValue(int tile, bool riichi) {
         int t = Normalize(tile);
         if (t >= 41 && t <= 44) return t - 41;
-        if (t == Chun || t == Haku || t == Hatsu) return 10 + GetDragonRank(t);
+        if (t == Chun || t == Haku || t == Hatsu) return 10 + GetDragonRank(t, riichi);
         return t;
     }
 
-    private static int GetDragonRank(int tileId) {
-        int[] permutation = IsRiichiContext() ? RiichiDragonPermutations[riichiDragonOrderMode] : DragonPermutations[dragonOrderMode];
+    private static int GetDragonRank(int tileId, bool riichi) {
+        int[] permutation = riichi ? RiichiDragonPermutations[riichiDragonOrderMode] : DragonPermutations[dragonOrderMode];
         for (int i = 0; i < permutation.Length; i++) {
             if (permutation[i] == tileId) return i;
         }
@@ -207,6 +216,7 @@ public static class TileIdOrder {
     /// 将赤 5（105/205/305）归一化为同色普通 5（15/25/35），其余 id 不变。
     /// </summary>
     public static int Normalize(int tile) {
+        if(DuocaiTileVisual.IsCurrent(tile))return DuocaiTiles.Joker(tile)?tile:tile%1000;
         tile = WashizuTile.Face(tile);
         if (tile == 105) return 15;
         if (tile == 205) return 25;

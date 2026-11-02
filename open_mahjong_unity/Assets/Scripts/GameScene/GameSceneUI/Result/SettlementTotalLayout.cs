@@ -10,6 +10,7 @@ using UnityEngine;
 public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour, UnityEngine.UI.ILayoutGroup {
     private readonly List<TMP_Text> columns = new List<TMP_Text>(4);
     private readonly List<Metrics> metrics = new List<Metrics>(4);
+    private readonly Dictionary<TMP_Text, string> sourceTexts = new Dictionary<TMP_Text, string>();
     private DrivenRectTransformTracker tracker;
     private RectTransform Rect => (RectTransform)transform;
     private TMP_FontAsset font;
@@ -42,7 +43,8 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
             var fitter = GetComponent<UnityEngine.UI.ContentSizeFitter>();
             if (fitter != null) fitter.enabled = false;
             TMP_Text style = fan != null ? fan : points;
-            font = style.font;
+            var typography = style.GetComponent<PlatformFontBinding>();
+            font = typography && typography.authoredFont ? typography.authoredFont : style.font;
             fontSize = style.fontSize;
             standardAnchorMin = Rect.anchorMin; standardAnchorMax = Rect.anchorMax; standardPivot = Rect.pivot;
             standardPosition = Rect.anchoredPosition; standardSize = Rect.sizeDelta;
@@ -65,6 +67,7 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
         detail = fu;
         score = points;
         columns.Clear();
+        sourceTexts.Clear();
         if (layoutKind == SettlementTotalDisplay.LayoutKind.FuFanScore) {
             Add(fu, display.FuText);
             Add(fan, display.FanText);
@@ -79,14 +82,17 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
 
     private void Add(TMP_Text label, string text) {
         if (label == null) return;
-        label.text = text ?? string.Empty;
+        sourceTexts[label] = text;
+        TableText.Set(label, label == detail ? TableText.FuValue(text) : text);
         label.gameObject.SetActive(!string.IsNullOrEmpty(text));
         // 顺序属于显示模型，不再依赖 MainScene 中历史遗留的 sibling 顺序。
         label.transform.SetAsLastSibling();
         if (label.gameObject.activeSelf) columns.Add(label);
         var fitter = label.GetComponent<UnityEngine.UI.ContentSizeFitter>();
         if (fitter != null) fitter.enabled = false;
-        label.font = font;
+        var typography = label.GetComponent<PlatformFontBinding>();
+        if (typography) { typography.preserveAuthoredTypeface = true; typography.Apply(); }
+        else label.font = font;
         label.fontSize = layoutKind == SettlementTotalDisplay.LayoutKind.Breakdown
             ? (label == detail ? 34f : label == score ? 54f : 42f) : fontSize;
         label.enableAutoSizing = false;
@@ -96,8 +102,21 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
         label.margin = Vector4.zero;
     }
 
-    protected override void OnEnable() { base.OnEnable(); MarkDirty(); }
-    protected override void OnDisable() { tracker.Clear(); base.OnDisable(); }
+    protected override void OnEnable() {
+        base.OnEnable();
+        ConfigManager.OnLanguageChanged += RefreshLanguage;
+        RefreshLanguage();
+    }
+    protected override void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
+        tracker.Clear();
+        base.OnDisable();
+    }
+    private void RefreshLanguage() {
+        foreach (var pair in sourceTexts) if (pair.Key)
+            TableText.Set(pair.Key, pair.Key == detail ? TableText.FuValue(pair.Value) : pair.Value);
+        MarkDirty();
+    }
     protected override void OnRectTransformDimensionsChange() { base.OnRectTransformDimensionsChange(); MarkDirty(); }
     private void MarkDirty() { UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(Rect); }
     public void SetLayoutHorizontal() { Arrange(); }
@@ -124,13 +143,15 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
             if (label.textInfo.characterCount > 0) {
                 ascent = label.textInfo.lineInfo[0].ascender;
                 descent = -label.textInfo.lineInfo[0].descender;
-                // SDF 描边/采样 padding 可能略超出字体度量，也为实际网格预留空间。
+                float inkTop = float.NegativeInfinity, inkBottom = float.PositiveInfinity;
+                // Align visible glyphs without the fallback font's unused ascender space.
                 for (int i = 0; i < label.textInfo.characterCount; i++) {
                     TMP_CharacterInfo character = label.textInfo.characterInfo[i];
                     if (!character.isVisible) continue;
-                    ascent = Mathf.Max(ascent, character.topLeft.y, character.topRight.y);
-                    descent = Mathf.Max(descent, -character.bottomLeft.y, -character.bottomRight.y);
+                    inkTop = Mathf.Max(inkTop, character.topLeft.y, character.topRight.y);
+                    inkBottom = Mathf.Min(inkBottom, character.bottomLeft.y, character.bottomRight.y);
                 }
+                if (!float.IsNegativeInfinity(inkTop)) { ascent = Mathf.Max(0, inkTop); descent = Mathf.Max(0, -inkBottom); }
             }
             metrics.Add(new Metrics { Text = label, Width = rect.sizeDelta.x, Ascender = ascent, Descender = descent });
         }

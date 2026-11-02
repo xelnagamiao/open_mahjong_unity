@@ -52,39 +52,32 @@ public partial class CreatePanel {
     private readonly Dictionary<string, DetailedConfigState> _detailedConfigStates =
         new Dictionary<string, DetailedConfigState>();
 
+    private static readonly string[] DetailedRules = { "taiwan", "filipino", "shangrao", "beijing", "hongque", "vietnamese", "riichi" };
+
     private DetailedConfigState GetDetailedConfigState(string ruleKey) {
-        return !string.IsNullOrEmpty(ruleKey)
-            && _detailedConfigStates.TryGetValue(ruleKey, out DetailedConfigState state)
-                ? state
-                : null;
+        if (string.IsNullOrEmpty(ruleKey)) return null;
+        if (ruleKey == "hongkong") return HongKongState();
+        if (_detailedConfigStates.TryGetValue(ruleKey, out var existing)) return existing;
+        if (!DetailedConfigRegistry.TryGet(ruleKey, out var definition)) return null;
+        var state = new DetailedConfigState(definition);
+        _detailedConfigStates.Add(ruleKey, state);
+        if (ruleKey != "riichi") {
+            var preset = definition.Presets[definition.DefaultPresetIndex];
+            foreach (var option in definition.Options)
+                state.SelectedIndices[option.Key] = option.FindValueIndex(definition.GetPresetValue(preset, option));
+        }
+        return state;
     }
 
-    private void BindDetailedConfigControls(string ruleKey) {
-        if (ruleKey == "hongkong") { BindHongKongMainControls(); return; }
-        if (!DetailedConfigRegistry.TryGet(
-                ruleKey,
-                out DetailedConfigDefinition definition)) return;
-
-        Transform panelTransform = transform.Find($"DetailedConfigPanel_{ruleKey}");
-        if (panelTransform == null) {
-            Debug.LogError($"Missing prebuilt detailed config panel for rule '{ruleKey}'.", this);
-            return;
-        }
-
-        var state = new DetailedConfigState(definition) {
-            Panel = panelTransform.gameObject,
-            Content = panelTransform.Find(
-                "Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform,
-            Scroll = panelTransform.Find(
-                "Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>(),
-            FanTablePanel = panelTransform.Find("FanTablePanel")?.gameObject,
-            FanContent = panelTransform.Find(
-                "FanTablePanel/Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform,
-            FanScroll = panelTransform.Find(
-                "FanTablePanel/Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>(),
-        };
-        _detailedConfigStates[ruleKey] = state;
-
+    private void BindDetailedConfigControls(string ruleKey, GameObject view) {
+        var state = GetDetailedConfigState(ruleKey);
+        var panelTransform = view.transform;
+        if (state == null) throw new InvalidOperationException("Missing rule definition: " + ruleKey);
+        var definition = state.Definition;
+        state.Panel = panelTransform.gameObject;
+        state.Content = panelTransform.Find("Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform;
+        state.Scroll = panelTransform.Find("Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>();
+        state.Dropdowns.Clear();
         if (state.Content == null || state.Scroll == null) {
             Debug.LogError($"Prebuilt detailed config panel '{ruleKey}' is incomplete.", this);
             return;
@@ -140,46 +133,59 @@ public partial class CreatePanel {
                     () => ShowDetailedConfigFanTablePanel(state));
             }
 
-            if (state.FanContent != null) {
-                Transform filterRow = state.FanContent.Find("FanTableFilter");
-                state.FanFilterDropdown =
-                    filterRow?.GetComponentInChildren<TMP_Dropdown>(true);
-                if (state.FanFilterDropdown != null) {
-                    state.FanFilterDropdown.onValueChanged.RemoveAllListeners();
-                    state.FanFilterDropdown.onValueChanged.AddListener(index => {
-                        if (state.IsRefreshingFanTable) return;
-                        state.ShowAllFans = index == 1;
-                        RefreshDetailedConfigFanTable(state);
-                    });
-                }
+        }
+        BindDetailedConfigDialogButtons(state);
+        SyncDetailedConfigView(state);
+        state.Panel.SetActive(false);
+    }
 
-                foreach (DetailedConfigFanValue fan in table.Fans) {
-                    Transform row = state.FanContent.Find($"FanTai_{fan.Id}");
-                    TMP_Dropdown dropdown =
-                        row?.GetComponentInChildren<TMP_Dropdown>(true);
-                    if (row == null || dropdown == null) continue;
-                    state.FanRows[fan.Id] = row.gameObject;
-                    state.FanTaiDropdowns[fan.Id] = dropdown;
-                    string fanId = fan.Id;
-                    dropdown.onValueChanged.RemoveAllListeners();
-                    dropdown.onValueChanged.AddListener(
-                        index => OnDetailedConfigFanTaiChanged(state, fanId, index));
+    private void BindDetailedConfigFanView(DetailedConfigState state, GameObject panel) {
+        state.FanTablePanel = panel;
+        state.FanContent = panel.transform.Find("Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform;
+        state.FanScroll = panel.transform.Find("Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>();
+        var table = state.Definition.FanTable;
+        if (table != null && state.FanContent != null) {
+            Transform filterRow = state.FanContent.Find("FanTableFilter");
+            state.FanFilterDropdown =
+                filterRow?.GetComponentInChildren<TMP_Dropdown>(true);
+            if (state.FanFilterDropdown != null) {
+                state.FanFilterDropdown.onValueChanged.RemoveAllListeners();
+                state.FanFilterDropdown.onValueChanged.AddListener(index => {
+                    if (state.IsRefreshingFanTable) return;
+                    state.ShowAllFans = index == 1;
+                    RefreshDetailedConfigFanTable(state);
+                });
+            }
 
-                    Transform section = state.FanContent.Find($"Section_{fan.Section}");
-                    if (section != null) {
-                        state.FanSectionHeaders[fan.Section] = section.gameObject;
-                    }
+            foreach (DetailedConfigFanValue fan in table.Fans) {
+                Transform row = state.FanContent.Find($"FanTai_{fan.Id}");
+                TMP_Dropdown dropdown =
+                    row?.GetComponentInChildren<TMP_Dropdown>(true);
+                if (row == null || dropdown == null) continue;
+                state.FanRows[fan.Id] = row.gameObject;
+                state.FanTaiDropdowns[fan.Id] = dropdown;
+                string fanId = fan.Id;
+                dropdown.onValueChanged.RemoveAllListeners();
+                dropdown.onValueChanged.AddListener(
+                    index => OnDetailedConfigFanTaiChanged(state, fanId, index));
+
+                Transform section = state.FanContent.Find($"Section_{fan.Section}");
+                if (section != null) {
+                    state.FanSectionHeaders[fan.Section] = section.gameObject;
                 }
             }
         }
 
         BindDetailedConfigDialogButtons(state);
-        if (ruleKey == "riichi") {
-            foreach (var option in definition.Options) SetDetailedConfigDropdownValue(state, option, option.DefaultIndex);
-            RefreshDetailedConfigPresetSelection(state);
-        } else ApplyDetailedConfigPreset(state, definition.DefaultPresetIndex);
-        if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
-        state.Panel.SetActive(false);
+        RefreshDetailedConfigFanTable(state);
+        panel.SetActive(false);
+    }
+
+    private void SyncDetailedConfigView(DetailedConfigState state) {
+        foreach (var option in state.Definition.Options)
+            SetDetailedConfigDropdownValue(state, option, state.SelectedIndices[option.Key]);
+        RefreshDetailedConfigPresetSelection(state);
+        RefreshDetailedConfigFanTable(state);
     }
 
     private void BindDetailedConfigDialogButtons(DetailedConfigState state) {
@@ -317,7 +323,7 @@ public partial class CreatePanel {
             state.IsRefreshingFanTable = false;
         }
         RefreshDetailedConfigFanTableEntry(state);
-        if (state.FanContent != null) {
+        if (state.FanContent != null && state.FanContent.gameObject.activeInHierarchy) {
             LayoutRebuilder.ForceRebuildLayoutImmediate(state.FanContent);
         }
     }
@@ -343,16 +349,23 @@ public partial class CreatePanel {
     }
 
     private void ShowDetailedConfigFanTablePanel(DetailedConfigState state) {
-        if (state.FanTablePanel == null || state.FanTablePanel.activeSelf) return;
+        if (!state.FanTablePanel) {
+            int request = deferredOpenVersion;
+            RequestDeferredPanel("TaiwanFanTable", panel => {
+                if (panel && request == deferredOpenVersion && isActiveAndEnabled && state.HasSnapshot && state.Panel && state.Panel.activeSelf)
+                    ShowDetailedConfigFanTablePanel(state);
+            });
+            return;
+        }
+        if (state.FanTablePanel.activeSelf) return;
         state.FanEditorSnapshot.Clear();
         foreach (KeyValuePair<string, int> entry in state.FanTaiOverrides) {
             state.FanEditorSnapshot[entry.Key] = entry.Value;
         }
         state.HasFanEditorSnapshot = true;
         RefreshDetailedConfigFanTable(state);
+        ResetDetailedScroll(state.FanScroll);
         ShowSettingsDialog(state.FanTablePanel);
-        Canvas.ForceUpdateCanvases();
-        if (state.FanScroll != null) state.FanScroll.verticalNormalizedPosition = 1f;
     }
 
     private void ResetDetailedConfigFanTable(DetailedConfigState state) {
@@ -395,7 +408,7 @@ public partial class CreatePanel {
             return;
         }
 
-        Vector2 scrollPosition = state.Content.anchoredPosition;
+        Vector2 scrollPosition = state.Content ? state.Content.anchoredPosition : Vector2.zero;
         DetailedConfigPreset preset = state.Definition.Presets[presetIndex];
         if (state.Definition.RuleKey == "riichi") state.PendingRoomPreset = presetIndex;
         state.FanTaiOverrides.Clear();
@@ -418,9 +431,11 @@ public partial class CreatePanel {
             state.IsApplyingPreset = false;
         }
         RefreshDetailedConfigFanTable(state);
-        Canvas.ForceUpdateCanvases();
-        state.Scroll.StopMovement();
-        state.Content.anchoredPosition = scrollPosition;
+        if (state.Content && state.Scroll && state.Panel.activeInHierarchy) {
+            Canvas.ForceUpdateCanvases();
+            state.Scroll.StopMovement();
+            state.Content.anchoredPosition = scrollPosition;
+        }
         RefreshDetailedConfigButtonLabel();
     }
 
@@ -539,6 +554,7 @@ public partial class CreatePanel {
     }
 
     private void CancelDetailedConfigChanges() {
+        deferredOpenVersion++;
         foreach (DetailedConfigState state in _detailedConfigStates.Values) {
             CancelDetailedConfigChanges(state);
         }
@@ -582,7 +598,16 @@ public partial class CreatePanel {
     private bool ShowDetailedConfigPanel(string ruleKey) {
         if (!DetailedConfigRegistry.TryGet(ruleKey, out _)) return false;
         DetailedConfigState state = GetDetailedConfigState(ruleKey);
-        if (state == null || state.Panel == null || state.Panel.activeSelf) return true;
+        if (state == null) return true;
+        if (!state.Panel) {
+            int request = ++deferredOpenVersion;
+            RequestDeferredPanel(ruleKey, panel => {
+                if (panel && request == deferredOpenVersion && isActiveAndEnabled && _ruleState == ruleKey)
+                    ShowDetailedConfigPanel(ruleKey);
+            });
+            return true;
+        }
+        if (state.Panel.activeSelf) return true;
         CaptureDetailedConfigSnapshot(state);
         if (ruleKey == "riichi") {
             bool captain = WashizuDoubles.IsEnabled(GetSelectedRiichiSubRule());
@@ -594,10 +619,16 @@ public partial class CreatePanel {
             if (captain && state.PresetDescription) state.PresetDescription.text = WashizuDoubles.Description;
             else RefreshDetailedConfigPresetSelection(state);
         }
+        ResetDetailedScroll(state.Scroll);
         ShowSettingsDialog(state.Panel);
-        Canvas.ForceUpdateCanvases();
-        if (state.Scroll != null) state.Scroll.verticalNormalizedPosition = 1f;
         return true;
+    }
+
+    private static void ResetDetailedScroll(ScrollRect scroll) {
+        if (!scroll) return;
+        scroll.StopMovement();
+        var position = scroll.content.anchoredPosition;
+        scroll.content.anchoredPosition = new Vector2(position.x, 0);
     }
 
     private static void HideDetailedConfigPanel(DetailedConfigState state) {
@@ -613,7 +644,8 @@ public partial class CreatePanel {
             out Dictionary<string, object> ruleConfig)
             && ruleConfig.ContainsKey(CreateRoomKeys.SubRule);
         bool showTaiwanDetailedConfig = RuleRegistry.Resolve(_ruleState)?.LobbyHasDetailedConfig == true
-            && _ruleState != "hongkong" && DetailedConfigRegistry.TryGet(_ruleState, out _);
+            && _ruleState != "hongkong" && (_ruleState != "hongque" || GetSelectedSubRule() == HongqueWScoring.SubRule)
+            && DetailedConfigRegistry.TryGet(_ruleState, out _);
 
         if (SubRuleText != null) {
             SubRuleText.text = showTaiwanDetailedConfig ? "设置馆规" : "子规则";

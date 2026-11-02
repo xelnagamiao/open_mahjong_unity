@@ -26,7 +26,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
     username: '',
     email: '',
     emailVerified: false,
-    renameCount: 0,
+    renameCardCount: 0,
+    renameCardUsableCount: 0,
     isEventAdmin: false,
     loaded: false,
   }),
@@ -34,7 +35,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
     isLoggedIn: (s) => !!s.token && s.userId != null && s.userId !== '',
   },
   actions: {
-    _setSession({ token, userId, username, email, emailVerified, renameCount, isEventAdmin = false }) {
+    _setSession({ token, userId, username, email, emailVerified, renameCardCount, renameCardUsableCount, isEventAdmin = false }) {
       if (token) {
         setPlayerToken(token)
         this.token = token
@@ -43,7 +44,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       if (username != null) this.username = username
       if (email !== undefined) this.email = email || ''
       if (emailVerified !== undefined) this.emailVerified = !!emailVerified
-      if (renameCount !== undefined) this.renameCount = Number(renameCount) || 0
+      if (renameCardCount !== undefined) this.renameCardCount = Number(renameCardCount) || 0
+      if (renameCardUsableCount !== undefined) this.renameCardUsableCount = Number(renameCardUsableCount) || 0
       this.isEventAdmin = !!isEventAdmin
       this.loaded = true
     },
@@ -56,7 +58,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         username: data.username,
         email: data.email,
         emailVerified: data.email_verified,
-        renameCount: data.rename_count,
+        renameCardCount: data.rename_card_count,
+        renameCardUsableCount: data.rename_card_usable_count,
         isEventAdmin: !!data.is_event_admin,
       })
       applyEventAdminSession(data)
@@ -70,7 +73,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         username: data.username,
         email: data.email,
         emailVerified: data.email_verified,
-        renameCount: data.rename_count,
+        renameCardCount: data.rename_card_count,
+        renameCardUsableCount: data.rename_card_usable_count,
         isEventAdmin: !!data.is_event_admin,
       })
       applyEventAdminSession(data)
@@ -82,7 +86,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       this.username = ''
       this.email = ''
       this.emailVerified = false
-      this.renameCount = 0
+      this.renameCardCount = 0
+      this.renameCardUsableCount = 0
       this.isEventAdmin = false
       this.loaded = true
       try {
@@ -103,7 +108,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         this.username = ''
         this.email = ''
         this.emailVerified = false
-        this.renameCount = 0
+        this.renameCardCount = 0
+        this.renameCardUsableCount = 0
         this.isEventAdmin = false
         this.loaded = true
         try {
@@ -123,7 +129,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
           username: data.username,
           email: data.email,
           emailVerified: data.email_verified,
-          renameCount: data.rename_count,
+          renameCardCount: data.rename_card_count,
+          renameCardUsableCount: data.rename_card_usable_count,
           isEventAdmin: !!data.is_event_admin,
         })
         applyEventAdminSession({ ...data, user_id: data.user_id })
@@ -152,7 +159,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         username: data.username,
         email: data.email,
         emailVerified: data.email_verified,
-        renameCount: data.rename_count,
+        renameCardCount: data.rename_card_count,
+        renameCardUsableCount: data.rename_card_usable_count,
         isEventAdmin: !!data.is_event_admin,
       })
       applyEventAdminSession(data)

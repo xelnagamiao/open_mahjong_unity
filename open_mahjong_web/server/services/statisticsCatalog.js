@@ -1,4 +1,5 @@
 const { rules: STATISTICS_RULES } = require('../../shared/statisticsRules.json');
+const tiersByRule = require('../../shared/statisticsSceneTiers.json');
 const BY_KEY = new Map(STATISTICS_RULES.map(row => [row.key, row]));
 const BY_SUB_RULE = new Map(STATISTICS_RULES.map(row => [row.sub_rule, row]));
 const quote = value => `'${value.replaceAll("'", "''")}'`;
@@ -6,6 +7,10 @@ const quote = value => `'${value.replaceAll("'", "''")}'`;
 function statisticsSelection(key) {
   const row = BY_KEY.get(key) || BY_SUB_RULE.get(key);
   return row?.basic_stats ? row : null;
+}
+
+function statisticsLadderTiers(key) {
+  return tiersByRule[statisticsSelection(key)?.key] || [];
 }
 
 // 与 Python 回填使用同一配表；历史别名只还原为一个实际子规则。
@@ -32,4 +37,4 @@ function normalizeMatchType(mode, subRule) {
   return `${match[1]}/${sanma ? 3 : 4}${match[3] || ''}`;
 }
 
-module.exports = { STATISTICS_RULES, statisticsSelection, subRuleSql, statsKeySql, normalizeMatchType };
+module.exports = { STATISTICS_RULES, statisticsSelection, statisticsLadderTiers, subRuleSql, statsKeySql, normalizeMatchType };

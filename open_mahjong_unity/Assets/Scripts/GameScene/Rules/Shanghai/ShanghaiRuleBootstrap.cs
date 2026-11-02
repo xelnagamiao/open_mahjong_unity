@@ -25,6 +25,7 @@ internal static class ShanghaiRuleBootstrap {
                 { CreateRoomKeys.HepaiLimit, 0 },
                 { ShanghaiHandCalculator.Qing3Hun2Peng2Key, false },
                 { ShanghaiHandCalculator.EnableTianQiaoKey, false },
+                { ShanghaiHandCalculator.ForbidLajiheDadiaoKey, false },
                 { LajiheHandCalculator.SelfDrawExtraBaseKey, false },
                 { CreateRoomKeys.GameRound, 4 },
                 { CreateRoomKeys.RoundTimer, 3 },
@@ -151,7 +152,6 @@ internal static class ShanghaiRuleBootstrap {
                 case "全风向碰碰和": return "20分·2番";
                 case "大吊车": case "杠头开花": return "5分";
                 case "八花齐": return "每家30分";
-                case "敲锣": return "30分封顶";
                 default: return "";
             }
         }

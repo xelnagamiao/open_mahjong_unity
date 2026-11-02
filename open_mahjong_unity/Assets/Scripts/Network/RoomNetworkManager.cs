@@ -168,7 +168,11 @@ public partial class RoomNetworkManager : MonoBehaviour {
         if (AutoReconnect.IsActive && AutoReconnect.ExpectGameRestore) {
             ClearStaleLobbyState();
         } else {
-            ApplyLeftRoomState(silent: AutoReconnect.IsActive);
+            // A login sync also reports that the player is not in a room.
+            // Only announce a departure when there actually was a room to leave.
+            bool hadRoom = !string.IsNullOrEmpty(UserDataManager.Instance.RoomId)
+                && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE;
+            ApplyLeftRoomState(silent: AutoReconnect.IsActive || !hadRoom);
         }
         AutoReconnect.OnRoomSyncDone();
     }
@@ -525,7 +529,10 @@ public partial class RoomNetworkManager : MonoBehaviour {
             var request = new CreateGBRoomRequest {
                 type = "room/create_Hongque_room",
                 rule = "hongque",
-                sub_rule = "hongque/v1.6",
+                sub_rule = config.SubRule,
+                hongque_colourless = (config as HongqueWRoomConfig)?.Colourless ?? true,
+                hongque_min_fan = (config as HongqueWRoomConfig)?.MinimumFan ?? 0,
+                hongque_min_points = (config as HongqueWRoomConfig)?.MinimumPoints ?? 0,
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
@@ -538,8 +545,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = false,
                 hepai_limit = 0,
                 tourist_limit = config.TouristLimit,
-                allow_spectator = false,
-                tactical_call = false,
+                allow_spectator = config.AllowSpectator,
+                tactical_call = true,
                 hepai_way = string.IsNullOrEmpty(config.HepaiWay) ? "multi_ron" : config.HepaiWay,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId,
             };
@@ -626,7 +633,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false, bool qing3Hun2Peng2 = false, bool enableTianQiao = false, bool selfDrawExtraBase = false) {
+    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false, bool qing3Hun2Peng2 = false, bool enableTianQiao = false, bool selfDrawExtraBase = false, bool forbidLajiheDadiao = false) {
         if (!TryBeginCreateRequest()) return;
         try {
             if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
@@ -654,6 +661,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                     ? new Dictionary<string, object> {
                         { ShanghaiHandCalculator.Qing3Hun2Peng2Key, qing3Hun2Peng2 },
                         { ShanghaiHandCalculator.EnableTianQiaoKey, enableTianQiao },
+                        { ShanghaiHandCalculator.ForbidLajiheDadiaoKey, oneFanMinimum && forbidLajiheDadiao },
                     } : config.SubRule == LajiheHandCalculator.SubRule
                         ? new Dictionary<string, object> { { LajiheHandCalculator.SelfDrawExtraBaseKey, selfDrawExtraBase } } : null,
                 tourist_limit = config.TouristLimit,
@@ -717,7 +725,6 @@ public partial class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateSichuanRoomRequest {
-                duplicate_key = config.DuplicateKey,
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,
@@ -857,6 +864,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 type = "room/get_room_list",
                 show_tip = showTipOnSuccess
             };
+            EventNetworkManager.Instance?.TrackRoomListRequest(null);
             Debug.Log($"发送获取房间列表消息{request.type}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {

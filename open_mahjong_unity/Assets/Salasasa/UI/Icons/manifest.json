@@ -1,0 +1,115 @@
+{
+  "grid": 32,
+  "styles": [
+    "A · 实心",
+    "B · 粗线",
+    "C · 切角"
+  ],
+  "icons": [
+    {
+      "id": "friends",
+      "label": "好友",
+      "group": 0
+    },
+    {
+      "id": "mail",
+      "label": "邮件",
+      "group": 0
+    },
+    {
+      "id": "notice",
+      "label": "通知",
+      "group": 0
+    },
+    {
+      "id": "settings",
+      "label": "设置",
+      "group": 0
+    },
+    {
+      "id": "more",
+      "label": "展开",
+      "group": 0
+    },
+    {
+      "id": "inventory",
+      "label": "背包",
+      "group": 1
+    },
+    {
+      "id": "tutorial",
+      "label": "教程",
+      "group": 1
+    },
+    {
+      "id": "chat",
+      "label": "聊天室",
+      "group": 1
+    },
+    {
+      "id": "scene",
+      "label": "场景设置",
+      "group": 1
+    },
+    {
+      "id": "leaderboard",
+      "label": "排行榜",
+      "group": 1
+    },
+    {
+      "id": "ranked",
+      "label": "匹配",
+      "group": 2
+    },
+    {
+      "id": "room",
+      "label": "房间",
+      "group": 2
+    },
+    {
+      "id": "spectate",
+      "label": "观战",
+      "group": 2
+    },
+    {
+      "id": "event",
+      "label": "赛事",
+      "group": 2
+    },
+    {
+      "id": "list",
+      "label": "菜单",
+      "group": 3
+    },
+    {
+      "id": "move",
+      "label": "人物位置",
+      "group": 3
+    },
+    {
+      "id": "hide",
+      "label": "人物显示",
+      "group": 3
+    },
+    {
+      "id": "info",
+      "label": "关于我们",
+      "group": 3
+    },
+    {
+      "id": "logout",
+      "label": "退出登录",
+      "group": 3
+    },
+    {
+      "id": "refresh",
+      "label": "切换积分",
+      "group": 3
+    },
+    {
+      "id": "chevron",
+      "label": "展开入口",
+      "group": 3
+    }
+  ]
+}

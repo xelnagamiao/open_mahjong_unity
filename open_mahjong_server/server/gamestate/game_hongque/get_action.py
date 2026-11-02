@@ -17,6 +17,9 @@ from .heuristic_bot import (
     choose_turn_plan as choose_turn_plan_v3,
 )
 from .rules import kong_candidates, kong_win_candidates
+from .profile import rules_for, score_for_state
+from .w_rules import is_w
+from . import w_bot
 from .hongque_debug import get_debug_forced_discard
 from .wait_action import actions_for_viewer
 from ..public.ai.bot_executor import run_room_bot_cpu
@@ -51,8 +54,8 @@ async def bot_turn(game_state, tick: int) -> None:
         drawn_tile = player.drawn_tile
         if smart or heuristic:
             kong = tuple(dict(item) for item in (
-                kong_candidates(player.hand, player.melds)
-                + kong_win_candidates(player.hand, player.melds)
+                rules_for(game_state).kong_candidates(player.hand, player.melds)
+                + rules_for(game_state).kong_win_candidates(player.hand, player.melds)
             ))
             visible = visible_codes_for(game_state, player.index)
             supplements = player.supplements
@@ -64,7 +67,16 @@ async def bot_turn(game_state, tick: int) -> None:
                 if item.index != player_index
             )
 
-    if smart:
+    if is_w(game_state) and (smart or heuristic):
+        if score_for_state(game_state, player) is not None and game_state.game_status != "onlycut_after_action":
+            plan = {"action": "win"}
+        else:
+            tile = await run_room_bot_cpu(game_state, w_bot.choose_discard, hand, melds, visible,
+                                         drawn_tile, game_state.hongque_colourless)
+            plan = {"action": "discard", "tile": tile}
+            if tile is None and player.supplements < 2 and game_state.wall:
+                plan = {"action": "supplement"}
+    elif smart:
         plan = await run_room_bot_cpu(
             game_state, choose_turn_plan, hand, melds, visible, kong,
             supplements=supplements, wall_count=wall_count,
@@ -121,6 +133,13 @@ async def bot_turn(game_state, tick: int) -> None:
 
 
 def visible_codes_for(game_state, player_index: int) -> tuple[str, ...]:
+    if is_w(game_state):
+        visible = list(game_state.players[player_index].hand)
+        for player in game_state.players:
+            visible.extend(player.discards)
+            for meld in player.melds:
+                visible.extend(meld.get("tiles", ()))
+        return tuple(sorted(visible))
     visible = set(game_state.players[player_index].hand)
     for player in game_state.players:
         visible.update(player.discards)
@@ -163,11 +182,12 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
             melds = tuple(dict(meld) for meld in player.melds)
             candidates = tuple(dict(item) for item in candidates)
             visible = visible_codes_for(game_state, player_index)
-        if player.user_id == 0:
+        if player.user_id not in (2, 3):
             plan = {"action": "pass"}
         else:
-            claim_fn = choose_claim_plan_v3 if player.user_id == 3 else choose_claim_plan
-            plan = await run_room_bot_cpu(game_state, claim_fn, hand, melds, candidates, visible)
+            claim_fn = w_bot.choose_claim_plan if is_w(game_state) else choose_claim_plan_v3 if player.user_id == 3 else choose_claim_plan
+            extra = {"include_colourless": game_state.hongque_colourless} if is_w(game_state) else {}
+            plan = await run_room_bot_cpu(game_state, claim_fn, hand, melds, candidates, visible, **extra)
         await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
         if game_state.phase != "claim" or game_state.action_tick != tick:
             return

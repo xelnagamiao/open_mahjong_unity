@@ -79,16 +79,13 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob
         added = flower_points(count)
         labels.append(f"花数（{count}花）")
         labels.append(f"花分（{added}分）")
-        uncapped = (base + extra + added) * (1 << fan)
-        gong = (self_draw or rob_kong) and uncapped >= 30
-        if gong:
-            labels.append("敲锣")
-        results.append({"is_win": True, "base_score": 30 if gong else uncapped, "uncapped_score": uncapped,
+        points = (base + extra + added) * (1 << fan)
+        results.append({"is_win": True, "base_score": points,
                         "basic_points": base, "extra_points": extra, "flower_points": added,
                         "fan": fan, "physical_flowers": count, "fan_names": labels,
                         "pattern": pattern, "pair": pair, "concealed_sets": list(sets)})
-    # 先按完整点数择高，再应用自摸敲锣，保留实际采用的番种和番数。
-    return max(results, key=lambda item: (item["uncapped_score"], item["basic_points"] * (1 << item["fan"])), default=None)
+    # 按完整点数择高；点和、自摸和抢杠均不封顶。
+    return max(results, key=lambda item: (item["base_score"], item["basic_points"] * (1 << item["fan"])), default=None)
 
 
 def waits(hand, melds=()):

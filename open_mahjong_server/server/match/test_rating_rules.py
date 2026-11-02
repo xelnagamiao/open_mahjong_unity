@@ -78,7 +78,10 @@ def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
         manager.committed_users.clear();manager.winning_queues.clear()
         queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule)
         expected_mode, expected_rounds = ('banzhuang', 2) if rule in ('sichuan', 'sichuan_xueliu_exchange') else (('banzhuang', 8) if rule == 'hongque' else ('quanzhuang', 4))
-        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==([(expected_mode,expected_rounds),('quanzhuang',16)] if rule=='hongque' else [(expected_mode,expected_rounds)])
+        expected_modes = [(expected_mode, expected_rounds)]
+        if rule == 'hongque': expected_modes.append(('quanzhuang', 16))
+        if rule == 'qingque': expected_modes.append(('unlimited', 4))
+        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule] == expected_modes
         ratings=dict(zip(USERS,[600,2600,1100,1900]))
         server.db_manager.get_rank_data.side_effect=lambda uid: {'ratings':{rule:{**default_rating(rule),'elo':ratings[uid]}}}
         started=asyncio.Event()
@@ -178,7 +181,11 @@ def test_queue_config_and_real_game_construction(queue):
             assert info['detailed_config'] == preset['detailed_config']
             assert info['hepai_way'] == preset['hepai_way']
         assert game.match_queue_type==queue
-        assert queue_type_to_match_type(queue)==f'{spec.rounds}/{spec.player_count}_rank'
+        assert queue_type_to_match_type(queue)==f'{"unlimited" if spec.unlimited_rounds else spec.rounds}/{spec.player_count}_rank'
+        if spec.rule == 'qingque':
+            from .qingque_score_elo import ALGORITHM
+            assert game.match_rating_algorithm == ALGORITHM
+            assert game.unlimited_rounds == spec.unlimited_rounds
         assert len(game.player_list)==spec.player_count
         assert server.match_manager.playing_counts[queue]==spec.player_count
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)

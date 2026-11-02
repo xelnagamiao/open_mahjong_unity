@@ -383,6 +383,7 @@ public static class HongqueTenpai {
         List<int> handTileIds,
         List<int[]> meldMasks,
         int? excludedTileId = null) {
+        if (HongqueWTips.IsActive) return HongqueWTips.BuildScoreHints(handTileIds, meldMasks);
         List<int> hand = handTileIds != null ? new List<int>(handTileIds) : new List<int>();
         List<int[]> melds = meldMasks ?? new List<int[]>();
         HashSet<int> normalWaits = WaitingTiles(hand, melds, excludedTileId);

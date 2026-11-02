@@ -1,4 +1,5 @@
 """Public gold/flower state and private declaration choices share one wire model."""
+from ..public.settlement_sync import send_game_packet
 import math
 from ..game_zhongyong import boardcast as wire
 from .actions import legal_cuts, kong_tiles, declaration_cuts
@@ -184,4 +185,4 @@ class Protocol:
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and connection.websocket is not None:
             for payload in self.restore_payloads(index):
-                await connection.websocket.send_json(payload)
+                await send_game_packet(self, connection.websocket, payload)

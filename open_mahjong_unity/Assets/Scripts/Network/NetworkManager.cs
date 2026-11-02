@@ -73,6 +73,7 @@ public partial class NetworkManager : MonoBehaviour {
     private enum DisconnectDialogState { Start, Connected, Disconnected, Shown, NoMatch }
     private DisconnectDialogState _disconnectDialogState = DisconnectDialogState.Start;
     private bool connectionAvailable;
+    private bool sessionRevoked;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -91,6 +92,15 @@ public partial class NetworkManager : MonoBehaviour {
     private static bool IsMatchFoundMessage(byte[] bytes) {
         if (bytes == null || bytes.Length == 0) return false;
         return System.Text.Encoding.UTF8.GetString(bytes).Contains(MatchFoundTypeJson);
+    }
+
+    private static bool IsLoginKickoutMessage(byte[] bytes) {
+        string json = System.Text.Encoding.UTF8.GetString(bytes);
+        if (!json.Contains("login_kickout")) return false;
+        try {
+            var control = Newtonsoft.Json.Linq.JObject.Parse(json);
+            return (string)control["type"] == "message" && (string)control["message"] == "login_kickout";
+        } catch (Newtonsoft.Json.JsonException) { return false; }
     }
 
     private void EnqueueIncomingMessage(byte[] bytes) {
@@ -122,6 +132,13 @@ public partial class NetworkManager : MonoBehaviour {
     private void BindWebSocketEvents(WebSocket ws) {
         ws.OnMessage += bytes => {
             if (ws != websocket) return;
+            // Revocation must precede reconnect decisions, even when normal
+            // response processing is backlogged behind other game messages.
+            if (IsLoginKickoutMessage(bytes)) {
+                sessionRevoked = true;
+                AutoReconnect.CancelForSessionReset();
+                ChatManager.Instance?.EndSession(false);
+            }
             EnqueueIncomingMessage(bytes);
         };
 
@@ -130,6 +147,7 @@ public partial class NetworkManager : MonoBehaviour {
             Debug.Log("WebSocket连接成功");
             isConnecting = false;
             suppressConnectionFailureUi = false;
+            sessionRevoked = false;
             OnConnectionEstablished();
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
@@ -156,10 +174,13 @@ public partial class NetworkManager : MonoBehaviour {
 
         ws.OnClose += (code) => {
             if (ws != websocket) return;
+#if !UNITY_WEBGL || UNITY_EDITOR
+            ws.DispatchMessageQueue();
+#endif
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
             SetConnectionAvailable(false);
-            if (suppressConnectionFailureUi) return;
+            if (suppressConnectionFailureUi || sessionRevoked) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
                 GameSceneUIManager.ResetRealtimeSpectatorUi();
@@ -574,8 +595,6 @@ public partial class NetworkManager : MonoBehaviour {
                 RoomListPanel.Instance?.ResetSessionCaches();
                 CreatePanel.ResetAllSessionCaches();
             }
-            HeaderPanel.Instance?.RefreshMatchButtonVisibility();
-            HeaderPanel.Instance?.RefreshEventButtonVisibility();
             // 保存用户信息
             if (response.user_settings != null) {
                 UserDataManager.Instance.SetUserSettings(
@@ -621,7 +640,8 @@ public partial class NetworkManager : MonoBehaviour {
                 stats.online_players,
                 stats.waiting_rooms,
                 stats.playing_rooms,
-                stats.match_playing_games
+                stats.match_playing_games,
+                stats.venue_waiting_rooms
             );
         }
     }
@@ -630,14 +650,28 @@ public partial class NetworkManager : MonoBehaviour {
     private void Get_Message(byte[] bytes, double? receivedAt = null){
         try{
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
-            // 心跳响应频繁出现，跳过日志避免刷屏
-            if (!jsonStr.Contains("\"type\":\"pong\"")) {
-                Debug.Log($"收到服务器消息: {jsonStr}");
-            }
             Response response = ChangshaExchangeSixResponse.Decode(jsonStr);
+            // Login responses contain the chat credential; do not persist it in logs.
+            if (response.type == "login") Debug.Log($"收到登录响应: success={response.success}");
+            else if (response.type != "pong") Debug.Log($"收到服务器消息: {jsonStr}");
             response.received_monotonic = receivedAt ?? (System.Diagnostics.Stopwatch.GetTimestamp()
                 / (double)System.Diagnostics.Stopwatch.Frequency);
 
+            AcceptRewardReceipt(response);
+            if (response.type == "reward/redeem") {
+                RedeemResponseReceived?.Invoke(response);
+                return;
+            }
+            if (response.type == "reward/received") return;
+
+            if (response.type != null && response.type.StartsWith("chat/")) {
+                ChatManager.Instance?.HandleConversationResponse(JsonConvert.DeserializeObject<ChatConversationResponse>(jsonStr));
+                return;
+            }
+            if (response.type != null && response.type.StartsWith("mail/")) {
+                HandleMailResponse(response);
+                return;
+            }
             if (response.type != null && response.type.StartsWith("inventory/")) {
                 HandleInventoryResponse(response);
                 return;
@@ -706,7 +740,6 @@ public partial class NetworkManager : MonoBehaviour {
                 case "data/get_jiandan_stats":
                 case "data/get_rule_stats":
                 case "data/get_leaderboard":
-                case "data/get_rank_record_list":
                 case "data/get_ranked_stats":
                     DataNetworkManager.Instance.HandleDataMessage(response);
                     break;
@@ -771,6 +804,8 @@ public partial class NetworkManager : MonoBehaviour {
                     if (response.message == "error_version") {
                         _disconnectDialogState = DisconnectDialogState.NoMatch;
                     } else if (response.message == "login_kickout") {
+                        AutoReconnect.CancelForSessionReset();
+                        ChatManager.Instance?.EndSession(false);
                         _disconnectDialogState = DisconnectDialogState.Shown;
                     }
                     var serverMessage = NotificationManager.Instance.ShowMessage(
@@ -798,6 +833,28 @@ public partial class NetworkManager : MonoBehaviour {
 
     // ========== 观战消息处理 ==========
 
+    // 切入牌桌需等一帧完成组件初始化；这期间 Update 仍会收到下一条网络消息。
+    // 先保存增量和终局包，初始牌谱重建完成后按原顺序交接，不能交给尚未开始的观战丢弃。
+    private Response pendingSpectatorRecordInit;
+    private int pendingSpectatorSessionVersion;
+    private readonly Queue<Response> pendingSpectatorRecordMessages = new Queue<Response>();
+
+    private bool BufferPendingSpectatorRecordMessage(Response response) {
+        if (pendingSpectatorRecordInit == null
+            || pendingSpectatorSessionVersion != GameRecordManager.DelayedSpectatorSessionVersion
+            || pendingSpectatorRecordInit.message_info?.title != response.message_info?.title) return false;
+        pendingSpectatorRecordMessages.Enqueue(response);
+        return true;
+    }
+
+    private Response[] FinishPendingSpectatorRecordInit(Response response) {
+        if (!ReferenceEquals(pendingSpectatorRecordInit, response)) return Array.Empty<Response>();
+        Response[] pending = pendingSpectatorRecordMessages.ToArray();
+        pendingSpectatorRecordMessages.Clear();
+        pendingSpectatorRecordInit = null;
+        return pending;
+    }
+
     /// <summary>
     /// 服务端下发初始牌谱（add_spectator 成功后的 record_init）：先切 game 窗，再 StartSpectating。
     /// 不在点击观战按钮时切页，仅由本消息驱动。
@@ -818,12 +875,16 @@ public partial class NetworkManager : MonoBehaviour {
             GameRecordManager.ClearDelayedSpectatorSession();
             return;
         }
-        StartCoroutine(CoEnterDelayedSpectatorFromRecordInit(recordJson));
+        pendingSpectatorRecordMessages.Clear();
+        pendingSpectatorRecordInit = response;
+        pendingSpectatorSessionVersion = GameRecordManager.DelayedSpectatorSessionVersion;
+        StartCoroutine(CoEnterDelayedSpectatorFromRecordInit(response, pendingSpectatorSessionVersion));
     }
 
-    private IEnumerator CoEnterDelayedSpectatorFromRecordInit(string recordJson) {
+    private IEnumerator CoEnterDelayedSpectatorFromRecordInit(Response response, int sessionVersion) {
         if (BlocksIncomingDelayedSpectatorSession()) {
             Debug.Log("忽略延时观战 record_init：当前已在匹配或对局/其它观战会话中");
+            FinishPendingSpectatorRecordInit(response);
             GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
             yield break;
         }
@@ -831,26 +892,57 @@ public partial class NetworkManager : MonoBehaviour {
         WindowsManager.Instance.SwitchWindow("game");
         yield return null;
 
-        var grm = GameRecordManager.Instance;
-        if (grm == null) {
-            Debug.LogError("观战 record_init：GameRecordManager 未就绪");
+        // 等待期间可能退出、重新加入同一桌、收到另一份初始牌谱，或已匹配成功。
+        if (!ReferenceEquals(pendingSpectatorRecordInit, response)
+            || sessionVersion != GameRecordManager.DelayedSpectatorSessionVersion
+            || !AcceptDelayedSpectatorPayload(response)) {
+            FinishPendingSpectatorRecordInit(response);
+            yield break;
+        }
+        if (BlocksIncomingDelayedSpectatorSession()) {
+            FinishPendingSpectatorRecordInit(response);
+            GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
             yield break;
         }
 
-        grm.StartSpectating(recordJson);
-        if (!grm.IsSpectating) {
+        var grm = GameRecordManager.Instance;
+        if (grm == null) {
+            Debug.LogError("观战 record_init：GameRecordManager 未就绪");
+            FinishPendingSpectatorRecordInit(response);
             GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
+            yield break;
+        }
+
+        bool started = false;
+        try {
+            grm.StartSpectating(response.message_info.content);
+            started = grm.IsSpectating;
+        } catch (Exception e) {
+            Debug.LogError($"加载观战初始牌谱失败: {e.Message}");
+            grm.ResetForSessionEnd();
+        }
+        Response[] pending = FinishPendingSpectatorRecordInit(response);
+        if (!started) {
+            GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
+            yield break;
+        }
+        foreach (Response message in pending) {
+            if (message.type == "spectator/record_complete") HandleSpectatorRecordComplete(message);
+            else HandleSpectatorRecordUpdate(message);
         }
     }
 
     private void HandleSpectatorRecordUpdate(Response response) {
         if (!response.success || !AcceptDelayedSpectatorPayload(response)) return;
+        if (BufferPendingSpectatorRecordMessage(response)) return;
         string updatesJson = response.message_info?.content;
         if (string.IsNullOrEmpty(updatesJson)) return;
         GameRecordManager.Instance?.AppendSpectatorTicks(updatesJson);
     }
 
     private void HandleSpectatorRecordComplete(Response response) {
+        if (!response.success || !AcceptDelayedSpectatorPayload(response)) return;
+        if (BufferPendingSpectatorRecordMessage(response)) return;
         if (GameRecordManager.Instance == null) return;
         if (!GameRecordManager.Instance.IsSpectating || !AcceptDelayedSpectatorPayload(response)) {
             Debug.Log("忽略迟到/非本场的延时观战 record_complete");

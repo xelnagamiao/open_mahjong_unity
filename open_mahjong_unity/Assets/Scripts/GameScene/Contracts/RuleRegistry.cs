@@ -101,7 +101,10 @@ public static class RuleRegistry {
         TryResolve(roomRule, subRule, out RuleManifest manifest);
         string effectiveSubRule = subRule ?? (Current == manifest ? CurrentSubRule : null) ?? manifest?.DefaultSubRule;
         if (ActiveGameState != null && Current == manifest
-            && (manifest?.SubRuleGameStateFactory == null || CurrentSubRule == effectiveSubRule)) return ActiveGameState;
+            && (manifest?.SubRuleGameStateFactory == null || CurrentSubRule == effectiveSubRule)) {
+            CurrentSubRule = effectiveSubRule;
+            return ActiveGameState;
+        }
         ActiveGameState?.OnSessionReset();
         Current = manifest;
         CurrentSubRule = effectiveSubRule;

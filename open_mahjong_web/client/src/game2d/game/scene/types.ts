@@ -3,6 +3,8 @@
 import type { WaitInfoData } from './WaitDisplay'
 
 export interface MeldSnapshot {
+  duocai_code?: string
+  duocai_physical?: number[]
   /** Physical face/mask pairs, used by fixed tile mappings such as Wenzhou white dragon. */
   physical_mask?: number[]
   /** Heterogeneous special kong: preserve actual tiles and declared substitutions. */

@@ -227,7 +227,7 @@ def queue_type_to_match_type(queue_type: str) -> str:
     game_round = queue_type_to_game_round(queue_type)
     from .rating_rules import get_ranked_queue
     spec = get_ranked_queue(queue_type)
-    return f"{game_round}/{spec.player_count if spec else 4}_rank"
+    return f"{'unlimited' if spec and spec.unlimited_rounds else game_round}/{spec.player_count if spec else 4}_rank"
 
 
 def queue_type_to_display_name(queue_type: str) -> str:
@@ -236,7 +236,7 @@ def queue_type_to_display_name(queue_type: str) -> str:
     spec = get_ranked_queue(queue_type)
     if spec and spec.rule != 'guobiao':
         tier = {'beginner':'初级场','intermediate':'中级场','advanced':'高级场','elo':'Elo 匹配'}[spec.tier]
-        mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底'}[spec.mode]
+        mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底','unlimited':'无固定时限'}[spec.mode]
         if spec.rule == 'hongque':
             mode = f'{spec.rounds}局战'
         return f'{RULES[spec.rating_rule]} · {tier} · {mode}'
@@ -261,6 +261,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
                       tactical_call=spec.rule == 'sichuan', tips=spec.tier in ('beginner','elo'), pointer_tips=True)
         if spec.sub_rule == 'sichuan/xueliu_exchange':
             config.update(blood_battle=False, detailed_config={'xueliu_exchange_scoring': True})
+        if spec.rule == 'qingque':
+            config.update(unlimited_rounds=spec.unlimited_rounds, rating_algorithm=spec.elo_algorithm, tactical_call=True)
         if spec.rule == 'hongque':
             # 虹雀队列、状态和统计均使用实际局数。
             config.update(tactical_call=True)

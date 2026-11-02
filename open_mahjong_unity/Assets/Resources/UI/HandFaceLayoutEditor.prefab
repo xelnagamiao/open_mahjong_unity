@@ -161,6 +161,7 @@ GameObject:
   - component: {fileID: 1269696821748027887}
   - component: {fileID: 5694094116706040881}
   - component: {fileID: 5830559373549689216}
+  - component: {fileID: 5431672298606467596}
   m_Layer: 5
   m_Name: DirectionRight0
   m_TagString: Untagged
@@ -217,8 +218,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5411\u53F3"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -287,6 +288,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &5431672298606467596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221103004886049660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &362051682770069374
 GameObject:
   m_ObjectHideFlags: 0
@@ -538,6 +557,7 @@ GameObject:
   - component: {fileID: 8261346068228527445}
   - component: {fileID: 2610602934079557777}
   - component: {fileID: 3787890011929238623}
+  - component: {fileID: 4116377288113858469}
   m_Layer: 5
   m_Name: XValue
   m_TagString: Untagged
@@ -594,8 +614,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 0%
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -664,6 +684,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4116377288113858469
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1019270933163529004}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &1286634649279468791
 GameObject:
   m_ObjectHideFlags: 0
@@ -675,6 +713,7 @@ GameObject:
   - component: {fileID: 9035820491626265320}
   - component: {fileID: 5250521637403199708}
   - component: {fileID: 768099146481266397}
+  - component: {fileID: 2038996220642709824}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -731,8 +770,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u786E\u8BA4"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -801,6 +840,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2038996220642709824
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1286634649279468791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &1442695108964900870
 GameObject:
   m_ObjectHideFlags: 0
@@ -966,6 +1023,7 @@ GameObject:
   - component: {fileID: 8384886715257090861}
   - component: {fileID: 3771154410492169561}
   - component: {fileID: 3033557838509703613}
+  - component: {fileID: 3643120407716092248}
   m_Layer: 5
   m_Name: DirectionLeft0
   m_TagString: Untagged
@@ -1022,8 +1080,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5411\u5DE6"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1092,6 +1150,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &3643120407716092248
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2544235481765914807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &2589083029755711209
 GameObject:
   m_ObjectHideFlags: 0
@@ -1103,6 +1179,7 @@ GameObject:
   - component: {fileID: 3291454909598491249}
   - component: {fileID: 8773159417631734869}
   - component: {fileID: 6081378821618029510}
+  - component: {fileID: 2168147534974748785}
   m_Layer: 5
   m_Name: DirectionLeft2
   m_TagString: Untagged
@@ -1159,8 +1236,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 25%
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1229,6 +1306,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2168147534974748785
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2589083029755711209}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &2706605938600182627
 GameObject:
   m_ObjectHideFlags: 0
@@ -1315,6 +1410,7 @@ GameObject:
   - component: {fileID: 4602377292775503773}
   - component: {fileID: 2965169427001198327}
   - component: {fileID: 8302672512743066764}
+  - component: {fileID: 1066734374121363678}
   m_Layer: 5
   m_Name: DirectionRight2
   m_TagString: Untagged
@@ -1371,8 +1467,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 200%
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1441,6 +1537,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &1066734374121363678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3039155377689744370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &3045042658474859879
 GameObject:
   m_ObjectHideFlags: 0
@@ -1452,6 +1566,7 @@ GameObject:
   - component: {fileID: 2508526037425734176}
   - component: {fileID: 5889641934519643223}
   - component: {fileID: 2567894384677698880}
+  - component: {fileID: 2538608795817201689}
   m_Layer: 5
   m_Name: DirectionLeft1
   m_TagString: Untagged
@@ -1508,8 +1623,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5411\u4E0B"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1578,6 +1693,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2538608795817201689
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3045042658474859879}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &3089528810809830208
 GameObject:
   m_ObjectHideFlags: 0
@@ -1589,6 +1722,7 @@ GameObject:
   - component: {fileID: 2342127790750287713}
   - component: {fileID: 2433642187890444926}
   - component: {fileID: 2377034446929801613}
+  - component: {fileID: 3777173931434831318}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -1645,8 +1779,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u8FD4\u56DE"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1715,6 +1849,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &3777173931434831318
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3089528810809830208}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &3314553446582032769
 GameObject:
   m_ObjectHideFlags: 0
@@ -2857,6 +3009,7 @@ GameObject:
   - component: {fileID: 3491588258421869752}
   - component: {fileID: 8265042496636321491}
   - component: {fileID: 5011342359336207766}
+  - component: {fileID: 4994917393413523387}
   m_Layer: 5
   m_Name: Status
   m_TagString: Untagged
@@ -2913,8 +3066,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2983,6 +3136,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4994917393413523387
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6000632496090826606}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &6128513724940530854
 GameObject:
   m_ObjectHideFlags: 0
@@ -2994,6 +3165,7 @@ GameObject:
   - component: {fileID: 9220313830269314745}
   - component: {fileID: 8771859658097092343}
   - component: {fileID: 7657168647306702479}
+  - component: {fileID: 8000087607515049870}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -3050,8 +3222,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u6062\u590D\u9ED8\u8BA4"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3120,6 +3292,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &8000087607515049870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6128513724940530854}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &6329516103497226474
 GameObject:
   m_ObjectHideFlags: 0
@@ -3207,6 +3397,7 @@ GameObject:
   - component: {fileID: 2576907823738150542}
   - component: {fileID: 7228295339313694405}
   - component: {fileID: 7259646704525472257}
+  - component: {fileID: 1600281275432253319}
   m_Layer: 5
   m_Name: XLabel
   m_TagString: Untagged
@@ -3263,8 +3454,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u6C34\u5E73\u4F4D\u7F6E"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3333,6 +3524,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &1600281275432253319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6386121674784824969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &6580351870994558720
 GameObject:
   m_ObjectHideFlags: 0
@@ -3344,6 +3553,7 @@ GameObject:
   - component: {fileID: 2580883569543385065}
   - component: {fileID: 8792787595059113172}
   - component: {fileID: 7931184155749894683}
+  - component: {fileID: 2924947471387945950}
   m_Layer: 5
   m_Name: DirectionRight1
   m_TagString: Untagged
@@ -3400,8 +3610,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5411\u4E0A"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3470,6 +3680,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2924947471387945950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6580351870994558720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &6875483647753801638
 GameObject:
   m_ObjectHideFlags: 0
@@ -3517,6 +3745,7 @@ GameObject:
   - component: {fileID: 7692727555828304059}
   - component: {fileID: 3577797410055723469}
   - component: {fileID: 2513036640086772213}
+  - component: {fileID: 616152653600529970}
   m_Layer: 5
   m_Name: ScaleLabel
   m_TagString: Untagged
@@ -3573,8 +3802,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u724C\u9762\u7F29\u653E"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3643,6 +3872,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &616152653600529970
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7044459262399311036}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &7444982034994947165
 GameObject:
   m_ObjectHideFlags: 0
@@ -3654,6 +3901,7 @@ GameObject:
   - component: {fileID: 609873502782121459}
   - component: {fileID: 6585516610230114378}
   - component: {fileID: 1935979805287803445}
+  - component: {fileID: 6543781247769667234}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -3710,8 +3958,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5207\u6362\u793A\u4F8B"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3780,6 +4028,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &6543781247769667234
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7444982034994947165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &7446313210440924297
 GameObject:
   m_ObjectHideFlags: 0
@@ -3900,6 +4166,7 @@ GameObject:
   - component: {fileID: 7717188738964470962}
   - component: {fileID: 2136076270203217646}
   - component: {fileID: 5664629098179531243}
+  - component: {fileID: 4513539561770450667}
   m_Layer: 5
   m_Name: ScaleValue
   m_TagString: Untagged
@@ -3956,8 +4223,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 100%
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4026,6 +4293,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4513539561770450667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7626801345467964140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &7945167755384868366
 GameObject:
   m_ObjectHideFlags: 0
@@ -4037,6 +4322,7 @@ GameObject:
   - component: {fileID: 84722492375892759}
   - component: {fileID: 1695961551566901962}
   - component: {fileID: 5720381762844088231}
+  - component: {fileID: 8302276151012727532}
   m_Layer: 5
   m_Name: Title
   m_TagString: Untagged
@@ -4093,8 +4379,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u724C\u9762\u4F4D\u7F6E"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4163,6 +4449,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &8302276151012727532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7945167755384868366}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &8012843822600423231
 GameObject:
   m_ObjectHideFlags: 0
@@ -4249,6 +4553,7 @@ GameObject:
   - component: {fileID: 2527323929260340773}
   - component: {fileID: 6251708778376270578}
   - component: {fileID: 8914268057661509596}
+  - component: {fileID: 5186168560956144858}
   m_Layer: 5
   m_Name: Hint
   m_TagString: Untagged
@@ -4305,8 +4610,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u53EA\u8C03\u6574\u82B1\u7EB9\uFF0C\u4E0D\u6539\u53D8\u724C\u4F53\uFF1B\u4E0D\u900F\u660E\u6574\u5F20\u724C\u9762\u4E5F\u4F1A\u4E00\u8D77\u79FB\u52A8\u3002"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4375,6 +4680,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &5186168560956144858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8048597422420061613}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &8134595481173552852
 GameObject:
   m_ObjectHideFlags: 0
@@ -4507,6 +4830,7 @@ GameObject:
   - component: {fileID: 2864787720269775178}
   - component: {fileID: 7857990972410077578}
   - component: {fileID: 5186056428235232764}
+  - component: {fileID: 3395596669754749287}
   m_Layer: 5
   m_Name: YValue
   m_TagString: Untagged
@@ -4563,8 +4887,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 0%
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: bb6e21e1fc68ae84ea6e1210b52b9c73, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4633,6 +4957,24 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &3395596669754749287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8208225207462756773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1
 --- !u!1 &9134047395974486826
 GameObject:
   m_ObjectHideFlags: 0
@@ -4644,6 +4986,7 @@ GameObject:
   - component: {fileID: 7151898842323708916}
   - component: {fileID: 2715559055869130822}
   - component: {fileID: 4412020613079305671}
+  - component: {fileID: 4589264148444887571}
   m_Layer: 5
   m_Name: YLabel
   m_TagString: Untagged
@@ -4700,8 +5043,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5782\u76F4\u4F4D\u7F6E"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
-  m_sharedMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 88fd2be188ec8e7408e4d26194277962, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4770,3 +5113,21 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4589264148444887571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9134047395974486826}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredMaterial: {fileID: 5222845390964611887, guid: 9c88f244c49680b43902e485599bcf3d, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  previewFontChoice: -1

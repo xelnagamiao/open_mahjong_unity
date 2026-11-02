@@ -1,3 +1,4 @@
+import { SettlementSync } from './settlementSync.js'
 import { hasMeldStacks, isMeldStack } from '../lib/meldStack.js'
 import type {
   ActiveSessionSnapshot,
@@ -24,6 +25,9 @@ import { buildLocalWaitData, type WaitInfoData as LocalWaitInfoData } from '../c
 import { acceptFourJokersSnapshot } from '../calc/guobiao/fourJokers'
 
 /** Salasasa/server tile ids: 45中 46白 47发 → mmcr honor ranks z5/z6/z7 (same order). */
+export function duocaiTileToMmcr(tile:number):number {
+  return tile>=1000&&tile<5040?0x10000+tile:salasasaTileToMmcr(tile)
+}
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (!tile || tile < 0) return 0
   if ([61,62,63,64,71,72,73,74,81].includes(tile)) return 0x100 + tile
@@ -40,6 +44,7 @@ export function salasasaTileToMmcr(tile: number | null | undefined): number {
 
 export function mmcrTileToSalasasa(tile: number | null | undefined): number {
   if (!tile) return 0
+  if(tile>=0x10000)return tile-0x10000
   if ([61,62,63,64,71,72,73,74,81].includes(tile - 0x100)) return tile - 0x100
   const suit = tile & 0xe0
   const rank = tile & 0x0f
@@ -182,7 +187,9 @@ function viewerActions(
   robKong = false,
 ): ViewerAction[] {
   const mapped: ViewerAction[] = []
-  for (const action of actions) {
+  // The server repeats angang/jiagang for each eligible tile. Each word below
+  // already expands the full candidate list, so expand each action only once.
+  for (const action of new Set(actions)) {
     switch (action) {
       case 'cut': mapped.push({ kind: 'discard_tile' }); break
       case 'pass': mapped.push({ kind: 'pass' }); break
@@ -264,17 +271,30 @@ export class SalasasaGameAdapter {
   get gameInfo(): SalasasaGameInfo | null { return this.gameInfoValue }
   get gamestateId(): string | null { return this.gameInfoValue?.gamestate_id ?? null }
 
+  readonly settlement = new SettlementSync()
+
   accept(message: SalasasaResponse): {
     snapshot?: ActiveSessionSnapshot
     event?: GameEventPayload
     events?: GameEventPayload[]
+    restored?: boolean
+    sync?: SalasasaResponse["settlement_sync"]
     result?: SalasasaResultInfo
     ready?: SalasasaReadyStatusInfo
     ended?: SalasasaGameEndInfo
   } | null {
+    const isSnapshot = message.type === 'gamestate/guobiao/game_start'
+    if (!this.settlement.accept(message.settlement_sync, isSnapshot, message.received_monotonic_ms)) return null
     switch (message.type) {
-      case 'gamestate/guobiao/game_start':
-        return message.game_info ? { snapshot: this.fromGameInfo(message.game_info) } : null
+      case 'gamestate/guobiao/game_start': {
+        if (!message.game_info) return null
+        const snapshot = this.fromGameInfo(message.game_info)
+        const restored = message.settlement_restore?.at(-1)
+        if (restored?.show_result_info && this.settlement.present(restored.settlement_sync, true)) {
+          return { snapshot, result: this.withWinningTile(restored.show_result_info), restored: true, sync: restored.settlement_sync }
+        }
+        return { snapshot, sync: message.settlement_sync }
+      }
       case 'gamestate/guobiao/broadcast_hand_action':
         return message.ask_hand_action_info ? { event: this.fromHandPrompt(message.ask_hand_action_info) } : null
       case 'gamestate/guobiao/ask_other_action': {
@@ -285,23 +305,20 @@ export class SalasasaGameAdapter {
       case 'gamestate/guobiao/do_action':
         return message.do_action_info ? { events: this.fromActions(message.do_action_info) } : null
       case 'gamestate/guobiao/show_result':
-        if (!message.show_result_info) return null
+        if (!message.show_result_info || !this.settlement.present(message.settlement_sync, Boolean(message.settlement_sync?.restore))) return null
         {
           const isRobKong = this.pendingRobKongSeat != null
-          const result = {
-            ...message.show_result_info,
-            hepai_tile: message.show_result_info.hu_class === 'hu_self'
-              ? message.show_result_info.hepai_player_hand?.at(-1)
-              : (isRobKong ? this.lastAddedKongTile : this.lastDiscardTile),
-          }
+          const result = this.withWinningTile(message.show_result_info,
+            isRobKong ? this.lastAddedKongTile : this.lastDiscardTile)
           const event = this.fromResult(result, isRobKong)
           this.clearPendingRobKong()
-          return { event, result }
+          return { event: message.settlement_sync?.restore ? undefined : event, result,
+            restored: Boolean(message.settlement_sync?.restore), sync: message.settlement_sync }
         }
       case 'gamestate/guobiao/game_end':
         return message.game_end_info ? { event: this.fromEnd(message.game_end_info), ended: message.game_end_info } : null
       case 'gamestate/guobiao/ready_status':
-        return message.ready_status_info ? { ready: message.ready_status_info } : null
+        return message.ready_status_info ? { ready: message.ready_status_info, sync: message.settlement_sync } : null
       default:
         return null
     }
@@ -808,6 +825,14 @@ export class SalasasaGameAdapter {
     }
   }
 
+  private withWinningTile(info: SalasasaResultInfo, fallback?: number | null): SalasasaResultInfo {
+    // The server's complete reveal always ends with the winning tile for both
+    // ron and tsumo. A newly joined/reconnected observer may have missed the
+    // source discard, or still remember one from the preceding snapshot.
+    const tile = info.hepai_tile || info.hepai_player_hand?.at(-1) || fallback
+    return tile != null && tile > 0 ? { ...info, hepai_tile: tile } : info
+  }
+
   private fromResult(info: SalasasaResultInfo, isRobKong = false): GameEventPayload {
     const snapshot = this.ensureSnapshot()
     const winner = info.hepai_player_index ?? 0
@@ -917,6 +942,7 @@ export class SalasasaGameAdapter {
       type: 'gamestate/GB/send_action',
       gamestate_id: this.gamestateId,
       action: 'ready',
+      settlement_id: this.settlement.current?.result_id || undefined,
       targetTile: 0,
       chiComboIndex: 0,
       action_tick: this.snapshotValue?.state.stage_counter ?? 0,

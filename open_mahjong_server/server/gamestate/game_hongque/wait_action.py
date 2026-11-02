@@ -20,7 +20,7 @@ from .action_check import check_action_after_cut, check_action_hand_action
 from .hongque_debug import get_debug_forced_discard, resolve_debug_scenario
 from .init_tiles import pop_supplement_tile
 from .ron_resolution import resolve_collected_rons
-from .scoring import best_win_result
+from .profile import score_for_state, tile_code
 from .state_machine import HongqueStatus
 from .tile import HongqueTile
 from .record import (
@@ -187,7 +187,7 @@ def validate_submitted_action(game_state, player, action: str,
             raise ValueError("还没有轮到你")
         after_claim = status == HongqueStatus.ONLYCUT_AFTER_ACTION
         if action == "discard":
-            code = HongqueTile.parse(tile or "").code
+            code = tile_code(game_state, tile)
             if code not in player.hand:
                 raise ValueError("手牌中没有这张牌")
             return
@@ -205,14 +205,7 @@ def validate_submitted_action(game_state, player, action: str,
         if action == "win":
             if after_claim:
                 raise ValueError("亮牌后须先补牌才能和牌")
-            result = best_win_result(
-                player.hand,
-                player.melds,
-                self_draw=True,
-                before_first_discard=not any(item.discards for item in game_state.players),
-                wall_empty=not game_state.wall,
-                allow_kong_win=True,
-            )
+            result = score_for_state(game_state, player)
             if result is None:
                 raise ValueError("当前手牌不能和牌")
             return
@@ -350,14 +343,7 @@ async def _timeout_hand_action(game_state, player) -> None:
         return
     if game_state.game_status == "onlycut_after_action":
         return
-    result = best_win_result(
-        player.hand,
-        player.melds,
-        self_draw=True,
-        before_first_discard=not any(item.discards for item in game_state.players),
-        wall_empty=not game_state.wall,
-        allow_kong_win=True,
-    )
+    result = score_for_state(game_state, player)
     if result is not None:
         result["winning_hand"] = list(player.hand)
         await game_state._finish_round([(player, result)], "self_draw")
@@ -534,7 +520,7 @@ async def handle_hand_action(game_state, player, action: str,
     after_claim = status == HongqueStatus.ONLYCUT_AFTER_ACTION
 
     if action == "discard":
-        code = HongqueTile.parse(tile or "").code
+        code = tile_code(game_state, tile)
         if code not in player.hand:
             raise ValueError("手牌中没有这张牌")
         game_state._consume_time_bank(player, game_state.turn_started_at)
@@ -564,20 +550,13 @@ async def handle_hand_action(game_state, player, action: str,
             raise ValueError("杠牌候选无效")
         game_state._consume_time_bank(player, game_state.turn_started_at)
         game_state.events = []
-        game_state._apply_kong(player, candidate)
         record_kong(game_state, player, candidate)
+        game_state._apply_kong(player, candidate)
         game_state.message = f"{player.username} 杠牌"
     elif action == "win":
         if after_claim:
             raise ValueError("亮牌后须先补牌才能和牌")
-        result = best_win_result(
-            player.hand,
-            player.melds,
-            self_draw=True,
-            before_first_discard=not any(item.discards for item in game_state.players),
-            wall_empty=not game_state.wall,
-            allow_kong_win=True,
-        )
+        result = score_for_state(game_state, player)
         if result is None:
             raise ValueError("当前手牌不能和牌")
         game_state._consume_time_bank(player, game_state.turn_started_at)

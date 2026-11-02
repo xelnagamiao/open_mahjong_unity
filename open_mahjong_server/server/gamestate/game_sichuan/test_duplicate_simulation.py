@@ -19,13 +19,14 @@ from ...game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, XUELIU_DU
 
 @pytest.mark.parametrize("sub,cls", [(SBR_DUPLICATE,SbrDuplicateGameState),(XUELIU_DUPLICATE,XueliuDuplicateGameState)])
 @pytest.mark.parametrize("seed", [1807, 2409])
+@pytest.mark.parametrize("sync_mode", [False, True])
 @run_async
-async def test_eight_clients_complete_paired_game(sub, cls, seed):
+async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode):
     messages = []
     db = build_db_manager()
     db.store_sichuan_game_record.return_value = None
     server = build_game_server(db, messages=messages)
-    data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed,1)],str(seed))
+    data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed,n) for n in (1,2)],str(seed),sync_mode=sync_mode)
     data["status"] = "running"
     pair = PairedMatch(data, lambda *_: None)
     server.gamestate_manager.sichuan_duplicate_matches = {"test-pair":pair}
@@ -38,7 +39,6 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed):
                     team_by_seat=team_by_seat(table),duplicate_match_id="test-pair",
                     duplicate_table=table,duplicate_key="test-duplicate-key",duplicate_game_id=table+"game-id")
         state = cls(server,room,server.calculation_service,db,table)
-        state._ready_phase = AsyncMock()
         states.append(state)
         server.gamestate_manager.gamestate_id_to_game_state[table] = state
         for uid in ids:
@@ -52,6 +52,8 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed):
     async def drive():
         while not all(t.done() for t in tasks):
             for s in states:
+                if not sync_mode and s.duplicate_table == "closed" and states[0].current_round < 2:
+                    continue
                 for seat in list(s.waiting_players_list):
                     actions = list(s.action_dict.get(seat,[]))
                     key = (s.gamestate_id,s.current_round,s.server_action_tick,s.game_status,seat,tuple(actions))
@@ -89,7 +91,13 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed):
         await asyncio.wait_for(drive(), 45)
         assert pair.completed, [(s.game_status,s.current_round) for s in states]
         assert all(s.team_result['scores'] == dict(enumerate(pair.data['scores'])) for s in states)
-        assert pair.data['completed_boards'] >= 1
+        assert pair.data['completed_boards'] >= 2
+        statuses = [m['message']['duplicate_match_info'] for m in messages if m.get('type','').endswith('duplicate_status')]
+        if sync_mode:
+            assert any(m.get('imp_scores') is not None and m['status'] == 'running' for m in statuses)
+        else:
+            assert any(m.get('waiting_for') == 'match' for m in statuses)
+            assert all(not {'scores','imp_scores','small_scores','boards'} & m.keys() for m in statuses if m['status'] != 'completed')
         for s in states:
             # Reconstruct exactly the same final record using only the durable
             # last-board checkpoint, as after a crash before either save hook.

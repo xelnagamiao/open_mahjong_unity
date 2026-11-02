@@ -1,9 +1,9 @@
 <template>
   <div class="duplicate-panel">
-    <div class="panel-heading"><div><h2>{{ scope === 'event' ? '赛事复式密钥' : '个人复式密钥' }}</h2></div><router-link to="/duplicate">复式使用说明</router-link></div>
+    <div class="panel-heading"><div><h2>{{ scope === 'event' ? '赛事与基地复式密钥' : '个人复式密钥' }}</h2></div><router-link to="/duplicate">复式使用说明</router-link></div>
     <el-form v-if="scope === 'event'" label-position="top">
-      <el-form-item label="所属赛事" required><el-select v-model="eventId" placeholder="选择赛事" :disabled="busy" style="width: min(100%, 400px)"><el-option v-for="event in eligibleEvents" :key="event.event_id" :value="String(event.event_id)" :label="event.name || event.event_name || String(event.event_id)" /></el-select></el-form-item>
-      <el-alert v-if="!eligibleEvents.length" title="暂无可管理的赛事。申办赛事或成为赛事管理员后可创建。" type="info" :closable="false" />
+      <el-form-item label="所属赛事或基地" required><el-select v-model="eventId" placeholder="选择赛事或基地" :disabled="busy" style="width: min(100%, 400px)"><el-option v-for="event in eligibleEvents" :key="event.event_id" :value="String(event.event_id)" :label="`${event.kind === 'base' ? '基地' : '赛事'} · ${event.name || event.event_name || String(event.event_id)}`" /></el-select></el-form-item>
+      <el-alert v-if="!eligibleEvents.length" title="暂无可管理的赛事或基地。申办完成或成为管理员后可创建。" type="info" :closable="false" />
     </el-form>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="notice" />
     <template v-if="scope === 'personal' || eventId">
@@ -12,13 +12,19 @@
         <template #header>创建复式密钥</template>
         <el-form label-position="top" :disabled="busy || loading || loadingCatalog" @submit.prevent="createWall">
           <div class="form-grid">
+            <el-form-item label="规则" required class="rule-choice"><el-radio-group v-model="form.rule" aria-label="复式规则"><el-radio-button v-for="rule in rules" :key="rule.rule" :value="rule.rule">{{ rule.label }}</el-radio-button></el-radio-group></el-form-item>
             <el-form-item label="密钥名称（可选）"><el-input v-model="form.name" maxlength="80" show-word-limit placeholder="例如：第一轮 · A 组" /></el-form-item>
-            <el-form-item label="规则" required><el-select v-model="form.rule" placeholder="选择规则"><el-option v-for="rule in rules" :key="rule.rule" :value="rule.rule" :label="rule.label" /></el-select></el-form-item>
           </div>
-          <el-form-item label="局数" required>
-            <el-radio-group v-model="form.round_count"><el-radio-button v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :value="count">{{ count }} 局</el-radio-button></el-radio-group>
+          <div v-if="fixedSeats" class="layout-summary" role="note" aria-label="川麻牌山布局">
+            <strong>{{ selectedRule.label }}</strong>
+            <p>{{ duplicateLayoutDescription(selectedRule) }}</p>
+            <p>庄家也只预置 13 张，开牌时再从自己的牌墙头摸一张。东南西北方位固定，庄家依次轮转。</p>
+            <p>{{ selectedRule.wall_layout === 'sbr' ? '本家墙摸空且队友已和牌，才可接摸队友剩余牌墙；无牌可摸时待机。' : '任意一家固定墙摸空，其余固定墙按东、南、西、北整段接到公共墙前，之后共用公共墙。' }}</p>
+          </div>
+          <el-form-item :label="fixedSeats ? '副数' : '局数'" required>
+            <el-radio-group v-model="form.round_count"><el-radio-button v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :value="count">{{ count }} {{ fixedSeats ? '副' : '局' }}</el-radio-button></el-radio-group>
           </el-form-item>
-          <el-form-item v-if="form.rule !== 'sichuan/xueliu'" label="花牌"><el-switch v-model="form.use_flowers" :disabled="form.rule === 'guobiao/lanshi'" active-text="有花" inactive-text="无花" /><span class="flower-summary">{{ selectedRule?.tile_count || '—' }} 张</span></el-form-item>
+          <el-form-item v-if="!fixedSeats" label="花牌"><el-switch v-model="form.use_flowers" :disabled="form.rule === 'guobiao/lanshi'" active-text="有花" inactive-text="无花" /><span class="flower-summary">{{ selectedRule?.tile_count || '—' }} 张</span></el-form-item>
           <el-form-item label="牌山类型" required>
             <div class="type-grid" role="group" aria-label="牌山类型">
               <button v-for="type in wallTypes" :key="type.value" type="button" class="type-card" :class="{ selected: form.wall_type === type.value }" :aria-pressed="form.wall_type === type.value" :disabled="busy || loading || loadingCatalog" @click="form.wall_type = type.value">
@@ -30,7 +36,7 @@
           <el-form-item v-if="form.wall_type === 'seed'" label="随机种子" required><el-input v-model="form.seed" maxlength="128" show-word-limit placeholder="1–128 个字符的文本种子" autocomplete="off" /><p class="help">一个种子生成整场牌山。相同规则、花牌设置、局数和种子生成相同的手牌与牌山。</p></el-form-item>
           <template v-if="form.wall_type === 'manual' && selectedRule">
             <div class="round-tabs" role="group" aria-label="编辑各局牌山"><button v-for="round in form.round_count" :key="round" type="button" :class="{ selected: editingRound === round }" :aria-pressed="editingRound === round" :disabled="busy" @click="editingRound = round"><strong>{{ duplicateRoundLabel(round) }}</strong><span>{{ flattenDuplicateDraft(manualDrafts[round - 1]).length }} / {{ selectedRule.tile_count }} 张</span></button></div>
-            <p class="help">{{ selectedRule.wall_layout === 'xueliu' ? `第 ${editingRound} 副 · 东南西北固定座位，庄家按副号轮转。` : `${duplicateRoundLabel(editingRound)} · 玩家编号按开房座位固定，风位随国标换庄、换位。` }}</p>
+            <p class="help">{{ fixedSeats ? `第 ${editingRound} 副 · 东南西北固定座位，庄家按副号轮转。` : `${duplicateRoundLabel(editingRound)} · 玩家编号按开房座位固定，风位随国标换庄、换位。` }}</p>
             <DuplicateManualEditor :key="`${form.rule}-${form.use_flowers}-${editingRound}`" v-model="manualDraft" :rule="selectedRule" :round="editingRound" :disabled="busy || loading || loadingCatalog" />
           </template>
           <p class="help">密钥默认锁定，解除锁定后公开牌谱。</p>
@@ -38,17 +44,17 @@
           <span v-if="quota && (quota.remaining_today <= 0 || quota.remaining_storage <= 0)" class="quota-warning">{{ quota.remaining_today <= 0 ? '今日创建次数已用完' : '密钥数量已达上限' }}</span>
         </el-form>
       </el-card>
-      <el-card v-if="createdWall" class="created-card" shadow="never"><template #header>创建成功 · {{ wallTypeLabel(createdWall.wall_type) }} · {{ createdWall.round_count || 1 }} 局</template><p>开房时填入此密钥。</p><div class="key-line"><code>{{ createdWall.key }}</code><el-button @click="copyKey(createdWall.key)">复制密钥</el-button></div></el-card>
+      <el-card v-if="createdWall" class="created-card" shadow="never"><template #header>创建成功 · {{ wallTypeLabel(createdWall.wall_type) }} · {{ createdWall.round_count || 1 }} {{ roundUnit(createdWall) }}</template><p>开房时填入此密钥。</p><div class="key-line"><code>{{ createdWall.key }}</code><el-button @click="copyKey(createdWall.key)">复制密钥</el-button></div></el-card>
       <el-card shadow="never"><template #header>创建的复式密钥</template><el-table v-loading="loading" :data="walls" empty-text="尚未创建复式密钥" row-key="id">
         <el-table-column label="名称 / 密钥" min-width="235"><template #default="{ row }"><strong>{{ row.name || '未命名密钥' }}</strong><div class="table-key"><code>{{ row.key }}</code><el-button link type="primary" @click="copyKey(row.key)">复制</el-button></div></template></el-table-column>
-        <el-table-column label="类型 / 规则" min-width="130"><template #default="{ row }">{{ wallTypeLabel(row.wall_type) }}<div class="help">{{ ruleLabel(row.rule) }} · {{ row.use_flowers === false ? '无花' : '有花' }} · {{ row.round_count || 1 }} 局</div></template></el-table-column>
+        <el-table-column label="类型 / 规则" min-width="130"><template #default="{ row }">{{ wallTypeLabel(row.wall_type) }}<div class="help">{{ ruleLabel(row.rule) }} · {{ row.use_flowers === false ? '无花' : '有花' }} · {{ row.round_count || 1 }} {{ roundUnit(row) }}</div></template></el-table-column>
         <el-table-column label="创建时间" min-width="165"><template #default="{ row }">{{ duplicateDate(row.created_at) }}</template></el-table-column>
         <el-table-column label="解锁时间" min-width="165"><template #default="{ row }">{{ duplicateDate(row.unlocked_at) }}</template></el-table-column>
         <el-table-column label="密钥状态" min-width="180"><template #default="{ row }"><el-tag :type="row.is_unlocked ? 'success' : 'info'">{{ row.is_unlocked ? '已解除锁定' : '锁定' }}</el-tag><el-button v-if="!row.is_unlocked" link type="primary" :loading="mutatingId === row.id" :disabled="busy || loading" @click="unlockWall(row)">解除锁定</el-button></template></el-table-column>
         <el-table-column label="操作" min-width="140"><template #default="{ row }"><el-button v-if="row.wall_type !== 'key'" link @click="inspectedWall = row">查看手牌与牌山</el-button><el-button v-if="row.is_unlocked" link type="primary" @click="$router.push({ path: '/player-data/duplicate', query: { key: row.key } })">查看对局</el-button><el-button link type="danger" :disabled="busy || !row.is_unlocked" :title="row.is_unlocked ? '删除后公开记录仍保留' : '解除锁定后可删除'" @click="deleteWall(row)">删除</el-button></template></el-table-column>
       </el-table></el-card>
     </template>
-    <el-dialog :model-value="Boolean(inspectedWall)" title="手牌与牌山" width="min(760px, 96vw)" @close="inspectedWall = null"><template v-if="inspectedWall && inspectedWall.wall_type !== 'key'"><p>{{ inspectedWall.name }} · {{ wallTypeLabel(inspectedWall.wall_type) }}</p><p v-if="inspectedWall.seed != null" class="seed-value">种子：{{ inspectedWall.seed }}</p><el-select v-if="inspectedWall.round_count > 1" v-model="inspectedRound" aria-label="查看牌山局数"><el-option v-for="round in inspectedWall.round_count" :key="round" :value="round" :label="duplicateRoundLabel(round)" /></el-select><div v-for="(wall, seat) in splitDuplicateWall(inspectedTiles, inspectedWall.tile_count, inspectedWall.wall_layout)" :key="seat" class="seat-wall"><strong>{{ seat === 4 ? '公共牌墙' : `${seat + 1} 号 · ${['东', '南', '西', '北'][inspectedSeats[seat]]}位` }}</strong><p v-if="seat < 4" class="help">起始手牌 {{ inspectedHandCount(seat) }} 张</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(0, inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div><p class="help">{{ inspectedWall.wall_layout === 'xueliu' ? (seat === 4 ? '公共牌墙' : '固定牌墙') : '剩余牌山' }}</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div></div></template></el-dialog>
+    <el-dialog :model-value="Boolean(inspectedWall)" title="手牌与牌山" width="min(760px, 96vw)" @close="inspectedWall = null"><template v-if="inspectedWall && inspectedWall.wall_type !== 'key'"><p>{{ inspectedWall.name }} · {{ wallTypeLabel(inspectedWall.wall_type) }}</p><p v-if="inspectedWall.seed != null" class="seed-value">种子：{{ inspectedWall.seed }}</p><el-select v-if="inspectedWall.round_count > 1" v-model="inspectedRound" aria-label="查看牌山局数"><el-option v-for="round in inspectedWall.round_count" :key="round" :value="round" :label="formatRoundLabel(round, inspectedLayout)" /></el-select><div v-for="(wall, seat) in splitDuplicateWall(inspectedTiles, inspectedWall.tile_count, inspectedLayout)" :key="seat" class="seat-wall"><strong>{{ seat === 4 ? '公共牌墙' : `${seat + 1} 号 · ${['东', '南', '西', '北'][inspectedSeats[seat]]}位` }}</strong><p v-if="seat < 4" class="help">起始手牌 {{ inspectedHandCount(seat) }} 张</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(0, inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div><p class="help">{{ inspectedLayout === 'xueliu' ? (seat === 4 ? '公共牌墙' : '固定牌墙') : inspectedLayout === 'sbr' ? '个人牌墙' : '剩余牌山' }}</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div></div></template></el-dialog>
   </div>
 </template>
 
@@ -58,7 +64,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { duplicateWallsApi } from '@/api/duplicateWalls'
 import DuplicateManualEditor from '@/components/DuplicateManualEditor.vue'
 import TileChip from '@/components/TileChip.vue'
-import { DUPLICATE_ROUND_COUNTS, duplicateRoundLabel, duplicateRoundSeats, createDuplicateDraft, duplicateDate, duplicateRuleWithFlowers, duplicateWallLabel, flattenDuplicateDraft, isDuplicateWallRule, splitDuplicateWall, validateDuplicateDraft, validateDuplicateSeed } from '@/utils/duplicateWalls'
+import { DUPLICATE_ROUND_COUNTS, duplicateRoundLabel as formatRoundLabel, duplicateRoundSeats, duplicateDealerSeat, duplicateWallLayout, duplicateLayoutDescription, createDuplicateDraft, duplicateDate, duplicateRuleWithFlowers, duplicateWallLabel, flattenDuplicateDraft, isDuplicateWallRule, splitDuplicateWall, validateDuplicateDraft, validateDuplicateSeed } from '@/utils/duplicateWalls'
 
 const wallTypes = [
   { value: 'manual', label: '手动牌山', description: '手动设置四家的手牌和牌山。' },
@@ -66,9 +72,10 @@ const wallTypes = [
   { value: 'key', label: '密钥牌山', description: '新建随机种子。解锁前只提供密钥，手牌和牌山保密。' },
 ]
 const wallTypeLabel = value => wallTypes.find(type => type.value === value)?.label || duplicateWallLabel(value)
+const roundUnit = wall => ['sbr', 'xueliu'].includes(duplicateWallLayout(wall)) ? '副' : '局'
 
 const props = defineProps({ scope: { type: String, default: 'personal' }, events: { type: Array, default: () => [] } })
-const eligibleEvents = computed(() => props.events.filter(event => event.kind !== 'base'))
+const eligibleEvents = computed(() => props.events.filter(event => !event.kind || ['event', 'base'].includes(event.kind)))
 const eventId = ref('')
 const rules = ref([])
 const quota = ref(null)
@@ -85,21 +92,24 @@ const createdWall = ref(null)
 const inspectedWall = ref(null)
 const inspectedRound = ref(1)
 const inspectedTiles = computed(() => inspectedWall.value?.round_tiles?.[inspectedRound.value - 1] || inspectedWall.value?.tiles || [])
-const inspectedSeats = computed(() => duplicateRoundSeats(inspectedRound.value, inspectedWall.value?.wall_layout))
-const inspectedHandCount = seat => seat === 4 ? 0 : inspectedWall.value?.wall_layout === 'xueliu' ? 13 : inspectedSeats.value[seat] === 0 ? 14 : 13
+const inspectedLayout = computed(() => duplicateWallLayout(inspectedWall.value))
+const inspectedSeats = computed(() => duplicateRoundSeats(inspectedRound.value, inspectedLayout.value))
+const inspectedHandCount = seat => seat === 4 ? 0 : ['xueliu', 'sbr'].includes(inspectedLayout.value) ? 13 : inspectedSeats.value[seat] === 0 ? 14 : 13
 const form = reactive({ name: '', rule: '', wall_type: 'key', seed: '', use_flowers: false, round_count: 1 })
 const selectedRule = computed(() => duplicateRuleWithFlowers(rules.value.find(rule => rule.rule === form.rule), form.use_flowers))
+const fixedSeats = computed(() => ['xueliu', 'sbr'].includes(selectedRule.value?.wall_layout))
+const duplicateRoundLabel = round => formatRoundLabel(round, selectedRule.value?.wall_layout)
 const busy = computed(() => creating.value || mutatingId.value !== null)
 const canCreate = computed(() => !busy.value && !loading.value && Boolean(selectedRule.value) && quota.value?.remaining_today > 0 && quota.value?.remaining_storage > 0 && (props.scope === 'personal' || Boolean(eventId.value)))
 const scopeParams = () => ({ scope: props.scope, ...(props.scope === 'event' ? { event_id: eventId.value } : {}) })
 let loadVersion = 0
 function message(err) { return err.response?.data?.message || err.message || '操作失败，请重试' }
-function ruleLabel(rule) { return rules.value.find(item => item.rule === rule)?.label || rule }
+function ruleLabel(rule) { return ({ 'sichuan/doubles_duplicate': '川麻血战双打复式（SBR）', 'sichuan/xueliu_doubles_duplicate': '川麻血流双打复式', 'sichuan/xueliu': props.scope === 'personal' ? '旧版血流密钥（已停用）' : '川麻血流双打复式' })[rule] || rules.value.find(item => item.rule === rule)?.label || rule }
 
 async function loadCatalog() {
   loadingCatalog.value = true
   try {
-    rules.value = ((await duplicateWallsApi.catalog())?.rules || []).filter(rule => isDuplicateWallRule(rule.rule))
+    rules.value = ((await duplicateWallsApi.catalog())?.rules || []).filter(rule => isDuplicateWallRule(rule.rule) && (!rule.scopes || rule.scopes.includes(props.scope)))
     if (!rules.value.some(rule => rule.rule === form.rule)) form.rule = rules.value[0]?.rule || ''
   }
   catch (err) { error.value = message(err) }
@@ -126,7 +136,7 @@ async function createWall() {
   let validation = form.wall_type === 'seed' ? validateDuplicateSeed(form.seed) : ''
   if (form.wall_type === 'manual') {
     for (let index = 0; index < form.round_count; index++) {
-      const problem = validateDuplicateDraft(manualDrafts.value[index], selectedRule.value, duplicateRoundSeats(index + 1).indexOf(0))
+      const problem = validateDuplicateDraft(manualDrafts.value[index], selectedRule.value, duplicateDealerSeat(index + 1, selectedRule.value.wall_layout))
       if (problem) { editingRound.value = index + 1; validation = `${duplicateRoundLabel(index + 1)}：${problem}`; break }
     }
   }
@@ -189,6 +199,11 @@ onMounted(() => { if (props.scope === 'personal' || eventId.value) loadWalls(); 
 </script>
 
 <style scoped>
+.rule-choice { grid-column: 1 / -1; }
+.rule-choice :deep(.el-radio-group) { display: flex; flex-wrap: wrap; gap: 8px; }
+.rule-choice :deep(.el-radio-button__inner) { border: 1px solid var(--el-border-color); border-radius: 4px; box-shadow: none; }
+.layout-summary { padding: 14px 16px; margin-bottom: 18px; background: #eff8f5; border: 1px solid #cce2d9; border-radius: 6px; color: #234b42; font-size: 13px; }
+.layout-summary p { margin: 6px 0 0; line-height: 1.65; }
 .round-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .round-tabs button { display: flex; flex-direction: column; gap: 4px; min-width: 92px; padding: 10px 12px; border: 1px solid #dcdfe6; border-radius: 4px; background: #fff; color: #303133; cursor: pointer; }
 .round-tabs button.selected { border-color: #17756a; background: #eff8f5; }

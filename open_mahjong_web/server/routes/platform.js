@@ -59,6 +59,10 @@ router.get('/stats', async (req, res) => {
     const def = statisticsSelection(req.query.rule || 'guobiao');
     if (!def) return res.status(400).json({ success: false, message: '此规则没有基础统计' });
     const rule = def.key;
+    const roomType = req.query.room_type || 'match';
+    if (!['match', 'custom', 'all'].includes(roomType)) {
+      return res.status(400).json({ success: false, message: '无效的场次类型' });
+    }
     const asOfDate = await getAsOfStatDate();
     const days = Math.min(365, Math.max(7, parseInt(req.query.days, 10) || 30));
     let dateFrom = typeof req.query.date_from === 'string' ? req.query.date_from.slice(0, 10) : null;
@@ -72,9 +76,9 @@ router.get('/stats', async (req, res) => {
 
     const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
     const [totals, fans, daily, events] = await Promise.all([
-      querySceneTotals({ asOfDate, rule, eventId: eventId || null }),
-      querySceneTotalsFans({ asOfDate, rule, eventId: eventId || null }),
-      querySceneDailyGames({ dateFrom, dateTo, asOfDate, rule, eventId: eventId || null }),
+      querySceneTotals({ asOfDate, rule, eventId: eventId || null, roomType }),
+      querySceneTotalsFans({ asOfDate, rule, eventId: eventId || null, roomType }),
+      querySceneDailyGames({ dateFrom, dateTo, asOfDate, rule, eventId: eventId || null, roomType }),
       listPlatformEvents(),
     ]);
 
@@ -120,17 +124,22 @@ router.get('/home-stats', async (req, res) => {
   }
 });
 
-/** 最近天梯对局牌谱（可按场次筛选） */
+/** 最近对局牌谱（可按匹配、自定义或比赛场筛选） */
 router.get('/recent-records', async (req, res) => {
   try {
     const matchTier = typeof req.query.match_tier === 'string' ? req.query.match_tier : null;
     const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
+    const roomType = req.query.room_type || 'match';
+    if (!['match', 'custom', 'all'].includes(roomType)) {
+      return res.status(400).json({ success: false, message: '无效的场次类型' });
+    }
     const limit = parseInt(req.query.limit, 10) || 20;
     const offset = parseInt(req.query.offset, 10) || 0;
     const data = await queryRecentLadderRecords({
       rule: req.query.rule || "guobiao",
       matchTier,
       eventId: eventId || null,
+      roomType,
       limit,
       offset,
     });

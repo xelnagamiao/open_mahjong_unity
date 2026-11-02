@@ -36,6 +36,7 @@
 - 仅镜像 `Assets`、`Packages`、`ProjectSettings`，并同步主项目的构建偏好；不复制主项目的整个 Library、Temp、输出目录或 Git。副本保留自己的 Library，首次构建需要完整导入，后续复用缓存。
 - 每次同步会删除副本源目录中主项目已删除的文件，请勿在副本中开发。拒绝符号链接/目录联接，避免镜像影响源项目。
 - 三端各启动一个 Unity 进程，顺序等待结束；一端失败后继续其余端，最终返回失败状态。锁防止重复运行，同一个副本不能另外在 Unity 中打开。
+- 取消本轮编译：按 `Ctrl+C`，或直接关闭运行脚本的命令行窗口。每端 Unity 及其编译器、Gradle 等子进程由 Windows Job Object 绑定到脚本；即使窗口被强制关闭，也会一并结束，不再留下后台继续编译的孤儿进程。只影响脚本启动的独立构建，不关闭主 Unity 编辑器。取消不会继续下一端，已有产物、日志和缓存保留；被中断的产物可能不完整，不能据此发布，重新启动后以新一轮成功结果为准。此保护需要 Windows 10 或更新版本，随工具保留 `OwnedProcess.cs`；更新脚本不会改变已经启动的旧一轮行为。
 - 使用 Unity 的 `-activeBuildProfile` / `-build`，直接传入 `profiles.json` 指定的自定义配置资产：Android 对应 `Assets/Settings/Build Profiles/Android™.asset`，WebGL 对应 `Web.asset`，Windows 对应 `Windows.asset`。不生成替代配置，不改写配置内容，不通过命令行覆盖平台或子目标。每次运行自动同步最新配置及其引用资源，并在日志目录 `profiles.json` 记录路径和 SHA256。修改配置选项后保存即可；仅重命名、移动或更换配置文件时需要更新路径映射。输出路径仍由 `outputs.json` 指定。Android 若改为 AAB 或导出 Gradle 工程，脚本会提示与 APK 输出不符。
 - 将主项目已解析的 `Library/PackageCache` 实际复制到副本，减少重复下载解包和 Windows 包缓存重命名失败；不共享目录联接。其他 Library 导入、编译缓存仍由副本独立维护。
 - 使用本机现有 Unity 许可、Android SDK/JDK 和签名环境；签名密码若只存在编辑器内存中，需要另行配置，脚本不保存密码。

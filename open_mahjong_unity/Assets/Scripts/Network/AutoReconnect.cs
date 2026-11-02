@@ -416,7 +416,7 @@ public static class AutoReconnect {
         } else {
             GameRecordManager.ClearDelayedSpectatorSession();
         }
-        HeaderPanel.Instance?.SetBackToGameVisible(false);
+        WindowsManager.Instance?.SetBackToGameVisible(false);
         _abandonedSpectatorSession = true;
         Debug.Log("[AutoReconnect] 已清理本地观战会话");
     }

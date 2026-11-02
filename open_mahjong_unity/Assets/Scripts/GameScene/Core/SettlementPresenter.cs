@@ -53,6 +53,7 @@ public sealed class SettlementPresenter {
 
     /// <summary>即时分变（杠分/退杠分）：累加到镜像并刷新计分盘。</summary>
     public void ApplyScoreDeltas(Dictionary<int, int> changes) {
+        if (SettlementSync.IsRestoring) return;
         if (changes == null || changes.Count == 0) return;
         var scoreBySeat = new Dictionary<int, int>();
         foreach (KeyValuePair<int, string> kvp in Mirror.IndexToPosition) {
@@ -75,6 +76,7 @@ public sealed class SettlementPresenter {
     /// </summary>
     public void AppendScoreboard(SettlementEnvelope env, Dictionary<int, int> extrasScoreChanges = null,
         Dictionary<int, int> scoreHistoryChanges = null) {
+        if (SettlementSync.IsRestoring) return;
         string winnerUsername = "";
         if (env.WinnerIndex >= 0 && Mirror.IndexToPosition.TryGetValue(env.WinnerIndex, out string huPos)
             && Mirror.PlayerToInfo.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
@@ -101,6 +103,7 @@ public sealed class SettlementPresenter {
 
     /// <summary>用已建好的快照追加计分板（数和尾等由族自行构造快照的场景）。</summary>
     public void AppendScoreboard(RoundSettlementSnapshot snapshot, Dictionary<int, int> scoreChanges) {
+        if (SettlementSync.IsRestoring) return;
         Mirror.RoundSettlementHistory.Add(snapshot);
         ApplyLocalScoreHistory(snapshot, scoreChanges);
         GameSceneUIManager.Instance.UpdateScoreRecord();
@@ -121,6 +124,7 @@ public sealed class SettlementPresenter {
     /// <summary>按分变更新各家镜像分数与 score_history / round_number_history 两列。</summary>
     public void ApplyLocalScoreHistory(RoundSettlementSnapshot snapshot, Dictionary<int, int> scoreChanges,
         Dictionary<int, int> scoresAfter = null) {
+        if (SettlementSync.IsRestoring) return;
         if (scoreChanges == null || scoreChanges.Count == 0) {
             if (!snapshot.isLiuju) return;
             scoreChanges = new Dictionary<int, int>();

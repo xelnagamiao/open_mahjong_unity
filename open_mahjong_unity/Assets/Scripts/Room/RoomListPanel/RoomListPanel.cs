@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +18,6 @@ public class RoomListPanel : MonoBehaviour {
     [SerializeField] private Button JoinRoomButton;        // 加入房间按钮
     private int _joinInputBoundUserId = int.MinValue;
     private readonly Dictionary<string, RoomItem> roomItems = new Dictionary<string, RoomItem>();
-
     private void Start() {
         createButton.onClick.AddListener(OpenCreatePanel);
         refreshButton.onClick.AddListener(RefreshRoomList);
@@ -35,7 +35,8 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
-        NetworkPollingManager.Instance.StartRoomListPolling();
+        if (NetworkManager.Instance != null && NetworkManager.Instance.isActiveAndEnabled)
+            NetworkPollingManager.Instance?.StartRoomListPolling();
         RefreshJoinInputForCurrentUser();
     }
 
@@ -54,7 +55,7 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     private void OnDisable() {
-        NetworkPollingManager.Instance.StopRoomListPolling();
+        NetworkPollingManager.Existing?.StopRoomListPolling();
     }
 
     private void OpenCreatePanel() {
@@ -64,6 +65,13 @@ public class RoomListPanel : MonoBehaviour {
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
             NotificationManager.Instance.ShowTip("create_room", false, "必须先退出当前房间才能创建房间");
             return;
+        }
+        var events = EventSystem.current;
+        if (events != null && createButton != null) {
+            var pointer = new PointerEventData(events) { button = PointerEventData.InputButton.Left };
+            createButton.OnPointerExit(pointer);
+            createButton.OnPointerUp(pointer);
+            if (events.currentSelectedGameObject == createButton.gameObject) events.SetSelectedGameObject(null);
         }
         RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
         WindowsManager.Instance.SwitchWindow("room");
@@ -85,6 +93,7 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     public void RefreshRoomList() {
+        if (NetworkManager.Instance == null || !NetworkManager.Instance.isActiveAndEnabled) return;
         RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: true);
     }
 
@@ -133,6 +142,7 @@ public class RoomListPanel : MonoBehaviour {
                     roomItems[roomData.room_id] = item;
                 }
                 item.SetRoomInfo(roomData, entry.ColorIndex);
+                item.gameObject.SetActive(true);
                 item.transform.SetSiblingIndex(retained.Count - 1);
             }
         }

@@ -64,6 +64,7 @@ public static class RuleSupportTableBaker {
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("请先退出播放模式。");
         var scene = SceneManager.GetActiveScene();
         Bake(scene);
+        foreach (var panel in scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<CreatePanel>(true))) panel.SaveDeferredPanels();
         Validate(scene);
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("麻将规则支持表已从 Excel 同步到普通和赛事创建房间面板。");
@@ -72,6 +73,7 @@ public static class RuleSupportTableBaker {
     public static void Bake(Scene scene) {
         var panels = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<CreatePanel>(true)).ToArray();
         if (panels.Length == 0) return;
+        if (BuildPipeline.isBuildingPlayer) { Validate(scene); return; }
         var data = ReadWorkbook();
         var font = RuleSupportTableFont.Prepare(data, !BuildPipeline.isBuildingPlayer);
         foreach (var panel in panels) {

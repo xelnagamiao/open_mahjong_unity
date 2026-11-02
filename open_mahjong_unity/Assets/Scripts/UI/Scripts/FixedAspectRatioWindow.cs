@@ -15,6 +15,7 @@ using UnityEngine.UI;
 public class FixedAspectRatio : MonoBehaviour {
     public float targetAspectRatio = 16f / 9f; // 例如 1.777
     [SerializeField] private Camera[] targetCameras;
+    [SerializeField] private Canvas[] viewportCanvases;
 
     private const string BlackBarCanvasName = "FixedAspectRatio Black Bars";
     /// <summary>最大化 letterbox 时需随相机视口裁剪的 Overlay 根 Canvas（还原后必须回到 Screen Space - Overlay）。</summary>
@@ -73,8 +74,6 @@ public class FixedAspectRatio : MonoBehaviour {
         public RenderMode renderMode;
         public Camera worldCamera;
         public float planeDistance;
-        public int sortingLayerID;
-        public int sortingOrder;
     }
 
     void Start() {
@@ -88,10 +87,13 @@ public class FixedAspectRatio : MonoBehaviour {
     }
 
     private void CacheLetterboxRootCanvases() {
+        if (viewportCanvases != null && viewportCanvases.Length > 0) {
+            letterboxRootCanvases = viewportCanvases;
+            return;
+        }
         var roots = new List<Canvas>(LetterboxOverlayRootNames.Length);
-        for (int i = 0; i < LetterboxOverlayRootNames.Length; i++) {
-            GameObject root = GameObject.Find(LetterboxOverlayRootNames[i]);
-            if (root == null) continue;
+        foreach (GameObject root in gameObject.scene.GetRootGameObjects()) {
+            if (Array.IndexOf(LetterboxOverlayRootNames, root.name) < 0) continue;
             Canvas canvas = root.GetComponent<Canvas>();
             if (canvas != null && canvas != blackBarCanvas) {
                 roots.Add(canvas);
@@ -206,7 +208,7 @@ public class FixedAspectRatio : MonoBehaviour {
         canvasObject.transform.SetParent(transform, false);
         Canvas canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = short.MaxValue;
+        UiCanvasLayers.Apply(canvas, UiCanvasLayers.Feedback, short.MaxValue, false);
         blackBarCanvas = canvas;
 
         blackBars = new RectTransform[4];
@@ -253,33 +255,41 @@ public class FixedAspectRatio : MonoBehaviour {
             renderMode = canvas.renderMode,
             worldCamera = canvas.worldCamera,
             planeDistance = canvas.planeDistance,
-            sortingLayerID = canvas.sortingLayerID,
-            sortingOrder = canvas.sortingOrder,
         };
     }
 
     private static void ApplyCanvasState(Canvas canvas, CanvasState state) {
+        int currentOrder = canvas.sortingOrder;
         canvas.renderMode = state.renderMode;
         canvas.worldCamera = state.worldCamera;
         canvas.planeDistance = state.planeDistance;
-        canvas.sortingLayerID = state.sortingLayerID;
-        canvas.sortingOrder = state.sortingOrder;
+        // Changing renderMode can leave Unity's root render order stale even
+        // though sortingOrder still reports its correct value. Re-register the
+        // current order; never restore a sorting value captured before the switch.
+        canvas.sortingOrder = currentOrder;
     }
 
     private void ActivateLetterboxCanvasMode() {
         Camera canvasCamera = GetCanvasCamera();
-        Canvas[] canvases = FindObjectsByType<Canvas>();
+        if (!canvasCamera) return;
+        if (letterboxRootCanvases == null) CacheLetterboxRootCanvases();
+        Canvas[] canvases = letterboxRootCanvases;
         for (int i = 0; i < canvases.Length; i++) {
             Canvas canvas = canvases[i];
-            if (canvas == null || canvas == blackBarCanvas) continue;
-            if (canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
+            if (canvas == null || canvas == blackBarCanvas || !canvas.isRootCanvas) continue;
 
             if (!overlayCanvasStates.ContainsKey(canvas)) {
                 overlayCanvasStates.Add(canvas, CaptureCanvasState(canvas));
             }
 
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = canvasCamera;
+            // Disabled roots must enter the same mode before a later page is opened.
+            if (canvas.renderMode != RenderMode.ScreenSpaceCamera || canvas.worldCamera != canvasCamera) {
+                ApplyCanvasState(canvas, new CanvasState {
+                    renderMode = RenderMode.ScreenSpaceCamera,
+                    worldCamera = canvasCamera,
+                    planeDistance = canvas.planeDistance,
+                });
+            }
         }
 
         isLetterboxActive = true;
@@ -319,8 +329,11 @@ public class FixedAspectRatio : MonoBehaviour {
                 continue;
             }
 
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.worldCamera = null;
+            ApplyCanvasState(canvas, new CanvasState {
+                renderMode = RenderMode.ScreenSpaceOverlay,
+                worldCamera = null,
+                planeDistance = canvas.planeDistance,
+            });
         }
     }
 

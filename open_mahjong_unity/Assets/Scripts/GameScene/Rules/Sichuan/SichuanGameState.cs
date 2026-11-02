@@ -22,6 +22,16 @@ public class SichuanGameState : TurnBasedGameState {
     /// <summary>血战到底：收到 round_continues=true 的和牌结算后挂起，待下次询问时恢复行牌。</summary>
     public bool PendingContinueAfterResult { get; private set; }
 
+    protected override bool TryApplyFamilyWord(TableAction action, string word) {
+        if (word != "sichuan_kong_reveal") return base.TryApplyFamilyWord(action, word);
+        var info = Mirror.Info(action.Seat);
+        int index = info.combination_tiles.FindIndex(c => c == action.CombinationTarget);
+        if (index >= 0 && action.CombinationMask?.Length == 8)
+            Game3DManager.Instance.RevealSichuanUnscoredKong(action.Seat, info.combination_masks,
+                index, action.CombinationMask[1]);
+        return true;
+    }
+
     private readonly SichuanEndgameLedger ledger = new SichuanEndgameLedger();
     private int lastXueliuWinTick;
     private int lastXueliuGangTick;
@@ -33,7 +43,9 @@ public class SichuanGameState : TurnBasedGameState {
     // =====================================================================
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
         snapshotActionTick = gameInfo?.action_tick ?? 0;
+        RestoreDuplicateWall(gameInfo);
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;
         ledger.Reset();
@@ -59,6 +71,7 @@ public class SichuanGameState : TurnBasedGameState {
         }
         RefreshSelfStatusIndicators();
         GameCanvas.Instance.UpdateSichuanTeams(gameInfo.sichuan_teams?.team_by_player_index, keepDingque: SichuanLobby.IsXueliuDoubles(Session.SubRule));
+        RoundEndPresentation.Instance?.ShowSichuanDuplicateResult(gameInfo.duplicate_match);
     }
 
     // =====================================================================
@@ -70,6 +83,7 @@ public class SichuanGameState : TurnBasedGameState {
             case "duplicate_status":
                 Clock.Clear("duplicate_status");
                 RoundPanel.Instance?.UpdateDuplicateStatus(response.duplicate_match_info);
+                RoundEndPresentation.Instance?.ShowSichuanDuplicateResult(response.duplicate_match_info);
                 return true;
             case "xueliu_continue":
                 ApplyXueliuContinue(response.game_info);
@@ -215,6 +229,7 @@ public class SichuanGameState : TurnBasedGameState {
         if (info.action_tick > 0 && info.action_tick < System.Math.Max(snapshotActionTick,
             System.Math.Max(lastXueliuWinTick, lastXueliuGangTick))) return;
         snapshotActionTick = System.Math.Max(snapshotActionTick, info.action_tick);
+        RestoreDuplicateWall(info);
         var scores = new Dictionary<int, int>();
         foreach (PlayerInfo player in info.players_info) {
             string seat = Mirror.SeatOf(player.player_index);
@@ -288,6 +303,11 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>杠即时分变：累加分数并飘字。</summary>
     protected override void OnActionPlayed(TableAction action) {
+        if (Session.IsDuplicate && action.SichuanWallMasks != null) {
+            Mirror.SetSichuanWallMasks(action.SichuanWallMasks);
+            Game3DManager.Instance?.UpdateSichuanWall(action.SichuanWallMasks);
+            GameCanvas.Instance?.RefreshDuplicateRemainingTiles();
+        }
         bool xueliu = SichuanLobby.IsXueliu(Session.SubRule);
         if ((!xueliu && action.Silent) || !ContainsGangAction(action.Words)) return;
         if (!GameCanvas.HasNonZeroGangScoreChanges(action.GangScoreChanges)) return;
@@ -369,6 +389,12 @@ public class SichuanGameState : TurnBasedGameState {
         }
         Presenter.CloseTableForSettlement();
 
+        if (env.SichuanSettlement != null) {
+            Presenter.ApplyScores(env.ScoresAfter);
+            RoundEndPresentation.Instance.PresentSichuanBoard(env.SichuanSettlement, env.NextStatus);
+            if (env.IsMatchEnd) Manager.MarkAwaitingMatchEnd();
+            return;
+        }
         bool isMidGameHu = env.DeferScoreSettlement && env.IsHu;
         bool isEndgameScoreStep = SichuanEndgameLedger.IsEndgameScoreStep(env.LiujuStep);
 
@@ -385,17 +411,23 @@ public class SichuanGameState : TurnBasedGameState {
             } else if (env.LiujuStep == "settle_hu") {
                 ledger.Accumulate(env.ScoreChanges);
                 ledger.RecordHu();
+            } else if (env.LiujuStep == "settle_gang") {
+                ledger.Accumulate(env.ScoreChanges);
             } else if (env.LiujuStep == "chajiao") {
                 ledger.MarkChajiaoStep();
                 ledger.Accumulate(env.ScoreChanges);
             }
-            if (env.LiujuStatusFinal && ledger.TryFlushToHistory(Session.SubRule, Mirror.RoundSettlementHistory)) {
+            if (env.LiujuStatusFinal && ledger.TryFlushToHistory(Session.SubRule, Mirror.RoundSettlementHistory, env.ScoresAfter)) {
                 GameSceneUIManager.Instance.UpdateScoreRecord();
             }
         } else if (!xueliu && !isMidGameHu) {
             AppendScoreboard(env);
         }
 
+        if (env.SichuanGroupedEndgame) {
+            Presenter.ApplyScores(env.ScoresAfter);
+            return;
+        }
         if (env.IsLiuju) {
             PresentLiujuStep(env);
             return;
@@ -449,6 +481,10 @@ public class SichuanGameState : TurnBasedGameState {
                 Presenter.ApplyScores(env.ScoresAfter);
                 break;
             }
+            case "settle_gang":
+                RoundEndPresentation.Instance.EnqueueSichuanKongSettlement(env.ScoresAfter, env.ScoreChanges, env.FanLabels);
+                Presenter.ApplyScores(env.ScoresAfter);
+                break;
             case "cha_refund":
                 Presenter.ApplyScores(env.ScoresAfter);
                 if (GameCanvas.HasNonZeroGangScoreChanges(env.ScoreChanges)) {
@@ -475,6 +511,7 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>血战沿用终局简化计分板。</summary>
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         Dictionary<int, int> scoreChanges = env.ScoreChanges;
         if (scoreChanges == null || scoreChanges.Count == 0) {
             scoreChanges = Presenter.BuildScoreChangesFromScoresAfter(env.ScoresAfter);
@@ -485,10 +522,31 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打。</summary>
     protected override void OnSettlementPresented(SettlementEnvelope env, ShowResultInfo info) {
+        RoundPanel.Instance?.UpdateSichuanSettlement(info);
         PendingContinueAfterResult = !SichuanLobby.IsXueliu(Session.SubRule) && info.round_continues == true;
     }
 
+    protected override void OnReadyStatus(Response response) {
+        base.OnReadyStatus(response);
+        if (response.ready_status_info != null) RoundEndPresentation.Instance?.EnableSichuanDuplicateReady();
+    }
+
+    protected override void OnGameEnd(Response response) {
+        RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
+        RoundPanel.Instance?.UpdateDuplicateStatus(response.game_end_info?.duplicate_match);
+        if (EndResultPanel.Instance?.IsSichuanBoardVisible == true) {
+            EndResultPanel.Instance.PromoteSichuanBoardToMatchEnd();
+            Manager.MarkAwaitingMatchEnd();
+        }
+        base.OnGameEnd(response);
+        if (response.game_end_info?.duplicate_match != null && EndResultPanel.Instance?.IsSichuanBoardVisible != true) Manager.FlushPendingGameEnd();
+    }
+
     public override void OnSessionReset() {
+        RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
+        Mirror.SetSichuanWallMasks(null);
+        GameCanvas.Instance?.RefreshDuplicateRemainingTiles();
+        Game3DManager.Instance?.ClearSichuanWall();
         snapshotActionTick = 0;
         lastXueliuWinTick = 0;
         lastXueliuGangTick = 0;
@@ -498,5 +556,19 @@ public class SichuanGameState : TurnBasedGameState {
         if (GameCanvas.Instance != null) GameCanvas.Instance.HideDingqueSelection();
         if (GameCanvas.Instance != null) GameCanvas.Instance.HideXueliuThrowThreeSelection();
         if (GameCanvas.Instance != null) GameCanvas.Instance.ClearXueliuExchangePresentation();
+    }
+
+    private void RestoreDuplicateWall(GameInfo info) {
+        Mirror.SetSichuanWallMasks(Session.IsDuplicate ? info?.sichuan_wall_masks : null);
+        GameCanvas.Instance?.RefreshDuplicateRemainingTiles();
+        if (!Session.IsDuplicate || info?.sichuan_wall_masks == null || info.players_info == null) {
+            Game3DManager.Instance?.ClearSichuanWall();
+            return;
+        }
+        var seats = new Dictionary<int, string>();
+        foreach (PlayerInfo player in info.players_info) {
+            if (player != null) seats[player.original_player_index] = Mirror.SeatOf(player.player_index);
+        }
+        Game3DManager.Instance?.ShowSichuanWall(info.sichuan_wall_masks, seats);
     }
 }

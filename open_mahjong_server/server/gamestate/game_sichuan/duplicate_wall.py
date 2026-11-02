@@ -44,6 +44,15 @@ class SichuanDuplicateWall(list):
     def remaining_counts(self):
         return [len(part) for part in self.parts]
 
+    def display_masks(self):
+        """Public occupied slots, by original E/S/W/N seat; never tile faces.
+
+        Each physical wall has 14 slots (seven two-tile stacks). Consumed
+        slots stay empty, including when a player inherits a partner's wall.
+        """
+        return [((1 << len(part)) - 1) << self.consumed[seat]
+                for seat, part in enumerate(self.parts)]
+
 
 class XueliuDuplicateWall(SichuanDuplicateWall):
     """Eight fixed draws per seat, then one shared queue (JJ bloodflow).
@@ -63,6 +72,16 @@ class XueliuDuplicateWall(SichuanDuplicateWall):
 
     def source(self, player):
         return (-1 if self.common_started else player.original_player_index) if self else None
+
+    def display_masks(self):
+        # Fixed eight occupy slots 0..7. The original common 24 occupy six
+        # slots per side, 8..13. Rollover changes draw order, not positions.
+        masks = [0] * 4 if self.common_started else super().display_masks()
+        for seat, position in self.common_sources:
+            if seat == -1:
+                seat, position = position // 6, 8 + position % 6
+            masks[seat] |= 1 << position
+        return masks
 
     def pop_for_player(self, player, index=0):
         if index != 0:
@@ -89,6 +108,11 @@ class XueliuDuplicateWall(SichuanDuplicateWall):
 def can_draw(state, player_index):
     wall = state.tiles_list
     return wall.can_draw(state.player_list[player_index]) if isinstance(wall, SichuanDuplicateWall) else len(wall) > state.dead_wall_count
+
+
+def wall_display_masks(state):
+    wall = state.tiles_list
+    return wall.display_masks() if isinstance(wall, SichuanDuplicateWall) else None
 
 
 def wall_exhausted(state):

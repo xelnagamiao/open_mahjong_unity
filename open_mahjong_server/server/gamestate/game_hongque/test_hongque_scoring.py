@@ -27,7 +27,7 @@ def test_mixed_pure_and_half_colours_do_not_gain_either_fan():
 
 
 @pytest.mark.parametrize('groups,base,fans,points', [
-    ([['FX' + str(n) for n in range(1, 10)], ['EX' + str(n) for n in (1, 3, 5, 7, 9)]], 11, 31, 341),
+    ([['FX' + str(n) for n in range(1, 10)], ['EX' + str(n) for n in (1, 3, 5, 7, 9)]], 11, 33, 363),
     ([[letter + 'Y3' for letter in 'ABCDEF'], [letter + 'Y5' for letter in 'ABCDEF']], 9, 33, 297),
     (['GY4 AY4 BY4 CY4 DY4 EY4'.split(), 'GY1 GY3 GY5'.split(), 'GY7 GY8 GY9'.split()], 6, 17, 102),
 ])
@@ -95,8 +95,8 @@ def test_dual_colour_counts_covered_pure_colours() -> None:
     assert "三色" not in names
     # 七归一按 14 级独立计数：AX/AY/BX 各 4 张，不合并 → 不计七归一
     assert "七归一" not in names
-    assert result["fan_total"] == 27
-    assert result["points"] == 216
+    assert result["fan_total"] == 24
+    assert result["points"] == 192
 
 
 def test_seven_nine_return_count_14_levels_independently() -> None:
@@ -167,8 +167,8 @@ def test_heavenly_win_does_not_count_menqing() -> None:
     names = {fan["name"]: fan["total"] for fan in result["fans"]}
     assert names["天和"] == 18
     assert "门清" not in names
-    assert result["fan_total"] == 50
-    assert result["points"] == 350
+    assert result["fan_total"] == 52
+    assert result["points"] == 364
 
 
 def test_exposed_groups_with_concealed_group_complete_the_win() -> None:
@@ -223,7 +223,7 @@ def test_same_flower_and_same_sequence_fans_are_repeatable() -> None:
     assert result is not None
     fan_map = {fan["name"]: fan["total"] for fan in result["fans"]}
     assert fan_map["双同花"] == 4  # 2 组 × 2 番
-    assert fan_map["双同顺"] == 4  # 2 组 × 2 番
+    assert fan_map["双同顺"] == 2  # 2 组 × 1 番
     same_flower = next(fan for fan in result["fans"] if fan["name"] == "双同花")
     same_sequence = next(fan for fan in result["fans"] if fan["name"] == "双同顺")
     assert same_flower["count"] == 2

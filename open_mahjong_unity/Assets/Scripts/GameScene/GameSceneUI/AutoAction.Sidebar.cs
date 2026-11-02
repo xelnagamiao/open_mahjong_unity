@@ -91,7 +91,33 @@ public partial class AutoAction {
         sidebarPopupLayoutDirty = false;
     }
 
+    private void OnEnable() {
+        ConfigManager.OnLanguageChanged += RefreshSidebarLanguage;
+        RefreshExpandLabel();
+        if (sidebarRect != null) RefreshSidebarLanguage();
+    }
+
+    private void RefreshExpandLabel() {
+        if (!expandButtonText) return;
+        TableText.Set(expandButtonText, TableText.CompactActionKey("展"));
+        var binding = expandButtonText.GetComponent<LocalizedPlatformLabel>();
+        if (binding) binding.fitTranslation = false;
+        expandButtonText.fontSize = 40;
+        expandButtonText.enableAutoSizing = false;
+        expandButtonText.textWrappingMode = TextWrappingModes.NoWrap;
+    }
+
+    private void RefreshSidebarLanguage() {
+        RefreshExpandLabel();
+        if (sidebarRect == null || sidebarHandle == null) return;
+        StopSidebarSlide();
+        RefreshSidebarPresentation();
+        SetSidebarWidth(IsSidebarExpanded ? sidebarExpandedWidth : sidebarCompactWidth);
+        sidebarPopupLayoutDirty = true;
+    }
+
     private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshSidebarLanguage;
         StopSidebarSlide();
         if (sidebarRect != null && sidebarHandle != null) {
             SetSidebarWidth(IsSidebarExpanded ? sidebarExpandedWidth : sidebarCompactWidth);
@@ -131,19 +157,28 @@ public partial class AutoAction {
     }
 
     private void RefreshSidebarPresentation() {
+        RefreshExpandLabel();
         sidebarExpandedWidth = sidebarCompactWidth;
         foreach (SidebarRow row in sidebarRows) {
             // 规则/观战模式仍由 AutoAction 决定可见性；整行退出布局，不留空位。
             row.root.gameObject.SetActive(row.label.gameObject.activeSelf);
-            row.label.text = IsSidebarExpanded ? row.fullName : row.compactName;
-            row.label.fontSize = IsSidebarExpanded ? 36f : 40f;
+            string fullName = row.fullName switch {
+                "自动补花" => "table.auto.flower.full", "自动理牌" => "table.auto.sort.full",
+                "自动和牌" => "table.auto.win.full", "不吃碰杠" => "table.auto.pass.full",
+                "自动摸切" => "table.auto.cut.full", _ => row.fullName
+            };
+            TableText.Set(row.label, IsSidebarExpanded ? fullName : TableText.CompactActionKey(row.compactName));
+            bool english = ConfigManager.CurrentLanguage == AppLanguage.English;
+            row.label.fontSize = IsSidebarExpanded ? (english ? 30f : 36f) : (english ? 22f : 40f);
+            row.label.enableAutoSizing = false;
+            row.label.textWrappingMode = TextWrappingModes.NoWrap;
             row.label.alignment = IsSidebarExpanded ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.Midline;
             row.label.margin = IsSidebarExpanded ? new Vector4(36f, 0f, 12f, 0f) : Vector4.zero;
             row.background.color = IsSidebarExpanded ? new Color32(27, 46, 99, 255) : Color.clear;
             row.indicator.gameObject.SetActive(IsSidebarExpanded);
             if (IsSidebarExpanded && row.root.gameObject.activeSelf) {
                 // TMP 的首选宽度包含文本边距；只按当前规则可见的行计算，避免固定宽度留下空栏。
-                float rowWidth = row.label.GetPreferredValues(row.fullName, Mathf.Infinity, Mathf.Infinity).x;
+                float rowWidth = row.label.GetPreferredValues(row.label.text, Mathf.Infinity, Mathf.Infinity).x;
                 sidebarExpandedWidth = Mathf.Max(sidebarExpandedWidth,
                     Mathf.Ceil(rowWidth + sidebarLayout.padding.horizontal));
             }

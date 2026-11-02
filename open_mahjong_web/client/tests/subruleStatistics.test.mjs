@@ -10,7 +10,7 @@ test('observed fan labels are retained when an older display dictionary lacks th
 
 test('catalog exposes exactly the reviewed capabilities and all available modes', () => {
   assert(STATISTICS_RULES.length >= 43);
-  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 26);
+  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 27);
   assert.equal(statisticsSelection('sichuan').fan_stats, true);
   assert.equal(statisticsSelection('sichuan').fan_key, 'sichuan');
   assert.equal(statisticsSelection('guobiao_huahun').sub_rule, 'guobiao/huahun');

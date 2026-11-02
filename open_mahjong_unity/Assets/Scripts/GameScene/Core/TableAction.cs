@@ -52,6 +52,8 @@ public sealed class TableAction {
     // ---- 族附带 ----
     /// <summary>四川刮风下雨即时分变 {player_index: delta}。</summary>
     public Dictionary<int, int> GangScoreChanges;
+    /// <summary>川麻复式实体墙占位快照；只随实时动作落桌，不用于牌谱牌山。</summary>
+    public int[] SichuanWallMasks;
     /// <summary>台湾：应计入哪种听牌资格。</summary>
     public string ReadyQualification;
 
@@ -97,6 +99,7 @@ public sealed class TableAction {
             Silent = info.silent == true,
             IsTimeoutAction = info.is_timeout_action == true,
             GangScoreChanges = info.gang_score_changes,
+            SichuanWallMasks = info.sichuan_wall_masks,
             ReadyQualification = info.ready_qualification,
         };
     }

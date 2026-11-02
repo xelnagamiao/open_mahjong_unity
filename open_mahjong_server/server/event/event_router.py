@@ -83,7 +83,7 @@ async def handle_event_message(game_server, Connect_id: str, message: dict, webs
             kind = (message.get("kind") or "").strip() or None
             if kind not in (None, "event", "base"):
                 kind = None
-            events = db.list_public_active_venues(kind)
+            events = db.list_public_active_venues(kind, user_id=user_id)
             for item in events:
                 item["entry_summary"] = _public_entry_summary(item.get("entry_config"))
                 item.pop("entry_config", None)
@@ -145,6 +145,7 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
     schedule = game_server.db_manager.get_event_schedule(event_id)
     detail = {
         "event_id": event.get("event_id"),
+        "created_by": event.get("created_by"),
         "name": event.get("name"),
         "description": event.get("description") or "",
         "status": event.get("status"),

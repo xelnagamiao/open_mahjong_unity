@@ -1,4 +1,5 @@
 """保存单次结算消息，重连只重发快照，不重新收付。"""
+from ..public.settlement_sync import send_game_packet
 import logging
 from ...response import Response,Show_result_info
 
@@ -15,6 +16,6 @@ async def broadcast_result(state,**fields):
             await state.send_to_realtime_spectators(player.player_index,response)
             connection = state.game_server.user_id_to_connection.get(player.user_id)
             if player.user_id>=10 and "offline" not in player.tag_list and connection is not None:
-                await connection.websocket.send_json(state._terminal_result)
+                await send_game_packet(state, connection.websocket, state._terminal_result)
         except Exception:
             logger.exception("九江结算发送失败 user_id=%s",player.user_id)

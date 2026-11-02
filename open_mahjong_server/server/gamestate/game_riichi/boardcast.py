@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet, remember_result
 from ...game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 from ..public.action_window import prepare_action_window, prepare_ready_window
 from ..public.ready_phase import ready_status_by_seat
@@ -57,7 +58,7 @@ async def _deliver(self, viewer, payload):
     conn = self.game_server.user_id_to_connection.get(player.user_id) if player is not None else None
     if conn is not None:
         data = payload if isinstance(payload, dict) else payload.dict(exclude_none=True)
-        await conn.websocket.send_json(data)
+        await send_game_packet(self, conn.websocket, data)
         await self.send_to_realtime_spectators(viewer, payload)
 
 
@@ -114,6 +115,8 @@ def _build_base_game_info(self) -> dict:
         "step_time": self.step_time,
         "round_time": self.round_time,
         "room_type": self.room_type,
+        "match_queue_type": getattr(self, "match_queue_type", None),
+        "match_tier": getattr(self, "match_tier", None),
         "room_rule": self.room_rule,
         "claim_protection": getattr(self, "claim_protection", False),
         "sub_rule": getattr(self, "sub_rule", "riichi/standard"),
@@ -422,11 +425,6 @@ async def broadcast_result(
     self.server_action_tick += 1
     for cp in self.player_list:
         try:
-            if "offline" in cp.tag_list or cp.user_id == 0:
-                continue
-            if cp.user_id not in self.game_server.user_id_to_connection:
-                continue
-            conn = self.game_server.user_id_to_connection[cp.user_id]
             response = Response(
                 type="gamestate/riichi/show_result",
                 success=True,
@@ -463,6 +461,12 @@ async def broadcast_result(
                     next_status=next_status,
                 ),
             )
+            remember_result(self, response, cp.player_index)
+            if "offline" in cp.tag_list or cp.user_id == 0:
+                continue
+            if cp.user_id not in self.game_server.user_id_to_connection:
+                continue
+            conn = self.game_server.user_id_to_connection[cp.user_id]
             await _send_response(self, cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_result 失败: {e}")
@@ -668,7 +672,7 @@ async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, 
                     forbidden_cut_tiles=forbidden,
                 ),
             )
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
         if self.action_dict.get(idx):
             robbing = self.game_status == "waiting_action_qianggang"
@@ -679,7 +683,7 @@ async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, 
                     do_action_info=Do_action_info(action_list=[pending.get('kind', 'jiagang')],
                         action_player=self.current_player_index, action_tick=self.server_action_tick,
                         cut_tile=cut_tile, is_claim=True, silent=True))
-                await conn.websocket.send_json(declaration.dict(exclude_none=True))
+                await send_game_packet(self, conn.websocket, declaration.dict(exclude_none=True))
             response = Response(
                 type="gamestate/riichi/ask_other_action",
                 success=True,
@@ -693,7 +697,7 @@ async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, 
                     chi_candidates=player.chi_candidates if player.chi_candidates else None,
                 ),
             )
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
 
 
 async def reconnected_send_pending_ask(self, user_id: int):

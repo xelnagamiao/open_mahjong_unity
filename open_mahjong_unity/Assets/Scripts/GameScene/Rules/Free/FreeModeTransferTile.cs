@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 /// <summary>中心盘上的共享牌按放入顺序展示，编号保留至该张牌被取走。</summary>
 public sealed class FreeModeTransferTile : MonoBehaviour {
@@ -84,17 +85,24 @@ public sealed class FreeModeTransferTile : MonoBehaviour {
         var backing = number.GetComponent<Image>();
         backing.color = new Color(0.04f, 0.09f, 0.12f, 0.92f);
         backing.raycastTarget = false;
-        var label = new GameObject("Label", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
+        var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TMP_Text>();
         label.transform.SetParent(number.transform, false);
         label.rectTransform.anchorMin = Vector2.zero;
         label.rectTransform.anchorMax = Vector2.one;
         label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
-        label.font = Resources.Load<Font>("font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular");
+        label.font = PlatformTypography.ChineseRegular;
         label.fontSize = 56;
-        label.alignment = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignmentOptions.Center;
         label.color = Color.white;
         label.raycastTarget = false;
         label.text = item.slot.ToString();
+        var typography = label.gameObject.AddComponent<PlatformFontBinding>();
+        typography.authoredFont = label.font;
+        typography.authoredMaterial = label.fontSharedMaterial;
+        typography.authoredStyle = FontStyles.Normal;
+        typography.authoredWeight = FontWeight.Regular;
+        typography.styleCaptured = true;
+        typography.Apply();
         return new Presentation { tile = tile, target = (RectTransform)root.transform, number = numberRect,
             canvas = canvas, token = item.token, tileId = item.tile, faceDown = item.face_down };
     }

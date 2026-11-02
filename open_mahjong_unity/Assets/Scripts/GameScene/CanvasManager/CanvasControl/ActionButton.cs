@@ -141,8 +141,8 @@ public class ActionButton : MonoBehaviour {
                 GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
             }
             else if (GameCanvas.Instance.ActionBlockContainerState != "None"){
-                foreach (Transform child in ActionBlockContenter){
-                    Destroy(child.gameObject);
+                foreach (Transform child in ActionBlockContenter.Cast<Transform>().ToArray()){
+                    Destroyer.Instance.AddToDestroyer(child);
                 }
                 if (GameCanvas.Instance.ActionBlockContainerState == currentButtonType){
                     GameCanvas.Instance.ActionBlockContainerState = "None";
@@ -174,6 +174,7 @@ public class ActionButton : MonoBehaviour {
                     }
                 }
             }
+            UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
             return;
         }
 
@@ -207,7 +208,8 @@ public class ActionButton : MonoBehaviour {
     /// <summary>展开/收起规则模块给出的候选子按钮；再次点击同一组词时收起。</summary>
     private void ToggleModuleCandidates(string groupWord, IReadOnlyList<ActionCandidate> candidates) {
         bool close = GameCanvas.Instance.ActionBlockContainerState == groupWord;
-        foreach (Transform child in ActionBlockContenter) Destroy(child.gameObject);
+        foreach (Transform child in ActionBlockContenter.Cast<Transform>().ToArray())
+            Destroyer.Instance.AddToDestroyer(child);
         if (close) {
             GameCanvas.Instance.ActionBlockContainerState = "None";
             return;
@@ -215,6 +217,7 @@ public class ActionButton : MonoBehaviour {
         GameCanvas.Instance.ActionBlockContainerState = groupWord;
         if (candidates.Any(c => !string.IsNullOrEmpty(c.Caption))) {
             ActionCandidatePager.Build(ActionBlockContenter, candidates, ActionBlockPrefab, StaticCardPrefab, textObject);
+            UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
             return;
         }
         foreach (ActionCandidate candidate in candidates) {
@@ -229,6 +232,7 @@ public class ActionButton : MonoBehaviour {
         }
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
+        UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
     }
 
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {

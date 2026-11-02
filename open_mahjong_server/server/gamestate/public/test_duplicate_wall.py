@@ -263,7 +263,8 @@ def test_non_guobiao_route_rejects_key_before_db_load(name):
     socket = SimpleNamespace(send_json=AsyncMock())
     asyncio.run(handle_room_message(server, "connection", {"type": f"room/create_{name}_room", "duplicate_key": "DUP_test01234567"}, socket))
     payload = socket.send_json.call_args.args[0]
-    assert payload["success"] is False and "仅支持国标" in payload["message"]
+    assert payload["success"] is False
+    assert ("成对创建" if name == "Sichuan" else "仅支持国标") in payload["message"]
     server.db_manager._get_connection.assert_not_called()
 
 

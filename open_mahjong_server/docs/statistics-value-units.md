@@ -1,4 +1,4 @@
-# 统计番数与得分口径、首次全量修复
+# 统计番数与得分口径
 
 `total_fan_score`、`total_fangchong_score` 是历史协议字段名，不能据此推断所有规则都使用“番”。每个子规则的 `win_stat_unit`、`deal_in_stat_unit` 在 `server/database/statistics_rules.json` 明确声明，由 `scripts/sync_statistics_catalog.py` 同步到 Web 和 Unity。修改统计配置不需要更新麻将规则支持表。
 
@@ -20,28 +20,10 @@
 
 新四川牌谱在每回合的 `win_fan_by_tick` 保存“动作数组零基下标 → 原始番数”。此字段优先于旧谱推算，原有动作数组位置、结算分和回放协议保持兼容。无法识别的旧番种或缺失番种会显式报错，不使用基本分冒充番数。Web 本地牌谱分析与服务端采用同一口径，包括零支付的延迟结算和换位后的和牌、放铳计数。
 
-## 首次全量回填
+## 历史维护与回归
 
-先发布新的服务端统计代码，再于维护窗口运行本脚本。普通服务器启动不会自动扫描、重写历史数据。脚本扫描**所有已有 `game_player_metrics` 行**的原始牌谱，只修复两个数值字段；这是值口径修复，不负责补造缺失的参与者索引、逐局行或日统计桶。
+一次性历史数值重算工具及其专用测试已移出常规发行，保留在维护归档中。普通服务启动不会执行这类重算；旧库若仍需修正历史值，应先备份并在数据库副本核对维护方案，不能通过清理迁移标记强制重跑。
 
-在 `open_mahjong_server` 目录，使用服务端 Python 环境：
+已有 `statistics_value_backfill_backup` 备份和 `app_meta.statistics_win_value_units_v1` 标记继续保留。实时统计与旧谱数值解析保持兼容，不清空或重算数据库。
 
-```powershell
-.\.venv\Scripts\python.exe scripts/backfill_statistics_values.py --dry-run
-.\.venv\Scripts\python.exe scripts/backfill_statistics_values.py --apply
-```
-
-默认也是只读预览。连接优先使用环境变量 `STATISTICS_DATABASE_URL`，否则读取 `server/local_config.py`，缺省读取 `server/test_config.py`，不会启动游戏服务器。检查目标连接后再使用 `--apply`。输出包含扫描行数、需修正行数、按子规则分类的数量和最多 20 条异常定位。
-
-正式执行具有以下行为：
-
-- 原始牌谱优先识别玩家；存在明确参与者信息时不采用冲突的旧索引。子规则不匹配、原谱缺失、未知番种等异常使整次运行回滚，返回非零退出码，不写完成标记。
-- 按批读取（默认 500 行，可用 `--batch-size` 调整），在同一事务内更新逐局指标、旧兼容累计表及所有已存在的日统计桶。个人统计、平台统计同时生效，不等待下一次每日聚合。
-- 原始牌谱、评级、分数、顺位、局数、番种次数、历史时间和其他迁移标记不被改写。
-- 旧行完整保存到 `statistics_value_backfill_backup`，按迁移、表名、主键保存，后续重跑不覆盖第一次备份。需要回退时，可从 `row_data` 提取这两个字段按对应主键恢复；不要覆盖运行后新增的对局或其他字段。
-- 全部成功才写 `app_meta.statistics_win_value_units_v1`。重复 `--apply` 直接返回 `already_complete`。需再次审计时运行 `--dry-run`；确认需要重跑时使用 `--apply --force`。
-- 正式执行使用事务级迁移锁和统计表锁，避免结算或日聚合并发造成一半新值、一半旧值。锁等待超过 10 秒会回滚；建议维护窗口执行。失败后可直接重试。
-
-预览的差异数针对逐局行；正式执行还会修复由这些行汇总的已有累计快照，即使逐局差异数为 0。没有原始证据的数据不能自动推测，先处理报告中的异常再重跑。
-
-回归测试 `tests/database/test_statistics_values.py` 使用独立 PostgreSQL schema，覆盖预览无写入、完整更新、备份、重复执行、异常回滚、真实四川结算及不同计分单位。前端 `client/tests/statisticsValues.test.mjs` 覆盖所有统计入口的个人／平台标签与本地牌谱解析。
+`tests/database/test_statistics_values.py` 覆盖真实四川结算、封顶前番数、旧谱兼容、放铳支出和一炮多响。前端 `client/tests/statisticsValues.test.mjs` 覆盖统计入口的个人／平台标签与本地牌谱解析。

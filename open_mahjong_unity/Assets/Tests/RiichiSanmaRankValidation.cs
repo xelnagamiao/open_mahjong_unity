@@ -28,7 +28,7 @@ public static class RiichiSanmaRankValidation {
         Check(Field<TMP_Text[]>(lobby,"rulePlayerCounts").Length==RankedRules.FamilyNames.Length&&Field<TMP_Text[]>(lobby,"variantPlayerCounts").Length==2,"family and independent variant online counts authored");
         Check(RankedRules.FamilyIndex(1)==RankedRules.FamilyIndex(4)&&RankedRules.FamilyRuleIndices[1].SequenceEqual(new[]{1,4}),"four and three player Riichi share navigation with distinct pool indices");
         var entries=Field<MatchButton[]>(lobby,"entries");
-        int expected=RankedRules.Ids.Sum(r=>r=="guobiao"?12:r=="riichi"||r==RiichiSanmaRankConfig.Rule?6:1);
+        int expected=RankedRules.Ids.Sum(r=>r=="guobiao"?12:r=="riichi"||r==RiichiSanmaRankConfig.Rule?6:r=="qingque"||r=="hongque"?2:1);
         Check(entries.Length==expected&&entries.Select(x=>x.QueueType).Distinct().Count()==expected,"all ranked entries are unique");
         Check(entries.Count(x=>x.RuleId=="riichi")==6&&entries.Count(x=>x.RuleId==RiichiSanmaRankConfig.Rule)==6,"six three player and six four player queues");
         foreach(var card in entries.Where(x=>x.RuleId==RiichiSanmaRankConfig.Rule)){
@@ -42,7 +42,13 @@ public static class RiichiSanmaRankValidation {
         }
         foreach(string invalid in new[]{null,"riichi_beginner_dongfeng","riichi_sanma_bad_dongfeng","riichi_sanma_beginner_quanzhuang","riichi_sanma_beginner_dongfeng_extra"})
             Check(RiichiSanmaRankConfig.DescribeQueue(invalid).Contains("暂未开放"),"invalid sanma description "+invalid);
-        Check(Field<TMP_Dropdown>(Find<DataPanel>(),"ruleDropdown").options.Count==RankedRules.Ids.Length,"leaderboard selector includes Sanma");
+        var ranking=Find<Salasasa.Leaderboards.LeaderboardController>();
+        var rankingRules=ranking.GetComponent<Salasasa.Leaderboards.LeaderboardRuleLayout>();
+        int sanmaIndex=Array.IndexOf(rankingRules.ruleIds,RiichiSanmaRankConfig.Rule);
+        Check(Salasasa.Leaderboards.LeaderboardRules.Ids.Contains(RiichiSanmaRankConfig.Rule)
+            && rankingRules.ruleIds.Length==Salasasa.Leaderboards.LeaderboardRules.Ids.Length
+            && sanmaIndex>=0 && rankingRules.sideButtons[sanmaIndex]!=null,
+            "standalone leaderboard selectors include the independent Sanma pool");
         Check(Field<Button[]>(Find<PlayerInfoPanel>(),"ruleButtons").Length==PlayerInfoRuleCatalog.PrimaryRules.Length
             && PlayerInfoRuleCatalog.OtherRules(true).Any(option=>option.Key==RiichiSanmaRankConfig.Rule),
             "profile keeps four main buttons and exposes Sanma in the other-rule dropdown");

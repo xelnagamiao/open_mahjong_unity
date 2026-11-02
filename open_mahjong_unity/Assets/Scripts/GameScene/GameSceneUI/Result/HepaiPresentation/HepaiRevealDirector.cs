@@ -30,21 +30,31 @@ public static partial class HepaiRevealDirector {
         HepaiPresentationRequest request = BuildRequestCore(winnerPos, huClass, hepaiPlayerHand, huFan, ruleKey, discardPos);
         ConfigureRuleSpecificRonRequest(request, ruleKey, isQianggang, ronDiscarderIndex, hepaiTile);
         ManifestOf(ruleKey)?.AdjustHepaiPresentation?.Invoke(request, isQianggang);
+        ConfigureLiveHandHandoff(request);
         yield return Game3DManager.Instance.PlayHepaiHandReveal(request);
         // 错和续局的手牌恢复在 ready 结束后由 NormalGameStateManager.TryResumeAfterCuoheContinue 统一处理
     }
 
-    public static IEnumerator PlayMany(Dictionary<int, int[]> playerHands, string huClass) {
+    public static IEnumerator PlayMany(Dictionary<int, int[]> playerHands, string huClass, bool isQianggang = false) {
         if (playerHands == null || playerHands.Count == 0) yield break;
         List<HepaiPresentationRequest> requests = new List<HepaiPresentationRequest>();
         foreach (KeyValuePair<int, int[]> item in playerHands) {
             if (item.Value == null || item.Value.Length == 0) continue;
             if (!NormalGameStateManager.Instance.indexToPosition.TryGetValue(item.Key, out string winnerPos)) continue;
-            requests.Add(BuildRequestCore(
-                winnerPos, huClass, item.Value, null, ResolveLiveRuleKey(),
-                NormalGameStateManager.Instance.lastDiscardPlayerPosition));
+            string ruleKey = ResolveLiveRuleKey();
+            var request = BuildRequestCore(winnerPos, huClass, item.Value, null, ruleKey,
+                NormalGameStateManager.Instance.lastDiscardPlayerPosition);
+            ManifestOf(ruleKey)?.AdjustHepaiPresentation?.Invoke(request, isQianggang);
+            ConfigureLiveHandHandoff(request);
+            requests.Add(request);
         }
         yield return Game3DManager.Instance.PlayMultipleHepaiHandReveals(requests);
+    }
+
+    private static void ConfigureLiveHandHandoff(HepaiPresentationRequest request) {
+        if (request.WinnerPosition == "self") {
+            request.OnHandReady = () => RoundEndPresentation.Instance?.HideSelfGameplayControl(false);
+        }
     }
 
     public static HepaiPresentationRequest BuildRequest(string winnerPosition, string huClass, int[] hand, string[] huFan) {

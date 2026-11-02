@@ -125,26 +125,25 @@ public static class WindowFadeTransition {
             cg.interactable = true;
             cg.blocksRaycasts = false;
             go.SetActive(true);
-            UnifyChildCanvasGroupAlphas(go, cg);
         }
     }
 
     public static void PrepareFadeOut(List<(GameObject go, CanvasGroup cg)> fadeOut) {
         for (int i = 0; i < fadeOut.Count; i++) {
             (GameObject go, CanvasGroup cg) = fadeOut[i];
-            UnifyChildCanvasGroupAlphas(go, cg); // 避免子级 alpha 叠乘导致不同步
             cg.alpha = 1f; // 从不透明开始
             cg.interactable = true; // 保持 Button 等按 Normal 状态渲染
             cg.blocksRaycasts = false; // 过渡中禁止点击
         }
     }
 
-    public static IEnumerator Fade(List<(GameObject go, CanvasGroup cg)> fadeOut, List<(GameObject go, CanvasGroup cg)> fadeIn, float duration) {
+    public static IEnumerator Fade(List<(GameObject go, CanvasGroup cg)> fadeOut, List<(GameObject go, CanvasGroup cg)> fadeIn, float duration, bool limitFrameStep = false) {
         if (duration <= 0f) {
             FinishInstant(fadeOut, fadeIn); // 不做动画，直接切换
             yield break;
         }
-        for (float t = 0f; t < duration; t += Time.unscaledDeltaTime) {
+        // Login initializes several pages in its first frame; do not spend the entire fade on that frame.
+        for (float t = 0f; t < duration; t += limitFrameStep ? Mathf.Min(Time.unscaledDeltaTime, duration / 8f) : Time.unscaledDeltaTime) {
             float k = Mathf.Clamp01(t / duration); // 归一化时间
             float s = k * k * (3f - 2f * k); // smoothstep
             for (int i = 0; i < fadeOut.Count; i++)
@@ -190,11 +189,4 @@ public static class WindowFadeTransition {
         }
     }
 
-    private static void UnifyChildCanvasGroupAlphas(GameObject rootGo, CanvasGroup rootCg) {
-        CanvasGroup[] groups = rootGo.GetComponentsInChildren<CanvasGroup>(true); // 包含未激活
-        foreach (CanvasGroup cg in groups) {
-            if (cg == rootCg) continue;
-            cg.alpha = 1f; // 子级 alpha 统一为 1
-        }
-    }
 }

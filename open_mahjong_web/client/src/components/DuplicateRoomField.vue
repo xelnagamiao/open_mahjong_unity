@@ -1,13 +1,13 @@
 <template>
   <el-form-item :label="tr('复式密钥')" class="duplicate-room-field" :required="required">
     <el-input :model-value="modelValue" :aria-label="tr('复式密钥')" clearable maxlength="128" :placeholder="tr(required ? '填入已创建牌墙的密钥' : '可选，填入已创建牌墙的密钥')" autocomplete="off" @update:model-value="$emit('update:modelValue', $event)" />
-    <p class="duplicate-room-help">{{ tr('局数和花牌跟随密钥设置。房间不显示密钥，解锁后可在牌谱中查看。') }}<router-link to="/duplicate" target="_blank">{{ tr('创建与说明') }}</router-link></p>
+    <p class="duplicate-room-help">{{ tr(sichuan ? '副数和牌山布局跟随密钥，血战与血流密钥不能混用。' : '局数和花牌跟随密钥设置。房间不显示密钥，解锁后可在牌谱中查看。') }}<router-link :to="createTo" target="_blank">{{ tr('创建与说明') }}</router-link></p>
   </el-form-item>
 </template>
 
 <script setup>
 import { tr } from '@/i18n'
-defineProps({ modelValue: { type: String, default: '' }, required: { type: Boolean, default: false } })
+defineProps({ modelValue: { type: String, default: '' }, required: { type: Boolean, default: false }, sichuan: Boolean, createTo: { type: [String, Object], default: '/duplicate' } })
 defineEmits(['update:modelValue'])
 </script>
 

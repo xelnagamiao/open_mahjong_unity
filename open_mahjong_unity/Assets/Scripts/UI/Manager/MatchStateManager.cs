@@ -18,7 +18,6 @@ public class MatchStateManager : MonoBehaviour {
             if (_instance == null) {
                 var go = new GameObject("MatchStateManager");
                 _instance = go.AddComponent<MatchStateManager>();
-                DontDestroyOnLoad(go);
             }
             return _instance;
         }
@@ -67,6 +66,7 @@ public class MatchStateManager : MonoBehaviour {
             return;
         }
         _instance = this;
+        transform.SetParent(null);
         DontDestroyOnLoad(gameObject);
         CoroutineManager.Ensure();
     }

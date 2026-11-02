@@ -15,7 +15,7 @@ using System;
     public int user_id, character_id, voice_id, profile_image_id, avatar_frame_id;
 }
 [Serializable] public class InventoryState {
-    public int user_id, rename_count;
+    public int user_id, rename_card_count, rename_card_usable_count;
     public bool is_tourist;
     public InventoryItem[] catalog;
     public InventoryBalance[] owned;

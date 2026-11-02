@@ -1,6 +1,6 @@
 <!--
   虹雀² 和牌计算器（路由 /calc/hongque）
-  按虹雀² v1.6 规则计算和牌拆解与番数/分数，交互参照国标计算器。
+  按虹雀² v1.7 规则计算和牌拆解与番数/分数，交互参照国标计算器。
   牌面使用 Unity 中的 HQv3.1 贴图（public/game2d-assets/hongque-tiles/）。
   副露牌组与国标计算器一致：点击牌组框激活，再从牌面点选添加，点牌移除。
   规则要点：所有牌必须且仅能属于一个合法牌组（3 张及以上），无雀头。
@@ -11,7 +11,8 @@
       <CalculatorSwitcher />
       <p class="subtitle">
         点击下方牌面添加手牌；点击副露框后，只有能组成合法牌组的牌会高亮可点。
-        手牌 + 副露合计 12～14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
+        手牌 + 副露合计最多 14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
+        自摸支持连续加杠预测；手牌为空时也可输入副露，查看可摸入的和牌张。
       </p>
     </div>
 
@@ -114,12 +115,12 @@
 
       <div class="result-embed">
         <div v-if="!result" class="empty">
-          <span class="input-target-bar">输入手牌后计算和牌与番数</span>
+          <span class="input-target-bar">输入手牌或副露后计算和牌与预测</span>
         </div>
         <div v-else-if="result.mode === 'score'">
           <div :class="['banner', result.is_hepai ? 'success' : 'fail']">
             <div class="banner-num">{{ result.is_hepai ? result.result.points : '—' }}</div>
-            <div class="banner-text">{{ result.is_hepai ? '分' : '不能和牌' }}</div>
+            <div class="banner-text">{{ result.is_hepai ? (result.result.kongSteps.length ? '分（加杠后和牌，仅自摸）' : '分') : '当前不能和牌' }}</div>
           </div>
           <div v-if="result.is_hepai" class="score-lines">
             <div class="score-line">
@@ -144,7 +145,52 @@
               >{{ fanDisplayText(fan) }}</el-tag>
             </div>
           </div>
-          <div v-else class="msg-inline">该牌型不能构成和牌（所有牌必须全部组成 3 张及以上的合法牌组）。</div>
+          <div v-if="result.is_hepai && result.result.kongSteps.length" class="kong-path">
+            <strong>加杠顺序</strong>
+            <ol>
+              <li v-for="(step, idx) in result.result.kongSteps" :key="idx">
+                {{ step.tile }} 加入副露 #{{ meldSlotNumber(step.meldIndex) }}（{{ step.tiles.length - 1 }} → {{ step.tiles.length }} 张）
+              </li>
+            </ol>
+            <div class="decomp-groups">
+              <div v-for="(group, idx) in result.result.groups" :key="idx" class="decomp-group">
+                <span v-for="code in meldDisplayOrder(group)" :key="code" class="hq-tile hq-tile-sm" :title="code">
+                  <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+                </span>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="!result.is_hepai" class="msg-inline">当前牌型未成和牌；可查看下方摸入一张后的预测。</div>
+        </div>
+        <div v-if="result" class="wait-block">
+          <h4>摸牌后的和牌预测（{{ result.waits.length }} 种）</h4>
+          <p class="msg-inline">“仅自摸”需摸入后按顺序加杠；其他玩家的弃牌不能用于这种和法。展开查看加杠步骤与最终牌型。</p>
+          <div class="wait-list">
+            <details v-for="hint in result.waits" :key="hint.tile" class="wait-item">
+              <summary>
+                <span class="hq-tile hq-tile-sm" :title="hint.tile">
+                  <img :src="tileFaceUrl(hint.tile)" :alt="hint.tile" draggable="false" @error="onTileError" />
+                </span>
+                <strong>{{ hint.tile }}</strong>
+                <span v-if="hint.selfDrawOnly" class="self-draw-only">仅自摸 · {{ hint.selfDrawScore.points }} 分</span>
+                <span v-else>捉和 {{ hint.ronScore.points }} 分 · 自摸 {{ hint.selfDrawScore.points }} 分</span>
+              </summary>
+              <div class="wait-detail">
+                <p>{{ hint.selfDrawScore.kongSteps.length ? `自摸后：${kongPathText(hint.selfDrawScore)}；和牌` : '自摸后可直接和牌' }}</p>
+                <div class="decomp-groups">
+                  <div v-for="(group, idx) in hint.selfDrawScore.groups" :key="idx" class="decomp-group">
+                    <span v-for="code in meldDisplayOrder(group)" :key="code" class="hq-tile hq-tile-sm" :title="code">
+                      <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+                    </span>
+                  </div>
+                </div>
+                <div class="decomp-fans">
+                  <el-tag v-for="(fan, idx) in hint.selfDrawScore.fans" :key="idx" size="small" effect="plain">{{ fanDisplayText(fan) }}</el-tag>
+                </div>
+              </div>
+            </details>
+          </div>
+          <p v-if="!result.waits.length" class="msg-inline">{{ totalTiles >= MAX_TOTAL_TILES ? '已达 14 张，请先移除一张牌再查看摸牌预测。' : '没有摸入一张后可直接和牌或连续加杠和牌的牌。' }}</p>
         </div>
       </div>
 
@@ -195,6 +241,7 @@
             <span class="decomp-score">{{ item.points }} 分（{{ item.fan_total }} 番）</span>
             <span class="decomp-kind">{{ item.concealed ? '门清' : '副露' }}</span>
           </div>
+          <p v-if="item.kongSteps.length" class="kong-path">仅自摸：{{ kongPathText(item) }}；和牌</p>
           <div class="decomp-groups">
             <div v-for="(group, gIdx) in item.groups" :key="gIdx" class="decomp-group">
               <span
@@ -220,16 +267,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
 import { sortHandCodes, sortMeldCodes, meldDisplayOrder } from '@/game2d/calc/hongque/displayOrder.ts'
 import {
-  bestWinResult,
-  allWinResults,
   meldCandidateTiles,
   inferMeldKind,
 } from '@/game2d/calc/hongque'
+import { predictWinResults, winningTileHints } from '@/game2d/calc/hongque/prediction.ts'
 
 const TILE_BASE_URL = '/game2d-assets/hongque-hand/'
 const MAX_TOTAL_TILES = 14
@@ -281,6 +327,13 @@ const form = reactive({
 
 const melds = computed(() => form.melds)
 const activeMelds = computed(() => form.melds.filter((meld) => meld.codes.length > 0))
+const meldSlotNumber = (index) => form.melds.indexOf(activeMelds.value[index]) + 1
+const kongPathText = (score) => score.kongSteps.map(step => `${step.tile} 加入副露 #${meldSlotNumber(step.meldIndex)}`).join(' → ')
+
+watch([form, textInput], () => {
+  result.value = null
+  decomposeResult.value = null
+}, { deep: true, flush: 'sync' })
 
 const handCountText = computed(() => {
   const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
@@ -291,8 +344,7 @@ const handCountTagType = computed(() => {
   const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
   if (total === 0) return 'warning'
   if (total > MAX_TOTAL_TILES) return 'danger'
-  if (total < 12) return 'warning'
-  return total % 3 === 0 ? 'success' : 'warning'
+  return 'success'
 })
 
 const parseCodes = (text) => {
@@ -312,9 +364,9 @@ const parseCodes = (text) => {
 }
 
 const applyTextInput = () => {
-  if (!textInput.value.trim()) return true
   try {
-    form.hand = sortHandCodes(parseCodes(textInput.value))
+    const hand = sortHandCodes(parseCodes(textInput.value))
+    if (hand.join(' ') !== form.hand.join(' ')) form.hand = hand
     return true
   } catch (error) {
     ElMessage.error(`简写解析失败：${error.message}`)
@@ -453,15 +505,17 @@ const buildRequestBody = () => {
     if (meld.codes.length < 3) {
       throw new Error(`副露 #${form.melds.indexOf(meld) + 1} 需至少 3 张，当前 ${meld.codes.length} 张`)
     }
+    if (!inferMeldKind(meld.codes)) {
+      throw new Error(`副露 #${form.melds.indexOf(meld) + 1} 不是合法牌组`)
+    }
     openMelds.push({ tiles: [...meld.codes] })
   }
   const allCodes = [...form.hand, ...openMelds.flatMap((meld) => meld.tiles)]
   if (new Set(allCodes).size !== allCodes.length) {
     throw new Error('手牌与副露存在重复牌')
   }
-  if (allCodes.length < 12) {
-    throw new Error(`牌数最少 12 张（当前 ${allCodes.length} 张）`)
-  }
+  if (!allCodes.length) throw new Error('请先输入手牌或副露')
+  if (allCodes.length > MAX_TOTAL_TILES) throw new Error(`合计不能超过 ${MAX_TOTAL_TILES} 张（当前 ${allCodes.length} 张）`)
   return {
     hand: [...form.hand],
     open_melds: openMelds,
@@ -482,11 +536,12 @@ const calculateScore = () => {
   }
   result.value = null
   try {
-    const score = bestWinResult(body.hand, body.open_melds, {
+    const flags = {
       selfDraw: body.self_draw,
       beforeFirstDiscard: body.before_first_discard,
       wallEmpty: body.wall_empty,
-    })
+    }
+    const score = predictWinResults(body.hand, body.open_melds, flags)[0] ?? null
     result.value = {
       mode: 'score',
       is_hepai: score !== null,
@@ -494,6 +549,7 @@ const calculateScore = () => {
         ...score,
         fan_total: score.fanTotal,
       } : null,
+      waits: winningTileHints(body.hand, body.open_melds, flags),
     }
   } catch (error) {
     ElMessage.error(`计算失败：${error.message}`)
@@ -511,7 +567,7 @@ const calculateDecompose = () => {
   }
   decomposeResult.value = null
   try {
-    const decompositions = allWinResults(body.hand, body.open_melds, {
+    const decompositions = predictWinResults(body.hand, body.open_melds, {
       selfDraw: body.self_draw,
       beforeFirstDiscard: body.before_first_discard,
       wallEmpty: body.wall_empty,
@@ -911,6 +967,27 @@ const resetAll = () => {
   color: #606266;
   font-size: 13px;
 }
+
+.kong-path {
+  margin: 10px 0;
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.7;
+}
+
+.kong-path ol { margin: 4px 0 10px; padding-left: 24px; }
+
+.wait-block { border-top: 1px dashed #cbd5e1; margin-top: 12px; padding-top: 10px; }
+.wait-block h4 { margin: 0 0 6px; color: #334155; font-size: 14px; }
+.wait-block > p { margin: 6px 0 10px; line-height: 1.6; }
+.wait-list { display: grid; gap: 6px; }
+.wait-item { border: 1px solid #dbeafe; border-radius: 6px; background: white; }
+.wait-item summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 7px 10px; cursor: pointer; color: #334155; font-size: 13px; }
+.wait-item summary::after { content: '展开'; margin-left: auto; color: #2563eb; }
+.wait-item[open] summary::after { content: '收起'; }
+.self-draw-only { color: #92400e; font-weight: 600; }
+.wait-detail { padding: 0 10px 10px; font-size: 13px; color: #475569; }
+.wait-detail p { margin: 4px 0 8px; line-height: 1.6; }
 
 .decomp-list {
   display: flex;

@@ -159,19 +159,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
 import { useAdminNotificationsStore } from '@/stores/adminNotifications'
-
-const notifications = useAdminNotificationsStore()
 import { parseVenueKind, venueAdminDetailPath } from '@/utils/eventMeta'
 
-const route = useRoute()
-const isBase = computed(() => parseVenueKind(route.meta.venueKind) === 'base')
+const props = defineProps({ kind: { type: String, default: 'event' } })
+const emit = defineEmits(['updated'])
+const notifications = useAdminNotificationsStore()
+const isBase = computed(() => parseVenueKind(props.kind) === 'base')
 const venueKind = computed(() => (isBase.value ? 'base' : 'event'))
 
 function detailPath(eventId, kind) {
@@ -316,6 +315,7 @@ async function doApprove() {
     })
     ElMessage.success(isBase.value ? '已通过并创建基地' : '已通过并创建赛事')
     approveVisible.value = false
+    emit('updated')
     await load()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '操作失败')
@@ -355,6 +355,7 @@ async function loadProfileChanges() {
       },
     })
     profileItems.value = res.data?.data?.items || []
+    notifications.refresh()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载资料修改失败')
   } finally {
@@ -372,6 +373,7 @@ async function approveProfile(row) {
     })
     await adminApi.post(`/event-profile-changes/${row.request_id}/approve`, { reason: value.trim() })
     ElMessage.success('已通过')
+    emit('updated')
     await loadProfileChanges()
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
@@ -401,11 +403,7 @@ onMounted(() => {
   loadProfileChanges()
 })
 
-watch(() => route.meta.venueKind, () => {
-  page.value = 1
-  load()
-  loadProfileChanges()
-})
+defineExpose({ refreshProfileChanges: loadProfileChanges })
 </script>
 
 <style scoped>

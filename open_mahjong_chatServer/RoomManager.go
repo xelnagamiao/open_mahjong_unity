@@ -12,9 +12,14 @@ import (
 )
 
 type ChatResponse struct {
-	ResponseType string `json:"responseType"`
-	TargetRoomID int    `json:"roomId"`
-	Content      string `json:"content"`
+	ResponseType    string `json:"responseType"`
+	TargetRoomID    int    `json:"roomId"`
+	Content         string `json:"content"`
+	RequestType     string `json:"requestType,omitempty"`
+	RequestID       string `json:"requestId,omitempty"`
+	Success         bool   `json:"success"`
+	Code            string `json:"code,omitempty"`
+	ProtocolVersion int    `json:"protocolVersion,omitempty"`
 }
 
 type LoginResult struct {
@@ -68,6 +73,7 @@ func (rm *RoomManager) loginChatHall(uuid string, username string, userKey strin
 				ResponseType: "False",
 				TargetRoomID: 0,
 				Content:      "登录聊天大厅失败,用户密钥错误",
+				Code:         "auth_failed",
 			},
 		}
 	}
@@ -174,6 +180,7 @@ func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int
 		}
 		if err := client.WriteJSON(response); err != nil {
 			log.Printf("failed to send chat message to connection %s: %v", recipientID, err)
+			client.Close()
 			continue
 		}
 		delivered = true

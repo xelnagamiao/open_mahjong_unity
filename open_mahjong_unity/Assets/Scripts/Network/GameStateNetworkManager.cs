@@ -14,6 +14,17 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     public static GameStateNetworkManager Instance { get; private set; }
 
+    public int SpectatorCount { get; private set; } = -1;
+    public float SpectatorCountReceivedAt { get; private set; } = float.NegativeInfinity;
+    public event Action SpectatorCountChanged;
+
+    public void InvalidateSpectatorCount() {
+        SpectatorCount = -1;
+        SpectatorCountReceivedAt = float.NegativeInfinity;
+        SpectatorCountChanged?.Invoke();
+    }
+
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
@@ -43,11 +54,33 @@ public class GameStateNetworkManager : MonoBehaviour {
             return;
         }
         if (RuleRegistry.TryParseGameStateType(response.type, out string rule, out string suffix)) {
+            bool snapshot = suffix == "game_start" || suffix == "reconnect";
+            if (snapshot) {
+                string origin = response.gamestate_id ?? response.game_info?.gamestate_id;
+                string expected = PlayerSession.Current.GamestateId;
+                if (string.IsNullOrEmpty(expected)
+                    && (GameSession.Current.IsGameActive || GameSession.Current.IsRealtimeSpectator))
+                    expected = GameSession.Current.GamestateId;
+                // A snapshot may initialize an idle table, but cannot replace an
+                // active game or the game selected by a pending spectator entry.
+                if (!string.IsNullOrEmpty(expected) && !string.IsNullOrEmpty(origin)
+                    && origin != expected) return;
+            }
             // Login can reconnect the transport before the player accepts table
             // restoration. An explicit start/reconnect snapshot establishes the table;
             // broadcasts received on the login screen belong to the old session.
-            if (suffix != "game_start" && suffix != "reconnect"
-                    && string.IsNullOrEmpty(GameSession.Current.RoomRule)) {
+            if (suffix != "game_start" && suffix != "reconnect") {
+                if (string.IsNullOrEmpty(GameSession.Current.RoomRule)) return;
+                // Only a start/reconnect snapshot can establish another game.
+                // Delayed actions or settlement from the previous game must not
+                // replace the current rule instance or finish the new table.
+                if (!string.IsNullOrEmpty(response.gamestate_id)
+                    && response.gamestate_id != GameSession.Current.GamestateId) return;
+            }
+            if (!SettlementSync.Accept(response.settlement_sync, snapshot, response.received_monotonic)) return;
+            if ((suffix == "show_result" || suffix == "show_shuhewei")
+                && !SettlementSync.Present(response.settlement_sync, response.settlement_sync?.restore == true)) {
+                SettlementSync.ApplyReadyStatus();
                 return;
             }
             IGameState state = ResolveGameStateForMessage(rule, suffix);
@@ -55,12 +88,22 @@ public class GameStateNetworkManager : MonoBehaviour {
                 Debug.LogWarning($"没有可承载的族 GameState: {response.type}");
                 return;
             }
-            if (!state.HandleMessage(suffix, response)) {
-                Debug.LogWarning($"族 {state.StateId} 未处理的游戏状态消息: {response.type}");
+            SettlementSync.Dispatch(response, () => {
+                if (!state.HandleMessage(suffix, response))
+                    Debug.LogWarning($"族 {state.StateId} 未处理的游戏状态消息: {response.type}");
+            });
+            if (snapshot && response.settlement_restore != null) {
+                foreach (Response restored in response.settlement_restore) HandleGameStateMessage(restored);
             }
+            SettlementSync.ApplyReadyStatus();
             return;
         }
 
+        if (response.type == "switch_seat" || response.type == "refresh_player_tag_list") {
+            if (string.IsNullOrEmpty(GameSession.Current.RoomRule)) return;
+            if (!string.IsNullOrEmpty(response.gamestate_id)
+                && response.gamestate_id != GameSession.Current.GamestateId) return;
+        }
         switch (response.type) {
             case "switch_seat":
                 HandleSwitchSeat(response);
@@ -129,6 +172,11 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 处理获取观战列表响应
     /// </summary>
     private void HandleGetSpectatorListResponse(Response response) {
+        SpectatorCount = response.success ? 0 : -1;
+        if (response.success && response.spectator_list != null)
+            foreach (var item in response.spectator_list) if (item != null) SpectatorCount++;
+        SpectatorCountReceivedAt = Time.realtimeSinceStartup;
+        SpectatorCountChanged?.Invoke();
         Debug.Log($"收到观战列表: {response.message}");
         SpectatorPanel.Instance?.GetSpectatorListResponse(response.success, response.message, response.spectator_list);
         EventDetailPanel.Instance?.OnSpectatorList(response.spectator_list);
@@ -161,17 +209,19 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// <summary>
     /// 发送吃碰杠回应
     /// </summary>
-    public async void SendAction(string action, int targetTile, int chiComboIndex = 0, System.Collections.Generic.List<int> selectedTiles = null) {
+    public async void SendAction(string action, int targetTile, int chiComboIndex = 0, System.Collections.Generic.List<int> selectedTiles = null, string choiceId = null) {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendActionRequest {
                 type = $"gamestate/{OutboundChannel}/send_action",
                 gamestate_id = UserDataManager.Instance.GamestateId,
                 action = action,
+                settlement_id = action == "ready" ? SettlementSync.ResultId : null,
                 targetTile = targetTile,
                 chiComboIndex = chiComboIndex,
                 action_tick = NormalGameStateManager.Instance.LastAskActionTick,
                 selectedTiles = selectedTiles != null ? selectedTiles.ToArray() : null,
+                choice_id = choiceId,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -181,6 +231,12 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     /// <summary>回合制出站通道段：由当前规则清单声明（默认 "GB"）。</summary>
     private static string OutboundChannel => RuleRegistry.Current?.OutboundChannel ?? "GB";
+
+    internal static string ReadyDeclarationChannelFor(RuleManifest manifest) {
+        string channel = manifest?.OutboundChannel ?? "GB";
+        // GB 的普通出牌与吃碰共用入口；立直/报听仍走服务端保留的 riichi 入口。
+        return channel == "GB" ? "riichi" : channel;
+    }
 
     public async void SetRyuukyokuTenpai(bool tenpai) {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
@@ -386,7 +442,7 @@ public class GameStateNetworkManager : MonoBehaviour {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendChineseGameTileRequest {
-                type = "gamestate/riichi/riichi_cut",
+                type = $"gamestate/{ReadyDeclarationChannelFor(RuleRegistry.Current)}/riichi_cut",
                 cutClass = cutClass,
                 TileId = tileId,
                 cutIndex = cutIndex,

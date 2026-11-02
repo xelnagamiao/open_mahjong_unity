@@ -3,11 +3,19 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public partial class RoundEndPresentation {
-    public void PresentEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data) {
-        GameSceneUIManager.Instance.ShowEndGame(master_seed, commitment, salt, player_final_data);
+    public void PresentEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch = null) {
+        GameSceneUIManager.Instance.ShowEndGame(master_seed, commitment, salt, player_final_data, sichuanMatch);
     }
 
     public void PresentShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string[]> player_fan, Dictionary<int, string[]> player_fu_types, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info, int? hepaiPlayerIndex = null, int[] hepaiPlayerHand = null, int[][] hepaiPlayerCombinationMask = null, bool playPresentationEffects = true) {
+        if (SettlementSync.IsRestoring) {
+            StopActiveSequence();
+            PreparePresentationRoot(false);
+            EndShuheWeiPanel.Instance.PrepareShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, false);
+            EndShuheWeiPanel.Instance.PlayPreparedShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, false, false);
+            SettlementSync.ApplyReadyStatus();
+            return;
+        }
         StartSequence(CoShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerCombinationMask, playPresentationEffects));
     }
 

@@ -55,6 +55,10 @@ public class Round {
     public WenzhouInfo wenzhou;
     public NanchangInfo nanchang;
     public ShangraoInfo shangrao;
+    public BeijingInfo beijing;
+    public Dictionary<int,BeijingHints> beijingHints;
+    public DuocaiInfo duocai;
+    public Dictionary<int,DuocaiHints> duocaiHints;
     public Dictionary<int, ShangraoHints> shangraoHints;
     public Dictionary<int, Dictionary<string, NanchangWait[]>> nanchangHints;
     public Dictionary<int, Dictionary<string, WenzhouWait[]>> wenzhouWaits;

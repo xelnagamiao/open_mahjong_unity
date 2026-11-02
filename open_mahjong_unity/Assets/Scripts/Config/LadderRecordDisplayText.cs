@@ -20,12 +20,12 @@ public static class LadderRecordDisplayText {
         if(record.match_queue_type=="sichuan_elo_xuezhan")ruleName="川麻血战";
 
         var sb = new StringBuilder();
-        sb.Append(ruleName);
+        sb.Append(PlatformText.Get(ruleName));
         if (!string.IsNullOrEmpty(roundName)) {
-            sb.Append(' ').Append(roundName);
+            sb.Append(' ').Append(PlatformText.Get(roundName));
         }
         if (!string.IsNullOrEmpty(tierName)) {
-            sb.Append("  ").Append(tierName);
+            sb.Append("  ").Append(PlatformText.Get(tierName));
         }
 
         if (record.players != null && record.players.Length > 0) {

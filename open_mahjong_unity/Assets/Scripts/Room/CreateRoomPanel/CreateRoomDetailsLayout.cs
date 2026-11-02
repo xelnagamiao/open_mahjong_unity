@@ -4,7 +4,8 @@ using UnityEngine.UI;
 
 [AddComponentMenu("Layout/Create Room Details Layout")]
 public sealed class CreateRoomDetailsLayout : LayoutGroup {
-    [SerializeField, Min(1)] private int columns = 2;
+    public const int DefaultColumns = 4;
+    [SerializeField, Min(1)] private int columns = DefaultColumns;
     public int Columns { get => Mathf.Max(1, columns); set => columns = Mathf.Max(1, value); }
     private const float ColumnGap = 24, RowGap = 8, OptionHeight = 104;
 

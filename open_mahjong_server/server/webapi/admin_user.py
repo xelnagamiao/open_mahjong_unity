@@ -1,6 +1,7 @@
 """
 管理后台用户操作 HTTP 接口（踢下线等，仅供 Node 管理端 localhost 代理调用）。
 """
+import asyncio
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
@@ -67,6 +68,14 @@ def register_admin_user_routes(app: FastAPI, game_server) -> None:
         if player is not None:
             player.username = username
             logger.info("已同步在线用户名 user_id=%s username=%s", body.user_id, username)
+            # Web rename commits its inventory debit before this notification.
+            # Send only the owner their new private balance, never other players.
+            try:
+                from ..database.inventory import get_inventory
+                state = await asyncio.to_thread(get_inventory, game_server.db_manager, body.user_id)
+                await player.websocket.send_json({"type": "inventory/state", "success": True, "inventory_state": state})
+            except Exception:
+                logger.exception("改名已保存，在线改名卡余额通知失败 user_id=%s", body.user_id)
         return {
             "success": True,
             "user_id": body.user_id,

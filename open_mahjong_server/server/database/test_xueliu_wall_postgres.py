@@ -12,7 +12,7 @@ import pytest
 
 from .duplicate_walls import load_duplicate_wall, validate_duplicate_wall, reserve_duplicate_game, duplicate_record_is_visible
 from .sichuan_duplicate import PairedMatchStore, ensure_tables
-from ..game_calculation.sichuan.duplicate_rules import XUELIU_DUPLICATE, make_board, flatten_board
+from ..game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, XUELIU_DUPLICATE, make_board, flatten_board
 from ..gamestate.public.sichuan_duplicate import new_match
 
 
@@ -43,31 +43,41 @@ def isolated_db():
 
 
 @pytest.mark.parametrize('kind', ['manual', 'seed', 'key'])
-def test_bloodflow_saved_wall_attaches_once_and_restores_exact_boards(isolated_db, kind):
+@pytest.mark.parametrize('wall_rule,sub_rule,layout', [
+    ('sichuan/sbr', SBR_DUPLICATE, 'standard'),
+    ('sichuan/xueliu', XUELIU_DUPLICATE, 'xueliu'),
+])
+def test_sichuan_saved_wall_attaches_once_and_restores_exact_boards(isolated_db, kind, wall_rule, sub_rule, layout):
     db = isolated_db
-    boards = [make_board('db-bloodflow', n, layout='xueliu') for n in range(1, 5)]
+    boards = [make_board('db-sichuan', n, layout=layout) for n in range(1, 5)]
     rounds = [flatten_board(b) for b in boards]
     key = 'dup_' + uuid.uuid4().hex
     conn = db._get_connection()
     with conn.cursor() as cursor:
         cursor.execute('''INSERT INTO duplicate_walls
             (key, owner_user_id, event_id, scope, wall_type, rule, tiles, seed, use_flowers, round_count, round_tiles)
-            VALUES (%s,101,'test-event','event',%s,'sichuan/xueliu',%s,%s,FALSE,4,%s) RETURNING id''',
-            (key, kind, json.dumps(rounds[0]), None if kind == 'manual' else 'db-bloodflow', json.dumps(rounds)))
+            VALUES (%s,101,'test-event','event',%s,%s,%s,%s,FALSE,4,%s) RETURNING id''',
+            (key, kind, wall_rule, json.dumps(rounds[0]), None if kind == 'manual' else 'db-sichuan', json.dumps(rounds)))
         wall_id = cursor.fetchone()[0]
     conn.commit()
     db._put_connection(conn)
     saved = load_duplicate_wall(db, key)
-    for sub in ['sichuan/xueliu', 'sichuan/xueliu_exchange', XUELIU_DUPLICATE]:
-        validate_duplicate_wall(saved, dict(room_rule='sichuan', sub_rule=sub, event_id='test-event'))
-    snapshot = new_match(str(uuid.uuid4()), XUELIU_DUPLICATE, {'open':'1','closed':'2'}, boards, 'db-bloodflow')
+    validate_duplicate_wall(saved, dict(room_rule='sichuan', sub_rule=sub_rule, event_id='test-event'))
+    for sub in ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/standard', 'sichuan/doubles', 'sichuan/xueliu_doubles']:
+        with pytest.raises(ValueError, match='双打复式'):
+            validate_duplicate_wall(saved, dict(room_rule='sichuan', sub_rule=sub, event_id='test-event'))
+    with pytest.raises(ValueError, match='必须先绑定'):
+        reserve_duplicate_game(db, wall_id)
+    with pytest.raises(ValueError, match='不一致'):
+        validate_duplicate_wall(saved, dict(room_rule='sichuan', sub_rule=SBR_DUPLICATE if layout == 'xueliu' else XUELIU_DUPLICATE, event_id='test-event'))
+    snapshot = new_match(str(uuid.uuid4()), sub_rule, {'open':'1','closed':'2'}, boards, 'db-sichuan')
     snapshot.update(source_wall_id=wall_id, key=key, wall_type=kind)
     store = PairedMatchStore(db)
     store.create(snapshot, event_id='test-event', owner_id=101, name='saved wall')
     restored = store.unfinished()[0]
     assert restored['boards'] == boards
     assert restored['wall_id'] == wall_id and restored['key'] == key
-    assert restored['profile']['wall_layout'] == 'xueliu'
+    assert restored['profile']['wall_layout'] == layout
     duplicate = deepcopy(snapshot)
     duplicate['id'] = str(uuid.uuid4())
     with pytest.raises(ValueError, match='已绑定'):
@@ -76,14 +86,15 @@ def test_bloodflow_saved_wall_attaches_once_and_restores_exact_boards(isolated_d
     assert len(set(games)) == 2
     for game in games:
         assert not duplicate_record_is_visible(db, {'game_title': {'duplicate_key':key}}, game)
-    snapshot['boards'].append(make_board('db-bloodflow', 5, layout='xueliu'))
+    count = 5 if layout == 'xueliu' else 8
+    snapshot['boards'].extend(make_board('db-sichuan', n, layout=layout) for n in range(5, count + 1))
     snapshot['revision'] = 1
     store.save(snapshot, 0)
-    assert len(store.unfinished()[0]['boards']) == 5
+    assert len(store.unfinished()[0]['boards']) == count
     conn = db._get_connection()
     with conn.cursor() as cursor:
         cursor.execute('SELECT count(*), max(round_count) FROM duplicate_walls')
-        assert cursor.fetchone() == (1, 5)
+        assert cursor.fetchone() == (1, count)
         cursor.execute('SELECT wall_type FROM duplicate_walls WHERE id=%s', (wall_id,))
         assert cursor.fetchone()[0] == kind
     db._put_connection(conn)

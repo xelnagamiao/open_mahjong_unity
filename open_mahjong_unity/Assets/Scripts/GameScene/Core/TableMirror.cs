@@ -52,6 +52,23 @@ public sealed class TableMirror {
         return duplicateRemainingTiles[originalPlayerIndex];
     }
 
+    private int[] sichuanWallMasks;
+
+    /// <summary>川麻复式四面实体墙占位，按原始座位；血流含摆在该侧的公共墙。</summary>
+    public void SetSichuanWallMasks(int[] masks) {
+        sichuanWallMasks = null;
+        if (masks == null || masks.Length != 4) return;
+        foreach (int mask in masks) if (mask < 0 || (mask & ~0x3fff) != 0) return;
+        sichuanWallMasks = (int[])masks.Clone();
+    }
+
+    public int? GetSichuanWallRemainingTiles(int originalPlayerIndex) {
+        if (sichuanWallMasks == null || originalPlayerIndex < 0 || originalPlayerIndex >= 4) return null;
+        int mask = sichuanWallMasks[originalPlayerIndex], count = 0;
+        while (mask != 0) { mask &= mask - 1; count++; }
+        return count;
+    }
+
     public int CurrentRound;
     /// <summary>最大风圈数（1=东风 2=半庄 3=东西 4=全庄）。</summary>
     public int MaxRound;

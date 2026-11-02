@@ -21,6 +21,7 @@ public partial class GameRecordManager {
     /// static：冷启动时 GamePanel 被关掉，GameRecordManager.Awake 可能尚未执行，Instance 为空时仍需能登记会话。
     /// </summary>
     private static string _delayedSpectatorGamestateId = "";
+    public static int DelayedSpectatorSessionVersion { get; private set; }
 
     /// <summary>已请求加入延时观战但尚未收到 record_init（或尚未进入 IsSpectating）。</summary>
     public bool HasPendingDelayedSpectatorSession =>
@@ -39,7 +40,6 @@ public partial class GameRecordManager {
     private int _lastReachedLastActionTipNode = -1;
 
     [Header("观战模式面板（仅观战时显示）")]
-    [SerializeField] private GameObject spectatorModePanel;
     [SerializeField] private TMP_Text spectatorModeText;
     [SerializeField] private Button spectatorBackLiveButton;
     [SerializeField] private Button spectatorExitButton;
@@ -50,10 +50,12 @@ public partial class GameRecordManager {
     public static void PrepareDelayedSpectatorSession(string gamestateId) {
         if (string.IsNullOrEmpty(gamestateId)) return;
         _delayedSpectatorGamestateId = gamestateId;
+        DelayedSpectatorSessionVersion++;
     }
 
     public static void ClearDelayedSpectatorSession() {
         _delayedSpectatorGamestateId = "";
+        DelayedSpectatorSessionVersion++;
     }
 
     /// <summary>延时观战推送是否属于当前会话（message_info.title = gamestate_id）。</summary>
@@ -68,7 +70,7 @@ public partial class GameRecordManager {
     public static void AbandonDelayedSpectatorSessionOnServer() {
         if (string.IsNullOrEmpty(_delayedSpectatorGamestateId)) return;
         string gamestateId = _delayedSpectatorGamestateId;
-        _delayedSpectatorGamestateId = "";
+        ClearDelayedSpectatorSession();
         _ = GameStateNetworkManager.Instance.RemoveSpectator(gamestateId);
     }
 
@@ -186,7 +188,7 @@ public partial class GameRecordManager {
         if (!IsSpectatorSession) return;
         bool nextState = !infoView.activeSelf;
         if (nextState) {
-            infoText.text = BuildSpectatorInfoString();
+            TableText.Set(infoText, BuildSpectatorInfoString());
             infoView.SetActive(true);
         } else {
             infoView.SetActive(false);
@@ -286,13 +288,15 @@ public partial class GameRecordManager {
     }
 
     private void ShowSpectatorModePanel(bool show) {
-        spectatorModePanel.SetActive(show);
+        if (spectatingPanel) spectatingPanel.SetActive(show);
+        LayoutRecordControlButtons(recordAutoPlayButton && recordAutoPlayButton.gameObject.activeSelf);
     }
 
     private void UpdateSpectatorModeText() {
-        spectatorModeText.text = IsLiveSpectatorMode ? "直播观战模式" : "牌谱阅览模式";
+        TableText.Set(spectatorModeText, IsLiveSpectatorMode ? "table.replay.live_mode" : "table.replay.replay_mode");
         TMP_Text label = spectatorBackLiveButton.GetComponentInChildren<TMP_Text>(true);
-        label.text = "回到直播";
+        TableText.Set(label, "table.replay.return_live");
+        spectatorBackLiveButton.interactable = !IsLiveSpectatorMode;
     }
 
     private void SetSpectatorModeFlags(bool live) {

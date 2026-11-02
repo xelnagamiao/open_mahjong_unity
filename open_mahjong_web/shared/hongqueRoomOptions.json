@@ -1,0 +1,27 @@
+{
+  "profiles": [
+    { "value": "hongque/v1.6", "label": "虹雀² v1.7" },
+    { "value": "hongque/w-v1.0", "label": "虹雀 W v1.0" }
+  ],
+  "defaults": {
+    "room_name": "",
+    "sub_rule": "hongque/v1.6",
+    "game_round": 16,
+    "starting_score": 0,
+    "round_timer": 20,
+    "step_timer": 5,
+    "tips": true,
+    "count_tips": false,
+    "pointer_tips": true,
+    "tourist_limit": false,
+    "allow_spectator": true,
+    "hepai_way": "multi_ron",
+    "tactical_call": true,
+    "open_cuohe": false
+  },
+  "wDefaults": {
+    "hongque_colourless": true,
+    "hongque_min_fan": 0,
+    "hongque_min_points": 0
+  }
+}

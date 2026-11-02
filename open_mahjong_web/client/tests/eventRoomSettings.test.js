@@ -2,6 +2,28 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildEventRoomSettings, changeEventRoomRule, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 
+test('Sichuan variants and generic editors preserve custom timers in presets and room creation', () => {
+  for (const sub_rule of ['standard', 'doubles', 'xueliu', 'xueliu_exchange', 'xueliu_doubles', 'doubles_duplicate', 'xueliu_doubles_duplicate']) {
+    const form = createEventRoomForm({ room_rule: 'sichuan', room_config: { sub_rule: `sichuan/${sub_rule}`, round_timer: 127, step_timer: 17 } })
+    const saved = buildEventRoomSettings(form)
+    const reloaded = createEventRoomForm(saved)
+    assert.equal(reloaded.round_timer, 127)
+    assert.equal(reloaded.step_timer, 17)
+    form.round_timer = 0
+    assert.equal(eventRoomSettingsRows(buildEventRoomSettings(form)).find(row => row.label === '局时').value, '0 秒')
+  }
+  for (const room_rule of ['qingque', 'classical', 'taiwan']) {
+    const saved = buildEventRoomSettings(createEventRoomForm({ room_rule, room_config: { round_timer: 96, step_timer: 12 } }))
+    assert.equal(saved.room_config.round_timer, 96)
+    assert.equal(saved.room_config.step_timer, 12)
+  }
+  for (const value of [null, -1, 1001, 2.5, '20']) {
+    const form = createEventRoomForm({ room_rule: 'sichuan' })
+    form.round_timer = value
+    assert.throws(() => buildEventRoomSettings(form), /局时/)
+  }
+})
+
 test('manual, automatic and dialog forms do not mutate their shared preset', () => {
   const preset = {
     room_rule: 'guobiao',

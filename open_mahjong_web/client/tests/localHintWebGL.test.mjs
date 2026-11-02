@@ -48,6 +48,27 @@ test('Unity JavaScript bridge returns results to the requesting component and sh
   library.OMLocalHintShutdown();assert.equal(stopped,1)
 })
 
+test('packaged Beijing worker preserves natural ron, unmet status and zero-fan self draw',()=>{
+  let library
+  vm.runInNewContext(readFileSync(pluginPath,'utf8'),{LibraryManager:{library:{}},mergeInto:(_,value)=>{library=value}})
+  const replies=[],self={postMessage:message=>replies.push(message)}
+  vm.runInNewContext(library.$OMLocalHintWorkerSource(),{self,console,fetch:()=>assert.fail('No server computation')})
+  const body={rule:'beijing',hand:[11,12,13,21,22,23,31,32,33,41,41,41,42],melds:[],context:{indicator:45}}
+  const open={...body,hand:[21,22,23,31,32,33,41,41,41,47],melds:['s12']}
+  const fourth={...body,hand:[45,45,45,11,14,17,21,24,27,31,34,37,41],context:{indicator:46,config:{four_hun_win:true}}}
+  for(const [id,request] of [[71,body],[72,{...body,context:{indicator:45,discarded_hun:true}}],[73,open],[74,fourth]]){
+    self.onmessage({data:{id,kind:'regional.snapshot',body:request}})
+  }
+  assert.deepEqual(replies.map(row=>row.id),[71,72,73,74])
+  assert.equal(replies[0].result.waiting_details[42].label,'4点')
+  assert.equal(replies[0].result.waiting_details[47].can_ron,false)
+  assert.equal(replies[0].result.waiting_details[47].label,'仅自摸\n6点')
+  assert.equal(replies[1].result.waiting_details[42].label,'未满足')
+  assert.equal(replies[2].result.waiting_details[42].label,'仅自摸\n3点')
+  assert.equal(replies[3].result.waiting_details[45].label,'仅自摸\n12点')
+  assert.equal(replies[3].result.waiting_details[45].can_ron,false)
+})
+
 test('packaged Shangrao worker evaluates self draw, unmet hands and discard previews offline',()=>{
   let library
   vm.runInNewContext(readFileSync(pluginPath,'utf8'),{LibraryManager:{library:{}},mergeInto:(_,value)=>{library=value}})

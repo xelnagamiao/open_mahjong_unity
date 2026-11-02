@@ -8,6 +8,16 @@ using UnityEngine;
 /// 退税仅并入没叫/花猪的查叫面板；三家和跳过查叫时不退税。
 /// </summary>
 public partial class RoundEndPresentation {
+    public void PresentSichuanBoard(SichuanBoardSettlementInfo info, string nextStatus, bool record = false) {
+        HideSichuanDuplicateResult();
+        ResetSichuanEndgameQueue();
+        StopActiveSequence();
+        HideSelfGameplayControl(false);
+        PreparePresentationRoot(true);
+        EndResultPanel.Instance.PrepareSichuanBoard(info, nextStatus, record);
+        StartSequence(PlayPresentationFade(true));
+    }
+
     public void EnqueueSichuanRevealHu(Dictionary<int, int[]> huHands) {
         EnqueueSichuanEndgameStep(CoSichuanRevealHuStep(huHands));
     }
@@ -41,6 +51,18 @@ public partial class RoundEndPresentation {
         RecordSettlementView recordView = null) {
         EnqueueSichuanEndgameStep(CoSichuanChajiaoStep(
             focusPlayerIndex, statusKey, hand, combinationMask, player_to_score, scoreChanges, isFinalPanel, hasRefund, recordView));
+    }
+
+    public void EnqueueSichuanKongSettlement(Dictionary<int, int> scores,
+        Dictionary<int, int> changes, string[] labels, RecordSettlementView recordView = null) {
+        EnqueueSichuanEndgameStep(CoSichuanKongSettlement(scores, changes, labels, recordView));
+    }
+
+    private IEnumerator CoSichuanKongSettlement(Dictionary<int, int> scores,
+        Dictionary<int, int> changes, string[] labels, RecordSettlementView recordView) {
+        BeginSichuanEndgamePanel();
+        EndResultPanel.Instance.PrepareSichuanKongSettlement(scores, changes, labels, recordView);
+        yield return CoFadeInSichuanEndgamePanel();
     }
 
     public void EnqueueSichuanChaRefund(

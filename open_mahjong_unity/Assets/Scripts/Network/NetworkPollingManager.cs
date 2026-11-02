@@ -8,6 +8,7 @@ using UnityEngine;
 public class NetworkPollingManager : MonoBehaviour {
     public static NetworkPollingManager Instance {
         get {
+            if (isQuitting) return null;
             if (_instance == null) {
                 var go = new GameObject("NetworkPollingManager");
                 _instance = go.AddComponent<NetworkPollingManager>();
@@ -18,6 +19,17 @@ public class NetworkPollingManager : MonoBehaviour {
     }
 
     private static NetworkPollingManager _instance;
+    private static bool isQuitting;
+    public static NetworkPollingManager Existing => _instance ? _instance : null;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetLifecycle() { _instance = null; isQuitting = false; }
+
+    private void OnApplicationQuit() { isQuitting = true; }
+    private void OnDestroy() {
+        StopAllCoroutines();
+        if (_instance == this) _instance = null;
+    }
 
     private Coroutine roomListPollingCoroutine;
     private Coroutine serverStatsPollingCoroutine;

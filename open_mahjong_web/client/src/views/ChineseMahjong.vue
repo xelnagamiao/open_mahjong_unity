@@ -3,7 +3,6 @@
   <div class="chinese">
     <div class="page-header">
       <CalculatorSwitcher />
-      <p class="subtitle">13 张显示听牌与进张；14 张计算番种、得分及全部拆解，未和牌时显示切牌分析。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -28,6 +27,8 @@
         />
         <el-button type="primary" size="small" plain :loading="loading" @click="calculateScore">解析</el-button>
       </div>
+
+      <HandShapeOptions :options="options" :rule="rule" :loading="loading" @change="session.setHandOption" />
 
       <div class="row block">
         <div class="row-line">
@@ -91,39 +92,7 @@
         />
       </div>
 
-      <div class="row">
-        <span class="row-label">花牌（每张 1 番）</span>
-        <el-input-number
-          v-model="form.flowerCount"
-          :min="0"
-          :max="8"
-          size="small"
-          controls-position="right"
-        />
-      </div>
-
-      <div class="row block">
-        <div class="row-line"><span class="row-label">和牌方式</span></div>
-        <div class="ways">
-          <el-radio-group v-model="form.hepaiType" size="small">
-            <el-radio-button label="dianhe">点和</el-radio-button>
-            <el-radio-button label="zimo">自摸</el-radio-button>
-          </el-radio-group>
-          <el-select v-model="form.changFeng" size="small" :style="{ width: locale === 'fr' ? '205px' : '110px' }">
-            <el-option v-for="opt in ['场风东','场风南','场风西','场风北']" :key="opt" :label="tr(opt)" :value="opt" />
-          </el-select>
-          <el-select v-model="form.menFeng" size="small" :style="{ width: locale === 'fr' ? '205px' : '110px' }">
-            <el-option v-for="opt in ['自风东','自风南','自风西','自风北']" :key="opt" :label="tr(opt)" :value="opt" />
-          </el-select>
-        </div>
-        <div class="ways flags nowrap-scroll">
-          <el-checkbox v-model="form.flagSet.heJueZhang" size="small">和绝张</el-checkbox>
-          <el-checkbox v-model="form.flagSet.gangShangKaiHua" size="small">杠上开花</el-checkbox>
-          <el-checkbox v-model="form.flagSet.qiangGangHe" size="small">抢杠和</el-checkbox>
-          <el-checkbox v-model="form.flagSet.miaoShouHuiChun" size="small">妙手回春</el-checkbox>
-          <el-checkbox v-model="form.flagSet.haiDiLaoYue" size="small">海底捞月</el-checkbox>
-        </div>
-      </div>
+      <HandWinConditions :form="form" :rule="rule" :closed="closed" />
 
       <div class="result-embed" aria-live="polite" :aria-busy="loading">
         <div v-if="loading" class="empty">
@@ -146,7 +115,7 @@
         <el-button size="default" :loading="loading" @click="calculateDecompose">
           查看全部拆解
         </el-button>
-        <el-button size="default" @click="transfer('/paili')">国标牌理</el-button>
+        <el-button size="default" @click="transfer(pailiRoute)">{{ ruleLabel }}牌理</el-button>
       </div>
     </section>
 
@@ -156,7 +125,7 @@
 <script setup>
 import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
 import { computed, watch, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { Loading } from '@element-plus/icons-vue'
 import TileChip from '@/components/TileChip.vue'
 import TileInputPlaceholder from '@/components/TileInputPlaceholder.vue'
@@ -168,13 +137,18 @@ import PailiResult from '@/components/PailiResult.vue'
 import GuobiaoScoreResult from '@/components/GuobiaoScoreResult.vue'
 import GuobiaoDecompositions from '@/components/GuobiaoDecompositions.vue'
 import { useGuobiaoCalculator } from '@/composables/useGuobiaoCalculator'
-import { locale, tr } from '@/i18n'
+import HandShapeOptions from '@/components/HandShapeOptions.vue'
+import HandWinConditions from '@/components/HandWinConditions.vue'
+import { ruleFromPath } from '@/utils/calculatorRules.ts'
 
 const route = useRoute()
 const router = useRouter()
 const session = useGuobiaoCalculator()
+onBeforeRouteLeave(to => !/^\/(?:calc\/(?:chinese|qingque|riichi)|paili(?:\/(?:qingque|riichi))?)$/.test(to.path) || session.prepareTransfer())
+onBeforeRouteUpdate((to, from) => to.path === from.path || session.prepareTransfer())
 const { draft, form, textInput, result, loading, best, pailiResult, showDecompositions,
-  expectedHandCount, expectedTotalCount, resetAll, clearGetTile, applyDraw, applyDiscard } = session
+  expectedHandCount, expectedTotalCount, resetAll, clearGetTile, applyDraw, applyDiscard,
+  options, rule, ruleLabel, pailiRoute, closed } = session
 const fulu = session.fulu
 const fuluSlots = fulu.slots
 const activeFuluIdx = fulu.activeIdx
@@ -190,8 +164,9 @@ const inputTargetLabel = computed(() => activeFuluIdx.value >= 0 ? `输入副露
 async function transfer(path) {
   if (session.prepareTransfer()) await router.push(path)
 }
-watch(() => route.query.example, async id => {
-  if (route.path !== '/calc/chinese') return
+watch(() => [route.path, route.query.example], async ([path, id]) => {
+  if (!['/calc/chinese', '/calc/qingque', '/calc/riichi'].includes(path)) return
+  session.setRule(ruleFromPath(path))
   if (typeof id === 'string') {
     if (await session.loadExample(id)) {
       const query = { ...route.query }; delete query.example
@@ -236,13 +211,6 @@ async function calculateDecompose() {
   font-weight: bold;
   color: white;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.95);
-  opacity: 0.95;
 }
 
 .main-card {

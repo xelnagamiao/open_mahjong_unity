@@ -9,7 +9,10 @@ public class LoginRequest { // 登录请求
     public bool is_tourist; // 是否为游客登录
 }
 
-public class CreateGBRoomRequest { // 创建国标房间请求
+public class CreateGBRoomRequest {
+    public bool hongque_colourless = true;
+    public int hongque_min_fan;
+    public int hongque_min_points; // 创建国标房间请求
     public bool unlimited_rounds;
     public bool claim_protection = true;
     public string type;
@@ -73,7 +76,6 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
 }
 
 public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
-    public string duplicate_key;
     public bool claim_protection = true;
     public string type;
     public string rule;
@@ -187,7 +189,9 @@ public class SendChineseGameTileRequest { // 发送国标游戏牌请求
     public int? action_tick; // 本次切牌所回应的询问帧；服务端用于丢弃过期提交
 }
 
-public class SendActionRequest { // 发送国标游戏操作请求
+public class SendActionRequest {
+    public string settlement_id;
+    public string choice_id; // 发送国标游戏操作请求
     public string type; // 消息类型 "send_action"
     public string action; // 操作类型 "cut" "chi_left" "chi_mid" "chi_right" "peng" "gang" "angang" "hu" "buhua"
     public int? targetTile; // 暗杠目标牌 加杠目标牌
@@ -216,12 +220,6 @@ public class UpdateRecordFavoriteRequest {
     public string type;
     public string game_id;
     public bool is_favorite;
-}
-
-public class GetRankRecordListRequest { // 获取全服最近天梯对局记录请求
-    public string rule = "guobiao", data_request_id;
-    public string type;
-    public int limit = 20;
 }
 
 public class GetLeaderboardRequest { // 获取国标段位排行榜请求

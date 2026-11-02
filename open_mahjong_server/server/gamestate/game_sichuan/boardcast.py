@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet, remember_result
 from ..public.action_window import prepare_ready_window
 from ..public.ready_phase import ready_status_by_seat
 from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
@@ -32,6 +33,7 @@ from ..public.claim_protection import (
 )
 from .shunhe import tag_list_for_viewer
 from .action_window import prepare_action_window
+from .duplicate_wall import wall_display_masks
 from .action_check import xueliu_post_hu_kong_candidates, is_xueliu_required_hu
 
 from ..public.ask_timing import begin_ask_round, reconnect_clock
@@ -123,6 +125,8 @@ def _base_game_info(self):
         'step_time': self.step_time,
         'round_time': self.round_time,
         'room_type': self.room_type,
+        'match_queue_type': getattr(self, 'match_queue_type', None),
+        'match_tier': getattr(self, 'match_tier', None),
         'room_rule': self.room_rule,
         'sub_rule': getattr(self, 'sub_rule', 'sichuan/standard'),
         'xueliu_rule_profile': getattr(self, 'xueliu_rule_profile', None),
@@ -141,19 +145,22 @@ def _base_game_info(self):
     base.update(build_player_entry_order_fields(self))
     if getattr(self, "duplicate_key", None):
         from ..public.duplicate_wall import duplicate_fields, duplicate_remaining_tile_counts
-        base.update(duplicate_fields(self), duplicate_remaining_tiles=duplicate_remaining_tile_counts(self), salt=None, commitment=None)
+        base.update(duplicate_fields(self), duplicate_remaining_tiles=duplicate_remaining_tile_counts(self),
+                    sichuan_wall_masks=wall_display_masks(self), salt=None, commitment=None)
         if getattr(self, "duplicate_match", None):
-            base["duplicate_match"] = {**self.duplicate_match.public_info(), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait"}
+            base["duplicate_match"] = {**self.duplicate_match.public_info(self.duplicate_table), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait",
+                "waiting_for": getattr(self, "duplicate_waiting_for", None), "current_board": self.current_round}
     return base
 
 
 async def broadcast_duplicate_status(self):
     response = Response(type="gamestate/sichuan/duplicate_status", success=True, message="复式比赛进度",
-                        duplicate_match_info={**self.duplicate_match.public_info(), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait"})
+                        duplicate_match_info={**self.duplicate_match.public_info(self.duplicate_table), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait",
+                "waiting_for": getattr(self, "duplicate_waiting_for", None), "current_board": self.current_round})
     for player in self.player_list:
         conn = self.game_server.user_id_to_connection.get(player.user_id)
         if player.user_id > 10 and conn is not None:
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
 
 
 async def broadcast_game_start(self):
@@ -171,7 +178,7 @@ async def broadcast_game_start(self):
                 )
                 response = Response(type="gamestate/sichuan/game_start", success=True,
                                     message="游戏开始", game_info=game_info)
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 game_start 广播失败 {current_player.user_id}: {e}")
@@ -201,7 +208,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         message="实时观战初始化",
         game_info=game_info,
     )
-    await conn.websocket.send_json(response.dict(exclude_none=True))
+    await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
     logger.info(f"已向实时观战玩家 {spectator_user_id} 发送四川 game_start（视角座位 {view_player_index}）")
     await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
@@ -233,7 +240,7 @@ async def broadcast_dingque_ask(self):
                         action_tick=self.server_action_tick,
                     ),
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
         except Exception as e:
             logger.error(f"四川 ask_dingque 广播失败 {current_player.user_id}: {e}")
 
@@ -267,7 +274,7 @@ async def broadcast_dingque_done(self):
                         player_to_dingque=player_to_dingque,
                     ),
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 dingque_done 广播失败 {current_player.user_id}: {e}")
@@ -370,7 +377,7 @@ async def broadcast_xueliu_exchange_animation(self):
         try:
             connection = self.game_server.user_id_to_connection.get(player.user_id) if player.user_id >= 10 else None
             if connection is not None and "offline" not in player.tag_list:
-                await connection.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, connection.websocket, response.dict(exclude_none=True))
             await self.send_to_realtime_spectators(i, response)
         except Exception as exc:
             logger.error("血流双打换牌动画发送失败 player=%s: %s", i, exc)
@@ -499,9 +506,9 @@ async def reconnected_send_pending_ask_for_viewer(
                 deal_tile_type=get_hand_draw_source(self, self.current_player_index),
             ),
         )
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     elif self.game_status == "xueliu_exchange_animation" and getattr(self, "is_xueliu_doubles", False):
-        await player_conn.websocket.send_json(_exchange_animation_response(self, view_player_index).dict(exclude_none=True))
+        await send_game_packet(self, player_conn.websocket, _exchange_animation_response(self, view_player_index).dict(exclude_none=True))
     elif self.game_status == "waiting_xueliu_throw" and (self.action_dict.get(view_player_index) or getattr(self, "is_xueliu_doubles", False)):
         response = Response(
             type="gamestate/sichuan/broadcast_hand_action", success=True,
@@ -516,7 +523,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 action_tick=self.server_action_tick,
             ),
         )
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     elif self.game_status == "waiting_hand_action" and view_player_index == self.current_player_index:
         response = Response(
             type="gamestate/sichuan/broadcast_hand_action", success=True, message="发牌并询问手牌操作",
@@ -527,7 +534,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 kong_candidates=xueliu_post_hu_kong_candidates(self, view_player_index),
             ),
         )
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and self.action_dict.get(view_player_index):
         cut_tile = self.jiagang_tile if self.game_status == "waiting_action_qianggang" else self.player_list[self.current_player_index].discard_tiles[-1]
         response = Response(
@@ -538,7 +545,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 cut_tile=cut_tile, action_tick=self.server_action_tick,
             ),
         )
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
 
 
 async def reconnected_send_pending_ask(self, user_id: int):
@@ -696,6 +703,7 @@ def _build_do_action_payload(
     return {
         "action_list": action_list,
         "duplicate_remaining_tiles": self.tiles_list.remaining_counts() if hasattr(self.tiles_list, "remaining_counts") else None,
+        "sichuan_wall_masks": wall_display_masks(self),
         "draw_from_seat": (getattr(self, "duplicate_last_draw", None) or {}).get("draw_from_seat") if deal_tile is not None else None,
         "action_player": action_player,
         "action_tick": self.server_action_tick,
@@ -732,7 +740,7 @@ async def _deliver_do_action_payload_to_viewer(
         message="返回操作内容",
         do_action_info=Do_action_info(**payload),
     )
-    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     await self.send_to_realtime_spectators(current_player.player_index, response)
 
 
@@ -752,9 +760,27 @@ async def _send_do_action_payload_to_viewer(
     await send_to_viewer(self, viewer_index, _do, delay_before=take_post_meld_gap_delay(self, viewer_index))
 
 
+def _sync_final_score_history(state, info):
+    if getattr(state, "is_xueliu", False):
+        return  # Blood-flow already upserts its running hand at every action.
+    if not (info.get("liuju_status_final") or info.get("next_status") in ("round_end_by_ready", "match_end")):
+        return
+    if info.get("round_continues") or info.get("defer_score_settlement"):
+        return
+    for player in state.player_list:
+        if not player.round_number_history or player.round_number_history[-1] != state.current_round:
+            player.round_number_history.append(state.current_round)
+            player.score_history.append("0")
+        delta = player.score - sum(int(value) for value in player.score_history[:-1])
+        player.score_history[-1] = f"+{delta}" if delta > 0 else str(delta)
+
+
 async def broadcast_result(self, hu_class: str, **kwargs):
     """通用结算广播：透传 Show_result_info 字段（四川扩展见 kwargs）。"""
     _sync_xueliu_score_history(self)
+    _sync_final_score_history(self, kwargs)
+    if getattr(self, "_sichuan_grouped_endgame", False) and kwargs.get("liuju_step") != "reveal_hu":
+        kwargs["sichuan_grouped_endgame"] = True
     if getattr(self, "is_doubles", False) and kwargs.get("defer_score_settlement"):
         # 局中只公开和牌事实；队友也不能通过番型推断隐藏手牌。
         kwargs.pop("hu_fan", None)
@@ -766,25 +792,26 @@ async def broadcast_result(self, hu_class: str, **kwargs):
     self.server_action_tick += 1
     for current_player in self.player_list:
         try:
+            payload = dict(kwargs)
+            payload = _viewer_sichuan_hu_payload(payload, current_player.player_index, public_win_tile=getattr(self, "is_xueliu", False))
+            response = Response(
+                type="gamestate/sichuan/show_result", success=True, message="显示结算结果",
+                show_result_info=Show_result_info(
+                    hu_class=hu_class,
+                    action_tick=self.server_action_tick,
+                    silent=True if silent else None,
+                    **payload,
+                ),
+            )
+            remember_result(self, response, current_player.player_index)
             if "offline" in current_player.tag_list or current_player.user_id == 0:
                 continue
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                payload = dict(kwargs)
-                payload = _viewer_sichuan_hu_payload(payload, current_player.player_index, public_win_tile=getattr(self, "is_xueliu", False))
-                response = Response(
-                    type="gamestate/sichuan/show_result", success=True, message="显示结算结果",
-                    show_result_info=Show_result_info(
-                        hu_class=hu_class,
-                        action_tick=self.server_action_tick,
-                        silent=True if silent else None,
-                        **payload,
-                    ),
-                )
                 from ..public.outbound_pipe import send_to_viewer
 
                 async def _do(conn=player_conn, resp=response, idx=current_player.player_index):
-                    await conn.websocket.send_json(resp.dict(exclude_none=True))
+                    await send_game_packet(self, conn.websocket, resp.dict(exclude_none=True))
                     await self.send_to_realtime_spectators(idx, resp)
 
                 await send_to_viewer(
@@ -808,7 +835,7 @@ async def broadcast_xueliu_continue(self):
         response = Response(type="gamestate/sichuan/xueliu_continue", success=True,
                             message="血流续打状态", game_info=info)
         async def send(conn=conn, response=response, index=player.player_index):
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
             await self.send_to_realtime_spectators(index, response)
         await send_to_viewer(self, player.player_index, send)
 
@@ -826,6 +853,8 @@ def _viewer_sichuan_hu_payload(kwargs: dict, viewer_index: int, *, public_win_ti
 
 async def broadcast_game_end(self):
     from ...match.settlement import rating_result_fields
+    from .board_settlement import match_summary
+    sichuan_match = match_summary(self)
     self.server_action_tick += 1
     player_final_data = {}
     for player in self.player_list:
@@ -849,7 +878,8 @@ async def broadcast_game_end(self):
                 response = Response(
                     type="gamestate/sichuan/game_end", success=True, message="游戏结束",
                     game_end_info=Game_end_info(
-                        duplicate_match=self.duplicate_match.public_info() if getattr(self, "duplicate_match", None) else None,
+                        sichuan_match=sichuan_match,
+                        duplicate_match=self.duplicate_match.public_info(self.duplicate_table) if getattr(self, "duplicate_match", None) else None,
                         team_result=getattr(self, "team_result", None),
                         master_seed=None if getattr(self, "duplicate_key", None) else self.master_seed,
                         commitment=None if getattr(self, "duplicate_key", None) else self.commitment,
@@ -858,7 +888,7 @@ async def broadcast_game_end(self):
                         record_detail=local_record_detail_for_end(self),
                     ),
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 game_end 广播失败 {current_player.user_id}: {e}")
@@ -880,7 +910,7 @@ async def broadcast_refresh_player_tag_list(self):
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(type="refresh_player_tag_list", success=True,
                                     message="刷新玩家标签列表", refresh_player_tag_list_info=refresh_tag_info)
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 refresh_tag 广播失败 {current_player.user_id}: {e}")
@@ -898,7 +928,7 @@ async def broadcast_ready_status(self):
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(type="gamestate/sichuan/ready_status", success=True,
                                     message="准备状态更新", ready_status_info=ready_info)
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 ready_status 广播失败 {current_player.user_id}: {e}")

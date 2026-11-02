@@ -43,15 +43,46 @@ def seated_room():
                 host_user_id=101, roster_revision=7, ready_list=[102,103], duplicate_status='ready')
 
 
-@pytest.mark.parametrize('kind',['manual','seed','key'])
+@pytest.mark.parametrize('sub', ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'])
 @run_async
-async def test_bloodflow_pair_uses_saved_eight_and_common_layout(rooms,monkeypatch,kind):
+async def test_ordinary_sichuan_keys_are_rejected_before_creating_event_rooms(rooms, sub):
+    result = await rooms.create_empty_event_room('evt_pair', 'sichuan',
+        {'sub_rule': sub, 'duplicate_key': 'dup_' + 'a' * 32}, created_by=101)
+    assert not result.success and '双打复式' in result.message
+    assert not rooms.rooms and not rooms.saved
+
+
+@pytest.mark.parametrize('sub', ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', SBR_DUPLICATE, XUELIU_DUPLICATE])
+@run_async
+async def test_player_socket_cannot_bypass_paired_creation_with_a_key(rooms, monkeypatch, sub):
+    from .room_router import handle_room_message
+    dispatch = AsyncMock()
+    monkeypatch.setattr('server.room.room_router._dispatch_room_message', dispatch)
+    socket = NS(send_json=AsyncMock())
+    await handle_room_message(rooms.game_server, 'test-connection', {
+        'type': 'room/create_Sichuan_room', 'sub_rule': sub, 'duplicate_key': 'dup_' + 'a' * 32,
+    }, socket)
+    assert not socket.send_json.call_args.args[0]['success']
+    assert '成对创建' in socket.send_json.call_args.args[0]['message']
+    dispatch.assert_not_called()
+    assert not rooms.rooms and not rooms.saved
+
+
+@pytest.mark.parametrize('kind',['manual','seed','key'])
+@pytest.mark.parametrize('venue_kind',['event','base'])
+@pytest.mark.parametrize('sub_rule,wall_rule,layout', [
+    (XUELIU_DUPLICATE, 'sichuan/xueliu', 'xueliu'),
+    (SBR_DUPLICATE, 'sichuan/sbr', 'standard'),
+])
+@run_async
+async def test_pair_uses_saved_wall_type_and_rule_layout(rooms,monkeypatch,kind,venue_kind,sub_rule,wall_rule,layout):
+    rooms.game_server.db_manager.get_event.return_value = dict(event_id='evt_pair', kind=venue_kind, status='active')
     from ..game_calculation.sichuan.duplicate_rules import make_board,flatten_board
-    boards=[make_board('chosen',n,layout='xueliu') for n in range(1,5)]
-    wall=dict(id=19,key='dup_'+'b'*32,rule='sichuan/xueliu',wall_type=kind,event_id='evt_pair',
+    boards=[make_board('chosen',n,layout=layout) for n in range(1,5)]
+    wall=dict(id=19,key='dup_'+'b'*32,rule=wall_rule,wall_type=kind,event_id='evt_pair',
               use_flowers=False,round_count=4,round_tiles=[flatten_board(b) for b in boards],tiles=flatten_board(boards[0]),seed='chosen')
     monkeypatch.setattr('server.database.duplicate_walls.load_duplicate_wall',lambda *_:deepcopy(wall))
-    result=await create_pair(rooms,'evt_pair',XUELIU_DUPLICATE,{'sub_rule':XUELIU_DUPLICATE,'duplicate_key':wall['key']},'',101)
+    result=await rooms.create_empty_event_room('evt_pair','sichuan',{'sub_rule':sub_rule,'duplicate_key':wall['key']},created_by=101)
     assert result.success and len(rooms.rooms)==2
     assert rooms.saved[0]['boards']==boards
     assert rooms.saved[0]['source_wall_id']==19 and rooms.saved[0]['wall_type']==kind
@@ -94,6 +125,19 @@ async def test_seat_move_api_membership_and_broadcast(rooms):
 
 
 @pytest.mark.parametrize('sub',[SBR_DUPLICATE,XUELIU_DUPLICATE])
+@pytest.mark.parametrize('venue_kind',['event','base'])
+@run_async
+async def test_admin_venue_room_request_creates_both_tables(rooms,sub,venue_kind):
+    rooms.game_server.db_manager.get_event.return_value = dict(event_id='evt_pair', kind=venue_kind, status='active')
+    result = await rooms.create_empty_event_room('evt_pair', 'sichuan',
+        {'sub_rule': sub, 'duplicate_round_count': 4}, created_by=101)
+    assert result.success and len(rooms.rooms) == 2
+    assert {r['event_id'] for r in rooms.rooms.values()} == {'evt_pair'}
+    assert {r['duplicate_table'] for r in rooms.rooms.values()} == {'open', 'closed'}
+    assert len({r['duplicate_match_id'] for r in rooms.rooms.values()}) == 1
+
+
+@pytest.mark.parametrize('sub',[SBR_DUPLICATE,XUELIU_DUPLICATE])
 @run_async
 async def test_four_player_seating_cannot_create_half_a_pair(rooms,sub):
     result=await rooms._seat_event_table_locked(101,'evt_pair',[101,102,103,104],'sichuan',{'sub_rule':sub},automatic=False)
@@ -102,8 +146,10 @@ async def test_four_player_seating_cannot_create_half_a_pair(rooms,sub):
 
 @pytest.mark.parametrize('sub',[SBR_DUPLICATE,XUELIU_DUPLICATE])
 @pytest.mark.parametrize('count',[1,4,8,12,16])
+@pytest.mark.parametrize('venue_kind',['event','base'])
 @run_async
-async def test_admin_pair_creation_is_atomic_fixed_seats_private(rooms,sub,count):
+async def test_admin_pair_creation_is_atomic_fixed_seats_private(rooms,sub,count,venue_kind):
+    rooms.game_server.db_manager.get_event.return_value = dict(event_id='evt_pair', kind=venue_kind, status='active')
     response = await create_pair(rooms,'evt_pair',sub,dict(sub_rule=sub,duplicate_round_count=count),'pw',101)
     assert response.success and len(rooms.rooms)==2
     assert 'duplicate_key' not in response.model_dump()['room_info']
@@ -123,11 +169,37 @@ async def test_invalid_count_does_not_create_either_room(rooms,bad):
     assert not result.success and not rooms.rooms and not rooms.saved
 
 
-@pytest.mark.parametrize('config',[{'random_seed':1},{'duplicate_key':'dup_x'}])
 @run_async
-async def test_external_walls_rejected(rooms,config):
-    result=await create_pair(rooms,'evt_pair',SBR_DUPLICATE,config,'',101)
+async def test_raw_seed_rejected(rooms):
+    result=await create_pair(rooms,'evt_pair',SBR_DUPLICATE,{'random_seed':1},'',101)
     assert not result.success and not rooms.rooms
+
+
+@run_async
+async def test_invalid_key_rejected_without_creating_rooms(rooms):
+    with pytest.raises(ValueError, match='密钥格式'):
+        await create_pair(rooms,'evt_pair',SBR_DUPLICATE,{'duplicate_key':'dup_x'},'',101)
+    assert not rooms.rooms and not rooms.saved
+
+
+@pytest.mark.parametrize('sub_rule,wall_rule', [(SBR_DUPLICATE, 'sichuan/sbr'), (XUELIU_DUPLICATE, 'sichuan/xueliu')])
+@pytest.mark.parametrize('problem', ['wrong_rule', 'other_venue', 'personal', 'wrong_tiles', 'flowers'])
+@run_async
+async def test_existing_key_validation_leaves_no_half_pair(rooms, monkeypatch, sub_rule, wall_rule, problem):
+    from ..game_calculation.sichuan.duplicate_rules import TILES
+    wall = dict(id=19, key='dup_'+'b'*32, rule=wall_rule, wall_type='manual', event_id='evt_pair',
+                use_flowers=False, round_count=1, round_tiles=[list(TILES)], tiles=list(TILES), seed=None)
+    if problem == 'wrong_rule': wall['rule'] = 'sichuan/xueliu' if wall_rule == 'sichuan/sbr' else 'sichuan/sbr'
+    elif problem == 'other_venue': wall['event_id'] = 'another-venue'
+    elif problem == 'personal': wall['event_id'] = None
+    elif problem == 'flowers': wall['use_flowers'] = True
+    else:
+        wall['tiles'][0] = 41
+        wall['round_tiles'][0][0] = 41
+    monkeypatch.setattr('server.database.duplicate_walls.load_duplicate_wall', lambda *_: deepcopy(wall))
+    with pytest.raises(ValueError):
+        await create_pair(rooms, 'evt_pair', sub_rule, {'duplicate_key': wall['key']}, '', 101)
+    assert not rooms.rooms and not rooms.saved
 
 
 @run_async
@@ -250,12 +322,11 @@ async def test_resume_keeps_original_eight_seats_and_reserved_record_ids(rooms,m
     assert a['duplicate_game_id']=='keep-open' and b['duplicate_game_id']=='keep-closed'
 
 
-@pytest.mark.parametrize('mode',['duplicate_user','bot','offline_host','wrong_resume','prepare_error','cancelled','changed_roster'])
+@pytest.mark.parametrize('mode',['duplicate_user','offline_host','wrong_resume','prepare_error','cancelled','changed_roster'])
 @run_async
 async def test_pair_start_failures_never_launch_one_table(rooms,monkeypatch,mode):
     gm,pair,(a,b)=await prepare_pair(rooms,monkeypatch)
     if mode=='duplicate_user':b['seat_list'][2]=a['seat_list'][2]
-    if mode=='bot':b['seat_list'][2]=2
     if mode=='offline_host':rooms.game_server.user_id_to_connection.pop(105)
     if mode=='wrong_resume':
         pair.data.update(completed_boards=1,members={'open':[{'user_id':999}]*4,'closed':[{'user_id':999}]*4})
@@ -303,7 +374,7 @@ async def test_missing_pair_or_peer_fails_without_mutation(rooms,monkeypatch):
 
 @run_async
 async def test_non_event_pair_and_internal_second_creation_failure(rooms):
-    rooms.game_server.db_manager.get_event.return_value={'kind':'base'}
+    rooms.game_server.db_manager.get_event.return_value={'kind':'other'}
     assert not (await create_pair(rooms,'evt_pair',SBR_DUPLICATE,{},'',101)).success
     rooms.game_server.db_manager.get_event.return_value={'kind':'event'}
     original=rooms.create_empty_event_room
@@ -353,3 +424,32 @@ async def test_incomplete_legacy_completed_snapshot_does_not_fabricate_records(r
     monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _:[snapshot])
     restore_pairs(rooms.game_server)
     rooms.game_server.db_manager.store_sichuan_game_record.assert_not_called()
+
+
+@pytest.mark.parametrize('sub_rule', [SBR_DUPLICATE, XUELIU_DUPLICATE])
+@pytest.mark.parametrize('mode', [None, False, True])
+@run_async
+async def test_pair_sync_mode_saved_in_both_rooms(rooms, monkeypatch, sub_rule, mode):
+    config = dict(sub_rule=sub_rule, duplicate_round_count=4)
+    if mode is not None:
+        config['duplicate_sync_mode'] = mode
+    response = await create_pair(rooms, 'evt_pair', sub_rule, config, '', 101)
+    assert response.success
+    assert len(rooms.rooms) == 2
+    assert all(room['duplicate_sync_mode'] is (mode is True) for room in rooms.rooms.values())
+    assert rooms.saved[-1]['sync_mode'] is (mode is True)
+    snapshot = deepcopy(rooms.saved[-1])
+    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished', lambda _: [snapshot])
+    rooms.rooms.clear()
+    restore_pairs(rooms.game_server)
+    assert len(rooms.rooms) == 2
+    assert all(room['duplicate_sync_mode'] is (mode is True) for room in rooms.rooms.values())
+
+
+@pytest.mark.parametrize('mode', ['false', 'true', 0, 1, None, [], {}])
+@run_async
+async def test_invalid_pair_sync_mode_creates_nothing(rooms, mode):
+    response = await create_pair(rooms, 'evt_pair', SBR_DUPLICATE,
+                                 dict(sub_rule=SBR_DUPLICATE, duplicate_sync_mode=mode), '', 101)
+    assert not response.success
+    assert not rooms.rooms and not rooms.saved

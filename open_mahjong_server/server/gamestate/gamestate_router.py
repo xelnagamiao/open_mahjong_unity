@@ -34,6 +34,11 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
             await websocket.send_json({"type": "tips", "success": False, "message": "您已放弃当前对局"})
             return
 
+    if gid and message.get("action", message.get("action_type")) == "ready":
+        from .public.settlement_sync import accepts_ready
+        if not accepts_ready(state, message.get("settlement_id")):
+            return
+
     message_type = message.get("type", "").strip("/")
     
     # 根据完整路径分发
@@ -139,8 +144,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/hangzhou/cut_tile", "gamestate/hangzhou/send_action"}:
         from .game_hangzhou.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/beijing/cut_tile", "gamestate/beijing/send_action"}:
+        from .game_beijing.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/shangrao/cut_tile", "gamestate/shangrao/send_action"}:
         from .game_shangrao.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/duocai/cut_tile", "gamestate/duocai/riichi_cut", "gamestate/duocai/send_action"}:
+        from .game_duocai.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/nanchang/cut_tile", "gamestate/nanchang/send_action"}:
         from .game_nanchang.get_action import handle_action
@@ -197,7 +208,7 @@ async def handle_hongque_action(game_server, Connect_id: str, message: dict, web
     gamestate_id = message.get("gamestate_id")
     game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
     if game_state is None or getattr(game_state, "room_rule", None) != "hongque":
-        await websocket.send_json({"type": "tips", "success": False, "message": "虹雀原型对局不存在"})
+        await websocket.send_json({"type": "tips", "success": False, "message": "虹雀对局不存在"})
         return
     player = game_server.players.get(Connect_id)
     if player is None or player.user_id is None:

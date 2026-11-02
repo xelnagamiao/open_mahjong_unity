@@ -93,7 +93,9 @@ public static class AndroidAppUpdateValidation {
     // Only runtime objects are touched, so stopping Play restores the normal scene.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void PrepareInteractivePreview() {
-        string settingsFile = Environment.GetEnvironmentVariable("OPEN_MAHJONG_ANDROID_UPDATE_PREVIEW");
+        string settingsFile = ConfigManager.Debug
+            ? Environment.GetEnvironmentVariable("OPEN_MAHJONG_ANDROID_UPDATE_PREVIEW")
+            : null;
         Environment.SetEnvironmentVariable("OPEN_MAHJONG_ANDROID_UPDATE_PREVIEW", null);
         if (string.IsNullOrEmpty(settingsFile) && UnityEditor.SessionState.GetBool(PreviewRequestedKey, false)) {
             settingsFile = UnityEditor.SessionState.GetString(PreviewSettingsKey, "");

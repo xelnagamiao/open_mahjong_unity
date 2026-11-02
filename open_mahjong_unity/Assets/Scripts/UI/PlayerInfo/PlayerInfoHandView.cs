@@ -9,19 +9,26 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
     [SerializeField, Min(1)] private float tileWidth = 40;
     [SerializeField, Min(0)] private float meldGap = 9;
     [SerializeField] private List<RawImage> faces = new List<RawImage>();
-    private readonly Dictionary<int, Sprite> sprites = new Dictionary<int, Sprite>();
+    private readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
     private readonly Dictionary<RawImage, float> faceAspectRatios = new Dictionary<RawImage, float>();
     private readonly HashSet<int> groupStarts = new HashSet<int>();
     private readonly HashSet<int> faceDownTiles = new HashSet<int>();
     private Texture2D tileBack;
     private int tileCount;
+    private string displayRule;
 
     public void SetHand(int[] concealed, params int[][] melds) {
+        SetRuleHand(null, concealed, melds);
+    }
+
+    public void SetRuleHand(string rule, int[] concealed, params int[][] melds) {
+        displayRule = rule;
         faceDownTiles.Clear();
         SetContent(concealed, melds);
     }
 
     public void SetExample(int[][] groups, int[] faceDownIndices) {
+        displayRule = null;
         faceDownTiles.Clear();
         if (faceDownIndices != null) foreach (int index in faceDownIndices) faceDownTiles.Add(index);
         SetContent(null, groups);
@@ -44,10 +51,12 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
             bool faceDown = faceDownTiles.Contains(tileCount);
             var face = faces[tileCount++];
             face.transform.parent.gameObject.SetActive(true);
-            if (!sprites.TryGetValue(id, out var sprite) || sprite == null) {
-                sprite = HongqueTileVisual.IsHongqueId(id)
+            bool duocai = displayRule?.StartsWith("duocai") == true && id >= 1000 && id < 5040;
+            string key = displayRule + ":" + id;
+            if (!sprites.TryGetValue(key, out var sprite) || sprite == null) {
+                sprite = duocai ? DuocaiTileVisual.Sprite(id) : HongqueTileVisual.IsHongqueId(id)
                     ? HongqueTileVisual.LoadSprite(id) : BuiltinTileSprites.Hand(TilePackIds.PackOfficial, id);
-                sprites[id] = sprite;
+                sprites[key] = sprite;
             }
             face.texture = sprite != null ? sprite.texture : null;
             Vector4 uv = sprite != null ? UnityEngine.Sprites.DataUtility.GetOuterUV(sprite) : new Vector4(0, 0, 1, 1);
@@ -64,7 +73,7 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
             var background = face.transform.parent.GetComponent<RawImage>();
             if (faceDown && !tileBack) tileBack = Resources.Load<Texture2D>("image/Cards/Surfaces/backs/hand-default");
             background.texture = faceDown ? tileBack : tileBackground;
-            background.enabled = faceDown || !HongqueTileVisual.IsHongqueId(id);
+            background.enabled = faceDown || duocai || !HongqueTileVisual.IsHongqueId(id);
         }
     }
 

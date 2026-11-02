@@ -19,8 +19,8 @@ public static class WashizuTile {
     }
     public const int Offset = 2000;
     public static bool UsesTransparentHands(string subRule) => IsWashizu(subRule) || GuobiaoGameState.IsTransparentSubRule(subRule);
-    public static bool IsTransparent(int tile) => Riichi.WashizuTileEncoding.IsTransparent(tile);
-    public static int Face(int tile) => Riichi.WashizuTileEncoding.Face(tile);
+    public static bool IsTransparent(int tile) => !DuocaiTileVisual.IsCurrent(tile) && Riichi.WashizuTileEncoding.IsTransparent(tile);
+    public static int Face(int tile) => IsTransparent(tile) ? tile - Offset : tile;
     public static bool SameCopyKind(int a, int b) => IsTransparent(a) == IsTransparent(b)
         && TileIdOrder.Normalize(a) == TileIdOrder.Normalize(b);
 

@@ -1280,12 +1280,12 @@ export class Chinese_Hepai_Check {
     return [fan_score, fan_count_list]
   }
   
-  fan_count(player_tiles: PlayerTiles, get_tile: number, way_to_hepai: string[]): [number, string[]] {
+  fan_count(player_tiles: PlayerTiles, get_tile: number, way_to_hepai: string[], resolvedRon = false): [number, string[]] {
     let zimo_or_not = false
     if (([...way_to_hepai].some((i) => ((containsIn(["last_deal", "妙手回春", "自摸", "杠上开花"], i)))))) {
       zimo_or_not = true
     }
-    if ((zimo_or_not === false)) {
+    if ((zimo_or_not === false) && !resolvedRon) {
       for (let i of player_tiles.combination_list) {
         if ((i === `G${get_tile}`)) {
           if (([...[`S${get_tile}`, `S${(get_tile + 1)}`, `S${(get_tile - 1)}`]].some((i) => ((containsIn(player_tiles.combination_list, i)))))) {

@@ -1,14 +1,17 @@
-"""支持表的番种能力必须贯穿字典和牌谱计数。"""
+"""支持表的番种能力必须贯穿字典、牌谱计数和历史修复。"""
 import ast
 import json
 from pathlib import Path
 
 import pytest
 
-from test_subrule_realtime import replay
+from test_subrule_statistics import db
+from test_subrule_realtime import replay, players, writer, prepare
 from server.database.statistics_catalog import RULES, BY_SUB_RULE
 from server.database.statistics_fans import fan_names, HONGQUE_NAMES
 from server.database.subrule_fans import collect_subrule_fans
+from server.database.get_rule_stats import get_rule_history
+from server.database.statistics_fan_backfill import backfill, BACKUP_TABLE
 
 
 @pytest.mark.parametrize('definition', [r for r in RULES if r['fan_stats']], ids=lambda r: r['sub_rule'])
@@ -79,8 +82,49 @@ def test_qiaoma_counts_patterns_without_flower_or_cap_payment_annotations():
 
 def test_workbook_and_generated_web_catalog_agree_for_every_rule():
     from scripts.validate_rule_support_table import validate, ROOT
-    assert validate()['番种统计'] == 26
+    assert validate()['番种统计'] == 27
     web_rules = json.loads((ROOT / 'open_mahjong_web/shared/statisticsRules.json').read_text(encoding='utf-8'))['rules']
     assert web_rules == RULES
     web_fans = json.loads((ROOT / 'open_mahjong_web/shared/statisticsFans.json').read_text(encoding='utf-8'))
     assert web_fans == {r['sub_rule']: fan_names(r['sub_rule']) for r in RULES if r['fan_stats']}
+
+
+def seed_historical_fans(db, sub='sichuan/standard'):
+    prepare(db)
+    definition = BY_SUB_RULE[sub]
+    record = replay(definition)
+    record['game_title'].update(room_type='match', match_tier='elo')
+    gid = writer(definition)(db, record, players(definition), 'match', '4/4_rank')
+    assert gid
+    db.sql('UPDATE game_player_metrics SET fan_stats=NULL,created_at=%s WHERE game_id=%s', ('2020-01-01', gid))
+    return gid, record
+
+
+def test_historical_fan_repair_preserves_replays_values_modes_and_is_idempotent(db):
+    gid, record = seed_historical_fans(db)
+    before = db.sql('SELECT to_jsonb(m)-\'fan_stats\' FROM game_player_metrics m ORDER BY user_id')
+    replay_before = db.sql('SELECT * FROM game_records')
+    participants = db.sql('SELECT * FROM game_player_records ORDER BY user_id')
+    conn = db._get_connection()
+    assert backfill(conn)['changed'] == 4
+    assert db.sql('SELECT COUNT(fan_stats) FROM game_player_metrics') == [(0,)]
+    result = backfill(conn, apply=True)
+    assert result['changed'] == 4 and result['applied']
+    assert db.sql('SELECT to_jsonb(m)-\'fan_stats\' FROM game_player_metrics m ORDER BY user_id') == before
+    assert db.sql('SELECT * FROM game_records') == replay_before
+    assert db.sql('SELECT * FROM game_player_records ORDER BY user_id') == participants
+    history = get_rule_history(db, 10000101, 'sichuan', 'match')
+    assert [(row['mode'], row['fan_stats']) for row in history] == [('4/4_rank', {'清一色': 1})]
+    conn.rollback()
+    assert backfill(conn, apply=True)['changed'] == 0
+    assert db.sql(f"SELECT COUNT(*) FROM {BACKUP_TABLE} WHERE table_name='game_player_metrics'") == [(4,)]
+    assert db.sql("SELECT fan_count FROM scene_tier_fan_daily WHERE sub_rule='sichuan/standard' AND fan_field='清一色'") == [(1,)]
+
+
+def test_failed_historical_repair_rolls_back_all_changes(db):
+    gid, record = seed_historical_fans(db)
+    db.sql('UPDATE game_records SET record=NULL WHERE game_id=%s', (gid,))
+    result = backfill(db._get_connection(), apply=True)
+    assert result['errors'] and not result['applied']
+    assert db.sql('SELECT COUNT(fan_stats) FROM game_player_metrics') == [(0,)]
+    assert db.sql('SELECT to_regclass(%s)', (BACKUP_TABLE,)) == [(None,)]

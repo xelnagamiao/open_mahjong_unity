@@ -1,11 +1,11 @@
 """仅供本机 Node 管理端代理调用的房间管理接口。"""
-from typing import Any
+from typing import Any, Literal
 import hashlib
 import hmac
 import time
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 
 from ..room.admin_rooms import close_admin_room, list_admin_rooms
 
@@ -19,6 +19,13 @@ class CreateRoomBody(BaseModel):
 
 class CloseRoomBody(BaseModel):
     instance_id: str = Field(min_length=1, max_length=100)
+
+
+class EventRoomBotBody(BaseModel):
+    event_id: str = Field(min_length=1, max_length=100)
+    instance_id: str = Field(min_length=1, max_length=100)
+    seat_index: StrictInt = Field(ge=0, le=3)
+    bot_type: Literal["auto", "smart", "heuristic"]
 
 
 def register_admin_room_routes(app: FastAPI, game_server, *, proxy_secret: str):
@@ -42,6 +49,15 @@ def register_admin_room_routes(app: FastAPI, game_server, *, proxy_secret: str):
     @app.get("/admin/rooms", dependencies=[Depends(require_local_proxy)])
     async def rooms():
         return {"success": True, "items": list_admin_rooms(game_server.room_manager)}
+
+    @app.post("/admin/rooms/{room_id}/bots", dependencies=[Depends(require_local_proxy)])
+    async def add_event_bot(room_id: str, body: EventRoomBotBody):
+        response = await game_server.room_manager.admin_add_event_bot(
+            room_id, body.event_id, body.instance_id,
+            {"auto": 0, "smart": 2, "heuristic": 3}[body.bot_type], body.seat_index)
+        if not response.success:
+            raise HTTPException(status_code=400, detail=response.message)
+        return {"success": True, "message": response.message}
 
     @app.post("/admin/rooms/create", dependencies=[Depends(require_local_proxy)])
     async def create(body: CreateRoomBody):

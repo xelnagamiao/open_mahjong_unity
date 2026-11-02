@@ -26,6 +26,9 @@ open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该
 
 资源文件夹下仅授权用于本项目的资产，以及遵循其他声明或开源协议的借物、包括open_mahjong_unity/Assets/Resources 目录及其所有子目录和文件，不适用 MIT 许可证。该目录中的内容（包括但不限于图像、音频、模型、配置文件等资源）仅供本项目内部使用，未经版权所有者事先书面许可，不得被提取、复制、修改、分发、再许可、用于其他项目，或用于任何商业或非商业用途，版权所有者保留对未明确授权内容的全部权利。
 若 open_mahjong_unity/Assets/Resources 下的某个子目录中包含独立的许可证文件（如 LICENSE、LICENSE.txt 等），则该子目录中的内容以该独立许可证为准，优先于上述限制。
+
+博丽灵梦、琪露诺的裁切头像 `Resources/image/Profiles/2302.png`、`2303.png` 按该目录的 [独立许可证](open_mahjong_unity/Assets/Resources/image/Profiles/LICENSE.txt) 使用；包体外的 11 位角色备用头像按 [Taisei 头像独立许可证](other/AvatarPortraits/Taisei/LICENSE.txt) 使用。它们沿用 afensorm / Taisei Project 的 CC BY 4.0 图像许可，不适用上述资源提取限制，也不改变默认头像 `1.png` 或其他素材的许可。来源、裁切修改与署名要求见各自目录中的说明及 [第三方美术声明](open_mahjong_unity/Assets/Salasasa/PreviewArt/THIRD_PARTY_NOTICES.txt)。
+
 此外，如果您仅以非商业目的在个人服务器或私有环境中部署本项目（包括采用本相同声明的修改版或分支），则视为在本项目范围内获得了对 Resources 文件夹中资源的使用授权，这一声明超出上述许可证限制，这代表如果您部署时不考虑任何商业用途，就自动拥有了Resources下任意资源的使用和修改权；但该授权仍然不得扩展至独立提取或在其他项目中单独使用这些资源，如果您想要以商业形式部署本项目，需要替换Resources文件夹中未被授权的资产，也可以尝试联系项目维护者或资源提供者、获得个别资源的书面授权。
 
 ### 1.2 第三方规则贡献者的权利保留声明
@@ -141,8 +144,8 @@ open_mahjong_unity/
 
 客户端发行版配置位于 `open_mahjong_unity/Assets/Scripts/Config/ConfigManager.cs`：
 
-- `releaseVersion = 30`：与 Python 配置 `Config.release_version` 比较的兼容版本号。
-- `clientVersion = "0.4.84.0"`：客户端详细版本字符串，当前不随校验请求发送，也不参与服务器版本校验。
+- `releaseVersion = 32`：与 Python 配置 `Config.release_version` 比较的兼容版本号。
+- `clientVersion = "0.5.87.0"`：客户端详细版本字符串，当前不随校验请求发送，也不参与服务器版本校验。
 - `versionDeclaration = "offcial"`：发行版声明，官方默认值为 `offcial`；修改版应改为自己的标识，例如 `modified/my-fork`。
 
 WebSocket 连接建立后、账号登录前，Unity 发送以下版本校验消息：
@@ -203,4 +206,4 @@ WebSocket 连接建立后、账号登录前，Unity 发送以下版本校验消�
 
 以及游玩salasasa平台的所有玩家！
 
-*最后更新：2026年10月20日 dev ver 0.4.84.0*
+*最后更新：2026年11月3日 dev ver 0.5.87.0*

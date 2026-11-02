@@ -13,6 +13,7 @@ test('exchange-three ranked metrics preserve old full games beside new eight-han
       'total_win_turn', 'total_fangchong_score', 'first_place_count', 'second_place_count',
       'third_place_count', 'fourth_place_count', 'fulu_round_count', 'cuohe_count', 'total_round_score'];
     await db.query(`CREATE TEMP TABLE game_player_metrics (
+      id bigserial PRIMARY KEY,
       game_id text, user_id bigint, rule text, sub_rule text, room_type text, match_type text,
       ${fields.map(field => `${field} int DEFAULT 0`).join(', ')}
     )`);

@@ -1,0 +1,126 @@
+{
+  "source": "用户提供：新建文件夹 (2).zip",
+  "count": 20,
+  "files": [
+    {
+      "file": "RulesIcon.png",
+      "originalFile": "图片1.png",
+      "bytes": 14220,
+      "sha256": "e9d941ba6821e72eaae0c355d8db00c8341db22dd0c7facd22c3b4712a45d455"
+    },
+    {
+      "file": "PauseVoteIcon.png",
+      "originalFile": "图片10.png",
+      "bytes": 12256,
+      "sha256": "b072d27a28302cefab70dd7320141bb2befeef1997d4ee7131793f5c28a3a4df"
+    },
+    {
+      "file": "PlayButton.png",
+      "originalFile": "图片12.png",
+      "bytes": 24861,
+      "sha256": "15db7db23d011f502e303fc7761a1a23c23a73a96965a8b41fe5981976c4b127"
+    },
+    {
+      "file": "BluePillTall.png",
+      "originalFile": "图片13.png",
+      "bytes": 24194,
+      "sha256": "18b3ab2f1ebf704652038b5d45a127851e56423ba9e5561e356ed68b921345b3"
+    },
+    {
+      "file": "BluePill.png",
+      "originalFile": "图片14.png",
+      "bytes": 20578,
+      "sha256": "f2284b1ac8619441616e69832e26de1ae2f1764f31ae65aa290f1830bf00bd1e"
+    },
+    {
+      "file": "ValuePlateCompact.png",
+      "originalFile": "图片15.png",
+      "bytes": 2220,
+      "sha256": "38c66d927d43b249803e702c4c64f65662aed20883ece37e49e4bae15204e89e"
+    },
+    {
+      "file": "ReplayControlBar.png",
+      "originalFile": "图片16.png",
+      "bytes": 22835,
+      "sha256": "a26e8757bbfef0b31e3851afab94f082f4a39d80f6547cacd374c01a7e443535"
+    },
+    {
+      "file": "ValuePlate.png",
+      "originalFile": "图片17.png",
+      "bytes": 2013,
+      "sha256": "6175306547d2293b542ac1608a70a5738fbd6d4c0f8e81588412189363ac9c68"
+    },
+    {
+      "file": "SelectorControlsSheet.png",
+      "originalFile": "图片18.png",
+      "bytes": 9422,
+      "sha256": "4b66cd3a3df060c2964a0f216d3a83422c3b161e9156695501274539bbccc69d"
+    },
+    {
+      "file": "ReplayTransportSheet.png",
+      "originalFile": "图片19.png",
+      "bytes": 8599,
+      "sha256": "eabb272554f8ce8b49ee1b3466bea36f614d3d4f9e27b6164d4fbf24c43d980e"
+    },
+    {
+      "file": "ScoreboardIcon.png",
+      "originalFile": "图片2.png",
+      "bytes": 13954,
+      "sha256": "3f9c060540cb108e5ca281ec8e4fabcbbd0dc44054080ed63c86a8a4529f2644"
+    },
+    {
+      "file": "BlueRoundedPanel.png",
+      "originalFile": "图片20.png",
+      "bytes": 22396,
+      "sha256": "5bc19d2765d5851913f8a27d2bc686026d6ccce89718e2d30d810868760a45d0"
+    },
+    {
+      "file": "BlueSelectionFill.png",
+      "originalFile": "图片21.png",
+      "bytes": 3975,
+      "sha256": "459b8da8af94fbe57ae8f3a315811830b182f3a5fe91947d6dcfaf45e70bb7a3"
+    },
+    {
+      "file": "HelpIcon.png",
+      "originalFile": "图片3.png",
+      "bytes": 14080,
+      "sha256": "bb23459cbb4ae360fa3d779b542d2507f3fec01ab01015838aeb8d42a8e65e39"
+    },
+    {
+      "file": "HomeIcon.png",
+      "originalFile": "图片4.png",
+      "bytes": 15253,
+      "sha256": "13e32fc30d1a54fdc47eef309d9dc80dd398df5f38949fb1e15d222a14881cea"
+    },
+    {
+      "file": "ExitIcon.png",
+      "originalFile": "图片5.png",
+      "bytes": 14860,
+      "sha256": "c5a166b9af5554c05e005968fcbdd7b416255fed736fb4405b7bde0c77b518c0"
+    },
+    {
+      "file": "BlueRoundedPanelWide.png",
+      "originalFile": "图片6.png",
+      "bytes": 13319,
+      "sha256": "65ccf483693ca8c561d3c1dd6fe7c8c215de3cf3dc46c0411b19cacf11f5093b"
+    },
+    {
+      "file": "BlueRoundedPanelTall.png",
+      "originalFile": "图片7.png",
+      "bytes": 30038,
+      "sha256": "f057ffeae797bc26fe467252a6868f36bc4855399f7d62355e8c8eace9ba2f35"
+    },
+    {
+      "file": "PreviousButtonTall.png",
+      "originalFile": "图片8.png",
+      "bytes": 27601,
+      "sha256": "b78583b3e814b7ad8af19f677cc1b392f7bc8255a0675c34de2b7c02c41892a4"
+    },
+    {
+      "file": "WhiteRectangularLabel.png",
+      "originalFile": "图片9.png",
+      "bytes": 175,
+      "sha256": "a086623f28dc1eafde8bc4b2d7c3daab32876a09992183022c68d54babf77ed1"
+    }
+  ]
+}

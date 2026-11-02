@@ -37,7 +37,10 @@ def test_kong_score_event_respects_each_viewers_kong_visibility(owner, kind):
         assert meld["melds"] == (["G0"] if hidden else [code])
         observer_view, observer_packet = state.send_to_realtime_spectators.await_args_list[viewer].args
         assert observer_view == viewer
-        assert observer_packet.model_dump(exclude_none=True) == packet
+        assert packet["gamestate_id"] == state.gamestate_id
+        assert observer_packet.model_dump(exclude_none=True) == {
+            k: v for k, v in packet.items() if k != "gamestate_id"
+        }
 
     assert state.cc_event is None
     assert state.kong_ledger[-1]["tile"] == 31

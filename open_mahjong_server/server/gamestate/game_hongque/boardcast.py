@@ -6,6 +6,7 @@
 开局/重连发送完整桌面；对局中只发增量事件与当前可选项，牌面由客户端按事件推进。
 """
 from __future__ import annotations
+from ..public.settlement_sync import send_game_packet
 
 import asyncio
 import logging
@@ -36,6 +37,8 @@ def _table_snapshot(game_state, viewer) -> dict:
     return {
         "room_id": int(game_state.room_id),
         "room_type": game_state.room_type,
+        "match_queue_type": getattr(game_state, "match_queue_type", None),
+        "match_tier": getattr(game_state, "match_tier", None),
         "max_round": game_state.max_round,
         "round_time": game_state.round_time,
         "step_time": game_state.step_time,
@@ -72,6 +75,10 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
     win_context = game_state._viewer_win_context(viewer, actions)
     remaining_time, step_remaining = game_state._remaining_clock(viewer)
     state = {
+        "sub_rule": game_state.sub_rule,
+        "hongque_colourless": getattr(game_state, "hongque_colourless", True),
+        "hongque_min_fan": getattr(game_state, "hongque_min_fan", 0),
+        "hongque_min_points": getattr(game_state, "hongque_min_points", 0),
         "sync_mode": sync_mode,
         "phase": game_state.phase,
         "game_status": game_state.game_status,
@@ -129,7 +136,7 @@ async def send_to_connection(game_state, user_id: int, payload: dict) -> None:
             or getattr(connection, "event_disconnecting", False)):
         return
     try:
-        await connection.websocket.send_json(payload)
+        await send_game_packet(game_state, connection.websocket, payload)
     except Exception:
         # A recipient can close after presence was checked. Other recipients and
         # the disconnect lifecycle must still finish when that send fails.

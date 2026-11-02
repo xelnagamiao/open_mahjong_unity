@@ -10,7 +10,7 @@ import pytest
 
 from server.database.db_manager import DatabaseManager
 from server.database.duplicate_walls import (
-    ensure_duplicate_tables, load_duplicate_wall, reserve_duplicate_game,
+    DuplicateRecordLockedError, ensure_duplicate_tables, load_duplicate_wall, reserve_duplicate_game,
     mark_duplicate_game_ended, validate_duplicate_wall, apply_duplicate_room_config, duplicate_record_is_visible,
 )
 
@@ -117,18 +117,22 @@ def test_store_links_same_reserved_game_and_rechecks_record_lock(duplicate_db, w
     ended = execute(db, """SELECT g.ended_at, w.ended_at FROM duplicate_games g
         JOIN duplicate_walls w ON w.id=g.wall_id WHERE game_id=%s""", (game_id,), fetch=True)
     assert all(ended)
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s", (wall_id,))
     assert DatabaseManager.get_record_by_id(db, game_id) is not None
     execute(db, """UPDATE game_records SET record=jsonb_set(record,
         '{game_title,duplicate_key}', '"DUP_unknown00000"') WHERE game_id=%s""", (game_id,))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE game_records SET record=%s WHERE game_id=%s", (Json(record), game_id))
     execute(db, "UPDATE duplicate_walls SET is_unlocked=FALSE WHERE id=%s", (wall_id,))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
     # Association still protects records whose old header lacks the key.
     execute(db, "UPDATE game_records SET record=record #- '{game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
 
 
 @pytest.mark.parametrize("rule", ["qingque", "classical", "changsha", "sichuan", "riichi", "jiandan", "taiwan"])
@@ -140,13 +144,15 @@ def test_historical_non_guobiao_records_keep_locks_but_cannot_start_new_games(du
                              "duplicate_key": "DUP_test01234567"}, "game_round": {}}
     execute(db, "INSERT INTO game_records (game_id, record) VALUES (%s, %s)", (game_id, Json(record)))
     execute(db, "INSERT INTO duplicate_games (game_id, wall_id, ended_at) VALUES (%s, %s, NOW())", (game_id, wall_id))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s", (wall_id,))
     assert DatabaseManager.get_record_by_id(db, game_id) is not None
     execute(db, "UPDATE duplicate_walls SET is_unlocked=FALSE WHERE id=%s", (wall_id,))
     execute(db, "UPDATE game_records SET record=record #- '{game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
-    with pytest.raises(ValueError, match="仅支持国标"):
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
+    with pytest.raises(ValueError, match="必须先绑定一组双打开闭室"):
         reserve_duplicate_game(db, wall_id)
     assert execute(db, "SELECT COUNT(*) FROM duplicate_games", fetch=True) == (1,)
 
@@ -212,7 +218,8 @@ def test_seed_and_full_wall_stay_locked_then_survive_public_record_read_after_de
     record = {"game_title": {"rule": "guobiao", "duplicate_key": "DUP_test01234567", "is_duplicate": True,
                              "duplicate_seed": "private-seed", "duplicate_tiles": [11, 12, 13]}}
     execute(db, "INSERT INTO game_records (game_id,record) VALUES (%s,%s)", (game_id, Json(record)))
-    assert DatabaseManager.get_record_by_id(db, game_id) is None
+    with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
+        DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE,unlocked_at=NOW(),deleted_at=NOW() WHERE id=%s", (wall_id,))
     assert duplicate_record_is_visible(db, record, game_id) is True
     public = DatabaseManager.get_record_by_id(db, game_id)

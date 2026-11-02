@@ -216,8 +216,8 @@ export function parseNotationWithGetTile(input) {
 }
 
 /** 手牌与和牌张转为简写；和牌张用 + 分隔，避免排序后丢失和牌张语义 */
-export function notationTextWithGetTile(hand, getTile) {
-  const handText = tilesToNotationText(hand)
+export function notationTextWithGetTile(hand, getTile, melds = []) {
+  const handText = tilesToNotationText(hand) + melds.map(code => `(${code})`).join('')
   if (getTile == null) return handText
   const getText = tileIdToNotation(getTile)
   return handText ? `${handText} + ${getText}` : getText

@@ -121,8 +121,8 @@ def test_no_double_subtraction(mode, expected):
     assert result == {"raw_difference":[8,-8], "small_scores":[8,0], "imp_scores":[3,0], "scores":expected}
 
 
-def pair(sub=SBR_DUPLICATE, count=1):
-    data = new_match("id", sub, {"open":"1","closed":"2"}, [make_board("seed", i+1) for i in range(count)], "seed")
+def pair(sub=SBR_DUPLICATE, count=1, *, sync_mode=False):
+    data = new_match("id", sub, {"open":"1","closed":"2"}, [make_board("seed", i+1) for i in range(count)], "seed", sync_mode=sync_mode)
     data["status"] = "running"
     saved = []
     return PairedMatch(data, lambda candidate, revision: saved.append((deepcopy(candidate), revision))), saved
@@ -171,7 +171,7 @@ def test_rule_validation_rejects_unknown_profile_table_and_scoring():
 
 @run_async
 async def test_pending_conflict_and_failed_interrupt_unblock_and_cancel():
-    p,_=pair(count=4)
+    p,_=pair(count=4, sync_mode=True)
     with pytest.raises(ValueError):p.board(0)
     assert p.board(1)==p.data['boards'][0]
     pending=asyncio.create_task(p.submit('open',1,[2,-2],[0,0],{}));await asyncio.sleep(0)
@@ -238,7 +238,7 @@ async def test_xueliu_tie_adds_same_board_for_both_tables():
 
 
 @run_async
-async def test_sbr_tie_is_draw_and_penalty_is_pair_adjustment():
+async def test_legacy_sbr_pair_penalty_adjustment_remains_readable_and_tie_is_draw():
     p, _ = pair()
     await asyncio.gather(p.submit("open",1,[-12,0],[0,12],{}), p.submit("closed",1,[12,-12],[0,0],{}))
     assert p.completed and p.data["scores"] == [0,0]

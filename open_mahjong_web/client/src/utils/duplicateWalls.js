@@ -1,19 +1,37 @@
 export const DUPLICATE_WALL_LABELS = Object.freeze({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' })
 export const DUPLICATE_ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16])
 
+export function duplicateWallLayout(wall) {
+  if (['sichuan/sbr', 'sichuan/doubles_duplicate'].includes(wall?.rule)) return 'sbr'
+  if (['sichuan/xueliu', 'sichuan/xueliu_doubles_duplicate'].includes(wall?.rule)) return 'xueliu'
+  return wall?.wall_layout || 'standard'
+}
+
+export function duplicateDealerSeat(round, layout = 'standard') {
+  return ['sbr', 'xueliu'].includes(layout) ? (round - 1) % 4 : duplicateRoundSeats(round).indexOf(0)
+}
+
+export function duplicateLayoutDescription(wall) {
+  const layout = duplicateWallLayout(wall)
+  if (layout === 'sbr') return '108 张万、筒、条，无字牌、无花牌。四家各预置 13 张手牌和 14 张个人牌墙，无公共牌墙。'
+  if (layout === 'xueliu') return '108 张万、筒、条，无字牌、无花牌。四家各预置 13 张手牌和 8 张固定牌墙，另设 24 张公共牌墙。'
+  return ''
+}
+
 export function duplicateRoundSeats(round = 1, layout = 'standard') {
-  if (layout === 'xueliu') return [0, 1, 2, 3];
+  if (layout === 'xueliu' || layout === 'sbr') return [0, 1, 2, 3];
   const index = Math.max(0, Math.min(15, Number(round) - 1))
   const circleSeats = [[0, 1, 2, 3], [1, 0, 3, 2], [3, 2, 0, 1], [2, 3, 1, 0]]
   return circleSeats[Math.floor(index / 4)].map(seat => (seat - index % 4 + 4) % 4)
 }
 
-export function duplicateRoundLabel(round) {
+export function duplicateRoundLabel(round, layout = 'standard') {
+  if (layout === 'xueliu' || layout === 'sbr') return `第 ${round} 副`
   return `${['东', '南', '西', '北'][Math.floor((round - 1) / 4)]}${['一', '二', '三', '四'][(round - 1) % 4]}局`
 }
 
 export function isDuplicateWallRule(rule) {
-  return rule === 'guobiao' || rule === 'guobiao/lanshi' || rule === 'sichuan/xueliu'
+  return rule === 'guobiao' || rule === 'guobiao/lanshi' || rule === 'sichuan/xueliu' || rule === 'sichuan/sbr'
 }
 
 export function duplicateWallLabel(value) {
@@ -42,7 +60,7 @@ export function tileCounts(tiles) {
 /** Validate the catalog's full tile multiset, preserving the player's chosen order. */
 export function validateManualWall(tiles, rule) {
   if (!rule?.tiles?.length) return '请先选择规则'
-  if (!Array.isArray(tiles)) return '牌墙格式错误'
+  if (!Array.isArray(tiles) || tiles.some(tile => !Number.isInteger(tile))) return '牌墙必须使用合法整数牌值'
   const limits = Object.fromEntries(rule.tiles.map(item => [item.tile, Number(item.count)]))
   const counts = tileCounts(tiles)
   for (const [tile, count] of Object.entries(counts)) {
@@ -66,7 +84,7 @@ export function duplicateRuleWithFlowers(rule, useFlowers = true) {
   const enabled = rule.rule === 'guobiao' && useFlowers !== false
   const option = rule.flower_options?.find(item => item.use_flowers === enabled)
   const tiles = option?.tiles || rule.tiles.filter(item => enabled || Number(item.tile) < 50)
-  return { ...rule, use_flowers: enabled, tiles, tile_count: option?.tile_count || tiles.reduce((total, item) => total + Number(item.count), 0) }
+  return { ...rule, wall_layout: duplicateWallLayout(rule), use_flowers: enabled, tiles, tile_count: option?.tile_count || tiles.reduce((total, item) => total + Number(item.count), 0) }
 }
 
 export function createDuplicateDraft(layout = 'standard') {
@@ -75,6 +93,7 @@ export function createDuplicateDraft(layout = 'standard') {
 
 export function duplicateZoneLimit(tileCount, seat, zone, dealerSeat = 0, layout = 'standard') {
   if (layout === 'xueliu') return seat === 4 ? (zone === 'wall' ? 24 : 0) : (zone === 'hand' ? 13 : 8)
+  if (layout === 'sbr') return zone === 'hand' ? 13 : 14
   const handCount = seat === dealerSeat ? 14 : 13
   return zone === 'hand' ? handCount : Number(tileCount) / 4 - handCount
 }
@@ -84,11 +103,12 @@ export function flattenDuplicateDraft(draft) {
 }
 
 export function validateDuplicateDraft(draft, rule, dealerSeat = 0) {
-  const bloodflow = rule?.wall_layout === 'xueliu'
+  const layout = duplicateWallLayout(rule)
+  const bloodflow = layout === 'xueliu'
   if (!Array.isArray(draft) || draft.length !== (bloodflow ? 5 : 4)) return bloodflow ? '请设置四家固定牌墙及公共牌墙' : '请设置四位玩家的手牌与牌山'
   for (let seat = 0; seat < draft.length; seat++) {
     for (const zone of ['hand', 'wall']) {
-      const limit = duplicateZoneLimit(rule?.tile_count, seat, zone, dealerSeat, rule?.wall_layout)
+      const limit = duplicateZoneLimit(rule?.tile_count, seat, zone, dealerSeat, layout)
       if (!Array.isArray(draft[seat]?.[zone]) || draft[seat][zone].length !== limit) {
         return `请补齐 ${seat === 4 ? '公共牌墙' : `${seat + 1} 号玩家${zone === 'hand' ? '手牌' : '牌山'}`}（${draft[seat]?.[zone]?.length || 0} / ${limit} 张）`
       }

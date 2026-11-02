@@ -52,7 +52,7 @@ def test_variable_hand_win_is_complete_for_live_reconnect_spectator_and_record(w
         try:
             result = game.round_result['winners'][0]
             assert result['hand'] == 'DY2 DY6 DY4 DY8'.split()
-            assert (result['base'], result['fan_total'], result['points']) == (5, 6, 30)
+            assert (result['base'], result['fan_total'], result['points']) == (5, 5, 25)
             assert sum(len(meld['tiles']) for meld in result['melds']) + len(result['hand']) == 14
             assert game.players[winner_seat].hand == initial[winner_seat]['hongque_state']['hand']
             for seat in range(4):
@@ -63,7 +63,7 @@ def test_variable_hand_win_is_complete_for_live_reconnect_spectator_and_record(w
             wins = [tick for tick in game.game_record['game_round']['round_index_1']['action_ticks']
                     if tick[0].startswith('hu_')]
             assert len(wins) == 1 and wins[0][5] == code_to_id('DY8')
-            assert wins[0][2] == 30
+            assert wins[0][2] == 25
         finally:
             await game.cleanup_game_state()
     asyncio.run(run())

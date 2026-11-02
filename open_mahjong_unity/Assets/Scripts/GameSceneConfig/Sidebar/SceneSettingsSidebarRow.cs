@@ -12,6 +12,10 @@ namespace Mahjong.SceneSettingsUI
         public TMP_Text label;
         public Image marker;
         public bool selected, open=true;
+        public bool usePalette;
+        public bool hideMarker;
+        public Color normalInk,selectedInk,normalIcon,selectedIcon,selectedMarker,closedMarker;
+        public Color normalIconBackground,selectedIconBackground,normalSecondary,selectedSecondary;
         bool hover,down,focused;
         float value;
         void Update() => Draw(false);
@@ -24,6 +28,17 @@ namespace Mahjong.SceneSettingsUI
             // Hover and remembered-but-closed selections retain dark text on the pale fill.
             float ink=Mathf.InverseLerp(.45f,1,value);
             bool reset=band!=null && band.resetAction;
+            if(usePalette)
+            {
+                if(label!=null)label.color=Color.Lerp(normalInk,selectedInk,ink);
+                if(icon!=null)
+                {
+                    icon.color=Color.Lerp(normalIcon,selectedIcon,ink);
+                    icon.SetDetailColors(Color.Lerp(normalIconBackground,selectedIconBackground,value),Color.Lerp(normalSecondary,selectedSecondary,ink));
+                }
+                if(marker!=null){marker.enabled=selected&&!hideMarker;marker.color=open?selectedMarker:closedMarker;}
+                return;
+            }
             if(label!=null) label.color=Color.Lerp(SceneSettingsSidebarBand.Hex(reset?"874D48":"43516B"),Color.white,ink);
             if(icon!=null)icon.color=Color.Lerp(SceneSettingsSidebarBand.Hex(reset?"A66F68":"8796B5"),Color.white,ink);
             if(marker!=null){marker.enabled=selected;marker.color=open?Color.white:SceneSettingsSidebarBand.Hex("586BCC");}

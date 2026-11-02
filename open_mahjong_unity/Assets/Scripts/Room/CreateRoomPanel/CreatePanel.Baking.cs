@@ -17,7 +17,7 @@ public partial class CreatePanel {
             throw new InvalidOperationException(name + " 鸣牌保护应保存在创房选项的战术鸣牌后。");
         foreach (var key in new[] { "taiwan", "riichi" }) {
             DetailedConfigRegistry.TryGet(key, out var definition);
-            var content = transform.Find("DetailedConfigPanel_" + key + "/Dialog/Create_Panel/ScrollArea/Viewport/Content");
+            var content = DeferredPrefab(key).transform.Find("Dialog/Create_Panel/ScrollArea/Viewport/Content");
             foreach (var option in definition.Options) {
                 var dropdown = content.Find("DetailedConfig_" + option.Key)?.GetComponentInChildren<TMP_Dropdown>(true);
                 if (!dropdown)
@@ -30,6 +30,8 @@ public partial class CreatePanel {
 
     public void BakeFixedRoomUi() {
         if (!roomPresentationBaked) throw new InvalidOperationException("Create room layout must be authored first.");
+        RestoreDeferredPanelsForBaking();
+        BakeTierPresetButtons();
         BakeClaimProtectionControl();
         EnsureHintToggles(); EnsureDuplicateWallControls(); EnsureGuobiaoFlowerControls(); EnsureTianDiRenHeControls(); EnsureJokerMultiWaitControls(); EnsureHuahunControls();
         EnsureRiichiOptionToggles(); EnsureRiichiStartingScorePanel(); EnsureCuoheTypePanel();
@@ -38,8 +40,10 @@ public partial class CreatePanel {
         BakeFuzhouMainControls();
         BakeFilipinoDetailsPanel();
         BakeShangraoDetailsPanel();
+        BakeBeijingDetailsPanel();
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
+        BakeGuangdongRoomControls();
         BakeShanghaiRoomControls();
         EnsureRuleDropdownOptions(); InitCuoheTypeDropdown();
         BakeRoomFooterAndHelp();
@@ -49,7 +53,9 @@ public partial class CreatePanel {
         SyncDetailedConfigLabels("taiwan"); SyncDetailedConfigLabels("riichi");
         ConfigureRoomSettingsPresentation();
         var taiwan = transform.Find("DetailedConfigPanel_taiwan");
-        foreach (var overlay in new[] { taiwan, taiwan.Find("FanTablePanel"), transform.Find("DetailedConfigPanel_riichi") }) {
+        foreach (var overlay in transform.Cast<Transform>()
+            .Where(child => child.name.StartsWith("DetailedConfigPanel_"))
+            .Concat(new[] { taiwan.Find("FanTablePanel") })) {
             ConfigureSettingsDialog(overlay.gameObject);
             overlay.gameObject.SetActive(false);
         }
@@ -57,6 +63,17 @@ public partial class CreatePanel {
         chooseRule.SetValueWithoutNotify(CreateRoomRuleTextConfigCatalog.Rules.ToList().FindIndex(r => r.Rule == _ruleState));
         InitSubRuleDropdown(); ApplyRuleDefaults(_ruleState); ApplyGuobiaoTierPreset(0);
         RefreshVisibility(); RefreshSubRuleDescription(); ReflowRoomPresentation();
+    }
+
+    private void BakeTierPresetButtons() {
+        var root = transform.Find("Create_Panel/TierPresets");
+        int count = Math.Max(TierNames.Length, RiichiRoomRules.Presets.GroupBy(p => p.SubRule).Max(g => g.Count()));
+        while (root.childCount < count) {
+            var button = Instantiate(root.GetChild(0).GetComponent<Button>(), root);
+            button.name = "Preset_" + root.childCount;
+            button.onClick = new Button.ButtonClickedEvent();
+            button.gameObject.SetActive(false);
+        }
     }
 
     public void BakeClaimProtectionControl() {
@@ -557,7 +574,7 @@ public partial class CreatePanel {
         scroll.movementType = ScrollRect.MovementType.Clamped;
         var layout = scroll.content.GetComponent<CreateRoomDetailsLayout>();
         if (layout) {
-            layout.Columns = overlay.name == "DetailedConfigPanel_riichi" ? 4 : 2;
+            layout.Columns = CreateRoomDetailsLayout.DefaultColumns;
             layout.padding.bottom = 72;
         }
         foreach (RectTransform row in scroll.content) {
@@ -585,6 +602,15 @@ public partial class CreatePanel {
                 field.anchorMax = new Vector2(.5f, 1);
             }
             RoomStyleDropdown(dropdown, 24);
+            if (stacked) {
+                foreach (var text in new[] { dropdown.captionText, dropdown.itemText }) {
+                    if (!text) continue;
+                    text.enableAutoSizing = true;
+                    text.fontSizeMin = 18;
+                    text.fontSizeMax = 24;
+                    text.textWrappingMode = TextWrappingModes.Normal;
+                }
+            }
         }
         var footer = dialog.Find("Create_Panel/Footer");
         var reset = footer.Find("Reset")?.GetComponent<Button>();
@@ -667,17 +693,38 @@ public partial class CreatePanel {
                 RoomFill(background.rectTransform);
             }
             if (item.graphic is UnityEngine.UI.Image mark) {
-                mark.color = Color.white;
-                var rectMark = mark.rectTransform;
-                rectMark.anchorMin = rectMark.anchorMax = new Vector2(0, .5f);
-                rectMark.pivot = new Vector2(.5f, .5f);
-                rectMark.anchoredPosition = new Vector2(30.5f, 0);
-                rectMark.sizeDelta = new Vector2(33, 32);
+                if (dropdown == chooseRule || dropdown == SubRuleDropdown) {
+                    // Toggle.graphic supplies the selected row fill instead of a separate checkmark column.
+                    mark.sprite = null;
+                    mark.type = UnityEngine.UI.Image.Type.Simple;
+                    mark.color = new Color32(215, 225, 255, 255);
+                    mark.enabled = true;
+                    mark.raycastTarget = false;
+                    RoomFill(mark.rectTransform);
+                    mark.transform.SetSiblingIndex(item.targetGraphic.transform.GetSiblingIndex() + 1);
+                } else {
+                    mark.color = Color.white;
+                    var rectMark = mark.rectTransform;
+                    rectMark.anchorMin = rectMark.anchorMax = new Vector2(0, .5f);
+                    rectMark.pivot = new Vector2(.5f, .5f);
+                    rectMark.anchoredPosition = new Vector2(30.5f, 0);
+                    rectMark.sizeDelta = new Vector2(33, 32);
+                }
             }
         }
         if (dropdown.itemText) {
             RoomText(dropdown.itemText, Mathf.Min(25, fontSize), textColor);
-            RoomFill(dropdown.itemText.rectTransform, 54, 0, 10, 0);
+            bool ruleSelector = dropdown == chooseRule || dropdown == SubRuleDropdown;
+            RoomFill(dropdown.itemText.rectTransform, ruleSelector ? 16 : 54, 0, 12, 0);
+            if (ruleSelector) {
+                dropdown.itemText.transform.SetAsLastSibling();
+                RoomSingleLine(dropdown.itemText, RoomRuleItemFontSize, 16);
+                var itemColors = item.colors;
+                itemColors.normalColor = itemColors.selectedColor = Color.white;
+                itemColors.highlightedColor = new Color32(232, 237, 250, 255);
+                itemColors.pressedColor = new Color32(211, 221, 247, 255);
+                item.colors = itemColors;
+            }
         }
     }
 }

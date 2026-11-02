@@ -9,14 +9,18 @@ internal static class HongqueRoomBuilder {
             1 => "head_bump",
             _ => "multi_ron",
         };
-        var config = new Jiandan_Create_RoomConfig {
+        bool isW = input.SubRule == HongqueWScoring.SubRule;
+        var config = new HongqueWRoomConfig {
+            Colourless = !isW || input.DetailedConfig == null || !input.DetailedConfig.TryGetValue("hongque_colourless", out var white) || System.Convert.ToBoolean(white),
+            MinimumFan = isW ? HongqueWRoomConfig.ReadInt(input.DetailedConfig,"hongque_min_fan") : 0,
+            MinimumPoints = isW ? HongqueWRoomConfig.ReadInt(input.DetailedConfig,"hongque_min_points") : 0,
             ClaimProtection = input.Defaults.ContainsKey(CreateRoomKeys.ClaimProtection) && input.ClaimProtection,
             RoomName = input.RoomName,
             GameRound = input.GameRound,
             Password = input.PasswordEnabled ? input.Password : "",
             RandomSeed = input.RandomSeedEnabled ? input.RandomSeed : "",
             Rule = "hongque",
-            SubRule = "hongque/v1.6",
+            SubRule = isW ? HongqueWScoring.SubRule : "hongque/v1.6",
             RoundTimer = input.RoundTimer,
             StepTimer = input.StepTimer,
             Tips = input.Tips,
@@ -24,7 +28,7 @@ internal static class HongqueRoomBuilder {
             PointerTips = input.PointerTips,
             TouristLimit = input.TouristLimit,
             AllowSpectator = input.AllowSpectator,
-            TacticalCall = false,
+            TacticalCall = true,
             HepaiWay = hepaiWay,
             EventId = input.EventId,
         };

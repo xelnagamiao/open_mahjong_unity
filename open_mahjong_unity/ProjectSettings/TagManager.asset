@@ -48,8 +48,20 @@ TagManager:
   - name: PageUI
     uniqueID: 1379215237
     locked: 0
+  - name: NavigationUI
+    uniqueID: 1638945317
+    locked: 0
   - name: OverlayUI
     uniqueID: 1843980331
+    locked: 0
+  - name: ModalUI
+    uniqueID: 1680900084
+    locked: 0
+  - name: DesignUI
+    uniqueID: 2414794869
+    locked: 0
+  - name: FeedbackUI
+    uniqueID: 4102365243
     locked: 0
   m_RenderingLayers:
   - Default

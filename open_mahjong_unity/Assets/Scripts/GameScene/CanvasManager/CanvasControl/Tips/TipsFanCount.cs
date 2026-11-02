@@ -42,9 +42,9 @@ public class TipsFanCount : MonoBehaviour
 
     public void SetTipsFanCount(string fanCount, string colorType, string countKind = null) {
         string[] lines = (fanCount ?? "").Split(new[] {'\n'}, 3);
-        tipsFanCountText.text = lines[0];
+        TableText.Set(tipsFanCountText, lines[0]);
         bool twoLines = lines.Length > 1;
-        secondHintText.text = twoLines ? lines[1] : "";
+        TableText.Set(secondHintText, twoLines ? lines[1] : "");
         secondHintText.gameObject.SetActive(twoLines);
         secondChip.gameObject.SetActive(twoLines);
         // 枚数可占第一、二或三行：单一和法用同款黄底，两种和法均可保留蓝底。
@@ -70,7 +70,7 @@ public class TipsFanCount : MonoBehaviour
             thirdChip.rectTransform.anchoredPosition += new Vector2(0, -SecondRowOffset);
         }
         if (thirdHintText != null) {
-            thirdHintText.text = lines.Length > 2 ? lines[2] : "";
+            TableText.Set(thirdHintText, lines.Length > 2 ? lines[2] : "");
             thirdHintText.gameObject.SetActive(lines.Length > 2);
             thirdChip.gameObject.SetActive(lines.Length > 2);
             SetChipColor(thirdChip, countColor);

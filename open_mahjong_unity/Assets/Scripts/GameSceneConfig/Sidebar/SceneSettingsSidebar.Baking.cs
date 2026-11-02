@@ -8,6 +8,7 @@ public sealed partial class SceneSettingsSidebar
 {
         public void ApplyCompactLayout()
         {
+            if (TryGetComponent<SceneSettingsSidebarStyle>(out var style)) { style.Apply(); return; }
             var root = (RectTransform)transform;
             root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 792);
             var surface = transform.Find("FlatSurface") as RectTransform;

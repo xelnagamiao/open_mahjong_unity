@@ -16,7 +16,7 @@ from server.database.scene_stats import record_game_metrics
 def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert len(RULES) == len({r['key'] for r in RULES}) == len({r['sub_rule'] for r in RULES})
     assert all(r['basic_stats'] == (r['rule'] != 'free') for r in RULES)
-    assert sum(r['fan_stats'] for r in RULES) == 26
+    assert sum(r['fan_stats'] for r in RULES) == 27
     captain = next(r for r in RULES if r['sub_rule'] == 'riichi/washizu_doubles')
     assert captain['basic_stats'] and not captain['fan_stats'] and not captain['matchmaking']
     assert resolve_statistics_identity('riichi', captain['sub_rule']) == ('riichi', captain['sub_rule'])
@@ -101,11 +101,12 @@ def seed(db, sub, suffix='', created='2020-01-01', wins=0):
     return gid, record
 
 
-def test_live_writes_and_retries_do_not_double_count(db):
-    _, record = seed(db,'hongque/v1.6',wins=1)
+@pytest.mark.parametrize("subrule", ["hongque/v1.6", "hongque/w-v1.0"])
+def test_live_writes_and_retries_do_not_double_count(db, subrule):
+    _, record = seed(db,subrule,wins=1)
     player = SimpleNamespace(user_id=10000101,username='test',score=24,original_player_index=0,
                              record_counter=SimpleNamespace(rank_result=1))
-    scene = dict(rule='hongque',sub_rule='hongque/v1.6',room_type='custom',match_type='1/4')
+    scene = dict(rule='hongque',sub_rule=subrule,room_type='custom',match_type='1/4')
     record_game_metrics(db,'live',record,[player],scene)
     record_game_metrics(db,'live',record,[player],scene)
     assert db.sql("SELECT COUNT(*),SUM(win_count) FROM game_player_metrics WHERE game_id='live'") == [(1,1)]
@@ -176,7 +177,7 @@ def test_schema_initialization_is_idempotent_and_preserves_data(db):
 
 def test_legacy_refresh_only_touches_current_players(db):
     from server.database.legacy_statistics import refresh_legacy_statistics
-    test_live_writes_and_retries_do_not_double_count(db)
+    test_live_writes_and_retries_do_not_double_count(db, "hongque/v1.6")
     db.sql("INSERT INTO guobiao_history_stats(user_id,rule,mode,total_games) VALUES(10000999,'guobiao','1/4',99)")
     refresh_legacy_statistics(db, 'live', 'guobiao')
     assert db.sql("SELECT total_games FROM guobiao_history_stats WHERE user_id=10000999") == [(99,)]

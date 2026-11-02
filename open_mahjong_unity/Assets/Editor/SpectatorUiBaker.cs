@@ -191,7 +191,7 @@ public static class SpectatorUiBaker {
         dropdown.MultiSelect = false;
         dropdown.ClearOptions(); dropdown.AddOptions(options.ToList()); dropdown.SetValueWithoutNotify(0);
         dropdown.interactable = true; dropdown.gameObject.SetActive(true);
-        Stretch((RectTransform)dropdown.transform, new Vector2(left, 0), new Vector2(right, 1), Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)dropdown.transform, new Vector2(left, 0), new Vector2(right, 1), new Vector2(0,3), new Vector2(0,3));
         dropdown.captionText.fontSize = 26;
         dropdown.template.pivot = new Vector2(.5f, 1);
         dropdown.template.anchorMin = Vector2.zero; dropdown.template.anchorMax = new Vector2(1, 0);

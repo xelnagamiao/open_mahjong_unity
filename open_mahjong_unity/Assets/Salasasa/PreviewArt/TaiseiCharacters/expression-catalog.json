@@ -1,0 +1,582 @@
+{
+  "author": "afensorm / Taisei Project",
+  "license": "CC BY 4.0",
+  "commit": "d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6",
+  "changes": "Native Krita expression-layer exports at original canvas resolution. No damaged body variant. Shared display bounds per character; original KRA files unchanged.",
+  "assets": [
+    {
+      "id": "cirno",
+      "name": "琪露诺",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/cirno.kra",
+      "rawSha256": "eb08517c5fe2b3521cc71636aa03236cbcce6734fb76ecc56bd9ec9d50ab497d",
+      "width": 2168,
+      "height": 3072,
+      "u": 0.07472324723247233,
+      "v": 0.0,
+      "uvWidth": 0.9077490774907749,
+      "uvHeight": 0.9554036458333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "035c6aa43e9a295872d63025ae36a0530b91b2842649fbba2813cff77dc83a19"
+        },
+        {
+          "key": "angry",
+          "name": "生气",
+          "resourcePath": "TaiseiExpressions/cirno/angry",
+          "sha256": "8ea697e85400da788920c37395846e100d632efe669cf0c7d8eead44b22075da"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/cirno/defeated",
+          "sha256": "23d5330d16a307503a14b15402964060f51d4d79f98bd5f6bd78634443248764"
+        }
+      ]
+    },
+    {
+      "id": "elly",
+      "name": "艾丽",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/elly.kra",
+      "rawSha256": "98e3ec0ba7ea7a7b46b25eba132f947f4f7287f21cb6d012c62cc1d192825b72",
+      "width": 2500,
+      "height": 3072,
+      "u": 0.1768,
+      "v": 0.0,
+      "uvWidth": 0.7656,
+      "uvHeight": 1.0,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "324adbafd03b8978ab853ce4ce264516aa00675171cf06dc2fa13fd3d8dadc97"
+        },
+        {
+          "key": "smug",
+          "name": "得意",
+          "resourcePath": "TaiseiExpressions/elly/smug",
+          "sha256": "6f2a4e6d20b67cb1ad74cb7338c025b3ceb9dcd62c1e4607864314d809304d79"
+        },
+        {
+          "key": "blush",
+          "name": "害羞",
+          "resourcePath": "TaiseiExpressions/elly/blush",
+          "sha256": "ea1266bf8a6065b2d4aabbbe30e953da186ed0f4904688167c0e2701582d8116"
+        },
+        {
+          "key": "eyes_closed",
+          "name": "闭眼",
+          "resourcePath": "TaiseiExpressions/elly/eyes_closed",
+          "sha256": "2f15f3ec36a2adc892a57b2f6100251184a1f8dba26335680080831edb3c417b"
+        },
+        {
+          "key": "angry",
+          "name": "生气",
+          "resourcePath": "TaiseiExpressions/elly/angry",
+          "sha256": "ade132d3b99c65512d98e207d178ae4072dfb27c34bad6b30d8efa28eac3b637"
+        },
+        {
+          "key": "shouting",
+          "name": "喊叫",
+          "resourcePath": "TaiseiExpressions/elly/shouting",
+          "sha256": "9f3aedfc27ee16bb9d3501f851448cd78c2d1248b3341a0669c94e741ba9e848"
+        }
+      ]
+    },
+    {
+      "id": "hina",
+      "name": "键山雏",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/hina.kra",
+      "rawSha256": "9e33fdadc913af0c08085296a5ce1276ae8de2d77e299f288b27acbb868c3abb",
+      "width": 2220,
+      "height": 3072,
+      "u": 0.052702702702702706,
+      "v": 0.0,
+      "uvWidth": 0.936036036036036,
+      "uvHeight": 0.9866536458333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "10314daa9d29aebdaa40bf71546aa844597a1d8def26c37cf563f5e4c65f49b7"
+        },
+        {
+          "key": "concerned",
+          "name": "担忧",
+          "resourcePath": "TaiseiExpressions/hina/concerned",
+          "sha256": "fc682fe65a95244fe49a4a8c2b37a12ed9bc8aed4dbe5f1c5835b43158f4539f"
+        },
+        {
+          "key": "serious",
+          "name": "认真",
+          "resourcePath": "TaiseiExpressions/hina/serious",
+          "sha256": "7c1a5641753a3cbb34808e115fdae2af789a82f2cbc81a4ab084443cdaaa3687"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/hina/defeated",
+          "sha256": "0eebdf9965e33a751194f2c9672259cca4060ba59bd1850aa6d1ec22d42063ed"
+        }
+      ]
+    },
+    {
+      "id": "iku",
+      "name": "永江衣玖",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/iku.kra",
+      "rawSha256": "0bff555be8120870f2c2aec5b39f2d0ba20f436b762afd987918a26dcbc14c0d",
+      "width": 2187,
+      "height": 3200,
+      "u": 0.019661636945587563,
+      "v": 0.0,
+      "uvWidth": 0.9551897576588935,
+      "uvHeight": 0.984375,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "3b37cf9a6e458e82f8989ee98e919d507302eac26f92b93c405f55a6f4b948fb"
+        },
+        {
+          "key": "smile",
+          "name": "微笑",
+          "resourcePath": "TaiseiExpressions/iku/smile",
+          "sha256": "8ebbec850d00a60f4a251220394beaea43529d62fc90c7ab1871e15f915d2ccf"
+        },
+        {
+          "key": "eyes_closed",
+          "name": "闭眼",
+          "resourcePath": "TaiseiExpressions/iku/eyes_closed",
+          "sha256": "0be21fcdfd70674429f61352e95140097a667f6acfd6a45c8fbc6cbe705a0ff1"
+        },
+        {
+          "key": "serious",
+          "name": "认真",
+          "resourcePath": "TaiseiExpressions/iku/serious",
+          "sha256": "a37288f6f8573251714a673cec9971a78ab87960e9f1bf41b326bc9194f2cdf3"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/iku/defeated",
+          "sha256": "c0a0cbc50f945d3db5cac2b8fdd72ca56d000ed912e7e77b795b6b20fc0fafa1"
+        }
+      ]
+    },
+    {
+      "id": "kurumi",
+      "name": "胡桃",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/kurumi.kra",
+      "rawSha256": "72e4c0d184746098fb825416ca2cc32c62b832b674fe5712542961a52a2bf3a0",
+      "width": 2577,
+      "height": 3072,
+      "u": 0.02483507954986418,
+      "v": 0.0,
+      "uvWidth": 0.9577027551416376,
+      "uvHeight": 0.9554036458333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "7b2c5c356cd288b2f671f5b9ab4a5f8e46ba6cbadb10980d24467c6547239e66"
+        },
+        {
+          "key": "tsun_blush",
+          "name": "羞恼",
+          "resourcePath": "TaiseiExpressions/kurumi/tsun_blush",
+          "sha256": "74828dd61adc0135409ab44a175bd588cf94d3368e0a89db61cf632c38ef63cc"
+        },
+        {
+          "key": "tsun",
+          "name": "傲娇",
+          "resourcePath": "TaiseiExpressions/kurumi/tsun",
+          "sha256": "7d8fa964ee49355e04313c928eb882e6d1024de269acb7e457f199aadf895472"
+        },
+        {
+          "key": "puzzled",
+          "name": "疑惑",
+          "resourcePath": "TaiseiExpressions/kurumi/puzzled",
+          "sha256": "52b54679827daaa87112ade4716edd309a33475b07c52467bc64435485901e6f"
+        },
+        {
+          "key": "dissatisfied",
+          "name": "不满",
+          "resourcePath": "TaiseiExpressions/kurumi/dissatisfied",
+          "sha256": "405938d6b9a4f4e1e2e3c4547dcfdf80e834a12a80e0fcf80debaca86b08fdaa"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/kurumi/defeated",
+          "sha256": "86f0f8ddc831bab41cf7f0af11fc97571dae1a0f274ae3708fe2e7bd4ac6e666"
+        }
+      ]
+    },
+    {
+      "id": "marisa",
+      "name": "雾雨魔理沙",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/marisa.kra",
+      "rawSha256": "cd6beab4e24754ac42a9983795088105f0a160fdfa13858afd79facdf4d4d640",
+      "width": 1687,
+      "height": 3072,
+      "u": 0.027267338470657973,
+      "v": 0.0,
+      "uvWidth": 0.9359810314167161,
+      "uvHeight": 0.9964192708333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "31749e2424b0992a6e72bcaee407c46d6898516ee8382433f1b6bf7ada70eaa9"
+        },
+        {
+          "key": "happy",
+          "name": "开心",
+          "resourcePath": "TaiseiExpressions/marisa/happy",
+          "sha256": "8a99b4730ad8c9f1003cc92027e3ef40fe86105671bc2ff7d26e92367d1228da"
+        },
+        {
+          "key": "smug",
+          "name": "得意",
+          "resourcePath": "TaiseiExpressions/marisa/smug",
+          "sha256": "2a2dd3ea0f88bb0caa214db324c2ea464fee736b550d18ee3c1eed19e5dbd267"
+        },
+        {
+          "key": "surprised",
+          "name": "惊讶",
+          "resourcePath": "TaiseiExpressions/marisa/surprised",
+          "sha256": "40fd0f25a9e234fdcf762f5e55a660988ec7d1285b65f81d95a273c3a002ef03"
+        },
+        {
+          "key": "puzzled",
+          "name": "疑惑",
+          "resourcePath": "TaiseiExpressions/marisa/puzzled",
+          "sha256": "aa7665d152aa6e3aab3eff4473830789f3571acd2a13d26e597fda82ccf4abef"
+        },
+        {
+          "key": "inquisitive",
+          "name": "好奇",
+          "resourcePath": "TaiseiExpressions/marisa/inquisitive",
+          "sha256": "431b6c34070f643590f28ba9ae9f253e8fe6ca17a180d2ad81fa6cc83e59e307"
+        },
+        {
+          "key": "sweat_smile",
+          "name": "苦笑",
+          "resourcePath": "TaiseiExpressions/marisa/sweat_smile",
+          "sha256": "2c869d3eeaf87427e169f4ab7d626ed918ce512a6618504272ff1b3ba63bf73f"
+        },
+        {
+          "key": "unamused",
+          "name": "无语",
+          "resourcePath": "TaiseiExpressions/marisa/unamused",
+          "sha256": "8960ce28b7740332f6e6a13cc94c0829f9d2f1b88a9b3a5972c4b02b0b0f541a"
+        }
+      ]
+    },
+    {
+      "id": "reimu",
+      "name": "博丽灵梦",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/reimu.kra",
+      "rawSha256": "e0a71ca8e6d7f6018c00c9f1bbac150be5b507328c90d74f1de9edbf501fb853",
+      "width": 1912,
+      "height": 3072,
+      "u": 0.0,
+      "v": 0.0,
+      "uvWidth": 1.0,
+      "uvHeight": 0.9827473958333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "e9a30f01d6c176adb8f63619c3d0c6984e0544703c45765393fbb4feb0f79968"
+        },
+        {
+          "key": "happy",
+          "name": "开心",
+          "resourcePath": "TaiseiExpressions/reimu/happy",
+          "sha256": "cc1739f7b308c58acbe928116a821d023f1762510b2b292074ece0be1735f733"
+        },
+        {
+          "key": "smug",
+          "name": "得意",
+          "resourcePath": "TaiseiExpressions/reimu/smug",
+          "sha256": "c3ad639e6f3a1a28ce1a4a3f7c7e913ed5092dffdef41736f111726fa69ce641"
+        },
+        {
+          "key": "surprised",
+          "name": "惊讶",
+          "resourcePath": "TaiseiExpressions/reimu/surprised",
+          "sha256": "a392f42e4d35a1417cc7ca145f3317acab121bf58f9ba1f99b4ea54ccafb50c1"
+        },
+        {
+          "key": "puzzled",
+          "name": "疑惑",
+          "resourcePath": "TaiseiExpressions/reimu/puzzled",
+          "sha256": "1a56908edf69a062980277924bbc41891d36ded40d0f11ce21a9a9af11295fa3"
+        },
+        {
+          "key": "unsettled",
+          "name": "不安",
+          "resourcePath": "TaiseiExpressions/reimu/unsettled",
+          "sha256": "29352b42e8368a744bddec5c599ad4619e9d44bee86cc28c207b23c3a27e88c5"
+        },
+        {
+          "key": "sigh",
+          "name": "叹气",
+          "resourcePath": "TaiseiExpressions/reimu/sigh",
+          "sha256": "ab19c1d1f851f5d2434cbd4386dace5b1604defb0877d61137ba0f816d336d16"
+        },
+        {
+          "key": "assertive",
+          "name": "坚定",
+          "resourcePath": "TaiseiExpressions/reimu/assertive",
+          "sha256": "e01e81fdeb94a93d547b3d0278230bf65a9d0ba398d04b248269709016e249f9"
+        },
+        {
+          "key": "unamused",
+          "name": "无语",
+          "resourcePath": "TaiseiExpressions/reimu/unamused",
+          "sha256": "3fdf716a3338a62eec3ff36b8a364698956c18ac644242ec9efd73a58138e17c"
+        },
+        {
+          "key": "annoyed",
+          "name": "恼火",
+          "resourcePath": "TaiseiExpressions/reimu/annoyed",
+          "sha256": "d039e8444755958e1172e7b879b7e225c640457e15afbee4f6266376f5188bfc"
+        },
+        {
+          "key": "irritated",
+          "name": "烦躁",
+          "resourcePath": "TaiseiExpressions/reimu/irritated",
+          "sha256": "03650afc4a57eed01f8f7b1fc087231b463d94dbf014ca0bf12f662edba72442"
+        },
+        {
+          "key": "outraged",
+          "name": "愤怒",
+          "resourcePath": "TaiseiExpressions/reimu/outraged",
+          "sha256": "fe9f4bae991331a37199f183dc2e2f087f361dc53b0da2d22c0ab9cb49615644"
+        }
+      ]
+    },
+    {
+      "id": "scuttle",
+      "name": "Scuttle",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/scuttle.kra",
+      "rawSha256": "94d5bfc9f6b58327753de2b75e8fac839293ee9b51fc28dfc4479f57731372fe",
+      "width": 1821,
+      "height": 3072,
+      "u": 0.039538714991762765,
+      "v": 0.0,
+      "uvWidth": 0.8874244920373421,
+      "uvHeight": 0.9475911458333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "1ee646bd5e97ad9566c0513a6ca5a21e0114685e01f1a2ae627ff6e49df57124"
+        }
+      ]
+    },
+    {
+      "id": "wriggle",
+      "name": "莉格露·奈特巴格",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/wriggle.kra",
+      "rawSha256": "fac60187753d828286e36b4ce4a18b713db974ec401aece0dcc5eb4efbe3d17e",
+      "width": 1947,
+      "height": 3355,
+      "u": 0.09553158705701079,
+      "v": 0.0,
+      "uvWidth": 0.8967642526964561,
+      "uvHeight": 0.9442622950819672,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "f964d8f55241e8b783d771275976a8a5b58b4ab262ab569e71a5a5502128addd"
+        },
+        {
+          "key": "calm",
+          "name": "平静",
+          "resourcePath": "TaiseiExpressions/wriggle/calm",
+          "sha256": "79cd2c2f59c14a9298ad2c5a6e0d1cc6e42894e252625fe1a6495dd33a6305e6"
+        },
+        {
+          "key": "proud",
+          "name": "自豪",
+          "resourcePath": "TaiseiExpressions/wriggle/proud",
+          "sha256": "9d592c2cc5463a58f8ebbafbba813bfb18a5e008098ab6d8c331ee7e3366cf9f"
+        },
+        {
+          "key": "outraged",
+          "name": "愤怒",
+          "resourcePath": "TaiseiExpressions/wriggle/outraged",
+          "sha256": "b12cb90879f1952a68f81f7367e51ef85f4c2df7b28aeb1476556b275c21fb1e"
+        },
+        {
+          "key": "outraged_unlit",
+          "name": "愤怒（暗）",
+          "resourcePath": "TaiseiExpressions/wriggle/outraged_unlit",
+          "sha256": "cd396c16b2d97dd1ed78b72316abfb1f6651802debcf173913e56917cb534f7d"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/wriggle/defeated",
+          "sha256": "6eb3bba57a28914fddc9e25c2b74f8b15a0a6166491cb153066cc6e71ea58a47"
+        }
+      ]
+    },
+    {
+      "id": "youmu",
+      "name": "魂魄妖梦",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/youmu.kra",
+      "rawSha256": "a1c1667155696a8ba133ea3089f97c28b0d736edc7482f58c81f23ca6f3aaae0",
+      "width": 1950,
+      "height": 3072,
+      "u": 0.021538461538461538,
+      "v": 0.0,
+      "uvWidth": 0.9041025641025641,
+      "uvHeight": 0.9895833333333334,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "3a783e26c38c5e63ec02c4c34322f04fb9d2e62921aa1b928767aacc18cb7b3c"
+        },
+        {
+          "key": "happy",
+          "name": "开心",
+          "resourcePath": "TaiseiExpressions/youmu/happy",
+          "sha256": "6f56527d0164a1c3f4629e6dbb36b5d2e50aa4327ace911b3c95516018bddd5d"
+        },
+        {
+          "key": "relaxed",
+          "name": "放松",
+          "resourcePath": "TaiseiExpressions/youmu/relaxed",
+          "sha256": "ef9daec68dd9b1a4bb2987748e56e08a932da73a6623a823ca57894c2ad58911"
+        },
+        {
+          "key": "smug",
+          "name": "得意",
+          "resourcePath": "TaiseiExpressions/youmu/smug",
+          "sha256": "3e314eb492c0f4112dc5aad0e39cc1c121e5946d34286096694149b3e1ff3bc5"
+        },
+        {
+          "key": "embarrassed",
+          "name": "害羞",
+          "resourcePath": "TaiseiExpressions/youmu/embarrassed",
+          "sha256": "74089351c8fc507c97666348e492879cd1871aef90e7c3d4f283ed34591cb73e"
+        },
+        {
+          "key": "eyes_closed",
+          "name": "闭眼",
+          "resourcePath": "TaiseiExpressions/youmu/eyes_closed",
+          "sha256": "aef62a7e7de9690975aaf528bffcbe2f83c9ba35a888fdd906e721ed4d4b118e"
+        },
+        {
+          "key": "surprised",
+          "name": "惊讶",
+          "resourcePath": "TaiseiExpressions/youmu/surprised",
+          "sha256": "55c830ad8a1fb03df6d9966ab5b4d9df669f218ac70f227ff1ed1e3da1f89e15"
+        },
+        {
+          "key": "eeeeh",
+          "name": "震惊",
+          "resourcePath": "TaiseiExpressions/youmu/eeeeh",
+          "sha256": "a8c6d0178fca31ea66e6e290a0315efe7a859fb0877d51c3ef142ade02c8dced"
+        },
+        {
+          "key": "puzzled",
+          "name": "疑惑",
+          "resourcePath": "TaiseiExpressions/youmu/puzzled",
+          "sha256": "fbba4ed5be3c99c74e7e3805511567dc61486e4c9c217b7f7d2e1d44a72f46fb"
+        },
+        {
+          "key": "sigh",
+          "name": "叹气",
+          "resourcePath": "TaiseiExpressions/youmu/sigh",
+          "sha256": "e29ac7661dab0f9fd13955278fd82cd22ee12f0e282f48db0816ad4584a6b5c6"
+        },
+        {
+          "key": "unamused",
+          "name": "无语",
+          "resourcePath": "TaiseiExpressions/youmu/unamused",
+          "sha256": "35274244cc69f20cdcab1fa85167b825e11eebb6d42af508fcad974994b5cd5c"
+        },
+        {
+          "key": "chuuni",
+          "name": "中二",
+          "resourcePath": "TaiseiExpressions/youmu/chuuni",
+          "sha256": "56d7a769d3ef07c164044528075ac727f74f7d157ec23f2d005cc6170e6b0232"
+        }
+      ]
+    },
+    {
+      "id": "yumemi",
+      "name": "冈崎梦美",
+      "source": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/yumemi.kra",
+      "rawSha256": "817f3a9f39898ab9c05dd2bd81af1d1cd668cf4f99d42bbe96ccd6dcbdf23f65",
+      "width": 2750,
+      "height": 3800,
+      "u": 0.04436363636363636,
+      "v": 0.006842105263157895,
+      "uvWidth": 0.9283636363636364,
+      "uvHeight": 0.9871052631578947,
+      "expressions": [
+        {
+          "key": "normal",
+          "name": "默认",
+          "resourcePath": "",
+          "sha256": "15ec09ea8e476a41d68078c74f4bb11eb4f8d38fb2bf1fb91c395cf58a2ff2ac"
+        },
+        {
+          "key": "smug",
+          "name": "得意",
+          "resourcePath": "TaiseiExpressions/yumemi/smug",
+          "sha256": "e40f000d9b958588bfad23180f5adeec52bcc089ee23fb1c6316b284066a745d"
+        },
+        {
+          "key": "eyes_closed",
+          "name": "闭眼",
+          "resourcePath": "TaiseiExpressions/yumemi/eyes_closed",
+          "sha256": "d22c2688670c2c6a8e5221e7299e63c872f0b529ef482d4754a2b857a1e156aa"
+        },
+        {
+          "key": "surprised",
+          "name": "惊讶",
+          "resourcePath": "TaiseiExpressions/yumemi/surprised",
+          "sha256": "9ceac62f91661b05c3381c3b91c2a9f0756b4730283e4e7e9a497e3b96532dd6"
+        },
+        {
+          "key": "sigh",
+          "name": "叹气",
+          "resourcePath": "TaiseiExpressions/yumemi/sigh",
+          "sha256": "f7214ae82b8ad2178319fdb2172a5c4ca5b625887b5b17c632fcf3fba0cefe74"
+        },
+        {
+          "key": "sad",
+          "name": "难过",
+          "resourcePath": "TaiseiExpressions/yumemi/sad",
+          "sha256": "2c95f34ab5a4b849b3198a73042075cca9c7e17392f0d760ad6b3236113624cf"
+        },
+        {
+          "key": "defeated",
+          "name": "疲惫",
+          "resourcePath": "TaiseiExpressions/yumemi/defeated",
+          "sha256": "385731201f50dde436c0d4608a25ab89a5afd3d582904cdddaa86e75cbccaa9f"
+        }
+      ]
+    }
+  ]
+}

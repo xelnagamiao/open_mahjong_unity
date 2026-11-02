@@ -1,10 +1,12 @@
 import {TILES,ORPHANS,INDEX,prepare,canWin,canFormPairs,canFormMelds,shapes,winningTiles,shapeTiles,meldTiles,type Policy,type LocalHand} from './localJokerHand'
 import {NanchangLocal} from './nanchangLocal'
 import {ShangraoLocal} from './shangraoLocal'
+import {BeijingLocal} from './beijingLocal'
+import {duocaiHintRequest} from './duocaiLocal'
 import {shenyangWaiting,shenyangDescribe} from './shenyangLocal'
 
 const NUMBERS=TILES.filter(t=>t<40)
-export interface LocalHintRequest {rule:string;hand:number[];melds:string[];cuts?:number[];context:Record<string,any>}
+export interface LocalHintRequest {rule:string;hand:number[];melds:string[];cuts?:number[];context:Record<string,any>;scope?:string;win?:number;cut?:number|null}
 export function regionalPolicy(rule:string,c:Record<string,any>,natural=false):Policy {
   let p:Policy
   switch(rule){
@@ -36,6 +38,7 @@ function complete(rule:string,hand:number[],melds:string[],c:Record<string,any>)
   const h=prepared(rule,hand,melds,c);return !!h&&(canWin(h)||rule==='wenzhou'&&(h.ghosts>=3||eightPairs(h))||rule==='guangdong'&&h.ghosts===4)
 }
 export function regionalWaiting(rule:string,hand:number[],melds:string[],c:Record<string,any>):number[]{
+  if(rule==='beijing')return new BeijingLocal(melds,c).waiting(hand)
   if(rule==='shangrao')return new ShangraoLocal(melds,c).waiting(hand)
   if(rule==='shenyang')return shenyangWaiting(hand,melds)
   if(rule==='nanchang')return new NanchangLocal(melds,c).waiting(hand)
@@ -99,6 +102,7 @@ function wenzhouScore(hand:number[],melds:string[],c:Record<string,any>,self:boo
   if(h.ghosts>=3)value=Math.max(value,standard||eight?4:2);return value
 }
 export function regionalDescribe(rule:string,hand:number[],melds:string[],win:number,c:Record<string,any>,cut:number|null=null):Record<string,any>{
+  if(rule==='beijing')return new BeijingLocal(melds,c).describe(hand,win,cut)
   if(rule==='shangrao')return new ShangraoLocal(melds,c).describe(hand,win,cut)
   if(rule==='shenyang')return shenyangDescribe(hand,melds,win,c,cut)
   if(rule==='nanchang')return new NanchangLocal(melds,c).describe(hand,win,cut)
@@ -273,8 +277,9 @@ function singaporeScore(hand:number[],melds:string[],win:number,c:Record<string,
 }
 export function regionalSnapshot(request:LocalHintRequest){
   const {rule,hand,melds,context:c={}}=request
+  if(rule==='duocai')return duocaiHintRequest(request)
   const nanchang=rule==='nanchang'?new NanchangLocal(melds,c):null
-  const shangrao=rule==='shangrao'?new ShangraoLocal(melds,c):null
+  const shangrao=rule==='shangrao'?new ShangraoLocal(melds,c):rule==='beijing'?new BeijingLocal(melds,c):null
   const result={source_hand_tiles:[...hand],source_melds:[...melds],win_blocked:!!c.blocked,waiting_tiles:[] as number[],waiting_details:{} as Record<number,any>,waiting_by_discard:{} as Record<number,number[]>,waiting_details_by_discard:{} as Record<number,any>}
   function rows(before:number[],cut:number|null){
     const waits=shangrao?.waiting(before)??nanchang?.waiting(before)??regionalWaiting(rule,before,melds,c),details=Object.fromEntries(waits.map(tile=>[tile,{tile,...(shangrao?.describe([...before,tile],tile,cut)??nanchang?.describe([...before,tile],tile,cut)??regionalDescribe(rule,[...before,tile],melds,tile,c,cut))}]))

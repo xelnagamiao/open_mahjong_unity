@@ -8,12 +8,17 @@ export const guangdongProfiles = Object.freeze([
 export function loadGuangdongForm(form, config = {}) {
   form.sub_rule = config.sub_rule || form.sub_rule || TUIDAO_SUB_RULE
   form.require_minimum_score = config.detailed_config?.require_minimum_score !== false
+  form.pingji_zimo_no_chow = config.detailed_config?.pingji_zimo_no_chow ?? false
   form.tactical_call = config.tactical_call ?? true
   return form
 }
 
 export function guangdongDetail(form) {
-  if (form.sub_rule === TUIDAO_SUB_RULE) return { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false }
+  if (form.sub_rule === TUIDAO_SUB_RULE) {
+    const enabled = form.pingji_zimo_no_chow ?? false
+    if (typeof enabled !== 'boolean') throw new Error('平鸡自摸禁吃开关必须是布尔值')
+    return { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false, pingji_zimo_no_chow: enabled }
+  }
   if (form.sub_rule !== GUANGDONG_MIL_SUB_RULE) throw new Error('请选择广东麻将子规则')
   if (typeof form.require_minimum_score !== 'boolean') throw new Error('4分起和开关必须是布尔值')
   return { edition: 'mil-guangdong-2023-om1', wildcards: true, minimum_fan: 2, minimum_score: 4, horse_count: 4, require_minimum_score: form.require_minimum_score }
@@ -37,5 +42,5 @@ export function buildGuangdongRoomPayload(form) {
 export function guangdongRows(form) {
   return form.sub_rule === GUANGDONG_MIL_SUB_RULE
     ? [{ label: '规则底本', value: 'MIL 2023 花鬼标准本' }, { label: '起和条件', value: form.require_minimum_score ? '至少2番，同时至少4分' : '至少2番' }, { label: '鬼牌', value: '梅兰竹菊留手，不补花' }, { label: '奖马', value: '自摸翻前4马，不足不补' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（抢断5秒，有机器人时自动关闭）' : '关闭' }]
-    : [{ label: '规则底本', value: 'MIL 2024 无癞子标准本' }, { label: '封顶', value: '32番，另加2底分' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（有机器人时自动关闭）' : '关闭' }]
+    : [{ label: '规则底本', value: 'MIL 2024 无癞子标准本' }, { label: '封顶', value: '32番，另加2底分' }, { label: '平鸡自摸禁吃', value: form.pingji_zimo_no_chow ? '开启（不能吃，鸡胡只能自摸）' : '关闭' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（有机器人时自动关闭）' : '关闭' }]
 }

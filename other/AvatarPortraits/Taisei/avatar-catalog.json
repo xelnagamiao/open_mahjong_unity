@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "date": "2026-11-01",
+  "changes": "Square head-and-shoulder crop and proportional high-quality bicubic downsampling. Original artwork, colors and alpha retained; no repainting.",
+  "sourceCommit": "d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6",
+  "runtimeSize": 512,
+  "reserveSize": 1024,
+  "runtimeAllowlist": [
+    "reimu",
+    "cirno"
+  ],
+  "assets": [
+    {
+      "id": "reimu",
+      "name": "博丽灵梦",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-reimu.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/reimu.kra",
+      "sourceSha256": "e9a30f01d6c176adb8f63619c3d0c6984e0544703c45765393fbb4feb0f79968",
+      "sourceWidth": 1912,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        180,
+        42,
+        1120,
+        1120
+      ],
+      "cropBottomLeft": [
+        180,
+        1910,
+        1120,
+        1120
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": 2302,
+      "outputs": [
+        {
+          "file": "512/reimu.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 208967,
+          "sha256": "bfc548fa48cd3af7a165bb794bad13e9c02908cce3d6edfc92aed54638d371bd"
+        },
+        {
+          "file": "1024/reimu.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 584318,
+          "sha256": "57ec85a4bdc64fa39ed5c5449be415b4ebc27aafecbb59b47d788850b35bc248"
+        }
+      ]
+    },
+    {
+      "id": "marisa",
+      "name": "雾雨魔理沙",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-marisa.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/marisa.kra",
+      "sourceSha256": "31749e2424b0992a6e72bcaee407c46d6898516ee8382433f1b6bf7ada70eaa9",
+      "sourceWidth": 1687,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        180,
+        0,
+        1450,
+        1450
+      ],
+      "cropBottomLeft": [
+        180,
+        1622,
+        1450,
+        1450
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/marisa.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 175055,
+          "sha256": "4995b8cae10532b3cdc1471eefed3f476d17a7ffe6849fef75f51a2f8c8b1da4"
+        },
+        {
+          "file": "1024/marisa.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 490868,
+          "sha256": "6afdfe0399a02004a5fabfe9a9473da33d2e28a7ee7df2dc80d81faa03f5e17e"
+        }
+      ]
+    },
+    {
+      "id": "youmu",
+      "name": "魂魄妖梦",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-youmu.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/youmu.kra",
+      "sourceSha256": "3a783e26c38c5e63ec02c4c34322f04fb9d2e62921aa1b928767aacc18cb7b3c",
+      "sourceWidth": 1950,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        500,
+        20,
+        1100,
+        1100
+      ],
+      "cropBottomLeft": [
+        500,
+        1952,
+        1100,
+        1100
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/youmu.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 191246,
+          "sha256": "2074d5df22262676519a4fc154fce8c3e7ebaa7247dbe5f583b10879d6e90e37"
+        },
+        {
+          "file": "1024/youmu.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 536457,
+          "sha256": "fe1808680d8cf56dbd3c47d85b2b0952597ee8bc18674f257a872724b8d8681a"
+        }
+      ]
+    },
+    {
+      "id": "iku",
+      "name": "永江衣玖",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-iku.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/iku.kra",
+      "sourceSha256": "3b37cf9a6e458e82f8989ee98e919d507302eac26f92b93c405f55a6f4b948fb",
+      "sourceWidth": 2187,
+      "sourceHeight": 3200,
+      "cropTopLeft": [
+        590,
+        140,
+        1200,
+        1200
+      ],
+      "cropBottomLeft": [
+        590,
+        1860,
+        1200,
+        1200
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/iku.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 205413,
+          "sha256": "601c4dd5faa877909b95879cfcbe90d277733543dd3b7b8782600c8c3aa5b627"
+        },
+        {
+          "file": "1024/iku.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 571596,
+          "sha256": "d63e81fccf2baf67149cb3a42467c48565ad738536865a2a9357b9e9bd2bf8dd"
+        }
+      ]
+    },
+    {
+      "id": "elly",
+      "name": "艾丽",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-elly.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/elly.kra",
+      "sourceSha256": "324adbafd03b8978ab853ce4ce264516aa00675171cf06dc2fa13fd3d8dadc97",
+      "sourceWidth": 2500,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        430,
+        0,
+        1160,
+        1160
+      ],
+      "cropBottomLeft": [
+        430,
+        1912,
+        1160,
+        1160
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/elly.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 230494,
+          "sha256": "5fed4db8402fd59dfcb4e2cf30428841e763500ca6e51a405fb2e44bde2a0f13"
+        },
+        {
+          "file": "1024/elly.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 672663,
+          "sha256": "9fb77ce5a06bbd6e807b4619c964facf289447a17f24ac7fa1a35110926ebfc5"
+        }
+      ]
+    },
+    {
+      "id": "kurumi",
+      "name": "胡桃",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-kurumi.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/kurumi.kra",
+      "sourceSha256": "7b2c5c356cd288b2f671f5b9ab4a5f8e46ba6cbadb10980d24467c6547239e66",
+      "sourceWidth": 2577,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        790,
+        130,
+        1150,
+        1150
+      ],
+      "cropBottomLeft": [
+        790,
+        1792,
+        1150,
+        1150
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/kurumi.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 252683,
+          "sha256": "1d436f303f66f9752b4cd0cedd2e4fda62b9f0496629bd6c579b44dccacc9b62"
+        },
+        {
+          "file": "1024/kurumi.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 726236,
+          "sha256": "97e8d8e3a97d7d45ee0632d5e75ca896599a43804dbe04dc09db9140a887d9d0"
+        }
+      ]
+    },
+    {
+      "id": "cirno",
+      "name": "琪露诺",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-cirno.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/cirno.kra",
+      "sourceSha256": "035c6aa43e9a295872d63025ae36a0530b91b2842649fbba2813cff77dc83a19",
+      "sourceWidth": 2168,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        430,
+        82,
+        1050,
+        1050
+      ],
+      "cropBottomLeft": [
+        430,
+        1940,
+        1050,
+        1050
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": 2303,
+      "outputs": [
+        {
+          "file": "512/cirno.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 212677,
+          "sha256": "116501111440aab00c5f8fabde82197fec1db619f16a90f66f469b80d951a831"
+        },
+        {
+          "file": "1024/cirno.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 579485,
+          "sha256": "bacee7d99cd0f87000d1e8202f7bacc7e724d9e9f2cf81626bc3473fa45c2458"
+        }
+      ]
+    },
+    {
+      "id": "hina",
+      "name": "键山雏",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-hina.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/hina.kra",
+      "sourceSha256": "10314daa9d29aebdaa40bf71546aa844597a1d8def26c37cf563f5e4c65f49b7",
+      "sourceWidth": 2220,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        400,
+        0,
+        1150,
+        1150
+      ],
+      "cropBottomLeft": [
+        400,
+        1922,
+        1150,
+        1150
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/hina.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 195429,
+          "sha256": "234c0f3f9fb1352028596bee84a548c7ec2cabe6242198fc36cef9f867556568"
+        },
+        {
+          "file": "1024/hina.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 561912,
+          "sha256": "4b95ece31b8f4795468c22b919450c5d42ed76997b9dfdb965f428d7792a5cd7"
+        }
+      ]
+    },
+    {
+      "id": "wriggle",
+      "name": "莉格露·奈特巴格",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-wriggle.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/wriggle.kra",
+      "sourceSha256": "f964d8f55241e8b783d771275976a8a5b58b4ab262ab569e71a5a5502128addd",
+      "sourceWidth": 1947,
+      "sourceHeight": 3355,
+      "cropTopLeft": [
+        400,
+        400,
+        1100,
+        1100
+      ],
+      "cropBottomLeft": [
+        400,
+        1855,
+        1100,
+        1100
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/wriggle.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 266907,
+          "sha256": "c4d2aebcb9962765fa6a39cea36038e09409feec84237ca4ba8e200bce6fee96"
+        },
+        {
+          "file": "1024/wriggle.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 743327,
+          "sha256": "405d044a1c00a61497a2c4a12b35548eced36617a903daa1306908b384e72675"
+        }
+      ]
+    },
+    {
+      "id": "yumemi",
+      "name": "冈崎梦美",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-yumemi.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/yumemi.kra",
+      "sourceSha256": "15ec09ea8e476a41d68078c74f4bb11eb4f8d38fb2bf1fb91c395cf58a2ff2ac",
+      "sourceWidth": 2750,
+      "sourceHeight": 3800,
+      "cropTopLeft": [
+        660,
+        0,
+        1050,
+        1050
+      ],
+      "cropBottomLeft": [
+        660,
+        2750,
+        1050,
+        1050
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/yumemi.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 254682,
+          "sha256": "8cc6548431d287ad197f6219e22cf5bbf8b238c062a2c62591a9522e18b0154d"
+        },
+        {
+          "file": "1024/yumemi.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 736366,
+          "sha256": "6c24f5ae7ced6111904ec12aaa4ba0b3c5aed3d4ad4941e7829c9e3a9bbaa15a"
+        }
+      ]
+    },
+    {
+      "id": "scuttle",
+      "name": "Scuttle",
+      "source": "open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-scuttle.png",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/scuttle.kra",
+      "sourceSha256": "1ee646bd5e97ad9566c0513a6ca5a21e0114685e01f1a2ae627ff6e49df57124",
+      "sourceWidth": 1821,
+      "sourceHeight": 3072,
+      "cropTopLeft": [
+        560,
+        80,
+        1000,
+        1000
+      ],
+      "cropBottomLeft": [
+        560,
+        1992,
+        1000,
+        1000
+      ],
+      "author": "afensorm / Taisei Project",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "bundledAvatarId": null,
+      "outputs": [
+        {
+          "file": "512/scuttle.png",
+          "width": 512,
+          "height": 512,
+          "bytes": 151745,
+          "sha256": "091db425ef9cfd7a5e162df71adbf8c4ed0acd97e5568791abaa809c448502d7"
+        },
+        {
+          "file": "1024/scuttle.png",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 418022,
+          "sha256": "be860bf50677ce2b6dd017eaacb83414356bc4ba07e886767fb8368428b0aa38"
+        }
+      ]
+    }
+  ]
+}

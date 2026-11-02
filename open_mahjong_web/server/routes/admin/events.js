@@ -7,9 +7,12 @@ const { generateEventId } = require('../../utils/eventsTables');
 const { fetchEventPlayerStats } = require('../../services/eventPlayerStats');
 const { createDuplicateWallService } = require('../../services/duplicateWalls');
 const { createEventRoomCreationService } = require('../../services/eventRoomCreation');
+const { createEventRoomBotService } = require('../../services/eventRoomBots');
+const { proxyToGameServer: proxyToRoomAdmin } = require('../../services/gameServerProxy');
 
 const duplicateWalls = createDuplicateWallService(pool);
 const roomCreation = createEventRoomCreationService({ duplicateWalls, proxyToGameServer, writeAudit });
+const roomBots = createEventRoomBotService({ proxyToGameServer: proxyToRoomAdmin, writeAudit });
 
 const MAX_EVENT_ADMINS = 10;
 
@@ -269,6 +272,65 @@ router.get('/:eventId', async (req, res) => {
   } catch (err) {
     console.error('admin events detail:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.put('/:eventId/profile', async (req, res) => {
+  const nameParsed = normalizeName(req.body?.name);
+  if (nameParsed.error) {
+    return res.status(400).json({ success: false, message: nameParsed.error });
+  }
+  const description = String(req.body?.description || '').trim();
+  const reason = String(req.body?.reason || '').trim();
+  if (description.length > 2000) {
+    return res.status(400).json({ success: false, message: '介绍过长（最多 2000 字）' });
+  }
+  if (!reason || reason.length > 2000) {
+    return res.status(400).json({ success: false, message: '请填写操作原因（最多 2000 字）' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT event_id, name, description, kind FROM events WHERE event_id = $1 FOR UPDATE`,
+      [req.params.eventId]
+    );
+    const before = existing.rows[0];
+    if (!before) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: '赛事或基地不存在' });
+    }
+    if (nameParsed.value === before.name.trim() && description === String(before.description || '').trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: '名称与介绍均未变更' });
+    }
+    const result = await client.query(
+      `UPDATE events SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE event_id = $3
+       RETURNING event_id, name, description, kind, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+      [nameParsed.value, description, req.params.eventId]
+    );
+    const event = result.rows[0];
+    await writeAudit({
+      adminUserId: req.admin.userId,
+      action: 'event.profile.update',
+      targetType: 'event',
+      targetId: event.event_id,
+      payload: { before, after: event },
+      reason,
+    }, client);
+    await client.query('COMMIT');
+    res.json({ success: true, data: { event }, message: '资料已更新' });
+  } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }
+    }
+    console.error('admin event profile update:', err);
+    res.status(500).json({ success: false, message: '资料更新失败' });
+  } finally {
+    client?.release();
   }
 });
 
@@ -750,6 +812,17 @@ router.get('/:eventId/rooms', async (req, res) => {
 });
 
 // 赛事空房间：删除（代理游戏服）
+router.post('/:eventId/rooms/:roomId/bots', async (req, res) => {
+  try {
+    const event = await fetchEventRow(req.params.eventId);
+    if (!event) return res.status(404).json({ success: false, message: '赛事或基地不存在' });
+    const data = await roomBots.add(event, req.admin.userId, req.params.roomId, req.body || {}, { platformAdmin: true });
+    res.json({ success: true, data, message: data.message });
+  } catch (error) {
+    res.status(error.status || 502).json({ success: false, message: error.status ? error.message : '操作未确认，请刷新房间列表核对' });
+  }
+});
+
 router.post('/:eventId/rooms/:roomId/restart-pair', async (req, res) => {
   try {
     const event = await fetchEventRow(req.params.eventId);

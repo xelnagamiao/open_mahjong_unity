@@ -26,6 +26,15 @@ def settle_ranked_game(state):
             SANMA_PT_ALGORITHM if spec.player_count == 3 else LEGACY_PT_ALGORITHM)
         for player, payload in zip(state.player_list, players):
             payload['match_points'] = player.riichi_points
+    if spec.rule == 'qingque':
+        from .qingque_score_elo import ALGORITHM
+        from .rating_rules import ELO_ALGORITHM_VERSION
+        options['rating_algorithm'] = getattr(state, 'match_rating_algorithm', ELO_ALGORITHM_VERSION)
+        if options['rating_algorithm'] == ALGORITHM:
+            from .qingque_session import completed_hands
+            options['completed_hands'] = completed_hands(state.game_record)
+            for player, payload in zip(state.player_list, players):
+                payload['net_points'] = player.score
     result = state.db_manager.settle_rated_game(state.gamestate_id, queue, players, **options)
     for player in state.player_list:
         for key,value in result[str(player.user_id)].items():
@@ -33,16 +42,18 @@ def settle_ranked_game(state):
         if spec.rule == 'guobiao':
             player.guobiao_rank,player.guobiao_score = player.rank_after,player.score_after
     state.game_record['game_title']['rating_result'] = result
-    if spec.rule == 'riichi':
+    if spec.rule in ('riichi', 'qingque'):
         state.game_record['game_title']['rating_algorithm'] = next(iter(result.values())).get(
             'rating_algorithm', LEGACY_PT_ALGORITHM)
-    return f'{spec.rounds}/{spec.player_count}_rank'
+    return f'{"unlimited" if spec.unlimited_rounds else spec.rounds}/{spec.player_count}_rank'
 
 
 def rating_result_fields(player):
     keys = ('rating_rule','rating_system','rank_before','rank_after','score_before','score_after','rating_pt',
             'elo_before','elo_after','elo_delta','rating_games','rating_algorithm','rating_match_points',
-            'rating_game_multiplier','rating_tier_multiplier','rating_rank_cost')
+            'rating_game_multiplier','rating_tier_multiplier','rating_rank_cost',
+            'rating_completed_hands','rating_net_points','rating_average_points',
+            'rating_expected_average','rating_base_delta','rating_protection_bonus','rating_k')
     if getattr(player, 'rating_system', None) == 'grade':
         keys = tuple(key for key in keys if not key.startswith('elo_'))
     return dict(user_id=player.user_id, **{key:getattr(player,key,None) for key in keys})

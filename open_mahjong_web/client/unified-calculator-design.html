@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>牌理与麻雀计算器合并方案 · OpenMahjong</title>
+  <style>
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#45b7d1;color:#34445b;font:15px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}a{color:#1766ad;text-underline-offset:3px}nav{background:#191919;color:white;padding:15px max(20px,calc((100% - 1000px)/2));display:flex;gap:24px;align-items:center}nav a{color:#b8defa;text-decoration:none}main{max-width:1000px;margin:28px auto 60px;padding:0 14px}header{color:white;margin:0 0 22px}h1{font-size:28px;line-height:1.4;margin:0 0 10px}h2{font-size:20px;margin:0 0 16px}h3{font-size:16px;margin:22px 0 8px}p{margin:10px 0}.meta{font-size:13px;opacity:.9}.card{background:#fffffff2;border:1px solid #e4eaf1;border-radius:12px;margin:16px 0;padding:24px}.lead{font-size:18px;font-weight:600}.button{display:inline-block;background:#fff;color:#1851a1;border-radius:6px;padding:8px 20px;text-decoration:none;font-weight:600}.button.dark{background:#2563eb;color:white}.links{display:flex;flex-wrap:wrap;gap:10px 22px}.links a{white-space:nowrap}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:16px 0}.flow div{border:1px solid #bdd7ee;background:#f0f7ff;border-radius:7px;padding:10px 14px;flex:1;min-width:150px}.flow span{display:block;font-size:13px;color:#64778d}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #e4eaf1}th{background:#f0f5fa;white-space:nowrap}td:first-child{font-weight:600;min-width:105px}td{min-width:135px}code{background:#edf3f9;padding:2px 5px;border-radius:3px;font-size:13px}ul,ol{padding-left:22px}li{margin:7px 0}.note{background:#edf5ff;border-left:3px solid #409eff;padding:10px 14px;margin:16px 0}.success{background:#ecfdf5;border:1px solid #6ee7b7;border-radius:7px;padding:14px;color:#065f46}.muted{color:#718297;font-size:13px}.sources{counter-reset:source}.source{counter-increment:source;border:1px solid #dce7f1;border-radius:8px;padding:14px 16px;margin:10px 0;background:#fff}.source h3{margin:0 0 6px}.source h3:before{content:counter(source,decimal-leading-zero) " ";color:#8d9cae;font-size:13px}.source p{margin:5px 0;font-size:14px}.badge{font-weight:400;display:inline-block;background:#eef5fc;color:#50769d;font-size:11px;border-radius:4px;padding:1px 6px;margin-left:7px}.filter{display:flex;align-items:center;gap:12px;margin:16px 0}.filter select{font:inherit;border:1px solid #b9cde0;border-radius:5px;padding:5px 9px;background:white;color:inherit}footer{text-align:center;color:#e7f9ff;font-size:13px;margin:30px 0}.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.split>div{background:#f5f8fc;border:1px solid #e2e9f2;border-radius:8px;padding:14px}.split h3{margin-top:0}@media(max-width:640px){main{padding:0 10px;margin-top:20px}.card{padding:18px 14px}h1{font-size:23px}nav{padding:12px 16px;font-size:13px}.split{grid-template-columns:1fr}.source{padding:12px}.flow div{min-width:130px}.filter{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+<nav><strong>OpenMahjong</strong><a href="unified-calculator.html">打开交互示例</a><a href="#references">20 个参考实例</a></nav>
+<main>
+  <header>
+    <h1>牌理与麻雀计算器合并方案</h1>
+    <p>同一副牌、同一组条件，从向听连续推演到和牌。</p>
+    <p class="meta">合并实现稿 · 2026-10-24 · 国标 / 青雀 / 日麻 · 沿用本站牌面、组件和单列卡片布局</p>
+    <a class="button" href="/calc/chinese">打开正式计算器 →</a>
+  </header>
+
+  <section class="card" id="proposal">
+    <h2>建议：保留一个“麻雀计算器”入口</h2>
+    <p class="lead">用户只管录入和修改手牌，结果区根据牌数与牌形自动呈现相应内容。</p>
+    <p>最顶部保留牌面简写说明，其下选择规则；手牌、副露、和牌张、已见牌及条件始终属于同一份状态。规则切换会重新计算，并恢复对应规则的和牌牌型预设。原来两页之间的“带着手牌跳转”变成当前页内的一步操作。</p>
+    <div class="flow" aria-label="连续推演流程">
+      <div><strong>向听与进张</strong><span>点击进张，加入摸牌</span></div>
+      <div><strong>切牌分析</strong><span>点击舍牌，更新牌河</span></div>
+      <div><strong>待牌与得分</strong><span>比较点和 / 自摸</span></div>
+      <div><strong>和牌得分</strong><span>番种、支付、全部拆解</span></div>
+    </div>
+    <p>每一步可以撤销、重做或从推演记录恢复。和牌后可以退回摸牌前，也可以展开切牌分析继续推演。无役或不足起和时，切牌分析默认展开。</p>
+    <p class="note">示例沿用本站青色背景、深色导航、浅色卡片、现有牌面与 Element Plus 控件。计算页面没有重新加入此前要求删除的顶部解释句；设计说明集中在本评审页。</p>
+    <div class="links"><a href="#states">状态规则</a><a href="#interaction">交互细节</a><a href="#rules">规则范围</a><a href="#validation">验证情况</a><a href="#references">参考依据</a><a href="#rollout">正式接入方案</a></div>
+  </section>
+
+  <section class="card" id="layout">
+    <h2>页面结构与信息优先级</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>区域</th><th>常显内容</th><th>展开内容 / 原因</th></tr></thead>
+      <tbody>
+        <tr><td>最顶部</td><td>原有牌面简写说明</td><td>沿用可展开说明，补充项目副露编码及大小写含义。</td></tr>
+        <tr><td>标题与规则</td><td>麻雀计算器；国标、青雀、日麻</td><td>不再选择“牌理模式 / 算分模式”；减少重复输入和状态转移。</td></tr>
+        <tr><td>手牌工具栏</td><td>原有牌面风格、撤销、重做、示例、分享、清空</td><td>操作作用于完整当前状态；移动端自然换行。</td></tr>
+        <tr><td>输入区</td><td>简写、解析按钮、手牌、独立末张、牌面盘</td><td>回车解析；点牌录入后自动计算；满牌时可指定和牌张。</td></tr>
+        <tr><td>设置区</td><td>和牌牌型开关；手牌正下方的四槽副露；和牌条件</td><td>沿用原页面顺序，以上区域始终可见；已见牌与牌河保留展开项。</td></tr>
+        <tr><td>结果区</td><td>当前向听 / 待牌得分 / 切牌分析 / 和牌得分</td><td>拆解默认收起；和牌后继续推演放入展开项，避免主结果过长。</td></tr>
+        <tr><td>底部</td><td>原有牌面盘、计算与拆解按钮、可展开的推演记录</td><td>记录最多 60 个完整状态；点击记录恢复，之后新操作会替换重做分支。</td></tr>
+      </tbody>
+    </table></div>
+    <p>桌面保持约 880 px 的单列工作区；移动端顺序相同，不把输入和结果拆成两个页面。长进张列表在所在行内滚动；副露面板变为两列；不产生整页横向滚动。</p>
+  </section>
+
+  <section class="card" id="states">
+    <h2>状态与结果的完整对应</h2>
+    <p>以下张数均为等效张数：一组副露按 3 张计，杠显示并校验 4 张实际牌。</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>输入状态</th><th>主结果</th><th>下一步</th></tr></thead>
+      <tbody>
+        <tr><td>不足 13 张</td><td>还需输入的张数；不报“未和牌”。</td><td>继续点牌、输入简写或副露。</td></tr>
+        <tr><td>副露尚未完成</td><td>提示完成副露；不沿用此前的分析结果。</td><td>录满该组并选择吃 / 碰 / 明杠 / 暗杠，或清除。</td></tr>
+        <tr><td>13 张，未听牌</td><td>当前向听、有效进张种类与剩余张数。</td><td>点击一张进张，进入 14 张分析。</td></tr>
+        <tr><td>13 张，听牌</td><td>待牌、剩余张数、点和 / 荣和得分、自摸得分并排。</td><td>点牌按当前方式试算；点得分明确采用对应和牌方式。</td></tr>
+        <tr><td>13 张，待牌全已见</td><td>仍是听牌，进张 0；显示待牌已见完。</td><td>修改已见牌或撤销；不提供不可能摸到的第五张。</td></tr>
+        <tr><td>14 张，牌形不成立</td><td>各舍牌的向听、进张总量、进张种类；突出最低向听。</td><td>只切一张，或在某行直接选择“切此牌再摸彼牌”。</td></tr>
+        <tr><td>14 张，可以和牌</td><td>国标番数 / 青雀番数与底分 / 日麻番符、点数与支付；番种列表。</td><td>展开全部拆解；重新指定和牌张；修改条件；退回听牌或继续切牌。</td></tr>
+        <tr><td>牌形成立但不能和</td><td>明确标出国标不足 8 番或日麻无役；保留牌形拆解。</td><td>默认展开切牌分析；修改条件后实时重算。花牌、宝牌分别按原规则处理。</td></tr>
+        <tr><td>非法牌数 / 简写 / 链接</td><td>输入旁显示具体原因，结果区停止显示旧分数。</td><td>原合法状态仍可撤销；修正输入或清空后继续。</td></tr>
+        <tr><td>计算中又编辑</td><td>当前结果立即失效；过期的 Worker 结果不会覆盖新手牌。</td><td>完成新输入后重新计算，界面持续可编辑。</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted">进张数以牌型推进为目标；高亮的最低向听不等于实战最优舍牌。示例未引入防守、安全度、顺位、巡目与期望收益模型。剩余张数扣除输入中已知的手牌、副露、已见牌和推演舍牌，不声称知道真实牌山。</p>
+  </section>
+
+  <section class="card" id="interaction">
+    <h2>交互与状态保留</h2>
+    <div class="split">
+      <div><h3>输入、摸牌、切牌</h3><p>简写提交与牌面点选进入同一状态。14 张简写默认末张为和牌张，也支持 <code>手牌 + 和牌张</code>；“指定和牌张”只改变末张归属，不改变整副牌。切牌加入推演牌河，后续进张立即扣除。手动重新编辑整副牌视为开始新的推演。</p></div>
+      <div><h3>等待牌与算分接起来</h3><p>13 张结果直接展示点和与自摸两种得分；点击其中一格即把这张牌和对应条件带入 14 张结果。无役或不足起和也如实列出，可进入检查。和牌后“退回听牌”移除末张，保留已见牌与此前推演牌河。</p></div>
+      <div><h3>规则、牌型、条件</h3><p>切换规则保留手牌和副露，重置和牌牌型开关。未提交的简写先解析，错误时保持当前规则。手动开关重算两类结果。两种七对互斥；非门清时清除立直、一发和里宝牌；和牌方式与抢杠、杠上条件联动。</p></div>
+      <div><h3>分享与撤销</h3><p>链接携带规则、牌、末张、副露、已见牌、牌河、场风、自风、和牌条件及牌型选项。打开后本地重算，不上传手牌。分享导入后的编辑会更新地址片段；同页换链接与刷新均可恢复相应状态。撤销按完整状态恢复，避免只有牌恢复而条件没恢复。</p></div>
+    </div>
+    <h3>一条可以直接试的流程</h3>
+    <ol>
+      <li>打开示例，选择“一向听”，点击任意有效进张，再选最低向听的舍牌，进入待牌比较。</li>
+      <li>输入 <code>123456789m23p55s</code>，比较一饼与四饼的点和、自摸；点击一饼自摸，国标结果为 23 番。</li>
+      <li>撤销回听牌，改选四饼；重做分支随新选择更新。切换青雀、日麻，手牌仍在，得分与牌型设置自动变化。</li>
+      <li>展开已见牌，输入 <code>111p4444p</code> 并应用，同一听牌只剩一饼 1 张。超过四张会被拒绝。</li>
+      <li>选择“多种拆解”查看不同分组，或切到日麻选择“日麻无役”，再开启立直观察结果变化。</li>
+      <li>分享链接，在另一标签页打开；继续推演、刷新、撤销，检查牌与条件是否一致。</li>
+    </ol>
+  </section>
+
+  <section class="card" id="rules">
+    <h2>规则覆盖与扩展边界</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>规则</th><th>切换后的牌型预设</th><th>得分与上下文</th></tr></thead>
+      <tbody>
+        <tr><td>国标</td><td>一般型、国标七对、十三幺、全不靠、组合龙。</td><td>番种、番数、全部拆解；8 番起和检查，花牌不用于补足起和番。</td></tr>
+        <tr><td>青雀</td><td>一般型、允许相同对子的七对、十三幺。</td><td>沿用本项目青雀本地引擎，保留小数番与底分；不混用国标的 8 番门槛。</td></tr>
+        <tr><td>日麻</td><td>一般型、七种不同对子的七对子、国士无双对应牌形。</td><td>沿用当前四人日麻配置，显示番、符、点数、支付与无役检查；支持立直、一发、宝牌、赤宝牌、里宝牌。当前不含本场与供托。</td></tr>
+      </tbody>
+    </table></div>
+    <p>此次可操作示例完整覆盖刚整合的这三种常规牌组规则。虹雀²采用不同牌组与计算入口，另列正式接入适配：规则配置应提供牌集、张数上限、副露规则、选项、分析器、得分渲染器和输入序列化，复用同一外层流程。虹雀²按钮进入原有计算器，原有虹雀²牌理入口同样保留。</p>
+    <p>后续引入虹雀²前，应验证它的每种输入状态、特殊牌集剩余张数和分享格式，再开放对应规则入口；不能把常规 34 种牌与固定 14 张约束直接套用。</p>
+  </section>
+
+  <section class="card" id="validation">
+    <h2>本地实现与验证</h2>
+    <div class="success" id="validation-summary">合并回归：88 项控制器与引擎测试；17 组浏览器场景、175 项断言。覆盖四种视口、副露编码双向同步、旧链接与分享兼容；另有 30 项 SEO 测试通过。计算 API 请求 0 次，页面异常 0 项。</div>
+    <ul>
+      <li>复用现有真实本地引擎、牌面、得分、拆解、副露与条件组件；结果由浏览器 Worker 计算，Worker 不可用时回退到同一浏览器内引擎。</li>
+      <li>正式页面从旧计算器会话迁移手牌与独立副露，不修改原始存储；示例继续使用独立存储。测试覆盖大小写、编码删除、完整状态恢复和异常输入。</li>
+      <li>浏览器自动化记录 Worker 与网络请求，验证不调用 Node / Python 计算接口；页面加载后断开网络，三种规则仍能计算向听和得分。</li>
+      <li>桌面 Chromium / Edge 自动化覆盖 360、390、768、1440 px 布局。手机尺寸是浏览器视口模拟，不冒充真实 iOS / Android 设备测试。</li>
+    </ul>
+    <p class="muted">已有规则引擎的单元测试和离线固定样例一并回归；此次验证针对整合页面及现有引擎，不宣称重新穷举全部麻将手牌，也不代表已测试下列外站的计算正确性。</p>
+  </section>
+
+  <section class="card" id="references">
+    <h2>20 个可核实的参考实例</h2>
+    <p>调研采用原站功能页、帮助页或作者仓库说明，比较的是交互逻辑与输入状态。部分动态应用只能从作者文档核实功能；已单独标注，未将其说成亲自完整操作过。所有视觉、牌面和计分规则沿用本项目。</p>
+    <div class="filter"><label for="reference-filter">查看方向</label><select id="reference-filter"><option value="all">全部 20 项</option><option value="unified">统一分析 / 算分</option><option value="efficiency">牌理与连续推演</option><option value="score">算分与条件录入</option></select><span class="muted" id="reference-count">20 项</span></div>
+    <div class="sources">
+      <article class="source" data-types="unified"><h3><a href="https://github.com/livewing/mahjong-calc/blob/main/doc/how-to-use.md">livewing 麻雀計算機</a><span class="badge">作者使用文档</span></h3><p>根据手牌张数输出进张或舍牌候选；结果牌可以直接加入或移除，听牌与点数连在一起。提供副露及和牌形检查。</p><p><strong>采用：</strong>一副手牌自动决定结果形态，点击结果直接推进，不让用户先选“计算哪一种”。</p></article>
+      <article class="source" data-types="unified score"><h3><a href="https://www.mahjongcalculators.com/about/">Mahjong Calculators</a><span class="badge">原站功能说明</span></h3><p><a href="https://mahjongcalculators.com/zh/">同一工具界面</a>支持多规则，连接向听、待牌、和牌计分；默认末张后可改选，提供撤销、分享与清空，说明浏览器本地计算和 URL 保存状态。</p><p><strong>采用：</strong>规则切换与明确和牌张，以及可复现的完整链接；不复制它的布局与规则实现。</p></article>
+      <article class="source" data-types="unified efficiency"><h3><a href="https://jankaku.com/tools/wait">雀角 待ち判定</a><span class="badge">原站工具与说明</span></h3><p>待牌同时呈现剩余张数及和牌点数，按点和、自摸、立直条件比较，并延伸到一向听后的推进；<a href="https://jankaku.com/tools">工具目录</a>也列出相关模块。</p><p><strong>采用：</strong>听牌表直接比较得分。本示例用当前条件下两列点和 / 自摸，避免默认塞入四组条件；剩余数只表示已知牌扣除。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://tsumoron.com/tile-efficiency/">Tsumoron Tile Efficiency</a><span class="badge">原站工具页</span></h3><p>提供牌面与简写输入，按 13 / 14 张区分进张和切牌，比较不同舍牌的受入，并说明牌形设置与分享。</p><p><strong>采用：</strong>输入方式并存、切牌表紧邻具体进张；不额外建立第二套输入框。</p></article>
+      <article class="source" data-types="unified"><h3><a href="https://sheauhaw.com/old_blogs/tools/mahjong.html">小豪麻将工具</a><span class="badge">原站功能页</span></h3><p>组合多种牌数、规则、记谱方式和副露输入，包含向听与和牌计算。</p><p><strong>采用：</strong>规则参数化的思路；其服务代理入口不适合本项目，此示例坚持现有本地引擎。</p></article>
+      <article class="source" data-types="unified score"><h3><a href="https://tool.xdean.cn/tool/guobiao">XDean 国标麻将算番器</a><span class="badge">原站工具与帮助</span></h3><p>区分手牌、吃、碰和杠的输入目标，明确和牌张和特殊条件；支持听牌后比较待牌番种与分享。</p><p><strong>采用：</strong>副露作为专门输入槽；和牌方式与附加条件联动校验。规则版本仍以本项目为准。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://mjlab.app/ja/analysis">MJLab Analysis</a><span class="badge">原站分析页</span></h3><p>以常驻简写输入进入分析，按 13 / 14 张切换结果，提供普通形、七对子、国士相关例子与链接分享。</p><p><strong>采用：</strong>输入框固定存在，示例覆盖不同状态，让第一次使用的人可以直接试出流程。</p></article>
+      <article class="source" data-types="efficiency score"><h3><a href="https://tenpai.gg/tools/hand-analyzer">Tenpai.gg Hand Analyzer</a><span class="badge">原站工具说明</span></h3><p>手牌分析强调确定性向听与受入、可见牌扣除，以及切牌后继续摸牌；<a href="https://tenpai.gg/tools/score-calculator">Score Calculator</a>另做计分工具。</p><p><strong>采用：</strong>共享牌状态、已见牌建模与连续推演；本方案进一步把两种结果接在同一页。</p></article>
+      <article class="source" data-types="score"><h3><a href="https://www.riichicam.com/score">RiichiCam Score</a><span class="badge">原站手动算分页</span></h3><p>明确区分手牌、和牌张、副露和宝牌，普通条件与较少使用条件分层，显示符与支付明细。</p><p><strong>采用：</strong>和牌条件与结果支付明细保持对应。参考手动录入部分，不引入其摄像识别服务。</p></article>
+      <article class="source" data-types="score efficiency"><h3><a href="https://janten.net/tools/score-calculator">Janten 工具组</a><span class="badge">原站算分与向听页</span></h3><p>算分器区分和牌张、各类副露及条件；<a href="https://janten.net/tools/shanten">向听工具</a>按输入张数呈现结果，其向听页面的副露能力与算分页不同。</p><p><strong>采用：</strong>条件模型清晰；本项目统一支持副露的向听与算分，避免两个页面有不同能力。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://mj888.cc/zh-cn/">MJ888 听牌查询</a><span class="badge">原站工具页</span></h3><p>图形输入与简写并存，有 13 / 16 张体系切换和分享；聚焦听牌，副露通常不计入输入的暗手牌部分。</p><p><strong>采用：</strong>规则决定输入约束、清楚区分暗手牌与副露；本例不借用台湾 16 张约束。</p></article>
+      <article class="source" data-types="score"><h3><a href="https://letsmj.com/tai/calculator">Let’s MJ 台麻台数计算</a><span class="badge">原站工具页</span></h3><p>输入目标包含手牌、和牌牌、吃、碰、明杠和暗杠，和牌环境另设，提供分享功能。</p><p><strong>采用：</strong>输入目标显式区分、上下文独立；仅参考操作逻辑，台数和 16 张规则不混入本例。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://mj.fyisvia.cn/en/discard/">Fyisvia Discard Analysis</a><span class="badge">原站工具页</span></h3><p>简易与专业设置分层，支持图形 / 文本输入，进阶条件含场风、自风、副露、可见牌等，并提供撤销和清空。</p><p><strong>采用：</strong>高级参数渐进展开；不默认让全部参数占据首屏。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://jongfolio.com/analysis/mahjong-tool/help">Jongfolio 牌理工具</a><span class="badge">作者帮助页</span></h3><p>以各舍牌后的向听、受入种类与张数比较选择，进一步展示部分好形指标；说明优先关注向听推进。</p><p><strong>采用：</strong>先展示向听，再展示有效进张，避免把“牌多”单独写成绝对最佳策略。高级好形指标不在本次实现范围。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://euophrys.itch.io/mahjong-efficiency-trainer">Mahjong Efficiency Trainer</a><span class="badge">作者发布页</span></h3><p>训练过程以舍牌效率和历史选择反馈为中心，允许调整七对子、国士参与计算，通常到听牌为止。</p><p><strong>采用：</strong>可恢复的推演记录；本方案把终点继续连接到和牌得分，而非停在听牌。</p></article>
+      <article class="source" data-types="unified efficiency"><h3><a href="https://github.com/ssttkkl/mahjong-utils-app">Mahjong Utils App</a><span class="badge">作者仓库说明</span></h3><p>作者列出向听、好形分析、回退，以及吃碰杠 / PASS 与和牌分析、番符计算能力。</p><p><strong>采用：</strong>操作历史与分析器分离，支持同一手牌继续探索。文档用于确认能力，未宣称完整操作其 Compose Web 版本。</p></article>
+      <article class="source" data-types="unified score"><h3><a href="https://github.com/agari-industries/agari">Agari</a><span class="badge">作者仓库说明</span></h3><p>作者描述统一的手牌、副露和和牌条件，浏览器本地分析、向听、役符、支付，并在多种拆解间选择高得分结果。</p><p><strong>采用：</strong>分析结果与所有拆解共用状态。仅借鉴逻辑，本项目继续使用已有 JavaScript / TypeScript 引擎，不为原型改换 WASM。</p></article>
+      <article class="source" data-types="score"><h3><a href="https://mahjongwinds.com/en/calculator/">Mahjong Winds Calculator</a><span class="badge">原站工具页</span></h3><p>编辑牌面时更新分数，区分和牌情境，提供番种解释入口与可分享的手牌链接。</p><p><strong>采用：</strong>即时反馈与完整场景分享；香港麻将的计分逻辑不用于国标、青雀和日麻。</p></article>
+      <article class="source" data-types="score"><h3><a href="https://kotsumori.win/games/mahjong-score-calculator/">Kotsumori 算分器</a><span class="badge">原站工具页</span></h3><p>手牌、和牌张、宝牌和副露分别输入，录入副露时显式指定种类，并限制相关数量。</p><p><strong>采用：</strong>末张单独可见；录入时就防止超过牌数上限，避免到计算结果处才发现。</p></article>
+      <article class="source" data-types="efficiency"><h3><a href="https://gachijan.com/tools/wait/">ガチ雀 待ち牌チェッカー</a><span class="badge">原站工具页</span></h3><p>13 张看向听与受入、14 张看舍牌比较，支持点牌移除和示例；聚焦常规门清形、七对子与国士。</p><p><strong>采用：</strong>自动状态分派与直观牌面编辑；副露、得分和国标特殊牌型继续由本项目完整承担。</p></article>
+    </div>
+    <p class="muted">没有计入已核实实例：天凤 /2/ 的可读内容不足、MahjongSoft 访问超时、mmcr.online 当前访问失败。未用无法核实的页面凑数，也未把其界面细节写入方案。</p>
+    <h3>这些例子共同支持的取舍</h3>
+    <p>统一状态和自动结果分派主要借鉴 livewing、Mahjong Calculators；待牌与分值并列主要借鉴雀角；连续切摸和已见牌主要借鉴 Tenpai.gg 与效率训练工具；条件分层、末张和副露录入借鉴 RiichiCam、XDean 等。没有一个外站决定本站配色或布局，也没有把外站计算接口接入页面。</p>
+  </section>
+
+  <section class="card" id="rollout">
+    <h2>正式合并结果</h2>
+    <ol>
+      <li><strong>共享页面组件：</strong>正式页与示例复用同一页面和会话控制器；三规则通过路径或选择器确定初始预设。简写内同步 <code>(s13)(K23)</code>，槽位与文本互相更新。</li>
+      <li><strong>兼容旧链接：</strong>现有 <code>/paili</code>、<code>/paili/qingque</code>、<code>/paili/riichi</code> 与对应 <code>/calc/…</code> 路径进入同一界面，旧会话自动迁移；查询参数和分享片段保留，现有牌谱链接无需修改。</li>
+      <li><strong>导航与 SEO：</strong>导航保留“麻雀计算器”；旧牌理路径跳转到对应 <code>/calc/</code> 路径并保留查询参数及分享片段。canonical 指向计算器，站点地图不重复列出旧入口；原 SEO 翻译继续保留。</li>
+      <li><strong>多语言：</strong>新增操作、状态摘要及副露说明已纳入本站英语、日语、法语翻译表；繁体中文沿用现有转换。</li>
+      <li><strong>发布门槛：</strong>状态转换、规则切换、分享兼容、本地计算和旧页面入口已回归；实际移动设备与 Firefox / Safari 尚未验证。</li>
+      <li><strong>加载成本：</strong>正式页复用现有公共组件与异步路由；静态构建验证 Worker 加载和断网后的三规则计算。桌面断网测试不代表移动网络性能测试。</li>
+    </ol>
+    <p>国标、青雀与日麻已合并到正式计算器；独立示例继续保留，使用相同界面和计算逻辑。虹雀²沿用原页面与规则实现。</p>
+    <a class="button dark" href="unified-calculator.html">开始体验统一计算器</a>
+  </section>
+  <footer>OpenMahjong · 本地设计示例与调研记录</footer>
+</main>
+<script>
+  document.querySelector('#reference-filter').addEventListener('change', event => {
+    let count = 0
+    for (const source of document.querySelectorAll('.source')) {
+      source.hidden = event.target.value !== 'all' && !source.dataset.types.split(' ').includes(event.target.value)
+      if (!source.hidden) count++
+    }
+    document.querySelector('#reference-count').textContent = `${count} 项`
+  })
+</script>
+</body>
+</html>

@@ -16,6 +16,7 @@ public static class HongqueActionWords {
     public const string ForcePass = "hongque_force_pass";
     /// <summary>仅飘字用的展示词：虹（组成彩虹）。不会出现在 allowActionList。</summary>
     public const string Rainbow = "hongque_rainbow";
+    public const string Double = "hongque_double";
 
     /// <summary>组词：hongque_group:{kind}，点击后展开该 kind 的全部候选。</summary>
     public const string GroupPrefix = "hongque_group:";
@@ -32,6 +33,7 @@ public static class HongqueActionWords {
             Word = ForcePass, Kind = ActionWordKind.Pass, DisplayPriority = 70, Label = _ => "放弃"
         });
         ActionWords.Register(new ActionWordSpec { Word = Rainbow, Kind = ActionWordKind.Other, Label = _ => "虹" });
+        ActionWords.Register(new ActionWordSpec { Word = Double, Kind = ActionWordKind.Other, Label = _ => "双" });
         ActionWords.Register(new ActionWordSpec {
             Word = GroupPrefix,
             ResolveKind = word => KindOfCandidateKind(word.Substring(GroupPrefix.Length)),
@@ -67,6 +69,7 @@ public static class HongqueActionWords {
             case "sequence": return "吃";
             case "triplet": return "碰";
             case "rainbow": return "虹";
+            case "double": return "双";
             case "kong": return "杠";
             default: return "亮牌";
         }

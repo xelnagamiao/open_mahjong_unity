@@ -29,7 +29,9 @@ test('退房保留对局；当前对局关闭才清空重连状态，迟到的�
     const start = { type: 'gamestate/guobiao/game_start', game_info: { room_id: 7, gamestate_id: 'current-game' } }
     socket.receive(start)
     socket.receive({ type: 'room/leave_room_done', success: true, room_id: '7', room_instance_id: 'removed-lobby' })
-    assert.deepEqual(client.lastGameStart, start)
+    assert.equal(typeof client.lastGameStart.received_monotonic_ms, 'number')
+    const wireOnly = ({ received_monotonic_ms, ...wire }) => wire
+    assert.deepEqual(wireOnly(client.lastGameStart), start)
     assert.equal(client.isLoggedIn, true)
 
     const vote = { type: 'gamestate/vote_update', vote_info: { phase: 'end' } }
@@ -37,9 +39,15 @@ test('退房保留对局；当前对局关闭才清空重连状态，迟到的�
     const count = delivered.length
     socket.receive({ type: 'gamestate/closed', gamestate_id: 'older-game' })
     socket.receive({ type: 'gamestate/vote_end', gamestate_id: 'older-game' })
+    for (const type of ['game_start', 'reconnect', 'do_action', 'show_result', 'ready_status', 'game_end']) {
+      socket.receive({ type: `gamestate/guobiao/${type}`, gamestate_id: 'older-game',
+        game_info: { room_id: 6, gamestate_id: 'older-game' } })
+    }
+    socket.receive({ type: 'switch_seat', gamestate_id: 'older-game' })
+    socket.receive({ type: 'refresh_player_tag_list', gamestate_id: 'older-game' })
     assert.equal(delivered.length, count)
-    assert.deepEqual(client.lastVoteUpdate, vote)
-    assert.deepEqual(client.lastGameStart, start)
+    assert.deepEqual(wireOnly(client.lastVoteUpdate), vote)
+    assert.deepEqual(wireOnly(client.lastGameStart), start)
 
     socket.receive({ type: 'message', message: 'reconnect_ask' })
     assert.equal(client.hasReconnectOffer, true)
@@ -50,6 +58,11 @@ test('退房保留对局；当前对局关闭才清空重连状态，迟到的�
     assert.deepEqual(client.drainGuobiaoBuffer(), [])
     assert.equal(client.isLoggedIn, true)
     assert.equal(delivered.at(-1).type, 'gamestate/closed')
+    socket.receive({ ...start, game_info: { room_id: 8, gamestate_id: 'next-game' } })
+    assert.equal(client.lastGameStart.game_info.gamestate_id, 'next-game')
+    socket.receive({ type: 'gamestate/guobiao/game_end', gamestate_id: 'next-game' })
+    assert.equal(client.lastGameStart, null)
+    assert.deepEqual(client.drainGuobiaoBuffer(), [])
   } finally {
     unsubscribe()
     client.logout()

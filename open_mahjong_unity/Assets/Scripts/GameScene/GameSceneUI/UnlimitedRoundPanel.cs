@@ -29,7 +29,7 @@ public partial class UnlimitedRoundPanel : MonoBehaviour {
 
     public void Initialize(GameInfo info, bool isPlayer) {
         state = null;
-        canControl = isPlayer && info.room_rule == "qingque" && info.room_type == "custom" && info.unlimited_rounds;
+        canControl = isPlayer && info.room_rule == "qingque" && (info.room_type == "custom" || info.room_type == "match") && info.unlimited_rounds;
         ApplyState(info.unlimited_rounds ? info.unlimited_info : null);
     }
 
@@ -41,7 +41,7 @@ public partial class UnlimitedRoundPanel : MonoBehaviour {
         bool enabled = info != null && info.enabled;
         bool withdrawn = enabled && info.withdrawn_players != null
             && info.withdrawn_players.Exists(p => p.user_id == UserDataManager.Instance.UserId);
-        ExitButtonManager.Instance?.ConfigureUnlimitedRounds(enabled && canControl, withdrawn);
+        ExitButtonManager.Instance?.ConfigureUnlimitedRounds(enabled && canControl, withdrawn, info?.finishing != true);
         RefreshNotice();
     }
 
@@ -55,14 +55,16 @@ public partial class UnlimitedRoundPanel : MonoBehaviour {
     private void RefreshNotice() {
         bool returned = state?.enabled == true && state.returned_player != null && remaining > 0;
         bool withdrawn = state?.enabled == true && state.withdrawn_players != null && state.withdrawn_players.Count > 0;
-        noticeRoot.SetActive(returned || withdrawn);
-        if (!returned && !withdrawn) return;
+        bool finishing = state?.enabled == true && state.finishing;
+        noticeRoot.SetActive(returned || withdrawn || finishing);
+        if (!returned && !withdrawn && !finishing) return;
         background.color = returned ? returnedColor : withdrawnColor;
         messageText.richText = false;
-        messageText.text = returned
+        messageText.text = state?.finishing == true ? "游戏已结束，正在结算素点与成绩"
+            : returned
             ? PlayerName(state.returned_player) + "玩家已回归游戏"
-            : string.Join("、", state.withdrawn_players.ConvertAll(PlayerName)) + "玩家已放弃游戏，游戏将在本局游戏后结束";
-        countdownText.gameObject.SetActive(returned);
+            : string.Join("、", state.withdrawn_players.ConvertAll(PlayerName)) + "申请结束，本局打完后结算";
+        countdownText.gameObject.SetActive(returned && !finishing);
         if (returned) RefreshCountdown();
     }
 

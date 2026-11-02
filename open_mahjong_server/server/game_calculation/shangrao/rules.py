@@ -95,7 +95,7 @@ def groups(counts, wild, count, triplets=False):
     return False
 
 
-def standard_pairs(hand, melds=(), *, indicator=11, triplets=False):
+def standard_pairs(hand, melds=(), *, indicator=11, triplets=False, winning_tile=None):
     if not valid_hand(hand, melds, indicator=indicator):
         return ()
     if triplets and any(code[0] == "s" for code in melds):
@@ -104,6 +104,22 @@ def standard_pairs(hand, melds=(), *, indicator=11, triplets=False):
     wild = hand.count(bao)
     counts = tuple(hand.count(tile) if tile != bao else 0 for tile in TILES)
     choices = []
+    if wild:
+        natural = tuple(hand.count(tile) for tile in TILES)
+        for i, n in enumerate(natural):
+            if n >= 2:
+                rest = list(natural)
+                rest[i] -= 2
+                if groups(tuple(rest), 0, 4 - len(melds), triplets):
+                    choices.append((TILES[i], 0))
+    if wild and winning_tile is not None:
+        if winning_tile not in hand:
+            return ()
+        rest = list(counts)
+        if winning_tile != bao:
+            rest[INDEX[winning_tile]] -= 1
+        if not groups(tuple(rest), wild - 1 - (winning_tile == bao), 4 - len(melds), triplets):
+            return tuple(choices)
     if wild:
         if wild >= 2 and groups(counts, wild - 2, 4 - len(melds), triplets):
             choices.append((bao, 2))
@@ -186,8 +202,9 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None,
     bao = bao_tile(indicator)
     wild = hand.count(bao)
     first_bao = not opening and winning_tile == bao and wild == 1
-    pairs = () if first_bao else standard_pairs(hand, melds, indicator=indicator)
-    triplets = () if first_bao else standard_pairs(hand, melds, indicator=indicator, triplets=True)
+    pair_win = None if opening else winning_tile
+    pairs = standard_pairs(hand, melds, indicator=indicator, winning_tile=pair_win)
+    triplets = standard_pairs(hand, melds, indicator=indicator, triplets=True, winning_tile=pair_win)
     seven = not first_bao and seven_pairs(hand, melds, indicator=indicator,
                                         winning_tile=None if opening else winning_tile)
     luxury = seven and any(n == 4 for t, n in Counter(hand).items() if t != bao)
@@ -197,7 +214,7 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None,
                         flown=config["flying_seven_stars"] and flying_seven_stars)
     candidates = []
     if pairs:
-        candidates.append(("钓头" if wild else "平和", 1, "standard", pairs))
+        candidates.append(("钓头" if any(used for _, used in pairs) else "平和", 1, "standard", pairs))
     if triplets:
         candidates.append(("碰碰和" if wild else "清碰", 2 if wild else 4, "triplets", triplets))
     if seven:
@@ -228,7 +245,7 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None,
     if not legacy:
         if qing:
             for name, base, shape, pair_choices in list(candidates):
-                if shape in ("standard", "triplets", "seven"):
+                if shape in ("standard", "triplets", "seven") and (any(used for _, used in pair_choices) or not wild or bao // 10 in suits):
                     label = ("清一色" if wild else "无宝清一色") if shape == "standard" else "清一色" + name
                     candidates.append((label, 4 if shape == "standard" and not wild else base * 2, shape, pair_choices))
         if zi:
@@ -241,7 +258,7 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None,
     results = []
     for name, base, shape, pair_choices in candidates:
         values, multipliers = {name: base}, {}
-        if legacy and qing and shape in ("standard", "triplets", "seven"):
+        if legacy and qing and shape in ("standard", "triplets", "seven") and (any(used for _, used in pair_choices) or not wild or bao // 10 in suits):
             multipliers["清一色"] = 2
         if legacy and zi:
             multipliers["字一色"] = 2
@@ -251,7 +268,7 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None,
             multipliers["单钓"] = 2
         if after_kong:
             multipliers["杠上开花"] = 2
-        if pair_choices and wild and winning_tile == bao:
+        if any(used for _, used in pair_choices) and winning_tile == bao:
             multipliers["宝钓宝"] = 2
         if winning_tile != bao and any(used == 2 for _, used in pair_choices):
             multipliers["宝还原"] = 2

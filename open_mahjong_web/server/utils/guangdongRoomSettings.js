@@ -14,11 +14,14 @@ function normalizeGuangdongDetails(subRule, detail = {}, SettingsError = Error) 
   for (const [key, value] of Object.entries(detail)) {
     if (subRule === MIL2023 && key === 'require_minimum_score') {
       if (typeof value !== 'boolean') fail('4分起和开关必须是布尔值');
+    } else if (subRule === TUIDAO && key === 'pingji_zimo_no_chow') {
+      if (typeof value !== 'boolean') fail('平鸡自摸禁吃开关必须是布尔值');
     } else if (!has(fixed, key) || value !== fixed[key]) {
       fail('广东麻将固定规则项不能覆盖，请选择对应子规则');
     }
   }
-  return subRule === MIL2023 ? { ...fixed, require_minimum_score: detail.require_minimum_score ?? true } : fixed;
+  return subRule === MIL2023 ? { ...fixed, require_minimum_score: detail.require_minimum_score ?? true }
+    : { ...fixed, pingji_zimo_no_chow: detail.pingji_zimo_no_chow ?? false };
 }
 
 module.exports = { normalizeGuangdongDetails, GUANGDONG_SUB_RULES: Object.freeze([TUIDAO, MIL2023]) };

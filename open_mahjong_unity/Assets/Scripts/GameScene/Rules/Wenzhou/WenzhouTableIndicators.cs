@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>Projects public Wenzhou metadata into the shared round panel and physical tile badges.</summary>
 public static class WenzhouTableIndicators {
-    public static TMP_FontAsset SharedFont => Resources.Load<TMP_FontAsset>("font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular SDF") ?? TMP_Settings.defaultFontAsset;
+    public static TMP_FontAsset SharedFont => PlatformTypography.ChineseRegular ?? TMP_Settings.defaultFontAsset;
     public static WenzhouInfo DisplayedInfo { get; private set; }
 
     public static RoundIndicatorDisplay FieldState(WenzhouInfo value) {

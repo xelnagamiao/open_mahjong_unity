@@ -171,7 +171,8 @@ async def send_json(game_state, user_id: int, payload: dict) -> None:
     connection = _connection_for(game_state, user_id)
     if connection is None or getattr(connection, "websocket", None) is None:
         return
-    await connection.websocket.send_json(payload)
+    from ..public.settlement_sync import send_game_packet
+    await send_game_packet(game_state, connection.websocket, payload)
 
 
 async def broadcast_game_start(game_state) -> None:

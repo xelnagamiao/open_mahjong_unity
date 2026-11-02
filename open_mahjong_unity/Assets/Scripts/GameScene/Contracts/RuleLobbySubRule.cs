@@ -2,6 +2,7 @@
 public sealed class RuleLobbySubRule {
     public string Key;
     public string DisplayName;
+    /// <summary>修改规则时不得修改建房描述和 Unity 描述。</summary>
     public string Description;
 
     public RuleLobbySubRule() { }

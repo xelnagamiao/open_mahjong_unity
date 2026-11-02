@@ -93,9 +93,19 @@ public sealed class FuzhouGameState : TurnBasedGameState {
     protected override void OnShowResult(Response response) {
         var info=response.show_result_info;
         if(info==null || !acceptedWinners.Add(info.hepai_player_index)) return;
-        Accept(response.game_info);settlements.Add(response);pendingSettlement=true;
+        Accept(response.game_info);
+        if (SettlementSync.IsRestoring) {
+            var restored = BuildEnvelope(info);
+            Manager.BeginSettlement();Presenter.BeginLifecycle(restored);Presenter.CloseTableForSettlement();
+            RevealFinalHands();Presenter.ApplyScores(restored.ScoresAfter);
+            if (restored.IsMatchEnd) Manager.MarkAwaitingMatchEnd();
+            if (restored.IsLiuju) Presenter.PresentLiuju("流局");
+            else Presenter.PresentHu(restored);
+            return;
+        }
+        settlements.Add(response);pendingSettlement=true;
         if(info.next_status=="round_continue") return;
-        if(Game3DManager.Instance!=null) Game3DManager.Instance.StartCoroutine(PresentResults(generation));
+        if(Game3DManager.Instance!=null) Game3DManager.Instance.StartCoroutine(SettlementSync.PreserveContext(PresentResults(generation)));
         else {pendingSettlement=false;base.OnShowResult(response);}
     }
     private IEnumerator PresentResults(int token) {
@@ -136,6 +146,7 @@ public sealed class FuzhouGameState : TurnBasedGameState {
         Game3DManager.Instance?.RevealSichuanLiujuAllHands(Info.final_hands);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         if(Info?.round_changes?.Length!=4) {base.AppendScoreboard(env);return;}
         int previousRows=0;
         foreach(var player in Mirror.PlayerToInfo.Values) {

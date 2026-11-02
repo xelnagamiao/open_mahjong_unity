@@ -31,7 +31,6 @@ internal static class GuobiaoRuleBootstrap {
             RoundName = round => GameSession.Current.SubRule == GuobiaoGameState.SanmaSubRule
                 ? RoundTextDictionary.ThreePlayerWindSeatRoundName(round) : RoundTextDictionary.WindSeatRoundName(round),
             PlaysGongHuSound = GuobiaoFanText.PlaysGongHu,
-            SettlementFootnote = GuobiaoAngangCheck.Footnote,
             // 国标自摸也叫"和"，报声同
             ActionCaption = word => word == "hu_self" ? "和" : null,
             ActionVoice = word => word == "hu_self" || word == "hu_flower" ? "hu" : null,

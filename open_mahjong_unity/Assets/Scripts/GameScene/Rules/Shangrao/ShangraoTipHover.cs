@@ -15,8 +15,8 @@ public partial class TipsContainer {
     }
 
     private bool DeferShangraoPointerExit(PointerEventData pointer, bool cutPreview) {
-        if (pointer == null || !gameObject.activeInHierarchy || visibleHintSubRule != ShangraoGameState.SubRule
-            || guangdongHintPager == null || !guangdongHintPager.activeSelf) return false;
+        if (pointer == null || !gameObject.activeInHierarchy
+            || hintPopupLayout == null || !hintPopupLayout.HasMultiplePages) return false;
         if (shangraoPointerExit != null) StopCoroutine(shangraoPointerExit);
         shangraoPointerExit = StartCoroutine(FinishShangraoPointerExit(pointer, cutPreview, shangraoTipOpeningVersion));
         return true;

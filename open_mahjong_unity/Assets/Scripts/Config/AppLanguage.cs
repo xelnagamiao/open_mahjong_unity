@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 客户端显示语言。繁体中文暂未接入翻译表，行为与简体中文相同。
+/// 客户端显示语言；平台主页文案由 PlatformText 提供三语翻译。
 /// </summary>
 public enum AppLanguage {
     SimplifiedChinese = 0,
@@ -44,7 +44,7 @@ public static class AppLanguageTexts {
             { HeaderNavItem.AboutUs, ("关于我们", "About us") },
             { HeaderNavItem.Notice, ("通知", "Notice") },
             { HeaderNavItem.Config, ("设置", "Setup") },
-            { HeaderNavItem.BackToGame, ("返回游戏", "Back") },
+            { HeaderNavItem.BackToGame, ("返回牌桌", "Table") },
             { HeaderNavItem.Logout, ("登出", "Logout") },
         };
 
@@ -52,7 +52,7 @@ public static class AppLanguageTexts {
         if (!HeaderNavLabels.TryGetValue(item, out var labels)) {
             return "";
         }
-        return language == AppLanguage.English ? labels.en : labels.zh;
+        return PlatformText.Contains(labels.zh) ? PlatformText.Get(labels.zh, language) : language == AppLanguage.English ? labels.en : labels.zh;
     }
 
     public static string GetHeaderNavLabel(HeaderNavItem item) {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { createServer } from 'vite'
@@ -13,6 +13,19 @@ import { escapeHtml as e } from '../src/seo/mcr-render.js'
 
 const client = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = name => readFileSync(resolve(client, name), 'utf8')
+
+// Build-time SSR must use the same published content as the dynamic guide.
+// An explicit path lets an isolated release snapshot carry its own content.
+export function originalPlatformContent() {
+  const published = process.env.OM_PLATFORM_CONTENT_FILE || resolve(client, '../data/platform-content/content.json')
+  const path = existsSync(published) ? published : resolve(client, '../server/content/platform-content.seed.json')
+  const document = JSON.parse(readFileSync(path, 'utf8'))
+  if (document.schemaVersion !== 1 || !Array.isArray(document.credits) || !Array.isArray(document.communities)) {
+    throw new Error('Invalid platform content for static guide')
+  }
+  const visible = rows => rows.filter(row => row.enabled).sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id)).map(({ enabled, ...row }) => row)
+  return { ...document, credits: visible(document.credits), communities: visible(document.communities) }
+}
 
 // Use the same dictionary as the original pages. No landing-page-specific prose.
 export function translateOriginal(source, locale) {
@@ -78,6 +91,7 @@ async function guideContent(locale) {
     const i18n = await server.ssrLoadModule('/src/i18n/index.js')
     i18n.locale.value = locale
     const app = createSSRApp(Guide)
+    app.provide('platform-content', originalPlatformContent())
     app.component('RouterLink', { props: ['to'], setup: (props, { slots, attrs }) => () => h('a', { ...attrs, href: props.to }, slots.default?.()) })
     app.component('ElDialog', { setup: () => () => null })
     app.component('ElButton', { setup: (_, { slots, attrs }) => () => h('button', attrs, slots.default?.()) })

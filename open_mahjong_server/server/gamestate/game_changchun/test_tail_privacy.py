@@ -55,7 +55,10 @@ def test_final_draw_and_pass_wire_payloads_hide_other_seats_tiles(owner, remaini
                 assert "hand" not in snapshot and "last_drawn_tile" not in snapshot
         forwarded_view, forwarded_packet = state.send_to_realtime_spectators.await_args_list[4 + viewer].args
         assert forwarded_view == viewer
-        assert forwarded_packet.model_dump(exclude_none=True) == passed_packet
+        assert passed_packet["gamestate_id"] == state.gamestate_id
+        assert forwarded_packet.model_dump(exclude_none=True) == {
+            k: v for k, v in passed_packet.items() if k != "gamestate_id"
+        }
 
 
 @pytest.mark.parametrize("owner", range(4))

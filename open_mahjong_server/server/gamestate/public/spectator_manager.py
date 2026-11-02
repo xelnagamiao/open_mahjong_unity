@@ -5,6 +5,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from .connection_delivery import send_bounded
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +24,10 @@ class SpectatorManager:
         self.enabled = enabled and not too_many_ai_for_spectator(gamestate.player_list)
         self.spectator_connections: Dict[int, Any] = {}
         self.spectator_send_tasks: Dict[int, asyncio.Task] = {}
+        self._joining_tasks: Dict[int, asyncio.Task] = {}
+        self._admission_lock = asyncio.Lock()
+        self._phase = "open"
+        self.send_timeout = 5.0
 
         self.game_title: dict = {}
         self.players_settings: list = []
@@ -90,6 +96,42 @@ class SpectatorManager:
         self.record_tick(["ask_other", cut_tile, info])
 
     async def add_spectator(self, user_id: int, connection: Any):
+        """Own initial delivery as well as the incremental stream until closure."""
+        from ...response import Response
+
+        # Replacing a subscription includes awaiting its cancelled writer. Keep
+        # that admission step atomic so simultaneous reconnects cannot orphan a
+        # second stream. Initial network delivery runs after releasing the lock.
+        async with self._admission_lock:
+            await self.remove_spectator(user_id)
+            accepting = self._phase == "open"
+            if accepting:
+                task = asyncio.create_task(self._initialize_spectator(user_id, connection))
+                self._joining_tasks[user_id] = task
+        if not accepting:
+            try:
+                await self._send(connection, Response(type="spectator/add_spectator",
+                    success=False, message="对局已结束，无法加入观战"))
+            except Exception:
+                logger.debug("发送观战结束提示失败 user_id=%s", user_id, exc_info=True)
+            return
+        try:
+            await task
+        except asyncio.CancelledError:
+            # Removing a subscription cancels its delivery, not the websocket
+            # request handler that happened to await it. Preserve caller cancellation.
+            if asyncio.current_task().cancelling():
+                if self._joining_tasks.get(user_id) is task:
+                    await self.remove_spectator(user_id)
+                raise
+        finally:
+            if self._joining_tasks.get(user_id) is task:
+                self._joining_tasks.pop(user_id, None)
+
+    async def _send(self, connection, response):
+        await send_bounded(connection.websocket, response.dict(exclude_none=True), timeout=self.send_timeout)
+
+    async def _initialize_spectator(self, user_id: int, connection: Any):
         from ...response import Response, MessageInfo
 
         if not self.enabled:
@@ -101,13 +143,10 @@ class SpectatorManager:
                 message_info=MessageInfo(title="观战不可用", content=msg),
             )
             try:
-                await connection.websocket.send_json(response.dict(exclude_none=True))
+                await self._send(connection, response)
             except Exception as e:
                 logger.error(f"发送观战禁用提示失败: {e}")
             return
-
-        if user_id in self.spectator_connections:
-            await self.remove_spectator(user_id)
 
         target_time = time.time() - self.spectator_delay
         record = self._build_spectator_record(target_time)
@@ -126,7 +165,7 @@ class SpectatorManager:
                 message_info=MessageInfo(title="观战延迟", content=msg),
             )
             try:
-                await connection.websocket.send_json(response.dict(exclude_none=True))
+                await self._send(connection, response)
             except Exception as e:
                 logger.error(f"发送观战等待提示失败: {e}")
             return
@@ -147,9 +186,10 @@ class SpectatorManager:
 
         try:
             resp_ok = Response(type="spectator/add_spectator", success=True, message="已成功加入观战")
-            await connection.websocket.send_json(resp_ok.dict(exclude_none=True))
+            await self._send(connection, resp_ok)
         except Exception as e:
             logger.error(f"发送观战成功响应失败: {e}")
+            await self.remove_spectator(user_id)
             return
 
         try:
@@ -162,77 +202,75 @@ class SpectatorManager:
                     title=self.gamestate.gamestate_id, content=record_json
                 ),
             )
-            await connection.websocket.send_json(init_resp.dict(exclude_none=True))
+            await self._send(connection, init_resp)
             logger.info(f"已向观战玩家 {user_id} 发送初始牌谱数据")
         except Exception as e:
             logger.error(f"发送观战初始数据失败: {e}")
             await self.remove_spectator(user_id)
             return
 
-        task = asyncio.create_task(self._delivery_loop(user_id))
-        self.spectator_send_tasks[user_id] = task
+        if self._phase == "open":
+            self.spectator_send_tasks[user_id] = asyncio.create_task(self._delivery_loop(user_id))
+
+    @staticmethod
+    async def _stop_tasks(tasks):
+        pending = [task for task in tasks if task is not asyncio.current_task() and not task.done()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def remove_spectator(self, user_id: int):
         self.spectator_connections.pop(user_id, None)
         self.spectator_progress.pop(user_id, None)
-        task = self.spectator_send_tasks.pop(user_id, None)
-        if task and not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        tasks = [group.pop(user_id, None) for group in (self._joining_tasks, self.spectator_send_tasks)]
+        await self._stop_tasks(task for task in tasks if task is not None)
         logger.info(f"移除观战玩家 {user_id}")
 
     async def cleanup(self):
-        for task in list(self.spectator_send_tasks.values()):
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+        self._phase = "closed"
+        tasks = list(self._joining_tasks.values()) + list(self.spectator_send_tasks.values())
+        self._joining_tasks.clear()
         self.spectator_send_tasks.clear()
         self.spectator_connections.clear()
         self.spectator_progress.clear()
+        await self._stop_tasks(tasks)
         logger.info(f"已清理观战管理器，room_id: {self.gamestate.room_id}")
 
     async def send_final_record_and_close(self):
         from ...response import Response, MessageInfo
 
-        if not self.enabled or not self.spectator_connections:
+        if self._phase != "open":
             return
+        self._phase = "finishing"
+        try:
+            # A final record is meaningful only after record_init. Finish the
+            # bounded initial sends, then stop every incremental writer first.
+            if self._joining_tasks:
+                await asyncio.gather(*list(self._joining_tasks.values()), return_exceptions=True)
+            await self._stop_tasks(list(self.spectator_send_tasks.values()))
+            self.spectator_send_tasks.clear()
+            if self._phase != "finishing" or not self.enabled:
+                return
+            final_record = self._build_full_record()
+            if final_record is None:
+                return
+            resp = Response(type="spectator/record_complete", success=True,
+                message="游戏对局结束，已获取全部对局记录",
+                message_info=MessageInfo(title=self.gamestate.gamestate_id,
+                    content=json.dumps(final_record, ensure_ascii=False, default=str)))
 
-        final_record = self._build_full_record()
-        if final_record is None:
-            return
-
-        record_json = json.dumps(final_record, ensure_ascii=False, default=str)
-        msg = "游戏对局结束，已获取全部对局记录"
-
-        gid = self.gamestate.gamestate_id
-        for user_id, conn in list(self.spectator_connections.items()):
-            try:
-                resp = Response(
-                    type="spectator/record_complete",
-                    success=True,
-                    message=msg,
-                    message_info=MessageInfo(title=gid, content=record_json),
-                )
-                await conn.websocket.send_json(resp.dict(exclude_none=True))
-            except Exception as e:
-                logger.error(f"向观战玩家 {user_id} 发送完整牌谱失败: {e}")
-
-        for task in list(self.spectator_send_tasks.values()):
-            if not task.done():
-                task.cancel()
+            async def send_final(user_id, connection):
                 try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-        self.spectator_send_tasks.clear()
-        self.spectator_progress.clear()
-        self.spectator_connections.clear()
+                    await self._send(connection, resp)
+                except Exception as exc:
+                    logger.warning("发送完整牌谱失败 user_id=%s: %s", user_id, exc)
+
+            # One slow viewer must not hold up other viewers or match release.
+            await asyncio.gather(*(send_final(uid, conn)
+                for uid, conn in list(self.spectator_connections.items())))
+        finally:
+            await self.cleanup()
 
     def _build_spectator_record(self, target_time: float) -> Optional[dict]:
         if not self.game_title or not self.round_headers:
@@ -331,7 +369,7 @@ class SpectatorManager:
                         )
                         conn = self.spectator_connections.get(user_id)
                         if conn:
-                            await conn.websocket.send_json(resp.dict(exclude_none=True))
+                            await self._send(conn, resp)
                     except Exception as e:
                         logger.error(f"向观战玩家 {user_id} 发送增量数据失败: {e}")
                         await self.remove_spectator(user_id)
@@ -343,4 +381,5 @@ class SpectatorManager:
         except Exception as e:
             logger.error(f"观战玩家 {user_id} 的发送任务出错: {e}")
         finally:
-            self.spectator_send_tasks.pop(user_id, None)
+            if self.spectator_send_tasks.get(user_id) is asyncio.current_task():
+                self.spectator_send_tasks.pop(user_id, None)

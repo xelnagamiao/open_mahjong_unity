@@ -37,6 +37,7 @@ public partial class Game3DManager {
         public bool ConcealedDiscard;
         public int MeldIndex;
         public int[] HandTiles;
+        public int[][] ReplacementMelds;
         public string ChangshaMeldAction;
         public HandAnimOp RiverClaim;
         public bool Completed;
@@ -266,7 +267,7 @@ public partial class Game3DManager {
 
     /// <summary>仅为服务器已确认的新副露播放动画；固定本次组号，连续广播不会串到末组。</summary>
     public void PlayFreeMeld(string playerPosition, int[] mask, int meldIndex, int[] handTiles,
-        string discarderPosition, int claimedTile) {
+        string discarderPosition, int claimedTile, int[][] replacementMelds = null) {
         if (mask == null || handTiles == null || meldIndex < 0) return;
         if (!IsHandAnimPlayer(playerPosition)) return;
         var op = new HandAnimOp {
@@ -274,6 +275,7 @@ public partial class Game3DManager {
             CombinationMask = (int[])mask.Clone(),
             MeldIndex = meldIndex,
             HandTiles = (int[])handTiles.Clone(),
+            ReplacementMelds = replacementMelds,
         };
         // 认牌也排进出牌者队列：在其上一张落河后、下一张出牌前回收，避免自由操作覆盖末张登记。
         if (IsHandAnimPlayer(discarderPosition) && claimedTile > 0) {
@@ -309,7 +311,20 @@ public partial class Game3DManager {
             if (generation != _handAnimationGeneration) yield break;
         }
 
-        yield return ActionAnimationCoroutine(op.PlayerPosition, FreeActionWords.Meld, op.CombinationMask, true, op.MeldIndex);
+        if (op.ReplacementMelds != null) {
+            EnsureMeldGroups(panel, op.ReplacementMelds.Length);
+            foreach (Transform group in panel.combination3DObjects) {
+                if (group == null) continue;
+                for (int i = group.childCount - 1; i >= 0; i--)
+                    MahjongObjectPool.Instance.Return(-1, group.GetChild(i).gameObject);
+            }
+            SetCombinationLastSlotWidth(op.PlayerPosition, 0f);
+            StoreCombinationCursor(op.PlayerPosition, panel.combinationsPosition.position);
+            for (int i = 0; i < op.ReplacementMelds.Length; i++)
+                yield return ActionAnimationCoroutine(op.PlayerPosition, FreeActionWords.Meld, op.ReplacementMelds[i], false, i);
+        } else {
+            yield return ActionAnimationCoroutine(op.PlayerPosition, FreeActionWords.Meld, op.CombinationMask, true, op.MeldIndex);
+        }
         if (generation != _handAnimationGeneration) yield break;
         yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
     }

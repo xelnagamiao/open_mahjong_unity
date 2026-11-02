@@ -19,7 +19,14 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private bool refreshing;
     private LayoutElement contentMinimum;
     private float naturalContentHeight;
+    private PlayerInfoAppearance.Palette palette;
     public float ViewportHeight => scroll.viewport.rect.height;
+
+    public void ApplyAppearance(PlayerInfoAppearance.Palette value) {
+        palette = value;
+        foreach (var entry in entries) if (entry) entry.ApplyAppearance(value);
+        if (Application.isPlaying && gameObject.activeInHierarchy) RebuildAtOffset(content.anchoredPosition);
+    }
 
     public void ResetUser(int id, string loadedRule = null, RuleStatsResponse loadedStats = null) {
         userId = id;
@@ -60,6 +67,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
             row.ExpansionChanged += OnExpansionChanged;
             row.gameObject.SetActive(true);
             row.Bind(caption, fields, keepExpanded);
+            if (palette != null) row.ApplyAppearance(palette);
         }
         foreach (string mode in modes) {
             var modeStats = PlayerInfoStatsFormatter.Find(response, currentRule, mode);

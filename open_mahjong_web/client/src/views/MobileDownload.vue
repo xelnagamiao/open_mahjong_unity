@@ -9,7 +9,7 @@
       <h2>{{ download.label }}</h2>
       <p class="platform-hint">{{ download.hint }}</p>
       <div class="action-row">
-        <el-button type="success" size="large" class="download-btn" @click="openMobileDownload">
+        <el-button type="success" size="large" class="download-btn" :loading="downloading" @click="handleDownload">
           下载 {{ download.label }}
         </el-button>
         <a
@@ -19,11 +19,13 @@
           rel="noopener noreferrer"
         >加入QQ群</a>
       </div>
+      <p v-if="downloadError" class="download-error" role="alert">{{ downloadError }}</p>
     </section>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import {
   MOBILE_DOWNLOAD,
   MOBILE_DOWNLOAD_PAGE,
@@ -32,6 +34,21 @@ import {
 
 const page = MOBILE_DOWNLOAD_PAGE
 const download = MOBILE_DOWNLOAD
+const downloading = ref(false)
+const downloadError = ref('')
+
+async function handleDownload() {
+  if (downloading.value) return
+  downloading.value = true
+  downloadError.value = ''
+  try {
+    await openMobileDownload()
+  } catch (error) {
+    downloadError.value = error?.message || '下载失败，请检查网络后重试。'
+  } finally {
+    downloading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -93,6 +110,13 @@ const download = MOBILE_DOWNLOAD
 .download-btn {
   width: 100%;
   max-width: 240px;
+}
+
+.download-error {
+  margin: 14px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .qq-btn {

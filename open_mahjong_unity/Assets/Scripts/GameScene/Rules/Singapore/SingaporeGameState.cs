@@ -39,7 +39,7 @@ public sealed class SingaporeGameState : TurnBasedGameState {
         if(Game3DManager.Instance!=null) {
             pendingSettlement=true;
             Presenter.CloseTableForSettlement();
-            Game3DManager.Instance.StartCoroutine(FinishSettlement(response,roundGeneration));
+            Game3DManager.Instance.StartCoroutine(SettlementSync.PreserveContext(FinishSettlement(response,roundGeneration)));
         } else base.OnShowResult(response);
     }
     private IEnumerator FinishSettlement(Response response,int generation) {
@@ -76,6 +76,7 @@ public sealed class SingaporeGameState : TurnBasedGameState {
         }
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         int previousRows=0;
         foreach(var seat in Mirror.IndexToPosition) {
             var player=Mirror.Info(seat.Value);
@@ -103,10 +104,6 @@ public sealed class SingaporeGameState : TurnBasedGameState {
         foreach(var seat in Mirror.IndexToPosition)
             if(info.scores.TryGetValue(seat.Key,out int score) && Mirror.Info(seat.Value)!=null) Mirror.Info(seat.Value).score=score;
         BoardCanvas.Instance?.UpdatePlayerScores(info.scores,Mirror.IndexToPosition);
-    }
-    public string PaymentSummary() {
-        if(Info?.payments==null || Info.payments.Count==0) return "";
-        return "本局即时支付（已计入总分）："+string.Join("；",Info.payments.Select(p=>$"{"东南西北"[p.winner]}家{p.reason} +{p.changes.GetValueOrDefault(p.winner)}"));
     }
     public override void OnSessionReset() {
         Hints.Reset();Info=null;snapshotContainsSettlement=false;roundGeneration++;settlementAccepted=pendingSettlement=false;pendingReady=pendingEnd=null;

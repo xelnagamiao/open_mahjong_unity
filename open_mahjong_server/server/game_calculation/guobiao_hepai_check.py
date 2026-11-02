@@ -1252,13 +1252,13 @@ class Chinese_Hepai_Check:
         """
         return fan_score, fan_count_list
 
-    def fan_count(self, player_tiles: PlayerTiles,get_tile,way_to_hepai):
+    def fan_count(self, player_tiles: PlayerTiles,get_tile,way_to_hepai, *, resolved_ron=False):
 
         # 判断前处理 处理get_tile
         zimo_or_not = False
         if any(i in ["last_deal", "妙手回春", "自摸", "杠上开花"] for i in way_to_hepai):
             zimo_or_not = True
-        if zimo_or_not == False:
+        if zimo_or_not == False and not resolved_ron:
             # 如果和牌张来自外部 暗杠转为明杠 暗刻转为明刻 暗顺明顺仅用于标识是否副露 不用转换 标记暗转明用于后续计算门前清
             for i in player_tiles.combination_list:
                 if i == f"G{get_tile}":

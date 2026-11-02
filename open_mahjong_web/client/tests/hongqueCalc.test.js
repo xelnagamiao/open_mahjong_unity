@@ -45,7 +45,7 @@ test('mixed pure and half tiles receive neither colour fan', () => {
 
 test('revised rulebook page 8 examples match their updated fan totals and points', () => {
   const cases = [
-    [[Array.from({length: 9}, (_, i) => `FX${i+1}`), [1,3,5,7,9].map(n => `EX${n}`)], 11, 31, 341],
+    [[Array.from({length: 9}, (_, i) => `FX${i+1}`), [1,3,5,7,9].map(n => `EX${n}`)], 11, 33, 363],
     [[[...'ABCDEF'].map(c => `${c}Y3`), [...'ABCDEF'].map(c => `${c}Y5`)], 9, 33, 297],
     [['GY4 AY4 BY4 CY4 DY4 EY4', 'GY1 GY3 GY5', 'GY7 GY8 GY9'].map(s => s.split(' ')), 6, 17, 102],
   ]
@@ -103,8 +103,8 @@ test('hongque: heavenly win does not count menqing', () => {
   const fans = fanMap(result)
   assert.equal(fans['天和'], 18)
   assert.equal(fans['门清'], undefined)
-  assert.equal(result.fanTotal, 50)
-  assert.equal(result.points, 350)
+  assert.equal(result.fanTotal, 52)
+  assert.equal(result.points, 364)
 })
 
 test('hongque: exposed groups complete the win, no pair head', () => {
@@ -163,7 +163,7 @@ test('hongque: same-flower and same-sequence fans are repeatable', () => {
   assert.ok(result)
   const map = fanMap(result)
   assert.equal(map['双同花'], 4)
-  assert.equal(map['双同顺'], 4)
+  assert.equal(map['双同顺'], 2)
 })
 
 test('hongque: rainbow sequence still counts for 平和', () => {
@@ -212,8 +212,8 @@ test('hongque: 双色 counts covered pure colours (1 12 2 pattern)', () => {
   assert.ok(!names.includes('三色'))
   // 七归一按 14 级独立计数：AX/AY/BX 各 4 张，不合并 → 不计七归一
   assert.ok(!names.includes('七归一'))
-  assert.equal(result.fanTotal, 27)
-  assert.equal(result.points, 216)
+  assert.equal(result.fanTotal, 24)
+  assert.equal(result.points, 192)
 })
 
 test('hongque: 七归一/九归一 count 14 levels independently', () => {

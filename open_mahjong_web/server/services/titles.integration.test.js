@@ -46,7 +46,7 @@ test('PostgreSQL title management, authorization and rollback', { skip: !process
     const {title} = await service.saveTitle(db,adminId,null,body);
     await t.test('created IDs avoid sentinel and legacy IDs', async () => {
       assert.ok(title.title_id >= 3);
-      assert.equal((await service.listTitles(db)).length,2);
+      assert.equal((await service.listTitles(db)).length,4);
     });
     await t.test('duplicate names and missing targets reject without partial grants', async () => {
       await assert.rejects(service.saveTitle(db,adminId,null,body), {code:'23505'});
@@ -93,7 +93,7 @@ test('PostgreSQL title management, authorization and rollback', { skip: !process
         const token=signToken({user_id:adminId},config.admin.jwtSecret,60);
         const response=await fetch(base,{headers:{Authorization:`Bearer ${token}`}});
         assert.equal(response.status,200);
-        assert.equal((await response.json()).data.length,2);
+        assert.equal((await response.json()).data.length,4);
       } finally { await new Promise(resolve => server.close(resolve)); }
     });
   } finally {

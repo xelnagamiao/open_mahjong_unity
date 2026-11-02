@@ -29,6 +29,17 @@ public class RiichiRoundPanel : MonoBehaviour {
     private TMP_Text indicatorCaption, indicatorCounter;
     private UnityEngine.UI.HorizontalLayoutGroup indicatorRow;
     private TextAnchor originalIndicatorAlignment;
+    private Vector2 originalIndicatorPosition;
+    private Vector2 originalIndicatorAnchorMin, originalIndicatorAnchorMax;
+    private bool originalIndicatorExpandWidth;
+    private float originalIndicatorSpacing;
+    private float[] originalIndicatorWidths;
+    private Vector2 originalRoundSize;
+    private RectTransform indicatorContent;
+    private Vector2 originalContentPosition, originalContentSize;
+    private TMP_Text seedHint;
+    private Vector2 originalSeedPosition, originalSeedSize, originalSeedAnchorMin, originalSeedAnchorMax, originalSeedPivot;
+    private float originalSeedFontSize;
     private readonly List<GameObject> counterDecorations = new List<GameObject>();
     private bool indicatorLayoutInitialized;
 
@@ -37,21 +48,22 @@ public class RiichiRoundPanel : MonoBehaviour {
             ?? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule);
         if (ruleText != null) {
             ruleText.enableAutoSizing = true;
-            ruleText.fontSizeMin = 16f;
-            ruleText.fontSizeMax = 28f;
+            ruleText.fontSizeMin = 20f;
+            ruleText.fontSizeMax = 26f;
             ruleText.textWrappingMode = TextWrappingModes.NoWrap;
             ruleText.overflowMode = TextOverflowModes.Ellipsis;
-            ruleText.text = RuleNameDictionary.GetWholeName(roomType);
+            TableText.Set(ruleText, RuleNameDictionary.GetWholeName(roomType));
+            ruleText.color = Color.black;
         }
 
         if (GameRoundText != null) {
-            GameRoundText.text = manifest?.MaxRoundInfoText?.Invoke(gameInfo)
-                ?? RoundTextDictionary.GetMaxRoundText(roomType, gameInfo.max_round);
+            TableText.Set(GameRoundText, manifest?.MaxRoundInfoText?.Invoke(gameInfo)
+                ?? RoundTextDictionary.GetMaxRoundText(roomType, gameInfo.max_round));
         }
 
         if (roomNowRoundText != null) {
-            roomNowRoundText.text = manifest?.RoundStatusText?.Invoke(gameInfo)
-                ?? RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round);
+            TableText.Set(roomNowRoundText, manifest?.RoundStatusText?.Invoke(gameInfo)
+                ?? RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round));
         }
 
         if (manifest?.RoundIndicators != null) {
@@ -91,29 +103,52 @@ public class RiichiRoundPanel : MonoBehaviour {
 
     /// <summary>在同一回合面板内显示翻出的牌，隐藏未使用的槽位与日麻点棒。</summary>
     public void RefreshRuleIndicators(RoundIndicatorDisplay display) {
-        SetIndicatorLayout(true);
-        if (indicatorCaption != null) indicatorCaption.text = display?.Caption ?? "";
-        if (indicatorCounter != null) indicatorCounter.text = display?.Counter ?? "";
+        bool stacked = display?.CaptionAboveTiles == true;
+        SetIndicatorLayout(true, stacked);
+        if (indicatorCaption != null) TableText.Set(indicatorCaption, display?.Caption ?? "");
+        if (indicatorCounter != null) TableText.Set(indicatorCounter, display?.Counter ?? "");
         if (doraSlots == null) return;
         for (int i = 0; i < doraSlots.Length; i++) {
             if (doraSlots[i] == null) continue;
             bool visible = display?.Tiles != null && i < display.Tiles.Length;
             doraSlots[i].gameObject.SetActive(visible);
-            doraSlots[i].SetTileOnlyImage(visible ? display.Tiles[i] : TileBackId);
+            int tile = visible ? display.Tiles[i] : TileBackId;
+            if(stacked) ((RectTransform)doraSlots[i].transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,46f/TileFaceFit.HandSizeFor(tile,1f).y);
+            doraSlots[i].SetTileOnlyImage(tile);
         }
         if (doraSlots.Length > 0 && doraSlots[0] != null)
             TileFaceFit.FitRowHeight(doraSlots[0].transform.parent);
     }
 
-    private void SetIndicatorLayout(bool custom) {
+    private void SetIndicatorLayout(bool custom, bool stacked = false) {
         if (!indicatorLayoutInitialized) {
             indicatorLayoutInitialized = true;
+            if(roomNowRoundText!=null) originalRoundSize=roomNowRoundText.rectTransform.sizeDelta;
+            indicatorContent=roomNowRoundText?.transform.parent as RectTransform;
+            if(indicatorContent!=null) {
+                originalContentPosition=indicatorContent.anchoredPosition;originalContentSize=indicatorContent.sizeDelta;
+                seedHint=indicatorContent.Find("RandomSeed")?.GetComponent<TMP_Text>();
+                if(seedHint!=null) {
+                    var rect=seedHint.rectTransform;
+                    originalSeedPosition=rect.anchoredPosition;originalSeedSize=rect.sizeDelta;
+                    originalSeedAnchorMin=rect.anchorMin;originalSeedAnchorMax=rect.anchorMax;originalSeedPivot=rect.pivot;
+                    originalSeedFontSize=seedHint.fontSize;
+                }
+            }
             if (doraSlots != null && doraSlots.Length > 0 && doraSlots[0] != null) {
                 indicatorRow = doraSlots[0].transform.parent.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
-                if (indicatorRow != null) originalIndicatorAlignment = indicatorRow.childAlignment;
+                if (indicatorRow != null) {
+                    originalIndicatorAlignment = indicatorRow.childAlignment;
+                    var rowRect = (RectTransform)indicatorRow.transform;
+                    originalIndicatorPosition = rowRect.anchoredPosition;
+                    originalIndicatorAnchorMin = rowRect.anchorMin;
+                    originalIndicatorAnchorMax = rowRect.anchorMax;
+                    originalIndicatorExpandWidth = indicatorRow.childForceExpandWidth;
+                    originalIndicatorSpacing = indicatorRow.spacing;
+                }
+                originalIndicatorWidths = new float[doraSlots.Length];
+                for(int i=0;i<doraSlots.Length;i++) if(doraSlots[i]!=null) originalIndicatorWidths[i]=((RectTransform)doraSlots[i].transform).rect.width;
             }
-            // These are the two stick images and multiplication signs in the existing scene.
-            // The counts have explicit references; keep all of them when returning to riichi.
             if (honbaCountText != null) {
                 foreach (Transform child in honbaCountText.transform.parent)
                     if (child.name == "100image" || child.name == "1000image" || child.name == "x")
@@ -125,11 +160,40 @@ public class RiichiRoundPanel : MonoBehaviour {
             indicatorCounter = CreateIndicatorLabel("IndicatorCounter", new Vector2(125, -78), new Vector2(155, 30));
         }
         if (indicatorCaption != null) indicatorCaption.gameObject.SetActive(custom);
+        if (indicatorCaption != null) {
+            indicatorCaption.rectTransform.anchoredPosition = stacked ? new Vector2(15,-2) : new Vector2(85,-8);
+            indicatorCaption.rectTransform.sizeDelta = stacked ? new Vector2(258,24) : new Vector2(185,67);
+            indicatorCaption.fontSizeMax = stacked ? 20f : 24f;
+        }
         if (indicatorCounter != null) indicatorCounter.gameObject.SetActive(custom);
         if (honbaCountText != null) honbaCountText.gameObject.SetActive(!custom);
         if (riichiSticksCountText != null) riichiSticksCountText.gameObject.SetActive(!custom);
+        if(roomNowRoundText!=null) roomNowRoundText.rectTransform.sizeDelta=stacked?new Vector2(originalRoundSize.x,36f):originalRoundSize;
+        if(indicatorContent!=null) {
+            indicatorContent.anchoredPosition=originalContentPosition;indicatorContent.sizeDelta=originalContentSize;
+            if(stacked) indicatorContent.offsetMin+=new Vector2(0,-32);
+        }
+        if(seedHint!=null) {
+            var rect=seedHint.rectTransform;
+            rect.anchorMin=stacked?new Vector2(0,1):originalSeedAnchorMin;
+            rect.anchorMax=stacked?new Vector2(0,1):originalSeedAnchorMax;
+            rect.pivot=stacked?new Vector2(0,1):originalSeedPivot;
+            rect.anchoredPosition=stacked?new Vector2(15,-116):originalSeedPosition;
+            rect.sizeDelta=stacked?new Vector2(258,18):originalSeedSize;
+            seedHint.fontSize=stacked?12f:originalSeedFontSize;
+        }
         foreach (var decoration in counterDecorations) decoration.SetActive(!custom);
-        if (indicatorRow != null) indicatorRow.childAlignment = custom ? TextAnchor.MiddleLeft : originalIndicatorAlignment;
+        if (indicatorRow != null) {
+            indicatorRow.childAlignment = custom ? TextAnchor.MiddleLeft : originalIndicatorAlignment;
+            indicatorRow.childForceExpandWidth = stacked ? false : originalIndicatorExpandWidth;
+            indicatorRow.spacing = stacked ? 8f : originalIndicatorSpacing;
+            var rowRect = (RectTransform)indicatorRow.transform;
+            rowRect.anchorMin = stacked ? new Vector2(0.5f, 1f) : originalIndicatorAnchorMin;
+            rowRect.anchorMax = stacked ? new Vector2(0.5f, 1f) : originalIndicatorAnchorMax;
+            rowRect.anchoredPosition = stacked ? new Vector2(originalIndicatorPosition.x, -51f) : originalIndicatorPosition;
+        }
+        if(!stacked && originalIndicatorWidths!=null)
+            for(int i=0;i<doraSlots.Length;i++) if(doraSlots[i]!=null) ((RectTransform)doraSlots[i].transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,originalIndicatorWidths[i]);
     }
 
     private TMP_Text CreateIndicatorLabel(string name, Vector2 position, Vector2 size) {

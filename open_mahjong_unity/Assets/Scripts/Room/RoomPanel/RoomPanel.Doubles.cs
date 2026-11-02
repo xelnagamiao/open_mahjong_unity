@@ -41,7 +41,7 @@ public partial class RoomPanel {
             bool occupied = i < seats.Length && seats[i] >= 0;
             var dropdown = teamSelectors[i];
             bool paired = SichuanLobby.IsDuplicate(room.sub_rule);
-            var options = captain ? WashizuDoubles.RoleLabels.ToList() : paired
+            var options = captain ? new[] { "未分队" }.Concat(WashizuDoubles.RoleLabels).ToList() : paired
                 ? Enumerable.Range(0, 4).Select(s => new[] { "东", "南", "西", "北" }[s]
                     + " · " + (room.team_by_seat[s] == 0 ? "蓝队" : "红队")).ToList()
                 : new System.Collections.Generic.List<string> { "未分队", "A 队", "B 队" };
@@ -49,12 +49,13 @@ public partial class RoomPanel {
                 dropdown.Hide();
                 dropdown.ClearOptions();
                 dropdown.AddOptions(options);
+                dropdown.template.sizeDelta = new Vector2(dropdown.template.sizeDelta.x, options.Count * 52 + 8);
             }
             dropdown.gameObject.SetActive(occupied);
-            int selected = captain ? (room.team_role_by_seat != null && i < room.team_role_by_seat.Length ? room.team_role_by_seat[i] : 0) : paired ? i : team + 1;
+            int selected = captain ? (room.team_role_by_seat != null && i < room.team_role_by_seat.Length ? room.team_role_by_seat[i] : -1) + 1 : paired ? i : team + 1;
             if (dropdown.value != selected) dropdown.Hide();
             dropdown.SetValueWithoutNotify(selected);
-            dropdown.captionText.color = team == 0 ? new Color(.2f,.6f,1f) : team == 1 ? new Color(1f,.3f,.35f) : Color.white;
+            dropdown.captionText.color = team == 0 ? new Color(.2f,.6f,1f) : team == 1 ? new Color(1f,.3f,.35f) : Color.black;
             dropdown.interactable = occupied && !room.is_game_running && (isHost || seats[i] == UserDataManager.Instance.UserId);
         }
         bool complete = DoublesTeamsComplete(room);
@@ -68,9 +69,9 @@ public partial class RoomPanel {
         // Keep the authoritative selection until the server accepts and broadcasts a new revision.
         bool paired = SichuanLobby.IsDuplicate(room.sub_rule);
         bool captain = WashizuDoubles.IsEnabled(room.sub_rule);
-        teamSelectors[seat].SetValueWithoutNotify(captain ? room.team_role_by_seat[seat] : paired ? seat : room.team_by_seat[seat] + 1);
+        teamSelectors[seat].SetValueWithoutNotify(captain ? room.team_role_by_seat[seat] + 1 : paired ? seat : room.team_by_seat[seat] + 1);
         if (room.is_game_running) return;
-        if (captain) RoomNetworkManager.Instance.SetCaptainRole(room.room_id, room.roster_revision, seat, value);
+        if (captain) RoomNetworkManager.Instance.SetCaptainRole(room.room_id, room.roster_revision, seat, value - 1);
         else if (paired) RoomNetworkManager.Instance.MoveDuplicateSeat(room.room_id, room.roster_revision, seat, value);
         else RoomNetworkManager.Instance.SetTeam(room.room_id, room.roster_revision, seat, value - 1);
     }

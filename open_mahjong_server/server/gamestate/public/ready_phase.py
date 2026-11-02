@@ -1,5 +1,6 @@
 """局终 / 错和结算后的 waiting_ready 阶段（与客户端 EndResultPanel 演出对齐）。"""
 
+import asyncio
 import math
 import time
 from typing import Awaitable, Callable
@@ -10,6 +11,7 @@ from .round_end_timing import (
     hu_result_ready_wait_seconds,
     sichuan_liuju_final_ready_wait_seconds,
 )
+from .settlement_sync import begin_ready
 from .ask_timing import begin_ask_round
 from .action_window import prepare_action_window
 
@@ -35,7 +37,7 @@ async def run_result_ready_phase(
     deadline - now after a ready reply would charge every other seat twice.
     """
     started_at = time.time()
-    deadline = started_at + wait_time
+    deadline = begin_ready(game_state, wait_time, clock=time.time)
     panel_visible_at = (None if panel_visible_delay_sec is None
                         else started_at + panel_visible_delay_sec)
     game_state.action_dict = {}
@@ -51,6 +53,13 @@ async def run_result_ready_phase(
     begin_ask_round(game_state)
     await broadcast_ready_status(game_state)
 
+    def expire_pending(indices):
+        for index in indices:
+            game_state.action_dict[index] = []
+        for player in game_state.player_list:
+            if player.player_index in indices:
+                player.remaining_time = 0
+
     while True:
         pending = [i for i, actions in game_state.action_dict.items() if "ready" in actions]
         now = time.time()
@@ -60,11 +69,16 @@ async def run_result_ready_phase(
         if not pending:
             break
         if now >= deadline:
-            for player_index in pending:
-                game_state.action_dict[player_index] = []
+            expire_pending(pending)
             await broadcast_ready_status(game_state)
             break
-        await game_state.wait_action()
+        try:
+            await asyncio.wait_for(game_state.wait_action(), timeout=max(0.0, deadline - now))
+        except asyncio.TimeoutError:
+            # Fractional presentation budgets must not gain ceil-to-second time.
+            expire_pending(pending)
+            await broadcast_ready_status(game_state)
+            break
 
 
 async def run_hu_result_ready_phase(

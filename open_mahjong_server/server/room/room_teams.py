@@ -95,12 +95,12 @@ def assign_team(room, actor, seat_index, team_id, revision, *, role_id=None):
     if actor != room.get("host_user_id") and seats[seat_index] != actor:
         raise ValueError("只能选择自己的队伍")
     if is_captain_mode(room.get("sub_rule")):
-        if type(role_id) is not int or role_id not in range(4):
-            raise ValueError("请选择A队主将、A队助手、B队主将或B队助手")
+        if type(role_id) is not int or role_id not in (-1, 0, 1, 2, 3):
+            raise ValueError("请选择未分队、A队主将、A队助手、B队主将或B队助手")
         roles = room["team_role_by_seat"]
         if roles[seat_index] == role_id:
             return
-        occupied = next((i for i, role in enumerate(roles) if role == role_id and seats[i] >= 0), None)
+        occupied = next((i for i, role in enumerate(roles) if role_id >= 0 and role == role_id and seats[i] >= 0), None)
         if occupied is not None:
             if actor != room.get("host_user_id"):
                 raise ValueError("该身份已被选择，请由房主交换身份")

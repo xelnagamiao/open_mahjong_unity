@@ -8,13 +8,15 @@ using UnityEngine.EventSystems;
 /// - SimpleRoundPanel / RiichiRoundPanel：常规局况，二选一显示
 /// - CommitmentSaltDetailPanel：点击本面板区域后淡入展示承诺值与盐，3 秒后隐藏
 /// </summary>
-public class RoundPanel : MonoBehaviour, IPointerClickHandler {
+public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
     public static RoundPanel Instance { get; private set; }
 
     [Header("子面板引用")]
     [SerializeField] private SimpleRoundPanel simpleRoundPanel;
     [SerializeField] private RiichiRoundPanel riichiRoundPanel;
     [SerializeField] private CommitmentSaltDetailPanel commitmentSaltDetailPanel;
+
+    [SerializeField] private TableHudMatchInfo matchInfo;
 
     private string _cachedCommitment = "";
     private string _cachedSalt = "";
@@ -35,6 +37,7 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
     private const float CommitmentSaltDisplaySeconds = 3f;
 
     private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshLocalizedLayout;
         CancelCommitmentSaltDetail();
     }
 
@@ -42,6 +45,7 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
     /// 初始化轮数面板：根据房间规则切换 Simple / Riichi。
     /// </summary>
     public void UpdateRoomInfo(GameInfo gameInfo, string roomRule, string masterSeed = null) {
+        if (string.IsNullOrEmpty(roomRule)) roomRule = !string.IsNullOrEmpty(gameInfo?.sub_rule) ? gameInfo.sub_rule : gameInfo?.room_rule ?? "";
         pairedDuplicate = gameInfo?.duplicate_match != null;
         CancelCommitmentSaltDetail();
         _cachedCommitment = gameInfo?.commitment ?? "";
@@ -59,6 +63,8 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
         } else {
             simpleRoundPanel?.UpdateRoomInfo(gameInfo, roomRule);
         }
+        matchInfo?.RefreshInfo(gameInfo);
+        RefreshLocalizedLayout();
     }
 
     public void OnPointerClick(PointerEventData eventData) {
@@ -100,14 +106,19 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
         var merged = doraIndicators != null ? new List<int>(doraIndicators) : new List<int>();
         if (kanDoraIndicators != null) merged.AddRange(kanDoraIndicators);
         riichiRoundPanel.RefreshFieldState(honba, riichiSticks, merged);
+        RefreshLocalizedLayout();
     }
 
     public void RefreshRuleIndicators(RoundIndicatorDisplay display) {
         if (!usesRuleIndicators || riichiRoundPanel == null) return;
         riichiRoundPanel.RefreshRuleIndicators(display);
+        RefreshLocalizedLayout();
+        matchInfo?.RefreshLayout();
     }
 
     public void UpdateDuplicateStatus(DuplicateMatchInfo info) => simpleRoundPanel?.UpdateDuplicateStatus(info);
+
+    public void UpdateSichuanSettlement(ShowResultInfo info) => simpleRoundPanel?.UpdateSichuanSettlement(info);
 
     private static void RegisterClickRelay(GameObject target) {
         if (target == null) return;

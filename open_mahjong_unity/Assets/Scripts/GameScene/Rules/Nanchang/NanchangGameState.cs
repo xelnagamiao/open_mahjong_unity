@@ -87,7 +87,7 @@ public sealed class NanchangGameState : TurnBasedGameState {
         if (table != null && table.HasPendingRecordTableAnimations) {
             pendingSettlement = true;
             Presenter.CloseTableForSettlement();
-            table.StartCoroutine(PresentSettlementWhenIdle(response, roundGeneration));
+            table.StartCoroutine(SettlementSync.PreserveContext(PresentSettlementWhenIdle(response, roundGeneration)));
         } else CompleteSettlement(response, roundGeneration);
     }
     private IEnumerator PresentSettlementWhenIdle(Response response, int generation) {

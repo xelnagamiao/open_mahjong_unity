@@ -83,7 +83,7 @@ def test_extra_base_settlement_and_record(enabled,source):
         player=state.player_list[1]
         player.hand_tiles=HONORS.copy() if source=="self_draw" else HONORS[:-1]
         detail=state.score_candidate(1,source,47)
-        points=40 if source=="discard" else 30
+        points=40 if source=="discard" else (70 if enabled else 60)
         assert detail["base_score"]==points
         state.pending_winners=[{"index":1,"payer":None if source=="self_draw" else 0,"source":source,
                                 "hu_class":"hu_self" if source=="self_draw" else "hu_first","tile":47,"detail":detail}]
@@ -309,7 +309,7 @@ def test_multi_win_settlement_and_dealer(count,source):
             "tile":47,"detail":state.score_candidate(i,source,47)} for i in range(1,count+1)]
         before={p.original_player_index:p.score for p in state.player_list}
         await state._settle_hand(before)
-        per=40 if source=="discard" else 90
+        per=40 if source=="discard" else 180
         assert [p.score for p in state.player_list]==[-per*count]+[per]*count+[0]*(3-count)
         assert state.next_dealer()==(1 if count==1 else 0)
         assert state.huangfan_count==0

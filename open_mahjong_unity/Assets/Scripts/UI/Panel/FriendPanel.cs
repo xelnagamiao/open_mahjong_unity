@@ -9,6 +9,7 @@ using UnityEngine.UI;
 /// 关注者用于普通延时观战；好友用于普通观战、实时观战和双向删除；好友申请用于接受 / 拒绝。
 /// </summary>
 public class FriendPanel : MonoBehaviour {
+    public const int DefaultFriendCapacity = 80;
     public static FriendPanel Instance { get; private set; }
 
     private enum Tab {
@@ -60,8 +61,9 @@ public class FriendPanel : MonoBehaviour {
     private readonly Dictionary<int, FriendItem> _friendItemsByUid = new Dictionary<int, FriendItem>();
     private readonly Dictionary<int, FriendRequestItem> _requestItemsByUid = new Dictionary<int, FriendRequestItem>();
     private int _followingMax = 10;
-    private int _friendMax = 50;
+    private int _friendMax = DefaultFriendCapacity;
     private Coroutine _pollingCoroutine;
+    private Tab _currentTab = Tab.Friends;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -91,9 +93,7 @@ public class FriendPanel : MonoBehaviour {
         SwitchTab(Tab.Friends);
         UpdateCountTexts(0, 0, 0);
         RefreshRequestTabBadge();
-        FriendNetworkManager.Instance.ListAllFriendPanels();
-        if (_pollingCoroutine != null) StopCoroutine(_pollingCoroutine);
-        _pollingCoroutine = StartCoroutine(CoPollFriendList());
+        StartLivePolling();
     }
 
     private void OnDisable() {
@@ -112,7 +112,14 @@ public class FriendPanel : MonoBehaviour {
         }
     }
 
+    private void StartLivePolling() {
+        FriendNetworkManager.Instance.ListAllFriendPanels();
+        if (_pollingCoroutine != null) StopCoroutine(_pollingCoroutine);
+        _pollingCoroutine = StartCoroutine(CoPollFriendList());
+    }
+
     private void SwitchTab(Tab tab) {
+        _currentTab = tab;
         if (followingPanel != null) followingPanel.SetActive(tab == Tab.Following);
         if (friendsPanel != null) friendsPanel.SetActive(tab == Tab.Friends);
         if (requestsPanel != null) requestsPanel.SetActive(tab == Tab.Requests);

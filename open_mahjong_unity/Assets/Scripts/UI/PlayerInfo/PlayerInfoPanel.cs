@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using System.Linq;
+using Salasasa.DataLab;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public sealed class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private PanelPopupTransition panelPopup;
+    [SerializeField] private PlayerInfoAppearance appearance;
     [Header("玩家信息")]
     [SerializeField] private TMP_Text usernameText;
     [SerializeField] private TMP_Text useridText;
@@ -23,6 +26,9 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     [Header("规则与场次")]
     [SerializeField] private Button[] ruleButtons;
     [SerializeField] private TMP_Dropdown otherRulesDropdown;
+    [SerializeField] private TMP_Dropdown mainRulesDropdown;
+    [SerializeField] private TMP_Dropdown subRulesDropdown;
+    [SerializeField] private TextAsset ruleCatalog;
     [SerializeField] private PlayerInfoStatistics statistics;
     [SerializeField] private GameObject modeToggleContainer;
     [SerializeField] private Button customModeButton;
@@ -39,14 +45,21 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
 
     private static readonly string[] PrimaryRules = PlayerInfoRuleCatalog.PrimaryRules;
     private readonly List<KeyValuePair<string, string>> otherRules = new List<KeyValuePair<string, string>>();
+    [System.NonSerialized] private List<DataRule> customRules;
+    [System.NonSerialized] private string[] mainRuleKeys;
+    [System.NonSerialized] private List<DataRule> subRules;
     public static PlayerInfoPanel Instance { get; private set; }
     public string CurrentRule { get; private set; } = "guobiao";
     public bool ShowingRanked { get; private set; } = true;
     private string customRule = "guobiao";
     private int currentUserId;
+    public int CurrentUserId => currentUserId;
+    public bool IsOpen => panelPopup ? panelPopup.IsOpen : gameObject.activeInHierarchy;
     private int currentProfileImageId = 1;
     private int currentAvatarFrameId;
     private string currentUsername;
+    private int currentTitleId;
+    private bool missingUsername;
     private bool shownOnce;
     private bool initialized;
     private string recentRequestId;
@@ -88,17 +101,67 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
             ruleButtons[i].onClick.AddListener(() => SelectRule(index));
         }
         otherRulesDropdown.onValueChanged.AddListener(SelectOtherRule);
-        PopulateOtherRules();
+        mainRulesDropdown.onValueChanged.AddListener(SelectMainRule);
+        subRulesDropdown.onValueChanged.AddListener(SelectSubRule);
+        RefreshRuleControls();
     }
 
-    private void PopulateOtherRules() {
+    public void RefreshRuleControls() {
+        if (customRules == null) {
+            customRules = DataRule.Read(ruleCatalog.text).Where(r => PlayerInfoRuleCatalog.Supports(r.key)).ToList();
+            string[] first = { "guobiao", "riichi", "sichuan", "qingque", "hongque" };
+            var families = customRules.Select(r => r.family).Distinct().ToArray();
+            mainRuleKeys = first.Where(families.Contains).Concat(families.Where(f => !first.Contains(f))).ToArray();
+        }
         otherRules.Clear();
-        var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData("其他规则") };
-        otherRules.AddRange(PlayerInfoRuleCatalog.OtherRules(ShowingRanked));
-        foreach (var rule in otherRules) options.Add(new TMP_Dropdown.OptionData(rule.Value));
+        otherRules.AddRange(PlayerInfoRuleCatalog.OtherRules(true));
+        var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData(PlatformText.Get("其他规则")) };
+        foreach (var rule in otherRules) {
+            string label = rule.Key switch {
+                "riichi_sanma" => "立直三人",
+                "sichuan_xueliu_exchange" => "血流换三",
+                "hongque" => "虹雀",
+                _ => rule.Value
+            };
+            options.Add(new TMP_Dropdown.OptionData(PlatformText.Get(label)));
+        }
         otherRulesDropdown.ClearOptions();
         otherRulesDropdown.AddOptions(options);
-        otherRulesDropdown.SetValueWithoutNotify(0);
+        otherRulesDropdown.SetValueWithoutNotify(otherRules.FindIndex(r => r.Key == CurrentRule) + 1);
+
+        string family = PlayerInfoRuleCatalog.SourceRule(CurrentRule);
+        mainRulesDropdown.ClearOptions();
+        mainRulesDropdown.AddOptions(mainRuleKeys.Select(key => PlatformText.Get(customRules.First(r => r.family == key).familyLabel)).ToList());
+        mainRulesDropdown.SetValueWithoutNotify(System.Array.IndexOf(mainRuleKeys, family));
+        subRules = customRules.Where(r => r.family == family).ToList();
+        subRulesDropdown.ClearOptions();
+        subRulesDropdown.AddOptions(subRules.Select(r => PlatformText.Get(r.subRuleLabel)).ToList());
+        subRulesDropdown.SetValueWithoutNotify(subRules.FindIndex(r => r.key == CurrentRule));
+
+        for (int i = 0; i < ruleButtons.Length; i++) {
+            ruleButtons[i].gameObject.SetActive(ShowingRanked || PrimaryRules[i] != "qingque");
+            var rect = (RectTransform)ruleButtons[i].transform;
+            rect.anchoredPosition = new Vector2(!ShowingRanked && PrimaryRules[i] == "sichuan" ? 256 : i * 128, 0);
+            rect.sizeDelta = new Vector2(ShowingRanked && PrimaryRules[i] == "sichuan" ? 192 : 120, 44);
+        }
+        otherRulesDropdown.gameObject.SetActive(ShowingRanked);
+        mainRulesDropdown.gameObject.SetActive(!ShowingRanked);
+        subRulesDropdown.gameObject.SetActive(!ShowingRanked);
+    }
+
+    private void SelectMainRule(int index) {
+        if (index < 0 || index >= mainRuleKeys.Length) return;
+        SelectRule(customRules.First(r => r.family == mainRuleKeys[index]).key);
+    }
+
+    private void SelectSubRule(int index) {
+        if (index >= 0 && index < subRules.Count) SelectRule(subRules[index].key);
+    }
+
+    private void HideRuleDropdowns() {
+        otherRulesDropdown.Hide();
+        if (mainRulesDropdown) mainRulesDropdown.Hide();
+        if (subRulesDropdown) subRulesDropdown.Hide();
     }
 
     private void Start() {
@@ -107,18 +170,26 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
 
     private void OnEnable() {
         GameSettings.AppearanceChanged += RefreshAppearance;
+        ConfigManager.OnLanguageChanged += RefreshLanguage;
         RefreshAppearance(null);
     }
 
     private void OnDisable() {
         FriendRelationCache.OnChanged -= RefreshFriendActionButton;
         GameSettings.AppearanceChanged -= RefreshAppearance;
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
     }
 
     private void OnDestroy() {
         FriendRelationCache.OnChanged -= RefreshFriendActionButton;
         GameSettings.AppearanceChanged -= RefreshAppearance;
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
         if (Instance == this) Instance = null;
+    }
+
+    public void ShowRequestedPlayerInfo(PlayerInfoResponse playerInfo, string loadedRule = null, RuleStatsResponse loadedStats = null) {
+        if (playerInfo != null && ProfileOnClick.AcceptPlayerInfoResponse(playerInfo.user_id))
+            ShowPlayerInfo(playerInfo, loadedRule, loadedStats);
     }
 
     public void ShowPlayerInfo(PlayerInfoResponse playerInfo, string loadedRule = null, RuleStatsResponse loadedStats = null) {
@@ -131,7 +202,6 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         CurrentRule = ProfileOnClick.RequestedRule;
         customRule = CurrentRule;
         ShowingRanked = true;
-        PopulateOtherRules();
         statistics.ResetUser(currentUserId, loadedRule, loadedStats);
         RefreshRecords();
         DataNetworkManager.Instance?.GetPlayerRecentRecords(currentUserId, recentRequestId);
@@ -147,16 +217,26 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     private void ApplyPlayerInfo(PlayerInfoResponse playerInfo) {
         currentUserId = playerInfo.user_id;
         var settings = playerInfo.user_settings;
-        currentUsername = string.IsNullOrEmpty(settings?.username) ? "未知用户" : settings.username;
-        usernameText.text = currentUsername;
+        missingUsername = string.IsNullOrEmpty(settings?.username);
+        currentUsername = missingUsername ? "未知用户" : settings.username;
+        usernameText.text = missingUsername ? PlatformText.Get(currentUsername) : currentUsername;
         useridText.text = currentUserId.ToString();
-        titleText.text = ConfigManager.GetTitleText(settings?.title_id ?? 0);
+        currentTitleId = settings?.title_id ?? 0;
+        titleText.text = ConfigManager.GetTitleText(currentTitleId);
         currentProfileImageId = settings?.profile_image_id ?? 1;
         currentAvatarFrameId = settings?.avatar_frame_id ?? 0;
         RefreshAppearance(null);
         ratings=playerInfo.ratings ?? new Dictionary<string,RuleRating>();
         if(!ratings.ContainsKey("guobiao"))ratings["guobiao"]=new RuleRating{rule="guobiao",system="grade",rank_name=playerInfo.guobiao_rank??"10级",rank_score=playerInfo.guobiao_score};
         rankRule=ProfileOnClick.RequestedRule;RefreshRating();
+    }
+
+    private void RefreshLanguage() {
+        if (missingUsername) usernameText.text = PlatformText.Get("未知用户");
+        titleText.text = ConfigManager.GetTitleText(currentTitleId);
+        HideRuleDropdowns();
+        RefreshRuleControls();
+        RefreshDesign();
     }
 
     private void RefreshAppearance(InventoryAppearance appearance) {
@@ -197,9 +277,8 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
 
     public void SelectCategory(bool ranked) {
         if (ShowingRanked == ranked) return;
-        otherRulesDropdown.Hide();
+        HideRuleDropdowns();
         ShowingRanked = ranked;
-        PopulateOtherRules();
         CurrentRule = ranked ? rankRule : customRule;
         RefreshRecords();
     }
@@ -208,17 +287,9 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         if (ShowingRanked && RankedRules.Supports(CurrentRule)) rankRule = CurrentRule;
         RefreshRating();
         modeToggleContainer.SetActive(true);
-        SetCategorySelected(rankModeButton, rankedTabIndicator, ShowingRanked);
-        SetCategorySelected(customModeButton, customTabIndicator, !ShowingRanked);
-        for (int i = 0; i < ruleButtons.Length; i++) {
-            ruleButtons[i].gameObject.SetActive(true);
-            SetTabSelected(ruleButtons[i], ruleButtons[i].GetComponentInChildren<TMP_Text>(true), PrimaryRules[i] == CurrentRule);
-        }
-        otherRulesDropdown.gameObject.SetActive(true);
+        RefreshRuleControls();
+        RefreshDesign();
         rankPolicyButton?.SetActive(false);
-        int otherIndex = otherRules.FindIndex(r => r.Key == CurrentRule);
-        otherRulesDropdown.SetValueWithoutNotify(otherIndex + 1);
-        SetTabSelected(otherRulesDropdown, otherRulesDropdown.captionText, otherIndex >= 0);
         statistics.Show(CurrentRule, ShowingRanked, currentUserId);
         RefreshRecentRecords();
     }
@@ -233,7 +304,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         }
         var win = CurrentRule == "guobiao" ? category?.big_win : null;
         winLabel.text = PlayerInfoStatsFormatter.WinCaption(win);
-        handView.SetHand(win?.concealed_tiles, win?.melds);
+        handView.SetRuleHand(CurrentRule, win?.concealed_tiles, win?.melds);
         if (emptyWinText != null) emptyWinText.gameObject.SetActive(win == null);
         var placements = new List<int>();
         int participants = PlayerInfoRuleCatalog.PlayerCount(CurrentRule);
@@ -253,30 +324,27 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
             NotificationManager.Instance?.ShowTip("获取数据", false, message ?? "获取玩家近期记录失败");
     }
 
-    private static readonly Color TabIdleFill = new Color(.215f, .235f, .285f);
-    private static readonly Color TabIdleText = new Color(.94f, .95f, .98f);
-    private static readonly Color TabSelectedText = new Color(.12f, .14f, .18f);
-
-    private void SetCategorySelected(Button button, Image indicator, bool selected) {
-        var colors = button.colors;
-        colors.normalColor = colors.selectedColor = Color.clear;
-        colors.highlightedColor = new Color(1, 1, 1, .035f);
-        colors.pressedColor = new Color(1, 1, 1, .02f);
-        button.colors = colors;
-        button.interactable = true;
-        button.GetComponentInChildren<TMP_Text>(true).color = selected
-            ? copyUseridButton.colors.normalColor : new Color(.79f, .83f, .9f);
-        indicator.gameObject.SetActive(selected);
+    public void RefreshDesign() {
+        if (!appearance) return;
+        HideRuleDropdowns();
+        appearance.PaintCategory(rankModeButton, rankModeButton.GetComponentInChildren<TMP_Text>(true), rankedTabIndicator, ShowingRanked);
+        appearance.PaintCategory(customModeButton, customModeButton.GetComponentInChildren<TMP_Text>(true), customTabIndicator, !ShowingRanked);
+        for (int i = 0; i < ruleButtons.Length; i++)
+            SetTabSelected(ruleButtons[i], ruleButtons[i].GetComponentInChildren<TMP_Text>(true), PrimaryRules[i] == CurrentRule);
+        SetTabSelected(otherRulesDropdown, otherRulesDropdown.captionText, otherRules.FindIndex(r => r.Key == CurrentRule) >= 0);
+        if (mainRulesDropdown) SetTabSelected(mainRulesDropdown, mainRulesDropdown.captionText, false);
+        if (subRulesDropdown) SetTabSelected(subRulesDropdown, subRulesDropdown.captionText, false);
     }
 
     private void SetTabSelected(Selectable control, TMP_Text label, bool selected) {
-        var colors = control.colors;
-        colors.normalColor = colors.selectedColor = selected ? copyUseridButton.colors.normalColor : TabIdleFill;
-        colors.highlightedColor = Color.Lerp(colors.normalColor, Color.white, .08f);
-        colors.pressedColor = Color.Lerp(colors.normalColor, Color.black, .1f);
-        control.colors = colors;
-        control.interactable = true;
-        label.color = selected ? TabSelectedText : TabIdleText;
+        if (!appearance) return;
+        appearance.PaintTab(control, label, selected);
+        if (control is TMP_Dropdown dropdown) {
+            var arrow = dropdown.transform.Find("Arrow");
+            if (arrow != null)
+                foreach (var image in arrow.GetComponentsInChildren<Image>(true))
+                    if (image.name.Contains("Stroke")) image.color = label.color;
+        }
     }
 
     private void CopyUserId() {
@@ -284,7 +352,8 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         NotificationManager.Instance?.ShowTip("复制", true, "已复制用户ID");
     }
 
-    private void Close() {
+    public void Close() {
+        ProfileOnClick.CancelPlayerInfo(currentUserId);
         if (panelPopup != null) panelPopup.Hide();
         else gameObject.SetActive(false);
     }

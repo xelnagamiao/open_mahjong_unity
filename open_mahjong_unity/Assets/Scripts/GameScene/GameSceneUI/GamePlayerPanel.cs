@@ -176,11 +176,15 @@ public partial class GamePlayerPanel : MonoBehaviour {
         return card.rectTransform;
     }
 
-    /// <summary>复式每家只摸自己的牌山；按原始座位显示服务端余牌，0 也显示。</summary>
+    /// <summary>按原始座位显示复式余牌，0 也显示；川麻对应该玩家面前的实体墙。</summary>
     public void RefreshDuplicateRemainingTiles() {
-        int? remaining = GameSession.Current.IsDuplicate && GameSession.Current.RoomRule == "guobiao"
-            ? TableMirror.Current.GetDuplicateRemainingTiles(duplicateOriginalPlayerIndex)
-            : null;
+        int? remaining = null;
+        if (GameSession.Current.IsDuplicate) {
+            if (GameSession.Current.RoomRule == "guobiao")
+                remaining = TableMirror.Current.GetDuplicateRemainingTiles(duplicateOriginalPlayerIndex);
+            else if (GameSession.Current.RoomRule == SichuanGameState.RuleId)
+                remaining = TableMirror.Current.GetSichuanWallRemainingTiles(duplicateOriginalPlayerIndex);
+        }
         SetPlayerVariable(VariableRemainingTiles, remaining.HasValue ? $"余牌 {remaining.Value}" : null);
         TMP_Text label = FindPlayerVariable(VariableRemainingTiles);
         if (!remaining.HasValue || label == null) return;

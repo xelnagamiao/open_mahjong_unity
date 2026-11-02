@@ -55,8 +55,9 @@ namespace Qingque13.Criteria
             if (meld1.Tile.GetSuitType() == meld2.Tile.GetSuitType()) return false;
             if (meld1.Tile.GetSuitType() == QingqueTile.SuitType.Z || meld2.Tile.GetSuitType() == QingqueTile.SuitType.Z) return false;
 
-            // Same type and same number
-            if (meld1.Type != meld2.Type) return false;
+            // A kong is a triplet for mirrored melds; only sequences differ.
+            if ((meld1.Type == QingqueMeldType.Sequence) !=
+                (meld2.Type == QingqueMeldType.Sequence)) return false;
             if (meld1.Tile.Num() != meld2.Tile.Num()) return false;
 
             return true;

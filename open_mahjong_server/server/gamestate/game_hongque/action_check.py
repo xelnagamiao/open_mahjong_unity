@@ -9,6 +9,8 @@ from typing import Sequence
 from .rules import call_candidates, kong_candidates, kong_win_candidates
 from .win_check import is_winning_hand
 from .action_priority import HONGQUE_ACTION_PRIORITY, claim_action_type
+from .profile import rules_for, score_for_state
+from .w_rules import is_w, PRIORITY
 
 
 def can_self_draw_win(hand: Sequence[str], melds: Sequence[dict]) -> bool:
@@ -23,11 +25,12 @@ def check_action_hand_action(game_state, player) -> tuple[list[str], list[dict]]
         return check_only_cut(game_state, player)
     actions = ["discard"] if player.hand else []
     candidates: list[dict] = []
-    if can_self_draw_win(player.hand, player.melds):
+    if (score_for_state(game_state, player) is not None if is_w(game_state)
+            else can_self_draw_win(player.hand, player.melds)):
         actions.append("win")
     # 摸牌后：最后一张手牌杠后直接形成杠和，只下发“和”。
     if len(player.hand) != 1:
-        kong = kong_candidates(player.hand, player.melds)
+        kong = rules_for(game_state).kong_candidates(player.hand, player.melds)
         if kong:
             actions.append("kong")
             candidates.extend(kong)
@@ -49,9 +52,11 @@ def check_only_cut(game_state, player) -> tuple[list[str], list[dict]]:
     candidates: list[dict] = []
     can_supplement = player.supplements < 2 and bool(game_state.wall)
     # 亮牌后不能直接和；没有补牌机会时必须留牌可切，避免进入无动作的空转态。
-    kong = kong_candidates(player.hand, player.melds) if (
+    kong = rules_for(game_state).kong_candidates(player.hand, player.melds) if (
         len(player.hand) > 1 or can_supplement
     ) else []
+    if not can_supplement:
+        kong = [item for item in kong if len(item["hand_tiles"]) < len(player.hand)]
     if kong:
         actions.append("kong")
         candidates.extend(kong)
@@ -70,7 +75,7 @@ def check_action_after_cut(game_state) -> dict[int, list[dict]]:
     for player in game_state.players:
         if player.index == discarder:
             continue
-        options = call_candidates(
+        options = rules_for(game_state).call_candidates(
             player.hand,
             discarded,
             claimant_index=player.index,
@@ -79,13 +84,14 @@ def check_action_after_cut(game_state) -> dict[int, list[dict]]:
         if player.supplements >= 2 or not game_state.wall:
             options = [option for option in options
                        if len(option["hand_tiles"]) < len(player.hand)]
-        if is_winning_hand(player.hand + [discarded], player.melds):
+        if (score_for_state(game_state, player, player.hand + [discarded], self_draw=False) is not None
+                if is_w(game_state) else is_winning_hand(player.hand + [discarded], player.melds)):
             action_type = claim_action_type("win", player.index, discarder)
             options.insert(0, {
                 "id": "ron",
                 "kind": "win",
                 "action_type": action_type,
-                "priority": HONGQUE_ACTION_PRIORITY[action_type],
+                "priority": (PRIORITY if is_w(game_state) else HONGQUE_ACTION_PRIORITY)[action_type],
                 "tiles": [discarded],
                 "hand_tiles": [],
             })

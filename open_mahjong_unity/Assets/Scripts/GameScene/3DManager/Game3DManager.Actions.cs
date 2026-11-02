@@ -14,8 +14,21 @@ public partial class Game3DManager : MonoBehaviour
     }
 
     private float MeldSpacingGap() {
-        return RuleRegistry.Current?.MeldSpacingEnabled == true
+        return RuleRegistry.Current?.MeldSpacingEnabled == true || GameSettings.Current.MeldSpacingEnabled
             ? cardWidth * CombinationGroupGapFactor : 0f;
+    }
+
+    bool meldSpacingDirty;
+    public void RefreshMeldSpacing() {
+        meldSpacingDirty = true;
+    }
+
+    void RefreshPendingMeldSpacing() {
+        if (!meldSpacingDirty || HasPendingRecordTableAnimations) return;
+        meldSpacingDirty = false;
+        if (MahjongObjectPool.Instance == null) return;
+        foreach (string position in new[] { "self", "left", "top", "right" })
+            RebuildPlayerMelds(position);
     }
 
     private void ResetCombinationLastSlotWidths() {
@@ -323,7 +336,7 @@ public partial class Game3DManager : MonoBehaviour
             masks = recordPlayer.combinationMasks;
             combinations = recordPlayer.combinationTiles;
         } else {
-            if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(
+            if (NormalGameStateManager.Instance == null || !NormalGameStateManager.Instance.player_to_info.TryGetValue(
                     playerPosition, out PlayerInfoClass playerInfo)) return;
             masks = playerInfo.combination_masks;
             combinations = playerInfo.combination_tiles;

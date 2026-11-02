@@ -491,7 +491,16 @@ public class Chinese_Tingpai_Check
         CheckWaitingTiles(test_tiles);
         // 排除 10 20 30 40这四种集合成员
         HashSet<int> exclude_set = new HashSet<int> { 10, 20, 30, 40 };
-        waiting_tiles.RemoveWhere(x => exclude_set.Contains(x));
+        var physical = new List<int>(hand_tile_list);
+        foreach (string meld in combination_list)
+        {
+            int tile = int.Parse(meld.Substring(1));
+            char kind = char.ToLowerInvariant(meld[0]);
+            if (kind == 's') physical.AddRange(new[] { tile - 1, tile, tile + 1 });
+            else if (kind == 'k' || kind == 'g')
+                for (int i = 0; i < (kind == 'g' ? 4 : 3); i++) physical.Add(tile);
+        }
+        waiting_tiles.RemoveWhere(x => exclude_set.Contains(x) || physical.Count(tile => tile == x) >= 4);
         return new HashSet<int>(waiting_tiles);  // 返回set的副本，避免引用问题
     }
 }

@@ -65,7 +65,7 @@ public partial class RoundEndPresentation : MonoBehaviour {
 
     private void StartSequence(IEnumerator routine) {
         StopActiveSequence();
-        activeRoundEndCoroutine = StartCoroutine(routine);
+        activeRoundEndCoroutine = StartCoroutine(SettlementSync.PreserveContext(routine));
     }
 
     private void PreparePresentationRoot(bool playPresentationEffects) {

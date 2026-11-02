@@ -103,16 +103,20 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         int roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex;
         int firstRoundRow = output.Count;
 
-        if (SichuanLobby.IsXueliu(subRule)) {
-            // 与实时计分板一致：连续和牌、杠分、退税及查叫均累计到本局唯一一行。
+        if (SichuanLobby.IsXueliu(subRule) || SichuanLobby.IsDoubles(subRule)) {
+            // 血流及血战双打统一按副记账；board_summary 是展示快照，不能另添零分行。
             // 复用逐帧分数解码，避免另一套杠分/换位算法漏算或重复计算。
             var totals = new Round { seats = round.seats };
             string label = null;
+            int huCount = 0;
             foreach (List<string> tick in round.actionTicks) {
                 GameRecordJsonDecoder.AccumulateScoreChangesFromTick(totals, tick);
                 if (tick != null && tick.Count >= 2 && tick[0] == "liuju" && tick[1] == "chajiao")
                     label = SichuanRoundLabel.Chajiao;
+                if (tick != null && tick.Count >= 2 && tick[0] == "liuju" && tick[1] == "settle_hu") huCount++;
             }
+            if (SichuanLobby.IsDoubles(subRule))
+                label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, label != null, subRule);
             output.Add(new RecordScoreRow {
                 snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
                 scoreChangesByOriginal = totals.scoreChanges?.ToArray() ?? new int[4],
@@ -361,14 +365,14 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     int tile = ParseInt(tick, 1);
                     if (rule == WenzhouGameState.RuleId && tile == 46 && round.wenzhou?.caishen != 46) tile = round.wenzhou.white_natural;
                     bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
-                    List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
+                    List<int> removedTiles = isHongque ? HongqueReplayKong.RemoveTiles(actor.tileList,tick) : GameRecordMeldCodec.RemoveNTilesByNormalized(
                         actor.tileList, rule == WenzhouGameState.RuleId && tick.Count > 3 ? ParseInt(tick, 3) : tile, 1, preferDrawSlotFirst: isMoGang);
                     int actualJia = removedTiles.Count > 0 ? removedTiles[0] : tile;
                     lastWinnableTileId = actualJia;
                     if (isHongque) {
-                        if (tick.Count != 4 || !int.TryParse(tick[3], out int targetMeld))
+                        if ((tick.Count != 4 && tick.Count != 5) || !int.TryParse(tick[3], out int targetMeld))
                             throw new System.InvalidOperationException("虹雀牌谱缺少杠牌目标组，请先运行一次性牌谱迁移脚本。");
-                        HongqueDisplayOrder.ExtendRecordedMeld(actor.combinationMasks, actor.combinationTiles, targetMeld, actualJia);
+                        HongqueDisplayOrder.ExtendRecordedMeld(actor.combinationMasks, actor.combinationTiles, targetMeld, HongqueReplayKong.AddedTiles(tick), subRule == "hongque/w-v1.0");
                     } else {
                         BuildJiagangMask(actor, tile, actualJia);
                     }
@@ -497,6 +501,11 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                             if (tick.Count > 6 && ParseInt(tick, 6) != 0) {
                                 lastRow = FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
                             }
+                            break;
+                        }
+                        if (step == "settle_gang") {
+                            sichuanAccumBySeat ??= new int[4];
+                            AccumulateSeatScores(sichuanAccumBySeat, ParseScoreChanges(tick, 2));
                             break;
                         }
                         if (step == "cha_refund") {

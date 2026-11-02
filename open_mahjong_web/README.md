@@ -168,6 +168,27 @@ open_mahjong_web_now/
 ### 数据库迁移
 数据库表会在应用启动时自动创建，如需修改表结构，请更新 `server/config/database.js` 中的初始化代码。
 
+### 后台发布内容与静态资源
+
+活动、鸣谢与社群使用 `server/utils/runtimeData.js` 提供的统一持久化数据根目录。
+`OM_DATA_DIR` 可覆盖该目录；本地默认是 `open_mahjong_web/data/`，非 Windows
+生产环境默认是 `/var/open-mahjong/data/`。活动目录还支持原有的
+`ACTIVITY_CATALOG_DIR`、`ACTIVITY_ASSETS_DIR` 独立覆盖。
+
+| 内容 | 数据根目录下的位置 | 客户端入口 |
+| --- | --- | --- |
+| 活动正文与目录 | `activities/catalog.json` | 原有活动接口 |
+| 活动图片与公开索引 | `activity-assets/` | `/activity-assets/` |
+| 鸣谢与社群的当前发布内容 | `platform-content/content.json` | `/api/platform/content` |
+| 社群二维码 | `platform-content/assets/` | `/api/platform/content/assets/` |
+| 鸣谢与社群的发布历史 | `platform-content/history/` | 供后台维护保留 |
+
+这些是后台可修改的运行数据，不随源码提交到 Git，也不应在更新前端 `dist`
+时删除。部署、换服务器或备份时应单独保存并恢复上述目录，尤其是
+`platform-content/` 下的正文、历史和二维码。默认初始化内容保留在
+`server/content/platform-content.seed.json`；初始化种子不能替代已发布数据的备份。
+部署与一次性数据迁移脚本继续保留，待实际部署完成后再清理。
+
 ## 贡献指南
 
 1. Fork 项目
@@ -188,4 +209,4 @@ open_mahjong_web_now/
 
 ---
 
-© 2024 立直麻雀研习社. 保留所有权利. 
+© 2024 立直麻雀研习社. 保留所有权利.

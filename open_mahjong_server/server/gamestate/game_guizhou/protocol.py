@@ -1,4 +1,5 @@
 """Private view projection and explicit end-of-hand accounting payloads."""
+from ..public.settlement_sync import send_game_packet
 
 from dataclasses import asdict
 import math
@@ -161,13 +162,15 @@ class Protocol:
 
     async def _deliver_view_payload(self, index, payload, *, spectators=True, websocket=None):
         # Project inside the viewer FIFO, after preceding sends/animation gaps.
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, index)
         payload = self._refresh_outgoing_ask(index, payload)
         if payload is None:
             return
         connection = (getattr(self.game_server, "user_id_to_connection", {}) or {}).get(self.player_list[index].user_id)
         socket = websocket if websocket is not None else getattr(connection, "websocket", None)
         if socket is not None:
-            await socket.send_json(payload)
+            await send_game_packet(self, socket, payload)
             self.websocket_sent_payloads.append(payload)
         self._start_delivered_clock(index, payload)
         # Observers never determine a player's clock's start or receipt.
@@ -175,9 +178,13 @@ class Protocol:
             await self.send_to_realtime_spectators(index, payload)
 
     async def _deliver_claim_payload(self, viewer_index, payload):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, viewer_index)
         await self._deliver_view_payload(viewer_index, payload)
 
     async def send_payload_to_player(self, player_index, payload, *, record_fallback=True, websocket=None):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, player_index)
         if player_index not in range(4):
             raise ValueError("非法座位")
         payload.setdefault("player_index", player_index)
@@ -306,12 +313,12 @@ class Protocol:
         if connection is not None and connection.websocket is not None:
             from ..public.outbound_pipe import drain_viewer
             await drain_viewer(self, index)
-            await connection.websocket.send_json(self.build_game_start_payload(index))
+            await send_game_packet(self, connection.websocket, self.build_game_start_payload(index))
             if self.machine.phase in (P.END, P.READY, P.FINISHED):
-                await connection.websocket.send_json(self.build_final_settlement_payload(index))
+                await send_game_packet(self, connection.websocket, self.build_final_settlement_payload(index))
                 if self.machine.phase == P.READY:
-                    await connection.websocket.send_json(self.build_ready_status_payload(index))
+                    await send_game_packet(self, connection.websocket, self.build_ready_status_payload(index))
             else:
                 pending = self.build_pending_action_payload(index)
                 if pending is not None:
-                    await connection.websocket.send_json(pending)
+                    await send_game_packet(self, connection.websocket, pending)

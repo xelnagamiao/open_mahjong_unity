@@ -11,6 +11,7 @@
         <el-option v-if="allowPaired" label="血流双打复式" value="sichuan/xueliu_doubles_duplicate" />
       </el-select>
     </el-form-item>
+    <RoomTimerFields :form="form" />
     <el-form-item label="战术鸣牌">
       <el-switch v-model="form.tactical_call" aria-label="战术鸣牌" />
     </el-form-item>
@@ -27,6 +28,7 @@
 </template>
 <script setup>
 import { watch } from 'vue'
+import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { isSichuanDuplicate } from '@/utils/sichuanDuplicate'
 const props = defineProps({ form: { type: Object, required: true }, allowPaired: Boolean })
 watch(() => props.form.sub_rule, value => {

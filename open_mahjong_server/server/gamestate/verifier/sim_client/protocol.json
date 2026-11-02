@@ -1,5 +1,5 @@
 {
-  "sim_client_version": 4,
+  "sim_client_version": 5,
   "replay_hand_state": {
     "ron_tile": "hasRonWinningTile records whether the replay state has appended the winning tile; never infer this from hand length or tile identity",
     "changsha_multiple_ron": "replace the previously appended winning tile when the same player wins on another kong replacement tile",
@@ -317,6 +317,9 @@
     ]
   },
   "scope_notes": [
+    "0.5.87 retains the common Guobiao hand-action and other-action allowlists. Session identity checks, settlement_sync revisions, settlement_restore replay and ready settlement_id are exercised by the dedicated settlement/session transport tests; this component simulator does not emulate the network dispatcher.",
+    "Beijing and Duocai private state, choices and replay metadata, Hongque W extended kong tiles, and Sichuan duplicate wall masks, deferred settle_gang and kong-reveal presentation require their rule-specific tests; they do not extend the Guobiao lab action allowlists.",
+    "Localized settlement labels, replay queue clearing and animation suppression on reconnect are Unity presentation behavior, outside component simulation coverage.",
     "opening_buhua_complete and has_draw_slot describe Unity presentation boundaries; the component simulator does not verify animation queues, merged draw-slot layout or elapsed presentation time.",
     "Shangrao integration, unlimited-round UI, Android update prompts, spectator progress and settlement layout are outside the Guobiao component simulation; use their dedicated tests and Unity validation.",
     "rule identifies the interactive lab session default; component and record regressions cover the listed additional profiles.",

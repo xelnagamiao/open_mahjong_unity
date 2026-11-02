@@ -48,6 +48,7 @@ public partial class EndResultPanel {
 
     private IEnumerator RevealGuizhouChicken() {
         if (guizhouSettlement == null || guizhouChickenRevealed || guizhouIndicatorCard == null || guizhouChickenCard == null) yield break;
+        if (restoringResult) { SetGuizhouChickenFaces(true); guizhouChickenRevealed = true; yield break; }
         const float halfDuration = .12f;
         for (int side = 0; side < 2; side++) {
             if (side == 1) SetGuizhouChickenFaces(true);

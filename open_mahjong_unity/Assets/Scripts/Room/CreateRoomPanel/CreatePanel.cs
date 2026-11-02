@@ -114,10 +114,9 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown HuahunBonusDropdown;
     [SerializeField] private TMP_Text GuobiaoFlowersLabel;
 
-    private bool SupportsDuplicateWall => (_ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
+    private bool SupportsDuplicateWall => _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
         && !GuobiaoGameState.IsTransparentSubRule(GetSelectedSubRule())
-        && !GuobiaoGameState.UsesAsyncLocalTips(GetSelectedSubRule()))
-        || (_ruleState == "sichuan" && (GetSelectedSubRule() == "sichuan/xueliu" || GetSelectedSubRule() == "sichuan/xueliu_exchange"));
+        && !GuobiaoGameState.UsesAsyncLocalTips(GetSelectedSubRule());
     private string SelectedDuplicateKey => SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn
         ? DuplicateKeyInput?.text.Trim() ?? "" : "";
 
@@ -132,6 +131,7 @@ public partial class CreatePanel : MonoBehaviour {
     private bool _spectatorBeforeDuplicate;
     private string[] _defaultGameRoundLabels;
     private int _roomNameBoundUserId = int.MinValue;
+    private string _lastDefaultRoomName;
     private static readonly List<CreatePanel> LivePanels = new List<CreatePanel>();
     public static bool IsAnyCreationPanelOpen => LivePanels.Exists(panel => panel && panel.isActiveAndEnabled);
 
@@ -163,16 +163,18 @@ public partial class CreatePanel : MonoBehaviour {
         LivePanels.Remove(this);
     }
 
-    private void Start() {
+    private bool initialized;
+
+    private void Start() => EnsureInitialized();
+
+    private void EnsureInitialized() {
+        if (initialized) return;
+        initialized = true;
         BindFixedCreateControls();
-        BindFuzhouMainControls();
+
         EnsureChangshaKamoAndCapControls();
-        BindDetailedConfigControls("taiwan");
-        BindDetailedConfigControls("filipino");
-        BindDetailedConfigControls("shangrao");
-        BindDetailedConfigControls("vietnamese");
-        BindDetailedConfigControls("hongkong");
-        BindDetailedConfigControls("riichi");
+        foreach (var rule in DetailedRules) GetDetailedConfigState(rule);
+        GetDetailedConfigState("hongkong");
         EnsureRuleDropdownOptions();
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
@@ -209,15 +211,20 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshSubRuleDescription();
         InitializeRoomPresentation();
         ApplyDefaultRoomPreset();
+        CacheBasicDraftControls();
+        PrewarmSelectedDetails();
     }
 
     private void OnEnable() {
+        ConfigManager.OnLanguageChanged += ApplyDefaultRoomNameForCurrentUser;
         ApplyDefaultRoomNameForCurrentUser();
         ShowRoomHelp("");
         WindowsManager.Instance?.ApplyStreamerModePanels();
+        if (initialized) PrewarmSelectedDetails();
     }
 
     private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= ApplyDefaultRoomNameForCurrentUser;
         if (ruleSupportPanel) ruleSupportPanel.SetActive(false);
         CancelDetailedConfigChanges();
         WindowsManager.Instance?.ApplyStreamerModePanels();
@@ -236,20 +243,23 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     public void ResetSessionCaches() {
+        contextDrafts.Clear();
         _roomNameBoundUserId = int.MinValue;
+        _lastDefaultRoomName = null;
         if (roomNameInput != null) roomNameInput.text = "";
         if (DuplicateWallToggle != null) DuplicateWallToggle.isOn = false;
         if (DuplicateKeyInput != null) DuplicateKeyInput.text = "";
     }
 
-    /// <summary>账号变了或输入为空时，用「用户名的游戏」填默认房间名；同一账号下保留用户改过的草稿。</summary>
+    /// <summary>自动房间名跟随账号和语言；保留用户自己输入的草稿。</summary>
     private void ApplyDefaultRoomNameForCurrentUser() {
         if (roomNameInput == null) return;
         int userId = UserDataManager.Instance != null ? UserDataManager.Instance.UserId : 0;
         bool userChanged = userId != _roomNameBoundUserId;
         _roomNameBoundUserId = userId;
-        if (userChanged || string.IsNullOrWhiteSpace(roomNameInput.text)) {
-            roomNameInput.text = GetDefaultRoomName();
+        if (userChanged || string.IsNullOrWhiteSpace(roomNameInput.text) || roomNameInput.text == _lastDefaultRoomName) {
+            _lastDefaultRoomName = GetDefaultRoomName();
+            roomNameInput.SetTextWithoutNotify(_lastDefaultRoomName);
         }
     }
 
@@ -266,6 +276,8 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshSubRuleDescription();
         ApplyDefaultRoomPreset();
         ShowRoomHelp("");
+        deferredOpenVersion++;
+        PrewarmSelectedDetails();
     }
 
     /// <summary>虹雀只开放“多家和 / 头跳”两项，日麻额外提供三家和了流局。</summary>
@@ -291,9 +303,11 @@ public partial class CreatePanel : MonoBehaviour {
     private void SetConfigValue(string key, object value) {
         switch (key) {
             case GuangdongMilRules.MinimumScoreKey: if (GuangdongMinimumScoreToggle) GuangdongMinimumScoreToggle.isOn = (bool)value; break;
+            case TuidaoRuleBootstrap.PingjiZimoNoChowKey: if (TuidaoPingjiZimoNoChowToggle) TuidaoPingjiZimoNoChowToggle.isOn = (bool)value; break;
             case YixingRuleBootstrap.SevenPairsKey: if (YixingSevenPairsToggle) YixingSevenPairsToggle.isOn = (bool)value; break;
             case ShanghaiHandCalculator.Qing3Hun2Peng2Key: if (ShanghaiQing3Hun2Peng2Toggle) ShanghaiQing3Hun2Peng2Toggle.isOn = (bool)value; break;
             case ShanghaiHandCalculator.EnableTianQiaoKey: if (ShanghaiTianQiaoToggle) ShanghaiTianQiaoToggle.isOn = (bool)value; break;
+            case ShanghaiHandCalculator.ForbidLajiheDadiaoKey: if (ShanghaiLajiheDadiaoToggle) ShanghaiLajiheDadiaoToggle.isOn = (bool)value; break;
             case LajiheHandCalculator.SelfDrawExtraBaseKey: if (ShanghaiSelfDrawExtraBaseToggle) ShanghaiSelfDrawExtraBaseToggle.isOn = (bool)value; break;
             case CreateRoomKeys.GameRound:      SelectGameTime((int)value); break;
             case CreateRoomKeys.RoundTimer:     roundTimer.value = (int)value; break;
@@ -486,9 +500,9 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshSubRuleDescription();
         if (_ruleState == "riichi" && RiichiStartingScoreInput != null) {
             string selectedSubRule = GetSelectedRiichiSubRule();
-            if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(5);
-            else if (selectedRiichiPresetIndex >= 4) {
-                ApplyRiichiPreset(1);
+            if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(Array.FindIndex(RiichiRoomRules.Presets, p => p.Id == "sanma_majsoul"));
+            else if (RiichiRoomRules.Presets[selectedRiichiPresetIndex].SubRule == "riichi/sanma") {
+                ApplyRiichiPreset(Array.FindIndex(RiichiRoomRules.Presets, p => p.Id == "majsoul"));
                 SubRuleDropdown.SetValueWithoutNotify(index);
             }
             if (WashizuDoubles.IsEnabled(selectedSubRule)) SelectGameTime(2);
@@ -727,17 +741,21 @@ public partial class CreatePanel : MonoBehaviour {
     public bool IsVenueMode => !string.IsNullOrEmpty(_venueEventId);
 
     public void OpenForVenue(string eventId) {
-        _venueEventId = string.IsNullOrEmpty(eventId) ? null : eventId;
-        ApplyDefaultRoomNameForCurrentUser();
+        PrepareContext(CreationContext.Venue, eventId);
     }
 
     public void CloseVenueMode() {
-        _venueEventId = null;
-        if (gameObject.activeSelf) gameObject.SetActive(false);
+        if (!IsVenueMode && context == CreationContext.Room) return;
+        gameObject.SetActive(false);
+        PrepareContext(CreationContext.Room, null);
         WindowFadeTransition.Normalize(gameObject);
     }
 
     private void ClosePanel() {
+        if (IsEventPresetMode) {
+            CloseEventPreset();
+            return;
+        }
         if (IsVenueMode) {
             if (EventDetailPanel.Instance != null) {
                 EventDetailPanel.Instance.CloseVenueCreateFaded();
@@ -760,6 +778,7 @@ public partial class CreatePanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("create_room", false, request.Error);
             return;
         }
+        if (TrySubmitEventPreset(request)) return;
         request.Send(RoomNetworkManager.Instance);
     }
 
@@ -773,8 +792,10 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private static string GetDefaultRoomName() {
-        string name = UserDataManager.Instance.Username;
-        return (string.IsNullOrEmpty(name) ? "未知用户" : name) + "的游戏";
+        string name = UserDataManager.Instance ? UserDataManager.Instance.Username : null;
+        if (string.IsNullOrEmpty(name)) name = PlatformText.Get("未知用户");
+        return ConfigManager.CurrentLanguage == AppLanguage.English ? name + "'s game"
+            : name + (ConfigManager.CurrentLanguage == AppLanguage.TraditionalChinese ? "的遊戲" : "的游戏");
     }
 
     private int GetGuobiaoSubRuleDefaultHepaiLimit(string subRule) {
@@ -841,6 +862,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void ToggleInputHepaiLimit(bool isOn) {
+        RefreshShanghaiControls();
         InputHepaiLimitPlane.SetActive(isOn && _ruleState != "shanghai");
         if (!isOn) {
             if (_ruleState == "guobiao")

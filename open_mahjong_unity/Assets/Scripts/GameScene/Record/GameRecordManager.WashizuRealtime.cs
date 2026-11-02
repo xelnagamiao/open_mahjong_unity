@@ -15,7 +15,9 @@ public partial class GameRecordManager {
         InitializePlayers = InitializeWashizuRecordOrders,
         ApplyBeforeMutation = ApplyWashizuOrderTick,
         AfterVisibleMutation = RefreshWashizuOrderTick,
+        AfterSilentMutation = RefreshWashizuOrderTick,
         StateActions = { "wo" },
+        SilentActions = { "wo" },
     };
 
     private void InitializeWashizuRecordOrders() {

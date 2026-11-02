@@ -225,10 +225,21 @@ public class EndShuheWeiPanel : MonoBehaviour {
             }
             return;
         }
+        if (SettlementSync.Current?.player_to_ready != null) UpdateReadyStatus(SettlementSync.Current.player_to_ready);
         countdownRoutine = StartCoroutine(CountDownAndHide(Mathf.RoundToInt(RoundEndTiming.HuConfirmCountdownSeconds)));
     }
 
     private IEnumerator CountDownAndHide(int seconds) {
+        if (SettlementSync.Current != null) {
+            while (currentState == StateGame) {
+                bool ready = SettlementSync.SelfReady;
+                if (ready) EndButton.interactable = false;
+                EndButtonText.text = ready ? "已准备" : !EndButton.interactable ? "确认中…"
+                    : SettlementSync.RemainingSeconds is int remaining ? $"确定({remaining})" : "确定";
+                yield return null;
+            }
+            yield break;
+        }
         for (int i = seconds; i > 0; i--) {
             if (EndButtonText != null) {
                 EndButtonText.text = $"确定({i})";
@@ -286,6 +297,7 @@ public class EndShuheWeiPanel : MonoBehaviour {
         if (matchEndMode) {
             return;
         }
+        if (SettlementSync.SelfReady && EndButton != null) EndButton.interactable = false;
         foreach (var kvp in playerToReady) {
             if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(kvp.Key)) {
                 continue;

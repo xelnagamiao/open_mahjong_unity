@@ -53,6 +53,7 @@ public class LoginPanel : MonoBehaviour {
     private const string RegisterConfirmPasswordTips = "确认密码应当与上方密码一致";
 
     private Coroutine serverConnectCoroutine;
+    private Coroutine focusPasswordCoroutine;
 
     private void Awake() {
         if (Instance == null) {
@@ -81,12 +82,36 @@ public class LoginPanel : MonoBehaviour {
         // 设置输入框选中事件
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
+        inputUser.lineType = TMP_InputField.LineType.SingleLine;
+        inputPassword.lineType = TMP_InputField.LineType.SingleLine;
+        inputUser.onSubmit.AddListener(SubmitUsername);
+        inputPassword.onSubmit.AddListener(SubmitPassword);
         BindRegisterField(registerEmail, RegisterEmailTips, 255);
         // 校验 NFC 后的 Unicode 字符数，避免输入框按 UTF-16 截断代理对或组合字符。
         BindRegisterField(registerUsername, RegisterUsernameTips, 0);
         BindRegisterField(registerPassword, passwordTips, 32);
         BindRegisterField(registerConfirmPassword, RegisterConfirmPasswordTips, 32);
 
+    }
+
+    private void SubmitUsername(string value) {
+        if (!isActiveAndEnabled || !inputUser.gameObject.activeInHierarchy || inputUser.wasCanceled) return;
+        if (focusPasswordCoroutine != null) StopCoroutine(focusPasswordCoroutine);
+        focusPasswordCoroutine = StartCoroutine(FocusPassword());
+    }
+
+    private IEnumerator FocusPassword() {
+        // TMP finishes processing Return before focus moves, so one key cannot submit both fields.
+        yield return null;
+        focusPasswordCoroutine = null;
+        if (!inputPassword.isActiveAndEnabled || !inputPassword.IsInteractable()) yield break;
+        inputPassword.Select();
+        inputPassword.ActivateInputField();
+    }
+
+    private void SubmitPassword(string value) {
+        if (!isActiveAndEnabled || !inputPassword.gameObject.activeInHierarchy || inputPassword.wasCanceled) return;
+        if (loginButton.isActiveAndEnabled && loginButton.IsInteractable()) loginButton.onClick.Invoke();
     }
 
     private void BindRegisterField(TMP_InputField field, string comment, int characterLimit) {
@@ -120,6 +145,7 @@ public class LoginPanel : MonoBehaviour {
     }
 
     private void LoginClick(){
+        if (!authButtonsEnabled) return;
         // 获取用户名和密码
         string userName = inputUser.text.Trim();
         string password = inputPassword.text;
@@ -301,10 +327,14 @@ public class LoginPanel : MonoBehaviour {
     }
 
     private void OnDisable() {
+        if (focusPasswordCoroutine != null) StopCoroutine(focusPasswordCoroutine);
+        focusPasswordCoroutine = null;
         if (regulationsMessage != null) regulationsMessage.CloseMessage();
     }
 
     private void OnDestroy() {
+        if (inputUser != null) inputUser.onSubmit.RemoveListener(SubmitUsername);
+        if (inputPassword != null) inputPassword.onSubmit.RemoveListener(SubmitPassword);
         if (accountRegulationsToggle != null) accountRegulationsToggle.onValueChanged.RemoveListener(OnAccountRegulationsChanged);
         if (accountRegulationsButton != null) accountRegulationsButton.onClick.RemoveListener(OpenAccountRegulations);
         if (Instance == this) Instance = null;

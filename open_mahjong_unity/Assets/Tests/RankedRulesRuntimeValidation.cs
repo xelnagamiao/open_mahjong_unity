@@ -26,7 +26,9 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
         var args=Environment.GetCommandLineArgs();int i=Array.IndexOf(args,"--verify-ranked-rules");
         if(i>=0&&i+2<args.Length){output=args[i+1];endpoint=args[i+2];}
         #if UNITY_EDITOR
-        if(string.IsNullOrEmpty(output)){output=UnityEditor.SessionState.GetString("RankedRulesValidationOutput","");endpoint=UnityEditor.SessionState.GetString("RankedRulesValidationEndpoint","");}
+        if(string.IsNullOrEmpty(output)&&ConfigManager.Debug){output=UnityEditor.SessionState.GetString("RankedRulesValidationOutput","");endpoint=UnityEditor.SessionState.GetString("RankedRulesValidationEndpoint","");}
+        UnityEditor.SessionState.EraseString("RankedRulesValidationOutput");
+        UnityEditor.SessionState.EraseString("RankedRulesValidationEndpoint");
         #endif
         if(string.IsNullOrEmpty(output))return;
         if(!Uri.TryCreate(endpoint,UriKind.Absolute,out var uri)||!uri.IsLoopback)throw new Exception("Validation requires an explicit loopback fixture server.");
@@ -59,57 +61,40 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
         if(!ratingReceived){Fail(new Exception("Fixture ratings not received"));yield break;}
         Find<UserContainer>().ShowUserSettings(new UserSettings());
         WindowsManager.Instance.SwitchWindow("menu");yield return new WaitForSecondsRealtime(.5f);
-        var user=Find<UserContainer>();var data=Find<DataPanel>();var profile=Find<PlayerInfoPanel>();var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();
+        var user=Find<UserContainer>();var data=Find<Salasasa.DataLab.HomeDataPanel>();var home=Find<Salasasa.Home.CompleteLobbyController>();var board=home.leaderboard.controller;var profile=Find<PlayerInfoPanel>();var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();
         var steps=new List<Action>();
         void Add(Action action)=>steps.Add(action);
-        Button Header(string field)=>Field<HeaderButton>(Find<HeaderPanel>(),field).Button;
+        Button MatchHeader()=>Find<Salasasa.Home.FourSideHeader>().ButtonFor("ranked").button;
         Add(()=>Check(NetworkManager.Instance.GetWebSocket().State==NativeWebSocket.WebSocketState.Open,"Real WebSocket connected to isolated PostgreSQL fixture"));
         for(int i=1;i<=4;i++){int expected=i%4;Add(()=>{Click(Field<Button>(user,"rankSwitchButton"));Check(user.CurrentRule==RankedRules.Ids[expected],"Home rule cycle "+expected);Check(Field<TMP_Text>(user,"rankScoreText").text.Contains("R "),"Home displays independent R");});}
         Add(()=>Capture("home"));
-        Add(()=>Click(Header("playerDataButton")));
+        // The retired combined data/ranking page has been replaced by two production views.
+        Add(()=>home.Open("leaderboard"));
         for(int i=0;i<4;i++){
             int rule=i;
-            Add(()=>{Click(Field<TMP_Dropdown>(data,"ruleDropdown"));Check(Field<TMP_Dropdown>(data,"ruleDropdown").transform.Find("Dropdown List")!=null,"Data dropdown opens "+rule);});
-            if(i==0)Add(()=>Capture("dropdown"));
-            Add(()=>Choose(Field<TMP_Dropdown>(data,"ruleDropdown"),RankedRules.Names[rule]));
+            Add(()=>board.SelectRule(Array.IndexOf(Salasasa.Leaderboards.LeaderboardRules.Ids,RankedRules.Ids[rule])));
             Add(()=>{
-                Check(data.CurrentRule==RankedRules.Ids[rule],"Dropdown selects "+rule);
-                var items=Field<Transform>(data,"leaderboardContainer").GetComponentsInChildren<LeaderboardItem>();
-                Check(items.Length==4,"Real database leaderboard "+rule);
-                Check(Field<Transform>(data,"ladderRecordContainer").GetComponentsInChildren<LadderRecordItemPrefab>().Length==3,"Rule-filtered recent records "+rule);
-                Check(items.All(item=>!Field<TMP_Text>(item,"scoreText").isTextOverflowing),"Leaderboard PT/R text fits its baked column "+rule);
-                var viewport=(RectTransform)Field<Transform>(data,"leaderboardContainer").parent;
-                Check(items.All(item=>FitsHorizontally(Field<TMP_Text>(item,"scoreText").rectTransform,viewport)),"Leaderboard rating column stays inside viewport "+rule);
-                Capture("data-"+RankedRules.Ids[rule]);
+                Check(board.VisibleEntryCount==4,"Real database leaderboard "+rule);
+                Check(board.views[0].rows.Where(r=>r.root.activeSelf).All(r=>!r.score.isTextOverflowing),"Leaderboard rating text fits "+rule);
             });
         }
-        Add(()=>{string before=Field<TMP_Text>(data,"leaderboardTitle").text;data.OnLeaderboardReceived(true,"",new LeaderboardEntry[0],"guobiao","stale");Check(Field<Transform>(data,"leaderboardContainer").GetComponentsInChildren<LeaderboardItem>().Length==4&&Field<TMP_Text>(data,"leaderboardTitle").text==before,"Stale response cannot replace current rule");});
         Add(()=>{
-            string id=Field<string>(data,"requestId");
-            data.OnLeaderboardReceived(true,"",new LeaderboardEntry[0],data.CurrentRule,id);
-            data.OnRankRecordListReceived(true,"",new RecordInfo[0],data.CurrentRule,id);
-            Check(Field<TMP_Text>(data,"leaderboardStatus").text.Contains("暂无")&&Field<TMP_Text>(data,"recordsStatus").text.Contains("暂无"),"Independent empty states shown");
-            Check(Field<Transform>(data,"leaderboardContainer").GetComponentsInChildren<LeaderboardItem>().Length==0,"Old rows removed on empty response");Capture("data-empty");
+            int count=board.VisibleEntryCount;
+            board.ApplyServerResponse(new Salasasa.Leaderboards.LeaderboardServerReply{success=true,rating_rule="guobiao",data_request_id="stale",leaderboard_list=Array.Empty<Salasasa.Leaderboards.LeaderboardEntry>()});
+            Check(board.VisibleEntryCount==count,"Stale leaderboard response ignored");
         });
+        Add(()=>{data.useSnapshot=true;home.Open("statistics");data.Reload();});
         Add(()=>{
-            string id=Field<string>(data,"requestId");int previous=errors.Count;
-            data.OnLeaderboardReceived(false,"QA expected failure",null,data.CurrentRule,id);
-            data.OnRankRecordListReceived(false,"QA expected failure",null,data.CurrentRule,id);
-            Check(Field<TMP_Text>(data,"leaderboardStatus").text.Contains("失败")&&Field<TMP_Text>(data,"recordsStatus").text.Contains("失败"),"Failed requests expose retry state");
-            Check(errors.Count==previous+2&&errors.Skip(previous).All(e=>e.Contains("QA expected failure")),"Only the two deliberate API errors were logged");
-            errors.RemoveRange(previous,2);
-            Debug.developerConsoleVisible=false;
+            Check(data.fullscreen&&data.recordLayouts.Count==1&&data.rows.Count==6,"Production statistics uses six baked records");
+            Check(data.Matches.Count>0,"Statistics fixture renders through current page");
+            Check(data.mainRules&&data.allRules,"Main/sub-rule selectors remain separate");
         });
-        Add(()=>{
-            data.GetType().GetField("requestTime",Flags).SetValue(data,Time.unscaledTime-16);
-            data.GetType().GetField("awaitingLeaderboard",Flags).SetValue(data,true);
-            data.GetType().GetField("awaitingRecords",Flags).SetValue(data,true);
-            data.GetType().GetMethod("Update",Flags).Invoke(data,null);
-            Check(Field<TMP_Text>(data,"leaderboardStatus").text.Contains("超时")&&Field<TMP_Text>(data,"recordsStatus").text.Contains("超时"),"Both timed-out requests expose retry state");
-            Click(Field<Button>(data,"refreshButton"));
-        });
-        Add(()=>Check(Field<Transform>(data,"leaderboardContainer").GetComponentsInChildren<LeaderboardItem>().Length==4&&Field<Transform>(data,"ladderRecordContainer").GetComponentsInChildren<LadderRecordItemPrefab>().Length==3,"Refresh recovers from empty/error/timeout states"));
-        Add(()=>{var item=Field<Transform>(data,"leaderboardContainer").GetComponentsInChildren<LeaderboardItem>()[0];ClickObject(Field<Image>(item,"avatar").gameObject);});
+        int[] rowIds=null;
+        Add(()=>{rowIds=data.rows.Select(r=>r.root.GetInstanceID()).ToArray();home.OpenHome();});
+        Add(()=>home.Open("statistics"));
+        Add(()=>Check(rowIds.SequenceEqual(data.rows.Select(r=>r.root.GetInstanceID())),"Statistics reopen reuses authored rows"));
+        Add(()=>home.Open("leaderboard"));
+        Add(()=>board.views[0].rows.First(r=>r.root.activeSelf).button.onClick.Invoke());
         Add(()=>Check(profile.gameObject.activeInHierarchy,"Leaderboard avatar opens player profile"));
         for(int i=1;i<=4;i++){int index=(3+i)%4;Add(()=>{Click(Field<Button>(profile,"rankSwitchButton"));Check(Field<TMP_Text>(profile,"rankText").text.StartsWith(RankedRules.Names[index]),"Profile rank cycles "+index);});}
         for(int i=0;i<4;i++){int index=i;Add(()=>{Click(Field<Button[]>(profile,"ruleButtons")[index]);Check(profile.CurrentRule==RankedRules.Ids[index],"Profile ranked statistics select "+index);});}
@@ -122,9 +107,9 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
             Check(profile.CurrentRule==RiichiSanmaRankConfig.Rule,"Profile dropdown selects independent three-player riichi statistics");
         });
         Add(()=>Click(Field<Button>(profile,"closeButton")));
-        Add(()=>Click(Header("matchButton")));
-        var eloHelp=Find<RankedEloHelp>();
-        Add(()=>Check(!eloHelp.IsVisible,"Baked Elo tooltip starts hidden"));
+        Add(()=>Click(MatchHeader()));
+        var eloHelp=Field<GameObject>(lobby,"eloHelp").GetComponent<RankedEloHelp>();
+        Add(()=>Check(eloHelp&&Field<RankPolicyPanel>(eloHelp,"policyPanel")==policy&&!policy.gameObject.activeInHierarchy,"Header Elo click adapter is bound and the explanation starts closed"));
         Add(()=>Click(lobby.transform.Find("MatchLayout/MatchTools/RankPolicyButton").GetComponent<Button>()));
         Add(()=>Check(policy.gameObject.activeInHierarchy,"Match page policy button is visible and clickable"));
         Add(()=>Click(Field<Button>(policy,"closeButton")));
@@ -135,24 +120,29 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
             Add(()=>{Check(lobby.ActiveRule==index,"Match family and variant select "+index);
                 if(!RankedRules.IsGrade(RankedRules.Ids[index])){
                     var entries=Field<MatchButton[]>(lobby,"entries").Where(c=>c.RuleId==RankedRules.Ids[index]).ToArray();
-                    string[] lengths=RankedRules.Ids[index]=="hongque"?new[]{"8局战","16局战"}:new[]{RankedRules.Ids[index]=="sichuan"||RankedRules.Ids[index]==RankedRules.XueliuExchangeRule?"半庄战":"全庄战"};
+                    string[] lengths=RankedRules.Ids[index]=="hongque"?new[]{"8局战","16局战"}:RankedRules.Ids[index]=="qingque"?new[]{"全庄战","无固定时限"}:new[]{RankedRules.Ids[index]=="sichuan"||RankedRules.Ids[index]==RankedRules.XueliuExchangeRule?"半庄战":"全庄战"};
                     Check(entries.Length==lengths.Length&&lengths.All(length=>entries.Any(e=>e.ModeTitle.Contains(length))),"Elo rule offers configured match lengths "+index);
                     Check(lengths.All(length=>entries.Any(e=>MatchQueueDisplayText.GetQueueTitle(e.QueueType).Contains(length))),"Elo queues and match-found titles agree "+index);
                     Check(Field<GameObject[]>(lobby,"rulePages")[index].transform.Find("EloSummary")==null,"Obsolete rating-window description removed "+index);
                 }
                 Capture("match-"+RankedRules.Ids[index]);});
             if(!RankedRules.IsGrade(RankedRules.Ids[index])){
-            Add(()=>HoverHelp(eloHelp,true));
+            Add(()=>PointerOver(eloHelp.GetComponent<UnityEngine.UI.Button>(),true));
             Add(()=>{
-                Check(eloHelp.IsVisible,"Hover opens Elo algorithm for rule "+index);
-                var label=Field<GameObject>(eloHelp,"tooltip").GetComponentInChildren<TMP_Text>();label.ForceMeshUpdate();
-                Check(label.text==RankedRules.EloAlgorithm&&label.text.Contains("2400")&&label.text.Contains("保护奖励"),"Tooltip shows current server formula "+index);
-                Check(!label.isTextOverflowing,"Algorithm text fits baked tooltip "+index);
-                var corners=new Vector3[4];((RectTransform)Field<GameObject>(eloHelp,"tooltip").transform).GetWorldCorners(corners);
-                Check(corners.All(c=>{var p=RectTransformUtility.WorldToScreenPoint(null,c);return p.x>=0&&p.x<=Screen.width&&p.y>=0&&p.y<=Screen.height;}),"Tooltip stays inside screen "+index);
-                Capture("elo-hover-"+RankedRules.Ids[index]);
+                Check(!policy.gameObject.activeInHierarchy,"Hover does not open Elo explanation for rule "+index);
+                Click(eloHelp.GetComponent<Button>());
+                Check(policy.gameObject.activeInHierarchy&&Field<GameObject>(policy,"eloContent").activeSelf&&!Field<GameObject>(policy,"policyContent").activeSelf,"Explicit header click opens Elo explanation "+index);
+                var label=Field<GameObject>(policy,"eloContent").GetComponent<TMP_Text>();label.ForceMeshUpdate();
+                string expected=RankedRules.Ids[index]=="qingque"?RankedRules.QingqueEloDescription:RankedRules.EloDescription;
+                Check(label.text==PlatformText.Get(expected),"Click shows current rule explanation "+index);
+                Capture("elo-click-"+RankedRules.Ids[index]);
             });
-            Add(()=>{HoverHelp(eloHelp,false);Check(!eloHelp.IsVisible,"Pointer exit hides Elo tooltip "+index);});
+            Add(()=>{
+                PointerOver(eloHelp.GetComponent<UnityEngine.UI.Button>(),false);
+                Check(policy.gameObject.activeInHierarchy,"Pointer exit keeps the clicked explanation open "+index);
+                Click(Field<UnityEngine.UI.Button>(policy,"closeButton"));
+                Check(!policy.gameObject.activeInHierarchy,"Close button dismisses Elo explanation "+index);
+            });
             }
             foreach(var c in Field<MatchButton[]>(lobby,"entries").Where(c=>c.RuleId==RankedRules.Ids[i])){
                 var card=c;
@@ -227,9 +217,9 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
             Add(()=>Click(Field<Button>(rankResult,"confirmButton")));
         }
         Add(()=>{rankResult.transform.SetParent(rankParent,false);gameResult.transform.SetParent(endParent,false);});
-        Add(()=>{Click(Header("matchButton"));});
-        Add(()=>{HoverHelp(eloHelp,true);Click(Header("playerDataButton"));Check(!eloHelp.IsVisible,"Leaving match page hides tooltip");});
-        Add(()=>{Click(Header("matchButton"));Check(!eloHelp.IsVisible,"Returning to match page keeps tooltip hidden");});
+        Add(()=>{Click(MatchHeader());});
+        Add(()=>{home.Open("statistics");Check(!policy.gameObject.activeInHierarchy,"Leaving the matching page keeps the explanation closed");});
+        Add(()=>{Click(MatchHeader());Check(!policy.gameObject.activeInHierarchy,"Returning to the matching page does not open the explanation");});
         Add(()=>{ValidateFonts();Check(errors.Count==0,"No runtime exceptions or errors during UI and network checks");});
         foreach(var action in steps){
             try{action();}catch(Exception e){Fail(e);yield break;}
@@ -249,7 +239,7 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
     IEnumerator QuitAfterFailure(){yield return new WaitForSecondsRealtime(1);Application.Quit(1);}
     static void Capture(string name){ScreenCapture.CaptureScreenshot(Path.Combine(output,name+".png"));}
     void ValidateFonts(){
-        var roots=new Component[]{Find<DataPanel>(),Find<UserContainer>(),Find<PlayerInfoPanel>(),Find<MatchLobbyView>(),Find<RankPolicyPanel>(),Find<RankChangePanel>(),Find<MatchDescribePanel>(),Find<MatchFoundedPanel>()};
+        var roots=new Component[]{Find<Salasasa.Statistics.StatisticsLobbyBridge>(),Find<UserContainer>(),Find<PlayerInfoPanel>(),Find<MatchLobbyView>(),Find<RankPolicyPanel>(),Find<RankChangePanel>(),Find<MatchDescribePanel>(),Find<MatchFoundedPanel>()};
         var missing=new List<string>();
         foreach(var text in roots.SelectMany(r=>r.GetComponentsInChildren<TMP_Text>(true)).Distinct()){
             string value=new string(text.text.Where(c=>!char.IsControl(c)&&c!='\u200b').ToArray());
@@ -263,14 +253,14 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
         return corners.All(c=>{float x=viewport.InverseTransformPoint(c).x;return x>=viewport.rect.xMin-1&&x<=viewport.rect.xMax+1;});
     }
     static void Click(Selectable button){if(!button.IsInteractable())throw new Exception("Not interactable: "+button.name);ClickObject(button.gameObject);}
-    static void HoverHelp(RankedEloHelp help,bool enter){
-        Canvas.ForceUpdateCanvases();var rect=(RectTransform)help.transform;
+    static void PointerOver(UnityEngine.UI.Button button,bool enter){
+        Canvas.ForceUpdateCanvases();var rect=(RectTransform)button.transform;
         var e=new PointerEventData(EventSystem.current){position=RectTransformUtility.WorldToScreenPoint(null,rect.TransformPoint(rect.rect.center)),pointerId=-1};
         if(enter){
             var hits=new List<RaycastResult>();EventSystem.current.RaycastAll(e,hits);
-            if(hits.Count==0||ExecuteEvents.GetEventHandler<IPointerEnterHandler>(hits[0].gameObject)!=help.gameObject)throw new Exception("Elo help is not reachable by pointer");
-            ExecuteEvents.Execute(help.gameObject,e,ExecuteEvents.pointerEnterHandler);
-        }else ExecuteEvents.Execute(help.gameObject,e,ExecuteEvents.pointerExitHandler);
+            if(hits.Count==0||ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject)!=button.gameObject)throw new Exception("Elo button is not reachable by pointer");
+            ExecuteEvents.Execute(button.gameObject,e,ExecuteEvents.pointerEnterHandler);
+        }else ExecuteEvents.Execute(button.gameObject,e,ExecuteEvents.pointerExitHandler);
     }
     static void ClickObject(GameObject go){
         Canvas.ForceUpdateCanvases();var rect=go.GetComponent<RectTransform>();var point=RectTransformUtility.WorldToScreenPoint(null,rect.TransformPoint(rect.rect.center));

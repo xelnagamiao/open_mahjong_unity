@@ -1,4 +1,5 @@
 """Round setup, settlement and persistence using the common record format."""
+from ..public.settlement_sync import send_game_packet
 import asyncio
 import random
 
@@ -39,7 +40,7 @@ class ChangchunLifecycle:
         await super().player_reconnect(user_id)
         connection=self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and self._terminal_result is not None:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     def spectator_record_tick(self,tick):
         # Delayed omniscient records still must not reveal an active secret

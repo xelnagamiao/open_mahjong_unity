@@ -17,7 +17,7 @@ def analyze_shared_record_for_player(record, original_index):
     win_unit, loss_unit = statistic_units(title)
     sichuan = title.get("rule") == "sichuan"
     exchange_six = title.get("rule") == "changsha" and title.get("sub_rule") == "changsha/exchange_six"
-    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang", "shangrao", "malaysia", "fuzhou")
+    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang", "shangrao", "beijing", "duocai", "malaysia", "fuzhou")
     dealer_cut_turns = exchange_six or title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
     fractional_fan_total = Decimal(0)
     for rd in (record.get("game_round") or {}).values():
@@ -43,6 +43,8 @@ def analyze_shared_record_for_player(record, original_index):
         seat = seats[original_index]
         count = len(seats)
         out["total_rounds"] += 1
+        round_score_before = out["total_round_score"]
+        duocai_changes = None
         called = False
         actor = rd.get("start_player_index", rd.get("dealer_index", 0)) or 0
         opening = True
@@ -88,6 +90,17 @@ def analyze_shared_record_for_player(record, original_index):
             elif code == "c":
                 discards[actor] += 1
                 opening = False
+            elif title.get("rule") == "duocai" and code == "duocai" and len(tick) > 2:
+                if tick[1] == "action" and isinstance(tick[2], dict):
+                    event = tick[2]
+                    if event.get("action") in ("chi_left", "peng", "gang"):
+                        actor = event["player"]
+                        called |= actor == seat
+                        opening = False
+                elif tick[1] == "state" and isinstance(tick[2], dict):
+                    ledger = tick[2].get("ledger") or {}
+                    if ledger.get("changes") is not None:
+                        duocai_changes = _parse_score_changes(ledger["changes"])
 
             hu = _parse_hu_tick(tick)
             changes = hu["score_changes"] if hu else None
@@ -106,7 +119,7 @@ def analyze_shared_record_for_player(record, original_index):
                     # The shuhewei panel preserves each player's exact total fu.
                     fan_score = (classical_fu[winner] if classical_fu is not None
                                  else fan_score // (6 if winner == 0 else 4))
-                if win_unit == "points" and changes is not None:
+                if win_unit == "points" and changes is not None and title.get("rule") != "duocai":
                     fan_score = max(0, changes[winner])
                 if invalid:
                     out["cuohe_count"] += int(winner == seat)
@@ -162,7 +175,7 @@ def analyze_shared_record_for_player(record, original_index):
                 changes = _parse_score_changes(tick[2])
             elif title.get("rule") == "malaysia" and code == "malaysia" and len(tick) > 2 and tick[1] == "payment":
                 changes = _parse_score_changes(tick[2])
-            elif title.get("rule") == "shangrao" and code == "shangrao" and len(tick) > 2 and tick[1] == "payment" and isinstance(tick[2], dict):
+            elif title.get("rule") in ("shangrao", "beijing") and code == title.get("rule") and len(tick) > 2 and tick[1] == "payment" and isinstance(tick[2], dict):
                 changes = _parse_score_changes(tick[2].get("changes"))
             elif "gs" in tick:
                 at = tick.index("gs")
@@ -170,6 +183,8 @@ def analyze_shared_record_for_player(record, original_index):
             if changes is not None and seat < len(changes):
                 out["total_round_score"] += changes[seat]
         out["fulu_round_count"] += int(called)
+        if duocai_changes is not None:
+            out["total_round_score"] = round_score_before + duocai_changes[seat]
     if title.get("rule") == "qingque":
         # Preserve decimal fan values until the per-game INTEGER cast, as PostgreSQL
         # does for the live cumulative writer; truncating every win loses fan points.

@@ -35,3 +35,19 @@ test('paired replay preserves both score totals and the selected winner', () => 
   const detail = { record: { game_title: { sub_rule: 'sichuan/xueliu_doubles_duplicate', team_by_player_index: [0, 1, 0, 1] }, doubles_result: result } }
   assert.deepEqual(sichuanDoublesSummary(detail).result, result)
 })
+
+
+test('paired mode form defaults asynchronous and preserves an explicit choice', () => {
+  assert.equal(createEventRoomCreationForm().duplicate_sync_mode, false)
+  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+    for (const duplicate_sync_mode of [false, true]) {
+      const form = createEventRoomCreationForm({room_rule: 'sichuan', room_config: {sub_rule, duplicate_sync_mode}})
+      assert.equal(form.duplicate_sync_mode, duplicate_sync_mode)
+      assert.equal(buildEventRoomCreation(form).room_config.duplicate_sync_mode, duplicate_sync_mode)
+      form.duplicate_sync_mode = !duplicate_sync_mode
+      assert.equal(buildEventRoomCreation(form).room_config.duplicate_sync_mode, !duplicate_sync_mode)
+    }
+  }
+  const ordinary = {...createEventRoomCreationForm(), room_rule: 'sichuan', sub_rule: 'sichuan/doubles', duplicate_sync_mode: true}
+  assert.equal('duplicate_sync_mode' in buildEventRoomCreation(ordinary).room_config, false)
+})

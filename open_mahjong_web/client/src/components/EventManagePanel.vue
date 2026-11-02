@@ -64,55 +64,15 @@
 
       <el-tabs v-model="activeTab" class="emp-tabs">
         <el-tab-pane v-if="isOwner" :label="isBase ? '基地资料' : '赛事资料'" name="profile">
-          <el-alert
-            :title="isBase ? '修改基地名或简介需提交平台管理员审核，通过后才会在公开页生效。' : '修改赛事名或赛事简介需提交平台管理员审核，通过后才会在公开页生效。'"
-            type="info"
-            :closable="false"
-            show-icon
-            class="emp-alert"
-          />
-          <el-alert
-            v-if="pendingProfile"
-            :title="`待审核：拟改为「${pendingProfile.proposed_name}」`"
-            type="warning"
-            :closable="false"
-            show-icon
-            class="emp-alert"
-          />
-          <el-form label-position="top" class="emp-profile-form" @submit.prevent="submitProfileChange">
-            <el-form-item :label="isBase ? '基地名称' : '赛事名称'">
-              <el-input v-model="profileForm.name" maxlength="128" show-word-limit />
-            </el-form-item>
-            <el-form-item :label="isBase ? '基地简介' : '赛事简介'">
-              <el-input
-                v-model="profileForm.description"
-                type="textarea"
-                :rows="5"
-                maxlength="2000"
-                show-word-limit
-              />
-            </el-form-item>
-            <el-form-item label="修改说明">
-              <el-input v-model="profileForm.reason" placeholder="可选，供审核参考" />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                :loading="savingProfile"
-                :disabled="!!pendingProfile"
-                @click="submitProfileChange"
-              >提交审核</el-button>
-              <el-button
-                v-if="pendingProfile"
-                :loading="cancellingProfile"
-                @click="cancelProfileChange"
-              >撤销申请</el-button>
-            </el-form-item>
-          </el-form>
+          <VenueProfileEditor :key="`${detail.event_id}-${profileRevision}`" :event-id="detail.event_id" :kind="detail.kind" @updated="emit('updated')" />
         </el-tab-pane>
 
         <el-tab-pane :label="isBase ? '基地公告' : '比赛公告'" name="announcements">
-          <el-alert type="info" :closable="false" show-icon class="emp-alert emp-announce-tip">
+          <div class="emp-tab-bar">
+            <el-button v-if="!announceEditorOpen" type="primary" @click="announceEditorOpen = true">发布公告</el-button>
+            <el-button text type="primary" :loading="loadingAnnouncements" :disabled="publishingAnnounce" @click="loadAnnouncements">刷新</el-button>
+          </div>
+          <el-alert v-if="announceEditorOpen" type="info" :closable="false" show-icon class="emp-alert emp-announce-tip">
             <template #title>{{ isBase ? '发布基地公告说明' : '发布比赛公告说明' }}</template>
             <p class="tip-lead">
               {{ isBase
@@ -127,7 +87,7 @@
               <li>对比赛中的违规行为进行公布</li>
             </ol>
           </el-alert>
-          <el-form label-position="top" class="emp-profile-form" @submit.prevent="publishAnnouncement">
+          <el-form v-if="announceEditorOpen" :disabled="publishingAnnounce" label-position="top" class="emp-profile-form" @submit.prevent="publishAnnouncement">
             <el-form-item label="标题">
               <el-input v-model="announceForm.title" maxlength="200" show-word-limit />
             </el-form-item>
@@ -144,9 +104,7 @@
               <el-button type="primary" :loading="publishingAnnounce" @click="publishAnnouncement">
                 发布公告
               </el-button>
-              <el-button text type="primary" :loading="loadingAnnouncements" @click="loadAnnouncements">
-                刷新
-              </el-button>
+              <el-button @click="announceEditorOpen = false">取消</el-button>
             </el-form-item>
           </el-form>
           <el-table
@@ -224,6 +182,9 @@
           </div>
           <EventRoomCards
             allow-restart
+            :allow-bots="detail?.status === 'active'"
+            :busy-room-id="addingBotRoomId"
+            @add-bot="addRoomBot"
             @restart-pair="restartPair"
             :key="eventId"
             :rooms="rooms"
@@ -674,7 +635,8 @@
       :title="roomDialogTitle"
       confirm-text="创建房间"
       :loading="creatingRoom"
-      :show-auto-duplicate="!isBase"
+      show-auto-duplicate
+      allow-paired
       :load-duplicate-quota="loadDuplicateQuota"
       :room-rule-options="roomRuleOptions"
       @confirm="createRoom"
@@ -698,6 +660,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
+import VenueProfileEditor from '@/components/VenueProfileEditor.vue'
 import EventRoomPresetEditor from '@/components/EventRoomPresetEditor.vue'
 import EventRoomCards from '@/components/EventRoomCards.vue'
 import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '@/utils/eventRoomSettings'
@@ -734,6 +697,9 @@ const RULE_LABELS = {
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
   shangrao: '上饶麻将',
+  hongque: '虹雀',
+  beijing: '北京麻将（吃碰提）',
+  duocai: '夺彩麻将',
   shanxi: '山西麻将',
   jiandan: '南雀',
   zhongyong: '中庸麻将',
@@ -773,6 +739,7 @@ function gameTypeLabel(matchType) {
 
 const props = defineProps({
   eventId: { type: String, required: true },
+  profileRevision: { type: Number, default: 0 },
 })
 const emit = defineEmits(['close', 'updated'])
 const eventAuth = useEventAdminAuthStore()
@@ -834,6 +801,9 @@ const roomRuleOptions = [
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
   { value: 'shangrao', label: '上饶麻将' },
+  { value: 'hongque', label: '虹雀' },
+  { value: 'beijing', label: '北京麻将（吃碰提）' },
+  { value: 'duocai', label: '夺彩麻将' },
   { value: 'shanxi', label: '山西麻将' },
 ]
 const roomForm = reactive(createEventRoomCreationForm())
@@ -866,14 +836,11 @@ const statsFilter = reactive({
 const statsDateRange = ref(null)
 const focusPlayer = ref(null)
 
-const profileForm = reactive({ name: '', description: '', reason: '' })
-const pendingProfile = ref(null)
-const savingProfile = ref(false)
-const cancellingProfile = ref(false)
-
 const announcements = ref([])
 const loadingAnnouncements = ref(false)
 const publishingAnnounce = ref(false)
+const announceEditorOpen = ref(true)
+let announcementRequestVersion = 0
 const announceForm = reactive({ title: '', body: '' })
 
 const registrations = ref([])
@@ -1290,85 +1257,49 @@ function refreshStatsTab() {
   }
 }
 
-async function loadProfileChange() {
-  try {
-    const res = await eventAdminApi.get(`/events/${props.eventId}/profile-change`)
-    const data = res.data.data || {}
-    profileForm.name = data.current_name || detail.value?.name || ''
-    profileForm.description = data.current_description || detail.value?.description || ''
-    pendingProfile.value = data.pending || null
-  } catch {
-    profileForm.name = detail.value?.name || ''
-    profileForm.description = detail.value?.description || ''
-    pendingProfile.value = null
-  }
-}
-
 async function loadAnnouncements() {
+  const version = ++announcementRequestVersion
+  const eventId = props.eventId
   loadingAnnouncements.value = true
   try {
-    const res = await eventAdminApi.get(`/events/${props.eventId}/announcements`)
+    const res = await eventAdminApi.get(`/events/${eventId}/announcements`)
+    if (version !== announcementRequestVersion || eventId !== props.eventId) return
+    if (res.data?.success === false) throw new Error(res.data.message || '加载公告失败')
     announcements.value = res.data.data?.items || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载公告失败')
-    announcements.value = []
+    if (version !== announcementRequestVersion || eventId !== props.eventId) return
+    ElMessage.error(e.response?.data?.message || e.message || '加载公告失败')
   } finally {
-    loadingAnnouncements.value = false
-  }
-}
-
-async function submitProfileChange() {
-  if (!profileForm.name.trim()) {
-    ElMessage.warning(`请填写${venueNoun.value}名称`)
-    return
-  }
-  savingProfile.value = true
-  try {
-    const res = await eventAdminApi.post(`/events/${props.eventId}/profile-change`, {
-      name: profileForm.name.trim(),
-      description: profileForm.description,
-      reason: profileForm.reason.trim(),
-    })
-    pendingProfile.value = res.data.data?.pending || null
-    profileForm.reason = ''
-    ElMessage.success(res.data.message || '已提交审核')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '提交失败')
-  } finally {
-    savingProfile.value = false
-  }
-}
-
-async function cancelProfileChange() {
-  cancellingProfile.value = true
-  try {
-    await eventAdminApi.post(`/events/${props.eventId}/profile-change/cancel`)
-    pendingProfile.value = null
-    ElMessage.success('已撤销申请')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '撤销失败')
-  } finally {
-    cancellingProfile.value = false
+    if (version === announcementRequestVersion) loadingAnnouncements.value = false
   }
 }
 
 async function publishAnnouncement() {
+  if (publishingAnnounce.value) return
   if (!announceForm.title.trim() || !announceForm.body.trim()) {
     ElMessage.warning('请填写公告标题与内容')
     return
   }
+  const eventId = props.eventId
+  ++announcementRequestVersion
+  loadingAnnouncements.value = false
   publishingAnnounce.value = true
   try {
-    const res = await eventAdminApi.post(`/events/${props.eventId}/announcements`, {
+    const res = await eventAdminApi.post(`/events/${eventId}/announcements`, {
       title: announceForm.title.trim(),
       body: announceForm.body.trim(),
     })
+    if (res.data?.success !== true) throw new Error(res.data?.message || '发布失败')
+    if (eventId !== props.eventId) return
+    ++announcementRequestVersion
+    loadingAnnouncements.value = false
     announcements.value = res.data.data?.items || []
     announceForm.title = ''
     announceForm.body = ''
-    ElMessage.success(res.data.message || '公告已发布')
+    announceEditorOpen.value = false
+    ElMessage.success('公告发布完成')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '发布失败')
+    if (eventId === props.eventId) ElMessage.error(e.response?.data?.message || e.message || '发布失败')
   } finally {
     publishingAnnounce.value = false
   }
@@ -1700,7 +1631,6 @@ async function load() {
       loadRegistrations(),
       loadReady(),
       loadRoomSettings(),
-      isOwner.value ? loadProfileChange() : Promise.resolve(),
     ])
     applyEntryForm(detail.value?.entry_config)
   } catch (e) {
@@ -1869,9 +1799,27 @@ async function deleteRoom(row) {
   }
 }
 
+const addingBotRoomId = ref('')
+async function addRoomBot({ room, seatIndex, botType }) {
+  if (addingBotRoomId.value) return
+  const eventId = props.eventId
+  addingBotRoomId.value = String(room.room_id)
+  try {
+    const res = await eventAdminApi.post(`/events/${eventId}/rooms/${room.room_id}/bots`, {
+      instance_id: room.instance_id, seat_index: seatIndex, bot_type: botType,
+    })
+    ElMessage.success(res.data.message || '机器人已入座')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '操作未确认，请刷新房间列表核对')
+  } finally {
+    addingBotRoomId.value = ''
+    if (eventId === props.eventId) await loadRooms()
+  }
+}
+
 async function restartPair(row) {
   try {
-    await ElMessageBox.confirm('两室未完成副将同时更换新牌，已完成副的分数保留。原八名选手按原座位入座后续赛。', '重开未完成副', { type: 'warning' })
+    await ElMessageBox.confirm('两室未完成副将同时更换新牌，已完成副的分数保留。原阵容按原座位入座后续赛。', '重开未完成副', { type: 'warning' })
     const res = await eventAdminApi.post(`/events/${props.eventId}/rooms/${row.room_id}/restart-pair`)
     ElMessage.success(res.data.message)
     await loadRooms()

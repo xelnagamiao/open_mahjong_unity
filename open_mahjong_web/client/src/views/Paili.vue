@@ -3,7 +3,6 @@
   <div class="paili">
     <div class="page-header">
       <PailiSwitcher />
-      <p class="subtitle">13 张显示听牌与进张，14 张显示和牌拆解或切牌分析（副露按等价张数计算）。输入为空时将随机生成示例。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -30,45 +29,7 @@
         <el-button type="primary" size="small" plain :loading="loading" @click="analyze">解析</el-button>
       </div>
 
-      <div class="row option-row">
-        <span class="row-label">特殊牌型</span>
-        <div class="special-options">
-          <el-switch
-            v-model="options.mcrSevenPairs"
-            size="small"
-            active-text="国标七对"
-            title="允许出现相同对子"
-            :disabled="loading"
-            @change="onMcrSevenPairsChange"
-          />
-          <el-switch
-            v-model="options.riichiSevenPairs"
-            size="small"
-            active-text="日麻七对"
-            title="不许出现相同对子"
-            :disabled="loading"
-            @change="onRiichiSevenPairsChange"
-          />
-          <el-switch
-            v-model="options.thirteenOrphans"
-            size="small"
-            active-text="十三幺"
-            :disabled="loading"
-          />
-          <el-switch
-            v-model="options.unrelatedTiles"
-            size="small"
-            active-text="全不靠"
-            :disabled="loading"
-          />
-          <el-switch
-            v-model="options.combinationDragon"
-            size="small"
-            active-text="组合龙"
-            :disabled="loading"
-          />
-        </div>
-      </div>
+      <HandShapeOptions :options="options" :rule="rule" :loading="loading" @change="session.setHandOption" />
 
       <div class="row block">
         <div class="row-line">
@@ -115,6 +76,10 @@
         />
       </div>
 
+      <details class="conditions-details">
+        <summary>和牌条件</summary>
+        <HandWinConditions :form="form" :rule="rule" :closed="closed" />
+      </details>
       <div class="result-embed" aria-live="polite" :aria-busy="loading">
         <div v-if="loading" class="empty">
           <el-icon class="is-loading" :size="18"><Loading /></el-icon>
@@ -133,7 +98,7 @@
         <el-button type="primary" size="default" :loading="loading" @click="analyze">
           计算牌理
         </el-button>
-        <el-button size="default" @click="transfer('/calc/chinese')">国标计算器</el-button>
+        <el-button size="default" @click="transfer(calculatorRoute)">{{ ruleLabel }}计算器</el-button>
       </div>
     </section>
     <GuobiaoDecompositions v-if="showDecompositions && result?.decompositions?.length" :decompositions="result.decompositions" />
@@ -142,7 +107,7 @@
 <script setup>
 import PailiSwitcher from '@/components/PailiSwitcher.vue'
 import { computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { Loading } from '@element-plus/icons-vue'
 import TileChip from '@/components/TileChip.vue'
 import TileInputPlaceholder from '@/components/TileInputPlaceholder.vue'
@@ -154,12 +119,18 @@ import PailiResult from '@/components/PailiResult.vue'
 import GuobiaoScoreResult from '@/components/GuobiaoScoreResult.vue'
 import GuobiaoDecompositions from '@/components/GuobiaoDecompositions.vue'
 import { useGuobiaoCalculator } from '@/composables/useGuobiaoCalculator'
+import HandShapeOptions from '@/components/HandShapeOptions.vue'
+import HandWinConditions from '@/components/HandWinConditions.vue'
+import { ruleFromPath } from '@/utils/calculatorRules.ts'
 
 const route = useRoute()
 const router = useRouter()
 const session = useGuobiaoCalculator()
+onBeforeRouteLeave(to => !/^\/(?:calc\/(?:chinese|qingque|riichi)|paili(?:\/(?:qingque|riichi))?)$/.test(to.path) || session.prepareTransfer())
+onBeforeRouteUpdate((to, from) => to.path === from.path || session.prepareTransfer())
 const { draft, textInput, options, result, loading, best, pailiResult, showDecompositions, conditionText,
-  expectedHandCount, expectedTotalCount, resetAll, loadDemo, applyDraw, applyDiscard } = session
+  expectedHandCount, expectedTotalCount, resetAll, loadDemo, applyDraw, applyDiscard,
+  rule, ruleLabel, calculatorRoute, form, closed } = session
 const fulu = session.fulu
 const fuluSlots = fulu.slots
 const activeFuluIdx = fulu.activeIdx
@@ -175,8 +146,9 @@ const inputTargetLabel = computed(() => activeFuluIdx.value >= 0 ? `输入副露
 async function transfer(path) {
   if (session.prepareTransfer()) await router.push(path)
 }
-watch(() => route.query.example, async id => {
-  if (route.path !== '/paili') return
+watch(() => [route.path, route.query.example], async ([path, id]) => {
+  if (!['/paili', '/paili/qingque', '/paili/riichi'].includes(path)) return
+  session.setRule(ruleFromPath(path))
   if (typeof id === 'string') {
     if (await session.loadExample(id)) {
       const query = { ...route.query }; delete query.example
@@ -193,10 +165,10 @@ const handCountTagType = computed(() => [expectedHandCount.value, expectedTotalC
 const onPalettePick = id => session.pickTile(id)
 const onHandChipClick = index => session.removeTile(index)
 const analyze = () => session.calculate({ random: true, decompose: true })
-const onMcrSevenPairsChange = enabled => session.setSevenPairs('mcrSevenPairs', enabled)
-const onRiichiSevenPairsChange = enabled => session.setSevenPairs('riichiSevenPairs', enabled)
 </script>
 <style scoped>
+.conditions-details { border-top: 1px dashed var(--omu-border, #ebeef5); }
+.conditions-details summary { padding: 8px 12px; color: var(--omu-text-soft, #475569); font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .paili {
   max-width: 880px;
   margin: 0 auto;
@@ -216,13 +188,6 @@ const onRiichiSevenPairsChange = enabled => session.setSevenPairs('riichiSevenPa
   font-weight: bold;
   color: white;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.95);
-  opacity: 0.95;
 }
 
 .main-card {

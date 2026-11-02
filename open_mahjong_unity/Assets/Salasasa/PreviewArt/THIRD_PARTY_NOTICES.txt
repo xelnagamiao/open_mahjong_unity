@@ -1,0 +1,56 @@
+首页角色、背景与裁切头像：来源及许可证要求
+核对日期：2026-11-01
+
+本文件记录第三方素材自己的许可，不改变其权利归属，也不把项目代码许可扩展到图片。
+逐文件映射见 artwork-credits.json；原始文件地址、哈希及表情清单分别保存在 character-sources.json、background-sources.json、original-style-art-sources.json、TaiseiCharacters/*-catalog.json 和 BackgroundLibrary/background-catalog.json。
+
+1. Taisei Characters（11 位角色及全部表情）
+作者：afensorm / Taisei Project。图像许可：CC BY 4.0。
+原始素材：https://github.com/taisei-project/taisei-rawmedia/tree/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens
+作者许可声明：https://github.com/taisei-project/taisei/blob/master/COPYING.txt
+许可：https://creativecommons.org/licenses/by/4.0/
+保留作者及来源、许可链接、原有权利声明；说明改动，不暗示作者认可本项目，不添加限制该许可权利的条款或技术措施。
+本项目的处理：从 KRA 按原尺寸导出 PNG 与表情图层，排除受伤变体；Unity 做透明边界适配、等比显示与定位，未重绘人物。
+本地原文：Licenses/CC-BY-4.0.txt、Licenses/Taisei-COPYING.txt；后者包含上游整体说明，角色图像应按其中明确的 CC BY 4.0 条目处理，不能误用代码的 MIT 许可。
+涉及东方Project的角色属于二次创作，原作 ZUN / 上海爱丽丝幻乐团。角色原作相关要求仍见 https://touhou-project.news/guideline/ 。
+
+1.1 Taisei 角色头像裁图
+作者、原始来源与图像许可沿用上面的 afensorm / Taisei Project · CC BY 4.0。
+游戏内范围：Assets/Resources/image/Profiles/2302.png（博丽灵梦）、2303.png（琪露诺）；以该目录 LICENSE.txt 为独立许可说明，AvatarSources.txt 记录取景坐标和修改。
+包体外范围：仓库 other/AvatarPortraits/Taisei/512/ 与 1024/ 中共 22 张 PNG，分别为当前 11 位角色的两档头像；以该目录 LICENSE.txt 为独立许可说明，avatar-catalog.json 记录逐张来源、坐标与哈希。
+修改：从现有原画截取正方形头肩区域，等比例缩小，保留透明通道和原画颜色；未重绘人物。它们仍按 CC BY 4.0 分发，不归入项目代码 MIT 许可或本项目内部专用资源限制。
+默认头像 Assets/Resources/image/Profiles/1.png 不在本项许可范围内，其许可保持原状。分发裁图时一并保留对应目录的许可与署名说明。
+
+2. BackgroundLibrary/minchi-*.jpg 及 tactical-background.jpg
+作者：みんちり / みんちりえ。网站：https://min-chi.material.jp/
+许可为各素材页面列出的作者自定义条款，并非 CC 许可。
+可在个人、法人、商业作品中使用或加工；无需使用报告，署名非强制。本项目仍提供署名。
+禁止作为素材再分发或销售，无论是否加工；不能把这些 JPG 当作可自由再分发的素材库、源码附件或原图下载包。随游戏作品使用与独立素材再分发须区分。
+逐张页面及条款链接：BackgroundLibrary/background-catalog.json、artwork-credits.json。
+建议署名：みんちりえ（ https://min-chi.material.jp/ ）。
+本项目原图未改写，显示时有构图裁切、色彩及遮罩处理。
+
+3. 彩 雅介 / きまぐれアフター
+范围：wafu-background.jpg、metro-background.jpg、campus-background.jpg、roof-day-background.jpg、river-dusk-background.jpg、river-night-background.jpg。
+使用条款：https://gakaisozai.seesaa.net/article/202102article_1.html
+作者条款允许个人、同人、企业及商用，允许加工、局部使用、作为工具背景收录；署名、联系为自选。
+本项目仍保留作者和来源。不要把自定义条款标成 CC 或项目代码许可证。
+
+4. archive-background.jpg
+1900s Office Visual Novel Backgrounds / desk2.jpg — Spiral Atlas。
+来源：https://spiralatlas.itch.io/1900s-office-visual-novel-backgrounds
+许可：CC BY 4.0，要求链接回作者素材页。保留作者、作品名、素材页、许可链接及修改说明。
+本项目源文件未改写，Unity 显示适配及遮罩处理。作者说明为场景渲染与滤镜背景，不能标注为纯手绘。
+
+5. 早期官方立绘（未取得独立素材授权）
+范围：wafu-character.png、metro-character.png、campus-character.png、archive-character.png、marisa-character.png、kasen-character.png、tactical-character.png。
+东方立绘由 THBWiki 收录，来自东方深秘录/凭依华/绯想天；权利归原作方及画师。阿米娅立绘由 PRTS 收录，权利归鹰角网络及相关权利人。
+网站可查看、可下载不等于获得在其他游戏中使用或分发的授权。“本地评审”是这些文件的历史用途记录，不是许可证。
+未找到允许本项目直接使用、再分发或商用的独立素材许可，发布前应取得授权或替换。东方官方二创指南明确区分二次创作与原作游戏素材复用。
+官方指南：https://touhou-project.news/guideline/
+具体原图来源见 artwork-credits.json 和旧来源清单。本次未把这些文件重新许可为 CC。
+
+交付与维护
+主页左下角显示当前角色与背景来源，点击两行来源可打开对应素材页；切换角色、背景与表情时同步。
+分发构建时携带本文件、artwork-credits.json、Licenses/ 与原始来源清单；素材作者或使用状态变化时同步更新。
+本说明是对所链接作者条款的项目内整理，不能替代原文，也不能授予原文未授予的权利。

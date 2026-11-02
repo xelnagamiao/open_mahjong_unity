@@ -16,6 +16,52 @@ public partial class GameCanvas {
     private const string DefaultStickerPack = "turtle";
     private const float StickerSendCooldownSeconds = 5f;
     private static readonly Color StickerButtonLockedColor = new Color(0.35f, 0.35f, 0.35f, 1f);
+    private TMP_Text stickerLabel;
+    private TableLabelLayout stickerLabelLayout;
+    private Vector2 stickerAnchorMin, stickerAnchorMax, stickerPivot, stickerPosition, stickerSize;
+    private bool stickerLayoutCaptured, stickerEnglishLayout;
+
+    private void OnEnable() {
+        ConfigManager.OnLanguageChanged -= RefreshStickerLanguage;
+        ConfigManager.OnLanguageChanged += RefreshStickerLanguage;
+        RefreshStickerLanguage();
+    }
+    private void OnDestroy() => ConfigManager.OnLanguageChanged -= RefreshStickerLanguage;
+
+    private void RefreshStickerLanguage() {
+        if (!openStickerPanelButton) return;
+        var rect = (RectTransform)openStickerPanelButton.transform;
+        if (!stickerLayoutCaptured) {
+            stickerLabel = openStickerPanelButton.GetComponentInChildren<TMP_Text>(true);
+            if (!stickerLabel) return;
+            stickerLabelLayout = new TableLabelLayout(stickerLabel);
+            stickerAnchorMin = rect.anchorMin; stickerAnchorMax = rect.anchorMax;
+            stickerPivot = rect.pivot; stickerPosition = rect.anchoredPosition; stickerSize = rect.sizeDelta;
+            stickerLayoutCaptured = true;
+        }
+        TableText.Set(stickerLabel, "table.sticker.open");
+        var binding = stickerLabel.GetComponent<LocalizedPlatformLabel>();
+        if (binding) binding.fitTranslation = false;
+        bool english = ConfigManager.CurrentLanguage == AppLanguage.English;
+        if (english) {
+            rect.anchorMin = new Vector2(1, stickerAnchorMin.y);
+            rect.anchorMax = new Vector2(1, stickerAnchorMax.y);
+            rect.pivot = new Vector2(1, stickerPivot.y);
+            rect.anchoredPosition = new Vector2(-12, stickerPosition.y);
+            rect.sizeDelta = new Vector2(100, 42);
+            stickerLabel.fontSize = stickerLabel.fontSizeMax = 18;
+            stickerLabel.fontSizeMin = 14; stickerLabel.enableAutoSizing = true;
+            stickerLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            stickerLabel.overflowMode = TextOverflowModes.Ellipsis;
+            stickerLabel.alignment = TextAlignmentOptions.Midline;
+            stickerEnglishLayout = true;
+        } else if (stickerEnglishLayout) {
+            rect.anchorMin = stickerAnchorMin; rect.anchorMax = stickerAnchorMax; rect.pivot = stickerPivot;
+            rect.anchoredPosition = stickerPosition; rect.sizeDelta = stickerSize;
+            stickerLabelLayout.Restore(); stickerEnglishLayout = false;
+        }
+    }
+
     private bool _stickerUiBuilt;
     private bool _hideStickerButtonForRecord;
     private bool _stickerSendLocked;
@@ -28,6 +74,7 @@ public partial class GameCanvas {
         BindStickerUi();
         HideStickerPanel();
         ApplyStickerButtonVisibility();
+        RefreshStickerLanguage();
     }
 
     private void EnsureStickerUiCreated() {
@@ -54,7 +101,7 @@ public partial class GameCanvas {
             textRt.offsetMin = Vector2.zero;
             textRt.offsetMax = Vector2.zero;
             TMP_Text label = textGo.GetComponent<TextMeshProUGUI>();
-            label.text = "表情";
+            TableText.Set(label, "表情");
             label.fontSize = 18;
             label.alignment = TextAlignmentOptions.Center;
             label.color = Color.white;

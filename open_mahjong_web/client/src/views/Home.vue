@@ -237,7 +237,7 @@ async function loadRecentEvents() {
   eventsLoading.value = true
   try {
     const res = await axios.get('/api/player/events')
-    recentEvents.value = (res.data?.data?.items || []).slice(0, 8)
+    recentEvents.value = (res.data?.data?.items || []).slice(0, 4)
   } catch {
     recentEvents.value = []
   } finally {
@@ -283,11 +283,11 @@ const battleLinks = [
   },
   { to: '/mobile-download', title: '手机版下载', description: 'Android APK', color: '#67c23a' },
   {
-    href: 'https://qm.qq.com/q/MGGZV58hOO',
+    to: '/community',
     title: '加入QQ群',
     description: '加入平台交流群，与群友约桌与反馈',
     color: '#12b7f5',
-    footerHref: 'https://discord.gg/RqvxDDgdFH',
+    footerHref: '/community',
   },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]

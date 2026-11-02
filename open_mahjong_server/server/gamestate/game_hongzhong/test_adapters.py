@@ -226,7 +226,11 @@ def test_network_snapshots_reconnect_and_spectator_reveal_only_viewed_seat():
         expected = deepcopy(state._terminal_result)
         assert len(expected["show_result_info"]["revealed_hands"]) == 4
         await state.player_reconnect(102)
-        assert state.game_server.user_id_to_connection[102].websocket.send_json.call_args.args[0] == expected
+        packet = state.game_server.user_id_to_connection[102].websocket.send_json.call_args.args[0]
+        assert packet["settlement_sync"]["gamestate_id"] == state.gamestate_id
+        assert packet["settlement_sync"]["result_id"]
+        assert packet["gamestate_id"] == state.gamestate_id
+        assert {k: v for k, v in packet.items() if k not in ("settlement_sync", "gamestate_id")} == expected
         assert state._terminal_result == expected
     asyncio.run(scenario())
 

@@ -149,12 +149,6 @@ public sealed class RuleManifest {
     /// <summary>计分板主番列不取最大番而由局标签决定（川麻血战：查叫 / 三家和 / 流局）。</summary>
     public bool ScoreboardMainFanFromRoundLabel;
 
-    /// <summary>
-    /// 结算 / 流局面板底部的族附注（国标局终亮杠清单……）。返回 null / 空串表示隐藏。
-    /// 只在对局路径调用；牌谱路径不调。
-    /// </summary>
-    public Func<SettlementTotalQuery, string> SettlementFootnote;
-
     /// <summary>计分板自摸放铳的失分用独立颜色标出；血战类多次结算的族关掉。</summary>
     public bool ScoreboardHighlightsTsumoLoss = true;
 
@@ -316,6 +310,7 @@ public sealed class RuleManifest {
 
 /// <summary>规则提供的公开指示牌与局况；只影响显示，不参与牌义或计分。</summary>
 public sealed class RoundIndicatorDisplay {
+    public bool CaptionAboveTiles;
     public int[] Tiles = Array.Empty<int>();
     public string Caption = "";
     public string Counter = "";

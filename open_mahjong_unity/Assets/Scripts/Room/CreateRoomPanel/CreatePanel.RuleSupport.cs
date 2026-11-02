@@ -14,11 +14,28 @@ public partial class CreatePanel {
 
     private void BindRuleSupportTable() {
         ruleSupportButton.onClick.AddListener(ShowRuleSupportTable);
+    }
+
+    private void BindRuleSupportView(GameObject panel) {
+        ruleSupportPanel = panel;
+        ruleSupportCloseButton = panel.transform.Find("Dialog/Close").GetComponent<UnityEngine.UI.Button>();
+        ruleSupportBackdrop = panel.transform.Find("Backdrop").GetComponent<UnityEngine.UI.Button>();
+        ruleSupportScroll = panel.transform.Find("Dialog/TableScroll").GetComponent<UnityEngine.UI.ScrollRect>();
+        ruleSupportHeader = (RectTransform)panel.transform.Find("Dialog/HeaderViewport/Header");
+        ruleSupportCloseButton.onClick.RemoveAllListeners();
+        ruleSupportBackdrop.onClick.RemoveAllListeners();
         ruleSupportCloseButton.onClick.AddListener(CloseRuleSupportTable);
         ruleSupportBackdrop.onClick.AddListener(CloseRuleSupportTable);
     }
 
     public void ShowRuleSupportTable() {
+        if (!ruleSupportPanel) {
+            int request = ++deferredOpenVersion;
+            RequestDeferredPanel("RuleSupportTable", panel => {
+                if (panel && isActiveAndEnabled && request == deferredOpenVersion) ShowRuleSupportTable();
+            });
+            return;
+        }
         ReflowRuleSupportTable();
         ShowSettingsDialog(ruleSupportPanel);
         ruleSupportScroll.StopMovement();
@@ -28,16 +45,18 @@ public partial class CreatePanel {
     }
 
     public void CloseRuleSupportTable() {
+        deferredOpenVersion++;
         HideSettingsDialog(ruleSupportPanel);
         ruleSupportButton.Select();
     }
 
     private void ReflowRuleSupportTable() {
-        if (!ruleSupportButton || !ruleSupportPanel) return;
+        if (!ruleSupportButton) return;
         var button = (RectTransform)ruleSupportButton.transform;
         button.anchorMin = button.anchorMax = button.pivot = Vector2.one;
         button.anchoredPosition = new Vector2(-462, -16);
         button.sizeDelta = new Vector2(250, 92);
+        if (!ruleSupportPanel) return;
         var dialog = (RectTransform)ruleSupportPanel.transform.Find("Dialog");
         RoomFill(dialog, 28, 24, 28, 24);
         ruleSupportPanel.GetComponent<RuleSupportTableLayout>()?.RefreshLayout();
@@ -181,6 +200,7 @@ public partial class CreatePanel {
         ReflowRoomPresentation();
         ReflowRuleSupportTable();
         layout.RefreshLayout(true);
+        layout.BakeVirtualRows(sourceHash);
         overlay.gameObject.SetActive(false);
         UnityEditor.EditorUtility.SetDirty(this);
     }
@@ -205,21 +225,17 @@ public partial class CreatePanel {
     }
 
     public void ValidateRuleSupportTableUi(string[] headers, string[][] rows, string sourceHash) {
-        if (!ruleSupportButton || !ruleSupportPanel || !ruleSupportCloseButton || !ruleSupportBackdrop || !ruleSupportScroll || !ruleSupportHeader)
-            throw new InvalidOperationException(name + " 麻将规则支持表引用缺失。");
-        if (ruleSupportSourceHash != sourceHash || ruleSupportPanel.activeSelf || ruleSupportScroll.content.childCount != rows.Length)
-            throw new InvalidOperationException(name + " 麻将规则支持表未同步或初始显示状态错误。");
-        if (ruleSupportScroll.horizontal || ruleSupportScroll.horizontalScrollbar || !ruleSupportPanel.GetComponent<RuleSupportTableLayout>())
-            throw new InvalidOperationException(name + " 支持表必须自动适配宽度，仅允许纵向滚动。");
-        if (ruleSupportHeader.childCount != headers.Length || ruleSupportScroll.content.Cast<Transform>().Any(row => row.childCount != headers.Length))
-            throw new InvalidOperationException(name + " 支持表列数不一致或存在已删除的列。");
+        var panel = DeferredPrefab("RuleSupportTable");
+        if (!ruleSupportButton || !panel || panel.activeSelf)
+            throw new InvalidOperationException(name + " 麻将规则支持表预制体缺失或初始状态错误。");
+        var layout = panel.GetComponent<RuleSupportTableLayout>();
+        if (!layout || !layout.Matches(rows, sourceHash))
+            throw new InvalidOperationException(name + " 麻将规则支持表未同步。");
+        var header = panel.transform.Find("Dialog/HeaderViewport/Header");
+        if (header.childCount != headers.Length) throw new InvalidOperationException("支持表列数不一致。");
         for (int col = 0; col < headers.Length; col++)
-            if (ruleSupportHeader.GetChild(col).GetComponentInChildren<TMP_Text>().text.Replace("\n", "") != headers[col])
-                throw new InvalidOperationException(name + " 支持表表头不一致。");
-        for (int row = 0; row < rows.Length; row++)
-            for (int col = 0; col < headers.Length; col++)
-                if (ruleSupportScroll.content.GetChild(row).GetChild(col).GetComponentInChildren<TMP_Text>().text != rows[row][col])
-                    throw new InvalidOperationException(name + " 支持表内容不一致：" + row + "/" + col);
+            if (header.GetChild(col).GetComponentInChildren<TMP_Text>(true).text.Replace("\n", "") != headers[col])
+                throw new InvalidOperationException("支持表表头不一致。");
     }
 #endif
 }

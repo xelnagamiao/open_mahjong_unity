@@ -53,11 +53,12 @@ namespace Qingque13.Criteria
                 }
             }
 
-            // Check for one pair + one double pair (4 tiles) pattern
-            for (byte i = 1; i <= 8; i++)
+            // The double pair may be either the lower or the higher number.
+            for (byte i = 1; i <= 9; i++)
             {
-                for (byte j = (byte)(i + 1); j <= 9; j++)
+                for (byte j = 1; j <= 9; j++)
                 {
+                    if (i == j) continue;
                     // M and P: i has pair in both, j has 4 tiles in both
                     if (counter.Count(new QingqueTile(QingqueTile.SuitType.M, i)) >= 2 &&
                         counter.Count(new QingqueTile(QingqueTile.SuitType.P, i)) >= 2)

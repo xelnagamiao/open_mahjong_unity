@@ -17,6 +17,8 @@ DEFAULT_BOT_DELAY = BOT_SPEEDS[DEFAULT_BOT_SPEED]
 
 def normalize_bot_speed(speed) -> str:
     # Older room snapshots used "standard" for the original 0.5-second pace.
+    if speed == "standard":
+        return "fast"
     return speed if isinstance(speed, str) and speed in BOT_SPEEDS else DEFAULT_BOT_SPEED
 
 

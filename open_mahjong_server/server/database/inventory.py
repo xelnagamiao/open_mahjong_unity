@@ -11,7 +11,7 @@ import re
 import uuid
 
 from psycopg2.extras import Json, RealDictCursor
-from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_FRAME_ID, LEGACY_FRAME_DESCRIPTIONS, LEGACY_FRAME_NAMES
+from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_ID, LEGACY_FRAME_DESCRIPTIONS, LEGACY_FRAME_NAMES
 
 CATALOG_LOCK = 220922041
 
@@ -59,6 +59,10 @@ def ensure_inventory_tables(cursor):
             cursor.execute('''UPDATE item_definitions SET name=%s
                 WHERE item_id=%s AND code=%s AND asset_key=%s AND name=%s''',
                 (name, iid, code, key, LEGACY_FRAME_NAMES[key]))
+        if key == 'item.rename_credit':
+            cursor.execute('''UPDATE item_definitions SET description=%s
+                WHERE item_id=%s AND code=%s AND asset_key=%s AND description=%s''',
+                (description, iid, code, key, '使用后增加 1 次账号改名机会，可在网页账号中心改名。'))
 
 
 def _public(row):
@@ -74,7 +78,7 @@ def _catalog(cursor):
 
 
 def _state(cursor, user_id):
-    cursor.execute('SELECT user_id,rename_count,is_tourist FROM users WHERE user_id=%s', (user_id,))
+    cursor.execute('SELECT user_id,is_tourist FROM users WHERE user_id=%s', (user_id,))
     user = cursor.fetchone()
     if not user:
         raise InventoryError('用户不存在', 404)
@@ -89,14 +93,19 @@ def _state(cursor, user_id):
         LEFT JOIN user_inventory i ON i.user_id=e.user_id AND i.item_id=e.item_id
         WHERE e.user_id=%s AND d.use_enabled AND (d.is_default OR i.quantity>0)''', (user_id,))
     equipment = [dict(row) for row in cursor.fetchall()]
-    if not any(item['slot'] == 'avatar_frame' for item in equipment) and any(
-            item['item_id'] == DEFAULT_AVATAR_FRAME_ID and item['is_default'] and item['use_enabled'] for item in catalog):
-        equipment.append({'slot': 'avatar_frame', 'item_id': DEFAULT_AVATAR_FRAME_ID})
     cursor.execute('SELECT character_id,voice_id,profile_image_id FROM user_settings WHERE user_id=%s',(user_id,))
     settings = cursor.fetchone() or {'character_id':1,'voice_id':1,'profile_image_id':1}
+    if settings['profile_image_id'] == 1 and not any(item['slot'] == 'avatar' for item in equipment) and any(
+            item['item_id'] == DEFAULT_AVATAR_ID and item['is_default'] and item['use_enabled'] for item in catalog):
+        equipment.append({'slot': 'avatar', 'item_id': DEFAULT_AVATAR_ID})
     appearance = dict(settings,user_id=user_id,avatar_frame_id=next((e['item_id'] for e in equipment if e['slot']=='avatar_frame'),0))
+    rename_items = {item['item_id']: item for item in catalog if item.get('effect') == 'rename_credit'}
+    cards = sum(row['quantity'] for row in owned if row['item_id'] in rename_items)
+    usable_cards = sum(row['quantity'] for row in owned
+                       if row['item_id'] in rename_items and rename_items[row['item_id']]['use_enabled'])
     return {'user_id':user_id, 'catalog':catalog, 'owned':owned, 'equipment':equipment,
-            'appearance':appearance,'rename_count':user['rename_count'], 'is_tourist':bool(user['is_tourist'])}
+            'appearance':appearance, 'rename_card_count':cards, 'rename_card_usable_count':usable_cards,
+            'is_tourist':bool(user['is_tourist'])}
 
 
 def _read(db, work):
@@ -150,28 +159,29 @@ def _change(cursor, operation_id, user_id, item, delta, clamp_permanent=False):
     return {'item_id':item['item_id'],'delta':after-before,'quantity_after':after}
 
 
-def _write_settings(cursor, user_id):
-    """Only project slots this system owns. Legacy avatar remains until explicitly replaced."""
+def _write_settings(cursor, user_id, slot):
+    """Update only the changed slot; avatar/frame changes cannot reset a character."""
+    if slot not in ('character', 'avatar'):
+        return
     cursor.execute('INSERT INTO user_settings (user_id) VALUES (%s) ON CONFLICT DO NOTHING', (user_id,))
-    cursor.execute('''SELECT e.slot,d.* FROM user_equipment e JOIN item_definitions d USING(item_id)
-        WHERE e.user_id=%s''', (user_id,))
-    equipment = {row['slot']:row for row in cursor.fetchall()}
-    character = equipment.get('character')
-    asset = ASSETS[character['asset_key']] if character else {'character_id':1,'voice_id':1}
-    cursor.execute('UPDATE user_settings SET character_id=%s,voice_id=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s',
-                   (asset['character_id'],asset['voice_id'],user_id))
-    if 'avatar' in equipment:
-        cursor.execute('UPDATE user_settings SET profile_image_id=%s WHERE user_id=%s',
-                       (equipment['avatar']['item_id'],user_id))
+    cursor.execute('''SELECT d.* FROM user_equipment e JOIN item_definitions d USING(item_id)
+        WHERE e.user_id=%s AND e.slot=%s''', (user_id, slot))
+    item = cursor.fetchone()
+    if slot == 'character':
+        asset = ASSETS[item['asset_key']] if item else {'character_id': 1, 'voice_id': 1}
+        cursor.execute('UPDATE user_settings SET character_id=%s,voice_id=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s',
+                       (asset['character_id'], asset['voice_id'], user_id))
+    else:
+        avatar = item['item_id'] if item and item['item_id'] != DEFAULT_AVATAR_ID else 1
+        cursor.execute('UPDATE user_settings SET profile_image_id=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s',
+                       (avatar, user_id))
 
 
 def _remove_equipment(cursor, user_id, item_id):
     cursor.execute('DELETE FROM user_equipment WHERE user_id=%s AND item_id=%s RETURNING slot', (user_id,item_id))
     slots = [row['slot'] for row in cursor.fetchall()]
-    if 'avatar' in slots:
-        cursor.execute('UPDATE user_settings SET profile_image_id=1,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s', (user_id,))
-    if slots:
-        _write_settings(cursor,user_id)
+    for slot in slots:
+        _write_settings(cursor,user_id,slot)
 
 
 def mutate_inventory(db, user_id, action, body, actor_id=None):
@@ -215,8 +225,7 @@ def mutate_inventory(db, user_id, action, body, actor_id=None):
                             ON CONFLICT (user_id,slot) DO UPDATE SET item_id=EXCLUDED.item_id,updated_at=CURRENT_TIMESTAMP''',(user_id,slot,iid))
                     else:
                         cursor.execute('DELETE FROM user_equipment WHERE user_id=%s AND slot=%s',(user_id,slot))
-                        if slot == 'avatar': cursor.execute('UPDATE user_settings SET profile_image_id=1 WHERE user_id=%s',(user_id,))
-                    _write_settings(cursor,user_id)
+                    _write_settings(cursor,user_id,slot)
                     message = '装备已保存'
                 else:
                     item = _definition(cursor,body.get('item_id'))
@@ -234,20 +243,20 @@ def mutate_inventory(db, user_id, action, body, actor_id=None):
                     else:
                         if item['category'] != 'item' or not item['use_enabled']: raise InventoryError('此物品不能使用',409)
                         effect = ASSETS[item['asset_key']]['effect']
-                        if effect == 'rename_credit' and user['is_tourist']: raise InventoryError('游客账号不能兑换改名次数')
-                        changes.append(_change(cursor,op,user_id,item,-quantity))
+                        if effect == 'collectible':
+                            raise InventoryError('此物品为收藏礼物，没有实际用途，无需使用',409)
                         if effect == 'rename_credit':
-                            cursor.execute('''UPDATE users SET rename_count=rename_count+%s
-                                WHERE user_id=%s AND rename_count<=2147483647-%s RETURNING rename_count''',(quantity,user_id,quantity))
-                            if not cursor.fetchone(): raise InventoryError('改名次数已达上限',409)
-                            message = f'已增加 {quantity} 次改名机会，可在网页账号中心使用'
-                        else:
-                            for reward in item['config'].get('rewards',[]):
-                                target = _definition(cursor,reward['item_id'])
-                                if not target['grant_enabled']: raise InventoryError('礼包奖励暂不可发放，请稍后重试',409)
-                                changes.append(_change(cursor,op,user_id,target,reward['quantity']*quantity,True))
-                            message = f'已打开 {quantity} 份礼包，奖励已放入背包；重复装扮不累计'
+                            raise InventoryError('请前往网页账号中心改名，成功时自动消耗 1 张改名卡；无需提前使用',409)
+                        changes.append(_change(cursor,op,user_id,item,-quantity))
+                        for reward in item['config'].get('rewards',[]):
+                            target = _definition(cursor,reward['item_id'])
+                            if not target['grant_enabled']: raise InventoryError('礼包奖励暂不可发放，请稍后重试',409)
+                            changes.append(_change(cursor,op,user_id,target,reward['quantity']*quantity,True))
+                        message = f'已打开 {quantity} 份礼包，奖励已放入背包；重复装扮不累计'
                 result = {'operation_id':op,'message':message,'changes':changes}
+                if action in ('grant','use') and any(c['delta'] > 0 for c in changes):
+                    from .reward_receipts import make_reward_receipt
+                    result['reward_receipt'] = make_reward_receipt(cursor,op,user_id,action,op,changes)
                 cursor.execute('UPDATE inventory_operations SET result=%s WHERE operation_id=%s',(Json(result),op))
                 if actor_id is not None:
                     cursor.execute('''INSERT INTO admin_audit_log (admin_user_id,action,target_type,target_id,payload,reason)

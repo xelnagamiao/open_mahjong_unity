@@ -32,7 +32,8 @@ async def _init_hongque_tiles(game_state) -> None:
         apply_debug_player_seating(game_state)
         game_state.dealer_index = get_debug_dealer_index(game_state)
 
-    game_state.wall = full_deck()
+    from .w_rules import is_w, full_deck as w_deck
+    game_state.wall = w_deck(game_state.hongque_colourless) if is_w(game_state) else full_deck()
     game_state._rng.shuffle(game_state.wall)
     game_state.backward_tiles_list_type = "double"
     for player in game_state.players:

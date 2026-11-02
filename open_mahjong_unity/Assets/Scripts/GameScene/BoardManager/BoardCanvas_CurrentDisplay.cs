@@ -86,7 +86,7 @@ public partial class BoardCanvas {
 
     public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){
         ClearExchangePlayers();
-        remiansTilesText.text = $"余:{remainTiles}";
+        TableText.Set(remiansTilesText, $"余:{remainTiles}");
         if (currentPlayerIndex == shownCurrentPlayer) return;
         shownCurrentPlayer = currentPlayerIndex;
 

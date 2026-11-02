@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
@@ -142,7 +143,13 @@ class QingqueGameState:
         self.round_time = room_data["round_timer"] # 局时
         # room_rule 表示具体规则（qingque等），room_type 表示房间类型（custom/match等） sub_rule 表示子规则（qingque/standard等）
         self.room_rule = room_data["room_rule"]
-        self.unlimited_rounds = room_data.get("unlimited_rounds", False) is True and room_data["room_type"] == "custom"
+        self.match_queue_type = room_data.get('match_queue_type')
+        from ...match.rating_rules import ELO_ALGORITHM_VERSION
+        self.match_rating_algorithm = room_data.get('rating_algorithm', ELO_ALGORITHM_VERSION)
+        from ...match.qingque_score_elo import ALGORITHM as POINT_ALGORITHM
+        self.finish_round_when_offline = room_data.get('room_type') == 'match' and self.match_rating_algorithm == POINT_ALGORITHM
+        self.unlimited_rounds = room_data.get("unlimited_rounds", False) is True and (
+            room_data["room_type"] == "custom" or self.match_queue_type == 'qingque_elo_unlimited')
         from .unlimited_session import UnlimitedSession
         self.unlimited_session = UnlimitedSession(self)
         self.room_type = room_data["room_type"]
@@ -234,7 +241,12 @@ class QingqueGameState:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
         from ..public.lifecycle import close_if_all_humans_offline
-        await close_if_all_humans_offline(self)
+        from ...match.qingque_session import uses_point_rating
+        from ..public.lifecycle import all_humans_offline
+        if uses_point_rating(self) and all_humans_offline(self):
+            self.unlimited_session.stop_after_disconnect()
+        else:
+            await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
@@ -320,7 +332,7 @@ class QingqueGameState:
                         game_info=game_info
                     )
                     
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break
@@ -333,7 +345,7 @@ class QingqueGameState:
         await self.spectator_manager.cleanup()
         
         # 取消游戏循环任务
-        if self.game_task and not self.game_task.done():
+        if self.game_task and not self.game_task.done() and self.game_task is not asyncio.current_task():
             self.game_task.cancel()
             try:
                 await self.game_task
@@ -341,6 +353,10 @@ class QingqueGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
+        from ...match.qingque_session import uses_point_rating, completed_hands, finish_aborted_state, retry_rating_io
+        if (uses_point_rating(self) and not getattr(self, 'point_rating_completed', False)
+                and completed_hands(self.game_record)):
+            await retry_rating_io(finish_aborted_state, self)
 
     async def run_game_loop(self):
         """
@@ -362,7 +378,8 @@ class QingqueGameState:
             )
             try:
                 # 出错时尝试执行清理逻辑
-                await self.cleanup_game_state()
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(
+                    gamestate_id=self.gamestate_id, reason='runtime_error')
             except Exception as cleanup_err:
                 logger.error(
                     f"清理游戏状态时出错，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {cleanup_err}",
@@ -421,8 +438,10 @@ class QingqueGameState:
             self.game_status = "waiting_hand_action"  # 初始行动
             self.dihe_possible = True # 地和标志：庄家首次切牌且未暗杠时，被他家荣和即为地和
 
+            # 所有座位先用13张配牌计算听牌，闲家在首次摸牌前也能铳和/抢杠。
+            for player in self.player_list:
+                self.refresh_waiting_tiles(player.player_index)
             # 庄家（player 0）摸第14张牌
-            self.refresh_waiting_tiles(self.current_player_index) # 摸牌前用13张手牌计算听牌
             self.player_list[0].get_tile(self.tiles_list) # 从牌山摸牌
             # 牌谱记录摸牌
             player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
@@ -464,6 +483,10 @@ class QingqueGameState:
                     # 杠后摸牌操作：当前玩家进行摸牌
                     case "deal_card_after_gang": # 杠后发牌历时行为
                         self.dihe_possible = False # 庄家暗杠/加杠/明杠后，地和不再可能
+                        # 声明杠及抢杠询问已处理；只有实际需要补牌时才流局。
+                        if not self.tiles_list:
+                            self.game_status = "END"
+                            break
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 倒序摸牌
                         # 牌谱记录摸牌
@@ -504,6 +527,8 @@ class QingqueGameState:
 
             # Freeze the finish decision before publishing any settlement message.
             end_after_round = self.unlimited_session.should_end_after_round()
+            if end_after_round:
+                self.unlimited_session.freeze()
             # 卡牌摸完 或者有人和牌
             hu_score = None
             hu_fan = None
@@ -666,6 +691,8 @@ class QingqueGameState:
             else:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)
+            from ...match.qingque_session import checkpoint_state, retry_rating_io
+            await retry_rating_io(checkpoint_state, self)
             
             # 根据和牌类型处理等待逻辑（整场最后一局跳过 waiting_ready，由客户端 match_end 收尾）
             self.next_status = (
@@ -675,17 +702,25 @@ class QingqueGameState:
             )
             if self.next_status != "match_end":
                 if self.hu_class == "liuju":
-                    await asyncio.sleep(liuju_ready_wait_seconds())
+                    await self.unlimited_session.wait_for_continuation(asyncio.sleep(liuju_ready_wait_seconds()))
                 else:
                     fan_count = len(hu_fan) if hu_fan else 0
                     wait_time = hu_result_ready_wait_seconds(fan_count)
-                    await run_result_ready_phase(self, wait_time, broadcast_ready_status)
+                    await self.unlimited_session.wait_for_continuation(run_result_ready_phase(self, wait_time, broadcast_ready_status))
+
+            # No await between this gate and advancing the next hand. An accepted
+            # stop during result/ready publication must still prevent dealing.
+            end_after_round = self.unlimited_session.should_end_after_round()
 
             if not end_after_round:
                 # 开启下一局的准备工作
                 next_game_round_qingque_switchseat(self)
                 logger.info(f"重新开始下一局")
             else:
+                self.unlimited_session.freeze()
+                self.next_status = 'match_end'
+                if self.unlimited_session.enabled:
+                    await self.unlimited_session.broadcast()
                 logger.info("最后一局结束，不再推进局数")
                 break
             # ↑ 重新开始下一局循环
@@ -700,17 +735,17 @@ class QingqueGameState:
 
         # 存储游戏牌谱（先于 game_end，以便附带完整牌谱）
         from ...match.settlement import settle_ranked_game
-        match_type = settle_ranked_game(self)
-        game_id = None
-        try:
-            game_id = self.db_manager.store_qingque_game_record(
-                self.game_record,
-                self.player_list,
-                self.room_type,
-                match_type
-            )
-        except Exception as e:
-            logger.error(f"存储青雀牌谱失败: {e}", exc_info=True)
+        from ...match.qingque_session import uses_point_rating, finish_state
+        if uses_point_rating(self):
+            match_type, game_id = await retry_rating_io(finish_state, self)
+        else:
+            match_type = settle_ranked_game(self)
+            game_id = None
+            try:
+                game_id = self.db_manager.store_qingque_game_record(
+                    self.game_record, self.player_list, self.room_type, match_type)
+            except Exception as e:
+                logger.error(f"存储青雀牌谱失败: {e}", exc_info=True)
         remember_local_record_detail(self, game_id, match_type)
 
         # 发送游戏结算信息

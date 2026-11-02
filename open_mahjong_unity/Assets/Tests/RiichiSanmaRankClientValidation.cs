@@ -66,9 +66,9 @@ public sealed class RiichiSanmaRankClientValidation : MonoBehaviour {
         Find<UserContainer>().ShowUserSettings(new UserSettings());
         WindowsManager.Instance.SwitchWindow("menu");
         until=Time.realtimeSinceStartup+10;
-        while(!Find<HeaderPanel>().gameObject.activeInHierarchy&&Time.realtimeSinceStartup<until)yield return null;
+        while(!Find<Salasasa.Home.FourSideHeader>().gameObject.activeInHierarchy&&Time.realtimeSinceStartup<until)yield return null;
         yield return new WaitForSecondsRealtime(.5f);
-        Field<HeaderButton>(Find<HeaderPanel>(),"matchButton").Button.onClick.Invoke();
+        Find<Salasasa.Home.FourSideHeader>().ButtonFor("ranked").button.onClick.Invoke();
         until=Time.realtimeSinceStartup+10;
         while(!Find<MatchLobbyView>().gameObject.activeInHierarchy&&Time.realtimeSinceStartup<until)yield return null;
         yield return new WaitForSecondsRealtime(.5f);

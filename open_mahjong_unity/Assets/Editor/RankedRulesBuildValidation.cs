@@ -33,7 +33,7 @@ public static class RankedRulesBuildValidation {
     }
 
     public static string ValidateFonts(){
-        var types=new[]{typeof(DataPanel),typeof(UserContainer),typeof(PlayerInfoPanel),typeof(MatchLobbyView),typeof(RankPolicyPanel),typeof(RankChangePanel),typeof(MatchDescribePanel),typeof(MatchFoundedPanel)};
+        var types=new[]{typeof(Salasasa.Statistics.StatisticsLobbyBridge),typeof(UserContainer),typeof(PlayerInfoPanel),typeof(MatchLobbyView),typeof(RankPolicyPanel),typeof(RankChangePanel),typeof(MatchDescribePanel),typeof(MatchFoundedPanel)};
         var roots=types.Select(t=>Resources.FindObjectsOfTypeAll(t).OfType<Component>().First(x=>x.gameObject.scene.IsValid()));
         var lines=new System.Collections.Generic.List<string>();
         foreach(var text in roots.SelectMany(r=>r.GetComponentsInChildren<TMP_Text>(true)).Distinct()){

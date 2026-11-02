@@ -32,7 +32,7 @@ internal static class NanchangRuleBootstrap {
                 ? new[]{info.indicator,info.secondary} : Array.Empty<int>(),
             FanNameText=(rule,label)=>NanchangText.FanName(label),FanValueText=(rule,label)=>NanchangText.FanValue(label),
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"和牌 {q.HuScore}分",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}分":""},
-            SettlementFootnote=q=>"本副净分包含和牌、精分及杠分",ScoreboardFanText=q=>$"{q.HuScore}分",
+            ScoreboardFanText=q=>$"{q.HuScore}分",
             ActionVoice=word=>word=="hu_self"?"hu":null,RoundName=round=>$"第{round}副",MaxRoundText=round=>$"{round*4}副",
             RoundIndicators=info=>NanchangTableIndicators.FieldState(info?.nanchang_info??NanchangTableIndicators.DisplayedInfo),
             DefaultHepaiLimit=1,HasFlowerReplacement=false,RonWinTileTravelsFromRiver=true,

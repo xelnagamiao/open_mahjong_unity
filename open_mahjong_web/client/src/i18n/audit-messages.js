@@ -1,5 +1,6 @@
 // Exact text-node fragments used by the existing layouts (including text split by links).
 export const auditEnglish = {
+  '社群': 'Community',
   '账户菜单': 'Account menu',
   '忘记密码': 'Forgot password',
   '邮箱验证码': 'Email verification code',
@@ -75,6 +76,7 @@ export const auditShared = {
     '（完整支持繁体中文、英语、日语）': '(Full support for Traditional Chinese, English and Japanese)',
   },
   fr: {
+    '社群': 'Communauté',
     'Salasasa（': 'Salasasa (', '」、': ' », ', '」。': ' ».', '」': ' »', '、': ', ',
     '（完整支持繁体中文、英语、日语）': '(Prise en charge complète du chinois traditionnel, de l’anglais et du japonais)',
   },

@@ -23,6 +23,7 @@
 
       <el-table :data="items" v-loading="loading" size="small">
         <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="description" label="介绍" min-width="180" show-overflow-tooltip />
         <el-table-column prop="event_id" :label="isBase ? '基地 ID' : '赛事 ID'" min-width="140" />
         <el-table-column label="状态" width="140">
           <template #default="{ row }">
@@ -48,15 +49,22 @@
         <el-table-column label="创建时间" min-width="160">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="$router.push(detailPath(row.event_id))">
               详情
             </el-button>
+            <el-button link type="warning" @click="openProfileEditor(row)">修改</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
+
+    <el-card id="applications" class="applications-card">
+      <EventApplications ref="applicationsPanel" :key="venueKind" :kind="venueKind" @updated="load" />
+    </el-card>
+
+    <VenueProfileDialog v-model="profileDialogVisible" :venue="profileEditingEvent" admin @updated="onProfileUpdated" />
 
     <el-dialog
       v-model="createDialogVisible"
@@ -97,10 +105,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
+import EventApplications from '@/views/admin/EventApplications.vue'
+import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminDetailPath } from '@/utils/eventMeta'
 
 const route = useRoute()
@@ -110,6 +120,9 @@ const loading = ref(false)
 const creating = ref(false)
 const createDialogVisible = ref(false)
 const statusFilter = ref('')
+const profileDialogVisible = ref(false)
+const profileEditingEvent = ref(null)
+const applicationsPanel = ref(null)
 const createForm = reactive({
   name: '',
   owner_user_id: '',
@@ -120,6 +133,16 @@ const venueKind = computed(() => (isBase.value ? 'base' : 'event'))
 
 function detailPath(eventId) {
   return venueAdminDetailPath(venueKind.value, eventId)
+}
+
+function openProfileEditor(row) {
+  profileEditingEvent.value = row
+  profileDialogVisible.value = true
+}
+
+function onProfileUpdated() {
+  load()
+  applicationsPanel.value?.refreshProfileChanges()
 }
 
 function formatDate(v) {
@@ -184,13 +207,29 @@ async function createEvent() {
   }
 }
 
-watch(() => route.meta.venueKind, () => {
+async function scrollToSection() {
+  await nextTick()
+  const main = document.querySelector('.admin-main')
+  if (route.hash === '#applications') {
+    document.getElementById('applications')?.scrollIntoView({ block: 'start' })
+  } else if (main) {
+    main.scrollTop = 0
+  }
+}
+
+watch(() => route.meta.venueKind, async () => {
   statusFilter.value = ''
   createDialogVisible.value = false
-  load()
+  await load()
+  await scrollToSection()
 })
 
-onMounted(load)
+watch(() => route.hash, scrollToSection)
+
+onMounted(async () => {
+  await load()
+  await scrollToSection()
+})
 </script>
 
 <style scoped>
@@ -198,6 +237,10 @@ onMounted(load)
   margin: 0 0 16px;
   font-size: 18px;
   font-weight: 600;
+}
+.applications-card {
+  margin-top: 20px;
+  scroll-margin-top: 20px;
 }
 .list-header {
   display: flex;

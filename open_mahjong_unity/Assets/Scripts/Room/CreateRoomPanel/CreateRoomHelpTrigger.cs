@@ -5,6 +5,8 @@ public sealed class CreateRoomHelpTrigger : MonoBehaviour, IPointerEnterHandler,
     [SerializeField] private CreatePanel owner;
     [SerializeField, TextArea] private string message;
 
+    public void BindOwner(CreatePanel panel) { owner = panel; }
+
     public void Configure(CreatePanel panel, string text) { owner = panel; message = text; }
 
     internal bool IsOwnedBy(CreatePanel panel) => owner == panel;

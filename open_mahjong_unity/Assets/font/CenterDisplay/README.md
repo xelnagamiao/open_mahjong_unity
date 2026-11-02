@@ -1,6 +1,6 @@
 # 中心盘静态字体
 
-本目录保存中心盘专用字体原件、许可及静态字符清单。现有默认读数使用 Adobe 思源黑体 SC Medium 2.005 的原厂静态 500 字重，不使用合成粗体或人为拉大字距。字体的完整 family 为 `Source Han Sans SC Medium`；部分读取器将 subfamily 显示为 `Regular`，但 OS/2 字重仍为 500。另备思源宋体 Medium，用于天凤传统 Windows 参考款的局名与风位；分数及余牌继续使用现有 Sans 静态字库。
+本目录保存中心盘专用字体原件、许可及静态字符清单。现有默认读数使用 Adobe 思源黑体 SC Medium 2.005 的原厂静态 500 字重，不使用合成粗体或人为拉大字距。字体的完整 family 为 `Source Han Sans SC Medium`；部分读取器将 subfamily 显示为 `Regular`，但 OS/2 字重仍为 500。
 
 ## 来源与授权
 
@@ -12,21 +12,7 @@
 
 字体采用 SIL Open Font License 1.1，可随商业软件嵌入、打包及再分发。发布时保留版权声明与本目录 `OFL.txt`；字体不得单独出售。修改后的字体须遵守保留名称 `Source` 的限制。中心盘派生资源使用项目自己的名称 `CenterReadoutStatic`。
 
-## 思源宋体：传统款汉字
-
-- 当前原件：`SourceHanSerifSC-Medium.otf`，24,805,580 字节；Adobe 官方静态 2.003，原厂 Medium 500，非变量字体。
-- 官方项目：[Adobe Source Han Serif](https://github.com/adobe-fonts/source-han-serif)。
-- 官方下载：[SimplifiedChinese/SourceHanSerifSC-Medium.otf](https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/OTF/SimplifiedChinese/SourceHanSerifSC-Medium.otf)。
-- 原件 SHA-256：`1d4dc4b757c07034e2412d6edf48f54f94ec7172d4deb3b90a3e4fc9dcb94f5d`。
-- 独立许可：`SourceHanSerif-OFL.txt`，来自 [宋体官方 LICENSE.txt](https://github.com/adobe-fonts/source-han-serif/blob/master/LICENSE.txt)，OFL 1.1；SHA-256：`9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903`。发行时同时保留该许可，不用 Sans 的许可文件替代。
-
-Medium 原件的 cmap 已核对：本目录 126 字符全部有字形。完整 family 为 `Source Han Serif SC Medium`；OpenType subfamily 虽显示 `Regular`，OS/2 字重是 500，不需要追加合成粗体。
-
-本目录是预备字体文件夹：黑体与宋体原件、以及宋体烘焙资源 `CenterClassicStatic.asset` 都留在 `Assets/font`，不进 `Resources`，不会打进玩家包。运行时中心盘只加载黑体烘焙资源 `font/CenterDisplay/CenterReadoutStatic`。
-
-Regular 的来源记录仍保留：[官方 SourceHanSerifSC-Regular.otf](https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf)，24,543,332 字节，SHA-256 `78aa7a328fd974df2d688c8a9fd74a33d8334dfa84ab24d9d11efb2ffc464117`，原厂静态 2.003 / 400；它与 Medium 使用同一份宋体 OFL。
-
-宋体的衬线与笔画粗细用于传统款局名、四向风位的书卷感；这只是参考方向，不宣称 Adobe 字体就是天凤原字体。分数、余牌继续使用 Sans，避免所有数值被一起换成宋体。不要给宋体追加合成 Bold。宋体原件、下载记录及本轮字符输入另存于仓库工作目录 `.om_workspace/20260912-center-v3/fonts/`。
+完整黑体源文件保留在 `Assets/font`，用于后续重新烘焙；运行时中心盘加载 `Resources` 中的 `font/CenterDisplay/CenterReadoutStatic`，不依赖完整源文件。
 
 ## 已烘焙资源
 

@@ -51,17 +51,18 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: 'sec-account', label: '账户' },
+  { index: 'sec-redeem', label: '兑换码' },
   { index: 'sec-uploads', label: '上传内容' },
   { index: 'sec-duplicate-personal', label: '个人复式' },
-  { index: 'sec-duplicate-event', label: '比赛复式' },
-  { index: 'sec-apply-event', label: '办赛申请' },
-  { index: 'sec-apply-base', label: '基地申请' },
+  { index: 'sec-duplicate-event', label: '赛事/基地复式' },
   { index: 'sec-manage-event', label: '赛事管理' },
   { index: 'sec-manage-base', label: '基地管理' },
 ]
 
 const LEGACY_HASH = {
-  'sec-apply': 'sec-apply-event',
+  'sec-apply': 'sec-manage-event',
+  'sec-apply-event': 'sec-manage-event',
+  'sec-apply-base': 'sec-manage-base',
   'sec-manage': 'sec-manage-event',
 }
 

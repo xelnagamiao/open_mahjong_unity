@@ -227,6 +227,10 @@ internal static class TuidaoHandCalculator {
         if (query == null) return WaitTileHint.None("未起和");
         BaseScore ron = Score(query.HandWithWin, query.Melds, query.HepaiTile, false);
         if (ron == null) return WaitTileHint.None("未起和");
+        if (ron.Fan == 0 && query.DetailedConfig != null
+            && query.DetailedConfig.TryGetValue(TuidaoRuleBootstrap.PingjiZimoNoChowKey, out object enabled)
+            && enabled is bool restricted && restricted)
+            return WaitTileHint.TsumoOnly($"仅自摸\n{ron.Fan}番{ron.Points}分");
         string label = $"{ron.Fan}番{ron.Points}分";
         BaseScore tsumo = Score(query.HandWithWin, query.Melds, query.HepaiTile, true);
         if (tsumo != null && tsumo.Fan != ron.Fan) label += $"\n自摸{tsumo.Fan}番{tsumo.Points}分";

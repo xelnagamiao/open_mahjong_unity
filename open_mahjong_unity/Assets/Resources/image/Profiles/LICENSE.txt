@@ -1,0 +1,29 @@
+Taisei avatar crops — independent artwork license
+
+Scope: 2302.png (Hakurei Reimu) and 2303.png (Cirno), in this directory only.
+Artist: afensorm, commissioned for Taisei Project.
+These two images are licensed under Creative Commons Attribution 4.0
+International (CC BY 4.0), following the upstream portrait artwork license.
+The repository's MIT license and project-only resource restrictions do not
+replace this independent artwork license.
+
+This statement does not change the license of 1.png (the default avatar),
+other images, or other project resources.
+
+Full license: Licenses/CC-BY-4.0.txt
+License link: https://creativecommons.org/licenses/by/4.0/
+Upstream license statement: Licenses/Taisei-COPYING.txt
+Artist: https://afens.surge.sh / https://pixiv.me/afens
+Project: https://github.com/taisei-project/taisei
+Source revision:
+https://github.com/taisei-project/taisei-rawmedia/tree/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens
+
+Changes: square head-and-shoulder crops, proportionally downsampled to
+512 x 512, retaining the original artwork and transparency.
+Source coordinates and attribution details: AvatarSources.txt.
+Redistribution must retain appropriate artist/source credit, the license link,
+and an indication of these and any further modifications, as stated in CC BY 4.0.
+
+Reimu and Cirno are Touhou Project characters by ZUN / Team Shanghai Alice.
+The artwork license does not transfer underlying character rights or imply
+endorsement. Fan-work guidelines: https://touhou-project.news/guideline/

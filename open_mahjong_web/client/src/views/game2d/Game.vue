@@ -268,7 +268,7 @@
                       v-if="showReadyButton"
                       type="button"
                       class="end-result-ready-button"
-                      :disabled="!isMatchEndRoundResult && readySent"
+                      :disabled="!isMatchEndRoundResult && (readySent || readyPending)"
                       @click="confirmRoundResult"
                     >
                       {{ readyButtonLabel }}
@@ -512,6 +512,7 @@ const sceneReady = ref(false)
 const hasSnapshot = ref(false)
 const roundResult = ref(null)
 const readySent = ref(false)
+const readyPending = ref(false)
 const readyStatus = ref({})
 const resultContentVisible = ref(true)
 const finalResult = ref(null)
@@ -610,6 +611,7 @@ function clearRoundResultUi() {
   resetWinRevealState()
   resultContentVisible.value = true
   readySent.value = false
+  readyPending.value = false
   pendingCuoheResume = null
 }
 
@@ -629,7 +631,7 @@ function resumeAfterCuoheIfPending(targetScene) {
  * @param {object} result
  * @param {import('@/game2d/game/scene/MahjongScene').MahjongScene} targetScene
  */
-function revealRoundResultAfterHand(result, targetScene) {
+function revealRoundResultAfterHand(result, targetScene, restoring = false) {
   clearResultTimers()
   roundResult.value = null
   resetWinRevealState()
@@ -637,6 +639,13 @@ function revealRoundResultAfterHand(result, targetScene) {
   const token = ++resultRevealToken
 
   const isDraw = result?.hepai_player_index == null
+  if (restoring) {
+    roundResult.value = result
+    revealedFanCount.value = result.hu_fan?.length ?? 0
+    showResultTotal.value = true
+    if (!isDraw) beginReadyCountdown(token)
+    return
+  }
   if (isDraw) {
     if (!mounted || scene !== targetScene || finalResult.value || token !== resultRevealToken) return
     roundResult.value = result
@@ -690,14 +699,14 @@ function startWinFanRevealSequence(result, token, targetScene) {
  */
 function beginReadyCountdown(token) {
   showReadyButton.value = true
-  readyCountdown.value = HU_CONFIRM_COUNTDOWN_SEC
-  for (let tick = 1; tick <= HU_CONFIRM_COUNTDOWN_SEC; tick += 1) {
-    scheduleResultTimer(() => {
-      if (!mounted || token !== resultRevealToken) return
-      const remaining = Math.max(0, HU_CONFIRM_COUNTDOWN_SEC - tick)
-      readyCountdown.value = remaining
-    }, tick * 1000)
+  const legacyDeadline = performance.now() + HU_CONFIRM_COUNTDOWN_SEC * 1000
+  const tick = () => {
+    if (!mounted || token !== resultRevealToken) return
+    readyCountdown.value = adapter?.settlement.remainingSeconds()
+      ?? Math.max(0, Math.ceil((legacyDeadline - performance.now()) / 1000))
+    if (readyCountdown.value > 0) scheduleResultTimer(tick, 100)
   }
+  tick()
 }
 
 const selfSeat = computed(() => sidebarPlayers.value.find(
@@ -813,6 +822,7 @@ const fanGridMinHeight = computed(() => {
 const readyButtonLabel = computed(() => {
   if (isMatchEndRoundResult.value) return '确定'
   if (readySent.value) return '已准备，等待其他玩家'
+  if (readyPending.value) return '正在确认…'
   if (readyCountdown.value > 0) return `确定(${readyCountdown.value})`
   return '确定(0)'
 })
@@ -1054,7 +1064,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
           score: update.result.player_to_score[String(player.player_index)] ?? player.score,
         }))
       }
-      appendScoreboardResult(update.result)
+      if (!update.restored) appendScoreboardResult(update.result)
       const resultHuFan = Array.isArray(update.result?.hu_fan) ? update.result.hu_fan : []
       pendingCuoheResume = typeof update.result.hepai_player_index === 'number'
         && resultHuFan.includes('错和')
@@ -1063,9 +1073,18 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
           isSelfDraw: update.result.hu_class === 'hu_self',
         }
         : null
-      revealRoundResultAfterHand(update.result, targetScene)
+      revealRoundResultAfterHand(update.result, targetScene, update.restored)
     }
-    if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
+    if (update.sync) {
+      readyPending.value = false
+      readyStatus.value = { ...update.sync.player_to_ready }
+      readySent.value = Boolean(readyStatus.value[String(selfSeat.value)])
+      const seconds = targetAdapter.settlement.remainingSeconds()
+      if (seconds != null) readyCountdown.value = seconds
+    } else if (update.ready) {
+      readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
+      readySent.value = Boolean(readyStatus.value[String(selfSeat.value)])
+    }
     if (update.ended && !deferGameEnd) {
       resetRoundAssistUi(targetScene)
       clearResultTimers()
@@ -1373,14 +1392,13 @@ function confirmRoundResult() {
 }
 
 function sendReady() {
-  if (readySent.value) return
+  if (readySent.value || readyPending.value) return
   const outgoing = adapter?.readyMessage()
   if (!outgoing || !salasasaClient.send(outgoing)) {
     ElMessage.error('暂时无法发送准备状态')
     return
   }
-  readySent.value = true
-  readyStatus.value = { ...readyStatus.value, [String(selfSeat.value)]: true }
+  readyPending.value = true
 }
 
 function scheduleFeltResize() {

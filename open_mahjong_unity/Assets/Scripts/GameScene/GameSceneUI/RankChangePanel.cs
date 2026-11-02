@@ -18,7 +18,7 @@ public class RankChangePanel : MonoBehaviour {
     private bool ratingAlreadyApplied;
 
     public void ShowRatedChange(string rule,string system,string oldRank,float oldScore,string newRank,float newScore,float pt,float oldR,float newR,
-        float? matchPoints=null,float gameMultiplier=1,float tierMultiplier=1,float rankCost=0) {
+        float? matchPoints=null,float gameMultiplier=1,float tierMultiplier=1,float rankCost=0,string pointDetails=null) {
         ratingAlreadyApplied=true;
         if(system=="grade") {
             ShowRankChange(oldRank,oldScore,newRank,newScore,pt);
@@ -40,6 +40,9 @@ public class RankChangePanel : MonoBehaviour {
             rankNameText.text=RankedRules.Name(rule)+" · Elo";
             scoreText.text=$"R {oldR:0.##} 至 {newR:0.##}";
             ptChangeText.text=$"{newR-oldR:+0.##;-0.##;0} R";
+            if(ratingDetailsText!=null&&!string.IsNullOrEmpty(pointDetails)) {
+                ratingDetailsText.gameObject.SetActive(true);ratingDetailsText.text=pointDetails;
+            }
             confirmButton.interactable=true;
         }
     }

@@ -55,6 +55,7 @@ def test_actual_add_bot_route_closes_existing_tactical_switch(uid):
     m._sync_room_host = Mock()
     # Use the actual broadcaster rather than the original creation stub.
     m._broadcast_room_info = RoomManager._broadcast_room_info.__get__(m)
+    m._seat_room_bot = RoomManager._seat_room_bot.__get__(m)
     connection = m.game_server.players['conn']
     connection.websocket = SimpleNamespace(send_json=AsyncMock())
     m.game_server.user_id_to_connection = {101:connection}

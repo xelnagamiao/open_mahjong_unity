@@ -7,100 +7,43 @@ using UnityEngine.UI;
 public partial class GameRecordManager {
     private const float AutoPlayPollIntervalSeconds = 0.1f;
 
-    private Button recordAutoPlayButton;
-    private TMP_Text recordAutoPlayButtonText;
+    [SerializeField] private Button recordAutoPlayButton;
+    [SerializeField] private TMP_Text recordAutoPlayButtonText;
     private Coroutine recordAutoPlayCoroutine;
     private int _recordPlaybackGeneration;
     private int _pendingRecordDelayedAdvanceCount;
 
     public bool IsRecordAutoPlaying { get; private set; }
 
-    /// <summary>复用“下一步”按钮样式，在控制栏末尾创建牌谱自动播放按钮。</summary>
     private void InitializeRecordAutoPlayButton() {
-        if (nextStepButton == null || recordAutoPlayButton != null) return;
-
-        GameObject buttonObject = Instantiate(
-            nextStepButton.gameObject,
-            nextStepButton.transform.parent,
-            false
-        );
-        buttonObject.name = "AutoPlay";
-        recordAutoPlayButton = buttonObject.GetComponent<Button>();
-        recordAutoPlayButton.onClick.RemoveAllListeners();
+        if (!recordAutoPlayButton) return;
+        recordAutoPlayButton.onClick.RemoveListener(ToggleRecordAutoPlay);
         recordAutoPlayButton.onClick.AddListener(ToggleRecordAutoPlay);
-
-        recordAutoPlayButtonText = buttonObject.GetComponentInChildren<TMP_Text>(true);
-        RectTransform autoRect = buttonObject.transform as RectTransform;
-        if (autoRect != null) {
-            autoRect.sizeDelta = new Vector2(Mathf.Max(110f, autoRect.sizeDelta.x), autoRect.sizeDelta.y);
-        }
-        if (recordAutoPlayButtonText != null) {
-            recordAutoPlayButtonText.fontSize = Mathf.Min(recordAutoPlayButtonText.fontSize, 22f);
-        }
-
-        buttonObject.SetActive(false);
+        recordAutoPlayButton.gameObject.SetActive(false);
         UpdateRecordAutoPlayButtonText();
-        LayoutRecordControlButtons(includeAutoPlay: false);
+        LayoutRecordControlButtons(false);
     }
 
     private void LayoutRecordControlButtons(bool includeAutoPlay) {
-        if (nextStepButton == null || nextStepButton.transform.parent is not RectTransform parentRect) return;
-
-        var buttons = new List<Button> {
-            showTileListButton,
-            backXunmuButton,
-            backStepButton,
-            showGameRoundContentButton,
-            showXunmuContentButton,
-            nextStepButton,
-            nextXunmuButton,
-        };
-        if (includeAutoPlay && recordAutoPlayButton != null) {
-            buttons.Add(recordAutoPlayButton);
-        }
-        buttons.RemoveAll(button => button == null);
-        if (buttons.Count == 0) return;
-
-        // Keep the toolbar clear of the self player's name and title. Both
-        // panels use the same reference canvas, so this also follows letterboxing.
-        parentRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 900f);
-        Vector2 panelPosition = parentRect.anchoredPosition;
-        panelPosition.x = 70f;
-        parentRect.anchoredPosition = panelPosition;
-        if (spectatingPanel != null && spectatingPanel.transform is RectTransform spectatorRect) {
-            spectatorRect.anchoredPosition = new Vector2(
-                panelPosition.x + parentRect.rect.width * 0.5f + spectatorRect.rect.width * 0.5f,
-                panelPosition.y);
-        }
-
-        float panelWidth = parentRect.rect.width > 0f ? parentRect.rect.width : parentRect.sizeDelta.x;
-        float maxButtonWidth = 0f;
-        foreach (Button button in buttons) {
-            if (button.transform is RectTransform buttonRect) {
-                maxButtonWidth = Mathf.Max(maxButtonWidth, buttonRect.rect.width, buttonRect.sizeDelta.x);
-            }
-        }
-
-        float edgeInset = maxButtonWidth * 0.5f + 16f;
-        float left = -panelWidth * 0.5f + edgeInset;
-        float right = panelWidth * 0.5f - edgeInset;
-        float step = buttons.Count > 1 ? (right - left) / (buttons.Count - 1) : 0f;
-        for (int i = 0; i < buttons.Count; i++) {
-            if (buttons[i].transform is not RectTransform buttonRect) continue;
-            Vector2 position = buttonRect.anchoredPosition;
-            position.x = buttons.Count > 1 ? left + step * i : 0f;
-            buttonRect.anchoredPosition = position;
-        }
+        if (!nextStepButton || nextStepButton.transform.parent is not RectTransform parentRect) return;
+        parentRect.anchoredPosition = new Vector2(70f, parentRect.anchoredPosition.y);
+        TableHudReplayLayout.Arrange(parentRect, new[] {
+            showTileListButton, showGameRoundContentButton, backXunmuButton,
+            showXunmuContentButton, nextXunmuButton, backStepButton, nextStepButton
+        }, includeAutoPlay ? recordAutoPlayButton : null);
         AlignRecordControlPopups();
     }
 
     private void AlignRecordControlPopups() {
         AlignRecordControlPopup(roundScrollView, showGameRoundContentButton);
         AlignRecordControlPopup(xunmuScrollView, showXunmuContentButton);
+        if (tileListView) tileListView.GetComponent<TableHudWallPopup>()?.Reposition();
     }
 
     private static void AlignRecordControlPopup(ScrollRect popup, Button button) {
         if (popup == null || button == null || button.transform is not RectTransform buttonRect) return;
+        var selector = popup.GetComponent<TableHudSelectorPopup>();
+        if (selector != null) { selector.Reposition(); return; }
         var rect = (RectTransform)popup.transform;
         // 操作条会因自动播放按钮显隐重新排列；子面板跟随按钮，保持位于操作条上方。
         if (rect.parent != buttonRect.parent) rect.SetParent(buttonRect.parent, false);
@@ -235,8 +178,13 @@ public partial class GameRecordManager {
     }
 
     private void UpdateRecordAutoPlayButtonText() {
+        var icon = recordAutoPlayButton != null ? recordAutoPlayButton.GetComponentInChildren<TableHudIcon>(true) : null;
+        if (icon != null) {
+            icon.symbol = IsRecordAutoPlaying ? TableHudIcon.Symbol.Pause : TableHudIcon.Symbol.Play;
+            icon.SetVerticesDirty();
+        }
         if (recordAutoPlayButtonText != null) {
-            recordAutoPlayButtonText.text = IsRecordAutoPlaying ? "暂停播放" : "自动播放";
+            TableText.Set(recordAutoPlayButtonText, IsRecordAutoPlaying ? "table.replay.pause" : "table.replay.play");
         }
     }
 
@@ -401,6 +349,7 @@ public partial class GameRecordManager {
     }
 
     private void ShowGameRoundContent() {
+        StopRecordAutoPlay();
         AlignRecordControlPopups();
         bool shouldOpenRound = !roundScrollView.gameObject.activeSelf;
         roundScrollView.gameObject.SetActive(shouldOpenRound);
@@ -410,6 +359,7 @@ public partial class GameRecordManager {
     }
 
     private void ShowXunmuContent() {
+        StopRecordAutoPlay();
         AlignRecordControlPopups();
         bool shouldOpenXunmu = !xunmuScrollView.gameObject.activeSelf;
         xunmuScrollView.gameObject.SetActive(shouldOpenXunmu);
@@ -419,6 +369,8 @@ public partial class GameRecordManager {
     }
 
     private void ShowTileList() {
+        StopRecordAutoPlay();
+        AlignRecordControlPopups();
         bool shouldShow = !tileListView.activeSelf;
         if (shouldShow) {
             tileListView.SetActive(true);
@@ -437,7 +389,7 @@ public partial class GameRecordManager {
         }
         bool shouldShow = !infoView.activeSelf;
         if (shouldShow) {
-            infoText.text = BuildGameInfoString();
+            TableText.Set(infoText, BuildGameInfoString());
             infoView.SetActive(true);
         } else {
             infoView.SetActive(false);
@@ -446,13 +398,13 @@ public partial class GameRecordManager {
 
     private void UpdateGameInfoButtonLabel() {
         if (showGameInfoButtonLabel == null) return;
-        showGameInfoButtonLabel.text = IsSpectatorSession ? "观战信息" : "游戏信息";
+        TableText.Set(showGameInfoButtonLabel, IsSpectatorSession ? "观战信息" : "游戏信息");
     }
 
     private void ShowRoundInfo() {
         bool shouldShow = !infoView.activeSelf;
         if (shouldShow) {
-            infoText.text = BuildRoundInfoString();
+            TableText.Set(infoText, BuildRoundInfoString());
             infoView.SetActive(true);
         } else {
             infoView.SetActive(false);

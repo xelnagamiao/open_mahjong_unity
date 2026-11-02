@@ -22,7 +22,7 @@
         <section :key="active.key" class="rule-section">
           <div class="rule-intro">
             <h2>{{ active.label }}</h2>
-            <p v-if="activeDescription">{{ activeDescription }}</p>
+            <p v-if="activeDescription && active.key !== 'shangrao'">{{ activeDescription }}</p>
           </div>
 
           <div v-if="active.key === 'hongkong'" class="tab-bar" aria-label="香港麻将子规则">
@@ -39,9 +39,18 @@
               @click="setGuangdongProfile(profile.subRule)">{{ profile.label }}</button>
           </div>
 
+          <div v-if="active.key === 'hongque'" class="tab-bar" aria-label="虹雀子规则">
+            <button v-for="profile in hongqueRulebooks" :key="profile.subRule"
+              :class="['tab-pill', { 'is-active': selectedHongque.subRule === profile.subRule }]"
+              :aria-pressed="selectedHongque.subRule === profile.subRule"
+              @click="setHongqueProfile(profile.subRule)">{{ profile.label }}</button>
+          </div>
+
           <div v-if="active.inlineText" class="inline-rule-text">
             <p v-for="line in active.inlineText" :key="line">{{ line }}</p>
           </div>
+          <iframe v-else-if="active.key === 'shangrao'" class="rulebook-reader"
+            :src="activeDocs[0].url" title="上饶麻将规则书"></iframe>
           <div v-else class="docs-grid">
             <div
               v-for="doc in activeDocs"
@@ -75,6 +84,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebooks.js'
 import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
 import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from '@/constants/shangraoRulebooks.js'
+import { duocaiRulebooks, DUOCAI_DESCRIPTION } from '../constants/duocaiRulebooks.js'
+import { beijingRulebooks, BEIJING_DESCRIPTION } from '../constants/beijingRulebooks.js'
+import { hongqueRulebooks, hongqueRulebook } from '../constants/hongqueRulebooks.js'
+import { FORMULA_RULEBOOK } from '../constants/formulaRulebook.js'
 import { HUAHUN_RULE_TEXT } from '../utils/guobiaoHuahun.js'
 
 const route = useRoute()
@@ -139,14 +152,6 @@ const rules = [
     docs: [{ title: '透明国标：本站规则与牌例', desc: '三透一暗、吃碰选牌、暗杠、八番起和与普通牌墙。', url: '/rulebooks/guobiao-transparent.html' }]
   },
   {
-    key: 'washizu',
-    label: '鹫巢麻将',
-    description: '四人三透一暗，透明手牌公开；本站完整规则与外部资料。',
-    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、70次摸牌、实时手牌、双打主将制和回放说明。', url: '/rulebooks/washizu.html' },
-      { title: '雀魂2021年明镜之战攻略（日文）', desc: '非官方活动说明，可参考透明牌和选牌方式；与本站的可配置日麻细则并非完全相同。', url: 'https://mahjongsoul.info/2021-10event/' },
-      { title: '原作式鹫巢麻将规则（日文）', desc: '用于对照无牌山玩法；其70次弃牌计数与本站70次摸牌不同。', url: 'https://ketto.com/zw/wasirule.shtml' } ]
-  },
-  {
     key: 'riichi',
     label: '立直麻将',
     description: '四人立直麻将，支持多种规则预设及役种、计分和流局设置',
@@ -157,8 +162,17 @@ const rules = [
         desc: '香港麻将协会发布的立直麻将规则书',
         url: '/rulebooks/riichi-rulebook.pdf',
         filename: 'GGHK-Riichi-Mahjong-Rulebook-CN.pdf'
-      }
+      },
+      FORMULA_RULEBOOK,
     ]
+  },
+  {
+    key: 'washizu',
+    label: '鹫巢麻将',
+    description: '四人三透一暗，透明手牌公开；本站完整规则与外部资料。',
+    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、70次摸牌、实时手牌、双打主将制和回放说明。', url: '/rulebooks/washizu.html' },
+      { title: '雀魂2021年明镜之战攻略（日文）', desc: '非官方活动说明，可参考透明牌和选牌方式；与本站的可配置日麻细则并非完全相同。', url: 'https://mahjongsoul.info/2021-10event/' },
+      { title: '原作式鹫巢麻将规则（日文）', desc: '用于对照无牌山玩法；其70次弃牌计数与本站70次摸牌不同。', url: 'https://ketto.com/zw/wasirule.shtml' } ]
   },
   {
     key: 'qingque',
@@ -221,107 +235,6 @@ const rules = [
     ]
   },
   {
-    key: 'guangdong', label: '广东麻将', short: '广东', categories: ['platform', 'mil'], accent: '#0f766e',
-    description: milRulebooks.guangdong[0].desc,
-    docs: milRulebooks.guangdong,
-  },
-  {
-    key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
-    description: milRulebooks.changchun[0].desc,
-    docs: milRulebooks.changchun,
-  },
-  {
-    key: 'singapore', label: '新加坡四人麻将', short: '新加坡', categories: ['platform', 'local'], accent: '#247b68',
-    description: 'SPGG 2024：148张，1台起和、5台封顶，花季与动物婚配即时支付；含平台补充约定。',
-    docs: [
-      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/singapore-spgg2024.html', filename: 'singapore-spgg2024.html' },
-      { title: 'SPGG 2024 英文原文', desc: 'Singapore Polytechnic Graduates Guild 发布。', url: 'https://www.spgg.org.sg/web/content/114907/', filename: 'spgg-2024.pdf' },
-    ],
-  },
-  {
-    key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
-    description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
-    docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
-  },
-  {
-    key: 'wuhan', label: '武汉麻将', short: '武汉', categories: ['platform', 'mil'], accent: '#337e9f',
-    description: milRulebooks.wuhan[0].desc,
-    docs: milRulebooks.wuhan,
-  },
-  {
-    key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
-    description: milRulebooks.hongzhong[0].desc,
-    docs: milRulebooks.hongzhong,
-  },
-  {
-    key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
-    description: milRulebooks.hangzhou[0].desc,
-    docs: milRulebooks.hangzhou,
-  },
-  {
-    key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
-    description: milRulebooks.wenzhou[0].desc,
-    docs: milRulebooks.wenzhou,
-  },
-  {
-    key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88',
-    description: milRulebooks.shenyang[0].desc, docs: milRulebooks.shenyang,
-  },
-  {
-    key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
-    description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
-    docs: [
-      { title: '福州麻将规则与平台补则', url: '/rulebooks/fuzhou.html', filename: 'fuzhou.html' },
-      { title: '福州麻将规则书原文', url: '/rulebooks/fuzhou.docx', filename: '福州麻将规则书.docx' },
-    ],
-  },
-  {
-    key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
-    description: milRulebooks.nanjing[0].desc, docs: milRulebooks.nanjing,
-  },
-  {
-    key: 'shangrao', label: '上饶麻将', short: '上饶', categories: ['platform','local'], accent: '#587a69',
-    description: SHANGRAO_DESCRIPTION, docs: shangraoRulebooks,
-  },
-  {
-    key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'mil'], accent: '#587a69',
-    description: milRulebooks.nanchang[0].desc, docs: milRulebooks.nanchang,
-  },
-  {
-    key: 'malaysia', label: '马来西亚三人麻将', short: '马来三麻', categories: ['platform', 'local'], accent: '#316c64',
-    description: '传统84张：筒、字、16花与4飞，东南西三席，5番起和；依据 Cheah / Sloper 定型文及平台补充条款。',
-    docs: [
-      { title: '马来西亚三人麻将平台规则书', url: '/rulebooks/malaysia.html' },
-      { title: 'Cheah / Sloper 英文定型文', url: 'https://www.sloperama.com/mahjongg/malaysian.html' },
-    ],
-  },
-  {
-    key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
-    description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
-    docs: [
-      { title: '宜兴麻将规则书', url: '/rulebooks/yixing.html' },
-      { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
-      { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
-      { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },
-    ],
-  },
-  {
-    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'], accent: '#92752f',
-    description: milRulebooks.guizhou[0].desc,
-    docs: milRulebooks.guizhou,
-  },
-  {
-    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'], accent: '#b7791f',
-    description: milRulebooks.shanxi[0].desc,
-    docs: milRulebooks.shanxi,
-  },
-  {
-    key: 'hongkong',
-    label: '香港麻将',
-    description: '请选择与房间一致的子规则，阅读对应的规则书原文。',
-    docs: hongKongRulebooks,
-  },
-  {
     key: 'taiwan',
     label: '台湾麻将',
     description: '台湾麻将：使用144张牌与16张手牌，按台计分，支持公开报听、食替限制与八仙过海等规则。具体流程与台表可在馆规设置中选择。',
@@ -332,52 +245,6 @@ const rules = [
         desc: '本平台台湾麻将采用的台数参考表。',
         url: '/rulebooks/taiwan-yaku-table.pdf',
         filename: '台湾麻将台数表.pdf'
-      }
-    ]
-  },
-  {
-    key: 'zhongyong',
-    label: '中庸麻将',
-    description: '中庸麻雀是香港学者关兆豪于2006年提出的一种竞技麻将规则体系，其得分授受制度称为“中庸竞技制”，旨在平衡竞技性与娱乐性。',
-    docs: [{
-        title: '中庸麻将与南雀规则说明',
-        desc: '标准中庸的计分与支付方法，以及南雀血战到底的差异。',
-        url: '/rulebooks/zhongyong.html',
-        filename: '中庸麻将与南雀规则说明.html',
-      }]
-  },
-  {
-    key: 'shanghai',
-    label: '上海麻将',
-    description: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
-    docs: [{
-      title: 'MIL 上海麻将（推广）竞赛规则（试行2024版）',
-      desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。',
-      url: '/rulebooks/shanghai-qiaoma-2024.pdf',
-      filename: '上海麻将（推广）竞赛规则（试行2024版）.pdf'
-    }, {
-      title: '上海清混碰规则',
-      desc: '上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
-      url: '/rulebooks/shanghai-qinghunpeng.docx',
-      filename: '上海清混碰规则.docx'
-    }, {
-      title: '上海垃圾和规则（2026-10-17 修订）',
-      desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。平台补充约定：自摸达到30分时敲锣，每家支付30分；抢杠视作自摸，同样按30分封顶，由杠者支付三份。暗杠显示为暗、亮、亮、暗。自摸再加一底默认关闭。',
-      url: '/rulebooks/shanghai-lajihe.docx?v=20261017',
-      filename: '上海垃圾和规则.docx'
-    }]
-  },
-  {
-    key: 'shiyangjin',
-    label: '十样锦麻将',
-    description: '尚未实装该规则，此处仅提供规则书查阅。',
-
-    docs: [
-      {
-        title: '十样锦麻将规则书',
-        desc: '十样锦麻将规则说明。',
-        url: '/rulebooks/shiyangjin.pdf',
-        filename: '十样锦麻将规则书.pdf'
       }
     ]
   },
@@ -396,16 +263,162 @@ const rules = [
     ]
   },
   {
+    key: 'hongkong',
+    label: '香港麻将',
+    description: '请选择与房间一致的子规则，阅读对应的规则书原文。',
+    docs: hongKongRulebooks,
+  },
+  {
+    key: 'shanghai',
+    label: '上海麻将',
+    description: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
+    docs: [{
+      title: 'MIL 上海麻将（推广）竞赛规则（试行2024版）',
+      desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。',
+      url: '/rulebooks/shanghai-qiaoma-2024.pdf',
+      filename: '上海麻将（推广）竞赛规则（试行2024版）.pdf'
+    }, {
+      title: '上海清混碰规则',
+      desc: '上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
+      url: '/rulebooks/shanghai-qinghunpeng.docx',
+      filename: '上海清混碰规则.docx'
+    }, {
+      title: '上海垃圾和规则（2026-10-17 修订）',
+      desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。',
+      url: '/rulebooks/shanghai-lajihe.docx?v=20261017',
+      filename: '上海垃圾和规则.docx'
+    }]
+  },
+  {
     key: 'hongque',
-    label: '虹雀²',
-    description: '虹雀是由Null设计的一款以彩虹为主题的拉密类桌游，使用十四种花色、九种数字各一张的麻将牌，最先将手牌全部组成顺子或刻子的玩家赢得一局。牌组的种类千变万化，各种起手都存在无限的可能。游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加虹雀官方Q群497685219一同交流。',
+    label: '虹雀',
+    description: '',
+    docs: hongqueRulebooks,
+  },
+  {
+    key: 'zhongyong',
+    label: '中庸麻将',
+    description: '中庸麻雀是香港学者关兆豪于2006年提出的一种竞技麻将规则体系，其得分授受制度称为“中庸竞技制”，旨在平衡竞技性与娱乐性。',
+    docs: [{
+        title: '中庸麻将与南雀规则说明',
+        desc: '标准中庸的计分与支付方法，以及南雀血战到底的差异。',
+        url: '/rulebooks/zhongyong.html',
+        filename: '中庸麻将与南雀规则说明.html',
+      }]
+  },
+  {
+    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'], accent: '#92752f',
+    description: milRulebooks.guizhou[0].desc,
+    docs: milRulebooks.guizhou,
+  },
+  {
+    key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
+    description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
+    docs: [
+      { title: '宜兴麻将规则书', url: '/rulebooks/yixing.html' },
+      { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
+      { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
+      { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },
+    ],
+  },
+  {
+    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'], accent: '#b7791f',
+    description: milRulebooks.shanxi[0].desc,
+    docs: milRulebooks.shanxi,
+  },
+  {
+    key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
+    description: milRulebooks.hangzhou[0].desc,
+    docs: milRulebooks.hangzhou,
+  },
+  {
+    key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
+    description: milRulebooks.hongzhong[0].desc,
+    docs: milRulebooks.hongzhong,
+  },
+  {
+    key: 'guangdong', label: '广东麻将', short: '广东', categories: ['platform', 'mil'], accent: '#0f766e',
+    description: milRulebooks.guangdong[0].desc,
+    docs: milRulebooks.guangdong,
+  },
+  {
+    key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
+    description: milRulebooks.changchun[0].desc,
+    docs: milRulebooks.changchun,
+  },
+  {
+    key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
+    description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
+    docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
+  },
+  {
+    key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
+    description: milRulebooks.nanjing[0].desc, docs: milRulebooks.nanjing,
+  },
+  {
+    key: 'malaysia', label: '马来西亚三人麻将', short: '马来三麻', categories: ['platform', 'local'], accent: '#316c64',
+    description: '传统84张：筒、字、16花与4飞，东南西三席，5番起和；依据 Cheah / Sloper 定型文及平台补充条款。',
+    docs: [
+      { title: '马来西亚三人麻将平台规则书', url: '/rulebooks/malaysia.html' },
+      { title: 'Cheah / Sloper 英文定型文', url: 'https://www.sloperama.com/mahjongg/malaysian.html' },
+    ],
+  },
+  {
+    key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88',
+    description: milRulebooks.shenyang[0].desc, docs: milRulebooks.shenyang,
+  },
+  {
+    key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
+    description: milRulebooks.wenzhou[0].desc,
+    docs: milRulebooks.wenzhou,
+  },
+  {
+    key: 'wuhan', label: '武汉麻将', short: '武汉', categories: ['platform', 'mil'], accent: '#337e9f',
+    description: milRulebooks.wuhan[0].desc,
+    docs: milRulebooks.wuhan,
+  },
+  {
+    key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'mil'], accent: '#587a69',
+    description: milRulebooks.nanchang[0].desc, docs: milRulebooks.nanchang,
+  },
+  {
+    key: 'shangrao', label: '上饶麻将', short: '上饶', categories: ['platform','local'], accent: '#587a69',
+    description: SHANGRAO_DESCRIPTION, docs: shangraoRulebooks,
+  },
+  {
+    key: 'duocai', label: '夺彩麻将', short: '夺彩', categories: ['platform', 'custom'], accent: '#8b6b32',
+    description: DUOCAI_DESCRIPTION, docs: duocaiRulebooks,
+  },
+  {
+    key: 'beijing', label: '北京麻将（吃碰提）', short: '北京', categories: ['platform', 'local'], accent: '#925a46', description: BEIJING_DESCRIPTION, docs: beijingRulebooks,
+  },
+  {
+    key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
+    description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
+    docs: [
+      { title: '福州麻将规则与平台补则', url: '/rulebooks/fuzhou.html', filename: 'fuzhou.html' },
+      { title: '福州麻将规则书原文', url: '/rulebooks/fuzhou.docx', filename: '福州麻将规则书.docx' },
+    ],
+  },
+  {
+    key: 'singapore', label: '新加坡四人麻将', short: '新加坡', categories: ['platform', 'local'], accent: '#247b68',
+    description: 'SPGG 2024：148张，1台起和、5台封顶，花季与动物婚配即时支付；含平台补充约定。',
+    docs: [
+      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/singapore-spgg2024.html', filename: 'singapore-spgg2024.html' },
+      { title: 'SPGG 2024 英文原文', desc: 'Singapore Polytechnic Graduates Guild 发布。', url: 'https://www.spgg.org.sg/web/content/114907/', filename: 'spgg-2024.pdf' },
+    ],
+  },
+  {
+    key: 'shiyangjin',
+    label: '十样锦麻将',
+    description: '尚未实装该规则，此处仅提供规则书查阅。',
 
     docs: [
       {
-        title: '虹雀² v1.6 规则书',
-        desc: '虹雀² v1.6 规则书，包含基本规则、番种说明及牌例。',
-        url: '/rulebooks/hongque-v1.6.pdf',
-        filename: '虹雀² v1.6.pdf'
+        title: '十样锦麻将规则书',
+        desc: '十样锦麻将规则说明。',
+        url: '/rulebooks/shiyangjin.pdf',
+        filename: '十样锦麻将规则书.pdf'
       }
     ]
   }
@@ -424,8 +437,13 @@ const selectedHongKong = computed(() => hongKongRulebook({
   hk_new13_version: route.query.new13_version,
 }))
 const selectedGuangdong = computed(() => milRulebook('guangdong', route.query.sub_rule))
-const activeDescription = computed(() => active.value.key === 'guangdong' ? selectedGuangdong.value.desc : active.value.description)
+const selectedHongque = computed(() => hongqueRulebook(route.query.sub_rule))
+const activeDescription = computed(() => {
+  if (active.value.key === 'hongque') return selectedHongque.value.description
+  return active.value.key === 'guangdong' ? selectedGuangdong.value.desc : active.value.description
+})
 const activeDocs = computed(() => {
+  if (active.value.key === 'hongque') return [selectedHongque.value]
   if (active.value.key === 'hongkong') return [selectedHongKong.value]
   if (active.value.key === 'guangdong') return [selectedGuangdong.value]
   return active.value.docs
@@ -435,6 +453,9 @@ const setGuangdongProfile = (subRule) => {
 }
 const setHongKongProfile = (subRule) => {
   router.replace({ name: 'Rulebook', params: { rule: 'hongkong' }, query: { sub_rule: subRule } })
+}
+const setHongqueProfile = (subRule) => {
+  router.replace({ name: 'Rulebook', params: { rule: 'hongque' }, query: { sub_rule: subRule } })
 }
 
 const setActive = (key) => {
@@ -463,6 +484,7 @@ const downloadDoc = (url, filename) => {
 </script>
 
 <style scoped>
+.rulebook-reader { width: 100%; height: 78vh; min-height: 480px; border: 0; border-radius: 12px; background: #fafbf8; }
 .inline-rule-text { font-size: 16px; line-height: 1.9; }
 .inline-rule-text p { margin: 0 0 20px; }
 .rulebook {
@@ -481,7 +503,7 @@ const downloadDoc = (url, filename) => {
 .page-banner h1 {
   margin: 0 0 6px;
   font-size: 1.45rem;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .page-banner p {
@@ -528,7 +550,7 @@ const downloadDoc = (url, filename) => {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .rule-section {
@@ -540,7 +562,7 @@ const downloadDoc = (url, filename) => {
 .rule-intro h2 {
   margin: 0 0 6px;
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 400;
   color: #222;
 }
 
@@ -574,7 +596,7 @@ const downloadDoc = (url, filename) => {
 .doc-card-header h3 {
   margin: 0;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 400;
   color: #222;
 }
 

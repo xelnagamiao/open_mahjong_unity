@@ -5,12 +5,8 @@ internal static class SichuanRoomBuilder {
         var limitError = input.ValidateHepaiLimit(0);
         if (limitError != null) return limitError;
         string subRule = input.SubRule;
-        if (input.DuplicateEnabled && string.IsNullOrWhiteSpace(input.DuplicateKey))
-            return RoomCreationRequest.Invalid("请输入复式密钥");
-        if (!string.IsNullOrEmpty(input.DuplicateKey) && (subRule != "sichuan/xueliu" && subRule != "sichuan/xueliu_exchange"))
-            return RoomCreationRequest.Invalid("此子规则不支持普通血流复式密钥");
-        if (!string.IsNullOrEmpty(input.DuplicateKey) && input.RandomSeedEnabled)
-            return RoomCreationRequest.Invalid("复式密钥与场景复现种子不能同时使用");
+        if (input.DuplicateEnabled || !string.IsNullOrEmpty(input.DuplicateKey))
+            return RoomCreationRequest.Invalid("川麻双打复式请在赛事或基地中成对创建开闭室");
         int hepaiLimit = (int)input.Defaults[CreateRoomKeys.HepaiLimit];
         if (input.HepaiLimitEnabled && int.TryParse(input.HepaiLimitText, out int parsed)) {
             hepaiLimit = parsed;
@@ -24,7 +20,6 @@ internal static class SichuanRoomBuilder {
             GameRound = input.GameRound,
             Password = input.PasswordEnabled ? input.Password : "",
             RandomSeed = input.RandomSeedEnabled ? input.RandomSeed : "",
-            DuplicateKey = input.DuplicateKey,
             Rule = "sichuan",
             SubRule = subRule,
             RoundTimer = input.RoundTimer,

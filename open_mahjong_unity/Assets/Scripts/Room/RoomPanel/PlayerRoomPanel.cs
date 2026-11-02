@@ -71,7 +71,7 @@ public partial class PlayerRoomPanel : MonoBehaviour {
         if (UserId < 0) return;
         if (UserId >= 10) {
             // 第一次加载需要玩家信息
-            DataNetworkManager.Instance.GetGuobiaoStats(UserId.ToString(), need_player_info: true);
+            ProfileOnClick.OpenPlayerInfo(UserId);
         } else {
             NotificationManager.Instance.ShowTip("error", false, "机器人没有对局数据");
         }

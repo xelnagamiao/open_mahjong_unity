@@ -40,11 +40,13 @@ internal static partial class RegionalLocalCalculator {
         var h=Prepare(rule,hand,melds,c);return h!=null&&(LocalJokerHand.CanWin(h)||rule=="wenzhou"&&(h.Ghosts>=3||EightPairs(h)));
     }
     internal static int[] Waiting(string rule,List<int> hand,List<string> melds,JObject c) {
+        if(rule=="duocai")return new DuocaiLocal(melds,c).Waiting(hand);
         if(rule=="changsha_exchange_six")return hand.Count!=13-3*melds.Count?System.Array.Empty<int>():ChangshaExchangeSixShape.Tiles.Where(t=>ChangshaExchangeSixTips.ComputeRow(hand.Concat(new[]{t}).ToList(),melds,t,c)!=null).ToArray();
         if(rule=="hongkong")return new HongKongLocal(melds,c).Waiting(hand);
         if(rule=="shenyang")return ShenyangWaiting(hand,melds,false);
         if(rule=="nanchang")return new NanchangLocal(melds,c).Waiting(hand);
         if(rule=="shangrao")return new ShangraoLocal(melds,c).Waiting(hand);
+        if(rule=="beijing")return new BeijingLocal(melds,c).Waiting(hand);
         if(rule=="wuhan")return WuhanWaiting(hand,melds,c);
         if(rule=="guangdong")return GuangdongBaseHints.Waiting(hand,melds).OrderBy(t=>t).ToArray();
         var h=Prepare(rule,hand,melds,c,false);if(h==null)return System.Array.Empty<int>();
@@ -109,9 +111,11 @@ internal static partial class RegionalLocalCalculator {
     }
     internal static JObject Describe(string rule,List<int> hand,List<string> melds,int win,JObject c,int? cut=null) {
         switch(rule) {
+            case "duocai":return new DuocaiLocal(melds,c).Describe(hand,win,cut);
             case "changsha_exchange_six":return JObject.FromObject(ChangshaExchangeSixTips.ComputeRow(hand,melds,win,c));
             case "nanchang":return new NanchangLocal(melds,c).Describe(hand,win,cut);
             case "shangrao":return new ShangraoLocal(melds,c).Describe(hand,win,cut);
+            case "beijing":return new BeijingLocal(melds,c).Describe(hand,win,cut);
             case "hongkong":return new HongKongLocal(melds,c).Describe(hand,win);
             case "shenyang":return ShenyangDescribe(hand,melds,win,c,cut);
             case "wuhan":return WuhanDescribe(hand,melds,win,c);
@@ -156,17 +160,30 @@ internal static partial class RegionalLocalCalculator {
     // between exact wait quotes; the other rules use the shared JavaScript worker.
     internal static IEnumerable<int> SnapshotSteps(JObject request,JObject result) {
         string rule=(string)request["rule"];var hand=request["hand"].ToObject<List<int>>();var melds=request["melds"].ToObject<List<string>>();var c=(JObject)request["context"]??new JObject();
+        if(rule=="beijing"&&request["scope"]!=null) {
+            var calculator=new BeijingLocal(melds,c);
+            if((string)request["scope"]=="waiting")result["waiting_tiles"]=new JArray(calculator.Waiting(hand));
+            else result["row"]=calculator.Describe(hand,(int)request["win"],(int?)request["cut"]);
+            yield break;
+        }
+        if(rule=="duocai"&&request["scope"]!=null) {
+            var calculator=new DuocaiLocal(melds,c);
+            if((string)request["scope"]=="waiting")result["waiting_tiles"]=new JArray(calculator.Waiting(hand));
+            else result["row"]=calculator.Describe(hand,(int)request["win"],(int?)request["cut"]);
+            yield break;
+        }
         result["source_hand_tiles"]=new JArray(hand);result["source_melds"]=new JArray(melds);result["waiting_tiles"]=new JArray();result["waiting_details"]=new JObject();result["waiting_by_discard"]=new JObject();result["waiting_details_by_discard"]=new JObject();
         result["win_blocked"]=Bool(c,"blocked");
         var nanchang=rule=="nanchang"?new NanchangLocal(melds,c):null;
         var shangrao=rule=="shangrao"?new ShangraoLocal(melds,c):null;
+        var duocai=rule=="duocai"?new DuocaiLocal(melds,c):null;
         var hongkong=rule=="hongkong"?new HongKongLocal(melds,c):null;
         IEnumerable<int> Rows(List<int> before,int? cut) {
-            var waits=shangrao?.Waiting(before)??nanchang?.Waiting(before)??hongkong?.Waiting(before)??Waiting(rule,before,melds,c);
+            var waits=duocai?.Waiting(before)??shangrao?.Waiting(before)??nanchang?.Waiting(before)??hongkong?.Waiting(before)??Waiting(rule,before,melds,c);
             yield return 0;
             var details=new JObject();
             foreach(int tile in waits) {
-                var row=shangrao?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??nanchang?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??hongkong?.Describe(before.Concat(new[]{tile}).ToList(),tile)??Describe(rule,before.Concat(new[]{tile}).ToList(),melds,tile,c,cut);
+                var row=duocai?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??shangrao?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??nanchang?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??hongkong?.Describe(before.Concat(new[]{tile}).ToList(),tile)??Describe(rule,before.Concat(new[]{tile}).ToList(),melds,tile,c,cut);
                 row["tile"]=tile;
                 details[tile.ToString()]=row;
                 yield return 0;

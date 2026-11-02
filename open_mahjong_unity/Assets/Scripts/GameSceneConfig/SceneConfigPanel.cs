@@ -41,7 +41,8 @@ public partial class SceneConfigPanel : MonoBehaviour
         navigationBound = true;
         ShowTableClothPanelButton.onClick.AddListener(() => TogglePage("TableCloth", ShowTableClothPanel));
         ShowTableEdgePanelButton.onClick.AddListener(() => TogglePage("TableEdge", ShowTableEdgePanel));
-        ShowCharacterPanelButton.onClick.AddListener(() => TogglePage("Character", ShowCharacterPanel));
+        if (ShowCharacterPanelButton != null)
+            ShowCharacterPanelButton.onClick.AddListener(() => TogglePage("Character", ShowCharacterPanel));
         ShowCardBackPanelButton.onClick.AddListener(() => TogglePage(cardDesignTabs != null ? "CardDesign" : "CardBack", RestoreCardDesign));
         ShowCardEdgePanelButton.onClick.AddListener(() => TogglePage(cardDesignTabs != null ? "CardDesign" : "CardEdge", ShowCardEdgePanel));
         ShowCardFacePanelButton.onClick.AddListener(() => TogglePage(cardDesignTabs != null ? "FaceDesign" : "CardFace", RestoreFaceDesign));
@@ -72,10 +73,6 @@ public partial class SceneConfigPanel : MonoBehaviour
         string label = panelVisible ? "隐藏面板" : "显示面板";
         var text = HideAllPanelButton.GetComponentInChildren<TMP_Text>(true);
         if (text != null) text.text = label;
-        else {
-            var legacyText = HideAllPanelButton.GetComponentInChildren<Text>(true);
-            if (legacyText != null) legacyText.text = label;
-        }
     }
 
     private void OnCardPanelShown(bool isFaceDesign) {

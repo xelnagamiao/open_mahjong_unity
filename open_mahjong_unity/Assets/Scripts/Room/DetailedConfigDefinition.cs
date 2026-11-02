@@ -402,6 +402,8 @@ internal static class DetailedConfigRegistry {
             { "hongkong", HongKong_Create_RoomConfig.Definition() },
             { "filipino", Filipino_Create_RoomConfig.Definition() },
             { "shangrao", Shangrao_Create_RoomConfig.Definition() },
+            { "beijing", Beijing_Create_RoomConfig.Definition() },
+            { "hongque", HongqueWRoomConfig.Definition() },
             { "vietnamese", Vietnamese_Create_RoomConfig.Definition() },
         };
     }

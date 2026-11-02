@@ -118,18 +118,20 @@ const items = [
   { href: STEAM_STORE_URL, label: 'Steam商店' },
   { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' || p.startsWith('/player-data/analysis') },
   { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') || p.includes('/fun') },
-  { to: '/paili', label: '牌理' },
+  { to: '/paili', label: '牌理', match: (p) => p === '/paili' || p.startsWith('/paili/') },
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },
   { to: '/seed-verify', label: '种子验证' },
   { to: '/mobile-download', label: '手机版' },
   { to: '/guide', label: '使用说明', match: (p) => p.startsWith('/guide') },
-  { href: 'https://qm.qq.com/q/MGGZV58hOO', label: '加入QQ群' },
+  { to: '/community', label: '社群', match: (p) => p.startsWith('/community') },
   { to: '/docs', label: '开发手册' },
   { to: '/github', label: 'GitHub' },
 ]
 
 const calculators = [
   { to: '/calc/chinese', label: '国标计算器' },
+  { to: '/calc/qingque', label: '青雀计算器' },
+  { to: '/calc/riichi', label: '日麻计算器' },
   { to: '/calc/hongque', label: '虹雀² 计算器' },
 ]
 

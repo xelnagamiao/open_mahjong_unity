@@ -1,0 +1,7189 @@
+[
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        22,
+        23,
+        35,
+        35,
+        21
+      ],
+      "melds": [],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.7826,
+        "names": [
+          "门前清",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 30,
+        "points": 5800,
+        "names": [
+          "平和(1han)",
+          "一气通贯(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        22,
+        23,
+        35,
+        35,
+        21
+      ],
+      "melds": [],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.7826,
+        "names": [
+          "门前清",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 30,
+        "points": 3900,
+        "names": [
+          "平和(1han)",
+          "一气通贯(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        22,
+        23,
+        35,
+        35,
+        21
+      ],
+      "melds": [],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.7826,
+        "names": [
+          "门前清",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 20,
+        "points": 7800,
+        "names": [
+          "平和(1han)",
+          "一气通贯(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        22,
+        23,
+        35,
+        35,
+        21
+      ],
+      "melds": [],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.7826,
+        "names": [
+          "门前清",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 20,
+        "points": 5200,
+        "names": [
+          "平和(1han)",
+          "一气通贯(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        15
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 33.8731,
+        "names": [
+          "镜数",
+          "九莲宝灯",
+          "连数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        15
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 33.8731,
+        "names": [
+          "镜数",
+          "九莲宝灯",
+          "连数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        15
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 33.8731,
+        "names": [
+          "镜数",
+          "九莲宝灯",
+          "连数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        15
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 33.8731,
+        "names": [
+          "镜数",
+          "九莲宝灯",
+          "连数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 34.6343,
+        "names": [
+          "九莲宝灯",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 34.6343,
+        "names": [
+          "九莲宝灯",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 34.6343,
+        "names": [
+          "九莲宝灯",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        19,
+        19,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 34.6343,
+        "names": [
+          "九莲宝灯",
+          "一气贯通"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "纯正九莲宝灯"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15,
+        16,
+        16,
+        17,
+        17
+      ],
+      "melds": [],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 28.5297,
+        "names": [
+          "七对",
+          "七连对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 10,
+        "fu": 30,
+        "points": 24000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15,
+        16,
+        16,
+        17,
+        17
+      ],
+      "melds": [],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 28.5297,
+        "names": [
+          "七对",
+          "七连对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 10,
+        "fu": 30,
+        "points": 16000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15,
+        16,
+        16,
+        17,
+        17
+      ],
+      "melds": [],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 28.5297,
+        "names": [
+          "七对",
+          "七连对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 11,
+        "fu": 20,
+        "points": 36000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15,
+        16,
+        16,
+        17,
+        17
+      ],
+      "melds": [],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 28.5297,
+        "names": [
+          "七对",
+          "七连对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 11,
+        "fu": 20,
+        "points": 24000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        12,
+        12,
+        13,
+        13,
+        13,
+        13,
+        14,
+        14
+      ],
+      "melds": [],
+      "winTile": 14,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 44.4114,
+        "names": [
+          "门前清",
+          "清一色",
+          "四聚",
+          "四同顺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 10,
+        "fu": 30,
+        "points": 24000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        12,
+        12,
+        13,
+        13,
+        13,
+        13,
+        14,
+        14
+      ],
+      "melds": [],
+      "winTile": 14,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 44.4114,
+        "names": [
+          "门前清",
+          "清一色",
+          "四聚",
+          "四同顺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 10,
+        "fu": 30,
+        "points": 16000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        12,
+        12,
+        13,
+        13,
+        13,
+        13,
+        14,
+        14
+      ],
+      "melds": [],
+      "winTile": 14,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 44.4114,
+        "names": [
+          "门前清",
+          "清一色",
+          "四聚",
+          "四同顺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 11,
+        "fu": 20,
+        "points": 36000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        12,
+        12,
+        13,
+        13,
+        13,
+        13,
+        14,
+        14
+      ],
+      "melds": [],
+      "winTile": 14,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 44.4114,
+        "names": [
+          "门前清",
+          "清一色",
+          "四聚",
+          "四同顺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 11,
+        "fu": 20,
+        "points": 24000,
+        "names": [
+          "平和(1han)",
+          "二杯口(3han)",
+          "清一色(6han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        41,
+        41,
+        42,
+        42,
+        42,
+        42,
+        43,
+        43,
+        43,
+        43,
+        44,
+        44
+      ],
+      "melds": [],
+      "winTile": 44,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.3195,
+        "names": [
+          "番牌二副",
+          "风牌七对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        41,
+        41,
+        42,
+        42,
+        42,
+        42,
+        43,
+        43,
+        43,
+        43,
+        44,
+        44
+      ],
+      "melds": [],
+      "winTile": 44,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.3195,
+        "names": [
+          "番牌二副",
+          "风牌七对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        41,
+        41,
+        42,
+        42,
+        42,
+        42,
+        43,
+        43,
+        43,
+        43,
+        44,
+        44
+      ],
+      "melds": [],
+      "winTile": 44,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.3195,
+        "names": [
+          "番牌二副",
+          "风牌七对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        41,
+        41,
+        42,
+        42,
+        42,
+        42,
+        43,
+        43,
+        43,
+        43,
+        44,
+        44
+      ],
+      "melds": [],
+      "winTile": 44,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.3195,
+        "names": [
+          "番牌二副",
+          "风牌七对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        46,
+        46,
+        47,
+        47,
+        47,
+        47,
+        45,
+        45,
+        45,
+        45,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 51.2082,
+        "names": [
+          "番牌七对",
+          "七对",
+          "三元六对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        46,
+        46,
+        47,
+        47,
+        47,
+        47,
+        45,
+        45,
+        45,
+        45,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.0082,
+        "names": [
+          "七对",
+          "三元六对",
+          "字一色"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        46,
+        46,
+        47,
+        47,
+        47,
+        47,
+        45,
+        45,
+        45,
+        45,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 51.2082,
+        "names": [
+          "番牌七对",
+          "七对",
+          "三元六对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        46,
+        46,
+        47,
+        47,
+        47,
+        47,
+        45,
+        45,
+        45,
+        45,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 49.0082,
+        "names": [
+          "七对",
+          "三元六对",
+          "字一色"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        19,
+        19,
+        21,
+        21,
+        29,
+        29,
+        31,
+        31,
+        39,
+        39,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 27.5223,
+        "names": [
+          "番牌",
+          "混幺九",
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 25,
+        "points": 9600,
+        "names": [
+          "七对子(2han)",
+          "混老头(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        19,
+        19,
+        21,
+        21,
+        29,
+        29,
+        31,
+        31,
+        39,
+        39,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 26.9334,
+        "names": [
+          "混幺九",
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 25,
+        "points": 6400,
+        "names": [
+          "七对子(2han)",
+          "混老头(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        19,
+        19,
+        21,
+        21,
+        29,
+        29,
+        31,
+        31,
+        39,
+        39,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 27.5223,
+        "names": [
+          "番牌",
+          "混幺九",
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 5,
+        "fu": 25,
+        "points": 12000,
+        "names": [
+          "七对子(2han)",
+          "混老头(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        19,
+        19,
+        21,
+        21,
+        29,
+        29,
+        31,
+        31,
+        39,
+        39,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 26.9334,
+        "names": [
+          "混幺九",
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 5,
+        "fu": 25,
+        "points": 8000,
+        "names": [
+          "七对子(2han)",
+          "混老头(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        19,
+        21,
+        29,
+        31,
+        39,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        45,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 18.6069,
+        "names": [
+          "十三幺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "国士无双十三面"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        19,
+        21,
+        29,
+        31,
+        39,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        45,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 18.6069,
+        "names": [
+          "十三幺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "国士无双十三面"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        19,
+        21,
+        29,
+        31,
+        39,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        45,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 18.6069,
+        "names": [
+          "十三幺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 48000,
+        "names": [
+          "国士无双十三面"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        19,
+        21,
+        29,
+        31,
+        39,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        45,
+        11
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 18.6069,
+        "names": [
+          "十三幺"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 13,
+        "fu": 25,
+        "points": 32000,
+        "names": [
+          "国士无双十三面"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        11,
+        12,
+        13,
+        27,
+        28,
+        29,
+        27,
+        28,
+        29,
+        35,
+        35
+      ],
+      "melds": [],
+      "winTile": 35,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.77,
+        "names": [
+          "二般高",
+          "门前清",
+          "映数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 7700,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        11,
+        12,
+        13,
+        27,
+        28,
+        29,
+        27,
+        28,
+        29,
+        35,
+        35
+      ],
+      "melds": [],
+      "winTile": 35,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.77,
+        "names": [
+          "二般高",
+          "门前清",
+          "映数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 5200,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        11,
+        12,
+        13,
+        27,
+        28,
+        29,
+        27,
+        28,
+        29,
+        35,
+        35
+      ],
+      "melds": [],
+      "winTile": 35,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.77,
+        "names": [
+          "二般高",
+          "门前清",
+          "映数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 11700,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        12,
+        13,
+        11,
+        12,
+        13,
+        27,
+        28,
+        29,
+        27,
+        28,
+        29,
+        35,
+        35
+      ],
+      "melds": [],
+      "winTile": 35,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.77,
+        "names": [
+          "二般高",
+          "门前清",
+          "映数"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 7900,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        25,
+        25,
+        26,
+        26,
+        27,
+        27,
+        38,
+        38
+      ],
+      "melds": [],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 40,
+        "points": 12000,
+        "names": [
+          "断幺九(1han)",
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        25,
+        25,
+        26,
+        26,
+        27,
+        27,
+        38,
+        38
+      ],
+      "melds": [],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 40,
+        "points": 8000,
+        "names": [
+          "断幺九(1han)",
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        25,
+        25,
+        26,
+        26,
+        27,
+        27,
+        38,
+        38
+      ],
+      "melds": [],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 5,
+        "fu": 30,
+        "points": 12000,
+        "names": [
+          "断幺九(1han)",
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        25,
+        25,
+        26,
+        26,
+        27,
+        27,
+        38,
+        38
+      ],
+      "melds": [],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 5,
+        "fu": 30,
+        "points": 8000,
+        "names": [
+          "断幺九(1han)",
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        24,
+        24,
+        25,
+        25,
+        26,
+        26,
+        37,
+        37
+      ],
+      "melds": [],
+      "winTile": 37,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 7700,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        24,
+        24,
+        25,
+        25,
+        26,
+        26,
+        37,
+        37
+      ],
+      "melds": [],
+      "winTile": 37,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 5200,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        24,
+        24,
+        25,
+        25,
+        26,
+        26,
+        37,
+        37
+      ],
+      "melds": [],
+      "winTile": 37,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 11700,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        24,
+        24,
+        25,
+        25,
+        26,
+        26,
+        37,
+        37
+      ],
+      "melds": [],
+      "winTile": 37,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 17.5875,
+        "names": [
+          "二般高",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 7900,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        22,
+        22,
+        31,
+        31,
+        32,
+        32,
+        43,
+        43
+      ],
+      "melds": [],
+      "winTile": 43,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 19.7889,
+        "names": [
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 25,
+        "points": 2400,
+        "names": [
+          "七对子(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        22,
+        22,
+        31,
+        31,
+        32,
+        32,
+        43,
+        43
+      ],
+      "melds": [],
+      "winTile": 43,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 19.7889,
+        "names": [
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 25,
+        "points": 1600,
+        "names": [
+          "七对子(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        22,
+        22,
+        31,
+        31,
+        32,
+        32,
+        43,
+        43
+      ],
+      "melds": [],
+      "winTile": 43,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 19.7889,
+        "names": [
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 25,
+        "points": 4800,
+        "names": [
+          "七对子(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        22,
+        22,
+        31,
+        31,
+        32,
+        32,
+        43,
+        43
+      ],
+      "melds": [],
+      "winTile": 43,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 19.7889,
+        "names": [
+          "七对",
+          "三色二对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 25,
+        "points": 3200,
+        "names": [
+          "七对子(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        21,
+        21,
+        22,
+        22,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 33,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 30.6143,
+        "names": [
+          "七对",
+          "二叠对",
+          "三聚",
+          "镜同三对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        21,
+        21,
+        22,
+        22,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 33,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 30.6143,
+        "names": [
+          "七对",
+          "二叠对",
+          "三聚",
+          "镜同三对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        21,
+        21,
+        22,
+        22,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 33,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 30.6143,
+        "names": [
+          "七对",
+          "二叠对",
+          "三聚",
+          "镜同三对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        21,
+        21,
+        21,
+        21,
+        22,
+        22,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 33,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 30.6143,
+        "names": [
+          "七对",
+          "二叠对",
+          "三聚",
+          "镜同三对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        21,
+        21,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.3417,
+        "names": [
+          "二般高",
+          "镜同",
+          "门前清",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 7700,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        21,
+        21,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.3417,
+        "names": [
+          "二般高",
+          "镜同",
+          "门前清",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 5200,
+        "names": [
+          "二杯口(3han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        21,
+        21,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.3417,
+        "names": [
+          "二般高",
+          "镜同",
+          "门前清",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 11700,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        21,
+        21,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.3417,
+        "names": [
+          "二般高",
+          "镜同",
+          "门前清",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 30,
+        "points": 7900,
+        "names": [
+          "二杯口(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 20.3419,
+        "names": [
+          "叠对",
+          "镜同二对",
+          "七对",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 20.3419,
+        "names": [
+          "叠对",
+          "镜同二对",
+          "七对",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 20.3419,
+        "names": [
+          "叠对",
+          "镜同二对",
+          "七对",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        22,
+        22,
+        23,
+        23,
+        34,
+        34
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 20.3419,
+        "names": [
+          "叠对",
+          "镜同二对",
+          "七对",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        25,
+        26,
+        27,
+        38,
+        38,
+        38,
+        46,
+        46
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.92469,
+        "names": [
+          "番牌",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        25,
+        26,
+        27,
+        38,
+        38,
+        38,
+        46,
+        46
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.92469,
+        "names": [
+          "番牌",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        25,
+        26,
+        27,
+        38,
+        38,
+        38,
+        46,
+        46
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.92469,
+        "names": [
+          "番牌",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 2100,
+        "names": [
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        11,
+        12,
+        13,
+        14,
+        25,
+        26,
+        27,
+        38,
+        38,
+        38,
+        46,
+        46
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.92469,
+        "names": [
+          "番牌",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1500,
+        "names": [
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        38,
+        38,
+        15,
+        15,
+        39,
+        39,
+        12,
+        12,
+        12,
+        12,
+        38,
+        38,
+        15,
+        15
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 28.8048,
+        "names": [
+          "七对",
+          "三叠对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        25,
+        25,
+        28,
+        28,
+        28,
+        13,
+        14,
+        15
+      ],
+      "melds": [
+        "s23",
+        "G43"
+      ],
+      "winTile": 25,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 6.1396,
+        "names": [
+          "暗杠",
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 60,
+        "points": 2000,
+        "names": [
+          "自风(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        15,
+        15,
+        32,
+        32,
+        32,
+        13,
+        13,
+        13,
+        36,
+        36,
+        36
+      ],
+      "melds": [
+        "k39"
+      ],
+      "winTile": 36,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.90459,
+        "names": [
+          "对对和"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2600,
+        "names": [
+          "对对和(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        42,
+        42,
+        43,
+        43,
+        25,
+        25,
+        34,
+        34,
+        13,
+        13,
+        25,
+        25,
+        16,
+        16
+      ],
+      "melds": [],
+      "winTile": 25,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.6503,
+        "names": [
+          "叠对",
+          "番牌",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        24,
+        24,
+        14,
+        15,
+        16,
+        25,
+        26,
+        27
+      ],
+      "melds": [
+        "s17",
+        "k46"
+      ],
+      "winTile": 24,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 6.46142,
+        "names": [
+          "番牌刻",
+          "海底捞月"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 30,
+        "points": 2000,
+        "names": [
+          "役牌·白(1han)",
+          "海底摸月(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        29,
+        29,
+        39,
+        39,
+        39,
+        41,
+        41,
+        41,
+        18,
+        18,
+        18
+      ],
+      "melds": [
+        "s22"
+      ],
+      "winTile": 39,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.9548,
+        "names": [
+          "三暗刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 50,
+        "points": 3200,
+        "names": [
+          "三暗刻(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        28,
+        28,
+        43,
+        43,
+        43,
+        37,
+        38,
+        39
+      ],
+      "melds": [
+        "s34",
+        "k34"
+      ],
+      "winTile": 39,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        26,
+        26,
+        22,
+        22,
+        22,
+        37,
+        38,
+        39,
+        13,
+        14,
+        15,
+        47,
+        47,
+        47
+      ],
+      "melds": [],
+      "winTile": 47,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 6.72439,
+        "names": [
+          "番牌刻",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2600,
+        "names": [
+          "役牌·发(1han)",
+          "立直(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        32,
+        32,
+        32,
+        45,
+        45,
+        45,
+        23,
+        24,
+        25
+      ],
+      "melds": [
+        "s35"
+      ],
+      "winTile": 32,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.58357,
+        "names": [
+          "番牌二副",
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1500,
+        "names": [
+          "役牌·中(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        19,
+        19,
+        11,
+        12,
+        13,
+        21,
+        22,
+        23,
+        32,
+        33,
+        34,
+        23,
+        24,
+        25
+      ],
+      "melds": [],
+      "winTile": 32,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 20,
+        "points": 1500,
+        "names": [
+          "平和(1han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        22,
+        22,
+        12,
+        13,
+        14,
+        25,
+        26,
+        27
+      ],
+      "melds": [
+        "s17",
+        "s36"
+      ],
+      "winTile": 12,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4,
+        "names": [
+          "河底捞鱼"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 30,
+        "points": 2000,
+        "names": [
+          "断幺九(1han)",
+          "河底捞鱼(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        34,
+        34,
+        44,
+        44,
+        17,
+        17,
+        19,
+        19,
+        28,
+        28,
+        21,
+        21,
+        29,
+        29
+      ],
+      "melds": [],
+      "winTile": 29,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.35627,
+        "names": [
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 25,
+        "points": 9600,
+        "names": [
+          "七对子(2han)",
+          "立直(1han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        29,
+        29,
+        17,
+        18,
+        19,
+        13,
+        13,
+        13,
+        31,
+        32,
+        33,
+        14,
+        15,
+        16
+      ],
+      "melds": [],
+      "winTile": 32,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        33,
+        33,
+        13,
+        14,
+        15,
+        27,
+        28,
+        29
+      ],
+      "melds": [
+        "s16",
+        "G47"
+      ],
+      "winTile": 28,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.1396,
+        "names": [
+          "暗杠",
+          "番牌刻",
+          "河底捞鱼"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 60,
+        "points": 5800,
+        "names": [
+          "役牌·发(1han)",
+          "河底捞鱼(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        47,
+        47,
+        21,
+        22,
+        23,
+        17,
+        18,
+        19
+      ],
+      "melds": [
+        "s36",
+        "k31"
+      ],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 1.35199,
+        "names": [
+          "番牌"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        23,
+        23,
+        37,
+        38,
+        39,
+        34,
+        34,
+        34,
+        25,
+        25,
+        25,
+        17,
+        18,
+        19
+      ],
+      "melds": [],
+      "winTile": 37,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2600,
+        "names": [
+          "双立直(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        13,
+        13,
+        11,
+        11,
+        15,
+        15,
+        14,
+        14,
+        36,
+        36,
+        22,
+        22,
+        22,
+        22
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.0608,
+        "names": [
+          "叠对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        21,
+        21,
+        17,
+        17,
+        13,
+        13,
+        12,
+        12,
+        46,
+        46,
+        32,
+        32,
+        45,
+        45
+      ],
+      "melds": [],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 9.20508,
+        "names": [
+          "番牌二副",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 25,
+        "points": 6400,
+        "names": [
+          "七对子(2han)",
+          "双立直(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        31,
+        31,
+        42,
+        42,
+        42,
+        11,
+        11,
+        11,
+        24,
+        25,
+        26,
+        19,
+        19,
+        19
+      ],
+      "melds": [],
+      "winTile": 42,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        18,
+        18,
+        28,
+        28,
+        28,
+        27,
+        27,
+        27,
+        37,
+        38,
+        39,
+        36,
+        36,
+        36
+      ],
+      "melds": [],
+      "winTile": 27,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 13.0338,
+        "names": [
+          "门前清",
+          "四聚"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        18,
+        18,
+        22,
+        22,
+        22,
+        12,
+        13,
+        14,
+        35,
+        35,
+        35
+      ],
+      "melds": [
+        "s18"
+      ],
+      "winTile": 35,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        29,
+        29,
+        27,
+        28,
+        29,
+        18,
+        18,
+        18,
+        46,
+        46,
+        46
+      ],
+      "melds": [
+        "s24"
+      ],
+      "winTile": 28,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 2.46142,
+        "names": [
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1500,
+        "names": [
+          "役牌·白(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        38,
+        38,
+        35,
+        35,
+        37,
+        37,
+        47,
+        47,
+        32,
+        32,
+        24,
+        24,
+        47,
+        47
+      ],
+      "melds": [],
+      "winTile": 47,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 12.7716,
+        "names": [
+          "叠对",
+          "番牌二副",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        28,
+        28,
+        27,
+        27,
+        36,
+        36,
+        24,
+        24,
+        18,
+        18,
+        44,
+        44,
+        41,
+        41
+      ],
+      "melds": [],
+      "winTile": 41,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.35627,
+        "names": [
+          "海底捞月",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 6,
+        "fu": 25,
+        "points": 12000,
+        "names": [
+          "七对子(2han)",
+          "双立直(2han)",
+          "门前清自摸(1han)",
+          "海底摸月(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        14,
+        14,
+        26,
+        26,
+        27,
+        27,
+        23,
+        23,
+        24,
+        24,
+        31,
+        31,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 23,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.35627,
+        "names": [
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 25,
+        "points": 1600,
+        "names": [
+          "七对子(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        15,
+        15,
+        23,
+        24,
+        25,
+        37,
+        38,
+        39
+      ],
+      "melds": [
+        "k44",
+        "s23"
+      ],
+      "winTile": 25,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 2.46142,
+        "names": [
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 30,
+        "points": 1000,
+        "names": [
+          "自风(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        13,
+        13,
+        21,
+        21,
+        14,
+        14,
+        21,
+        21,
+        32,
+        32,
+        33,
+        33,
+        35,
+        35
+      ],
+      "melds": [],
+      "winTile": 13,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 15.0608,
+        "names": [
+          "叠对",
+          "河底捞鱼",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        25,
+        25,
+        21,
+        22,
+        23,
+        45,
+        45,
+        45
+      ],
+      "melds": [
+        "s38",
+        "s36"
+      ],
+      "winTile": 45,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 2.46142,
+        "names": [
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 30,
+        "points": 1000,
+        "names": [
+          "役牌·中(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        24,
+        24,
+        36,
+        37,
+        38,
+        24,
+        25,
+        26
+      ],
+      "melds": [
+        "s26",
+        "g29"
+      ],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        45,
+        45,
+        39,
+        39,
+        14,
+        14,
+        41,
+        41,
+        34,
+        34,
+        17,
+        17,
+        43,
+        43
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.84067,
+        "names": [
+          "番牌",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 25,
+        "points": 1600,
+        "names": [
+          "七对子(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        26,
+        26,
+        38,
+        38,
+        36,
+        36,
+        27,
+        27,
+        32,
+        32,
+        33,
+        33,
+        23,
+        23
+      ],
+      "melds": [],
+      "winTile": 36,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 10.3234,
+        "names": [
+          "镜同二对",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 25,
+        "points": 6400,
+        "names": [
+          "七对子(2han)",
+          "断幺九(1han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        17,
+        17,
+        22,
+        23,
+        24,
+        41,
+        41,
+        41,
+        32,
+        32,
+        32
+      ],
+      "melds": [
+        "s16"
+      ],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        43,
+        43,
+        24,
+        25,
+        26,
+        15,
+        16,
+        17,
+        17,
+        17,
+        17
+      ],
+      "melds": [
+        "s14"
+      ],
+      "winTile": 26,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        47,
+        47,
+        32,
+        32,
+        11,
+        11,
+        35,
+        35,
+        46,
+        46,
+        45,
+        45,
+        28,
+        28
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 14.7992,
+        "names": [
+          "七对",
+          "三元对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 25,
+        "points": 1600,
+        "names": [
+          "七对子(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        39,
+        39,
+        19,
+        19,
+        36,
+        36,
+        29,
+        29,
+        39,
+        39,
+        28,
+        28,
+        33,
+        33
+      ],
+      "melds": [],
+      "winTile": 39,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 15.1113,
+        "names": [
+          "叠对",
+          "七对",
+          "三色同对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        45,
+        45,
+        13,
+        13,
+        13,
+        37,
+        37,
+        37,
+        31,
+        31,
+        31
+      ],
+      "melds": [
+        "g39"
+      ],
+      "winTile": 31,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 13.9273,
+        "names": [
+          "对对和",
+          "番牌",
+          "三暗刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 60,
+        "points": 12000,
+        "names": [
+          "对对和(2han)",
+          "三暗刻(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        43,
+        43,
+        36,
+        37,
+        38,
+        23,
+        24,
+        25
+      ],
+      "melds": [
+        "g41",
+        "G15"
+      ],
+      "winTile": 36,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 9.11223,
+        "names": [
+          "暗杠",
+          "番牌",
+          "双杠"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        12,
+        12,
+        27,
+        27,
+        27,
+        37,
+        38,
+        39
+      ],
+      "melds": [
+        "k22",
+        "k39"
+      ],
+      "winTile": 27,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        34,
+        34,
+        15,
+        15,
+        15,
+        42,
+        42,
+        42,
+        26,
+        26,
+        26
+      ],
+      "melds": [
+        "s17"
+      ],
+      "winTile": 42,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1300,
+        "names": [
+          "场风(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        39,
+        39,
+        38,
+        38,
+        38,
+        33,
+        34,
+        35
+      ],
+      "melds": [
+        "k43",
+        "s36"
+      ],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.67584,
+        "names": [
+          "混一色"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 30,
+        "points": 2000,
+        "names": [
+          "混一色(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        45,
+        45,
+        16,
+        17,
+        18,
+        36,
+        37,
+        38,
+        36,
+        36,
+        36,
+        24,
+        25,
+        26
+      ],
+      "melds": [],
+      "winTile": 45,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 4.92469,
+        "names": [
+          "番牌",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 2000,
+        "names": [
+          "立直(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        36,
+        36,
+        31,
+        32,
+        33
+      ],
+      "melds": [
+        "k35",
+        "k31",
+        "s16"
+      ],
+      "winTile": 36,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        43,
+        43,
+        37,
+        38,
+        39,
+        42,
+        42,
+        42,
+        19,
+        19,
+        19
+      ],
+      "melds": [
+        "G26"
+      ],
+      "winTile": 19,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 14.6306,
+        "names": [
+          "暗杠",
+          "番牌刻",
+          "门前清",
+          "三暗刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 5,
+        "fu": 60,
+        "points": 8000,
+        "names": [
+          "自风(1han)",
+          "场风(1han)",
+          "三暗刻(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        19,
+        19,
+        37,
+        37,
+        37,
+        11,
+        11,
+        11,
+        36,
+        37,
+        38
+      ],
+      "melds": [
+        "s17"
+      ],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        15,
+        15,
+        35,
+        35,
+        13,
+        13,
+        39,
+        39,
+        38,
+        38,
+        25,
+        25,
+        46,
+        46
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.6053,
+        "names": [
+          "番牌",
+          "七对",
+          "三色同对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 25,
+        "points": 3200,
+        "names": [
+          "七对子(2han)",
+          "立直(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        16,
+        16,
+        31,
+        31,
+        31
+      ],
+      "melds": [
+        "s27",
+        "s24",
+        "s16"
+      ],
+      "winTile": 31,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        13,
+        13,
+        32,
+        32,
+        32,
+        34,
+        35,
+        36,
+        27,
+        28,
+        29
+      ],
+      "melds": [
+        "k43"
+      ],
+      "winTile": 32,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        14,
+        14,
+        46,
+        46,
+        46,
+        37,
+        38,
+        39
+      ],
+      "melds": [
+        "k28",
+        "s24"
+      ],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 2.46142,
+        "names": [
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1500,
+        "names": [
+          "役牌·白(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        46,
+        46,
+        27,
+        28,
+        29,
+        32,
+        33,
+        34,
+        32,
+        33,
+        34,
+        37,
+        38,
+        39
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 9.72519,
+        "names": [
+          "番牌",
+          "门前清",
+          "一般高"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 40,
+        "points": 5200,
+        "names": [
+          "一杯口(1han)",
+          "双立直(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        13,
+        13,
+        26,
+        27,
+        28,
+        16,
+        16,
+        16,
+        36,
+        37,
+        38,
+        23,
+        23,
+        23
+      ],
+      "melds": [],
+      "winTile": 28,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.6060300000000005,
+        "names": [
+          "河底捞鱼",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2600,
+        "names": [
+          "断幺九(1han)",
+          "河底捞鱼(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        33,
+        33,
+        35,
+        36,
+        37,
+        38,
+        38,
+        38,
+        32,
+        32,
+        32,
+        35,
+        36,
+        37
+      ],
+      "melds": [],
+      "winTile": 32,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 2
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 22.8448,
+        "names": [
+          "河底捞鱼",
+          "门前清",
+          "清一色",
+          "一般高"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 11,
+        "fu": 40,
+        "points": 36000,
+        "names": [
+          "断幺九(1han)",
+          "一杯口(1han)",
+          "清一色(6han)",
+          "双立直(2han)",
+          "河底捞鱼(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        29,
+        29,
+        26,
+        26,
+        47,
+        47,
+        27,
+        27,
+        12,
+        12,
+        29,
+        29,
+        11,
+        11
+      ],
+      "melds": [],
+      "winTile": 29,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.6503,
+        "names": [
+          "叠对",
+          "番牌",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        18,
+        18,
+        26,
+        26,
+        26,
+        42,
+        42,
+        42,
+        19,
+        19,
+        19
+      ],
+      "melds": [
+        "s33"
+      ],
+      "winTile": 19,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1300,
+        "names": [
+          "场风(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        27,
+        27,
+        11,
+        11,
+        11,
+        38,
+        38,
+        38,
+        45,
+        45,
+        45
+      ],
+      "melds": [
+        "s37"
+      ],
+      "winTile": 38,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 12.1438,
+        "names": [
+          "番牌刻",
+          "三暗刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 50,
+        "points": 6400,
+        "names": [
+          "役牌·中(1han)",
+          "三暗刻(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        18,
+        18,
+        25,
+        26,
+        27,
+        23,
+        24,
+        25
+      ],
+      "melds": [
+        "s33",
+        "g42"
+      ],
+      "winTile": 25,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 2.46142,
+        "names": [
+          "番牌刻"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2600,
+        "names": [
+          "自风(1han)",
+          "场风(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        44,
+        44,
+        46,
+        46,
+        42,
+        42,
+        35,
+        35,
+        39,
+        39,
+        33,
+        33,
+        45,
+        45
+      ],
+      "melds": [],
+      "winTile": 45,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 16.1743,
+        "names": [
+          "番牌三副",
+          "混一色",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 6,
+        "fu": 25,
+        "points": 12000,
+        "names": [
+          "七对子(2han)",
+          "混一色(3han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        38,
+        38,
+        33,
+        34,
+        35,
+        42,
+        42,
+        42,
+        27,
+        28,
+        29,
+        24,
+        24,
+        24
+      ],
+      "melds": [],
+      "winTile": 24,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 40,
+        "points": 2700,
+        "names": [
+          "场风(1han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        21,
+        21,
+        26,
+        26,
+        26,
+        37,
+        38,
+        39
+      ],
+      "melds": [
+        "s15",
+        "k39"
+      ],
+      "winTile": 21,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        45,
+        45,
+        33,
+        33,
+        33,
+        32,
+        33,
+        34,
+        22,
+        23,
+        24
+      ],
+      "melds": [
+        "s16"
+      ],
+      "winTile": 33,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 1.35199,
+        "names": [
+          "番牌"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        11,
+        11,
+        33,
+        34,
+        35,
+        35,
+        36,
+        37,
+        23,
+        24,
+        25,
+        27,
+        28,
+        29
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 30,
+        "points": 2000,
+        "names": [
+          "立直(1han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        17,
+        18,
+        19,
+        15,
+        16,
+        17,
+        28,
+        28,
+        28,
+        14,
+        15,
+        16
+      ],
+      "melds": [],
+      "winTile": 15,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": true,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 8.92469,
+        "names": [
+          "番牌",
+          "海底捞月",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 2,
+        "fu": 30,
+        "points": 3000,
+        "names": [
+          "门前清自摸(1han)",
+          "海底摸月(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        32,
+        32,
+        21,
+        21,
+        36,
+        36,
+        39,
+        39,
+        11,
+        11,
+        14,
+        14,
+        15,
+        15
+      ],
+      "melds": [],
+      "winTile": 11,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 7.35627,
+        "names": [
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 3,
+        "fu": 25,
+        "points": 3200,
+        "names": [
+          "七对子(2han)",
+          "门前清自摸(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        18,
+        18,
+        46,
+        46,
+        46,
+        16,
+        16,
+        16,
+        25,
+        26,
+        27,
+        16,
+        17,
+        18
+      ],
+      "melds": [],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "西",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 6.72439,
+        "names": [
+          "番牌刻",
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 50,
+        "points": 1600,
+        "names": [
+          "役牌·白(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        29,
+        29,
+        36,
+        37,
+        38,
+        12,
+        13,
+        14
+      ],
+      "melds": [
+        "s23",
+        "s26"
+      ],
+      "winTile": 29,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        22,
+        22,
+        32,
+        33,
+        34,
+        15,
+        16,
+        17
+      ],
+      "melds": [
+        "k17",
+        "k14"
+      ],
+      "winTile": 17,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "北",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 0,
+        "names": []
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 30,
+        "points": 1100,
+        "names": [
+          "断幺九(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        41,
+        41,
+        13,
+        14,
+        15,
+        42,
+        42,
+        42
+      ],
+      "melds": [
+        "G19",
+        "k14"
+      ],
+      "winTile": 13,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.8043,
+        "names": [
+          "暗杠",
+          "番牌刻",
+          "混一色"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 4,
+        "fu": 70,
+        "points": 8000,
+        "names": [
+          "自风(1han)",
+          "场风(1han)",
+          "混一色(2han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        31,
+        31,
+        39,
+        39,
+        39,
+        34,
+        35,
+        36,
+        26,
+        27,
+        28,
+        23,
+        23,
+        23
+      ],
+      "melds": [],
+      "winTile": 34,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "南",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false,
+        "riichi": 1
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 3.60603,
+        "names": [
+          "门前清"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 50,
+        "points": 1600,
+        "names": [
+          "立直(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        36,
+        36,
+        11,
+        12,
+        13,
+        45,
+        45,
+        45
+      ],
+      "melds": [
+        "G35",
+        "s12"
+      ],
+      "winTile": 45,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "ron",
+        "round": "东",
+        "seat": "南",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 11.7721,
+        "names": [
+          "暗杠",
+          "番牌刻",
+          "一般高"
+        ]
+      },
+      "riichi": {
+        "valid": true,
+        "fan": 1,
+        "fu": 40,
+        "points": 1300,
+        "names": [
+          "役牌·中(1han)"
+        ]
+      }
+    }
+  },
+  {
+    "draft": {
+      "version": 1,
+      "hand": [
+        45,
+        45,
+        31,
+        31,
+        17,
+        17,
+        24,
+        24,
+        46,
+        46,
+        21,
+        21,
+        21,
+        21
+      ],
+      "melds": [],
+      "winTile": 46,
+      "visible": [],
+      "river": [],
+      "context": {
+        "method": "tsumo",
+        "round": "南",
+        "seat": "东",
+        "flowers": 0,
+        "lastTile": false,
+        "kongWin": false,
+        "robKong": false,
+        "lastCopy": false
+      }
+    },
+    "expected": {
+      "qingque": {
+        "fan": 12.7716,
+        "names": [
+          "叠对",
+          "番牌二副",
+          "七对"
+        ]
+      },
+      "riichi": {
+        "valid": false,
+        "fan": 0,
+        "fu": 0,
+        "points": 0,
+        "names": []
+      }
+    }
+  }
+]

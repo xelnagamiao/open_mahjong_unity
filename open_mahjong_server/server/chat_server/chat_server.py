@@ -27,27 +27,21 @@ class ChatServer:
         """
         global HASH_SALT
         
-        # 生成密钥
-        HASH_SALT = secrets.token_urlsafe(16)
-        
-        # 保存秘钥到文件
-        await self.save_secret_key_to_file(HASH_SALT)
-        await asyncio.sleep(0.5)  # 短暂等待确保文件写入完成
-        
-        # 验证文件是否写入成功
+        # Go is independently managed and reads this file at startup. Rotating
+        # it on every Python restart invalidates every newly issued credential.
         script_dir = os.path.dirname(os.path.abspath(__file__))
         secret_file_path = os.path.join(script_dir, 'secret_key.txt')
-        
-        # 如果不存在则报错
         if not os.path.exists(secret_file_path):
-            raise Exception(f"秘钥文件不存在: {secret_file_path}")
-            
+            await self.save_secret_key_to_file(secrets.token_urlsafe(16))
+
         # 验证文件内容是否有效
         try:
             with open(secret_file_path, 'r') as f:
                 saved_key = f.read().strip()
                 if not saved_key or len(saved_key) < 10:
                     raise Exception("秘钥文件内容无效")
+                HASH_SALT = saved_key
+                self.secret_key = saved_key
                 logger.info("秘钥文件验证成功")
         except Exception as e:
             logger.error(f"读取秘钥文件失败: {e}")
@@ -72,20 +66,20 @@ class ChatServer:
                 logger.info("在生产环境中，聊天服务器应由 supervisor/systemd 独立管理")
                 return
                 
-            # 调试环境使用命令行窗口显示日志信息（仅 Windows）
+            # Local test service runs in the background.
             if sys.platform == 'win32':
                 process = subprocess.Popen(
                     [executable_path],
                     cwd=script_dir,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
                 )
             else:
                 # Linux/Mac 环境
                 process = subprocess.Popen(
                     [executable_path],
                     cwd=script_dir,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                     text=True
                 )
             
@@ -116,12 +110,8 @@ class ChatServer:
                 f.flush()  # 强制刷新缓冲区
                 os.fsync(f.fileno())  # 强制写入磁盘
             
-            # 如果原文件存在，先删除
-            if os.path.exists(secret_file_path):
-                os.remove(secret_file_path)
-                
             # 原子性重命名
-            os.rename(temp_file_path, secret_file_path)
+            os.replace(temp_file_path, secret_file_path)
             
             # 验证文件写入是否成功
             with open(secret_file_path, 'r', encoding='utf-8') as f:
@@ -141,7 +131,8 @@ class ChatServer:
                     os.remove(temp_file_path)
                 except:
                     pass
+            raise
             
     # 哈希用户名
     async def hash_username(self, username: str) -> str:
-        return hashlib.sha256((username + HASH_SALT).encode()).hexdigest()
+        return hashlib.sha256((username + self.secret_key).encode()).hexdigest()

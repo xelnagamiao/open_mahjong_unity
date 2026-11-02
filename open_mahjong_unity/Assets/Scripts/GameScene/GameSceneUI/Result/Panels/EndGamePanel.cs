@@ -4,7 +4,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class EndGamePanel : MonoBehaviour {
+public partial class EndGamePanel : MonoBehaviour {
     [SerializeField] private RankDisplay[] rankDisplays;
     [SerializeField] private CanvasGroupFadeIn fadeInEffect;
 
@@ -35,6 +35,7 @@ public class EndGamePanel : MonoBehaviour {
     private float eloBefore, eloAfter;
     private float? ratingMatchPoints;
     private float ratingGameMultiplier, ratingTierMultiplier, ratingRankCost;
+    private string ratingPointDetails;
 
     private void Awake() {
         if (Instance == null) {
@@ -51,7 +52,8 @@ public class EndGamePanel : MonoBehaviour {
         string master_seed,
         string commitment,
         string salt,
-        Dictionary<string, Dictionary<string, object>> player_final_data) {
+        Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch = null) {
+        RestoreSichuanMatchChildren();
         gameObject.SetActive(true);
         AutoAction.Instance?.DismissTimeoutReturnIfAny();
         fadeInEffect?.PlayFadeIn();
@@ -90,6 +92,10 @@ public class EndGamePanel : MonoBehaviour {
             display.score.text = playerData["score"].ToString();
             display.rank.text = playerData["rank"].ToString();
             display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F2}";
+            if (playerData.TryGetValue("rating_rule",out object pointRule) && pointRule?.ToString()=="qingque"
+                && playerData.TryGetValue("rating_completed_hands",out object pointHands) && pointHands!=null
+                && playerData.TryGetValue("elo_delta",out object pointDelta) && pointDelta!=null)
+                display.pt.text=$"{System.Convert.ToDouble(pointDelta):+0.00;-0.00;0.00} Elo";
             if (playerData.TryGetValue("competition_points", out object competitionPoints) && competitionPoints != null)
                 display.pt.text = $"{System.Convert.ToSingle(competitionPoints):0.#}盘分";
             if (playerData.TryGetValue("team_id", out object teamId) && teamId != null) {
@@ -137,6 +143,7 @@ public class EndGamePanel : MonoBehaviour {
         ratingRule=ratingSystem=null;
         eloBefore=eloAfter=0;
         ratingMatchPoints=null;
+        ratingPointDetails=null;
         ratingGameMultiplier=ratingTierMultiplier=1;
         ratingRankCost=0;
         string myUsername = PlayerSession.Current.Username;
@@ -166,10 +173,17 @@ public class EndGamePanel : MonoBehaviour {
                         ratingRankCost=System.Convert.ToSingle(d["rating_rank_cost"]);
                     }
                     PlayerSession.Current.UpdateRating(ratingRule,rankAfter,scoreAfter,eloAfter,System.Convert.ToInt32(d["rating_games"]));
+                    if(ratingRule=="qingque"&&d.TryGetValue("rating_completed_hands",out var hands)&&hands!=null) {
+                        double net=System.Convert.ToDouble(d["rating_net_points"]), avg=System.Convert.ToDouble(d["rating_average_points"]);
+                        double ordinary=System.Convert.ToDouble(d["rating_base_delta"]), bonus=System.Convert.ToDouble(d["rating_protection_bonus"]);
+                        ratingPointDetails=$"净素点 {net:+0;-0;0} · {hands}局 · 局均 {avg:+0.00;-0.00;0.00}\n表现 {ordinary:+0.00;-0.00;0.00} · 保护 {bonus:+0.00;-0.00;0.00}";
+                    }
                 }
             }
             break;
         }
+
+        ShowSichuanMatch(sichuanMatch);
 
         // 设置按钮点击事件
         goHomeButton.onClick.RemoveAllListeners();
@@ -189,7 +203,7 @@ public class EndGamePanel : MonoBehaviour {
         gameObject.SetActive(false);
         if (isRankedMatch) {
             if(ratingRule!=null)RankChangePanel.Instance.ShowRatedChange(ratingRule,ratingSystem,rankBefore,scoreBefore,rankAfter,scoreAfter,ptChange,eloBefore,eloAfter,
-                ratingMatchPoints,ratingGameMultiplier,ratingTierMultiplier,ratingRankCost);
+                ratingMatchPoints,ratingGameMultiplier,ratingTierMultiplier,ratingRankCost,ratingPointDetails);
             else RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
         } else {
             PostGameNavigator.ExitToLobby(forceTeardown: true);
@@ -197,6 +211,7 @@ public class EndGamePanel : MonoBehaviour {
     }
 
     public void ClearEndGamePanel() {
+        RestoreSichuanMatchChildren();
         gameObject.SetActive(false);
     }
 }

@@ -8,18 +8,20 @@ public class WindowsManager : MonoBehaviour {
 
     [Header("顶层窗口")]
     [SerializeField] private GameObject headerPanel; //
-    [SerializeField] private GameObject chatPanel; // 主菜单、对局和牌谱中显示；隐藏时继续接收聊天消息
     [SerializeField] private GameObject streamerModePanel; // 主播模式面板
     [SerializeField] private GameObject gamePanel; // 游戏窗口
+    [SerializeField] private GameObject tableOverlays;
+    [SerializeField] private GameObject recordOverlays;
+    [SerializeField] private RectTransform pageRoot;
 
     [Header("一级窗口")]
     [SerializeField] private GameObject loginPanel; // 登录窗口
     [SerializeField] private GameObject menuPanel; // 菜单界面窗口
     [SerializeField] private GameObject recordPanel; // 游戏记录窗口
-    [SerializeField] private GameObject playerPanel; // 玩家数据窗口（DataPanel）
     [SerializeField] private GameObject configPanel; // 玩家配置窗口
     [SerializeField] private GameObject noticePanel; // 公告窗口
     [SerializeField] private GameObject aboutUsPanel; // 关于我们窗口
+    [SerializeField] private GameObject communityPanel; // 社群窗口
     [SerializeField] private GameObject roomRoot; // 房间根窗口（包含房间列表、房间、创建房间等子窗口）
     [SerializeField] private GameObject sceneConfigPanel; // 场景配置窗口
     [SerializeField] private GameObject spectatorPanel; // 观战窗口
@@ -29,8 +31,11 @@ public class WindowsManager : MonoBehaviour {
 
     [Header("窗口切换动画")]
     [SerializeField] private float windowFadeDuration = 0.2f;
+    [SerializeField] private Salasasa.Home.LobbyTableTransition lobbyTableTransition;
 
     public float WindowFadeDuration => windowFadeDuration;
+    public bool CanReturnToGame { get; private set; }
+    public void SetBackToGameVisible(bool visible) => CanReturnToGame = visible;
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -41,6 +46,7 @@ public class WindowsManager : MonoBehaviour {
     public static WindowsManager Instance { get; private set; } // 单例
 
     private string currentWindow; // 当前所在窗口状态
+    private string suspendedGameWindow = "game";
     /// <summary>最近一次点过的大厅顶栏（含挂起后逛其它页）。只用于顶栏高亮，不作退出锚点。</summary>
     private string lastLobbyTab = "menu";
     /// <summary>进入 game/recordscene 前 MainCanvas 正在显示的页。主菜单挂起与退出牌谱/对局都回到这里，挂起后点顶栏不改写。</summary>
@@ -54,9 +60,9 @@ public class WindowsManager : MonoBehaviour {
     private bool applicationPaused;
 
     private static bool IsLobbyTab(string window) {
-        return window == "menu" || window == "room" || window == "record" || window == "player"
+        return window == "menu" || window == "room" || window == "record"
             || window == "config" || window == "notice" || window == "aboutUs" || window == "sceneConfig"
-            || window == "spectator" || window == "match" || window == "event" || window == "friend";
+            || window == "spectator" || window == "match" || window == "event" || window == "friend" || window == "community";
     }
 
     private void Awake() {
@@ -79,6 +85,7 @@ public class WindowsManager : MonoBehaviour {
     }
 
     private void OnDisable() {
+        lobbyTableTransition?.Cancel();
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (Instance == this) Screen.sleepTimeout = SleepTimeout.SystemSetting;
 #endif
@@ -105,34 +112,10 @@ public class WindowsManager : MonoBehaviour {
 
     public void ApplyStreamerModePanels() {
         bool showStreamerPanel = ConfigManager.Instance != null && StreamerModeHelper.IsEnabled;
-        GameObject chat = ResolveChatPanel();
         GameObject streamer = ResolveStreamerModePanel();
-        if (chat != null) {
-            // 不停用消息接收组件，避免对局期间的新消息触发停用对象上的滚动协程。
-            chat.SetActive(true);
-            bool visible = (currentWindow == "menu" || currentWindow == "game"
-                || currentWindow == "record" || currentWindow == "recordscene")
-                && !showStreamerPanel && !CreatePanel.IsAnyCreationPanelOpen;
-            var visibility = EnsureCanvasGroup(chat);
-            visibility.alpha = visible ? 1 : 0;
-            visibility.interactable = visibility.blocksRaycasts = visible;
-            var events = UnityEngine.EventSystems.EventSystem.current;
-            var selected = events ? events.currentSelectedGameObject : null;
-            if (!visible && selected && selected.transform.IsChildOf(chat.transform)) {
-                selected.GetComponent<TMPro.TMP_InputField>()?.DeactivateInputField();
-                events.SetSelectedGameObject(null);
-            }
-        }
         if (streamer != null) {
             streamer.SetActive(showStreamerPanel);
         }
-    }
-
-    private GameObject ResolveChatPanel() {
-        if (chatPanel != null) {
-            return chatPanel;
-        }
-        return ChatPanel.Instance != null ? ChatPanel.Instance.gameObject : null;
     }
 
     private GameObject ResolveStreamerModePanel() {
@@ -146,6 +129,7 @@ public class WindowsManager : MonoBehaviour {
     /// 断线软重置：立即回到仅显示登录界面的布局（无渐变动画）。
     /// </summary>
     public void ResetToLoginUI() {
+        lobbyTableTransition?.Cancel();
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
@@ -162,7 +146,7 @@ public class WindowsManager : MonoBehaviour {
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
         roomReturnWindow = "menu";
-        HeaderPanel.Instance?.UpdateButtonState("login");
+        CanReturnToGame = false;
         Debug.Log("[WindowsManager] 已重置到登录界面");
     }
 
@@ -193,10 +177,10 @@ public class WindowsManager : MonoBehaviour {
         off(headerPanel);
         off(menuPanel);
         off(recordPanel);
-        off(playerPanel);
         off(configPanel);
         off(noticePanel);
         off(aboutUsPanel);
+        off(communityPanel);
         off(roomRoot);
         off(sceneConfigPanel);
         off(spectatorPanel);
@@ -204,6 +188,9 @@ public class WindowsManager : MonoBehaviour {
         off(eventPanel);
         off(friendPanel);
         off(gamePanel);
+        off(tableOverlays);
+        off(recordOverlays);
+        if(pageRoot!=null)pageRoot.gameObject.SetActive(false);
         loginPanel.SetActive(true);
     }
 
@@ -263,6 +250,7 @@ public class WindowsManager : MonoBehaviour {
     /// 对局进行中挂后台请用 HangGameToReturnWindow，不要调用本方法。
     /// </summary>
     public void ExitGameTo(string targetWindow) {
+        CanReturnToGame = false;
         if (gamePanel != null) gamePanel.SetActive(false);
         StartSwitchWindow(targetWindow, ensureHeader: true);
     }
@@ -278,7 +266,23 @@ public class WindowsManager : MonoBehaviour {
     /// 对局/牌谱挂后台：回到进入前所在大厅页。顶栏要开（「正在对局中」），gamePanel 保持运行。
     /// </summary>
     public void HangGameToReturnWindow() {
+        if(currentWindow == "game" || currentWindow == "recordscene") suspendedGameWindow = currentWindow;
+        CanReturnToGame = true;
         StartSwitchWindow(ResolveGameReturnWindow(), ensureHeader: false);
+    }
+
+    /// <summary>Restore the suspended table, including replay overlays and the current replay position.</summary>
+    public void ResumeSuspendedGame() {
+        if (lobbyTableTransition && lobbyTableTransition.IsRunning) return;
+        CanReturnToGame = false;
+        string target = suspendedGameWindow;
+        if (lobbyTableTransition && gamePanel && gamePanel.activeSelf && IsLobbyTab(currentWindow)
+            && windowFadeDuration > 0f) {
+            StopWindowSwitch();
+            if (lobbyTableTransition.TryPlay(windowFadeDuration,
+                () => StartSwitchWindow(target, ensureHeader: false, preserveTableTransition: true))) return;
+        }
+        SwitchWindow(target);
     }
 
     /// <summary>进入 game/recordscene 前冻结的返回页；挂起后点顶栏不会改写。</summary>
@@ -354,17 +358,23 @@ public class WindowsManager : MonoBehaviour {
         return target;
     }
 
-    private void StartSwitchWindow(string targetWindow, bool ensureHeader) {
+    private void StopWindowSwitch() {
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
             NormalizeCanvasGroups();
         }
+    }
+
+    private void StartSwitchWindow(string targetWindow, bool ensureHeader, bool preserveTableTransition = false) {
+        if (!preserveTableTransition) lobbyTableTransition?.Cancel();
+        StopWindowSwitch();
         Debug.Log($"切换到{targetWindow}窗口");
         _switchRoutine = StartCoroutine(SwitchWindowRoutine(targetWindow, ensureHeader));
     }
 
     private IEnumerator SwitchWindowRoutine(string targetWindow, bool ensureHeader = false) {
+        bool enteringLobby = currentWindow == "login" && targetWindow == "menu";
         bool enteringSceneConfig = targetWindow == "sceneConfig" && currentWindow != "sceneConfig";
         var wasActive = new HashSet<GameObject>(); // 当前激活窗口集合
         CollectCurrentlyActiveManaged(wasActive); // 读取 activeSelf 现况
@@ -377,14 +387,27 @@ public class WindowsManager : MonoBehaviour {
         var willActive = new HashSet<GameObject>(wasActive); // 目标集合
         ApplySwitchSequenceToSet(willActive, targetWindow, ensureHeader); // 计算切换后的目标激活集合
 
-        ApplyHeaderPanelInstant(willActive); // 顶部栏即时切换
+        foreach (var page in wasActive)
+            if (page != null && !willActive.Contains(page)) page.GetComponent<PageOwnedOverlays>()?.Close();
+        NotificationManager.Instance?.ClearHoverTooltips();
+        if(recordOverlays!=null)recordOverlays.SetActive(targetWindow=="recordscene");
+        if (tableOverlays != null) {
+            bool table=targetWindow == "game" || targetWindow == "recordscene";
+            if(!table&&tableOverlays.activeSelf)tableOverlays.GetComponent<PageOwnedOverlays>()?.Close();
+            tableOverlays.SetActive(table);
+        }
+        if(pageRoot != null)
+            foreach(var page in willActive)
+                if(page && page.transform.parent==pageRoot && !wasActive.Contains(page))page.transform.SetAsLastSibling();
+
+        if (!enteringLobby) ApplyHeaderPanelInstant(willActive);
         if (IsLobbyTab(targetWindow)) {
             lastLobbyTab = targetWindow;
         }
         currentWindow = targetWindow; // 更新当前窗口状态
+        if(pageRoot!=null)pageRoot.gameObject.SetActive(IsLobbyTab(targetWindow));
         ApplyScreenSleepTimeout();
         ApplyStreamerModePanels();
-        HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
         if (targetWindow == "room") {
             if (UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
                 RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
@@ -400,7 +423,7 @@ public class WindowsManager : MonoBehaviour {
             if (!willActive.Contains(go)) fadeOut.Add((go, EnsureCanvasGroup(go))); // 从显示到隐藏
         }
         foreach (var go in willActive) {
-            if (go == null || go == headerPanel) continue;
+            if (go == null || (go == headerPanel && !enteringLobby)) continue;
             if (!wasActive.Contains(go)) fadeIn.Add((go, EnsureCanvasGroup(go))); // 从隐藏到显示
         }
 
@@ -417,7 +440,7 @@ public class WindowsManager : MonoBehaviour {
             yield break;
         }
         float duration = windowFadeDuration <= 0f ? 0f : windowFadeDuration; // 渐变时长
-        yield return WindowFadeTransition.Fade(fadeOut, fadeIn, duration); // 执行渐隐渐显
+        yield return WindowFadeTransition.Fade(fadeOut, fadeIn, duration, limitFrameStep: enteringLobby);
         RefreshLobbyDataOnSwitch(targetWindow, enteringSceneConfig);
         _switchRoutine = null; // 协程结束
     }
@@ -426,6 +449,8 @@ public class WindowsManager : MonoBehaviour {
     /// 切换到大厅页后立即拉取一次最新数据（与轮询互补，重复进入同一页也会刷新）。
     /// </summary>
     private static void RefreshLobbyDataOnSwitch(string targetWindow, bool enteringSceneConfig = false) {
+        if (targetWindow == "event") EventLobbyPanel.Instance?.EnsureVisiblePage();
+        if (NetworkManager.Instance == null || !NetworkManager.Instance.isActiveAndEnabled) return;
         switch (targetWindow) {
             case "menu":
                 RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: false);
@@ -469,10 +494,10 @@ public class WindowsManager : MonoBehaviour {
         addIfActive(headerPanel);
         addIfActive(menuPanel);
         addIfActive(recordPanel);
-        addIfActive(playerPanel);
         addIfActive(configPanel);
         addIfActive(noticePanel);
         addIfActive(aboutUsPanel);
+        addIfActive(communityPanel);
         addIfActive(roomRoot);
         addIfActive(sceneConfigPanel);
         addIfActive(spectatorPanel);
@@ -496,10 +521,10 @@ public class WindowsManager : MonoBehaviour {
         Off(loginPanel);
         Off(menuPanel);
         Off(recordPanel);
-        Off(playerPanel);
         Off(configPanel);
         Off(noticePanel);
         Off(aboutUsPanel);
+        Off(communityPanel);
         Off(roomRoot);
         Off(sceneConfigPanel);
         Off(spectatorPanel);
@@ -540,8 +565,8 @@ public class WindowsManager : MonoBehaviour {
             case "aboutUs":
                 On(aboutUsPanel);
                 break;
-            case "player":
-                On(playerPanel);
+            case "community":
+                On(communityPanel);
                 break;
             case "config":
                 On(configPanel);
@@ -584,10 +609,10 @@ public class WindowsManager : MonoBehaviour {
         norm(headerPanel);
         norm(menuPanel);
         norm(recordPanel);
-        norm(playerPanel);
         norm(configPanel);
         norm(noticePanel);
         norm(aboutUsPanel);
+        norm(communityPanel);
         norm(roomRoot);
         norm(sceneConfigPanel);
         norm(spectatorPanel);

@@ -82,7 +82,7 @@ public partial class Game3DManager {
             tile.transform.SetSiblingIndex(i);
             from[i] = tile.transform.position;
             float offset = layout.draw_pinned && layout.keys[i] == layout.drawn_key
-                ? HandDrawSlotOffset(ordered.Length - 1) : handStep * i;
+                ? HandDrawSlotOffset(ordered.Length - 1, expanded ? 1f + RecordDrawSlotGapFactor : 2f) : handStep * i;
             target[i] = PlaceTileOnTable(start + direction.normalized * offset, tile.transform.rotation);
             needsMovement |= (from[i] - target[i]).sqrMagnitude > .000001f;
             if (expanded) {
@@ -99,7 +99,9 @@ public partial class Game3DManager {
         int generation = _handAnimationGeneration;
         // Draws and discards also advance the layout revision. An already placed
         // hand must not hold the discard queue for a movement that never occurs.
-        float elapsed = 0, duration = animate && needsMovement ? .24f : 0;
+        bool replay = GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf
+            && !GameRecordManager.Instance.IsSpectatorSession;
+        float elapsed = 0, duration = !replay && animate && needsMovement ? .24f : 0;
         while (elapsed < duration) {
             if (generation != _handAnimationGeneration || washizuRevealedSeats.Contains(seat)) yield break;
             elapsed += Time.deltaTime;

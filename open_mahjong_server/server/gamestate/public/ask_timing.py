@@ -63,7 +63,8 @@ async def send_ask_response_to_viewer(game_state, viewer_index, response, *, blo
 
     async def deliver():
         try:
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            from .settlement_sync import send_game_packet
+            await send_game_packet(game_state, conn.websocket, response, viewer_index)
         finally:
             # Player delivery starts the clock, independently of spectator I/O.
             # Failed sends still expire, and an old queued ask cannot clock a new one.

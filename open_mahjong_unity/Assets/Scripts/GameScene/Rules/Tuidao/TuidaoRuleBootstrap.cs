@@ -4,6 +4,12 @@ using UnityEngine;
 internal static class TuidaoRuleBootstrap {
     internal const string RuleId = "guangdong";
     internal const string SubRule = "guangdong/tuidao_mil2024";
+    internal const string PingjiZimoNoChowKey = "pingji_zimo_no_chow";
+
+    internal static Dictionary<string, object> Detail(bool pingjiZimoNoChow = false) => new Dictionary<string, object> {
+        { "edition", "mil-tuidao-2024-om1" }, { "fan_cap", 32 }, { "wildcards", false },
+        { PingjiZimoNoChowKey, pingjiZimoNoChow },
+    };
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
@@ -24,6 +30,7 @@ internal static class TuidaoRuleBootstrap {
                 { CreateRoomKeys.AllowSpectator, true },
                 { CreateRoomKeys.TacticalCall, true },
                 { GuangdongMilRules.MinimumScoreKey, true },
+                { PingjiZimoNoChowKey, false },
             },
             GameStateFactory = () => new TuidaoGameState(), OutboundChannel = "guangdong",
             SubRuleGameStateFactory = subRule => GuangdongMilRules.IsMil(subRule) ? (IGameState)new GuangdongMilGameState() : new TuidaoGameState(),

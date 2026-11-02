@@ -21,19 +21,26 @@ const router = useRouter()
 
 const items = [
   { to: '/paili', label: '国标牌理' },
+  { to: '/paili/qingque', label: '青雀牌理' },
+  { to: '/paili/riichi', label: '日麻牌理' },
   { to: '/paili/hongque', label: '虹雀² 牌理' },
 ]
 
 const isActive = (to) => route.path === to
 
 const go = (to) => {
-  if (route.path !== to) router.replace(to)
+  if (route.path === to) return
+  router.replace(to)
 }
 </script>
 
 <style scoped>
 .paili-switcher {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
   gap: 4px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.5);

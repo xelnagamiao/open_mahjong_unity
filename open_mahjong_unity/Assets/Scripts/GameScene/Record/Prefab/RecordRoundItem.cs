@@ -9,11 +9,12 @@ public class RecordRoundItem : MonoBehaviour
     [SerializeField] private Button roundButton;
 
     private int targetRoundIndex;
+    public int TargetRoundIndex => targetRoundIndex;
 
     public void Initialize(string rule, int roundIndex, int currentRound, int honbaCount) {
         targetRoundIndex = roundIndex;
-        roundNameText.text = GetRoundName(rule, currentRound);
-        roundExtraText.text = RuleRegistry.Resolve(rule, rule)?.RiichiRoundLayout == true ? $"{honbaCount}本场" : string.Empty;
+        TableText.Set(roundNameText, GetRoundName(rule, currentRound));
+        TableText.Set(roundExtraText, RuleRegistry.Resolve(rule, rule)?.RiichiRoundLayout == true ? $"{honbaCount}本场" : string.Empty);
         roundButton.onClick.RemoveAllListeners();
         roundButton.onClick.AddListener(OnClickRound);
     }
@@ -30,6 +31,7 @@ public class RecordRoundItem : MonoBehaviour
     }
 
     private void OnClickRound() {
+        GetComponentInParent<TableHudSelectorPopup>()?.CloseAfterSelection();
         GameRecordManager.Instance.GotoSelectRound(targetRoundIndex);
     }
 

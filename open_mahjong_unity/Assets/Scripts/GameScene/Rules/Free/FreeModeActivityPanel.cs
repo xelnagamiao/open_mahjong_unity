@@ -2,14 +2,15 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>自由模式操作记录。布局来自预制体，筛选与阅读位置保留在客户端。</summary>
 public sealed class FreeModeActivityPanel : MonoBehaviour {
     public RectTransform dock;
     public GameObject body;
     public Button toggleButton, latestButton;
-    public Text title, toggleLabel, latestLabel, emptyLabel, countLabel;
-    public Dropdown categoryDropdown;
+    public TMP_Text title, toggleLabel, latestLabel, emptyLabel, countLabel;
+    public TMP_Dropdown categoryDropdown;
     public ScrollRect scroll;
     public RectTransform content, rowTemplate;
 
@@ -18,7 +19,7 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
     };
     private sealed class Row {
         public RectTransform root;
-        public Text time, message;
+        public TMP_Text time, message;
         public Image marker;
         public long id;
         public float top;
@@ -140,7 +141,7 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
                 row.root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, laidOutWidth);
                 row.time.text = entry.ReceivedAt.ToLocalTime().ToString("HH:mm:ss");
                 row.message.text = entry.Message ?? "";
-                row.message.supportRichText = false;
+                row.message.richText = false;
                 row.message.color = entry.Category == FreeModeActivityCategory.Scores
                     ? new Color(.98f, .85f, .53f) : new Color(.87f, .91f, .95f);
                 row.marker.color = entry.Category == FreeModeActivityCategory.Scores
@@ -169,8 +170,8 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
         root.name = "Operation";
         var row = new Row {
             root = root,
-            time = root.Find("Time").GetComponent<Text>(),
-            message = root.Find("Message").GetComponent<Text>(),
+            time = root.Find("Time").GetComponent<TMP_Text>(),
+            message = root.Find("Message").GetComponent<TMP_Text>(),
             marker = root.Find("Marker").GetComponent<Image>()
         };
         rows.Add(row);

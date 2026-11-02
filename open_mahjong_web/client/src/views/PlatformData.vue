@@ -5,9 +5,26 @@
     </p>
 
     <section class="section-card">
-      <el-select v-model="activeRule" filterable aria-label="数据统计规则" @change="onRuleChange">
-        <el-option v-for="r in STATISTICS_RULES" :key="r.key" :value="r.key" :label="r.stats_name" :class="{ standard: r.standard }" />
-      </el-select>
+      <div class="rule-filters">
+        <div class="rule-filter">
+          <label for="platform-main-rule">主规则</label>
+          <el-select
+            id="platform-main-rule"
+            :model-value="activeRuleDef?.rule"
+            filterable
+            aria-label="数据统计主规则"
+            @change="onMainRuleChange"
+          >
+            <el-option v-for="r in mainRuleOptions" :key="r.value" :value="r.value" :label="r.label" />
+          </el-select>
+        </div>
+        <div class="rule-filter">
+          <label for="platform-sub-rule">子规则</label>
+          <el-select id="platform-sub-rule" v-model="activeRule" filterable aria-label="数据统计子规则" @change="onRuleChange">
+            <el-option v-for="r in subRuleOptions" :key="r.key" :value="r.key" :label="r.label" :class="{ standard: r.standard }" />
+          </el-select>
+        </div>
+      </div>
       <div class="totals-toolbar">
         <h3 class="section-title">{{ totalsTitle }}</h3>
         <div class="tier-bar">
@@ -17,7 +34,7 @@
             @change="onTierClick"
           >
             <el-radio-button
-              v-for="t in TOTALS_TIER_OPTIONS"
+              v-for="t in totalsTierOptions"
               :key="t.value"
               :value="t.value"
             >{{ t.label }}</el-radio-button>
@@ -226,7 +243,14 @@
 </template>
 
 <script setup>
-import { STATISTICS_RULES, statisticsSelection } from '@/utils/statisticsCatalog'
+import { statisticsSelection } from '@/utils/statisticsCatalog'
+import { PLATFORM_RULE_GROUPS, platformSubRuleOptions } from '@/utils/platformRuleFilters'
+import {
+  STATISTICS_SCENE_LABELS as TIER_LABEL,
+  platformSceneOptions,
+  platformSceneSelection,
+  platformRecordsScope,
+} from '@/utils/statisticsScenes'
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -249,24 +273,27 @@ const route = useRoute()
 const router = useRouter()
 const auth = usePlayerAuthStore()
 
-const TIER_OPTIONS = [
-  { value: 'beginner', label: '初级场' },
-  { value: 'intermediate', label: '中级场' },
-  { value: 'advanced', label: '高级场' },
-  { value: 'mcrpl', label: 'mcrpl' },
-  { value: 'elo', label: 'Elo 匹配' },
-]
-const TOTALS_TIER_OPTIONS = [...TIER_OPTIONS, { value: 'total', label: '总计' }]
-const TIER_LABEL = Object.fromEntries(TOTALS_TIER_OPTIONS.map((t) => [t.value, t.label]))
 const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
 const activeRule = ref('guobiao')
 const activeRuleDef = computed(() => statisticsSelection(activeRule.value))
+const mainRuleOptions = PLATFORM_RULE_GROUPS
+const subRuleOptions = computed(() => platformSubRuleOptions(activeRuleDef.value?.rule))
+const onMainRuleChange = (rule) => {
+  const options = platformSubRuleOptions(rule)
+  const next = options[0]
+  if (!next || next.key === activeRule.value) return
+  activeRule.value = next.key
+  onRuleChange()
+}
+const tierOptions = computed(() => platformSceneOptions(activeRule.value))
+const totalsTierOptions = computed(() => [...tierOptions.value, { value: 'total', label: '总计' }])
 const currentFanDict = ref(GUOBIAO_FAN_DICT)
 const fanDictSize = computed(() => new Set([
   ...Object.keys(currentFanDict.value || {}),
   ...Object.values(sceneTierFans.value).flatMap(fans => Object.keys(fans || {})),
 ]).size)
 const onRuleChange = () => {
+  totalsTierTab.value = platformSceneSelection(activeRule.value, totalsTierTab.value)
   fanTier.value = 'all'
   recordsPage.current = 1
   sceneTotals.value = []
@@ -342,17 +369,17 @@ const selectedEventName = computed(() => {
 })
 
 const totalsTitle = computed(() =>
-  selectedEventId.value ? `${selectedEventName.value} 历史总计` : '天梯场次历史总计'
+  selectedEventId.value ? `${selectedEventName.value} 历史总计` : '场次历史总计'
 )
 const dailyTitle = computed(() =>
-  selectedEventId.value ? `${selectedEventName.value} 每日对局数` : '天梯场次每日对局数'
+  selectedEventId.value ? `${selectedEventName.value} 每日对局数` : '场次每日对局数'
 )
 const recordsHint = computed(() =>
-  selectedEventId.value ? selectedEventName.value : (TIER_LABEL[totalsTierTab.value] || '天梯')
+  selectedEventId.value ? selectedEventName.value : (TIER_LABEL[totalsTierTab.value] || '全部场次')
 )
 
 const dailyColumnOptions = computed(() => {
-  if (!selectedEventId.value) return TIER_OPTIONS
+  if (!selectedEventId.value) return tierOptions.value
   if (selectedEventId.value === 'all') {
     const fromDaily = [...new Set(sceneDaily.value.map((r) => r.match_tier).filter(Boolean))]
     const fromEvents = eventOptions.value.filter((ev) => ev.game_count > 0).map((ev) => ev.event_id)
@@ -378,7 +405,7 @@ const activeTierTotals = computed(() => {
   if (totalsTierTab.value === 'total') {
     const row = sceneTotals.value.find((r) => r.match_tier === 'total')
     if (row) return row
-    const rows = sceneTotals.value.filter((r) => TIER_OPTIONS.some((t) => t.value === r.match_tier))
+    const rows = sceneTotals.value.filter((r) => tierOptions.value.some((t) => t.value === r.match_tier))
     return rows.length ? sumSceneTotals(rows) : null
   }
   return sceneTotals.value.find((r) => r.match_tier === totalsTierTab.value) || null
@@ -390,7 +417,7 @@ const tierFanEntries = computed(() => {
       || sumTierFans(sceneTierFans.value, Object.keys(sceneTierFans.value).filter((k) => k !== 'total')))
     : (totalsTierTab.value === 'total'
       ? (sceneTierFans.value.total
-        || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map((t) => t.value)))
+        || sumTierFans(sceneTierFans.value, tierOptions.value.map((t) => t.value)))
       : sceneTierFans.value[totalsTierTab.value]);
   const entries = buildAllFanEntries(
     fans,
@@ -420,6 +447,7 @@ const gameTypeLabel = (matchType) => {
 }
 
 const sceneLabel = (row) => {
+  if (row.room_type === 'custom') return TIER_LABEL.custom
   if (row.room_type === 'events' || selectedEventId.value) {
     if (row.event_name) return row.event_name
     if (row.event_id) return eventLabelMap.value[row.event_id] || row.event_id
@@ -576,9 +604,7 @@ const loadRecentRecords = async () => {
       signal: controller.signal,
       params: {
         rule: activeRule.value,
-        ...(selectedEventId.value
-          ? { event_id: selectedEventId.value }
-          : (totalsTierTab.value === 'total' ? {} : { match_tier: totalsTierTab.value })),
+        ...platformRecordsScope(totalsTierTab.value, selectedEventId.value),
         limit: recordsPage.size,
         offset,
       },
@@ -608,7 +634,7 @@ const loadStats = async () => {
   statsController = controller
   loading.value = true
   try {
-    const params = { rule: activeRule.value }
+    const params = { rule: activeRule.value, room_type: 'all' }
     if (dateRange.value?.length === 2) {
       params.date_from = dateRange.value[0]
       params.date_to = dateRange.value[1]
@@ -694,6 +720,24 @@ onBeforeUnmount(() => {
   padding: 16px;
   margin-bottom: 16px;
 }
+.rule-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 190px) minmax(0, 280px);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.rule-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.rule-filter label {
+  font-size: 13px;
+  color: #606266;
+}
+.rule-filter .el-select { width: 100%; }
+.rule-filter:first-child { max-width: 190px; }
 .section-head {
   display: flex;
   flex-wrap: wrap;
@@ -850,6 +894,7 @@ onBeforeUnmount(() => {
 .records-foot :deep(.el-pagination) { flex-wrap: wrap; row-gap: 8px; max-width: 100%; }
 @media (max-width: 720px) {
   .section-card { padding: 12px; }
+  .rule-filters { grid-template-columns: minmax(0, 280px); }
   .tier-group { display: flex; flex-wrap: wrap; row-gap: 6px; max-width: 100%; }
   .tier-group :deep(.el-radio-button__inner) { padding-left: 10px; padding-right: 10px; }
   .filter-row { width: 100%; }

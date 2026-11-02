@@ -86,7 +86,7 @@ public static class HangzhouClientContractValidation {
         Check(new[]{new GameInfo(),new GameInfo {hangzhou_info=new HangzhouInfo {dealer_streak=2}},new GameInfo {hangzhou_info=new HangzhouInfo {dealer_streak=3}}}.All(info=>manifest.RoundSupplementText(info)=="4番封顶"),"compact replay summary stays accurate; dealer streak belongs to the player's status labels");
         Check(GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[]{11,11,11,11},"hangzhou/mil2025")
             .SequenceEqual(new[]{2,11,0,11,0,11,2,11}),"Hangzhou replay exposes only the two middle concealed-kong tiles");
-        Check(manifest.SettlementFootnote==null,"Hangzhou settlement panels do not show rule footnotes");
+        Check(GuobiaoAngangCheck.BuildSummary("hangzhou",null)==null,"Hangzhou settlement panels do not show rule footnotes");
         var automatic=AutoAction.Instance;
         Check(automatic!=null,"real auto-action component exists");
         var preference=typeof(AutoAction).GetField("isAutoCut",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);

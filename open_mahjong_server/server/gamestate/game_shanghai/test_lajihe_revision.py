@@ -1,4 +1,4 @@
-"""2026-10-17 规则修订：敲锣、额外番、抢杠振听和暗杠展示。"""
+"""规则正文回归：和牌不封顶、额外番、抢杠振听和暗杠展示。"""
 import asyncio
 from collections import Counter
 from copy import deepcopy
@@ -14,33 +14,36 @@ from ..verifier.record_sim import RecordSim, stringify_tick
 from ..public.game_record_manager import init_game_round
 
 
-@pytest.mark.parametrize("extra_base,flowers,raw,points", [
-    (False, 5, 20, 20), (False, 7, 25, 25), (False, 8, 30, 30),
-    (True, 5, 25, 25), (True, 7, 30, 30), (True, 8, 35, 30),
+@pytest.mark.parametrize("extra_base,flowers,points", [
+    (False, 5, 20), (False, 7, 25), (False, 8, 30),
+    (True, 5, 25), (True, 7, 30), (True, 8, 35),
 ])
 @pytest.mark.parametrize("source", ["self_draw", "robbing_kong"])
-def test_gong_threshold_and_optional_extra_base(extra_base, flowers, raw, points, source):
+def test_score_crosses_thirty_with_optional_extra_base(extra_base, flowers, points, source):
     detail = rule.score(PLAIN, flowers=list(range(51, 51 + flowers)),
                         self_draw=source == "self_draw", rob_kong=source == "robbing_kong",
                         self_draw_extra_base=extra_base)
     assert detail["base_score"] == points
-    assert detail["uncapped_score"] == raw
-    assert ("敲锣" in detail["fan_names"]) == (raw >= 30)
+    assert "敲锣" not in detail["fan_names"]
 
 
-@pytest.mark.parametrize("source,points,changes", [
-    ("discard", 40, [-40, 40, 0, 0]),
-    ("self_draw", 30, [-30, 90, -30, -30]),
-    ("robbing_kong", 30, [-90, 90, 0, 0]),
+@pytest.mark.parametrize("extra_base,source,points,changes", [
+    (False, "discard", 40, [-40, 40, 0, 0]),
+    (True, "discard", 40, [-40, 40, 0, 0]),
+    (False, "self_draw", 60, [-60, 180, -60, -60]),
+    (True, "self_draw", 70, [-70, 210, -70, -70]),
+    (False, "robbing_kong", 60, [-180, 180, 0, 0]),
+    (True, "robbing_kong", 70, [-210, 210, 0, 0]),
 ])
-def test_gong_settlement_records_and_replay(source, points, changes):
+def test_uncapped_settlement_records_and_replay(extra_base, source, points, changes):
     async def run():
-        state = make_state(detailed_config={rule.SELF_DRAW_EXTRA_BASE: True})
+        state = make_state(detailed_config={rule.SELF_DRAW_EXTRA_BASE: extra_base})
         player = state.player_list[1]
         player.hand_tiles = HONORS.copy() if source == "self_draw" else HONORS[:-1]
         detail = state.score_candidate(1, source, 47)
         assert detail["base_score"] == points
         assert detail["fan"] == 1
+        assert "敲锣" not in detail["fan_names"]
         state.run_hu_result_ready_phase = AsyncMock()
         state.pending_winners = [{"index": 1, "payer": None if source == "self_draw" else 0,
                                  "source": source, "hu_class": "hu_self" if source == "self_draw" else "hu_first",
@@ -58,7 +61,7 @@ def test_gong_settlement_records_and_replay(source, points, changes):
     asyncio.run(run())
 
 
-def test_gong_after_eight_flowers_keeps_the_independent_award():
+def test_uncapped_win_after_eight_flowers_keeps_the_independent_award():
     async def run():
         state = make_state()
         player = state.player_list[0]
@@ -69,14 +72,23 @@ def test_gong_after_eight_flowers_keeps_the_independent_award():
             await state._award_eight_flowers(0)
         assert player.score == 90 and player.record_counter.zimo_times == 0
         detail = state.score_candidate(0, "self_draw")
-        assert detail["base_score"] == 30 and "敲锣" in detail["fan_names"]
+        assert detail["base_score"] == 100 and "敲锣" not in detail["fan_names"]
         state.pending_winners = [{"index": 0, "payer": None, "source": "self_draw", "hu_class": "hu_self", "tile": 47, "detail": detail}]
         state.run_hu_result_ready_phase = AsyncMock()
         await state._settle_hand({p.original_player_index: 0 for p in state.player_list})
-        assert [p.score for p in state.player_list] == [180, -60, -60, -60]
+        assert [p.score for p in state.player_list] == [390, -130, -130, -130]
         assert player.record_counter.zimo_times == 1
         assert [t[0] for t in ticks(state) if t[0] in ("lajihe_eight_flowers", "hu_self")] == ["lajihe_eight_flowers", "hu_self"]
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("extra_base,points", [(False, 35), (True, 40)])
+def test_replacement_win_is_not_capped(extra_base, points):
+    detail = rule.score(PLAIN, flowers=list(rule.FLOWERS), self_draw=True,
+                        replacement=True, self_draw_extra_base=extra_base)
+    assert detail["base_score"] == points
+    assert "杠头开花" in detail["fan_names"]
+    assert "敲锣" not in detail["fan_names"]
 
 
 @pytest.mark.parametrize("flowers", [0, 1])

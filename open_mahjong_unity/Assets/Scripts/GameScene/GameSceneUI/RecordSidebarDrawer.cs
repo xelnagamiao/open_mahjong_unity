@@ -14,12 +14,30 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
 
     public bool IsExpanded { get; private set; }
     private Coroutine slide;
+    private TMPro.TMP_Text handleLabel;
+    private float originalSize, originalMinimum, originalMaximum;
+    private bool originalAutoSize;
+    private Vector4 originalMargin;
+    private TMPro.TextWrappingModes originalWrapping;
 
     private void Awake() {
         handle.onClick.AddListener(Toggle);
+        handleLabel = collapsedLabel.GetComponent<TMPro.TMP_Text>();
+        if (handleLabel) {
+            var binding = handleLabel.GetComponent<LocalizedPlatformLabel>();
+            originalSize = binding ? binding.authoredSize : handleLabel.fontSize;
+            originalMinimum = handleLabel.fontSizeMin;
+            originalMaximum = handleLabel.fontSizeMax;
+            originalAutoSize = binding ? binding.authoredAutoSize : handleLabel.enableAutoSizing;
+            originalMargin = handleLabel.margin;
+            originalWrapping = handleLabel.textWrappingMode;
+            if (binding) binding.fitTranslation = false;
+        }
     }
 
     private void OnEnable() {
+        ConfigManager.OnLanguageChanged += RefreshLanguage;
+        RefreshLanguage();
         IsExpanded = startExpanded;
         RefreshState();
         SetPosition(TargetX);
@@ -27,11 +45,23 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
     }
 
     private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
         StopSlide();
     }
 
     private void OnDestroy() {
         if (handle != null) handle.onClick.RemoveListener(Toggle);
+    }
+
+    private void RefreshLanguage() {
+        if (!handleLabel) return;
+        bool english = ConfigManager.IsEnglish;
+        handleLabel.fontSize = english ? 18 : originalSize;
+        handleLabel.fontSizeMax = english ? 18 : originalMaximum;
+        handleLabel.fontSizeMin = english ? 14 : originalMinimum;
+        handleLabel.enableAutoSizing = english || originalAutoSize;
+        handleLabel.margin = english ? new Vector4(4, 0, 4, 0) : originalMargin;
+        handleLabel.textWrappingMode = english ? TMPro.TextWrappingModes.NoWrap : originalWrapping;
     }
 
     private float TargetX => IsExpanded ? 0f : -drawer.rect.width;

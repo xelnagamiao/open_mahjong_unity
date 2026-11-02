@@ -82,7 +82,7 @@ public static class QingqueUnlimitedValidation {
         state.withdrawn_players.Add(a);
         panel.ApplyState(state);
         Check(notice.activeInHierarchy && background.color.r > background.color.b, "Withdrawal displays a red banner");
-        Check(label.text == "回归游戏" && message.text == "小明玩家已放弃游戏，游戏将在本局游戏后结束", "Withdrawal shows player name and enables return");
+        Check(label.text == "回归游戏" && message.text == "小明申请结束，本局打完后结算", "Withdrawal shows player name and enables return");
         Check(!message.richText && !background.raycastTarget, "Player names are plain text and notice does not block the table");
         ScreenCapture.CaptureScreenshot(Path.Combine(outputDirectory, "withdrawn.png"));
         yield return new WaitForSecondsRealtime(.3f);

@@ -8,7 +8,7 @@ public class Tile3D : MonoBehaviour
 {
     /// <summary>池对象每次取出/归还都改变版本，旧动画不能再驱动同一个 Transform 的新用途。</summary>
     public uint PoolLeaseVersion { get; private set; }
-    internal void InvalidatePoolLease() { unchecked { PoolLeaseVersion++; } }
+    internal void InvalidatePoolLease() { unchecked { PoolLeaseVersion++; } ruleBackColor = null; }
 
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
     private static readonly int BackRotationId = Shader.PropertyToID("_BackRotation");
@@ -42,6 +42,7 @@ public class Tile3D : MonoBehaviour
     private Color baseFrontEdgeColor = Color.white;
     private Color instanceFrontColor = Color.white;
     private Color instanceBackColor = Color.white;
+    private Color? ruleBackColor;
     private Color instanceSideColor = Color.white;
     private Color instanceBackEdgeColor = Color.white;
     private Color instanceFrontEdgeColor = Color.white;
@@ -247,14 +248,14 @@ public class Tile3D : MonoBehaviour
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
         propBlock.SetFloat(BackRotationId, backRotation);
         propBlock.SetColor(FrontColorId, instanceFrontColor);
-        propBlock.SetColor(BackColorId, instanceBackColor);
+        propBlock.SetColor(BackColorId, ruleBackColor ?? instanceBackColor);
         propBlock.SetColor(SideColorId, instanceSideColor);
-        propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
+        propBlock.SetColor(BackEdgeColorId, ruleBackColor ?? instanceBackEdgeColor);
         propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
-        // x 为灰化，y 为图片区域尺度（0 沿用材质默认值），z 为透明立牌正面半周旋转。
+        // x 灰化，y 图片尺度，z 正面半周旋转，w 规则牌背禁用自选贴图。
         propBlock.SetVector(
             TileInstanceParamsId,
-            new Vector4(instanceGrayScale, instanceTableImageScale, frontFaceHalfTurn ? 1f : 0f, 0f));
+            new Vector4(instanceGrayScale, instanceTableImageScale, frontFaceHalfTurn ? 1f : 0f, ruleBackColor.HasValue ? 1f : 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
         if (glassInkRenderer != null && glassInkRenderer.enabled) glassInkRenderer.SetPropertyBlock(propBlock);
         RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
@@ -454,6 +455,12 @@ public class Tile3D : MonoBehaviour
         instanceBackColor = backColor;
         instanceSideColor = sideColor;
         instanceGrayScale = grayScale;
+        ApplyPropertyBlock();
+    }
+
+    public void SetRuleBackColor(Color color) {
+        InitializeComponents();
+        ruleBackColor=color;
         ApplyPropertyBlock();
     }
 

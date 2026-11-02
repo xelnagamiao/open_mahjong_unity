@@ -3,6 +3,10 @@ import type { PailiOptions } from './pailiCalculator.ts'
 import { Chinese_Hepai_Check, PlayerTiles } from '../game2d/calc/guobiao/gbHepai.ts'
 import { tingpaiCheck } from '../game2d/calc/guobiao/gbTingpai.ts'
 import { STANDARD_TILES, TILE_NAME, parseNotationWithGetTile, notationTextWithGetTile, meldDisplayTiles } from '../composables/useMahjongTiles.js'
+import { analysisOptions } from './calculatorRules.ts'
+import type { CalculatorRule } from './calculatorRules.ts'
+import { scoreQingque } from './scoring/qingque.ts'
+import { scoreRiichi } from './scoring/riichi.ts'
 
 export type WinMethod = 'ron' | 'tsumo'
 export interface AnalysisContext {
@@ -14,6 +18,11 @@ export interface AnalysisContext {
   kongWin: boolean
   robKong: boolean
   lastCopy: boolean
+  riichi?: number
+  ippatsu?: boolean
+  dora?: number
+  uraDora?: number
+  redDora?: number
 }
 export interface HandDraft {
   version: 1
@@ -25,12 +34,17 @@ export interface HandDraft {
   context: AnalysisContext
 }
 export interface HandDecomposition {
+  rule?: CalculatorRule
   fan: number
   fanNames: string[]
   baseFan: number
   canWin: boolean
   groups: { label: string; tiles: number[] }[]
   shape: string
+  points?: number
+  fu?: number
+  yakuman?: number
+  payment?: string
 }
 
 export const defaultContext = (): AnalysisContext => ({ method: 'ron', round: '东', seat: '东', flowers: 0, lastTile: false, kongWin: false, robKong: false, lastCopy: false })
@@ -65,18 +79,32 @@ export function validateDraft(draft: HandDraft): void {
   if (!c || !['ron', 'tsumo'].includes(c.method) || !['东', '南', '西', '北'].includes(c.round) || !['东', '南', '西', '北'].includes(c.seat)) throw new Error('和牌条件格式不正确')
   if (!Number.isInteger(c.flowers) || c.flowers < 0 || c.flowers > 8) throw new Error('花牌应为 0 至 8 张')
   for (const flag of ['lastTile', 'kongWin', 'robKong', 'lastCopy']) if (typeof c[flag] !== 'boolean') throw new Error('和牌条件格式不正确')
+  for (const [key, max] of [['riichi', 2], ['dora', 40], ['uraDora', 40], ['redDora', 4]] as const) {
+    if (c[key] !== undefined && (!Number.isInteger(c[key]) || c[key]! < 0 || c[key]! > max)) throw new Error('日麻和牌条件格式不正确')
+  }
+  if (c.ippatsu !== undefined && typeof c.ippatsu !== 'boolean') throw new Error('一发条件格式不正确')
   if ((c.method === 'ron' && c.kongWin) || (c.method === 'tsumo' && c.robKong) || (c.kongWin && c.robKong) || (c.robKong && c.lastTile)) throw new Error('和牌方式与特殊条件冲突')
 }
 
-export function parseHandText(text: string, draft: HandDraft): HandDraft {
+export function parseHandText(text: string, draft: HandDraft, { replaceMelds = false } = {}): HandDraft {
+  const melds: string[] = []
+  const handText = text.replace(/\(\s*([sSkKgG]\d{2})\s*\)/g, (_, code: string) => {
+    expandMeld(code)
+    melds.push(code)
+    return ''
+  })
+  if (/[()]/.test(handText)) throw new Error('副露请使用 (s13)(K23) 格式，大小写须与明暗类型一致')
   // The shared parser tolerates extra empty + segments; this editor deliberately does not.
-  if (text.includes('+') && (text.split('+').length !== 2 || text.split('+').some(part => !part.trim()))) throw new Error('请使用「手牌 + 单张和牌张」，且只用一个 +')
-  const parsed = parseNotationWithGetTile(text)
+  if (handText.includes('+') && (handText.split('+').length !== 2 || handText.split('+').some(part => !part.trim()))) throw new Error('请使用「手牌 + 单张和牌张」，且只用一个 +')
+  const parsed = parseNotationWithGetTile(handText)
   const next = cloneDraft(draft)
+  if (melds.length || replaceMelds) next.melds = melds
   next.hand = [...parsed.hand, ...(parsed.getTile === null ? [] : [parsed.getTile])]
   next.winTile = effectiveCount(next) === 14 ? (parsed.getTile ?? next.hand.at(-1)!) : null
   if (parsed.getTile !== null && effectiveCount(next) !== 14) throw new Error('+ 后的和牌张需要与手牌、副露合计为 14 张')
-  const sameTiles = [...next.hand].sort((a, b) => a - b).join(',') === [...draft.hand].sort((a, b) => a - b).join(',')
+  const sameTiles = [...next.hand].sort((a, b) => a - b).join(',') === [...draft.hand].sort((a, b) => a - b).join(',') && next.melds.join(',') === draft.melds.join(',')
+  const redCount = [...handText.toLowerCase().matchAll(/([0-9]+)[mps]/g)].reduce((sum, match) => sum + [...match[1]].filter(digit => digit === '0').length, 0)
+  if (redCount) next.context.redDora = redCount
   if (!sameTiles) next.river = []
   validateDraft(next)
   return next
@@ -85,7 +113,7 @@ export function parseHandText(text: string, draft: HandDraft): HandDraft {
 export function draftNotation(draft: HandDraft): string {
   const hand = [...draft.hand]
   if (draft.winTile !== null) hand.splice(hand.indexOf(draft.winTile), 1)
-  return notationTextWithGetTile(hand, draft.winTile)
+  return notationTextWithGetTile(hand, draft.winTile, draft.melds)
 }
 
 export function setWinMethod(draft: HandDraft, method: WinMethod): HandDraft {
@@ -147,7 +175,7 @@ function decompositionGroups(pt: PlayerTiles, original: number[]) {
 /** Adapter over the existing scoring engine, mirroring Python hepai_decompose.
  * Each decomposition gets independent context: fan_count mutates its arguments.
  */
-export function scoreDecompositions(draft: HandDraft, method = draft.context.method): HandDecomposition[] {
+export function scoreDecompositions(draft: HandDraft, method = draft.context.method, options: PailiOptions = analysisOptions('guobiao')): HandDecomposition[] {
   const winTile = draft.winTile ?? draft.hand.at(-1)
   if (!winTile || effectiveCount(draft) !== 14) return []
   const checker = new Chinese_Hepai_Check(false)
@@ -167,6 +195,8 @@ export function scoreDecompositions(draft: HandDraft, method = draft.context.met
   for (const pt of complete) {
     const special = pt.fan_list.find(key => ['shisanyao', 'qiduizi', 'lianqidui', 'quanbukao', 'qixingbukao', 'zuhelong'].includes(key))
     const shape = ({ shisanyao: '十三幺', qiduizi: '七对', lianqidui: '七对', quanbukao: '全不靠', qixingbukao: '全不靠', zuhelong: '组合龙' })[special || ''] || (pt.combination_list.some(code => code[0] === 'z') ? '组合龙' : '一般型')
+    if (shape === '十三幺' && !options.thirteenOrphans || shape === '全不靠' && !options.unrelatedTiles || shape === '组合龙' && !options.combinationDragon) continue
+    if (shape === '七对' && (!(options.mcrSevenPairs || options.riichiSevenPairs) || options.riichiSevenPairs && new Set(draft.hand).size !== 7)) continue
     const [fan, fanNames] = checker.fan_count(pt, winTile, [...way])
     const groups = decompositionGroups(pt, draft.hand)
     const key = JSON.stringify([groups.map(group => `${group.label}:${group.tiles.join(',')}`).sort(), fan, [...fanNames].sort()])
@@ -175,15 +205,17 @@ export function scoreDecompositions(draft: HandDraft, method = draft.context.met
   return [...unique.values()].sort((a, b) => b.fan - a.fan)
 }
 
-export function analyzeHand(draft: HandDraft, options?: PailiOptions) {
+export function analyzeHand(draft: HandDraft, options?: PailiOptions, rule: CalculatorRule = 'guobiao') {
   validateDraft(draft)
   const count = effectiveCount(draft)
   if (count < 13) return { state: 'incomplete', count }
-  const paili = calculatePaili({ handTiles: draft.hand, combinations: draft.melds, visibleTiles: [...draft.visible, ...draft.river], options })
-  const decompositions = count === 14 ? scoreDecompositions(draft) : []
+  const selected = analysisOptions(rule, options)
+  const score = (hand: HandDraft, method = hand.context.method) => rule === 'qingque' ? scoreQingque(hand, selected, method) : rule === 'riichi' ? scoreRiichi(hand, selected, method) : scoreDecompositions(hand, method, selected)
+  const paili = calculatePaili({ handTiles: draft.hand, combinations: draft.melds, visibleTiles: [...draft.visible, ...draft.river], options: selected })
+  const decompositions = count === 14 ? score(draft) : []
   const waits = paili.mode === 'shanten' && paili.is_tingpai ? paili.accept.map(item => {
     const candidate = drawTile(draft, item.tile)
-    return { ...item, ron: scoreDecompositions(candidate, 'ron')[0] ?? null, tsumo: scoreDecompositions(candidate, 'tsumo')[0] ?? null }
+    return { ...item, ron: score(candidate, 'ron')[0] ?? null, tsumo: score(candidate, 'tsumo')[0] ?? null }
   }) : []
   return {
     state: decompositions.length ? 'complete' : count === 14 ? 'discard' : paili.mode === 'shanten' && paili.is_tingpai ? 'ready' : 'improve',

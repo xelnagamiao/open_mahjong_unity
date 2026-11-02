@@ -13,6 +13,7 @@ public sealed class RuleReplayModule {
     public Action InitializePlayers;
     public Func<List<string>, List<string>> NormalizeTick;
     public Func<IReadOnlyList<string>, bool> ApplyBeforeMutation;
+    public Func<IReadOnlyList<string>, bool> IsSilentTick;
     public Func<IReadOnlyList<string>, int, int> NextPlayer;
     public Func<string, bool> ConsumeWallTile;
     public Func<int> RemainingTiles;

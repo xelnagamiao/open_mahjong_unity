@@ -190,7 +190,7 @@ public static class GuobiaoSixteenClientValidation {
     }
     static string Option(string name, string environment) {
         var args=Environment.GetCommandLineArgs(); int i=Array.IndexOf(args,name);
-        return i>=0 && i+1<args.Length ? args[i+1] : Environment.GetEnvironmentVariable(environment);
+        return i>=0 && i+1<args.Length ? args[i+1] : ConfigManager.Debug ? Environment.GetEnvironmentVariable(environment) : null;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void Configure() {

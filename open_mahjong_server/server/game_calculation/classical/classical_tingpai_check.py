@@ -107,7 +107,8 @@ class Classical_Tingpai_Check:
     def tingpai_check(self, hand_tile_list: List[int], combination_list: List[str]):
         test_tiles = PlayerTiles(hand_tile_list.copy(), combination_list.copy(), len(combination_list) * 3)
         self.check_waiting_tiles(test_tiles)
-        self.waiting_tiles = {i for i in self.waiting_tiles if i not in {10, 20, 30, 40}}
+        self.waiting_tiles = {i for i in self.waiting_tiles
+                              if i not in {10, 20, 30, 40} and hand_tile_list.count(i) < 4}
         return self.waiting_tiles.copy()
 
 

@@ -14,10 +14,27 @@ public class ActivityDetailPanel : MonoBehaviour {
     [SerializeField] private Transform bodyContent;
     [SerializeField] private GameObject imageTemplate;
     [SerializeField] private ScrollRect bodyScroll;
+    [SerializeField] private ActivityBakedBlock[] bakedBlocks;
+    [SerializeField] private TMP_Text dateText, summaryText, readText, loadingText;
+    [SerializeField] private float bodyTopWithSummary = 190, bodyHeightWithSummary = 314;
+    [SerializeField] private bool scrollArticleHeader;
+    private bool IsBaked => bakedBlocks != null && bakedBlocks.Length > 0;
 
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private readonly List<Texture2D> _textures = new List<Texture2D>();
     private Coroutine _loadRoutine;
+    private float _reflowedWidth;
+
+    private void LateUpdate() {
+        if (!scrollArticleHeader || !IsBaked || bodyScroll == null || !bodyScroll.gameObject.activeSelf) return;
+        float width = ContentWidth();
+        if (Mathf.Abs(width - _reflowedWidth) < .5f) return;
+        _reflowedWidth = width;
+        float position = bodyScroll.verticalNormalizedPosition;
+        foreach (var block in bakedBlocks) if (block != null && block.gameObject.activeSelf) block.Reflow(width);
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)bodyContent);
+        bodyScroll.verticalNormalizedPosition = position;
+    }
 
     private void Awake() {
         gameObject.SetActive(true);
@@ -36,6 +53,7 @@ public class ActivityDetailPanel : MonoBehaviour {
     }
 
     public void ShowEmpty() {
+        StopLoading();
         gameObject.SetActive(true);
         if (titleText != null) titleText.text = "";
         if (statusText != null) statusText.gameObject.SetActive(false);
@@ -44,9 +62,20 @@ public class ActivityDetailPanel : MonoBehaviour {
             bodyText.gameObject.SetActive(false);
         }
         ClearSpawned();
+        if (dateText != null) dateText.text = "";
+        if (summaryText != null) summaryText.gameObject.SetActive(false);
+        if (readText != null) readText.gameObject.SetActive(false);
+        if (loadingText != null) loadingText.gameObject.SetActive(false);
+    }
+
+    public void ShowPending(string message) {
+        ShowEmpty();
+        if (loadingText != null) { loadingText.text = message; loadingText.gameObject.SetActive(true); }
+        if (IsBaked && bodyScroll != null) bodyScroll.gameObject.SetActive(false);
     }
 
     public void Open(ActivityDetail detail) {
+        StopLoading();
         gameObject.SetActive(true);
         if (titleText != null) {
             titleText.text = detail != null && !string.IsNullOrEmpty(detail.title)
@@ -63,6 +92,20 @@ public class ActivityDetailPanel : MonoBehaviour {
             statusText.gameObject.SetActive(ended);
         }
         ClearSpawned();
+        if (loadingText != null) loadingText.gameObject.SetActive(false);
+        if (dateText != null) dateText.text = ActivityItem.NoticeDate(detail != null ? detail.updated_at : null, "yyyy.MM.dd");
+        if (readText != null) { readText.text = "已读"; readText.gameObject.SetActive(true); }
+        if (summaryText != null) {
+            bool visible = detail != null && !string.IsNullOrWhiteSpace(detail.description);
+            summaryText.text = visible ? detail.description : "";
+            summaryText.gameObject.SetActive(visible);
+            if (!scrollArticleHeader && bodyScroll != null) {
+                var rect = (RectTransform)bodyScroll.transform;
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -bodyTopWithSummary + (visible ? 0 : 66));
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, bodyHeightWithSummary + (visible ? 0 : 66));
+            }
+        }
+        if (bodyScroll != null) bodyScroll.gameObject.SetActive(true);
         if (bodyScroll != null) bodyScroll.verticalNormalizedPosition = 1f;
         if (_loadRoutine != null) StopCoroutine(_loadRoutine);
         _loadRoutine = StartCoroutine(LoadBlocks(ActivityHttp.BlocksOf(detail)));
@@ -72,6 +115,7 @@ public class ActivityDetailPanel : MonoBehaviour {
         if (bodyText != null) bodyText.gameObject.SetActive(false);
         if (imageTemplate != null) imageTemplate.SetActive(false);
         if (blocks == null || bodyContent == null) yield break;
+        if (IsBaked) { yield return LoadBakedBlocks(blocks); yield break; }
         for (int i = 0; i < blocks.Length; i++) {
             ActivityContentBlock block = blocks[i];
             if (block == null) continue;
@@ -174,7 +218,11 @@ public class ActivityDetailPanel : MonoBehaviour {
 
     private float ContentWidth() {
         RectTransform rt = bodyContent as RectTransform;
-        if (rt != null && rt.rect.width > 8f) return Mathf.Max(8f, rt.rect.width - 16f);
+        if (rt != null && rt.rect.width > 8f) {
+            var layout = bodyContent.GetComponent<VerticalLayoutGroup>();
+            float padding = layout != null ? layout.padding.horizontal : 16f;
+            return Mathf.Max(8f, rt.rect.width - padding);
+        }
         return 880f;
     }
 
@@ -194,6 +242,7 @@ public class ActivityDetailPanel : MonoBehaviour {
     }
 
     private void ClearSpawned() {
+        if (IsBaked) foreach (var block in bakedBlocks) if (block != null) block.Clear();
         for (int i = 0; i < _spawned.Count; i++) {
             if (_spawned[i] != null) Destroy(_spawned[i]);
         }
@@ -202,10 +251,36 @@ public class ActivityDetailPanel : MonoBehaviour {
     }
 
     private void OnDisable() {
-        if (_loadRoutine != null) {
-            StopCoroutine(_loadRoutine);
-            _loadRoutine = null;
-        }
+        StopLoading();
         ClearSpawned();
+    }
+
+    private void StopLoading() {
+        if (_loadRoutine != null) StopCoroutine(_loadRoutine);
+        _loadRoutine = null;
+    }
+    private IEnumerator LoadBakedBlocks(ActivityContentBlock[] blocks) {
+        var pool = new List<ActivityBakedBlock>(bakedBlocks);
+        while (pool.Count < blocks.Length) {
+            var extra = Instantiate(bakedBlocks[0], bodyContent);
+            extra.name = "ContentBlock_" + pool.Count.ToString("00");
+            pool.Add(extra);
+        }
+        bakedBlocks = pool.ToArray();
+        Canvas.ForceUpdateCanvases();
+        float width = ContentWidth();
+        for (int i = 0; i < blocks.Length; i++) {
+            var block = blocks[i];
+            if (block == null) continue;
+            if (block.type == "text" && !string.IsNullOrEmpty(block.text)) bakedBlocks[i].ShowText(block, width);
+            if (block.type == "image" && !string.IsNullOrEmpty(block.url)) {
+                Texture2D texture = null;
+                yield return ActivityHttp.GetTexture(block.url, value => texture = value, _ => { });
+                if (texture != null) _textures.Add(texture);
+                bakedBlocks[i].ShowImage(block, texture, width);
+            }
+        }
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)bodyContent);
+        if (bodyScroll != null) bodyScroll.verticalNormalizedPosition = 1;
     }
 }

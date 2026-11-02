@@ -13,6 +13,15 @@ public partial class RoundEndPresentation {
         bool deferScoreSettlement = false, int? ronDiscarderIndex = null, bool recycleDiscard = false,
         bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true,
         Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false, System.Action afterHandReveal = null) {
+        if (SettlementSync.IsRestoring) {
+            StopActiveSequence();
+            PreparePresentationRoot(false);
+            HideSelfGameplayControl(true);
+            EndResultPanel.Instance.PrepareShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
+                hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, score_changes, suppressHandReveal);
+            EndResultPanel.Instance.PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras);
+            return;
+        }
         StartSequence(PresentHuResultSequenceCoroutine(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
@@ -65,9 +74,11 @@ public partial class RoundEndPresentation {
                 }
             }
         }
-        if ((selfWon || selfIsAmongBatchWinners) && !skipHandReveal
+        // A live reveal hides the 2D hand only when its replacement 3D tiles are ready.
+        // Hiding here leaves an empty hand while nested coroutines or pending draws are waiting.
+        if ((selfWon || selfIsAmongBatchWinners) && !skipHandReveal && !willRevealWinnerHand
                 && !isMidGameSichuanHu && !isEndgameScoreOnly) {
-            HideSelfGameplayControl(!willRevealWinnerHand && !suppressHandReveal);
+            HideSelfGameplayControl(!suppressHandReveal);
         }
 
         if (!isSilent && !isEndgameScoreOnly) {
@@ -85,7 +96,7 @@ public partial class RoundEndPresentation {
             yield return HepaiRevealDirector.PlaySichuanMidGame(
                 hepai_player_index, hu_class, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
         } else if (hasSimultaneousReveal && playPresentationEffects && !skipHandReveal) {
-            yield return HepaiRevealDirector.PlayMany(simultaneousHuHands, hu_class);
+            yield return HepaiRevealDirector.PlayMany(simultaneousHuHands, hu_class, isQianggang);
         } else if (willRevealWinnerHand) {
             yield return HepaiRevealDirector.Play(hepai_player_index, hepai_player_hand, hu_class, hu_fan, isQianggang, ronDiscarderIndex, hepaiTile);
         }

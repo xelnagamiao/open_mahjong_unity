@@ -44,6 +44,8 @@ def replay(rule="guobiao", category="custom", fan=24, day=0, ticks=None, hands=N
             "action_ticks": ticks if ticks is not None else [
                 ["d", 22], win, ["end"],
             ],
+            # Saved Sichuan fan is independent of the payment stored in hu_score.
+            **({"win_fan_by_tick": {"1": fan}} if source_rule == "sichuan" and ticks is None else {}),
         }},
     }
 

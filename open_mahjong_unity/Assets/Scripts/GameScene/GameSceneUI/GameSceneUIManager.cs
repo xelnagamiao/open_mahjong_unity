@@ -127,11 +127,11 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 显示游戏结束面板
     /// </summary>
-    public void ShowEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data)
+    public void ShowEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch = null)
     {
         UnlimitedRoundPanel.Instance?.ResetState();
         ExitButtonManager.Instance?.HideAll();
-        EndGamePanel.Instance.ShowGameEndPanel(master_seed, commitment, salt, player_final_data);
+        EndGamePanel.Instance.ShowGameEndPanel(master_seed, commitment, salt, player_final_data, sichuanMatch);
     }
 
     /// <summary>

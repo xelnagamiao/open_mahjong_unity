@@ -17,11 +17,14 @@ from ...room.room_router import handle_create_Qingque_room
 from ...room.test_guobiao_flowers import room_manager
 
 
-def make_state(enabled=True):
+def make_state(enabled=True, ranked=False):
     room = dict(player_list=[100, 101, 102, 103], room_id=1, room_rule="qingque",
                 room_type="custom", sub_rule="qingque/standard", round_timer=20,
                 step_timer=5, game_round=4, tips=False, allow_spectator=True,
                 unlimited_rounds=enabled)
+    if ranked:
+        from ...match.qingque_score_elo import ALGORITHM
+        room.update(room_type='match', match_queue_type='qingque_elo_unlimited', rating_algorithm=ALGORITHM)
     connections = {uid: NS(user_id=uid, websocket=NS(send_json=AsyncMock())) for uid in room["player_list"]}
     server = NS(user_id_to_connection=connections, players={str(uid): c for uid, c in connections.items()},
                 gamestate_manager=NS(cleanup_game_state_complete=AsyncMock()))
@@ -145,10 +148,24 @@ def test_game_start_and_reconnect_preserve_request_after_seat_change(monkeypatch
 
 @pytest.mark.parametrize("hu_class", ["hu_self", "liuju"])
 @pytest.mark.parametrize("continue_once", [False, True])
-def test_real_game_loop_settles_requested_hand_and_can_continue_past_sixteen(monkeypatch, hu_class, continue_once):
+@pytest.mark.parametrize("ranked", [False, True])
+def test_real_game_loop_settles_requested_hand_and_can_continue_past_sixteen(monkeypatch, hu_class, continue_once, ranked):
     async def run():
         module = importlib.import_module(QingqueGameState.__module__)
-        state = make_state()
+        state = make_state(ranked=ranked)
+        checkpoints = []
+        if ranked:
+            from ...match import qingque_session
+            from ...match.qingque_score_elo import score_elo_details
+            monkeypatch.setattr(qingque_session, 'checkpoint_state', lambda gs: checkpoints.append(qingque_session.completed_hands(gs.game_record)))
+            def finish(gs):
+                n = qingque_session.completed_hands(gs.game_record)
+                rows = [dict(user_id=p.user_id, net_points=p.score) for p in gs.player_list]
+                details = score_elo_details([1500]*4, rows, n)
+                assert n == len(started) and sum(p.score for p in gs.player_list) == 0
+                gs.game_record['game_title']['rating_result'] = details
+                return 'unlimited/4_rank', 'test-cloud-id'
+            monkeypatch.setattr(qingque_session, 'finish_state', finish)
         state.Debug = True
         state.current_round = 16 if continue_once else 2
         state.round_index = state.current_round
@@ -177,7 +194,12 @@ def test_real_game_loop_settles_requested_hand_and_can_continue_past_sixteen(mon
             await asyncio.gather(*(drain_viewer(state, i) for i in range(4)))
             assert started == ([16, 17] if continue_once else [2])
             state.broadcast_game_end.assert_awaited_once()
-            state.db_manager.store_qingque_game_record.assert_called_once()
+            if ranked:
+                assert checkpoints == list(range(1, len(started)+1))
+                assert state.game_record['game_title']['rating_result']
+                state.db_manager.store_qingque_game_record.assert_not_called()
+            else:
+                state.db_manager.store_qingque_game_record.assert_called_once()
             state.game_server.gamestate_manager.cleanup_game_state_complete.assert_awaited_once()
             assert state.game_record["game_title"]["unlimited_rounds"] is True
             assert len(state.game_record["game_round"]) == len(started)
@@ -189,4 +211,19 @@ def test_real_game_loop_settles_requested_hand_and_can_continue_past_sixteen(mon
                 assert result[0]["next_status"] == "round_end_by_ready"
         finally:
             await cancel_auxiliary_tasks(state)
+    asyncio.run(run())
+
+
+def test_ranked_stop_during_ready_interrupts_wait_without_dealing_and_freezes():
+    async def run():
+        state = make_state(ranked=True)
+        state.game_status = 'waiting_ready'
+        waiting = asyncio.create_task(state.unlimited_session.wait_for_continuation(asyncio.Event().wait()))
+        await asyncio.sleep(0)
+        assert (await state.unlimited_session.set_withdrawn(100, True))[0]
+        await asyncio.wait_for(waiting, 1)
+        assert state.unlimited_session.should_end_after_round()
+        state.unlimited_session.freeze()
+        assert not (await state.unlimited_session.set_withdrawn(100, False))[0]
+        assert state.unlimited_session.snapshot()['finishing']
     asyncio.run(run())

@@ -14,6 +14,7 @@ const { findLoginAccount } = require('../../utils/loginAccount');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 const { recordSuccessfulWebLogin } = require('../../services/loginHistory');
+const { CATALOG_LOCK, RENAME_CARD_COLUMNS, consumeRenameCard } = require('../../services/renameCards');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -108,7 +109,7 @@ async function syncOnlineUsername(userId, username) {
 
 async function buildAuthPayload(userId, expiresInSec = config.playerAuth.jwtExpiresSec) {
   const userRes = await pool.query(
-    `SELECT username, email, email_verified_at, COALESCE(rename_count, 0) AS rename_count
+    `SELECT username, email, email_verified_at, ${RENAME_CARD_COLUMNS}
        FROM users WHERE user_id = $1`,
     [userId]
   );
@@ -130,7 +131,8 @@ async function buildAuthPayload(userId, expiresInSec = config.playerAuth.jwtExpi
   return {
     user_id: userId,
     username: user.username,
-    rename_count: Number(user.rename_count) || 0,
+    rename_card_count: Number(user.rename_card_count) || 0,
+    rename_card_usable_count: Number(user.rename_card_usable_count) || 0,
     email: user.email || null,
     email_verified: !!user.email_verified_at,
     email_verified_at: user.email_verified_at || null,
@@ -300,8 +302,9 @@ router.post('/rename', requirePlayer, createWindowLimiter({
   let payload;
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock_shared($1)', [CATALOG_LOCK]);
     const before = await client.query(
-      `SELECT user_id, username, is_tourist, COALESCE(rename_count, 0) AS rename_count
+      `SELECT user_id, username, is_tourist
          FROM users WHERE user_id = $1 FOR UPDATE`,
       [userId]
     );
@@ -313,10 +316,6 @@ router.post('/rename', requirePlayer, createWindowLimiter({
     if (user.is_tourist) {
       await client.query('ROLLBACK');
       return res.status(403).json({ success: false, message: '游客账号不支持改名' });
-    }
-    if (Number(user.rename_count) <= 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, message: '改名次数不足' });
     }
     if (user.username === newName) {
       await client.query('ROLLBACK');
@@ -332,8 +331,9 @@ router.post('/rename', requirePlayer, createWindowLimiter({
       return res.status(409).json({ success: false, message: '用户名已存在' });
     }
 
+    await consumeRenameCard(client, userId, user.username, newName);
     await client.query(
-      `UPDATE users SET username = $1, rename_count = rename_count - 1 WHERE user_id = $2`,
+      `UPDATE users SET username = $1 WHERE user_id = $2`,
       [newName, userId]
     );
     const records = await client.query(
@@ -351,6 +351,9 @@ router.post('/rename', requirePlayer, createWindowLimiter({
     }
     if (err.code === '23505') {
       return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+    if (err.status === 400) {
+      return res.status(400).json({ success: false, message: err.message });
     }
     console.error('player rename error:', err);
     return res.status(500).json({ success: false, message: '改名失败，请稍后重试' });

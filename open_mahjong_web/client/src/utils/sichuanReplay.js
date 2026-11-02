@@ -45,7 +45,7 @@ export function sichuanScoreChanges(tick) {
     const index = tick.lastIndexOf('gs')
     if (index >= 0) values = tick.slice(index + 1, index + 5)
   } else if (['liuju', 'blood'].includes(action)) {
-    const index = { settle_hu: 6, chajiao: 5, cha_refund: 2 }[tick[1]]
+    const index = { settle_hu: 6, chajiao: 5, cha_refund: 2, settle_gang: 2 }[tick[1]]
     if (index != null) values = tick[index]
   }
   if (typeof values === 'string') {

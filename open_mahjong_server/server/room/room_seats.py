@@ -15,6 +15,11 @@ def _validate_index(seats: list, seat_index: int) -> None:
         raise ValueError("座位编号无效")
 
 
+def is_full_bot_table(room: dict) -> bool:
+    seats = get_seats(room)
+    return len(seats) == room.get("max_player", 4) and all(type(uid) is int and 0 <= uid <= 10 for uid in seats)
+
+
 def seat_player(room: dict, user_id: int, seat_index=None) -> None:
     seats = get_seats(room)
     if seat_index is None:

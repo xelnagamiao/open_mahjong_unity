@@ -86,7 +86,7 @@ public sealed class ShenyangGameState : TurnBasedGameState {
         Accept(response.show_result_info?.shenyang);
         if(Game3DManager.Instance!=null) {
             pendingSettlement=true;Presenter.CloseTableForSettlement();
-            Game3DManager.Instance.StartCoroutine(ShowResultWhenIdle(response,roundGeneration));
+            Game3DManager.Instance.StartCoroutine(SettlementSync.PreserveContext(ShowResultWhenIdle(response,roundGeneration)));
             return;
         }
         base.OnShowResult(response);
@@ -129,6 +129,7 @@ public sealed class ShenyangGameState : TurnBasedGameState {
         if(env.IsLiuju && revealedHands!=null) Game3DManager.Instance?.RevealSichuanLiujuAllHands(revealedHands);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         var totals=Info?.round_score_changes;
         if(totals==null) {base.AppendScoreboard(env);return;}
         string winnerName=Mirror.IndexToPosition.TryGetValue(env.WinnerIndex,out string pos)?Mirror.Info(pos)?.username??"":"";

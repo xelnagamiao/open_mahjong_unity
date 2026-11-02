@@ -79,6 +79,7 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
         base.PresentSettlement(env);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         var payment=env.ScoreChanges;
         if (Info?.round_changes!=null && Info.start_scores!=null) {
             int rows=0; bool replacing=false;

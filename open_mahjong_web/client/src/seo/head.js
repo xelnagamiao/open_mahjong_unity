@@ -24,7 +24,7 @@ export function applyRouteHead(route, locale, translate) {
   document.title = title
   document.documentElement.lang = page?.locale || locale
   setMeta('name', 'description', description)
-  setMeta('name', 'keywords', page ? null : route.meta.keywords)
+  setMeta('name', 'keywords', page ? null : translate(route.meta.keywords || ''))
   setMeta('name', 'robots', route.meta.noindex ? 'noindex,nofollow' : 'index,follow')
 
   let canonical = document.head.querySelector('link[rel="canonical"]')

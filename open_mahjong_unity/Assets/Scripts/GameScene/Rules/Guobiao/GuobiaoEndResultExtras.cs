@@ -6,13 +6,9 @@ public class GuobiaoEndResultExtras {
     public Dictionary<int, int[][]> RevealedAngangMasks;
 }
 
-/// <summary>
-/// 国标结算/流局面板底部附注："某某暗杠: 5m 东"。通过 RuleManifest.SettlementFootnote 接入，
-/// 数据来自 GuobiaoGameState.LastEndExtras；错和局不显示。
-/// </summary>
 internal static class GuobiaoAngangCheck {
-    public static string Footnote(SettlementTotalQuery q) {
-        if (HuFanHasCuohe(q.HuFan)) return null;
+    public static string BuildSummary(string rule, string[] huFan) {
+        if (RuleRegistry.Resolve(rule, rule)?.RuleId != "guobiao" || HuFanHasCuohe(huFan)) return null;
         GuobiaoEndResultExtras extras = GuobiaoGameState.Active?.LastEndExtras;
         if (extras?.RevealedAngangMasks == null || extras.RevealedAngangMasks.Count == 0) return null;
         return BuildText(extras.RevealedAngangMasks);

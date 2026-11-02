@@ -65,6 +65,8 @@ public sealed class SettlementEnvelope {
     public bool FinalPanel => NextStatus != "round_continue";
 
     // ---- 流局子步骤（川麻 reveal_hu / settle_hu / chajiao / cha_refund / final）----
+    public bool SichuanGroupedEndgame;
+    public SichuanBoardSettlementInfo SichuanSettlement;
     public string LiujuStep;
     public Dictionary<int, string> LiujuStatus;
     public Dictionary<int, int[]> LiujuHands;

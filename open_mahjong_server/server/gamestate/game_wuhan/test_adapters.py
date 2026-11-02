@@ -73,7 +73,11 @@ def test_network_privacy_reconnect_and_terminal_idempotence():
         old=deepcopy(s._terminal_result)
         s.player_list[1].tag_list.append('offline');await s.player_reconnect(102)
         assert 'offline' not in s.player_list[1].tag_list
-        assert s.game_server.user_id_to_connection[102].websocket.send_json.call_args.args[0]==old
+        packet=s.game_server.user_id_to_connection[102].websocket.send_json.call_args.args[0]
+        assert packet['settlement_sync']['gamestate_id']==s.gamestate_id
+        assert packet['settlement_sync']['result_id']
+        assert packet['gamestate_id']==s.gamestate_id
+        assert {k:v for k,v in packet.items() if k not in ('settlement_sync','gamestate_id')}==old
     asyncio.run(scenario())
 
 

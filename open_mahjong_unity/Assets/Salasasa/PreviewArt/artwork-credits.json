@@ -1,0 +1,1212 @@
+{
+  "checkedAt": "2026-10-30",
+  "scope": "主页可选角色、背景，以及目录中保留的早期预览图片；逐文件来源和使用要求。",
+  "assets": [
+    {
+      "file": "TaiseiCharacters/taisei-reimu.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/reimu.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-marisa.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/marisa.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-youmu.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/youmu.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-iku.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/iku.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-elly.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/elly.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-kurumi.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/kurumi.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-cirno.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/cirno.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-hina.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/hina.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-wriggle.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/wriggle.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-yumemi.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/yumemi.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "TaiseiCharacters/taisei-scuttle.png",
+      "credit": "afensorm / Taisei Project · CC BY 4.0",
+      "sourceUrl": "https://github.com/taisei-project/taisei-rawmedia/blob/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens/scuttle.kra",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "copyright": "东方Project 二次创作 · 原作 ZUN / 上海爱丽丝幻乐团",
+      "changes": "从作者 Krita 文件按原尺寸导出 PNG 和表情图层；未重绘，Unity 使用透明边界、等比缩放和定位。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cafe-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cafe-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cafe-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cafe/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-casual_restaurant-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-casual_restaurant-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-casual_restaurant-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/casual_restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-library_room-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-library_room-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-library_room-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-library_room-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/library_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-restaurant-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-restaurant-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-restaurant-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/restaurant/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-library-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/library/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/library/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-archive_room-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/archive_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/archive_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-archive_room-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/archive_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/archive_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_passage_way-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_passage_way-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_passage_way-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_passage_way-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_passage_way/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-japanese_corridor-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-japanese_corridor-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-japanese_corridor-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-japanese_corridor-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/japanese_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_entrance_hall-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_entrance_hall/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_entrance_hall/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-jp_entrance_hall-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/jp_entrance_hall/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/jp_entrance_hall/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-shrine-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-shrine-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-shrine-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-shrine-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/shrine/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_rooftop-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_rooftop-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_rooftop-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_rooftop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_hallway-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_hallway-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_hallway-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_hallway-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-connecting_corridor-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-connecting_corridor-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-connecting_corridor-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-connecting_corridor-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/connecting_corridor/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-front_of_classroom-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-front_of_classroom-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-front_of_classroom-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-front_of_classroom-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/front_of_classroom/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cultural_club_room-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cultural_club_room-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cultural_club_room-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-cultural_club_room-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/cultural_club_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_music_room-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_music_room-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_music_room-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_music_room-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_music_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_courtyard_bench-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_courtyard_bench-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_courtyard_bench-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_courtyard_bench-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_courtyard_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_in_spring-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_in_spring-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_in_spring-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-school_in_spring-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/school_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-city_station-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-city_station-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-city_station-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/city_station/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-station_platform-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-station_platform-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-station_platform-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-station_platform-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/station_platform/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-station_concourse-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/station_concourse/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/station_concourse/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-residential_street2-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-residential_street2-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-residential_street2-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-residential_street2-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/residential_street2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-levee_trail-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-levee_trail-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-levee_trail-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/levee_trail/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-seaside_bus_stop-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-seaside_bus_stop-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-seaside_bus_stop-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/seaside_bus_stop/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-small_sandy_beach-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-small_sandy_beach-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-small_sandy_beach-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/small_sandy_beach/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_autumn-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_autumn-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_autumn-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_autumn-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_autumn/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_spring-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_spring-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_in_spring-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_in_spring/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_gazebo_bench-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_gazebo_bench-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-park_gazebo_bench-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/park_gazebo_bench/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-building_hallway-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-building_hallway-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-building_hallway-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-building_hallway-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/building_hallway/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-living2-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-living2-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-living2-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-living2-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/living2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-single_room3-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-single_room3-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-single_room3-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-single_room3-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/single_room3/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-facility2-1.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-facility2-2.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-facility2-3.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "BackgroundLibrary/minchi-facility2-4.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "license": "作者自定义使用条款（禁止作为素材再分发）",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/facility2/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "wafu-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:博丽灵梦（深秘录凭依华立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "metro-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:藤原妹红（深秘录凭依华立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "tactical-character.png",
+      "credit": "鹰角网络 / PRTS · 官方立绘",
+      "sourceUrl": "https://prts.wiki/w/文件:Avg_char_002_amiya_6.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://www.hypergryph.com/",
+      "copyright": "© HYPERGRYPH / 鹰角网络",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "campus-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:铃仙·优昙华院·因幡（深秘录凭依华立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "archive-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:十六夜咲夜（绯想天立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "wafu-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/200806article_25.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "metro-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/201208article_1.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "tactical-background.jpg",
+      "credit": "みんちりえ",
+      "sourceUrl": "https://min-chi.material.jp/fm/bg_c/machine_room/",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://min-chi.material.jp/fm/bg_c/machine_room/",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "campus-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/202102article_3.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "archive-background.jpg",
+      "credit": "Spiral Atlas · CC BY 4.0",
+      "sourceUrl": "https://spiralatlas.itch.io/1900s-office-visual-novel-backgrounds",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/deed.en",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "river-dusk-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/520481560.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "river-night-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/520481560.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "roof-day-background.jpg",
+      "credit": "彩 雅介 / きまぐれアフター",
+      "sourceUrl": "https://gakaisozai.seesaa.net/article/200912article_2.html",
+      "license": "作者自定义使用条款",
+      "licenseUrl": "https://gakaisozai.seesaa.net/article/202102article_1.html",
+      "copyright": "",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "marisa-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:雾雨魔理沙（深秘录凭依华立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    },
+    {
+      "file": "kasen-character.png",
+      "credit": "东方官方立绘 / THBWiki",
+      "sourceUrl": "https://thwiki.cc/文件:茨木华扇（深秘录凭依华立绘）.png",
+      "license": "未取得独立素材使用、再分发或商用授权",
+      "licenseUrl": "https://touhou-project.news/guideline/",
+      "copyright": "© 上海爱丽丝幻乐团 / 黄昏边境 · 官方素材",
+      "changes": "源图片未改写；在 Unity 内等比例显示、构图裁切、着色或叠加遮罩。"
+    }
+  ]
+}

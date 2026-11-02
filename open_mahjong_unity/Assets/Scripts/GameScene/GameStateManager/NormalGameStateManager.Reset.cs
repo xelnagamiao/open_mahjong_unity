@@ -13,6 +13,7 @@ public partial class NormalGameStateManager {
         Mirror.SetDuplicateRemainingTiles(null);
         awaitingMatchEnd = false;
         hasPendingGameEnd = false;
+        pendingSichuanMatch = null;
         pendingGameEndMasterSeed = null;
         pendingGameEndCommitment = null;
         pendingGameEndSalt = null;

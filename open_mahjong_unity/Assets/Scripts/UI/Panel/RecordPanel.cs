@@ -34,6 +34,10 @@ public class RecordPanel : MonoBehaviour {
     private bool _isLoadingMore;
     private bool _hasMore = true;
     private int _loadedCount;
+    private int _nextOffset;
+    private int _listVersion;
+    private bool _loadMoreArmed;
+    private IReadOnlyList<RecordInfo> _localRecords = System.Array.Empty<RecordInfo>();
     private enum ListMode { Overview, Favorite, Local }
     private ListMode _listMode = ListMode.Overview;
 
@@ -91,12 +95,17 @@ public class RecordPanel : MonoBehaviour {
     /// 按当前标签刷新列表，供退出牌谱返回时保留原来的选择。
     /// </summary>
     public void ReloadCurrentList() {
+        int version = ++_listVersion;
+        ResetPaginationState();
+        ClearRecordItems();
+        NoRecordPanel.SetActive(false);
+        recordScrollRect.verticalNormalizedPosition = 1f;
+        _isLoadingMore = true;
         if (_listMode == ListMode.Local) {
-            LoadLocalList();
+            LoadLocalList(version);
             return;
         }
-        _isLoadingMore = true;
-        DataNetworkManager.Instance.GetRecordList(0, _listMode == ListMode.Favorite);
+        DataNetworkManager.Instance.GetRecordList(0, _listMode == ListMode.Favorite, version);
     }
 
     private void OpenRecordIdInput() {
@@ -137,49 +146,63 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void OnRecordScrollChanged(Vector2 _) {
-        if (!_hasMore || _isLoadingMore) return;
-        if (recordScrollRect.verticalNormalizedPosition > LoadMoreScrollThreshold) return;
+        if (!isActiveAndEnabled) return;
+        if (recordScrollRect.verticalNormalizedPosition > LoadMoreScrollThreshold) {
+            _loadMoreArmed = true;
+            return;
+        }
+        if (!_loadMoreArmed || !_hasMore || _isLoadingMore) return;
+        _loadMoreArmed = false;
         RequestLoadMore();
     }
 
     private void RequestLoadMore() {
-        if (_listMode == ListMode.Local) return;
         if (_isLoadingMore || !_hasMore) return;
         _isLoadingMore = true;
-        DataNetworkManager.Instance.GetRecordList(_loadedCount, _listMode == ListMode.Favorite);
+        if (_listMode == ListMode.Local) {
+            AppendLocalBatch();
+            return;
+        }
+        DataNetworkManager.Instance.GetRecordList(_nextOffset, _listMode == ListMode.Favorite, _listVersion);
     }
 
     private void ResetPaginationState() {
         _loadedGameIds.Clear();
         _recordItems.Clear();
         _loadedCount = 0;
+        _nextOffset = 0;
+        _loadMoreArmed = false;
+        _localRecords = System.Array.Empty<RecordInfo>();
         _hasMore = true;
         _isLoadingMore = false;
     }
 
     private void ClearRecordItems() {
         foreach (Transform child in dropdownContentTransform) {
+            child.gameObject.SetActive(false);
             Destroy(child.gameObject);
         }
         _recordItems.Clear();
     }
 
-    private void LoadLocalList() {
+    private void LoadLocalList(int version) {
         LocalRecordStore.EnsureReady(() => {
-            if (_listMode != ListMode.Local) return;
-            _isLoadingMore = false;
-            ResetPaginationState();
-            ClearRecordItems();
-            _hasMore = false;
-            List<RecordInfo> local = LocalRecordStore.ListAll();
-            if (local != null) {
-                foreach (RecordInfo record in local) {
-                    AppendRecordItem(record, localPlayback: true);
-                }
-            }
-            _loadedCount = _loadedGameIds.Count;
-            NoRecordPanel.SetActive(_loadedCount == 0);
+            if (_listMode != ListMode.Local || version != _listVersion) return;
+            _localRecords = LocalRecordStore.ListAll() ?? new List<RecordInfo>();
+            AppendLocalBatch();
         });
+    }
+
+    private void AppendLocalBatch() {
+        int end = System.Math.Min(_nextOffset + DataNetworkManager.RecordListPageSize, _localRecords.Count);
+        for (; _nextOffset < end; _nextOffset++) {
+            AppendRecordItem(_localRecords[_nextOffset], localPlayback: true);
+        }
+        _loadedCount = _loadedGameIds.Count;
+        _hasMore = _nextOffset < _localRecords.Count;
+        _isLoadingMore = false;
+        _loadMoreArmed = false;
+        NoRecordPanel.SetActive(_loadedCount == 0);
     }
 
     private void AppendRecordItem(RecordInfo record, bool localPlayback = false) {
@@ -227,17 +250,18 @@ public class RecordPanel : MonoBehaviour {
             Destroy(item.gameObject);
         }
         _recordItems.Remove(gameId);
-        _loadedGameIds.Remove(gameId);
+        if (_loadedGameIds.Remove(gameId)) _nextOffset = System.Math.Max(0, _nextOffset - 1);
         _loadedCount = _loadedGameIds.Count;
-        if (_loadedCount == 0) {
-            NoRecordPanel.SetActive(true);
-            _hasMore = false;
-        }
+        NoRecordPanel.SetActive(_loadedCount == 0);
+        if (_loadedCount == 0 && _hasMore) RequestLoadMore();
     }
 
-    public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList, int offset = 0) {
+    public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList, int offset = 0,
+        int listVersion = -1, bool? favoritesOnly = null) {
+        if (_listMode == ListMode.Local || (listVersion >= 0 && listVersion != _listVersion)) return;
+        if (favoritesOnly.HasValue && favoritesOnly.Value != (_listMode == ListMode.Favorite)) return;
+        if (offset != _nextOffset) return;
         _isLoadingMore = false;
-        if (_listMode == ListMode.Local) return;
 
         if (!success) {
             Debug.LogError($"获取记录列表失败: {message}");
@@ -266,18 +290,20 @@ public class RecordPanel : MonoBehaviour {
         NoRecordPanel.SetActive(false);
 
         int appended = 0;
-        foreach (var record in recordList) {
+        int batchCount = System.Math.Min(recordList.Length, DataNetworkManager.RecordListPageSize);
+        for (int i = 0; i < batchCount; i++) {
             int before = _loadedGameIds.Count;
-            AppendRecordItem(record);
+            AppendRecordItem(recordList[i]);
             if (_loadedGameIds.Count > before) {
                 appended++;
             }
         }
 
         _loadedCount = _loadedGameIds.Count;
-        if (recordList.Length < DataNetworkManager.RecordListPageSize) {
-            _hasMore = false;
-        }
+        _nextOffset = offset + batchCount;
+        _hasMore = recordList.Length >= DataNetworkManager.RecordListPageSize;
+        _loadMoreArmed = false;
+        if (offset == 0) recordScrollRect.verticalNormalizedPosition = 1f;
 
         Debug.Log(
             $"牌谱列表 mode={_listMode} offset={offset} 追加 {appended} 条，" +

@@ -337,7 +337,7 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         var countHeader = header.Find("Count") as RectTransform;
         TMP_Text fanHeader = null;
         foreach (Transform child in header) {
-            if (child.TryGetComponent(out TMP_Text text) && text.text == "主番") fanHeader = text;
+            if (child.TryGetComponent(out TMP_Text text) && (text.name == "MainFanHeader" || text.text == "主番" || text.GetComponent<LocalizedPlatformLabel>()?.Source == "主番")) fanHeader = text;
         }
         if (countHeader == null || fanHeader == null) return;
 
@@ -421,7 +421,7 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = ScoreboardRoundName(rule, subRule, roundNumber);
+                TableText.Set(text, ScoreboardRoundName(rule, subRule, roundNumber));
                 BindRoundSelection(text, roundNumber,
                     recordRoundIndices != null && i < recordRoundIndices.Count ? recordRoundIndices[i] : -1);
             }
@@ -443,7 +443,7 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = ScoreboardRoundName(rule, subRule, rn);
+                TableText.Set(text, ScoreboardRoundName(rule, subRule, rn));
                 text.color = new Color32(192, 192, 192, 255);
                 BindRoundSelection(text, rn, -1);
             }
@@ -688,7 +688,7 @@ internal static class ScoreHistoryCellTextUtil {
             Debug.LogWarning($"[ScoreHistory] 单元格 prefab 上未找到 TMP_Text：{cellRoot.name}");
             return null;
         }
-        text.text = label ?? "";
+        TableText.Set(text, label);
         text.raycastTarget = raycastTarget;
         text.enabled = true;
         if (text.color.a < 0.01f) {

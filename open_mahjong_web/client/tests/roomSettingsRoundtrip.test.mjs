@@ -152,8 +152,12 @@ test('ordinary duplicate walls are offered and accepted only for compatible subr
   }
   for (const sub of ['xueliu', 'xueliu_exchange']) {
     const form = createEventRoomForm({ room_rule: 'sichuan', room_config: { sub_rule: `sichuan/${sub}`, duplicate_key } })
-    assert.equal(supportsDuplicateKey(form), true)
-    assert.equal(roundtrip(form).duplicate_key, duplicate_key)
+    assert.equal(supportsDuplicateKey(form), false)
+    assert.equal(form.duplicate_key, '')
+    assert.equal(roundtrip(form).duplicate_key, undefined)
+    assert.throws(() => change(readRoomSettings({}), 'manual', {
+      room_rule: 'sichuan', room_config: { sub_rule: `sichuan/${sub}`, duplicate_key },
+    }), /复式/)
   }
 })
 

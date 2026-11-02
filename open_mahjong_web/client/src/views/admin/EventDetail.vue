@@ -27,6 +27,7 @@
         </el-descriptions>
 
         <div class="actions">
+          <el-button type="primary" plain @click="profileDialogVisible = true">修改资料</el-button>
           <el-button
             v-if="detail.status === 'registered'"
             type="primary"
@@ -148,7 +149,7 @@
           >刷新</el-button>
         </template>
 
-        <EventRoomCards :rooms="rooms" :loading="loadingRooms" :rule-labels="RULE_LABELS" allow-restart @delete="deleteRoom" @restart-pair="restartPair" />
+        <EventRoomCards :rooms="rooms" :loading="loadingRooms" :rule-labels="RULE_LABELS" allow-restart :allow-bots="detail?.status === 'active'" :busy-room-id="addingBotRoomId" @add-bot="addRoomBot" @delete="deleteRoom" @restart-pair="restartPair" />
       </el-card>
 
       <el-card class="block">
@@ -280,13 +281,16 @@
         </div>
       </el-card>
 
+      <VenueProfileDialog v-model="profileDialogVisible" :venue="detail" admin @updated="onProfileUpdated" />
+
       <VenueRoomDialog
         v-model="roomDialogVisible"
         :form="roomForm"
         :title="isBase ? '创建基地房间' : '创建赛事房间'"
         confirm-text="创建房间"
         :loading="creatingRoom"
-        :show-auto-duplicate="!isBase"
+        show-auto-duplicate
+        allow-paired
         :load-duplicate-quota="loadDuplicateQuota"
         show-reason
         :room-rule-options="roomRuleOptions"
@@ -302,6 +306,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
+import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
+import { useAdminNotificationsStore } from '@/stores/adminNotifications'
 import EventRoomCards from '@/components/EventRoomCards.vue'
 import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
@@ -325,6 +331,9 @@ const RULE_LABELS = {
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
   shangrao: '上饶麻将',
+  hongque: '虹雀',
+  beijing: '北京麻将（吃碰提）',
+  duocai: '夺彩麻将',
 }
 const GAME_TYPE_OPTIONS = [
   { value: 'quanzhuang', label: '全庄战' },
@@ -351,6 +360,8 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const detail = ref(null)
+const profileDialogVisible = ref(false)
+const notifications = useAdminNotificationsStore()
 const savingOwner = ref(false)
 const savingAdmin = ref(false)
 const ownerForm = reactive({ user_id: '', reason: '' })
@@ -370,6 +381,9 @@ const roomRuleOptions = [
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
   { value: 'shangrao', label: '上饶麻将' },
+  { value: 'hongque', label: '虹雀' },
+  { value: 'beijing', label: '北京麻将（吃碰提）' },
+  { value: 'duocai', label: '夺彩麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
   { value: 'qingque', label: '青雀' },
@@ -430,9 +444,15 @@ async function loadPendingProfile() {
   try {
     const res = await adminApi.get(`/event-profile-changes/by-event/${route.params.eventId}`)
     pendingProfile.value = res.data.data?.pending || null
+    notifications.refresh()
   } catch {
     pendingProfile.value = null
   }
+}
+
+function onProfileUpdated(data) {
+  Object.assign(detail.value, data.event)
+  loadPendingProfile()
 }
 
 async function loadRooms() {
@@ -583,6 +603,25 @@ async function deleteRoom(row) {
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '删除失败')
+  }
+}
+
+const addingBotRoomId = ref('')
+async function addRoomBot({ room, seatIndex, botType }) {
+  if (addingBotRoomId.value) return
+  const eventId = route.params.eventId
+  addingBotRoomId.value = String(room.room_id)
+  try {
+    const reason = await promptReason('添加机器人')
+    const res = await adminApi.post(`/events/${eventId}/rooms/${room.room_id}/bots`, {
+      instance_id: room.instance_id, seat_index: seatIndex, bot_type: botType, reason,
+    })
+    ElMessage.success(res.data.message || '机器人已入座')
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.response?.data?.message || '操作未确认，请刷新房间列表核对')
+  } finally {
+    addingBotRoomId.value = ''
+    if (eventId === route.params.eventId) await loadRooms()
   }
 }
 

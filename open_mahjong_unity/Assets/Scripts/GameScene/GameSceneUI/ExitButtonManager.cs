@@ -91,10 +91,10 @@ public class ExitButtonManager : MonoBehaviour {
         if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
     }
 
-    public void ConfigureUnlimitedRounds(bool enabled, bool withdrawn) {
-        unlimitedRounds = enabled;
+    public void ConfigureUnlimitedRounds(bool enabled, bool withdrawn, bool canEdit = true) {
+        unlimitedRounds = enabled && canEdit;
         locallyWithdrawn = withdrawn;
-        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(enabled);
+        if (unlimitedEndButton) { unlimitedEndButton.gameObject.SetActive(enabled); unlimitedEndButton.interactable=canEdit; }
         if (unlimitedEndLabel) unlimitedEndLabel.text = withdrawn ? "回归游戏" : "结束游戏";
         // Only alter the ordinary vote button in an active room control bar.
         if (voteEndButton && votePauseButton && votePauseButton.gameObject.activeSelf)

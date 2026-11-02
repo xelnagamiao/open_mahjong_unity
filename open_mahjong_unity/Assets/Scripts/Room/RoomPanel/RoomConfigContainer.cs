@@ -108,6 +108,8 @@ public class RoomConfigContainer : MonoBehaviour {
     public static List<KeyValuePair<string, string>> BuildDisplayFields(RoomInfo roomInfo) {
         var result = new List<KeyValuePair<string, string>>();
         if (roomInfo == null) return result;
+        if (SichuanLobby.IsDuplicate(roomInfo.sub_rule))
+            result.Add(new KeyValuePair<string, string>("复式模式", roomInfo.duplicate_sync_mode == false ? "非同步模式" : "同步模式"));
         if (roomInfo.is_duplicate) {
             result.Add(new KeyValuePair<string, string>("复式", DuplicateWallDisplay.TypeName(roomInfo.duplicate_wall_type)));
         }
@@ -149,6 +151,9 @@ public class RoomConfigContainer : MonoBehaviour {
                 ShanghaiHandCalculator.UsesQing3Hun2Peng2(roomInfo.detailed_config) ? "开" : "关"));
             result.Add(new KeyValuePair<string, string>("开启天敲",
                 ShanghaiHandCalculator.UsesTianQiao(roomInfo.detailed_config) ? "开（2番）" : "关"));
+            if (roomInfo.hepai_limit == 1)
+                result.Add(new KeyValuePair<string, string>("禁止垃圾和/大吊",
+                    ShanghaiHandCalculator.ForbidsLajiheDadiao(roomInfo.detailed_config) ? "开" : "关"));
             return;
         }
         if (roomInfo.room_rule == "shanghai" && roomInfo.sub_rule == LajiheHandCalculator.SubRule) {

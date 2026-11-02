@@ -297,7 +297,11 @@ public partial class GameRecordManager {
     private static void ClearTransformChildren(Transform container) {
         if (container == null) return;
         for (int i = container.childCount - 1; i >= 0; i--) {
-            Destroy(container.GetChild(i).gameObject);
+            // Destroy 在帧末执行；先移出列表，避免同帧翻金排序混入上一局。
+            Transform child = container.GetChild(i);
+            child.gameObject.SetActive(false);
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
         }
     }
 

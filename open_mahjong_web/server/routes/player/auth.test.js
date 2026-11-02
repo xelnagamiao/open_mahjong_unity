@@ -64,7 +64,7 @@ function response() {
   };
 }
 
-async function fetchMe(username, user = { username: '新名字', rename_count: 0 }, expiresAt) {
+async function fetchMe(username, user = { username: '新名字', rename_card_count: 0, rename_card_usable_count: 0 }, expiresAt) {
   const res = response();
   await loadAuthRoutes(user).get('GET /me')({ player: { userId: 101, username, expiresAt } }, res);
   return res;
@@ -137,7 +137,7 @@ for (const remaining of [7 * 24 * 60 * 60, 60]) {
   test(`/me repairs a username while preserving ${remaining} seconds of the original session`, async (t) => {
     const now = 1800000000;
     t.mock.method(Date, 'now', () => now * 1000);
-    const res = await fetchMe('旧名字', { username: '新名字', rename_count: 0 }, now + remaining);
+    const res = await fetchMe('旧名字', { username: '新名字', rename_card_count: 0 }, now + remaining);
     const claims = verifyToken(res.body.data.token, config.playerAuth.jwtSecret);
     assert.equal(claims.exp, now + remaining);
     assert.equal(res.body.data.expires_in, remaining);
@@ -177,7 +177,7 @@ test('/me refreshes the signed username after a lost rename response', async () 
   const res = await fetchMe('旧名字');
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.data.username, '新名字');
-  assert.equal(res.body.data.rename_count, 0);
+  assert.equal(res.body.data.rename_card_count, 0);
   const claims = verifyToken(res.body.data.token, config.playerAuth.jwtSecret);
   assert.equal(claims.user_id, 101);
   assert.equal(claims.username, '新名字');

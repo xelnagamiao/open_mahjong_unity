@@ -33,7 +33,7 @@ public class ClassicalGameState : TurnBasedGameState {
         }
         string huClass = info.hu_class;
         int? winner = info.hepai_player_index;
-        if (!string.IsNullOrEmpty(huClass) && huClass != "liuju" && huClass != "jiuzhongjiupai"
+        if (!SettlementSync.IsRestoring && !string.IsNullOrEmpty(huClass) && huClass != "liuju" && huClass != "jiuzhongjiupai"
             && winner.HasValue && Mirror.IndexToPosition.TryGetValue(winner.Value, out string huSeat)) {
             GameCanvas.Instance.ShowActionDisplay(huSeat, huClass);
             SoundManager.Instance.PlayActionSound(huSeat, huClass);
@@ -43,6 +43,7 @@ public class ClassicalGameState : TurnBasedGameState {
             info.player_fu, info.player_to_score, info.score_changes, info.player_fan, info.player_fu_types,
             Mirror.IndexToPosition, Mirror.PlayerToInfo, winner, info.hepai_player_hand, info.hepai_player_combination_mask);
 
+        if (SettlementSync.IsRestoring) return;
         List<RoundSettlementSnapshot> history = Mirror.RoundSettlementHistory;
         bool updatesExistingRow = history.Count > 0 && huClass == "liuju";
         if (updatesExistingRow) {

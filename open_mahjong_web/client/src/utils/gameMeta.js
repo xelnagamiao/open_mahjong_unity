@@ -9,6 +9,9 @@ const ROOM_TYPE_LABELS = {
 }
 
 const RULE_LABELS = {
+  hongque: '虹雀',
+  beijing: '北京麻将（吃碰提）',
+  duocai: '夺彩麻将',
   shenyang: '沈阳麻将',
   nanchang: '南昌麻将',
   shangrao: '上饶麻将',
@@ -24,6 +27,10 @@ const RULE_LABELS = {
 }
 
 const SUB_RULE_LABELS = {
+  'hongque/w-v1.0': '虹雀 W（v1.0）',
+  'beijing/chipengti': '北京麻将（吃碰提）',
+  'duocai/guobiao': '夺彩·国标',
+  'duocai/riichi': '夺彩·立直',
   'shenyang/mil2025': '沈阳麻将（MIL 2025）',
   'nanchang/mil2026': '南昌麻将（MIL 2026 四人单打）',
   'shangrao/standard': '上饶麻将',

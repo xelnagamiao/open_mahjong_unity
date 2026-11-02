@@ -13,19 +13,20 @@ const FLOWERS = [51, 52, 53, 54, 55, 56, 57, 58];
 const RULES = {
   guobiao: { label: '国标麻将', base: [...NUMBER_TILES, ...HONORS], flowers: FLOWERS },
   'guobiao/lanshi': { label: '国标蓝十改（无花）', base: [...NUMBER_TILES, ...HONORS] },
-  'sichuan/xueliu': { label: '川麻血流复式', base: NUMBER_TILES, wall_layout: 'xueliu' },
+  'sichuan/xueliu': { label: '川麻血流双打复式', base: NUMBER_TILES, wall_layout: 'xueliu', event_only: true },
+  'sichuan/sbr': { label: '川麻血战双打复式（SBR）', base: NUMBER_TILES, wall_layout: 'sbr', event_only: true },
 };
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 function tileLabel(tile) { return LABELS[tile] || `${tile % 10}${({ 1: '万', 2: '筒', 3: '条' })[Math.floor(tile / 10)]}`; }
 function normalizeUseFlowers(rule, value) {
-  if (!Object.hasOwn(RULES, rule)) fail(400, '新复式仅支持国标麻将和川麻血流');
+  if (!Object.hasOwn(RULES, rule)) fail(400, '新复式仅支持国标麻将和川麻');
   if (value !== undefined && typeof value !== 'boolean') fail(400, 'use_flowers 必须为布尔值');
   return rule !== 'guobiao' ? false : value ?? true;
 }
 function tileSpec(rule, useFlowers) {
   const spec = Object.hasOwn(RULES, rule) ? RULES[rule] : null;
-  if (!spec) fail(400, '新复式仅支持国标麻将和川麻血流');
+  if (!spec) fail(400, '新复式仅支持国标麻将和川麻');
   const flowers = normalizeUseFlowers(rule, useFlowers) ? FLOWERS : [];
   return [...spec.base.map((tile) => ({ tile, label: tileLabel(tile), count: 4 })),
     ...flowers.map((tile) => ({ tile, label: tileLabel(tile), count: 1 }))];
@@ -34,6 +35,7 @@ function fullWall(rule, useFlowers) { return tileSpec(rule, useFlowers).flatMap(
 function catalog() {
   return { rules: Object.entries(RULES).map(([rule, spec]) => ({
     rule, label: spec.label, wall_layout: spec.wall_layout || 'standard', tiles: tileSpec(rule), tile_count: fullWall(rule).length,
+    scopes: spec.event_only ? ['event'] : ['personal', 'event'],
     use_flowers: normalizeUseFlowers(rule), supports_flower_toggle: rule === 'guobiao',
     flower_options: (rule === 'guobiao' ? [true, false] : [false]).map((useFlowers) => ({
       use_flowers: useFlowers, tiles: tileSpec(rule, useFlowers), tile_count: fullWall(rule, useFlowers).length,
@@ -79,8 +81,11 @@ function normalizeInput(body = {}) {
   if (scope === 'event' && (!eventId || eventId.length > 32)) fail(400, '请选择所属比赛');
   const wallType = body.wall_type;
   if (!['manual', 'seed', 'key'].includes(wallType)) fail(400, '请选择手动牌墙、复现牌墙或密钥牌墙');
-  const rule = body.rule || 'guobiao';
+  const rule = body.rule ?? 'guobiao';
+  if (typeof rule !== 'string') fail(400, '复式规则必须为有效的规则名称');
+  if (rule.startsWith('sichuan/') && body.use_flowers === true) fail(400, '川麻复式只有 108 张数牌，不能启用花牌');
   const useFlowers = normalizeUseFlowers(rule, body.use_flowers);
+  if (RULES[rule].event_only && scope !== 'event') fail(400, '川麻仅支持双打复式，密钥请在赛事或基地中创建');
   const name = String(body.name || '').trim();
   if (name.length > 80) fail(400, '名称最多 80 字');
   let seed = null;
@@ -117,7 +122,8 @@ function wallDto(row, ownerView = false) {
   dto.event_name = row.scope === 'event' ? row.event_name ?? null : null;
   dto.is_deleted = row.deleted_at != null;
   dto.round_count = row.round_count ?? 1;
-  dto.wall_layout = ['sichuan/xueliu', 'sichuan/xueliu_doubles_duplicate'].includes(row.rule) ? 'xueliu' : 'standard';
+  dto.wall_layout = ['sichuan/xueliu', 'sichuan/xueliu_doubles_duplicate'].includes(row.rule) ? 'xueliu'
+    : ['sichuan/sbr', 'sichuan/doubles_duplicate'].includes(row.rule) ? 'sbr' : 'standard';
   dto.use_flowers = typeof row.use_flowers === 'boolean' ? row.use_flowers
     : Array.isArray(row.tiles) ? row.tiles.some((tile) => FLOWERS.includes(tile)) : null;
   // Historical walls remain manageable even when their rule is no longer creatable.
@@ -142,12 +148,12 @@ function createDuplicateWallService(pool) {
     if (!Object.hasOwn(QUOTAS, scope)) fail(400, '无效的复式范围');
     if (scope !== 'event') return;
     const result = platformAdmin
-      ? await db.query("SELECT status FROM events WHERE event_id = $1 AND kind = 'event'", [eventId])
+      ? await db.query("SELECT status FROM events WHERE event_id = $1 AND kind IN ('event', 'base')", [eventId])
       : await db.query(
         `SELECT e.status FROM events e JOIN event_admins ea ON ea.event_id = e.event_id
-         WHERE e.event_id = $1 AND ea.user_id = $2 AND e.kind = 'event'`, [eventId, userId]);
-    if (!result.rows.length) fail(403, '只有该比赛的管理员可以管理比赛复式牌墙');
-    if (forCreate && !['registered', 'active'].includes(result.rows[0].status)) fail(409, '只有申办完成且尚未结束的比赛可以创建牌墙');
+         WHERE e.event_id = $1 AND ea.user_id = $2 AND e.kind IN ('event', 'base')`, [eventId, userId]);
+    if (!result.rows.length) fail(403, '只有该赛事或基地的管理员可以管理所属复式牌墙');
+    if (forCreate && !['registered', 'active'].includes(result.rows[0].status)) fail(409, '只有申办完成且尚未结束的赛事或基地可以创建牌墙');
   }
   function scopeWhere(userId, scope, eventId) {
     return scope === 'event' ? { sql: "scope = 'event' AND event_id = $1", params: [eventId] }

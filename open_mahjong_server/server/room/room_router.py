@@ -48,10 +48,11 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
     token = None
     try:
         if message.get("type", "").strip("/").startswith("room/create_") and message.get("duplicate_key"):
-            from ..database.duplicate_walls import XUELIU_WALL_SUBRULES
             kind = message.get("type", "").strip("/")
-            if kind != "room/create_GB_room" and not (kind == "room/create_Sichuan_room" and message.get("sub_rule") in XUELIU_WALL_SUBRULES):
-                raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）和川麻血流")
+            if kind == "room/create_Sichuan_room":
+                raise ValueError("川麻仅支持双打复式，请在赛事或基地中成对创建开闭室")
+            if kind != "room/create_GB_room":
+                raise ValueError("此建房入口仅支持国标复式密钥")
             if message.get("sub_rule") == "guobiao/blood_battle":
                 raise ValueError("国标血战暂不支持复式牌墙")
             wall = load_duplicate_wall(game_server.db_manager, message["duplicate_key"])
@@ -131,9 +132,15 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type in {"room/create_Hangzhou_room", "room/create_hangzhou_room"}:
         from .hangzhou_room import handle_create_hangzhou_room
         await handle_create_hangzhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Beijing_room", "room/create_beijing_room"}:
+        from .beijing_room import handle_create_beijing_room
+        await handle_create_beijing_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Shangrao_room", "room/create_shangrao_room"}:
         from .shangrao_room import handle_create_shangrao_room
         await handle_create_shangrao_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Duocai_room", "room/create_duocai_room"}:
+        from .duocai_room import handle_create_duocai_room
+        await handle_create_duocai_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Nanchang_room", "room/create_nanchang_room"}:
         from .nanchang_room import handle_create_nanchang_room
         await handle_create_nanchang_room(game_server, Connect_id, message, websocket)
@@ -269,7 +276,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message.get("sub_rule", "qingque/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
-        message.get("tactical_call", False),
+        message.get("tactical_call", True),
         message.get("claim_protection", True),
         message.get("event_id"),
         count_tips=message.get("count_tips", False),
@@ -373,10 +380,13 @@ async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict
         message.get("random_seed", 0),
         message.get("sub_rule", "hongque/v1.6"),
         message.get("tourist_limit", False),
-        False,
+        message.get("allow_spectator", False),
         message.get("hepai_way", "multi_ron"),
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
+        hongque_colourless=message.get("hongque_colourless", True),
+        hongque_min_fan=message.get("hongque_min_fan", 0),
+        hongque_min_points=message.get("hongque_min_points", 0),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

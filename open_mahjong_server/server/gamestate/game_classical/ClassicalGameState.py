@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
@@ -278,7 +279,7 @@ class ClassicalGameState:
                         game_info=game_info
                     )
 
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break
@@ -386,7 +387,9 @@ class ClassicalGameState:
             else:
                 # 正常流程：庄家摸第14张牌
                 self.current_player_index = 0
-                self.refresh_waiting_tiles(self.current_player_index)
+                # 闲家的早期荣和也依赖听口判断边嵌吊、九莲及抢杠。
+                for player in self.player_list:
+                    self.refresh_waiting_tiles(player.player_index)
                 self.player_list[0].get_tile(self.tiles_list)
                 player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
                 await self.broadcast_do_action(

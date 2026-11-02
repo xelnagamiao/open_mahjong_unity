@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>整组副露收回预览，四个固定牌槽由预制体提供。</summary>
 public sealed class FreeModeMeldRow : MonoBehaviour {
-    public Text title;
+    public TMP_Text title;
     public Button recallButton;
     public FreeModeTileView[] tiles;
     public void Bind(int[] mask, int number, UnityAction recall) {

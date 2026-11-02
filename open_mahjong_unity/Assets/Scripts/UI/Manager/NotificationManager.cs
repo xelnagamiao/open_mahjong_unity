@@ -7,10 +7,19 @@ public class NotificationManager : MonoBehaviour {
     [SerializeField] private TipItem tipItemPrefab;                // Tips 预制体（挂 TipItem + CanvasGroup）
     [SerializeField] private float defaultTipDuration = 5f;  // Tips 默认显示时长
     private TipStackController _tipStack;
+    [SerializeField] private RectTransform tooltipPosition, tableTooltipPosition;
+    public RectTransform TooltipRoot => tooltipPosition != null ? tooltipPosition : transform.GetComponentInParent<Canvas>().transform as RectTransform;
+    public RectTransform TableTooltipRoot => tableTooltipPosition != null ? tableTooltipPosition : TooltipRoot;
+
+    public void ClearHoverTooltips() {
+        foreach (var root in new[] { tooltipPosition, tableTooltipPosition }) {
+            if (!root) continue;
+            foreach (Transform child in root) Destroy(child.gameObject);
+        }
+    }
 
     [Header("PlayerInfo 配置")]
     [SerializeField] private GameObject playerInfoPosition;
-    [SerializeField] private GameObject playerInfoPanelPrefab; // 玩家信息面板预制体
 
     [Header("Message 配置")]
     [SerializeField] private GameObject messagePosition;
@@ -35,7 +44,7 @@ public class NotificationManager : MonoBehaviour {
     /// 显示 Tips 弹窗
     /// </summary>
     /// <param name="type">提示类型（例如：System/Network）</param>
-    /// <param name="isSuccess">是否成功（决定颜色）</param>
+    /// <param name="isSuccess">是否成功；提示使用统一配色。</param>
     /// <param name="message">显示内容</param>
     /// <param name="duration">自定义显示时长，传入 &lt;=0 则使用默认值</param>
     public void ShowTip(string type, bool isSuccess, string message, float duration = -1f) {
@@ -101,13 +110,12 @@ public class NotificationManager : MonoBehaviour {
             rect.anchorMax = Vector2.one;
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             var modalCanvas = modalOwner.GetComponent<Canvas>();
-            modalCanvas.overrideSorting = true;
-            if (canvas != null) modalCanvas.sortingLayerID = canvas.sortingLayerID;
-            int sortingOrder = Mathf.Max(300, canvas != null ? canvas.sortingOrder + 1 : 300);
+            UiCanvasLayers.Apply(modalCanvas, UiCanvasLayers.Modal, UiCanvasLayers.ModalOrder + 100);
+            int sortingOrder = modalCanvas.sortingOrder;
             // Equal-order override canvases do not reliably follow sibling order.
             // Keep nested confirmations above existing dialogs, including ones fading out.
             foreach (var existing in parent.GetComponentsInChildren<MessagePrefab>(true)) {
-                Canvas existingCanvas = existing.GetComponentInParent<Canvas>();
+                Canvas existingCanvas = UiCanvasLayers.SortingCanvas(existing.transform);
                 if (existingCanvas != null && existingCanvas.overrideSorting &&
                     existingCanvas.sortingLayerID == modalCanvas.sortingLayerID) {
                     sortingOrder = Mathf.Max(sortingOrder, existingCanvas.sortingOrder + 1);
@@ -139,17 +147,8 @@ public class NotificationManager : MonoBehaviour {
             if (playerInfoPanel == null) {
                 playerInfoPanel = parent.GetComponentInChildren<PlayerInfoPanel>(true);
             }
-            if (playerInfoPanel == null) {
-                if (playerInfoPanelPrefab == null) {
-                    Debug.LogError("NotificationManager: PlayerInfoPanel 及其预制体均未设置！");
-                    return;
-                }
-                GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
-                playerInfoPanelObject.SetActive(false);
-                playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
-            }
             if (playerInfoPanel != null) {
-                playerInfoPanel.ShowPlayerInfo(playerInfo);
+                playerInfoPanel.ShowRequestedPlayerInfo(playerInfo);
             } else {
                 Debug.LogError("NotificationManager: PlayerInfoPanel 组件未找到！");
             }

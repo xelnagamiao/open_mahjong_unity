@@ -8,6 +8,8 @@ using UnityEngine;
 internal static class HongqueRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
+        RuleNameDictionary.WholeName[HongqueWScoring.SubRule] = "虹雀 W";
+        RuleNameDictionary.ShortName[HongqueWScoring.SubRule] = "虹雀 W";
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateHongqueReplayModule(),
             BuildRoom = HongqueRoomBuilder.Build,
@@ -16,6 +18,8 @@ internal static class HongqueRuleBootstrap {
             DisplayName = "虹雀",
             LobbyOrder = 8,
             LobbySubRules = HongqueLobby.SubRules,
+            LobbyHasDetailedConfig = true,
+            RulebookPath = (sub, config) => sub == HongqueWScoring.SubRule ? "/rulebook/hongque?sub_rule=hongque%2Fw-v1.0" : "/rulebook/hongque",
             CreateRoomDefaults = HongqueLobby.Defaults(),
             HepaiWayOptions = new[] { "允许多家和牌", "头跳" },
             RecordKongHasMeldIndex = true,
@@ -28,7 +32,7 @@ internal static class HongqueRuleBootstrap {
             DescribeWaitingTile = HongqueRecordTips.Describe,
             RecordTipsHand = HongqueRecordTips.HandBeforeDraw,
             RecordVisibleMeldTiles = HongqueRecordTips.VisibleMeldTiles,
-            TileCopies = _ => 1,
+            TileCopies = _ => HongqueWTips.IsActive ? 2 : 1,
             RecordDangerUsesWaitHint = true,
             FanNameText = HongqueFanText.FanName,
             FanValueText = HongqueFanText.FanValue,

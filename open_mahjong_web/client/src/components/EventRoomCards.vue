@@ -50,6 +50,16 @@
             <span v-if="!seat.empty" class="room-player-state" :class="{ 'is-ready': seat.ready || card.room.is_game_running }">
               {{ card.room.is_game_running ? (seat.isBot ? '机器人' : '对局中') : seat.isBot ? '机器人' : seat.isHost ? '房主' : seat.ready ? '已准备' : '未准备' }}
             </span>
+            <el-dropdown v-if="seat.empty && allowBots" trigger="click" :disabled="botsDisabled(group)" @command="botType => $emit('add-bot', { room: card.room, seatIndex: index, botType })">
+              <el-button link type="primary" size="small" :disabled="botsDisabled(group)" :aria-label="`座位 ${index + 1} 添加机器人`">添加机器人</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="smart">牌效罗伯特</el-dropdown-item>
+                  <el-dropdown-item command="auto">麻雀罗伯特</el-dropdown-item>
+                  <el-dropdown-item v-if="supportsHeuristic(card.room)" command="heuristic">高性能罗伯特</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </li>
         </ul>
         <footer class="room-card-actions">
@@ -97,8 +107,19 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   ruleLabels: { type: Object, default: () => ({}) },
   allowRestart: { type: Boolean, default: false },
+  allowBots: { type: Boolean, default: false },
+  busyRoomId: { type: String, default: '' },
 })
-defineEmits(['delete', 'restart-pair'])
+defineEmits(['delete', 'restart-pair', 'add-bot'])
+
+function botsDisabled(group) {
+  return Boolean(props.busyRoomId) || group.cards.some(({ room }) => room.is_game_running || room.admin_closing || room.event_seating_pending ||
+    (room.duplicate_match_id && !['waiting', 'ready'].includes(room.duplicate_status)))
+}
+function supportsHeuristic(room) {
+  return room.room_rule === 'hongque' || (room.room_rule === 'guobiao' &&
+    ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/four_jokers', 'guobiao/huahun', 'guobiao/sixteen'].includes(room.sub_rule))
+}
 
 const selectedRoomId = ref(null)
 const runningCount = computed(() => props.rooms.filter(room => room.is_game_running).length)

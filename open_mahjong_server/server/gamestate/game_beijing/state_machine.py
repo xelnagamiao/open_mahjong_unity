@@ -1,0 +1,37 @@
+from enum import Enum
+
+
+class Phase(str, Enum):
+    START = "waiting"
+    TIANTING = "waiting_tianting"
+    TURN = "waiting_hand_action"
+    AFTER_MELD = "onlycut_after_action"
+    RESPONSE = "waiting_action_after_cut"
+    ROB_KONG = "waiting_action_qianggang"
+    END = "END"
+    READY = "waiting_ready"
+    FINISHED = "finished"
+
+
+P = Phase
+TRANSITIONS = {
+    P.START: {P.TIANTING, P.TURN}, P.TIANTING: {P.TURN},
+    P.TURN: {P.RESPONSE, P.ROB_KONG, P.TURN, P.END},
+    P.AFTER_MELD: {P.RESPONSE, P.ROB_KONG, P.TURN, P.END},
+    P.RESPONSE: {P.TURN, P.AFTER_MELD, P.END}, P.ROB_KONG: {P.TURN, P.END},
+    P.END: {P.READY}, P.READY: {P.START, P.FINISHED}, P.FINISHED: set(),
+}
+
+
+class StateMachine:
+    def __init__(self):
+        self.phase, self.version = P.START, 0
+
+    def transition(self, target):
+        target = P(target)
+        if target == self.phase:
+            return
+        if target not in TRANSITIONS[self.phase]:
+            raise RuntimeError(f"非法北京状态转换：{self.phase.value} -> {target.value}")
+        self.phase = target
+        self.version += 1

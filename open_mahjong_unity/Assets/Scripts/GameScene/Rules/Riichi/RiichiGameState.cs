@@ -281,6 +281,7 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         RiichiEndResultExtras extras = env.ExtrasAs<RiichiEndResultExtras>();
         Presenter.AppendScoreboard(env, extras?.ScoreChanges, extras?.ScoreHistoryChanges);
     }

@@ -93,6 +93,7 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         Game3DManager.Instance?.RevealSichuanLiujuAllHands(others);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         var totals = GuangdongMilRules.RoundChanges(Result, env.ScoreChanges);
         if (totals == null) { base.AppendScoreboard(env); return; }
         string winnerName = Mirror.IndexToPosition.TryGetValue(env.WinnerIndex, out string winnerPosition)

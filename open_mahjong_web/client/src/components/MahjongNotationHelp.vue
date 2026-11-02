@@ -7,12 +7,19 @@
         <li><strong>z</strong>：字牌，数字 1–7 依次为 <strong>东南西北白发中</strong>。</li>
         <li>同花色数字可连写，花色字母放在一段数字末尾，例如 <code>123m456p</code> 表示万 123 与饼 456。</li>
         <li>多段按顺序拼接即可，例如 <code>35m146678p24s344z5m</code>。</li>
+        <template v-if="meldCodes">
+          <li>副露用括号编码并区分大小写：<code>(s13)</code> 为二三四万明顺，<code>(K23)</code> 为三饼暗刻；编码中的数字为项目牌号。</li>
+          <li><code>s / S</code> 表示明顺 / 暗顺（数字取顺子中间牌）；<code>k / K</code> 表示明刻 / 暗刻；<code>g / G</code> 表示明杠 / 暗杠。</li>
+          <li>项目牌号：11–19 万、21–29 饼、31–39 条、41–44 东南西北、45 中、46 白、47 发；与 <code>z</code> 简写顺序不同。</li>
+          <li>例如 <code>567m45s22z(s13)(K23) + 6s</code>；<code>+</code> 后为单张和牌张。副露与简写双向同步，删除括号编码也会移除对应副露。</li>
+        </template>
       </ul>
     </el-collapse-item>
   </el-collapse>
 </template>
 
 <script setup>
+defineProps({ meldCodes: { type: Boolean, default: false } })
 </script>
 
 <style scoped>

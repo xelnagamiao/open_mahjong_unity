@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from .scoring import best_win_result
+from .profile import score_for_state
 
 
 async def resolve_collected_rons(game_state, ron_claims) -> bool:
@@ -22,13 +22,7 @@ async def resolve_collected_rons(game_state, ron_claims) -> bool:
     winners = []
     for claim in ron_claims:
         winner = game_state.players[claim.player_index]
-        result = best_win_result(
-            winner.hand + [discarded],
-            winner.melds,
-            self_draw=False,
-            before_first_discard=False,
-            wall_empty=not game_state.wall,
-        )
+        result = score_for_state(game_state, winner, winner.hand + [discarded], self_draw=False)
         if result is not None:
             result["winning_hand"] = list(winner.hand) + [discarded]
             winners.append((winner, result))

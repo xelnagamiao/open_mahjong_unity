@@ -47,9 +47,10 @@ async function queryRecordHomeStats(db, rules, { exclude = false, subRules = [] 
   return result.rows.map(row => {
     const hands = Number.parseInt(row.mode, 10);
     const hongque = row.rule === 'hongque' && [4,8,12,16].includes(hands);
-    const gameType = hongque ? `hands${hands}` : GAME_TYPES[hands] || null;
+    const unlimited = row.rule === 'qingque' && row.mode === 'unlimited/4_rank';
+    const gameType = unlimited ? 'unlimited' : hongque ? `hands${hands}` : GAME_TYPES[hands] || null;
     const out = { ...row, source: 'record_metrics', game_type: gameType,
-      game_type_label: hongque ? `${hands}局` : GAME_LABELS[gameType] || row.mode };
+      game_type_label: unlimited ? '无固定时限' : hongque ? `${hands}局` : GAME_LABELS[gameType] || row.mode };
     for (const key of ['total_games', 'total_rounds', 'player_game_count', ...METRIC_KEYS, ...RANK_KEYS]) out[key] = Number(row[key]) || 0;
     return out;
   });

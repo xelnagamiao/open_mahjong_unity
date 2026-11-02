@@ -23,6 +23,8 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
     private Vector2 _splitBaseSize = Vector2.zero;
     private ScoreHistoryMainFanCell _hoveredCell;
     private ScoreHistoryMainFanCell _pinnedCell;
+    private RoundSettlementSnapshot displayedSnapshot;
+    private string displayedSubRule;
 
     public bool IsPinned => _pinnedCell != null;
 
@@ -37,6 +39,8 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
     }
 
     private void OnEnable() {
+        ConfigManager.OnLanguageChanged += RefreshLocalizedText;
+        RefreshLocalizedText();
         if (Instance == null || Instance == this) {
             Instance = this;
         }
@@ -89,7 +93,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         if (canvas == null) return null;
 
         var root = new GameObject("ScoreHistoryFanTooltip", typeof(RectTransform), typeof(CanvasGroup));
-        root.transform.SetParent(canvas.transform, false);
+        root.transform.SetParent(NotificationManager.Instance ? NotificationManager.Instance.TableTooltipRoot : canvas.transform, false);
         var panel = new GameObject("Panel", typeof(RectTransform), typeof(UnityEngine.UI.Image));
         panel.transform.SetParent(root.transform, false);
         var panelRect = panel.GetComponent<RectTransform>();
@@ -164,14 +168,9 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         EnsureTilesLayout();
         PopulateTiles(snapshot);
 
-        if (allFansText != null) {
-            allFansText.text = ScoreHistorySettlementHelper.BuildAllFansText(subRule, snapshot);
-        }
-        if (scoreSummaryText != null) {
-            scoreSummaryText.text = ScoreHistorySettlementHelper.BuildScoreSummaryText(subRule, snapshot);
-        }
-
-        FitTextContent();
+        displayedSnapshot = snapshot;
+        displayedSubRule = subRule;
+        RefreshLocalizedText();
 
         gameObject.SetActive(true);
         if (canvasGroup != null) {
@@ -213,7 +212,17 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         _pinnedCell = null;
     }
 
-    private void OnDisable() => ClearCellSelection();
+    private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshLocalizedText;
+        ClearCellSelection();
+    }
+
+    private void RefreshLocalizedText() {
+        if (displayedSnapshot == null) return;
+        TableText.Set(allFansText, ScoreHistorySettlementHelper.BuildAllFansText(displayedSubRule, displayedSnapshot));
+        TableText.Set(scoreSummaryText, ScoreHistorySettlementHelper.BuildScoreSummaryText(displayedSubRule, displayedSnapshot));
+        FitTextContent();
+    }
 
     /// <summary>根据番种行数收紧面板高度，沿用场景中设置的文本间距和底部留白。</summary>
     private void FitTextContent() {
@@ -266,7 +275,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
                 && (snapshot.handJokerTiles == null || System.Array.IndexOf(snapshot.handJokerTiles, hand[i]) < 0)) continue;
             concealed.Add(hand[i]);
         }
-        if (concealed.Count > 0 && concealed.TrueForAll(HongqueTileVisual.IsHongqueId))
+        if (RuleRegistry.Current?.RuleId != "duocai" && concealed.Count > 0 && concealed.TrueForAll(HongqueTileVisual.IsHongqueId))
             concealed = new List<int>(HongqueDisplayOrder.SettlementHand(concealed));
         else
             concealed.Sort(TileIdOrder.HandComparer(concealed, snapshot.handJokerTiles));

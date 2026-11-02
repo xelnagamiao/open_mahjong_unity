@@ -113,7 +113,11 @@ def test_reconnect_and_spectator_view_match_pending_and_settled_snapshots():
         ws=SimpleNamespace(send_json=AsyncMock())
         s.game_server=SimpleNamespace(user_id_to_connection={999:SimpleNamespace(websocket=ws)})
         await s.send_realtime_spectator_snapshot(999,1)
-        assert [c.args[0] for c in ws.send_json.call_args_list]==s.restore_payloads(1)
+        packets = [call.args[0] for call in ws.send_json.call_args_list]
+        assert packets[0]["settlement_sync"]["gamestate_id"] == s.gamestate_id
+        assert packets[0]["settlement_sync"]["phase"] == "playing"
+        assert all(p["gamestate_id"] == s.gamestate_id for p in packets)
+        assert [{k: v for k, v in p.items() if k not in ("settlement_sync", "gamestate_id")} for p in packets] == s.restore_payloads(1)
         count=ws.send_json.call_count
         await s.send_realtime_spectator_snapshot(999,-1)
         await s.send_realtime_spectator_snapshot(1000,1)

@@ -48,7 +48,7 @@ public partial class CreatePanel {
         HepaiWayDropdown.SetValueWithoutNotify(Array.IndexOf(new[] { "multi_ron", "three_ron_abort", "head_bump" }, (string)values["hepai_way"]));
         RefreshVisibility(); RefreshRoomPresentation(true); RefreshSubRuleDescription();
         Canvas.ForceUpdateCanvases();
-        RoomContent.GetComponentInParent<ScrollRect>().StopMovement();
+        RoomContent.GetComponentInParent<ScrollRect>(true).StopMovement();
         RoomContent.anchoredPosition = scrollPosition;
     }
 

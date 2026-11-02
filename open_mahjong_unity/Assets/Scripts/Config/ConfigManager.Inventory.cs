@@ -2,6 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public partial class ConfigManager {
+    public const int DefaultAvatarItemId = 2301;
+    public const int ReimuAvatarItemId = 2302;
+    public const int CirnoAvatarItemId = 2303;
+    public static bool IsDevelopmentOnlyAvatar(int itemId) => itemId == ReimuAvatarItemId || itemId == CirnoAvatarItemId;
     private static readonly Dictionary<int, InventoryItem> inventoryCatalog = new Dictionary<int, InventoryItem>();
     private static readonly Dictionary<string, Sprite> inventorySprites = new Dictionary<string, Sprite>();
 
@@ -14,23 +18,27 @@ public partial class ConfigManager {
 
     public static Sprite GetInventoryIcon(InventoryItem item) {
         if (item == null || string.IsNullOrEmpty(item.icon_path)) return null;
+        return LoadInventorySprite(item.icon_path);
+    }
+
+    private static Sprite LoadInventorySprite(string path) {
         // Catalog paths are server-validated bundled assets, never remote URLs.
-        if (!inventorySprites.TryGetValue(item.icon_path, out var sprite)) {
-            sprite = Resources.Load<Sprite>(item.icon_path);
+        if (!inventorySprites.TryGetValue(path, out var sprite)) {
+            sprite = Resources.Load<Sprite>(path);
             if (sprite == null) {
-                var sprites = Resources.LoadAll<Sprite>(item.icon_path);
+                var sprites = Resources.LoadAll<Sprite>(path);
                 if (sprites.Length > 0) sprite = sprites[0];
                 else {
                     // Some existing portrait textures use Multiple mode without
                     // slice data. Create one cached sprite for the full texture.
-                    var texture = Resources.Load<Texture2D>(item.icon_path);
+                    var texture = Resources.Load<Texture2D>(path);
                     if (texture != null) {
                         sprite = Sprite.Create(texture, new Rect(0,0,texture.width,texture.height),new Vector2(.5f,.5f));
                         sprite.name = texture.name;
                     }
                 }
             }
-            inventorySprites[item.icon_path] = sprite;
+            inventorySprites[path] = sprite;
         }
         return sprite;
     }
@@ -38,7 +46,8 @@ public partial class ConfigManager {
     public static Sprite GetProfileSprite(int profileId) {
         if (inventoryCatalog.TryGetValue(profileId, out var item) && item.slot == "avatar")
             return GetInventoryIcon(item) ?? Resources.Load<Sprite>("image/Profiles/1");
-        return Resources.Load<Sprite>("image/Profiles/" + profileId) ?? Resources.Load<Sprite>("image/Profiles/1");
+        if (profileId == DefaultAvatarItemId) profileId = 1;
+        return LoadInventorySprite("image/Profiles/" + profileId) ?? Resources.Load<Sprite>("image/Profiles/1");
     }
 
     public static Color GetAvatarFrameColor(int itemId) {

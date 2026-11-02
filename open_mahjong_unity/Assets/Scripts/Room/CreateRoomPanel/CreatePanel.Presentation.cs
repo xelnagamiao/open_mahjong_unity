@@ -29,7 +29,7 @@ public partial class CreatePanel {
         GuobiaoFlowersToggle, TianDiRenHeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
         ChangshaInitialBanBanHuToggle, ChangshaInitialQueYiSeToggle, ChangshaInitialLiuLiuShunToggle,
         ChangshaInitialSanTongToggle, ChangshaDealerBirdToggle, ChangshaBaseScoreNoDealerToggle,
-        WallWanToggle, WallTongToggle, WallSuoToggle, WallWindsToggle, WallDragonsToggle, WallFlowersToggle, YixingSevenPairsToggle, GuangdongMinimumScoreToggle
+        WallWanToggle, WallTongToggle, WallSuoToggle, WallWindsToggle, WallDragonsToggle, WallFlowersToggle, YixingSevenPairsToggle, GuangdongMinimumScoreToggle, TuidaoPingjiZimoNoChowToggle
     };
     private Toggle[] RoomRoundToggles => new[] { gameTime1Button, gameTime2Button, gameTime3Button, gameTime4Button, unlimitedRoundsToggle };
 
@@ -104,36 +104,37 @@ public partial class CreatePanel {
         float width = ((RectTransform)transform).rect.width;
         var header = (RectTransform)transform.Find("HeaderPanel");
         var title = header.Find("TitleText").GetComponent<TMP_Text>();
+        title.enableAutoSizing = SubRuleText.enableAutoSizing = false;
         title.fontSize = SubRuleText.fontSize = 44;
         title.margin = Vector4.zero; SubRuleText.margin = Vector4.zero;
-        float titleWidth = Mathf.Ceil(title.GetPreferredValues().x), subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues().x);
+        title.textWrappingMode = SubRuleText.textWrappingMode = TextWrappingModes.NoWrap;
+        float titleWidth = Mathf.Ceil(title.GetPreferredValues(title.text, float.PositiveInfinity, float.PositiveInfinity).x);
+        float subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues(SubRuleText.text, float.PositiveInfinity, float.PositiveInfinity).x);
         float subDropdownWidth = _ruleState == "hongkong" ? 420 : 326;
-        bool narrow = width < 36 + titleWidth + 16 + RoomRuleDropdownWidth + 32 + subWidth + 12 + subDropdownWidth + 728;
-        if (narrow) {
-            title.fontSize = SubRuleText.fontSize = 40;
-            titleWidth = Mathf.Ceil(title.GetPreferredValues().x); subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues().x);
-        }
-        float headerHeight = narrow ? 196 : 128;
+        // The rule controls stay on one row; reserve the existing two actions at the right.
+        float desiredWidth = titleWidth + 16 + RoomRuleDropdownWidth + 32 + subWidth + 12 + subDropdownWidth;
+        float scale = Mathf.Min(1, Mathf.Max(240, width - 36 - 728) / desiredWidth);
+        titleWidth *= scale; subWidth *= scale; subDropdownWidth *= scale;
+        float ruleWidth = RoomRuleDropdownWidth * scale;
+        float headerHeight = 128;
         RoomFill(header); header.anchorMin = new Vector2(0, 1); header.offsetMin = new Vector2(0, -headerHeight);
-        float ruleX = narrow ? 36 : 36 + titleWidth + 16;
-        float subX = ruleX + RoomRuleDropdownWidth + 32;
-        RoomBox(title.rectTransform, 36, narrow ? 0 : 16, titleWidth, 96);
-        RoomBox((RectTransform)chooseRule.transform, ruleX, narrow ? 112 : 36, RoomRuleDropdownWidth, 56);
-        RoomBox(SubRuleText.rectTransform, subX, narrow ? 100 : 24, subWidth, 80);
-        RoomBox((RectTransform)SubRuleDropdown.transform, subX + subWidth + 12, narrow ? 112 : 36, subDropdownWidth, 56);
+        float ruleX = 36 + titleWidth + 16 * scale;
+        float subX = ruleX + ruleWidth + 32 * scale;
+        RoomBox(title.rectTransform, 36, 16, titleWidth, 96);
+        RoomBox((RectTransform)chooseRule.transform, ruleX, 36, ruleWidth, 56);
+        RoomBox(SubRuleText.rectTransform, subX, 24, subWidth, 80);
+        RoomBox((RectTransform)SubRuleDropdown.transform, subX + subWidth + 12 * scale, 36, subDropdownWidth, 56);
+        RoomSingleLine(title, 44, 18);
+        RoomSingleLine(SubRuleText, 44, 18);
         foreach (var dropdown in new[] { chooseRule, SubRuleDropdown }) {
             RoomDropdownTemplateHeight(dropdown);
-            dropdown.captionText.enableAutoSizing = false;
-            dropdown.captionText.fontSize = RoomRuleCaptionFontSize;
+            RoomSingleLine(dropdown.captionText, RoomRuleCaptionFontSize, 14);
             dropdown.captionText.alignment = TextAlignmentOptions.Center;
             dropdown.captionText.margin = Vector4.zero;
             var arrow = (RectTransform)dropdown.transform.Find("Arrow");
             float arrowAreaWidth = -2 * arrow.anchoredPosition.x;
-            RoomFill(dropdown.captionText.rectTransform, 0, 0, arrowAreaWidth, 0);
-            if (dropdown.itemText) {
-                dropdown.itemText.enableAutoSizing = false;
-                dropdown.itemText.fontSize = RoomRuleItemFontSize;
-            }
+            RoomFill(dropdown.captionText.rectTransform, 12, 0, arrowAreaWidth, 0);
+            if (dropdown.itemText) RoomSingleLine(dropdown.itemText, RoomRuleItemFontSize, 16);
         }
         var add = (RectTransform)addRuleButton.transform; RoomBox(add, 0, 16, 410, 92); add.anchorMin = add.anchorMax = Vector2.one; add.pivot = Vector2.one; add.anchoredPosition = new Vector2(-36, -16);
         ReflowRuleSupportTable();
@@ -162,7 +163,7 @@ public partial class CreatePanel {
         ReflowRoomHelp();
         RefreshHongKongMainControls();
         var details = transform.Find("DetailedConfigPanel_taiwan");
-        foreach (var overlay in new[] { details, details ? details.Find("FanTablePanel") : null, transform.Find("DetailedConfigPanel_riichi") }) {
+        foreach (var overlay in new[] { details, details ? details.Find("FanTablePanel") : null, transform.Find("FanTablePanel"), transform.Find("DetailedConfigPanel_riichi") }) {
             if (!overlay) continue;
             var dialog = (RectTransform)overlay.Find("Dialog");
             dialog.anchorMin = new Vector2(.5f, 0); dialog.anchorMax = new Vector2(.5f, 1); dialog.pivot = new Vector2(.5f, .5f);
@@ -170,6 +171,21 @@ public partial class CreatePanel {
         }
         LayoutRebuilder.MarkLayoutForRebuild(content);
     }
+    private static void RoomSingleLine(TMP_Text label, float maximum, float minimum) {
+        if (!label) return;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+        label.enableAutoSizing = true;
+        label.fontSize = label.fontSizeMax = maximum;
+        label.fontSizeMin = minimum;
+        var localized = label.GetComponent<LocalizedPlatformLabel>();
+        if (!localized) return;
+        localized.authoredAutoSize = true;
+        localized.authoredSize = maximum;
+        localized.minimumSize = minimum;
+        localized.typographyBaked = true;
+    }
+
     private static void RoomFooterButton(Button button, float right) {
         var rect = (RectTransform)button.transform; rect.anchorMin = rect.anchorMax = new Vector2(1, .5f); rect.pivot = new Vector2(1, .5f); rect.anchoredPosition = new Vector2(-right, 0); rect.sizeDelta = new Vector2(330, 78);
     }

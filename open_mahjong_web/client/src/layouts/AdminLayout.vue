@@ -67,10 +67,9 @@ const menuItems = [
   { index: '/admin/users', label: '用户' },
   { index: '/admin/titles', label: '头衔' },
   { index: '/admin/inventory', label: '物品' },
-  { index: '/admin/events', label: '赛事' },
-  { index: '/admin/bases', label: '基地' },
-  { index: '/admin/event-applications', label: '办赛申请', badge: 'event' },
-  { index: '/admin/base-applications', label: '基地申请', badge: 'base' },
+  { index: '/admin/redemption', label: '兑换码' },
+  { index: '/admin/events', label: '赛事', badge: 'event' },
+  { index: '/admin/bases', label: '基地', badge: 'base' },
   { index: '/admin/tile-content', label: '牌面审核' },
   { index: '/admin/rank', label: '段位' },
   { index: '/admin/games', label: '对局记录' },
@@ -80,6 +79,7 @@ const menuItems = [
   { index: '/admin/messages', label: '消息' },
   { index: '/admin/activities', label: '活动' },
   { index: '/admin/classic-records', label: '经典牌谱' },
+  { index: '/admin/platform-content', label: '鸣谢与社群' },
   { index: '/admin/send-email', label: '发送邮件' },
   { index: '/admin/ip-bans', label: 'IP 封禁' },
   { index: '/admin/stats', label: '全站统计' },
@@ -87,8 +87,6 @@ const menuItems = [
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin/users')) return '/admin/users'
-  if (route.path.startsWith('/admin/base-applications')) return '/admin/base-applications'
-  if (route.path.startsWith('/admin/event-applications')) return '/admin/event-applications'
   if (route.path.startsWith('/admin/bases')) return '/admin/bases'
   if (route.path.startsWith('/admin/events')) return '/admin/events'
   if (route.path.startsWith('/admin/ip-bans')) return '/admin/ip-bans'

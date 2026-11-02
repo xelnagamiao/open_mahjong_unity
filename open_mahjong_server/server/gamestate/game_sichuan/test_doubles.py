@@ -53,7 +53,7 @@ def test_profile_skips_opening_and_forces_blood_battle_zero_fan():
     asyncio.run(state._opening_phase())
     assert state.blood_battle and state.hepai_limit == 0
     assert all(p.dingque_suit == 0 for p in state.player_list)
-    assert state.game_record["game_title"]["doubles_rule_profile"]["version"] == "sbr2025-doubles-v2"
+    assert state.game_record["game_title"]["doubles_rule_profile"]["version"] == "sbr2025-doubles-v3"
     assert state.game_record["game_title"]["doubles_rule_profile"]["dealer_rotation"] == "each_board"
 
 
@@ -121,7 +121,7 @@ def test_multi_ron_keeps_third_winner_after_two_same_team():
     state, _ = make_state()
     settle(state, [0, 2, 3], discarder=1)
     assert sum(p.is_hu for p in state.player_list) == 3
-    assert [p.score for p in state.player_list] == [1, -3, 1, 1]
+    assert [p.score for p in state.player_list] == [1, -2, 1, 0]
     assert len(state.deferred_hu_settlements) == 3
 
 
@@ -131,6 +131,7 @@ def test_opposing_first_two_continue_and_team_internal_payment_cancels():
     settle(state, [1], discarder=3)
     assert state.game_status == "deal_card"
     state._apply_hu_score_changes(0, 8, False, 2)
+    assert [p.score for p in state.player_list] == [0, 0, 0, 0]
     assert team_scores(state.player_list) == {0: 0, 1: 0}
 
 

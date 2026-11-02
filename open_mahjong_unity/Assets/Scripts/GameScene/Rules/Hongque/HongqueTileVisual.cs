@@ -8,12 +8,12 @@ using UnityEngine;
 /// </summary>
 public static class HongqueTileVisual {
     public const int BaseId = 1000;
-    public const int ColourCount = 14;
+    public const int ColourCount = 15;
     public const int NumberCount = 9;
 
     private static readonly string[] ColourCodes = {
         "AX", "AY", "BX", "BY", "CX", "CY", "DX",
-        "DY", "EX", "EY", "FX", "FY", "GX", "GY"
+        "DY", "EX", "EY", "FX", "FY", "GX", "GY", "HX"
     };
     private static readonly Dictionary<int, Texture2D> TableTextureCache = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Sprite> SpriteCache = new Dictionary<int, Sprite>();
@@ -68,9 +68,37 @@ public static class HongqueTileVisual {
     public static Sprite LoadSprite(int tileId) {
         if (!IsHongqueId(tileId)) return null;
         if (SpriteCache.TryGetValue(tileId, out Sprite cached) && cached != null) return cached;
-        Sprite sprite = BuiltinTileSprites.Hand("hongque", ToCode(tileId));
+        Sprite sprite = tileId >= 1141 ? CreateColourlessHand(tileId) : null;
+        if (sprite == null) sprite = BuiltinTileSprites.Hand("hongque", ToCode(tileId));
         if (sprite != null) CacheHandSprite(tileId, sprite);
         return sprite;
+    }
+
+    private static Sprite CreateColourlessHand(int tileId) {
+        var source = LoadTableTexture(tileId);
+        var reference = BuiltinTileSprites.Hand("hongque", "AX1");
+        var shader = Resources.Load<Shader>("Hongque/ColourlessHand");
+        if (source == null || reference == null || shader == null) return null;
+        int width = (int)reference.rect.width, height = (int)reference.rect.height;
+        var material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+        material.SetVector("_CanvasSize", new Vector4(width, height, 0, 0));
+        var target = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32);
+        var previous = RenderTexture.active;
+        try {
+            Graphics.Blit(source, target, material);
+            RenderTexture.active = target;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) {
+                name = ToCode(tileId) + "Hand", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp
+            };
+            texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            texture.Apply(false, true);
+            return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(.5f, .5f),
+                reference.pixelsPerUnit, 0, SpriteMeshType.FullRect);
+        } finally {
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(target);
+            UnityEngine.Object.Destroy(material);
+        }
     }
 
     private static void CacheHandSprite(int tileId, Sprite sprite) {

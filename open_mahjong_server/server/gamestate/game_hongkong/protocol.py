@@ -1,4 +1,5 @@
 """Rule-local view projection around the shared turn-based wire contract."""
+from ..public.settlement_sync import send_game_packet
 
 from copy import deepcopy
 
@@ -211,4 +212,4 @@ class HongKongProtocol:
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and connection.websocket is not None:
             for payload in self.restore_payloads(index):
-                await connection.websocket.send_json(payload)
+                await send_game_packet(self, connection.websocket, payload)

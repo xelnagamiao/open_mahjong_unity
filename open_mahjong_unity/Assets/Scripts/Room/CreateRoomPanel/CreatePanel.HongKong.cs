@@ -7,59 +7,68 @@ using UnityEngine.UI;
 
 public partial class CreatePanel {
     private string _hongKongControlsSubRule;
+    private RectTransform hongKongView;
 
-    private void BindHongKongMainControls() {
-        var root=RoomContent.Find("HongKongSettings") as RectTransform;
-        if (!root) { Debug.LogError("香港麻将主页面设置尚未烘焙。",this); return; }
-        string subRule=_ruleState=="hongkong" ? GetSelectedSubRule() : HongKongGameState.Qingzhang;
-        var state=new DetailedConfigState(HongKong_Create_RoomConfig.Definition(subRule)) {
-            Panel=root.gameObject, Content=root, Scroll=RoomContent.GetComponentInParent<ScrollRect>(),
-        };
-        _detailedConfigStates["hongkong"]=state;
-        foreach (var option in state.Definition.Options) {
-            var dropdown=root.Find("DetailedConfig_"+option.Key).GetComponentInChildren<TMP_Dropdown>(true);
-            state.Dropdowns[option.Key]=dropdown;
-            dropdown.onValueChanged.RemoveAllListeners();
-            dropdown.ClearOptions();
-            dropdown.AddOptions(option.Choices.ToList());
-            RoomDropdownTemplateHeight(dropdown);
-            dropdown.SetValueWithoutNotify(option.DefaultIndex);
-            string key=option.Key;
-            dropdown.onValueChanged.AddListener(index=>OnDetailedConfigOptionChanged(state,key,index));
+    private DetailedConfigState HongKongState() {
+        string subRule = _ruleState == "hongkong" ? GetSelectedSubRule() : _hongKongControlsSubRule ?? HongKongGameState.Qingzhang;
+        if (!_detailedConfigStates.TryGetValue("hongkong", out var state) || _hongKongControlsSubRule != subRule) {
+            state = new DetailedConfigState(HongKong_Create_RoomConfig.Definition(subRule));
+            _detailedConfigStates["hongkong"] = state;
+            _hongKongControlsSubRule = subRule;
+            if (hongKongView) BindHongKongFields(state);
         }
-        _hongKongControlsSubRule=subRule;
+        return state;
+    }
+
+    private void BindHongKongMainControls(GameObject view) {
+        hongKongView = (RectTransform)view.transform;
+        BindHongKongFields(HongKongState());
         RefreshHongKongMainControls();
+    }
+
+    private void BindHongKongFields(DetailedConfigState state) {
+        state.Panel = hongKongView.gameObject;
+        state.Content = hongKongView;
+        state.Scroll = RoomContent.GetComponentInParent<ScrollRect>(true);
+        state.Dropdowns.Clear();
+        foreach (var option in state.Definition.Options) {
+            var dropdown = hongKongView.Find("DetailedConfig_" + option.Key).GetComponentInChildren<TMP_Dropdown>(true);
+            state.Dropdowns[option.Key] = dropdown;
+            dropdown.onValueChanged.RemoveAllListeners();
+            dropdown.ClearOptions(); dropdown.AddOptions(option.Choices.ToList());
+            RoomDropdownTemplateHeight(dropdown);
+            SetDetailedConfigDropdownValue(state, option, state.SelectedIndices[option.Key]);
+            string key = option.Key;
+            dropdown.onValueChanged.AddListener(index => OnDetailedConfigOptionChanged(state, key, index));
+        }
     }
 
     private void RefreshHongKongMainControls() {
-        var root=RoomContent ? RoomContent.Find("HongKongSettings") : null;
-        if (!root) return;
-        root.gameObject.SetActive(_ruleState=="hongkong");
-        if (_ruleState!="hongkong") return;
-        string subRule=GetSelectedSubRule();
-        if (_hongKongControlsSubRule!=subRule || GetDetailedConfigState("hongkong")==null) {
-            BindHongKongMainControls(); return;
+        if (!Application.isPlaying && !hongKongView) hongKongView = RoomContent.Find("HongKongSettings") as RectTransform;
+        if (_ruleState != "hongkong") { if (hongKongView) hongKongView.gameObject.SetActive(false); return; }
+        var state = HongKongState();
+        if (!hongKongView) {
+            if (Application.isPlaying && isActiveAndEnabled) RequestDeferredPanel("HongKongSettings", null);
+            return;
         }
-        var values=BuildDetailedConfigValues("hongkong");
-        foreach (var option in GetDetailedConfigState("hongkong").Definition.Options) {
-            var row=root.Find("DetailedConfig_"+option.Key);
-            if (row) row.gameObject.SetActive(HongKong_Create_RoomConfig.OptionVisible(option.Key,subRule,values));
+        hongKongView.gameObject.SetActive(true);
+        var values = BuildDetailedConfigValues("hongkong");
+        foreach (var option in state.Definition.Options) {
+            var row = state.Dropdowns.TryGetValue(option.Key, out var dropdown) && dropdown ? dropdown.transform.parent : hongKongView.Find("DetailedConfig_" + option.Key);
+            if (row) row.gameObject.SetActive(HongKong_Create_RoomConfig.OptionVisible(option.Key, _hongKongControlsSubRule, values));
         }
-        LayoutRebuilder.MarkLayoutForRebuild((RectTransform)root);
+        LayoutRebuilder.MarkLayoutForRebuild(hongKongView);
     }
 
     private void ResetHongKongMainControls() {
-        RefreshHongKongMainControls();
-        var state=GetDetailedConfigState("hongkong");
-        if (state==null) return;
-        foreach (var option in state.Definition.Options)
-            SetDetailedConfigDropdownValue(state,option,option.DefaultIndex);
+        var state = HongKongState();
+        foreach (var option in state.Definition.Options) SetDetailedConfigDropdownValue(state, option, option.DefaultIndex);
         RefreshHongKongMainControls();
     }
 
 #if UNITY_EDITOR
     public void ValidateHongKongMainControls() {
-        var root=RoomContent.Find("HongKongSettings");
+        var root=RoomContent.Find("HongKongSettings") ?? DeferredPrefab("HongKongSettings")?.transform;
         foreach (var option in HongKong_Create_RoomConfig.Definition().Options) {
             var dropdown=root ? root.Find("DetailedConfig_"+option.Key)?.GetComponentInChildren<TMP_Dropdown>(true) : null;
             if (!dropdown || !dropdown.options.Select(o=>o.text).SequenceEqual(option.Choices))

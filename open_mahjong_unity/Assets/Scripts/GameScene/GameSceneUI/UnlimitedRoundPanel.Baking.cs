@@ -30,7 +30,7 @@ public partial class UnlimitedRoundPanel {
         colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f);
         colors.pressedColor = new Color(.75f, .75f, .75f);
         button.colors = colors;
-        var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        var font = TMP_Settings.defaultFontAsset;
         // Use the project's Chinese UI font from the existing vote panel.
         var existingText = transform.parent.GetComponentInChildren<TMP_Text>(true);
         if (existingText) font = existingText.font;

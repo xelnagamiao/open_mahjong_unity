@@ -1,0 +1,92 @@
+{
+  "retrievedAt": "2026-10-19",
+  "purpose": "Original-style homepage art combinations",
+  "sourceProcessing": "Original files unchanged; Unity fits/crops and uses a contrast overlay.",
+  "assets": [
+    {
+      "file": "river-dusk-background.jpg",
+      "label": "黄昏河桥",
+      "author": "彩 雅介 / きまぐれアフター",
+      "sourcePage": "https://gakaisozai.seesaa.net/article/520481560.html",
+      "directUrl": "https://gakaisozai.up.seesaa.net/image/BG630b_2560.jpg",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "alphaBBox": null,
+      "sha256": "93d70288d9f6a05e0cb42075b7007fc010e8e2ce1c5ef8609fb3c977c9749e47",
+      "sourceUnchanged": true,
+      "license": "https://gakaisozai.seesaa.net/article/202102article_1.html"
+    },
+    {
+      "file": "river-night-background.jpg",
+      "label": "夜景河桥",
+      "author": "彩 雅介 / きまぐれアフター",
+      "sourcePage": "https://gakaisozai.seesaa.net/article/520481560.html",
+      "directUrl": "https://gakaisozai.up.seesaa.net/image/BG630c_2560.jpg",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "alphaBBox": null,
+      "sha256": "6141beceeee8f8eb926fa6fe62e3a56f66ca2c1598f836e6752325e9873d96b5",
+      "sourceUnchanged": true,
+      "license": "https://gakaisozai.seesaa.net/article/202102article_1.html"
+    },
+    {
+      "file": "roof-day-background.jpg",
+      "label": "晴天屋顶",
+      "author": "彩 雅介 / きまぐれアフター",
+      "sourcePage": "https://gakaisozai.seesaa.net/article/200912article_2.html",
+      "directUrl": "https://gakaisozai.up.seesaa.net/01247252N000000001/130900441651416203087_BG36a_1280.jpg",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "alphaBBox": null,
+      "sha256": "55c7c82722f2ead3b1ffa90b0dbf794bd823ad03f7e65739bc1d1db252191e0c",
+      "sourceUnchanged": true,
+      "license": "https://gakaisozai.seesaa.net/article/202102article_1.html"
+    },
+    {
+      "file": "marisa-character.png",
+      "label": "雾雨魔理沙",
+      "author": "春河もえ / 东方深秘录、凭依华",
+      "sourcePage": "https://thwiki.cc/文件:雾雨魔理沙（深秘录凭依华立绘）.png",
+      "directUrl": "https://upload.thbwiki.cc/b/b7/雾雨魔理沙（深秘录凭依华立绘）.png",
+      "dimensions": [
+        640,
+        720
+      ],
+      "alphaBBox": [
+        0,
+        4,
+        571,
+        720
+      ],
+      "sha256": "ad6f0f794130ad4427098b37f0568e8dfaacd27b52c50d93a837550d01057900",
+      "sourceUnchanged": true,
+      "license": "Original game artwork, local design study only; no commercial asset license asserted."
+    },
+    {
+      "file": "kasen-character.png",
+      "label": "茨木华扇",
+      "author": "春河もえ / 东方深秘录、凭依华",
+      "sourcePage": "https://thwiki.cc/文件:茨木华扇（深秘录凭依华立绘）.png",
+      "directUrl": "https://upload.thbwiki.cc/3/30/茨木华扇（深秘录凭依华立绘）.png",
+      "dimensions": [
+        640,
+        720
+      ],
+      "alphaBBox": [
+        96,
+        0,
+        546,
+        720
+      ],
+      "sha256": "df62f73c9d39894ddedaed5ea99aba36870dcb7667d5ffbb17b4aa13be587713",
+      "sourceUnchanged": true,
+      "license": "Original game artwork, local design study only; no commercial asset license asserted."
+    }
+  ]
+}

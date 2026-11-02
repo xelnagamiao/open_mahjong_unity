@@ -922,6 +922,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 清除3D手牌
     public void Clear3DTile(){
+        ClearSichuanWall();
         ClearWashizuPresentation();
         ClearChangshaOpenKongTilesImmediate();
         ClearAllLastDiscardAndJiagang();

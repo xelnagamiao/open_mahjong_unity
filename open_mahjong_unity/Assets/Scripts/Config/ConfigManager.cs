@@ -32,16 +32,16 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 30; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 32; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 30;
+            releaseVersion = 32;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.84.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.5.87.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -52,8 +52,7 @@ public partial class ConfigManager : MonoBehaviour {
 
     // 默认项始终可用，不依赖服务器下发的授权目录。
     private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>{
-        { 1, DefaultTitleName },
-        { 2, "最初的初段" }
+        { 1, DefaultTitleName }
     };
 
     private const string KEY_MASTER_VOLUME = "MasterVolume";
@@ -80,7 +79,8 @@ public partial class ConfigManager : MonoBehaviour {
     private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
     private const string KEY_OPENING_AUTO_BUHUA_ENABLED = "OpeningAutoBuhuaEnabled";
     private const string KEY_FORCE_PASS_ENABLED = "ForcePassEnabled";
-    // Legacy choices are retired; every installation now uses the comic style.
+    private const string KEY_MELD_SPACING_ENABLED = "MeldSpacingEnabled";
+    // Legacy choices are retired; every installation now uses the standard outline.
     private const string KEY_LEGACY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
     private const string KEY_CARD_BACK_COLOR = "CardBackColor";
     private const string KEY_CARD_BACK_IMAGE_PATH = "CardBackImagePath";
@@ -166,6 +166,7 @@ public partial class ConfigManager : MonoBehaviour {
     public bool OpeningAutoBuhuaEnabled { get; private set; }
     /// <summary>战术鸣牌规则显示「放弃」：默认关，打开后认领 force_pass。</summary>
     public bool ForcePassEnabled { get; private set; }
+    public bool MeldSpacingEnabled { get; private set; }
     /// <summary>3D card back color (default deep blue).</summary>
     public Color CardBackColor { get; private set; } = DefaultCardBackColor;
     /// <summary>3D 牌正面侧边颜色（浅灰）。</summary>
@@ -215,14 +216,14 @@ public partial class ConfigManager : MonoBehaviour {
     public int VoiceVolume { get; private set; }
     public AppLanguage LanguageMode => _languageMode;
 
-    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁体中文", "English" };
+    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English" };
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
     private const int DefaultTargetFrameRate = 60;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-    private const int DefaultHandCutConfirmMode = 1;
+    public const int DefaultHandCutConfirmMode = 1;
 #else
-    private const int DefaultHandCutConfirmMode = 0;
+    public const int DefaultHandCutConfirmMode = 0;
 #endif
 
     private void Awake() {
@@ -251,12 +252,14 @@ public partial class ConfigManager : MonoBehaviour {
         HandSortHonorOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_HONOR_ORDER, 0), 0, TileIdOrder.HonorOrderOptions.Length - 1);
         HandSortDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_DRAGON_ORDER, 0), 0, TileIdOrder.DragonOrderOptions.Length - 1);
         HandSortRiichiDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, 2), 0, TileIdOrder.RiichiDragonOrderOptions.Length - 1);
-        _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.GetInt(KEY_LANGUAGE, (int)AppLanguage.SimplifiedChinese), 0, 2);
+        _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.HasKey(KEY_LANGUAGE)
+            ? PlayerPrefs.GetInt(KEY_LANGUAGE) : (int)SystemAppLanguage.Detect(), 0, 2);
         ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
         GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
         OpeningAutoBuhuaEnabled = PlayerPrefs.GetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, 1) == 1;
         ForcePassEnabled = PlayerPrefs.GetInt(KEY_FORCE_PASS_ENABLED, 0) == 1;
+        MeldSpacingEnabled = PlayerPrefs.GetInt(KEY_MELD_SPACING_ENABLED, 0) == 1;
         if (PlayerPrefs.HasKey(KEY_LEGACY_TILE_OUTLINE_PRESET)) {
             PlayerPrefs.DeleteKey(KEY_LEGACY_TILE_OUTLINE_PRESET);
             PlayerPrefs.Save();
@@ -768,8 +771,8 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public static string GetTitleText(int titleId) {
-        return titleDictionary.TryGetValue(titleId, out string name) && !string.IsNullOrWhiteSpace(name)
-            ? name : DefaultTitleName;
+        return titleId > 1 && titleDictionary.TryGetValue(titleId, out string name) && !string.IsNullOrWhiteSpace(name)
+            ? name : PlatformText.Get(DefaultTitleName);
     }
 
     public static void ApplyTitleCatalog(TitleDefinition[] catalog) {
@@ -875,12 +878,10 @@ public partial class ConfigManager : MonoBehaviour {
 
     public void SetLanguageMode(int mode) {
         var language = (AppLanguage)Mathf.Clamp(mode, 0, 2);
-        if (_languageMode == language) {
-            return;
-        }
-        _languageMode = language;
         PlayerPrefs.SetInt(KEY_LANGUAGE, (int)language);
         PlayerPrefs.Save();
+        if (_languageMode == language) return;
+        _languageMode = language;
         OnLanguageChanged?.Invoke();
     }
 
@@ -917,7 +918,15 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.Save();
     }
 
-    /// <summary>统一应用漫画描边；补线比例继续由 Renderer Feature 的 Inspector 控制。</summary>
+    public void SetMeldSpacingEnabled(bool enabled) {
+        if (MeldSpacingEnabled == enabled) return;
+        MeldSpacingEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_MELD_SPACING_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        Game3DManager.Instance?.RefreshMeldSpacing();
+    }
+
+    /// <summary>统一应用标准描边；补线比例继续由 Renderer Feature 的 Inspector 控制。</summary>
     public void ApplyTileOutlineStyle() {
         if (!TileOutline.TryGetFeature(out _)) {
             return;

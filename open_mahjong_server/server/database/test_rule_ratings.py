@@ -81,8 +81,14 @@ def test_hongque_migration_accepts_new_pool_and_preserves_existing_ratings(db):
 @pytest.mark.parametrize('queue',list(QUEUES))
 def test_independent_atomic_settlement_and_retry(db,queue):
     spec=QUEUES[queue];inputs=players()[:spec.player_count]
-    result=settle_rated_game(db,'game',queue,inputs)
-    assert settle_rated_game(db,'game',queue,inputs)==result
+    if spec.unlimited_rounds:
+        for p, score in zip(inputs, (800, 200, -200, -800)):
+            p['net_points'] = score
+        kwargs = dict(completed_hands=16)
+    else:
+        kwargs = {}
+    result=settle_rated_game(db,'game',queue,inputs,**kwargs)
+    assert settle_rated_game(db,'game',queue,inputs,**kwargs)==result
     for uid in USERS[:spec.player_count]:
         data=get_rank_data(db,uid)
         assert data['ratings'][spec.rating_rule]['games']==1

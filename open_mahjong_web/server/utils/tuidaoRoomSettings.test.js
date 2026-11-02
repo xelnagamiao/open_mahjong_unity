@@ -14,7 +14,7 @@ test('Guangdong exposes only the MIL 2024 no-wildcard Tuidao edition', () => {
   assert.equal(result.room_rule, 'guangdong');
   assert.equal(result.room_config.sub_rule, 'guangdong/tuidao_mil2024');
   assert.deepEqual(result.room_config.detailed_config, {
-    edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false,
+    edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false, pingji_zimo_no_chow: false,
   });
   for (const sub_rule of ['guangdong/standard', 'tuidao/mil2024', 'guangdong/wildcards']) {
     assert.throws(() => save({ sub_rule }));

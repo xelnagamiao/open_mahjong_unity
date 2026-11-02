@@ -6,41 +6,7 @@ using Newtonsoft.Json;
 using UnityEngine;
 
 public static class GuobiaoFourJokersValidation {
-    public static object RunPaging() {
-        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
-        string previous = GameSession.Current.SubRule;
-        var root = new GameObject("FourJokersPagingTest", typeof(RectTransform));
-        root.SetActive(false);
-        try {
-            var tips = root.AddComponent<TipsContainer>();
-            var rows = new[] { "TileContainer", "FanContainer" }.Select(name => {
-                var row = new GameObject(name, typeof(RectTransform), typeof(UnityEngine.UI.HorizontalLayoutGroup));
-                row.transform.SetParent(root.transform, false);
-                typeof(TipsContainer).GetField(name, flags).SetValue(tips, row);
-                for (int i = 0; i < 35; i++) new GameObject(i.ToString(), typeof(RectTransform)).transform.SetParent(row.transform, false);
-                return row;
-            }).ToArray();
-            GameSession.Current.SubRule = GuobiaoGameState.FourJokersSubRule;
-            var update = typeof(TipsContainer).GetMethod("UpdateGuangdongHintPages", flags);
-            var visited = new HashSet<int>();
-            for (int page = 0; page < 4; page++) {
-                typeof(TipsContainer).GetField("guangdongHintPage", flags).SetValue(tips, page);
-                update.Invoke(tips, null);
-                var visible = rows[0].transform.Cast<Transform>().Where(t => t.gameObject.activeSelf).Select(t => t.GetSiblingIndex()).ToArray();
-                if (visible.Length != (page == 3 ? 5 : 10) || visible.Any(i => !visited.Add(i))) throw new Exception("35 waits must appear exactly once across four pages");
-                if (!visible.SequenceEqual(rows[1].transform.Cast<Transform>().Where(t => t.gameObject.activeSelf).Select(t => t.GetSiblingIndex()))) throw new Exception("tile and fan pages must match");
-            }
-            if (visited.Count != 35) throw new Exception("missing wait page");
-            GameSession.Current.SubRule = "guobiao/standard";
-            typeof(TipsContainer).GetField("visibleHintSubRule", flags).SetValue(tips, GuobiaoGameState.FourJokersSubRule);
-            update.Invoke(tips, null);
-            if (rows[0].transform.Cast<Transform>().Count(t => t.gameObject.activeSelf) != 5) throw new Exception("replay page must not depend on last live rule");
-            typeof(TipsContainer).GetField("visibleHintSubRule", flags).SetValue(tips, null);
-            update.Invoke(tips, null);
-            if (rows.Any(row => row.transform.Cast<Transform>().Any(t => !t.gameObject.activeSelf))) throw new Exception("switching rules must restore unpaged rows");
-            return new { count = 11, faces = visited.Count, pages = 4 };
-        } finally { GameSession.Current.SubRule = previous; UnityEngine.Object.DestroyImmediate(root); }
-    }
+    public static object RunPaging() => UpwardPopupLayoutValidation.RunHints();
     public static object Run() {
         var checks = new List<string>();
         void Check(bool ok, string label) { if (!ok) throw new Exception(label); checks.Add(label); }

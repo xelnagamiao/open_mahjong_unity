@@ -212,9 +212,9 @@ public static class ScoreHistorySettlementHelper {
             for (int i = 0; i < snapshot.fuFanList.Length; i++) {
                 string fuName = snapshot.fuFanList[i];
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFuNameDisplayText(subRule, fuName));
+                sb.Append(PlatformText.Get(FanTextDictionary.GetFuNameDisplayText(subRule, fuName)));
                 sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFuDisplayText(subRule, fuName));
+                sb.Append(TableText.FuValue(FanTextDictionary.GetFuDisplayText(subRule, fuName)));
             }
         }
 
@@ -222,9 +222,9 @@ public static class ScoreHistorySettlementHelper {
             for (int i = 0; i < snapshot.huFan.Length; i++) {
                 string fanKey = snapshot.huFan[i];
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFanNameDisplayText(subRule, fanKey));
+                sb.Append(PlatformText.Get(FanTextDictionary.GetFanNameDisplayText(subRule, fanKey)));
                 sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFanDisplayText(subRule, fanKey));
+                sb.Append(PlatformText.Get(FanTextDictionary.GetFanDisplayText(subRule, fanKey)));
             }
         }
 
@@ -249,7 +249,7 @@ public static class ScoreHistorySettlementHelper {
 
         int delta = snapshot.winnerScoreDelta;
         string scorePart = delta > 0 ? $"+{delta}分" : delta < 0 ? $"{delta}分" : "0分";
-        return $"{fanPart} {scorePart}";
+        return $"{PlatformText.Get(fanPart)} {PlatformText.Get(scorePart)}";
     }
 
     public static RoundSettlementSnapshot CreateFromShowResult(

@@ -176,6 +176,7 @@ public class ChangshaGameState : TurnBasedGameState {
     }
 
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         if (Session.SubRule != ExchangeSixSubRule) {
             base.AppendScoreboard(env);
             return;

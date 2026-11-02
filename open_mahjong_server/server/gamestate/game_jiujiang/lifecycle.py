@@ -1,4 +1,5 @@
 """120张开牌、逐家结算、胜者坐庄与普通牌谱持久化。"""
+from ..public.settlement_sync import send_game_packet
 import asyncio
 import random
 
@@ -48,7 +49,7 @@ class JiujiangLifecycle:
         await super().player_reconnect(user_id)
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and self._terminal_result is not None:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     def _settlement_for_winner(self,item):
         # 放炮者此刻已经打出牌；其他输家仍是13张结构，不依赖花分或报听声明。

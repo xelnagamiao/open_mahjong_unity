@@ -1,14 +1,21 @@
 <template>
   <div>
     <div :class="['banner', best.canWin ? 'success' : 'fail']">
-      <div class="banner-num">{{ best.fan }}</div>
-      <div class="banner-text">{{ tr('番') }}{{ locale === 'fr' && best.fan > 1 ? 's' : '' }}<span v-if="!best.canWin"> · 不足 8 番，不能和牌</span></div>
+      <template v-if="best.rule === 'riichi'">
+        <div class="banner-num">{{ best.points }}</div>
+        <div class="banner-text">点 · {{ best.yakuman ? (best.yakuman > 1 ? `${best.yakuman} 倍役满` : '役满') : `${best.fan} 番 ${best.fu} 符` }}<span v-if="!best.canWin"> · 无役，不能和牌</span></div>
+      </template>
+      <template v-else>
+        <div class="banner-num">{{ preciseFan(best.fan) }}</div>
+        <div class="banner-text">{{ tr('番') }}{{ locale === 'fr' && best.fan > 1 ? 's' : '' }}<template v-if="best.rule === 'qingque'"><span> · 底分 {{ best.points }}</span><span v-if="!best.canWin"> · 不足 1 番，不能和牌</span></template><span v-else-if="!best.canWin"> · 不足 8 番，不能和牌</span></div>
+      </template>
     </div>
-    <div v-if="!best.canWin" class="msg-inline">牌型成立；花牌不计入 8 番起和条件（不计花牌 {{ best.baseFan }} 番）。</div>
+    <div v-if="best.rule === 'riichi'" class="msg-inline">{{ best.payment }}</div>
+    <div v-else-if="best.rule !== 'qingque' && !best.canWin" class="msg-inline">牌型成立；花牌不计入 8 番起和条件（不计花牌 {{ best.baseFan }} 番）。</div>
     <div class="fan-block">
       <h4>番种构成（{{ best.fanNames.length }} 项）</h4>
       <div class="fan-tags nowrap-scroll">
-        <el-tag v-for="(name, idx) in best.fanNames" :key="idx" type="success" effect="plain" size="small">{{ formatGuobiaoFanComposition(name) }}</el-tag>
+        <el-tag v-for="(name, idx) in best.fanNames" :key="idx" type="success" effect="plain" size="small">{{ best.rule ? name : formatGuobiaoFanComposition(name) }}</el-tag>
       </div>
     </div>
     <div v-if="conditions" class="msg-inline">{{ conditions }}</div>
@@ -17,6 +24,7 @@
 <script setup>
 import { formatGuobiaoFanComposition } from '../constants/guobiaoFanDict'
 import { locale, tr } from '@/i18n'
+import { preciseFan } from '@/utils/calculatorScoreText.js'
 defineProps({ best: { type: Object, required: true }, conditions: { type: String, default: '' } })
 </script>
 <style scoped>
@@ -25,6 +33,7 @@ defineProps({ best: { type: Object, required: true }, conditions: { type: String
   padding: 10px 12px;
   border-radius: 8px;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 8px;
   border: 1px solid;

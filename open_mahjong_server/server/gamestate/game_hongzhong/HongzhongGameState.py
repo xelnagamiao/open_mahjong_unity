@@ -3,6 +3,7 @@
 本类只定义红中规则的政策：实体红中不能鸣牌，只有自摸，无吃、报听
 或过水；杠分即时记账，流局退还，和牌再从牌墙前端扎鸟。
 """
+from ..public.settlement_sync import send_game_packet
 
 import asyncio
 import random
@@ -87,7 +88,7 @@ class HongzhongGameState(TaiwanGameState):
             # setdefault records only a first ask; ordinary reconnect never renews.
             self.action_clock.delivered(player.player_index)
         if connection is not None and self._terminal_result is not None:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     def _take_supplement_tile(self):
         # 线性牌墙为每墩上、下排列；普通摸牌从前端，补牌从末墩上再下。

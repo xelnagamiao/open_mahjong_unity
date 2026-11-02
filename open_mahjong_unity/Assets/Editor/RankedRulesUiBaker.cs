@@ -13,7 +13,7 @@ using Object = UnityEngine.Object;
 /// <summary>Incremental authoring tool. Never replaces the original MainCanvas or header.</summary>
 public static class RankedRulesUiBaker {
     public const string ScenePath="Assets/Scenes/MainScene.unity";
-    const string SolidFontPath="Assets/Resources/font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular SDF.asset";
+    const string SolidFontPath="Assets/font/思源黑体/SourceHanSansSC-Regular SDF.asset";
     static T Find<T>() where T:Component => Resources.FindObjectsOfTypeAll<T>().First(x=>x.gameObject.scene==SceneManager.GetActiveScene());
     static T Ref<T>(Object target,string field) where T:Object => (T)new SerializedObject(target).FindProperty(field).objectReferenceValue;
     static void Set(Object target,string field,Object value){var so=new SerializedObject(target);so.FindProperty(field).objectReferenceValue=value;so.ApplyModifiedPropertiesWithoutUndo();}
@@ -35,7 +35,7 @@ public static class RankedRulesUiBaker {
         foreach(var root in scene.GetRootGameObjects())Undo.RegisterFullObjectHierarchyUndo(root,"Bake ranked rule UI");
         font=Find<UserContainer>().GetComponentsInChildren<TMP_Text>(true).First().font;
         var policy=BakePolicy();
-        BakeData();BakeProfile();BakeMatch(policy);BakeHome();BakeLeaderboard();BakeEloHelp();
+        DataPageUiBaker.Bake(scene);BakeProfile();BakeMatch(policy);BakeHome();BakeEloHelp();
         foreach(var panel in Resources.FindObjectsOfTypeAll<RankChangePanel>().Where(x=>x.gameObject.scene==scene)){
             var heading=panel.GetComponentsInChildren<TMP_Text>(true).First(t=>t.text=="段位结算");Set(panel,"resultTitle",heading);
             var text=Ref<TMP_Text>(panel,"ptChangeText");text.enableAutoSizing=true;text.fontSizeMin=22;text.fontSizeMax=36;text.textWrappingMode=TextWrappingModes.Normal;
@@ -65,13 +65,7 @@ public static class RankedRulesUiBaker {
         var button=Button(summary,"EloHelp","?",26);
         var r=(RectTransform)button.transform;r.anchorMin=r.anchorMax=new Vector2(1,.65f);r.pivot=new Vector2(1,.5f);r.anchoredPosition=new Vector2(-5,0);r.sizeDelta=new Vector2(38,38);
         var help=button.GetComponent<RankedEloHelp>();if(!help)help=button.gameObject.AddComponent<RankedEloHelp>();
-        var box=Rect(r,"Tooltip");box.anchorMin=box.anchorMax=new Vector2(1,0);box.pivot=new Vector2(1,1);box.anchoredPosition=new Vector2(0,-12);box.sizeDelta=new Vector2(790,640);
-        var bg=box.GetComponent<Image>();if(!bg)bg=box.gameObject.AddComponent<Image>();bg.color=new Color(.12f,.15f,.20f,1f);bg.raycastTarget=false;
-        var group=box.GetComponent<CanvasGroup>();if(!group)group=box.gameObject.AddComponent<CanvasGroup>();group.interactable=false;group.blocksRaycasts=false;
-        var label=Text(box,"Algorithm",RankedRules.EloAlgorithm,24,new Color(.94f,.95f,.98f));Stretch(label.rectTransform);label.rectTransform.offsetMin=new Vector2(24,22);label.rectTransform.offsetMax=new Vector2(-24,-22);label.textWrappingMode=TextWrappingModes.Normal;label.alignment=TextAlignmentOptions.TopLeft;label.lineSpacing=3;
-        // Render above the later rule-page siblings without changing their hierarchy.
-        var canvas=box.GetComponent<Canvas>();if(!canvas)canvas=box.gameObject.AddComponent<Canvas>();canvas.overrideSorting=true;canvas.sortingOrder=lobby.GetComponentInParent<Canvas>(true).sortingOrder+1;
-        Set(help,"tooltip",box.gameObject);box.gameObject.SetActive(false);
+        MatchCardLayoutBaker.BakeClickHelp(lobby.gameObject.scene);
     }
 
     static RankPolicyPanel BakePolicy(){
@@ -87,80 +81,6 @@ public static class RankedRulesUiBaker {
         var panel=root.GetComponent<RankPolicyPanel>()??root.gameObject.AddComponent<RankPolicyPanel>();
         Set(panel,"closeButton",close);Set(panel,"policyContent",body.gameObject);Set(panel,"eloContent",elo.gameObject);Set(panel,"title",title);
         body.gameObject.SetActive(true);elo.gameObject.SetActive(false);root.gameObject.SetActive(false);return panel;
-    }
-
-    static void BakeData(){
-        var panel=Find<DataPanel>();var search=panel.transform.Find("SreachPanel");
-        var old=search.Find("GameObject");old.gameObject.SetActive(false);
-        var dropdown=search.Find("DataRuleDropdown")?.GetComponent<TMP_Dropdown>();
-        if(!dropdown){dropdown=Object.Instantiate(Ref<TMP_Dropdown>(Find<PlayerInfoPanel>(),"otherRulesDropdown"),search,false);dropdown.name="DataRuleDropdown";}
-        dropdown.gameObject.SetActive(true);dropdown.onValueChanged=new TMP_Dropdown.DropdownEvent();
-        dropdown.ClearOptions();dropdown.AddOptions(RankedRules.Names.ToList());dropdown.SetValueWithoutNotify(0);dropdown.RefreshShownValue();
-        ConfigureDataRuleDropdown(dropdown,(RectTransform)old);
-        Set(panel,"ruleDropdown",dropdown);
-        var boardTitle=panel.transform.Find("LeaderBoardTitle/Text (TMP)").GetComponent<TMP_Text>();
-        boardTitle.text="国标麻将 · 段位排行榜";boardTitle.fontSize=32;boardTitle.enableAutoSizing=false;
-        var recordsTitle=panel.transform.Find("DataCount/GameObject/Panel/Text (TMP)").GetComponent<TMP_Text>();recordsTitle.text="国标麻将 · 最近对局";recordsTitle.fontSize=36;recordsTitle.alignment=TextAlignmentOptions.Center;
-        Set(panel,"leaderboardTitle",boardTitle);Set(panel,"recordsTitle",recordsTitle);
-        var board=Ref<Transform>(panel,"leaderboardContainer");var records=Ref<Transform>(panel,"ladderRecordContainer");
-        var boardRect=(RectTransform)board;boardRect.sizeDelta=new Vector2(0,boardRect.sizeDelta.y);boardRect.anchoredPosition=new Vector2(0,boardRect.anchoredPosition.y);
-        var boardLayout=board.GetComponent<VerticalLayoutGroup>();boardLayout.childControlWidth=true;boardLayout.childForceExpandWidth=true;
-        foreach(Transform child in board)child.gameObject.SetActive(false);foreach(Transform child in records)child.gameObject.SetActive(false);
-        var boardStatus=Text(board.parent,"RankedEmptyState","登录后查看排行榜",25,new Color(.9f,.93f,1));Place(boardStatus.rectTransform,20,30,470,100);boardStatus.alignment=TextAlignmentOptions.Top;
-        var recordStatus=Text(records.parent,"RankedEmptyState","登录后查看最近对局",28,new Color(.22f,.25f,.3f));Place(recordStatus.rectTransform,24,30,1200,100);
-        Set(panel,"leaderboardStatus",boardStatus);Set(panel,"recordsStatus",recordStatus);
-        var refresh=Button(search,"RefreshRankedData","刷新数据",26);Place((RectTransform)refresh.transform,1100,16,180,66);Set(panel,"refreshButton",refresh);
-    }
-
-    static void ConfigureDataRuleDropdown(TMP_Dropdown dropdown,RectTransform source){
-        var rect=(RectTransform)dropdown.transform;
-        rect.anchorMin=source.anchorMin;rect.anchorMax=source.anchorMax;rect.pivot=source.pivot;
-        rect.anchoredPosition=source.anchoredPosition;rect.sizeDelta=source.sizeDelta;rect.localScale=Vector3.one;
-        // The profile selector's fixed 132 x 44 label must not follow it into the data page.
-        void Caption(TMP_Text label){
-            Stretch(label.rectTransform);label.rectTransform.offsetMin=new Vector2(16,4);label.rectTransform.offsetMax=new Vector2(-38,-4);
-            label.fontSize=30;label.enableAutoSizing=false;label.alignment=TextAlignmentOptions.Center;label.textWrappingMode=TextWrappingModes.NoWrap;
-        }
-        Caption(dropdown.captionText);
-        if(dropdown.placeholder is TMP_Text placeholder){Caption(placeholder);placeholder.gameObject.SetActive(false);}
-        var arrow=(RectTransform)dropdown.transform.Find("Arrow");
-        arrow.anchorMin=arrow.anchorMax=arrow.pivot=new Vector2(1,.5f);arrow.anchoredPosition=new Vector2(-12,0);
-        var template=dropdown.template;
-        template.anchorMin=Vector2.zero;template.anchorMax=new Vector2(1,0);template.pivot=new Vector2(.5f,1);
-        template.anchoredPosition=new Vector2(0,-4);template.sizeDelta=new Vector2(0,256);
-        var scroll=template.GetComponent<ScrollRect>();scroll.horizontal=false;scroll.vertical=true;scroll.movementType=ScrollRect.MovementType.Clamped;
-        scroll.verticalScrollbarVisibility=ScrollRect.ScrollbarVisibility.AutoHide;
-        Stretch(scroll.viewport);scroll.viewport.offsetMin=new Vector2(2,2);scroll.viewport.offsetMax=new Vector2(-12,-2);
-        var content=scroll.content;content.anchorMin=new Vector2(0,1);content.anchorMax=Vector2.one;content.pivot=new Vector2(.5f,1);
-        content.anchoredPosition=Vector2.zero;content.sizeDelta=new Vector2(0,58);
-        var item=(RectTransform)dropdown.itemText.transform.parent;
-        item.anchorMin=new Vector2(0,1);item.anchorMax=Vector2.one;item.pivot=new Vector2(.5f,1);item.anchoredPosition=Vector2.zero;item.sizeDelta=new Vector2(0,58);
-        Stretch(dropdown.itemText.rectTransform);dropdown.itemText.rectTransform.offsetMin=new Vector2(32,0);dropdown.itemText.rectTransform.offsetMax=new Vector2(-12,0);
-        dropdown.itemText.fontSize=28;dropdown.itemText.enableAutoSizing=false;dropdown.itemText.alignment=TextAlignmentOptions.MidlineLeft;dropdown.itemText.textWrappingMode=TextWrappingModes.NoWrap;
-        template.gameObject.SetActive(false);
-    }
-
-    [MenuItem("Tools/Mahjong/Main Scene/Update Data Panel Layout")]
-    public static void UpdateDataPanelLayout(){
-        var scene=SceneManager.GetActiveScene();
-        if(EditorApplication.isPlayingOrWillChangePlaymode||scene.path!=ScenePath)throw new InvalidOperationException("Open the main scene outside Play Mode first.");
-        var panel=Find<DataPanel>();Undo.RegisterFullObjectHierarchyUndo(panel.gameObject,"Repair data panel layout");
-        ConfigureDataRuleDropdown(Ref<TMP_Dropdown>(panel,"ruleDropdown"),(RectTransform)panel.transform.Find("SreachPanel/GameObject"));
-        Ref<TMP_Text>(panel,"leaderboardTitle").text="国标麻将 · 段位排行榜";
-        Ref<TMP_Text>(panel,"recordsTitle").text="国标麻将 · 最近对局";Ref<TMP_Text>(panel,"recordsTitle").alignment=TextAlignmentOptions.Center;
-        BakeLeaderboard();
-        foreach(var item in panel.GetComponentsInChildren<LeaderboardItem>(true))Ref<TMP_Text>(item,"scoreText").text="0.00/20";
-        ValidateDataPanelLayout(panel);
-        EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);AssetDatabase.SaveAssets();
-    }
-
-    static void ValidateDataPanelLayout(DataPanel panel){
-        var dropdown=Ref<TMP_Dropdown>(panel,"ruleDropdown");
-        var source=(RectTransform)panel.transform.Find("SreachPanel/GameObject");var rect=(RectTransform)dropdown.transform;
-        if(rect.anchoredPosition!=source.anchoredPosition||rect.sizeDelta!=source.sizeDelta)throw new Exception("数据页规则下拉框必须对齐原规则选择位置");
-        var caption=dropdown.captionText.rectTransform;
-        if(caption.anchorMin!=Vector2.zero||caption.anchorMax!=Vector2.one||dropdown.captionText.alignment!=TextAlignmentOptions.Center)throw new Exception("数据页规则名称必须在下拉框内居中");
-        if(dropdown.template.sizeDelta.x!=0||dropdown.template.anchoredPosition.x!=0)throw new Exception("数据页规则列表必须与下拉框等宽对齐");
     }
 
     static void BakeHome(){
@@ -233,7 +153,7 @@ public static class RankedRulesUiBaker {
             var label=b.GetComponentInChildren<TMP_Text>(true);Stretch(label.rectTransform);
             label.rectTransform.offsetMin=new Vector2(12,0);label.rectTransform.offsetMax=new Vector2(-12,0);
             label.text=RankedRules.Name(id);label.fontSize=22;label.enableAutoSizing=false;
-            label.alignment=TextAlignmentOptions.Center;label.textWrappingMode=TextWrappingModes.NoWrap;
+            label.alignment=TextAlignmentOptions.Center;label.textWrappingMode=TextWrappingModes.Normal;
             label.overflowMode=TextOverflowModes.Ellipsis;label.raycastTarget=false;
         }
         Array(panel,"ruleButtons",buttons.Cast<Object>().ToArray());
@@ -331,10 +251,9 @@ public static class RankedRulesUiBaker {
     public static void UpdateHongqueMatch(){
         var scene=SceneManager.GetActiveScene();
         if(EditorApplication.isPlayingOrWillChangePlaymode||scene.path!=ScenePath)throw new InvalidOperationException("Open the main scene outside Play Mode first.");
-        var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();var data=Find<DataPanel>();
+        var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();
         Undo.RegisterFullObjectHierarchyUndo(lobby.gameObject,"Add Hongque Elo match");
         Undo.RegisterFullObjectHierarchyUndo(policy.gameObject,"Add Hongque Elo description");
-        Undo.RegisterFullObjectHierarchyUndo(data.gameObject,"Add Hongque rating option");
         var pages=lobby.transform.Find("MatchLayout/RulePages");
         var hongque=pages.Find("Hongque");
         bool addedPage=!hongque;
@@ -348,8 +267,6 @@ public static class RankedRulesUiBaker {
             .Select(name=>(Object)pages.Find(name).gameObject).ToArray());
         var entries=pages.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();
         Array(lobby,"entries",entries);Array(lobby.GetComponent<MatchPanel>(),"matchButtons",entries);
-        var dropdown=Ref<TMP_Dropdown>(data,"ruleDropdown");
-        dropdown.ClearOptions();dropdown.AddOptions(RankedRules.Names.ToList());dropdown.RefreshShownValue();
         Ref<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text=RankedRules.EloDescription;
         if(addedPage)BakeMatchNavigation();
         Validate();EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);
@@ -421,10 +338,7 @@ public static class RankedRulesUiBaker {
         Array(lobby,"variantButtons",variants);Array(lobby,"selectedVariants",variantSelected);Array(lobby,"variantLabels",labels);Array(lobby,"variantPlayerCounts",variantCounts);
         bar.gameObject.SetActive(false);
         foreach(var card in lobby.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsElo))ApplyEloTitleFont(card);
-        foreach(var help in lobby.GetComponentsInChildren<RankedEloHelp>(true)){
-            var algorithm=Ref<GameObject>(help,"tooltip").GetComponentInChildren<TMP_Text>(true);
-            algorithm.text=RankedRules.EloAlgorithm;algorithm.fontSize=24;
-        }
+        MatchCardLayoutBaker.Bake(lobby.gameObject.scene);
     }
 
     static void ApplyEloTitleFont(MatchButton card){
@@ -439,6 +353,7 @@ public static class RankedRulesUiBaker {
         var cards=grid.GetComponentsInChildren<MatchButton>(true);
         var types=rule==MatchButton.MatchRule.Hongque
             ?new[]{MatchButton.MatchGameType.Banzhuang,MatchButton.MatchGameType.Quanzhuang}
+            :rule==MatchButton.MatchRule.Qingque?new[]{MatchButton.MatchGameType.Quanzhuang,MatchButton.MatchGameType.Unlimited}
             :new[]{rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang};
         foreach(var existing in cards)existing.gameObject.SetActive(false);
         foreach(var gameType in types){
@@ -455,9 +370,11 @@ public static class RankedRulesUiBaker {
                 if(t.name=="Level")t.text="Elo 匹配";
                 if(t.name=="Round")t.text=RankedRules.Name(card.RuleId)+(rule==MatchButton.MatchRule.Hongque
                     ?(gameType==MatchButton.MatchGameType.Banzhuang?" · 8局战":" · 16局战")
+                    :rule==MatchButton.MatchRule.Qingque?(gameType==MatchButton.MatchGameType.Unlimited?" · 无固定时限":" · 全庄战（16局）")
                     :rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange?" · 半庄战（8副）":" · 全庄战");
             }
             ApplyEloTitleFont(card);
+            MatchCardLayoutBaker.BakeCard(card);
         }
         var note=page.Find("EloSummary");if(note)Undo.DestroyObjectImmediate(note.gameObject);
     }
@@ -487,6 +404,23 @@ public static class RankedRulesUiBaker {
         EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);
     }
 
+    [MenuItem("Tools/Mahjong/Main Scene/Update Qingque Point Ratings")]
+    public static void UpdateQingquePointRatings(){
+        var scene=SceneManager.GetActiveScene();
+        if(EditorApplication.isPlayingOrWillChangePlaymode||scene.path!=ScenePath)throw new InvalidOperationException("Open the main scene outside Play Mode first.");
+        var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();
+        Undo.RegisterFullObjectHierarchyUndo(lobby.gameObject,"Qingque point rating queues");
+        ConfigureEloCards(lobby.transform.Find("MatchLayout/RulePages/Qingque"),MatchButton.MatchRule.Qingque,lobby,policy);
+        var entries=lobby.transform.Find("MatchLayout/RulePages").GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();
+        Array(lobby,"entries",entries);Array(lobby.GetComponent<MatchPanel>(),"matchButtons",entries);
+        Ref<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text=RankedRules.EloDescription;
+        foreach(var help in lobby.GetComponentsInChildren<RankedEloHelp>(true)){
+            help.SetRule("qingque");
+        }
+        MatchCardLayoutBaker.Bake(lobby.gameObject.scene);
+        EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);AssetDatabase.SaveAssets();
+    }
+
     static void AuthorTrendLabels(PlayerInfoPanel panel){
         var chart=Ref<PlayerInfoTrendChart>(panel,"trendChart");
         var labels=Ref<RectTransform>(panel,"trendSection").GetComponentsInChildren<TMP_Text>(true);
@@ -506,36 +440,16 @@ public static class RankedRulesUiBaker {
     public static void UpdateSanmaRanks(){
         var scene=SceneManager.GetActiveScene();
         if(EditorApplication.isPlayingOrWillChangePlaymode||scene.path!=ScenePath)throw new InvalidOperationException("Open the main scene outside Play Mode first.");
-        var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();var profile=Find<PlayerInfoPanel>();var data=Find<DataPanel>();
-        foreach(var target in new Component[]{lobby,policy,profile,data})Undo.RegisterFullObjectHierarchyUndo(target.gameObject,"Add three player Riichi ranked UI");
+        var lobby=Find<MatchLobbyView>();var policy=Find<RankPolicyPanel>();var profile=Find<PlayerInfoPanel>();
+        foreach(var target in new Component[]{lobby,policy,profile})Undo.RegisterFullObjectHierarchyUndo(target.gameObject,"Add three player Riichi ranked UI");
         font=Find<UserContainer>().GetComponentsInChildren<TMP_Text>(true).First().font;
         BakeMatch(policy);BakeProfile();
-        var dropdown=Ref<TMP_Dropdown>(data,"ruleDropdown");
-        dropdown.ClearOptions();dropdown.AddOptions(RankedRules.Names.ToList());dropdown.SetValueWithoutNotify(0);dropdown.RefreshShownValue();
         Ref<GameObject>(policy,"policyContent").GetComponent<TMP_Text>().text=RankedRules.Policy;
         Validate();EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);AssetDatabase.SaveAssets();
     }
 
-    static void BakeLeaderboard(){
-        var prefab=Ref<LeaderboardItem>(Find<DataPanel>(),"leaderboardItemPrefab");var path=AssetDatabase.GetAssetPath(prefab);
-        var root=PrefabUtility.LoadPrefabContents(path);
-        try{var item=root.GetComponent<LeaderboardItem>();var avatar=Ref<Image>(item,"avatar");if(!avatar.GetComponent<ProfileOnClick>())avatar.gameObject.AddComponent<ProfileOnClick>();avatar.raycastTarget=true;
-            void Column(RectTransform rect,bool right,float x,float y,float width,float height){rect.anchorMin=rect.anchorMax=new Vector2(right?1:0,.5f);rect.pivot=new Vector2(right?1:0,.5f);rect.anchoredPosition=new Vector2(x,y);rect.sizeDelta=new Vector2(width,height);}
-            Column((RectTransform)Ref<TMP_Text>(item,"rankText").transform.parent,false,0,0,70,70);Column(avatar.rectTransform,false,78,0,50,50);
-            foreach(string field in new[]{"usernameText","uidText"}){
-                var label=Ref<TMP_Text>(item,field);float y=field=="usernameText"?15:-15;var rect=label.rectTransform;
-                rect.anchorMin=new Vector2(0,.5f);rect.anchorMax=new Vector2(1,.5f);rect.offsetMin=new Vector2(140,y-15);rect.offsetMax=new Vector2(-166,y+15);
-                label.enableAutoSizing=true;label.fontSizeMin=19;label.fontSizeMax=25;label.textWrappingMode=TextWrappingModes.NoWrap;label.overflowMode=TextOverflowModes.Ellipsis;
-            }
-            var rank=Ref<TMP_Text>(item,"rankNameText");Column(rank.rectTransform,true,-4,15,156,30);rank.enableAutoSizing=true;rank.fontSizeMin=14;rank.fontSizeMax=25;rank.textWrappingMode=TextWrappingModes.NoWrap;rank.overflowMode=TextOverflowModes.Ellipsis;
-            var score=Ref<TMP_Text>(item,"scoreText");Column(score.rectTransform,true,-4,-15,156,30);score.enableAutoSizing=true;score.fontSizeMin=14;score.fontSizeMax=25;score.textWrappingMode=TextWrappingModes.NoWrap;score.overflowMode=TextOverflowModes.Ellipsis;score.text="0.00/20";
-            PrefabUtility.SaveAsPrefabAsset(root,path);
-        }finally{PrefabUtility.UnloadPrefabContents(root);}
-    }
-
     public static void Validate(){
-        var data=Find<DataPanel>();var dropdown=Ref<TMP_Dropdown>(data,"ruleDropdown");
-        if(!dropdown||dropdown.options.Count!=RankedRules.Ids.Length||!dropdown.template||!dropdown.itemText)throw new Exception("数据页规则下拉框未烘焙");
+        DataPageUiBaker.Validate(SceneManager.GetActiveScene());
         if(!Ref<Button>(Find<UserContainer>(),"rankSwitchButton")||!Ref<TMP_Text>(Find<UserContainer>(),"eloScoreText")||!Ref<TMP_Text>(Find<PlayerInfoPanel>(),"emptyWinText"))throw new Exception("玩家面板引用缺失");
         var lobby=Find<MatchLobbyView>();var so=new SerializedObject(lobby);if(so.FindProperty("rulePages").arraySize!=RankedRules.Ids.Length)throw new Exception("匹配规则页未烘焙");
         var cards=lobby.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();

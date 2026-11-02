@@ -2,7 +2,7 @@
   "id": "hongque",
   "displayName": "虹雀",
   "rulebookPath": "/rulebook/hongque",
-  "source": "虹雀² v1.6 第4–7页（基本规则）",
+  "source": "虹雀² v1.7 第4–7页（基本规则）",
   "categories": [
     {
       "key": "1",
@@ -105,38 +105,38 @@
     {
       "number": 7,
       "name": "双同顺",
-      "fan": 2,
-      "category": "2",
-      "valueText": "2 番",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
       "description": "二组数字相同的顺子。",
       "note": "",
       "context": "",
       "example": "AX2,AX3,AX4 BX2,BX3,BX4",
-      "sourcePage": 5
+      "sourcePage": 4
     },
     {
       "number": 8,
       "name": "三同顺",
-      "fan": 6,
-      "category": "6",
-      "valueText": "6 番",
+      "fan": 3,
+      "category": "3",
+      "valueText": "3 番",
       "description": "三组数字相同的顺子。",
       "note": "",
       "context": "",
       "example": "AX2,AX3,AX4 BX2,BX3,BX4 CX2,CX3,CX4",
-      "sourcePage": 5
+      "sourcePage": 4
     },
     {
       "number": 9,
       "name": "四同顺",
-      "fan": 12,
-      "category": "12",
-      "valueText": "12 番",
+      "fan": 6,
+      "category": "6",
+      "valueText": "6 番",
       "description": "四组数字相同的顺子。",
       "note": "",
       "context": "",
       "example": "AX2,AX3,AX4 BX2,BX3,BX4 CX2,CX3,CX4 DX2,DX3,DX4",
-      "sourcePage": 5
+      "sourcePage": 4
     },
     {
       "number": 10,
@@ -472,6 +472,18 @@
       "note": "",
       "context": "",
       "example": "AX3,BX3,CX3,DX3,EX3,FX3,GX3 AX7,BX7,CX7,DX7,EX7,FX7,GX7",
+      "sourcePage": 7
+    },
+    {
+      "number": 38,
+      "name": "镜像",
+      "fan": 2,
+      "category": "2",
+      "valueText": "2 番",
+      "description": "仅由单独或成对关于5对称的牌组构成的和牌。",
+      "note": "",
+      "context": "",
+      "example": "AX1,AX2,AX3 BY7,BY8,BY9 CX4,CX5,CX6",
       "sourcePage": 7
     }
   ]

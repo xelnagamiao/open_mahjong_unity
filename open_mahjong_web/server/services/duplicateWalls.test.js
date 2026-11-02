@@ -6,7 +6,8 @@ const { sharedSourceIsLocked } = require('./duplicateRecordAccess');
 // Stateful transactional adapter: a queued advisory lock makes concurrent creates exercise the real service boundary.
 function memoryPool() {
   const walls = [];
-  const admins = new Map([['evt_A:10', 'active'], ['evt_closed:10', 'closed'], ['evt_registered:10', 'registered'], ['evt_pending:10', 'pending']]);
+  const admins = new Map([['evt_A:10', 'active'], ['evt_closed:10', 'closed'], ['evt_registered:10', 'registered'], ['evt_pending:10', 'pending'], ['base_A:10', 'active'], ['base_A:12', 'active'], ['base_closed:10', 'closed'], ['base_registered:10', 'registered']]);
+  const kinds = new Map([['evt_A', 'event'], ['evt_closed', 'event'], ['evt_registered', 'event'], ['evt_pending', 'event'], ['base_A', 'base'], ['base_closed', 'base'], ['base_registered', 'base']]);
   const linked = new Set();
   const pairs = new Map();
   const records = new Set();
@@ -34,10 +35,12 @@ function memoryPool() {
       return { rows: [] };
     }
     if (sql.includes('FROM events e JOIN event_admins')) {
+      if (!kinds.has(params[0]) || (sql.includes("kind = 'event'") && kinds.get(params[0]) !== 'event')) return { rows: [] };
       const status = admins.get(`${params[0]}:${params[1]}`);
       return { rows: status ? [{ status }] : [] };
     }
     if (sql.startsWith('SELECT status FROM events WHERE')) {
+      if (!kinds.has(params[0]) || (sql.includes("kind = 'event'") && kinds.get(params[0]) !== 'event')) return { rows: [] };
       const status = admins.get(`${params[0]}:10`);
       return { rows: status ? [{ status }] : [] };
     }
@@ -90,6 +93,42 @@ for (const rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplica
 }
 const input = (overrides = {}) => ({ scope: 'personal', wall_type: 'key', rule: 'guobiao', ...overrides });
 
+for (const event_id of ['evt_A', 'base_A']) for (const wall_type of ['manual', 'seed', 'key']) {
+  test(`SBR ${wall_type} key creation and visibility in ${event_id}`, async () => {
+    const pool = memoryPool(); const service = createDuplicateWallService(pool);
+    const body = { scope: 'event', event_id, wall_type, rule: 'sichuan/sbr', seed: 'SBR-eight',
+      round_count: 8, round_tiles: Array.from({length: 8}, () => fullWall('sichuan/sbr')) };
+    const { wall, quota } = await service.create(10, body);
+    assert.equal(wall.rule, 'sichuan/sbr');
+    assert.equal(wall.wall_layout, 'sbr');
+    assert.equal(wall.round_count, 8);
+    assert.equal(wall.use_flowers, false);
+    assert.equal(wall.is_unlocked, false);
+    assert.equal(quota.created_today, 1);
+    assert.equal(pool.walls[0].round_tiles.length, 8);
+    assert.equal((await service.mine(10, 'event', event_id)).items[0].key, wall.key);
+    for (const tiles of pool.walls[0].round_tiles) validateTiles('sichuan/sbr', tiles, false);
+    if (wall_type === 'key') for (const field of ['tiles', 'round_tiles', 'seed']) assert.equal(field in wall, false);
+    else assert.equal(wall.round_tiles.length, 8);
+    await assert.rejects(service.create(999, body), { status: 403 });
+    // An unused key may be unlocked; binding later marks it paired and uses the pair guard.
+    assert.equal((await service.manage(10, wall.id, {is_unlocked: true})).wall.is_unlocked, true);
+  });
+}
+
+test('both Sichuan key layouts require venue scope and reject other rule tile sets', () => {
+  for (const rule of ['sichuan/sbr', 'sichuan/xueliu']) {
+    for (const wall_type of ['manual', 'seed', 'key']) {
+      assert.throws(() => normalizeInput(input({ rule, wall_type, seed: 'test', tiles: fullWall(rule) })), /赛事或基地/);
+    }
+    assert.throws(() => normalizeInput({scope: 'event', event_id: 'evt_A', rule, wall_type: 'manual', tiles: fullWall('guobiao')}), /108/);
+    const spec = catalog().rules.find(item => item.rule === rule);
+    assert.deepEqual(spec.scopes, ['event']);
+    assert.match(spec.label, /双打复式/);
+  }
+  assert.deepEqual(wallDto({rule:'sichuan/doubles_duplicate'}).wall_layout, 'sbr');
+});
+
 test('series persist 1/4/8/12/16 independent legal rounds, with stable seed prefixes', async () => {
   assert.deepEqual(catalog().round_counts, [1, 4, 8, 12, 16]);
   const pool = memoryPool(); const service = createDuplicateWallService(pool);
@@ -133,8 +172,8 @@ test('manual series require every round and keep every chosen tile order', () =>
   assert.deepEqual(legacy.round_tiles, [legacy.tiles]);
 });
 
-test('new walls support Guobiao, Lanshi and bloodflow with exact tile multiplicities', () => {
-  const sizes = { guobiao: 144, 'guobiao/lanshi': 136, 'sichuan/xueliu': 108 };
+test('new walls support Guobiao, Lanshi, bloodflow and SBR with exact tile multiplicities', () => {
+  const sizes = { guobiao: 144, 'guobiao/lanshi': 136, 'sichuan/xueliu': 108, 'sichuan/sbr': 108 };
   assert.deepEqual(catalog().rules.map((item) => item.rule), Object.keys(sizes));
   for (const [rule, size] of Object.entries(sizes)) {
     assert.equal(fullWall(rule).length, size);
@@ -231,6 +270,24 @@ test('competition authorization, closed events, shared daily quota and owner loc
   const removed = await service.manage(10, personal.wall.id, { remove: true });
   assert.equal(removed.wall.is_unlocked, true);
   assert.equal(removed.wall.unlocked_at, unlocked.wall.unlocked_at);
+});
+
+test('base administrators share wall access and quotas without allowing outsiders', async () => {
+  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const body = input({ scope: 'event', event_id: 'base_A' });
+  await assert.rejects(service.create(11, body), { status: 403 });
+  await assert.rejects(service.create(10, { ...body, event_id: 'base_closed' }), { status: 409 });
+  assert.equal((await service.create(10, { ...body, event_id: 'base_registered' })).wall.event_id, 'base_registered');
+  const first = await service.create(10, body);
+  const second = await service.create(12, body);
+  assert.equal((await service.mine(10, 'event', 'base_A')).items.length, 2);
+  assert.equal((await service.getQuota(12, 'event', 'base_A')).created_today, 2);
+  assert.equal((await service.getQuota(11, 'event', 'base_A', { platformAdmin: true })).storage_limit, 100);
+  await assert.rejects(service.mine(11, 'event', 'base_A'), { status: 403 });
+  await assert.rejects(service.manage(11, first.wall.id, { is_unlocked: true }), { status: 403 });
+  assert.equal((await service.manage(12, first.wall.id, { is_unlocked: true })).wall.is_unlocked, true);
+  await service.manage(10, first.wall.id, { remove: true });
+  assert.equal((await service.mine(12, 'event', 'base_A')).items[0].id, second.wall.id);
 });
 
 test('event batches and single creates share the 25-key daily quota with no partial reservation', async () => {

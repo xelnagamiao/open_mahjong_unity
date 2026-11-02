@@ -82,6 +82,18 @@ public static class TuidaoTipsValidation {
         Expect(TuidaoHandCalculator.Describe(null).Label == "未起和", "空查询不属于硬条件未满足");
         Expect(TuidaoHandCalculator.Describe(new WaitHintQuery { HandWithWin = H(11,11), Melds = M(), HepaiTile = 11 }).Kind == WaitTileHint.KindNone, "不成和不给绿色提示");
         Expect(TuidaoHandCalculator.Describe(new WaitHintQuery { HandWithWin = H(11,11), Melds = M(), HepaiTile = 11 }).Label == "未起和", "未成和不属于硬条件未满足");
+        var chicken = new WaitHintQuery {
+            HandWithWin = H(14,15,16,21,22,23,34,35,36,41,41), Melds = M("k11"), HepaiTile = 41,
+        };
+        Expect(TuidaoHandCalculator.Describe(chicken).CanRon, "旧房鸡胡可点和");
+        chicken.DetailedConfig = TuidaoRuleBootstrap.Detail();
+        Expect(!(bool)chicken.DetailedConfig[TuidaoRuleBootstrap.PingjiZimoNoChowKey], "平鸡自摸禁吃默认关闭");
+        Expect(TuidaoHandCalculator.Describe(chicken).CanRon, "关闭开关鸡胡可点和");
+        chicken.DetailedConfig = TuidaoRuleBootstrap.Detail(true);
+        var restricted = TuidaoHandCalculator.Describe(chicken);
+        Expect(restricted.Kind == WaitTileHint.KindTsumoOnly && restricted.Label.Contains("0番2分"), "开启后鸡胡仅自摸提示");
+        chicken.HandWithWin = plain; chicken.Melds = M(); chicken.HepaiTile = 28;
+        Expect(TuidaoHandCalculator.Describe(chicken).CanRon, "有番和牌仍可点和");
         return new { passed = true, cases = cases.Length, checks };
     }
 }

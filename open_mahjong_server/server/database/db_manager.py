@@ -14,7 +14,6 @@ import hashlib
 import secrets
 import json
 from pathlib import Path
-from .inventory_assets import DEFAULT_AVATAR_FRAME_ID
 
 # 禁止登录的封禁类型
 LOGIN_BAN_TYPES = frozenset({'login', 'full'})
@@ -593,18 +592,8 @@ class DatabaseManager:
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP NULL;")
 
-            # 自助改名次数：新注册默认 0。列首次加入时给已有非游客账号各补 1 次。
-            cursor.execute("SAVEPOINT sp_add_rename_count;")
-            try:
-                cursor.execute("ALTER TABLE users ADD COLUMN rename_count INTEGER NOT NULL DEFAULT 0;")
-                cursor.execute(
-                    "UPDATE users SET rename_count = 1 WHERE COALESCE(is_tourist, FALSE) = FALSE;"
-                )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_rename_count;")
-                else:
-                    raise
+            # 仅保留历史余额供一次性折算；正常改名直接消耗仓库中的改名卡。
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rename_count INTEGER NOT NULL DEFAULT 0;")
 
             # users 表迁移：账号封禁字段
             for col_name, col_def in [
@@ -665,6 +654,10 @@ class DatabaseManager:
             ensure_title_tables(cursor)
             from .inventory import ensure_inventory_tables
             ensure_inventory_tables(cursor)
+            from .mail import ensure_mail_tables
+            ensure_mail_tables(cursor)
+            from .redemption import ensure_redemption_tables
+            ensure_redemption_tables(cursor)
 
             # 创建表user_config（如果不存在）
             cursor.execute("""
@@ -1187,6 +1180,9 @@ class DatabaseManager:
                 ON event_ready_pool(event_id, ready_at);
             """)
             cursor.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS room_settings JSONB NOT NULL DEFAULT '{}'::jsonb;")
+
+            from .chat_conversations import ensure_chat_tables
+            ensure_chat_tables(cursor)
 
             from .player_recent_records import ensure_schema
             ensure_schema(cursor)
@@ -2044,6 +2040,9 @@ class DatabaseManager:
         
         Returns:
             包含完整牌谱和玩家信息的字典，找不到返回 None
+
+        Raises:
+            DuplicateRecordLockedError: 牌谱存在，但复式密钥尚未解禁。
         """
         conn = None
         try:
@@ -2064,9 +2063,9 @@ class DatabaseManager:
             if isinstance(record_data, str):
                 record_data = json.loads(record_data)
 
-            from .duplicate_walls import duplicate_record_is_visible
+            from .duplicate_walls import DuplicateRecordLockedError, duplicate_record_is_visible
             if not duplicate_record_is_visible(self, record_data, game_id.strip()):
-                return None
+                raise DuplicateRecordLockedError()
             game_title = record_data.get('game_title') or {}
             rule = game_title.get('rule')
             sub_rule = game_title.get('sub_rule')
@@ -2234,13 +2233,12 @@ class DatabaseManager:
                     COALESCE((SELECT e.item_id FROM user_equipment e
                         JOIN item_definitions d ON d.item_id=e.item_id
                         LEFT JOIN user_inventory i ON i.user_id=e.user_id AND i.item_id=e.item_id
-                        WHERE e.user_id=us.user_id AND e.slot='avatar_frame' AND d.use_enabled AND (d.is_default OR i.quantity>0)),
-                        (SELECT item_id FROM item_definitions WHERE item_id=%s AND is_default AND use_enabled),0) AS avatar_frame_id,
+                        WHERE e.user_id=us.user_id AND e.slot='avatar_frame' AND d.use_enabled AND (d.is_default OR i.quantity>0)),0) AS avatar_frame_id,
                     u.username
                 FROM user_settings us
                 INNER JOIN users u ON us.user_id = u.user_id
                 WHERE us.user_id = %s
-            """, (DEFAULT_AVATAR_FRAME_ID, user_id))
+            """, (user_id,))
             settings = cursor.fetchone()
             
             if settings:
@@ -2292,7 +2290,7 @@ class DatabaseManager:
     # ---------------- 好友 / 关注 ----------------
 
     FOLLOW_MAX = 10
-    FRIEND_MAX = 50
+    FRIEND_MAX = 80
 
     def count_friends(self, user_id: int) -> int:
         """返回 user_id 当前关注的人数，失败返回 -1。"""
@@ -2849,42 +2847,13 @@ class DatabaseManager:
             return "registered"
         return "admin"
 
-    def list_public_active_venues(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_public_active_venues(self, kind: Optional[str] = None, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         conn = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            if kind in ("event", "base"):
-                cursor.execute(
-                    """
-                    SELECT event_id, name, description, status, kind, entry_config, created_at
-                    FROM events
-                    WHERE status IN ('active', 'registered')
-                      AND CASE WHEN COALESCE(kind, 'event') = 'base' THEN 'base' ELSE 'event' END = %s
-                    ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, created_at DESC
-                    """,
-                    (kind,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT event_id, name, description, status, kind, entry_config, created_at
-                    FROM events
-                    WHERE status IN ('active', 'registered')
-                    ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, kind ASC, created_at DESC
-                    """
-                )
-            rows = []
-            for row in cursor.fetchall():
-                item = dict(row)
-                item["entry_config"] = self.parse_entry_config(item.get("entry_config"))
-                created = item.get("created_at")
-                if created is not None:
-                    item["created_at"] = created.isoformat() if hasattr(created, "isoformat") else str(created)
-                desc = item.get("description") or ""
-                item["description"] = desc[:180]
-                rows.append(item)
-            return rows
+            from .public_venue_listing import public_venue_rows
+            return public_venue_rows(cursor, self.parse_entry_config, kind, user_id)
         except Error as e:
             logger.error(f'list_public_active_venues 失败: {e}')
             if conn:
@@ -3462,6 +3431,8 @@ DatabaseManager.store_shenyang_game_record = store_taiwan_game_record
 DatabaseManager.store_wenzhou_game_record = store_taiwan_game_record
 DatabaseManager.store_nanchang_game_record = store_taiwan_game_record
 DatabaseManager.store_shangrao_game_record = store_taiwan_game_record
+DatabaseManager.store_beijing_game_record = store_taiwan_game_record
+DatabaseManager.store_duocai_game_record = store_taiwan_game_record
 
 # Jiandan keeps replay and statistics adapters in the rule-local database module.
 from .jiandan.store_jiandan import (

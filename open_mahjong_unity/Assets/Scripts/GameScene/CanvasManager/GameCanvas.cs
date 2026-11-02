@@ -123,7 +123,8 @@ public partial class GameCanvas : MonoBehaviour {
     // 计分板被外部关闭时调整
     public void SetScoreRecordOpen(bool open) {
         if (openScoreRecordButtonText != null) {
-            openScoreRecordButtonText.text = open ? "关闭计分板" : "打开计分板";
+            bool compactHud = openScoreRecordPanelButton != null && openScoreRecordPanelButton.GetComponentInChildren<TableHudSourceGraphic>(true)?.utilityIcon == true;
+            TableText.Set(openScoreRecordButtonText, compactHud ? (open ? "收起" : "计分") : (open ? "关闭计分板" : "打开计分板"));
         }
     }
 
@@ -379,6 +380,8 @@ public partial class GameCanvas : MonoBehaviour {
             duplicate_round_count = ReadIntValue(gameRecord.gameTitle, "duplicate_round_count", 1),
             duplicate_wall_type = ReadStringValue(gameRecord.gameTitle, "duplicate_wall_type", ""),
             room_type = recordRoomType,
+            match_queue_type = ReadStringValue(gameRecord.gameTitle, "match_queue_type", ""),
+            match_tier = ReadStringValue(gameRecord.gameTitle, "match_tier", ""),
             room_rule = roomRule,
             sub_rule = subRule,
             hepai_limit = ReadIntValue(gameRecord.gameTitle, "hepai_limit", 0),
@@ -395,6 +398,7 @@ public partial class GameCanvas : MonoBehaviour {
             isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "is_player_set_random_seed", false)
                 || ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
         };
+        gameInfo.sichuan_teams = SichuanRoundScoreState.RecordSnapshot(gameRecord, currentRoundIndex);
         if (SichuanLobby.IsDuplicate(subRule)) {
             gameInfo.duplicate_match = new DuplicateMatchInfo {
                 table = ReadStringValue(gameRecord.gameTitle, "duplicate_table", "open"),

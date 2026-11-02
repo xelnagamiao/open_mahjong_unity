@@ -66,6 +66,8 @@ class Runtime:
         await super().submit_action(index,action_type,**kwargs)
 
     async def _deliver_claim_payload(self,viewer_index,payload):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, viewer_index)
         info = payload.get("ask_hand_action_info") or payload.get("ask_other_action_info")
         if info and info.get("action_tick")==self.server_action_tick and info.get("action_list"):
             clock = self.action_clocks.get(viewer_index)
@@ -176,6 +178,8 @@ class Runtime:
                 task.cancel()
 
     async def run_round_ready_phase(self,timeout=None):
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.machine.transition(P.READY)
         self.live_pending_window = None
         self.action_clocks = {}
@@ -190,7 +194,7 @@ class Runtime:
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if pending:
-            await self.wait_action(timeout)
+            await self.wait_action(timeout=ready_remaining(self))
         self.action_dict = empty_actions()
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()

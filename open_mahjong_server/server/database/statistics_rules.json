@@ -457,7 +457,8 @@
         "4/4"
       ],
       "ranked_modes": [
-        "4/4_rank"
+        "4/4_rank",
+        "unlimited/4_rank"
       ],
       "matchmaking": true,
       "win_stat_unit": "fan",
@@ -1277,7 +1278,7 @@
       "sub_rule": "hongque/v1.6",
       "family_name": "虹雀",
       "sub_rule_name": "v1.6（虹雀²）",
-      "stats_name": "虹雀²（v1.6）",
+      "stats_name": "虹雀²（v1.7）",
       "standard": false,
       "basic_stats": true,
       "fan_stats": true,
@@ -1298,6 +1299,32 @@
       "matchmaking": true,
       "win_stat_unit": "base_points",
       "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "hongque_w",
+      "rule": "hongque",
+      "sub_rule": "hongque/w-v1.0",
+      "family_name": "虹雀",
+      "sub_rule_name": "虹雀 W",
+      "stats_name": "虹雀 W",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "hongque_w",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "虹雀 W",
+      "custom_modes": [
+        "4/4",
+        "8/4",
+        "12/4",
+        "16/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points",
+      "historical_ranked_modes": []
     },
     {
       "key": "free",
@@ -1543,6 +1570,75 @@
       "matchmaking": false,
       "win_stat_unit": "points",
       "deal_in_stat_unit": "none"
+    },
+    {
+      "key": "duocai_guobiao",
+      "rule": "duocai",
+      "sub_rule": "duocai/guobiao",
+      "family_name": "夺彩",
+      "sub_rule_name": "国标",
+      "stats_name": "夺彩麻将·国标",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
+    },
+    {
+      "key": "duocai_riichi",
+      "rule": "duocai",
+      "sub_rule": "duocai/riichi",
+      "family_name": "夺彩",
+      "sub_rule_name": "立直",
+      "stats_name": "夺彩麻将·立直",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "2/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
+    },
+    {
+      "key": "beijing",
+      "rule": "beijing",
+      "sub_rule": "beijing/chipengti",
+      "family_name": "北京",
+      "sub_rule_name": "吃碰提",
+      "stats_name": "北京麻将（吃碰提）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
     }
   ],
   "stat_value_units": {

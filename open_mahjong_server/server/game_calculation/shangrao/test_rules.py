@@ -72,10 +72,10 @@ def test_updated_seven_pairs_examples(before, win, allowed):
     assert r.seven_pairs(before + [win], indicator=45, winning_tile=win) == allowed
 
 
-def test_seven_pairs_change_does_not_restrict_standard_bao_groups():
+def test_standard_bao_also_requires_the_pre_draw_diaotou_shape():
     hand = [11,11,12,12,13,13,14,14,15,15,16,47,17,16]
     assert not r.seven_pairs(hand, indicator=45, winning_tile=16)
-    assert r.score_hand(hand, indicator=45, winning_tile=16)["shape"] == "standard"
+    assert r.score_hand(hand, indicator=45, winning_tile=16) is None
 
 
 @pytest.mark.parametrize("hand,win,restored", [

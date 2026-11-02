@@ -24,7 +24,8 @@ public partial class Game3DManager {
         // created its physical tile. Let its owner finish before taking or revealing it.
         int generation = _handAnimationGeneration;
         while (HasPendingRecordStepAnimations(request.WinnerPosition)
-            || (IsHandAnimPlayer(request.DiscardPlayerPosition)
+            || (request.WinTileMode != HepaiWinTilePresentMode.TsumoTravel
+                && IsHandAnimPlayer(request.DiscardPlayerPosition)
                 && HasPendingRecordStepAnimations(request.DiscardPlayerPosition))) {
             yield return null;
             if (generation != _handAnimationGeneration) yield break;
@@ -40,22 +41,23 @@ public partial class Game3DManager {
         closed = OrderRoundEndClosedHand(pos, closed);
         SuspendWashizuPublicHand(pos);
         ForceHandRevealIdle(panel);
-        ClearHandCardsPosition(panel.cardsPosition);
         if (request.IsQianggang && request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) {
             RecycleRobbedAddedKongSource(request);
         }
         switch (request.WinTileMode) {
             case HepaiWinTilePresentMode.TsumoTravel:
-                yield return CoTsumoTravelReveal(pos, panel, closed, winTileId);
+                yield return CoTsumoTravelReveal(pos, panel, closed, winTileId, request.OnHandReady);
                 break;
             case HepaiWinTilePresentMode.GuobiaoRonTravelFromRiver:
-                yield return CoGuobiaoRonTravelFromRiver(pos, panel, closed, winTileId, request.DiscardPlayerPosition);
+                yield return CoGuobiaoRonTravelFromRiver(pos, panel, closed, winTileId, request.DiscardPlayerPosition, request.OnHandReady);
                 break;
             case HepaiWinTilePresentMode.RonInstantThenPause:
+                ClearHandCardsPosition(panel.cardsPosition);
                 for (int i = 0; i < closed.Length; i++) {
                     Set3DTile(closed[i], panel.cardsPosition, "Record", pos);
                 }
                 Set3DTile(winTileId, panel.cardsPosition, "Record", pos, usePresentationCopy: true);
+                request.OnHandReady?.Invoke();
                 yield return new WaitForSeconds(HepaiRevealTiming.TravelSeconds);
                 break;
         }
@@ -96,6 +98,7 @@ public partial class Game3DManager {
             // 一炮多响共享同一实体牌；后续赢家才使用展示副本。首家缺牌源时不能凭空补牌。
             LayRoundEndFaceHandAtPosition(request.WinnerPosition, request.HepaiPlayerHand,
                 source, spawnWinningCopy: !firstClaim);
+            request.OnHandReady?.Invoke();
             revealPanels.Add(panel);
         }
         if (revealPanels.Count == 0) yield break;
@@ -231,24 +234,31 @@ public partial class Game3DManager {
             yield return new WaitForSeconds(HepaiRevealTiming.PrePanelTotalSeconds);
         }
     }
-    private IEnumerator CoTsumoTravelReveal(string playerPosition, PosPanel3D panel, int[] closedSorted, int winTileId) {
+    private IEnumerator CoTsumoTravelReveal(string playerPosition, PosPanel3D panel, int[] closedSorted, int winTileId, System.Action onHandReady = null) {
         Transform target = panel.cardsPosition;
+        // Keep the old row until this coroutine actually starts, then replace it without yielding.
+        ClearHandCardsPosition(target);
         for (int i = 0; i < closedSorted.Length; i++) {
             Set3DTile(closedSorted[i], target, "Record", playerPosition);
         }
         Vector3 spawnPos = GetTsumoSpawnWorldPosition(playerPosition, target);
         Quaternion rot = RecordHandTileRotation(playerPosition);
         GameObject winObj = MahjongObjectPool.Instance.Spawn(winTileId, spawnPos, rot);
-        if (winObj == null) yield break;
+        if (winObj == null) {
+            onHandReady?.Invoke();
+            yield break;
+        }
         Tile3D winTile3D = winObj.GetComponent<Tile3D>();
         if (winTile3D != null) winTile3D.SetBackOrientationUpright();
         winObj.transform.SetParent(target, worldPositionStays: true);
         int lastSlot = closedSorted.Length;
         Vector3 endPos = GetRecordHandSlotWorldPosition(playerPosition, target, lastSlot);
+        onHandReady?.Invoke();
         yield return CoLerpTransform(winObj.transform, spawnPos, rot, endPos, rot, HepaiRevealTiming.TravelSeconds);
     }
-    private IEnumerator CoGuobiaoRonTravelFromRiver(string winnerPosition, PosPanel3D panel, int[] closedSorted, int winTileId, string discardPlayerPosition) {
+    private IEnumerator CoGuobiaoRonTravelFromRiver(string winnerPosition, PosPanel3D panel, int[] closedSorted, int winTileId, string discardPlayerPosition, System.Action onHandReady = null) {
         Transform target = panel.cardsPosition;
+        ClearHandCardsPosition(target);
         for (int i = 0; i < closedSorted.Length; i++) {
             Set3DTile(closedSorted[i], target, "Record", winnerPosition);
         }
@@ -262,9 +272,11 @@ public partial class Game3DManager {
             Tile3D riverTile3D = riverTile.GetComponent<Tile3D>();
             // 和牌倒牌立牌：牌背统一转 180°（旅行途中背图随牌转动）。
             if (riverTile3D != null) riverTile3D.SetBackOrientationUpright();
+            onHandReady?.Invoke();
             yield return CoLerpTransform(riverTile.transform, startPos, startRot, endPos, endRot, HepaiRevealTiming.TravelSeconds);
             yield break;
         }
+        onHandReady?.Invoke();
         Debug.LogError(
             $"CoGuobiaoRonTravelFromRiver: 荣和取河/加杠牌失败，不 spawn 兜底 winner={winnerPosition}, discarder={discardPlayerPosition}, tile={winTileId}");
         yield return new WaitForSeconds(HepaiRevealTiming.TravelSeconds);

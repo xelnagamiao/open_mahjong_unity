@@ -49,6 +49,23 @@ def wall(s, entries):
     s.indicator_index = s.wall_positions.index(s.indicator_position)
 
 
+@pytest.mark.parametrize("hand,melds,indicator,allowed", [
+    ([23,23,13,15,16,24,24,14], ["k14","g17"], 22, False),
+    ([16,14,14,17,17,18,18,19,24,25,26,27,28,26], [], 15, True),
+    ([14,14,17,17,18,18,19,24,25,26,27,28,26,16], [], 15, True),
+])
+def test_reported_bao_hands_offer_and_validate_the_same_self_draw(hand,melds,indicator,allowed):
+    s = state()
+    s.indicator = indicator
+    p = s.player_list[0]
+    p.hand_tiles, p.combination_tiles = hand, melds
+    p.has_draw_slot, p.draw_kind = True, "normal"
+    s.current_player_index = 0
+    s.open_action_window(s.begin_turn(0))
+    assert ("hu_self" in s.action_dict[0]) == allowed
+    assert bool(s.can_win(0,"self_draw",hand[-1])) == allowed
+
+
 def test_deal_indicator_uses_opening_dice_and_preserves_supply():
     s = state()
     assert [len(p.hand_tiles) for p in s.player_list] == [14,13,13,13]

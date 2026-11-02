@@ -72,7 +72,8 @@ class FriendManager:
         if not conn:
             return False
         try:
-            await conn.websocket.send_json(response.dict(exclude_none=True))
+            from ..gamestate.public.connection_delivery import send_bounded
+            await send_bounded(conn.websocket, response.dict(exclude_none=True))
             return True
         except Exception as exc:  # pragma: no cover
             logger.warning(f"FriendManager._send_to_user 发送失败 user_id={user_id}: {exc}")
@@ -543,6 +544,7 @@ class FriendManager:
                 type="friend/realtime_kicked",
                 success=False,
                 message="对方已结束您的实时观战",
+                realtime_gamestate_id=game_state.gamestate_id,
             ),
         )
         # 刷新列表
@@ -579,6 +581,7 @@ class FriendManager:
                             type="friend/realtime_kicked",
                             success=False,
                             message="被观战玩家已离线，实时观战结束",
+                            realtime_gamestate_id=game_state.gamestate_id,
                         ),
                     )
 

@@ -35,12 +35,37 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
     private bool _hovered;
     private bool _dismissing;
     private Coroutine _hoverTween;
+    private string _sizedMessage;
 
     public event Action<TipItem> OnDismissed; // TipStackController 订阅
 
     /// <summary>设置提示内容并显示。</summary>
     public void ShowMessage(string type, bool success, string message) {
-        messageText.text = message;
+        var localized = messageText.GetComponent<LocalizedPlatformLabel>();
+        if (localized != null) { localized.fitTranslation = false; localized.SetSource(message); }
+        else messageText.text = message;
+        messageText.fontSize = 22;
+        messageText.enableAutoSizing = false;
+        messageText.textWrappingMode = TextWrappingModes.Normal;
+        messageText.alignment = TextAlignmentOptions.Center;
+        messageText.color = Color.white;
+        ResizeToMessage();
+    }
+
+    private void LateUpdate() {
+        if (messageText != null && messageText.text != _sizedMessage) ResizeToMessage();
+    }
+
+    private void ResizeToMessage() {
+        string message = messageText.text;
+        _sizedMessage = message;
+        var rect = (RectTransform)transform;
+        var canvas = GetComponentInParent<Canvas>();
+        float availableWidth = canvas ? ((RectTransform)canvas.rootCanvas.transform).rect.width : 560;
+        float maximumWidth = Mathf.Max(80, Mathf.Min(560, availableWidth - 32));
+        float width = Mathf.Min(maximumWidth, Mathf.Max(180, messageText.GetPreferredValues(message, 2000, 2000).x + 28));
+        float height = Mathf.Max(44, messageText.GetPreferredValues(message, width - 28, 2000).y + 16);
+        rect.sizeDelta = new Vector2(width, height);
     }
 
     public void Init(float lifetime) {

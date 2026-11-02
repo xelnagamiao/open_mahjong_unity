@@ -21,6 +21,10 @@ public class WashizuHandLayout {
 }
 
 public class DuplicateMatchInfo {
+    public bool? sync_mode;
+    public string waiting_for;
+    public int current_board;
+    public int table_completed_boards;
     public string id;
     public string status;
     public string table;
@@ -34,7 +38,9 @@ public class DuplicateMatchInfo {
     public string[] waiting_tables;
     public List<DuplicateBoardResult> boards;
 }
+public class DuplicateTableResult { public int[] delta; }
 public class DuplicateBoardResult {
+    public Dictionary<string, DuplicateTableResult> tables;
     public int number;
     public int[] raw_difference;
     public int[] scores;
@@ -49,6 +55,7 @@ public class RoomInfo {
     public string duplicate_peer_room_id;
     public string duplicate_status;
     public string duplicate_scoring;
+    public bool? duplicate_sync_mode;
     public int[] team_by_seat;
     public int[] team_role_by_seat;
     public int roster_revision;
@@ -145,6 +152,9 @@ public class EventListEntry {
     public string role;
     public string kind;
     public string description;
+    public string created_at, planned_start_at, planned_end_at;
+    public int? member_count;
+    public bool is_registered;
     public EventEntrySummary entry_summary;
 }
 
@@ -196,6 +206,7 @@ public class EventReadyPlayer {
 
 public class EventDetailInfo {
     public string event_id;
+    public int created_by;
     public string name;
     public string description;
     public string status;
@@ -213,7 +224,8 @@ public class EventDetailInfo {
     public EventAnnouncementInfo[] announcements;
 }
 
-public class GameEndInfo { // 显示游戏结束结果
+public class GameEndInfo {
+    public SichuanMatchSettlementInfo sichuan_match; // 显示游戏结束结果
     public DuplicateMatchInfo duplicate_match;
     public bool is_duplicate;
     public int duplicate_round_count;
@@ -227,6 +239,8 @@ public class GameEndInfo { // 显示游戏结束结果
 }
 
 public class ShowResultInfo {
+    public bool sichuan_grouped_endgame;
+    public SichuanBoardSettlementInfo sichuan_settlement;
     public SingaporeInfo singapore_info;
     public WuhanInfo wuhan_info;
     public WuhanHints wuhan_hints;
@@ -249,11 +263,16 @@ public class ShowResultInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public ShangraoInfo shangrao_info;
+    public BeijingInfo beijing_info;
+    public DuocaiInfo duocai_info;
     public Dictionary<int,int> guizhou_round_changes;
     public Dictionary<int,int[]> guizhou_end_hands;
     public Dictionary<int,int[]> wenzhou_end_hands;
     public Dictionary<int,int[]> nanchang_end_hands;
     public Dictionary<int,int[]> shangrao_end_hands;
+    public Dictionary<int,int[]> beijing_end_hands;
+    public ShowResultInfo[] beijing_settlements;
+    public Dictionary<int,int[]> duocai_end_hands;
     public GuizhouFan[] guizhou_fan_details;
     public YixingScoreInfo yixing_fan_details;
     public Dictionary<int,int> yixing_round_changes;
@@ -364,6 +383,8 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public DuocaiChoice[] duocai_choices;
+    public int[] riichi_cut_tiles;
     public bool? opening_buhua_complete;
     public Dictionary<string,int[]> fuzhou_declaration_candidates;
     public FourJokersHintSnapshot four_jokers_hints;
@@ -392,6 +413,8 @@ public class AskHandActionGBInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public ShangraoInfo shangrao_info;
+    public BeijingInfo beijing_info;
+    public DuocaiInfo duocai_info;
     public Dictionary<string,int[]> guizhou_kong_tiles;
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
@@ -412,6 +435,7 @@ public class AskHandActionGBInfo {
 }
 
 public class AskOtherActionGBInfo {
+    public DuocaiChoice[] duocai_choices;
     public Dictionary<string,int[]> fuzhou_declaration_candidates; // 询问切牌后操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
@@ -428,6 +452,7 @@ public class AskOtherActionGBInfo {
 }
 
 public class DoActionInfo {
+    public int? duocai_meld_index,duocai_wall_position;
     public int? shangrao_burnt_tile;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
     public MalaysiaInfo malaysia_info;
@@ -447,12 +472,15 @@ public class DoActionInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public ShangraoInfo shangrao_info;
+    public BeijingInfo beijing_info;
+    public DuocaiInfo duocai_info;
     public GuangdongPublicState guangdong_state;
     public GuangdongTips guangdong_tips;
     public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
     public string[] action_list;
     public int[] duplicate_remaining_tiles; // 非复式省略；0 表示该家牌山已摸完
+    public int[] sichuan_wall_masks; // 四面 3D 牌墙占位；原始东南西北，低 14 位，不含牌面
     public int action_player;
     public int action_tick;
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）必填：被认走的打牌者座位索引；切牌等其它动作可空
@@ -491,6 +519,10 @@ public class DoActionInfo {
 }
 
 public class PlayerInfo {
+    public DuocaiMeld[] duocai_melds;
+    public int[] duocai_hand_backs;
+    public int[][] duocai_meld_backs;
+    public int duocai_riichi;
     public bool? has_draw_slot;
     public int? team_id;
     public string team_role;
@@ -573,6 +605,8 @@ public class GameInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public ShangraoInfo shangrao_info;
+    public BeijingInfo beijing_info;
+    public DuocaiInfo duocai_info;
     public FilipinoInfo filipino_info;
     public VietnameseInfo vietnamese_info;
     public HongKongInfo hongkong_info;
@@ -580,6 +614,8 @@ public class GameInfo {
     public Dictionary<string,WenzhouWait[]> wenzhou_waits;
     public Dictionary<string,NanchangWait[]> nanchang_hints;
     public ShangraoHints shangrao_hints;
+    public BeijingHints beijing_hints;
+    public DuocaiHints duocai_hints;
     public bool? use_flowers;
     public bool joker_multi_wait;
     public string no_joker_bonus = "add8";
@@ -589,6 +625,7 @@ public class GameInfo {
     public int duplicate_round_count;
     public string duplicate_wall_type;
     public int[] duplicate_remaining_tiles; // 开局/重连的个人牌山余牌，按原始座位 0..3 排列
+    public int[] sichuan_wall_masks;
     public int room_id;                 // 房间ID
     public string gamestate_id;         // 游戏状态ID（用于发送游戏操作请求）
     public bool tips;                   // 是否提示
@@ -603,6 +640,8 @@ public class GameInfo {
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时
+    public string match_queue_type;     // 当前牌桌的匹配队列；旧数据允许缺省
+    public string match_tier;
     public string room_type;            // 房间类型（custom/match等）
     public string room_rule;            // 房间规则（guobiao/qingque等）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
@@ -668,6 +707,8 @@ public class ReadyStatusInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public ShangraoInfo shangrao_info;
+    public BeijingInfo beijing_info;
+    public DuocaiInfo duocai_info;
     public int action_tick;
     public FilipinoInfo filipino_info;
     public VietnameseInfo vietnamese_info;
@@ -841,6 +882,7 @@ public class MessageInfo { // 消息信息
 public class ServerStatsInfo { // 服务器统计信息
     public int online_players;  // 在线人数
     public int waiting_rooms;   // 等待房间数（自定义房间）
+    public int venue_waiting_rooms = -1; // 旧服务器未提供时显示未知
     public int playing_rooms;   // 进行房间数（自定义房间）
     public int match_playing_games;  // 进行中的排位匹配对局数
 }
@@ -969,6 +1011,7 @@ public class HongqueFanInfo {
 
 [System.Serializable]
 public class HongqueWinnerResultInfo {
+    public Dictionary<int, int> score_changes;
     public int player;
     public string[] hand;
     public string[][] partition;
@@ -982,6 +1025,7 @@ public class HongqueWinnerResultInfo {
 
 [System.Serializable]
 public class HongqueScoreHintInfo {
+    public string status_label;
     public string tile;
     public int @base;
     public int fan_total;
@@ -1021,6 +1065,12 @@ public class HongquePlayerInfo {
 
 [System.Serializable]
 public class HongqueStateInfo {
+    public string sub_rule = "hongque/v1.6";
+    public bool hongque_colourless = true;
+    public int hongque_min_fan;
+    public int hongque_min_points;
+    public string match_queue_type;
+    public string match_tier;
     public bool pointer_tips = true;
     public HongqueEventInfo pending_draw;
     public HongqueEventInfo last_discard;
@@ -1114,7 +1164,19 @@ public class PlayerRecentRecordsResponse {
     public Dictionary<string, Dictionary<string, PlayerRecentCategory>> rules;
 }
 
+[System.Serializable]
+public sealed class SettlementSyncInfo {
+    public string gamestate_id, round_id, result_id, phase;
+    public int sequence, revision;
+    public bool restore;
+    public double? remaining_ms, deadline_ms;
+    public double server_time_ms;
+    public Dictionary<int, bool> player_to_ready;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
+    public SettlementSyncInfo settlement_sync;
+    public Response[] settlement_restore;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
     public int? hand_order_request_id;
     public DuplicateMatchInfo duplicate_match_info;
@@ -1155,10 +1217,16 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public UserSettings user_settings; // 返回用户设置信息
     public string request_id;
     public TitleState title_state;
+    public RewardReceipt reward_receipt;
+    public bool reward_retryable;
     public InventoryState inventory_state;
     public InventoryItem[] inventory_catalog;
     public InventoryAppearance[] inventory_appearances;
     public bool inventory_retryable;
+    public MailEntry[] mails;
+    public MailEntry mail;
+    public int unread_count;
+    public bool mail_retryable;
     public TitleDefinition[] title_catalog;
     public TitleChange[] title_changes;
     public UserConfig user_config; // 返回用户游戏配置信息
@@ -1209,6 +1277,8 @@ public class UnlimitedRoundPlayer {
 public class UnlimitedRoundInfo {
     public int revision;
     public bool enabled;
+    public bool finishing;
+    public int current_round;
     public List<UnlimitedRoundPlayer> withdrawn_players;
     public UnlimitedRoundPlayer returned_player;
     public float countdown;

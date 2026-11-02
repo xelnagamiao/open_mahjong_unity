@@ -35,7 +35,7 @@ internal static class ShangraoRuleBootstrap {
             LiveVisibleIndicators=()=>ShangraoTableIndicators.VisibleTiles,
             FanNameText=(rule,label)=>ShangraoText.FanName(label), FanValueText=(rule,label)=>ShangraoText.FanValue(label),
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"和牌 {q.HuScore}分",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}分":""},
-            SettlementFootnote=q=>"本副净分包含和牌、杠分及四宝奖励", ScoreboardFanText=q=>$"{q.HuScore}分",
+            ScoreboardFanText=q=>$"{q.HuScore}分",
             ActionVoice=word=>word=="hu_self"?"hu":null, RoundName=round=>$"第{round}副", MaxRoundText=round=>$"{round*4}副",
             RoundIndicators=info=>ShangraoTableIndicators.FieldState(info?.shangrao_info??ShangraoTableIndicators.DisplayedInfo),
             DefaultHepaiLimit=1, HasFlowerReplacement=false, PeekAnkan=true, ShowsRonDangerHints=false,

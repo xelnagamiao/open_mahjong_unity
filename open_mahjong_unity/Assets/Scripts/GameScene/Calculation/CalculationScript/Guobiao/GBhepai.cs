@@ -1641,11 +1641,11 @@ public class Chinese_Hepai_Check {
         }
 
         // 主番种计算方法
-        public Tuple<int, List<string>> FanCount(PlayerTiles player_tiles, int get_tile, List<string> way_to_hepai) {
+        public Tuple<int, List<string>> FanCount(PlayerTiles player_tiles, int get_tile, List<string> way_to_hepai, bool resolvedRon = false) {
             // 判断前处理 处理get_tile
             bool zimo_or_not = way_to_hepai.Any(i => new[] { "last_deal", "妙手回春", "自摸", "杠上开花" }.Contains(i));
 
-            if (!zimo_or_not)
+            if (!zimo_or_not && !resolvedRon)
             {
                 // 如果和牌张来自外部 暗杠转为明杠 暗刻转为明刻
                 for (int idx = 0; idx < player_tiles.combination_list.Count; idx++)

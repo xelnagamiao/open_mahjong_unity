@@ -34,7 +34,7 @@ public sealed class JiujiangGameState : TurnBasedGameState {
         if(Game3DManager.Instance!=null) {
             pendingSettlement=true;
             Presenter.CloseTableForSettlement();
-            Game3DManager.Instance.StartCoroutine(FinishSettlement(response,roundGeneration));
+            Game3DManager.Instance.StartCoroutine(SettlementSync.PreserveContext(FinishSettlement(response,roundGeneration)));
         } else base.OnShowResult(response);
     }
     private IEnumerator FinishSettlement(Response response,int generation) {
@@ -71,6 +71,7 @@ public sealed class JiujiangGameState : TurnBasedGameState {
         }
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         int previousRows=0;
         foreach(var seat in Mirror.IndexToPosition) {
             var player=Mirror.Info(seat.Value);

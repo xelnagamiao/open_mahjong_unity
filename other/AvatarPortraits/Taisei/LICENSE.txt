@@ -1,0 +1,25 @@
+Taisei portrait crops — independent artwork license
+
+Scope: all 22 PNG images under this directory's 512/ and 1024/ folders.
+Artist: afensorm, commissioned for Taisei Project.
+These images are licensed under Creative Commons Attribution 4.0 International
+(CC BY 4.0), following the upstream portrait artwork license. The repository's
+MIT license and project-only resource restrictions do not replace this license.
+
+Full license: Licenses/CC-BY-4.0.txt
+License link: https://creativecommons.org/licenses/by/4.0/
+Upstream license statement: Licenses/Taisei-COPYING.txt
+Artist: https://afens.surge.sh / https://pixiv.me/afens
+Project: https://github.com/taisei-project/taisei
+Source revision:
+https://github.com/taisei-project/taisei-rawmedia/tree/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens
+
+Changes: square head-and-shoulder crops and proportional downsampling to
+512 x 512 or 1024 x 1024, retaining the original artwork and transparency.
+Exact source URLs, crop rectangles and file hashes are in avatar-catalog.json.
+Redistribution must retain appropriate artist/source credit, the license link,
+and an indication of these and any further modifications, as stated in CC BY 4.0.
+
+This license covers the artwork, not ownership of the underlying characters.
+Touhou Project characters belong to ZUN / Team Shanghai Alice; Taisei also has
+original characters. No endorsement is implied.

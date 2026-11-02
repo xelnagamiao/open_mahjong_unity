@@ -1,4 +1,5 @@
 """Use existing turn messages; only recipient-private hints contain the hand."""
+from ..public.settlement_sync import send_game_packet
 from ..game_zhongyong import boardcast as W
 from ...game_calculation.malaysia import rules as R
 from .phases import P
@@ -149,4 +150,4 @@ class Protocol:
             connection = self.game_server.user_id_to_connection.get(user_id)
             if connection and connection.websocket:
                 for payload in self.restore_payloads(i):
-                    await connection.websocket.send_json(payload)
+                    await send_game_packet(self, connection.websocket, payload)

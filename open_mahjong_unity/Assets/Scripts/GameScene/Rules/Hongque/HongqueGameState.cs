@@ -168,9 +168,10 @@ public sealed class HongqueGameState : GameStateBase {
             lastDiscardPlayerIndex = -1;
             // 将 126 张牌面的同步磁盘加载集中到开局，避免首次见到某张牌时卡住出牌/摸牌帧。
             HongqueTileVisual.PreloadAllTextures();
-            MahjongObjectPool.Instance?.PrewarmHongquePool();
+            MahjongObjectPool.Instance?.PrewarmHongquePool(newState.sub_rule == HongqueWScoring.SubRule ? 2 : 1);
             HongqueTenpai.ClearCaches();
             HongqueScoring.ClearCaches();
+            HongqueWScoring.ClearCaches();
         }
         gamestateId = newGamestateId;
         state = newState;
@@ -279,6 +280,7 @@ public sealed class HongqueGameState : GameStateBase {
                 gamestate_id = gamestateId,
                 action_tick = state.action_tick,
                 action,
+                settlement_id = action == "ready" ? SettlementSync.ResultId : null,
                 tile,
                 candidate_id = candidateId,
             };
@@ -306,7 +308,7 @@ public sealed class HongqueGameState : GameStateBase {
             if (legalActions.Contains("claim")) {
                 HongqueCandidateInfo ron = state.candidates.FirstOrDefault(item => item?.kind == "win");
                 if (ron != null) actions.Add(HongqueActionWords.ClaimPrefix + ron.id);
-                foreach (string kind in new[] { "rainbow", "triplet", "sequence" }) {
+                foreach (string kind in new[] { "double", "triplet", "rainbow", "sequence" }) {
                     if (state.candidates.Any(item => item?.kind == kind)) actions.Add(HongqueActionWords.GroupPrefix + kind);
                 }
             }
@@ -452,6 +454,7 @@ public sealed class HongqueGameState : GameStateBase {
             case "sequence":
             case "triplet":
             case "rainbow":
+            case "double":
             case "kong":
             case "presence":
             case "self_draw":
@@ -519,7 +522,7 @@ public sealed class HongqueGameState : GameStateBase {
         int claimedTile = HongqueTileVisual.FromCode(actionEvent.tile);
         int[] meldMask = BuildMeldMask(actionEvent);
         string baseKind = string.IsNullOrEmpty(actionEvent.base_kind) ? actionEvent.type : actionEvent.base_kind;
-        bool rainbow = actionEvent.type == "rainbow";
+        bool rainbow = actionEvent.type == "rainbow" || actionEvent.type == "double";
         bool claimApplied = actionEvent.silent;
         string tableAction = baseKind == "triplet" ? "peng" : "chi_left";
         int[] meldTiles = ConvertTiles(actionEvent.tiles);
@@ -532,7 +535,7 @@ public sealed class HongqueGameState : GameStateBase {
         NormalizeHongqueMeldMasks(actionEvent.player);
         if (rainbow && !claimApplied
                 && gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
-            GameCanvas.Instance.ShowActionDisplay(position, HongqueActionWords.Rainbow, RuleId);
+            GameCanvas.Instance.ShowActionDisplay(position, actionEvent.type == "double" || actionEvent.kind == "double" ? HongqueActionWords.Double : HongqueActionWords.Rainbow, RuleId);
         }
     }
 
@@ -547,8 +550,8 @@ public sealed class HongqueGameState : GameStateBase {
             return;
         }
         string kind = string.IsNullOrEmpty(actionEvent.kind) ? actionEvent.base_kind : actionEvent.kind;
-        if (kind == "rainbow") {
-            GameCanvas.Instance.ShowActionDisplay(position, HongqueActionWords.Rainbow, RuleId);
+        if (kind == "rainbow" || kind == "double") {
+            GameCanvas.Instance.ShowActionDisplay(position, actionEvent.type == "double" || actionEvent.kind == "double" ? HongqueActionWords.Double : HongqueActionWords.Rainbow, RuleId);
             return;
         }
         string action = kind == "win" ? "hu" : (kind == "triplet" ? "peng" : "chi_left");
@@ -595,7 +598,7 @@ public sealed class HongqueGameState : GameStateBase {
             if (mask[i] != 0) meldTiles.Add(mask[i]);
         }
         string oldCode = playerInfo.combination_tiles[actionEvent.meld_index];
-        HongqueMeldShape shape = HongqueScoring.ClassifyMeld(meldTiles);
+        HongqueMeldShape shape = HongqueWTips.IsActive ? HongqueWScoring.Classify(meldTiles) : HongqueScoring.ClassifyMeld(meldTiles);
         string prefix = shape == null
             ? (oldCode.Length > 0 ? oldCode[0].ToString() : "s")
             : (shape.Kind == "triplet" ? "k" : shape.Kind == "rainbow" ? "h" : "s");
@@ -676,6 +679,7 @@ public sealed class HongqueGameState : GameStateBase {
 
     private void ShowRoundResult(HongqueStateInfo previous, HongqueStateInfo current, bool restored) {
         if (current?.round_result == null || current.phase != "round_end") return;
+        if (!SettlementSync.Present(SettlementSync.Current, restored)) return;
         if (!restored && previous != null && previous.phase == "round_end"
                 && previous.round == current.round && previous.action_tick == current.action_tick) return;
         int[] winners = current.round_result.winner_indices ?? Array.Empty<int>();
@@ -703,6 +707,11 @@ public sealed class HongqueGameState : GameStateBase {
         // Ready status may arrive while hands are still being revealed.
         EndResultPanel.Instance?.BeginGameResultLifecycle();
 
+        if (restored) {
+            HongqueWinnerResultInfo last = current.round_result.winners.LastOrDefault(item => item != null);
+            if (last != null) PresentHuResult(last, scores, current, finalPanel: true);
+            return;
+        }
         if (current.round_result.multi_ron && current.round_result.winners.Length > 1) {
             // 多家和：按服务端座位顺序依次展示每位赢家的结算面板，
             // 中间面板自动关闭，最后一家才进入确认/准备阶段。
@@ -735,7 +744,8 @@ public sealed class HongqueGameState : GameStateBase {
             HongqueWinnerResultInfo result = winners.Length == 0 ? null : winners[i];
             int winner = result?.player ?? -1;
             var changes = new Dictionary<int, int>();
-            foreach (int seat in gsm.indexToPosition.Keys) changes[seat] = seat == winner ? result.points : 0;
+            foreach (int seat in gsm.indexToPosition.Keys)
+                changes[seat] = result?.score_changes != null && result.score_changes.TryGetValue(seat, out int delta) ? delta : 0;
             string huClass = result == null ? "liuju"
                 : current.round_result.reason == "self_draw" ? "hu_self" : "hu";
             string username = winner >= 0 ? gsm.player_to_info[gsm.indexToPosition[winner]].username : "";
@@ -768,16 +778,11 @@ public sealed class HongqueGameState : GameStateBase {
         Dictionary<int, int[]> simultaneousHuHands = results
             .Where(item => item != null)
             .ToDictionary(item => item.player, item => ConvertTiles(item.hand));
-        // 多家和开始时先把计分板还原到本局结算前；随后每张面板只加入当前赢家得分。
-        // 避免统一倒牌期间提前看到所有赢家的最终分数。
+        // Reconstruct the pre-settlement scores, then apply each authoritative
+        // winner row in order, including that hand's discarder penalty.
         Dictionary<int, int> initialScores = new Dictionary<int, int>(finalScores);
-        for (int i = 0; i < order.Length; i++) {
-            int player = order[i];
-            if (current.round_result.score_changes != null
-                    && current.round_result.score_changes.TryGetValue(player, out int points)
-                    && initialScores.ContainsKey(player)) {
-                initialScores[player] -= points;
-            }
+        foreach (var change in current.round_result.score_changes) {
+            if (initialScores.ContainsKey(change.Key)) initialScores[change.Key] -= change.Value;
         }
         foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
             if (initialScores.TryGetValue(seat.Key, out int score)
@@ -792,40 +797,15 @@ public sealed class HongqueGameState : GameStateBase {
             if (result == null) continue;
             bool isLast = i == order.Length - 1;
             EndResultPanel.Instance?.SetReadyStatusVisible(isLast);
-            // 本阶段增减：只带当前赢家自己的加分（虹雀不扣分，无扣分项）。
-            // 不能把 round_result.score_changes（所有赢家合并）传给面板，
-            // 否则第一家就会把后续赢家的变更一起展示出来。
-            // EndResultPanel 进入本流程前，本地分数已经同步为整局最终分。
-            // 因此必须显式给所有玩家写入本阶段 delta=0；若省略后续赢家，通用解析器会把
-            // “阶段分数尚未包含其和牌得分”误判为一次负分变化。
-            // score_changes 使用 original_player_index 键，与通用结算面板的优先解析口径一致。
             Dictionary<int, int> stageScoreChanges = new Dictionary<int, int>();
             foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
+                int delta = result.score_changes.TryGetValue(seat.Key, out int value) ? value : 0;
+                initialScores[seat.Key] += delta;
                 if (gsm.player_to_info.TryGetValue(seat.Value, out PlayerInfoClass playerInfo)) {
-                    stageScoreChanges[playerInfo.original_player_index] = 0;
+                    stageScoreChanges[playerInfo.original_player_index] = delta;
                 }
             }
-            if (current.round_result.score_changes != null
-                    && current.round_result.score_changes.TryGetValue(result.player, out int winnerPoints)
-                    && winnerPoints != 0) {
-                if (gsm.indexToPosition.TryGetValue(result.player, out string winnerPosition)
-                        && gsm.player_to_info.TryGetValue(winnerPosition, out PlayerInfoClass winnerInfo)) {
-                    stageScoreChanges[winnerInfo.original_player_index] = winnerPoints;
-                } else {
-                    stageScoreChanges[result.player] = winnerPoints;
-                }
-            }
-            // 阶段分数 = 最终分 - 尚未结算赢家的得分（虹雀赢家仅自加得分，无交叉支付）。
-            Dictionary<int, int> stageScores = new Dictionary<int, int>(finalScores);
-            for (int j = i + 1; j < order.Length; j++) {
-                int laterPlayer = order[j];
-                int laterPoints = current.round_result.score_changes != null
-                    && current.round_result.score_changes.TryGetValue(laterPlayer, out int p)
-                    ? p : 0;
-                if (stageScores.ContainsKey(laterPlayer)) {
-                    stageScores[laterPlayer] -= laterPoints;
-                }
-            }
+            Dictionary<int, int> stageScores = new Dictionary<int, int>(initialScores);
             yield return PresentHuResultCoroutine(
                 result, stageScores, stageScoreChanges, current, isLast,
                 i == 0 ? simultaneousHuHands : null,
@@ -976,15 +956,17 @@ public sealed class HongqueGameState : GameStateBase {
             step_time = state.step_time,
             round_time = state.round_time,
             room_type = string.IsNullOrEmpty(state.room_type) ? "custom" : state.room_type,
+            match_queue_type = state.match_queue_type,
+            match_tier = state.match_tier,
             room_rule = "hongque",
-            sub_rule = "hongque/v1.6",
+            sub_rule = state.sub_rule,
             dealer_index = state.dealer,
             players_info = players,
             player_entry_order = players.Select(player => player.user_id).ToArray(),
             self_hand_tiles = self.hand_tiles ?? Array.Empty<int>(),
             dora_indicators = Array.Empty<int>(),
             kan_dora_indicators = Array.Empty<int>(),
-            detailed_config = new Dictionary<string, object>(),
+            detailed_config = new Dictionary<string, object> { {"hongque_colourless", state.hongque_colourless}, {"hongque_min_fan", state.hongque_min_fan}, {"hongque_min_points", state.hongque_min_points} },
         };
     }
 

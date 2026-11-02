@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..public.settlement_sync import send_game_packet
 
 import asyncio
 import logging
@@ -302,22 +303,24 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         from ..public.outbound_pipe import drain_viewer
         await drain_viewer(self, view_player_index)
         payload = self.build_game_start_payload(view_player_index)
-        await conn.websocket.send_json(payload)
+        await send_game_packet(self, conn.websocket, payload)
         if self.game_status in {"END", "waiting_ready"}:
-            await conn.websocket.send_json(self.build_final_settlement_payload(view_player_index))
+            await send_game_packet(self, conn.websocket, self.build_final_settlement_payload(view_player_index))
             if self.game_status == "waiting_ready":
                 from .boardcast import ready_status_payload
-                await conn.websocket.send_json(ready_status_payload(self, view_player_index))
+                await send_game_packet(self, conn.websocket, ready_status_payload(self, view_player_index))
         else:
             pending = self.build_pending_action_payload(view_player_index)
             if pending is not None:
-                await conn.websocket.send_json(pending)
+                await send_game_packet(self, conn.websocket, pending)
 
     async def _deliver_claim_payload(self, viewer_index, payload):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, viewer_index)
         player = self.player_list[viewer_index]
         connection = (getattr(self.game_server, "user_id_to_connection", {}) or {}).get(player.user_id)
         if connection is not None and getattr(connection, "websocket", None) is not None:
-            await connection.websocket.send_json(payload)
+            await send_game_packet(self, connection.websocket, payload)
             self.websocket_sent_payloads.append(payload)
         await self.send_to_realtime_spectators(viewer_index, payload)
 
@@ -545,6 +548,8 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
     async def run_round_ready_phase(self, timeout: Optional[float] = None) -> Dict[int, dict]:
         """Wait for non-bot players to acknowledge the round result before the next hand."""
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.game_status = "waiting_ready"
         self.action_dict = {}
         for player in self.player_list:
@@ -560,7 +565,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         await self.flush_outbound_payloads()
         if timeout is None:
             timeout = 8.0
-        results = await self.wait_action(timeout=timeout)
+        results = await self.wait_action(timeout=ready_remaining(self))
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         return results
@@ -832,7 +837,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                     if self.game_server is not None:
                         connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
                     if connection is not None and getattr(connection, "websocket", None) is not None:
-                        await connection.websocket.send_json(p)
+                        await send_game_packet(self, connection.websocket, p)
                         self.websocket_sent_payloads.append(p)
                     await self.send_to_realtime_spectators(vi, p)
 
@@ -870,6 +875,8 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         record_fallback: bool = True,
     ) -> bool:
         """Send a payload to one player, or keep it in the local outbox when offline."""
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, player_index)
         if player_index not in range(len(self.player_list)):
             raise ValueError(f"Invalid player index for payload send: {player_index}")
         payload.setdefault("player_index", player_index)
@@ -882,7 +889,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             from ..public.claim_protection import take_post_meld_gap_delay
 
             async def _do(conn=connection, p=payload):
-                await conn.websocket.send_json(p)
+                await send_game_packet(self, conn.websocket, p)
 
             await send_to_viewer(
                 self,

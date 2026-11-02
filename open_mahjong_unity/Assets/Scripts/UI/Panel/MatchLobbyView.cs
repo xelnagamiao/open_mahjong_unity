@@ -25,6 +25,9 @@ public sealed class MatchLobbyView : MonoBehaviour {
     [SerializeField] private GameObject eloHelp;
     [SerializeField] private CanvasGroup queueOpacity;
     [SerializeField, Min(.01f)] private float transitionDuration=.24f;
+    [SerializeField] private bool showStandardVariant;
+    [SerializeField] private bool compactRank;
+    [SerializeField] private RectTransform queueViewport;
     private readonly List<MatchButton> selected=new List<MatchButton>(MaximumSelections);
     private readonly int[] rememberedRules=System.Array.ConvertAll(RankedRules.FamilyRuleIndices,rules=>rules[0]);
     private Dictionary<string,int> playerCounts;
@@ -35,6 +38,10 @@ public sealed class MatchLobbyView : MonoBehaviour {
     public IReadOnlyList<MatchButton> Selections=>selected;
     public int ActiveRule=>activeRule;
     public int ActiveFamily=>RankedRules.FamilyIndex(activeRule);
+    public void CopyNavigationFrom(MatchLobbyView other){
+        System.Array.Copy(other.rememberedRules,rememberedRules,rememberedRules.Length);
+        SelectRule(other.activeRule);
+    }
     public void UpdateRulePlayerCounts(Dictionary<string,int> counts){
         playerCounts=counts==null?null:new Dictionary<string,int>(counts);
         for(int i=0;i<rulePlayerCounts.Length;i++){
@@ -71,15 +78,15 @@ public sealed class MatchLobbyView : MonoBehaviour {
         if(index<0||index>=rulePages.Length)return;activeRule=index;
         int family=ActiveFamily;rememberedRules[family]=index;
         for(int i=0;i<rulePages.Length;i++)rulePages[i].SetActive(i==index);
-        for(int i=0;i<selectedTabs.Length;i++)selectedTabs[i].SetActive(i==family);
+        for(int i=0;i<selectedTabs.Length;i++)if(selectedTabs[i]!=null)selectedTabs[i].SetActive(i==family);
         var rules=RankedRules.FamilyRuleIndices[family];
-        if(variantBar!=null){
-            variantBar.SetActive(rules.Length>1);
+        if(variantBar!=null)variantBar.SetActive(showStandardVariant||rules.Length>1);
+        {
             for(int i=0;i<variantButtons.Length;i++){
                 variantButtons[i].gameObject.SetActive(i<rules.Length);
                 if(i>=rules.Length)continue;
-                variantLabels[i].text=RankedRules.VariantName(rules[i]);
-                selectedVariants[i].SetActive(rules[i]==index);
+                variantLabels[i].text=rules.Length==1&&showStandardVariant?"标准":RankedRules.VariantName(rules[i]);
+                if(selectedVariants[i]!=null)selectedVariants[i].SetActive(rules[i]==index);
             }
             if(variantHint!=null){variantHint.text=string.Empty;variantHint.gameObject.SetActive(false);}
         }
@@ -129,9 +136,9 @@ public sealed class MatchLobbyView : MonoBehaviour {
         if(queueGroup==null||!queueGroup.activeSelf)return;
         var layout=queueGroup.GetComponent<HorizontalLayoutGroup>();
         var slotLayout=slots[0].transform.parent.GetComponent<HorizontalLayoutGroup>();
-        var container=(RectTransform)queueGroup.transform.parent.parent;
+        var container=queueViewport!=null?queueViewport:(RectTransform)queueGroup.transform.parent.parent;
         var containerLayout=container.GetComponent<HorizontalOrVerticalLayoutGroup>();
-        float available=container.rect.width-containerLayout.padding.horizontal-layout.padding.horizontal-slotLayout.padding.horizontal;
+        float available=container.rect.width-(containerLayout!=null?containerLayout.padding.horizontal:0)-layout.padding.horizontal-slotLayout.padding.horizontal;
         if(queueStatus.activeSelf)available-=LayoutUtility.GetPreferredWidth((RectTransform)queueStatus.transform)+layout.spacing;
         float preferred=0;int count=0;
         foreach(var slot in slots)if(slot.IsVisible){preferred+=slot.PreferredWidth;count++;}
@@ -177,9 +184,10 @@ public sealed class MatchLobbyView : MonoBehaviour {
     private void RefreshRank(){
         string rule=RankedRules.Ids[activeRule];
         if(eloHelp!=null)eloHelp.SetActive(!RankedRules.IsGrade(rule));
+        if(eloHelp!=null)eloHelp.GetComponent<RankedEloHelp>()?.SetRule(rule);
         var user=UserDataManager.Instance;
         var rating=user==null?RankedRules.Get(null,rule):user.GetRating(rule);
-        rankText.text=RankedRules.RankCaption(rating);
+        rankText.text=compactRank?(RankedRules.IsGrade(rule)?rating.rank_name:"Elo 匹配"):RankedRules.RankCaption(rating);
         pointsText.text=RankedRules.ScoreCaption(rating);
         progress.transform.parent.gameObject.SetActive(RankedRules.IsGrade(rating.rule));
         progress.fillAmount=RankedRules.Progress(rating);

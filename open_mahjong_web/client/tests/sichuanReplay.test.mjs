@@ -19,6 +19,26 @@ function detail(data, title = {}, rule = 'sichuan') {
     } },
   } }
 }
+
+test('doubles reserved kong settles at board end and void kong stays four open upright tiles across seeks', () => {
+  const ticks = [
+    ['ag', 11, 'F', 11, 11, 11, 11, 'gs', 0, 0, 0, 0],
+    ['sichuan_kong_reveal', 0, 11],
+    ['liuju', 'reveal_hu', '{}'],
+    ['liuju', 'settle_gang', [0,0,0,0], ['清川 · 暗杠（未听退税） 0分']],
+  ]
+  const data=detail({...round([],ticks),p0_tiles:[11,11,11,11]}, {sub_rule:'sichuan/doubles'})
+  const replay=new RecordReplay(data)
+  for(const node of [1,2,4,1,4]) {
+    const state=replay.build(0,node).snapshot
+    assert.deepEqual(state.seats.map(s=>s.score),[0,0,0,0])
+    if(node>=2) {
+      assert.deepEqual(state.seats[0].melds[0].physical_mask,[0,mm(11),0,mm(11),0,mm(11),0,mm(11)])
+      assert.deepEqual(state.seats[0].melds[0].concealed_face_down,[false,false,false,false])
+    }
+  }
+  assert.deepEqual(sichuanScoreChanges(['liuju','settle_gang',[4,-2,0,-2],['暗杠 +4分']]),[4,-2,0,-2])
+})
 test('all Sichuan subrules supplement from the front through exhaustion and reverse seeks', () => {
   for (const sub_rule of ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange']) {
     const d = detail(round([11, 22, 33, 19], [['gd', 11], ['d', 22], ['gd', 33], ['gd', 19]]), { sub_rule })

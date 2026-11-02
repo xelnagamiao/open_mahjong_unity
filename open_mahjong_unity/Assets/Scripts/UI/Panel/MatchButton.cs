@@ -8,7 +8,7 @@ using UnityEngine.EventSystems;
 /// </summary>
 public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler {
     public enum MatchRule { Guobiao, Riichi, Sichuan, Qingque, RiichiSanma, SichuanXueliuExchange, Hongque }
-    public enum MatchGameType { Dongfeng, Banzhuang, Quanzhuang, Xuezhan, Xueliu }
+    public enum MatchGameType { Dongfeng, Banzhuang, Quanzhuang, Xuezhan, Xueliu, Unlimited }
     public enum MatchTier { Beginner, Intermediate, Advanced, MCRPL }
 
     [Header("匹配配置")]
@@ -27,6 +27,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     [SerializeField] private GameObject restrictedContent;
     [SerializeField] private TMP_Text restrictedWaitingCountText;
     [SerializeField] private TMP_Text restrictedPlayingCountText;
+    [SerializeField] private TMP_Text combinedCountText;
     [SerializeField] private MatchDescribePanel describePanel;
     [SerializeField] private MatchLobbyView lobbyView;
     [SerializeField] private GameObject selectedFrame;
@@ -34,13 +35,15 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     [SerializeField] private TMP_Text tierLabel;
     [SerializeField] private TMP_Text modeLabel;
     private bool selected, pointerInside, pointerPressed;
+    public bool IsSelected => selected;
+    public bool AdmissionAvailable { get; private set; }
     public int TierIndex => (int)tier;
     public MatchRule Rule => rule;
     public string TierTitle => tierLabel != null ? tierLabel.text : tier.ToString();
     public string ModeTitle => modeLabel != null ? modeLabel.text : "";
     public string RuleId => rule == MatchRule.SichuanXueliuExchange ? RankedRules.XueliuExchangeRule : rule == MatchRule.RiichiSanma ? RiichiSanmaRankConfig.Rule : rule.ToString().ToLowerInvariant();
     public bool IsElo => !RankedRules.IsGrade(RuleId);
-    public bool IsAvailable => rule==MatchRule.Guobiao || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || (rule==MatchRule.Sichuan || rule==MatchRule.SichuanXueliuExchange) && gameType==MatchGameType.Banzhuang || rule==MatchRule.Qingque && gameType==MatchGameType.Quanzhuang || rule==MatchRule.Hongque && (gameType==MatchGameType.Banzhuang || gameType==MatchGameType.Quanzhuang);
+    public bool IsAvailable => rule==MatchRule.Guobiao && gameType<=MatchGameType.Quanzhuang || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || (rule==MatchRule.Sichuan || rule==MatchRule.SichuanXueliuExchange) && gameType==MatchGameType.Banzhuang || rule==MatchRule.Qingque && (gameType==MatchGameType.Quanzhuang || gameType==MatchGameType.Unlimited) || rule==MatchRule.Hongque && (gameType==MatchGameType.Banzhuang || gameType==MatchGameType.Quanzhuang);
     [SerializeField] private RankPolicyPanel policyPanel;
     public void SetSelected(bool value) {
         selected = value;
@@ -77,7 +80,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     }
 
     private static readonly string[] TierKeys = { "beginner", "intermediate", "advanced", "mcrpl" };
-    private static readonly string[] GameTypeKeys = { "dongfeng", "banzhuang", "quanzhuang", "xuezhan", "xueliu" };
+    private static readonly string[] GameTypeKeys = { "dongfeng", "banzhuang", "quanzhuang", "xuezhan", "xueliu", "unlimited" };
 
     /// <summary>
     /// 由配置生成的队列标识符，如 "beginner_dongfeng"
@@ -134,7 +137,9 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     /// </summary>
     public void RefreshMask() {
         bool canEnter = CanEnter();
+        AdmissionAvailable = canEnter;
         if (mask != null) mask.SetActive(!canEnter);
+        if (modeLabel != null) modeLabel.enabled = canEnter || mask == null;
         if (availableContent != null) availableContent.SetActive(canEnter);
         if (restrictedContent != null) restrictedContent.SetActive(!canEnter);
     }
@@ -165,6 +170,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
         if (playingCountText != null) playingCountText.text = playingText;
         if (restrictedWaitingCountText != null) restrictedWaitingCountText.text = waitingText;
         if (restrictedPlayingCountText != null) restrictedPlayingCountText.text = playingText;
+        if (combinedCountText != null) combinedCountText.text = "匹配 " + waitingText + "  ·  对局 " + playingText;
     }
 
     private void OnClick() {
@@ -183,7 +189,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
 
     private void OnInfoClick() {
         if(!IsAvailable) { NotificationManager.Instance?.ShowTip("匹配",false,"本规则的段位匹配暂未开放"); return; }
-        if(IsElo)policyPanel?.ShowElo();
+        if(IsElo)policyPanel?.ShowElo(RuleId);
         else describePanel?.ShowForQueue(QueueType);
     }
 }

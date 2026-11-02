@@ -17,7 +17,13 @@ router.get('/pending-counts', async (req, res) => {
     const result = await pool.query(`SELECT
       COUNT(*) FILTER (WHERE kind = 'event')::int AS event,
       COUNT(*) FILTER (WHERE kind = 'base')::int AS base
-      FROM event_applications WHERE status = 'pending'`);
+      FROM (
+        SELECT kind FROM event_applications WHERE status = 'pending'
+        UNION ALL
+        SELECT e.kind FROM event_profile_change_requests r
+        INNER JOIN events e ON e.event_id = r.event_id
+        WHERE r.status = 'pending'
+      ) AS pending_reviews`);
     res.set('Cache-Control', 'no-store');
     res.json({ success: true, data: result.rows[0] || { event: 0, base: 0 } });
   } catch (error) {

@@ -143,10 +143,16 @@ class SalasasaClient {
         let message: SalasasaResponse
         try { message = JSON.parse(event.data) as SalasasaResponse }
         catch { return }
+        message.received_monotonic_ms = performance.now()
         const loginKickedOut = message.type === 'message' && message.message === 'login_kickout'
-        if (message.type === 'gamestate/closed' || message.type === 'gamestate/vote_end') {
+        if (message.type.startsWith('gamestate/guobiao/')
+          || ['gamestate/closed', 'gamestate/vote_end', 'gamestate/vote_update',
+            'switch_seat', 'refresh_player_tag_list'].includes(message.type)) {
           const activeId = this.lastGameStartValue?.game_info?.gamestate_id
-          if (activeId && message.gamestate_id && message.gamestate_id !== activeId) return
+          const originId = message.gamestate_id ?? message.game_info?.gamestate_id
+          // Filter before changing buffers or notifying the page. A stale end
+          // or reconnect snapshot must not replace a different active table.
+          if (activeId && originId && originId !== activeId) return
         }
 
         if (message.type === 'login') {

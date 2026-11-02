@@ -172,6 +172,26 @@ def test_every_debug_scenario_preserves_the_unique_deck(scenario):
     asyncio.run(run())
 
 
+def isolate_client_fixture(case):
+    """Independent player scenarios must not reuse an already presented result ID."""
+    game_id = case.get("restore", {}).get("gamestate_id")
+    if not game_id:
+        return copy.deepcopy(case)
+    isolated_id = f"{game_id}-{case['name']}"
+
+    def rewrite(value, key=None):
+        if isinstance(value, dict):
+            return {field: rewrite(item, field) for field, item in value.items()}
+        if isinstance(value, list):
+            return [rewrite(item) for item in value]
+        if key in {"gamestate_id", "round_id", "result_id", "settlement_id"} and isinstance(value, str):
+            if value == game_id or value.startswith(game_id + ":"):
+                return isolated_id + value[len(game_id):]
+        return value
+
+    return rewrite(case)
+
+
 async def export_client_fixtures(output):
     """Export actual packets and records for HongqueRuntimeValidation, without a DB."""
     import json
@@ -223,7 +243,8 @@ async def export_client_fixtures(output):
                                   (folder / "normal-time-run", normal_speed)):
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "runtime-fixtures.json").write_text(
-            json.dumps(fixtures, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+            json.dumps([isolate_client_fixture(case) for case in fixtures], ensure_ascii=False,
+                       indent=2, default=str), encoding="utf-8")
     return len(cases), len(replays)
 
 

@@ -105,7 +105,7 @@ class ShanghaiRoomValidator(GBRoomValidator):
             return {lajihe.SELF_DRAW_EXTRA_BASE: enabled}
         if isinstance(value, dict) and lajihe.SELF_DRAW_EXTRA_BASE in value:
             raise ValueError("自摸再加一底仅适用于上海垃圾和")
-        return normalize_qiaoma_config(value, sub_rule)
+        return normalize_qiaoma_config(value, sub_rule, hepai_limit=values.get("hepai_limit", 0))
 
 
 class RiichiRoomValidator(BaseModel):

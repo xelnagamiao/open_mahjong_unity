@@ -60,8 +60,7 @@ public sealed class RoomInfoTooltip : MonoBehaviour, IPointerEnterHandler, IPoin
         popup.anchorMin = popup.anchorMax = new Vector2(.5f, .5f);
         popup.pivot = new Vector2(0, 1);
         var layer = popup.gameObject.AddComponent<Canvas>();
-        layer.overrideSorting = true;
-        layer.sortingOrder = rootCanvas.sortingOrder + 100;
+        UiCanvasLayers.Apply(layer, UiCanvasLayers.Overlay, UiCanvasLayers.DetailsOrder);
         popup.gameObject.AddComponent<GraphicRaycaster>();
         var background = popup.gameObject.AddComponent<Image>();
         background.color = new Color(.12f, .12f, .12f, 1f);

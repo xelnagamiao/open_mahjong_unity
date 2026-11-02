@@ -520,7 +520,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         HandCardSelectionController.Instance?.OnCardDestroyed(this);
         // 隐藏提示（参照tips的设计模式）
-        TipsContainer.Instance?.HideTips();
+        if (TipsContainer.Instance != null) TipsContainer.Instance.HideTips();
         // 清除3D卡牌高亮效果（如果正在悬停）
         if (isHovering)
         {

@@ -47,7 +47,8 @@ public class FriendNetworkManager : MonoBehaviour {
                 FriendPanel.Instance?.OnRemoveFollowingResponse(response);
                 break;
             case "friend/list_friends":
-                FriendPanel.Instance?.OnFriendListResponse(response);
+                if (FriendPanel.Instance && FriendPanel.Instance.isActiveAndEnabled)
+                    FriendPanel.Instance.OnFriendListResponse(response);
                 break;
             case "friend/request_friend":
                 FriendPanel.Instance?.OnRequestFriendResponse(response);
@@ -116,8 +117,14 @@ public class FriendNetworkManager : MonoBehaviour {
     }
 
     private static void SyncFriendListCache(Response response) {
-        if (response?.friend_list != null) {
-            FriendRelationCache.ReplaceFromList(response.friend_list);
+        if (response?.friend_list == null) return;
+        switch (response.type) {
+            case "friend/list_friends":
+            case "friend/request_friend":
+            case "friend/delete_friend":
+            case "friend/respond_friend_request":
+                FriendRelationCache.ReplaceFromList(response.friend_list);
+                break;
         }
     }
 

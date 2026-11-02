@@ -1,5 +1,5 @@
 /**
- * Hongque 2 (虹雀²) v1.6 hand check and scoring.
+ * Hongque 2 (虹雀²) v1.7 hand check and scoring.
  * TypeScript port of the authoritative Python implementation:
  *   open_mahjong_server/server/gamestate/game_hongque/
  *     tile.py / rules.py / win_check.py / scoring.py
@@ -1060,6 +1060,18 @@ function dragonFan(shapes: MeldShape[]): FanEntry | null {
   return null
 }
 
+function isMirror(groups: string[][]): boolean {
+  const counts = new Map<string, number>()
+  for (const group of groups) {
+    const key = group.map(code => parseTile(code).number).sort((a, b) => a - b).join(',')
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts.size > 0 && [...counts].every(([key, count]) => {
+    const mirror = key.split(',').map(Number).reverse().map(number => 10 - number).join(',')
+    return counts.get(mirror) === count
+  })
+}
+
 function scorePartition(
   concealedPartition: string[][],
   openMelds: OpenMeld[],
@@ -1103,9 +1115,9 @@ function scorePartition(
   ])))
 
   fans.push(...sameShapeFans(shapes, 'sequence', new Map<number, [string, number]>([
-    [2, ['双同顺', 2]],
-    [3, ['三同顺', 6]],
-    [4, ['四同顺', 12]],
+    [2, ['双同顺', 1]],
+    [3, ['三同顺', 3]],
+    [4, ['四同顺', 6]],
   ])))
 
   fans.push(...sameColourLayoutFans(shapes))
@@ -1161,6 +1173,8 @@ function scorePartition(
   if (groups.length && groups.every((group) => group.some((code) => [1, 9].includes(parseTile(code).number)))) {
     fans.push(entry('全带幺', 2))
   }
+
+  if (isMirror(groups)) fans.push(entry('镜像', 2))
 
   const isHeavenly = flags.selfDraw && flags.beforeFirstDiscard && concealed
   if (isHeavenly) fans.push(entry('天和', 18))

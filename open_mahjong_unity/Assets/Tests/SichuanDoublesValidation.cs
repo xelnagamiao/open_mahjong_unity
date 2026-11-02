@@ -55,7 +55,7 @@ public static class SichuanDoublesValidation {
         return $"Sichuan doubles: {checks} checks passed";
     }
 
-    public static string ValidateRotatingBoardWinds() {
+    public static string ValidateFixedBoardWinds() {
         if (!Application.isPlaying || !string.IsNullOrEmpty(UserDataManager.Instance.GamestateId))
             throw new InvalidOperationException("需要无在线对局的 Play Mode");
         var board = BoardCanvas.Instance;
@@ -70,7 +70,7 @@ public static class SichuanDoublesValidation {
             .ToDictionary(i => i.gameObject, i => i.gameObject.activeSelf);
         int checks = 0;
         try {
-            foreach (string sub in new[] {"sichuan/doubles", "sichuan/doubles_duplicate", "sichuan/standard", "sichuan/xueliu_doubles"})
+            foreach (string sub in new[] {"sichuan/doubles", "sichuan/doubles_duplicate", "sichuan/standard", "sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"})
             for (int view = 0; view < 4; view++)
             for (int round = 1; round <= 8; round++) {
                 int dealer = (round - 1) % 4;
@@ -84,7 +84,7 @@ public static class SichuanDoublesValidation {
                     if (source == 0) board.InitializeBoardInfo(info, map);
                     else board.InitializeBoardInfoFromRecord(recordPlayers, map, null, "sichuan", round, 55, sub, dealer);
                     foreach (var player in info.players_info) {
-                        int wind = SichuanLobby.IsDoubles(sub) ? (player.player_index - dealer + 4) % 4 : player.player_index;
+                        int wind = player.player_index;
                         if (labels[map[player.player_index]].text != winds[wind])
                             throw new Exception($"{sub} 第{round}副 视角{view} 来源{source} 座位{player.player_index} 风位错误，应为{winds[wind]}");
                         checks++;
@@ -103,7 +103,6 @@ public static class SichuanDoublesValidation {
         int uid = UserDataManager.Instance.UserId;
         var panel = UnityEngine.Resources.FindObjectsOfTypeAll<RoomPanel>().Single(p => p.gameObject.scene.IsValid());
         var cards = panel.GetComponentsInChildren<PlayerRoomPanel>(true).OrderBy(p => p.transform.GetSiblingIndex()).ToArray();
-        var before = cards.Select(p => JsonUtility.ToJson(new RectSnapshot((RectTransform)p.transform))).ToArray();
         var info = new RoomInfo {
             room_id = "900009", room_name = "血战双打测试", room_rule = "sichuan", room_type = "custom", sub_rule = subRule,
             host_user_id = uid, max_player = 4, player_list = new[] {uid,101,102,103}, seat_list = new[] {uid,101,102,103},
@@ -114,6 +113,8 @@ public static class SichuanDoublesValidation {
         foreach (int id in info.player_list) info.player_settings[id.ToString()] = new UserSettings { username = id == uid ? "房主 · A队" : "测试玩家" + id };
         WindowsManager.Instance.SwitchWindow("room");
         RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
+        Canvas.ForceUpdateCanvases();
+        var before = cards.Select(p => JsonUtility.ToJson(new RectSnapshot((RectTransform)p.transform))).ToArray();
         panel.GetRoomInfoResponse(true,"",info);
         Canvas.ForceUpdateCanvases();
         if (panel.transform.Find("DoublesHint") || panel.transform.Find("RandomDoublesTeams"))

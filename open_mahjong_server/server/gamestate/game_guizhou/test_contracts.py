@@ -303,7 +303,11 @@ def test_reconnect_and_spectator_snapshots_retain_same_projection():
         ws = SimpleNamespace(send_json=AsyncMock())
         s.game_server = SimpleNamespace(user_id_to_connection={999: SimpleNamespace(websocket=ws)})
         await s.send_realtime_spectator_snapshot(999, 1)
-        assert ws.send_json.call_args_list[0].args[0] == sent[0][1]
+        packet = ws.send_json.call_args_list[0].args[0]
+        assert packet["settlement_sync"]["gamestate_id"] == s.gamestate_id
+        assert packet["settlement_sync"]["phase"] == "playing"
+        assert packet["gamestate_id"] == s.gamestate_id
+        assert {k: v for k, v in packet.items() if k not in ("settlement_sync", "gamestate_id")} == sent[0][1]
         count = ws.send_json.call_count
         await s.send_realtime_spectator_snapshot(999, -1)
         assert ws.send_json.call_count == count

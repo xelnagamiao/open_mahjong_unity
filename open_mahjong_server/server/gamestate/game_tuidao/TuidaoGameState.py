@@ -1,4 +1,5 @@
 """MIL 推倒和；复用已有报听回合执行器，规则检查和结算由本模块拥有。"""
+from ..public.settlement_sync import send_game_packet
 
 import asyncio
 import logging
@@ -47,6 +48,7 @@ class TuidaoGameState(TaiwanGameState):
             missed_win_blocks_self_draw=False, missed_win_blocks_claims=False,
             missed_win_released_by_kong=False, seven_flowers_steal_eighth_enabled=False)
         self.rules_dict = config
+        self.pingji_zimo_no_chow = config["pingji_zimo_no_chow"]
         self.dead_wall_count = 12
         self.hepai_limit = 0
         self.open_cuohe = False
@@ -78,7 +80,7 @@ class TuidaoGameState(TaiwanGameState):
         await super().player_reconnect(user_id)
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and self._terminal_result is not None:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     async def send_to_realtime_spectators(self, player_index, response):
         from ..public.spectator_rules import deliver_realtime_spectator_message
@@ -188,6 +190,8 @@ class TuidaoGameState(TaiwanGameState):
             first_draw=first_draw, rob_kong=source == "robbing_kong",
             last_discard=source == "discard" and not self.can_take_normal_tile(),
             replacement=self_draw and self.last_draw_after_kong)
+        if detail and self.pingji_zimo_no_chow and not self_draw and detail["fan"] == 0:
+            return None
         if detail and not self_draw and not ignore_pass and detail["fan"] <= player.passed_fan:
             return None
         return detail
@@ -307,6 +311,10 @@ class TuidaoGameState(TaiwanGameState):
     def check_discard_actions(self, tile):
         result = actions.check_action_after_cut(self, tile)
         for i in range(4):
+            if self.pingji_zimo_no_chow:
+                result[i] = [a for a in result[i] if not a.startswith("chi_")]
+                if result[i] == ["pass"]:
+                    result[i] = []
             if i != self.current_player_index and self.player_list[i].ready_locked and self.kong_allowed(i, tile, "direct"):
                 result[i] = [a for a in result[i] if a != "pass"] + ["gang", "pass"]
         return result

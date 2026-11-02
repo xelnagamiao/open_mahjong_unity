@@ -32,14 +32,14 @@ def test_invalid_rules_rejected_without_coercion(bad):
     with pytest.raises(ValueError): validate(detailed_config=bad)
 
 
-@pytest.mark.parametrize('preset_id', ['majsoul','tenhou','jpml_a','mleague'])
+@pytest.mark.parametrize('preset_id', [p['id'] for p in catalog()['presets']])
 def test_presets_are_complete_and_roundtrip(preset_id):
     preset = preset_room_config(preset_id)
     assert set(preset['detailed_config']) == {o['key'] for o in catalog()['options']}
     assert normalize_riichi_config(preset['detailed_config']) == json.loads(json.dumps(preset['detailed_config']))
 
 
-@pytest.mark.parametrize('preset_id', ['majsoul','tenhou','jpml_a','mleague'])
+@pytest.mark.parametrize('preset_id', [p['id'] for p in catalog()['presets']])
 def test_custom_and_event_rooms_keep_rules(preset_id):
     asyncio.run(check_custom_and_event_rooms(preset_id))
 

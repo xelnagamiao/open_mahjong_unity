@@ -14,9 +14,12 @@ const { createRoomSettingsService } = require('../../services/eventRoomSettings'
 const { createSeatHandler } = require('./roomSettings');
 const { createDuplicateWallService } = require('../../services/duplicateWalls');
 const { createEventRoomCreationService } = require('../../services/eventRoomCreation');
+const { createEventRoomBotService } = require('../../services/eventRoomBots');
+const { proxyToGameServer: proxyToRoomAdmin } = require('../../services/gameServerProxy');
 
 const duplicateWalls = createDuplicateWallService(pool);
 const roomCreation = createEventRoomCreationService({ duplicateWalls, proxyToGameServer, writeAudit });
+const roomBots = createEventRoomBotService({ proxyToGameServer: proxyToRoomAdmin, writeAudit });
 const {
   fetchEventPlayerStats,
   GAME_TYPE_MATCH_TYPES,
@@ -493,6 +496,15 @@ router.get('/:eventId/rooms', requireEventMembership, async (req, res) => {
   } catch (err) {
     console.error('event-admin list rooms:', err);
     res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.post('/:eventId/rooms/:roomId/bots', requireEventMembership, async (req, res) => {
+  try {
+    const data = await roomBots.add(req.event, req.eventAdmin.userId, req.params.roomId, req.body || {});
+    res.json({ success: true, data, message: data.message });
+  } catch (error) {
+    res.status(error.status || 502).json({ success: false, message: error.status ? error.message : '操作未确认，请刷新房间列表核对' });
   }
 });
 

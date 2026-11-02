@@ -17,6 +17,7 @@ public class UserContainer : MonoBehaviour {
     [SerializeField] private TMP_Text eloScoreText;
 
     [SerializeField] private Button rankSwitchButton;
+    private UserDataManager rankSource;
     public string CurrentRule { get; private set; } = "guobiao";
     public void CycleRule(){CurrentRule=RankedRules.Next(CurrentRule);RefreshRankDisplay();}
     private void Awake() {
@@ -29,24 +30,52 @@ public class UserContainer : MonoBehaviour {
     }
 
     private void OnEnable() {
-        if(UserDataManager.Instance!=null)UserDataManager.Instance.RankDataChanged+=RefreshRankDisplay;
+        BindRankSource();
         GameSettings.TitleChanged += RefreshTitle;
         GameSettings.AppearanceChanged += RefreshAppearance;
+        ConfigManager.OnLanguageChanged += RefreshLanguage;
         RefreshAppearance(null);
         RefreshTitle(0, 1);
         RefreshRankDisplay();
     }
 
     private void OnDisable() {
-        if(UserDataManager.Instance!=null)UserDataManager.Instance.RankDataChanged-=RefreshRankDisplay;
+        if (rankSource != null) rankSource.RankDataChanged -= RefreshRankDisplay;
+        rankSource = null;
         GameSettings.TitleChanged -= RefreshTitle;
         GameSettings.AppearanceChanged -= RefreshAppearance;
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
+    }
+
+    private void Start() {
+        // A persistent presenter may enable before UserDataManager.Awake.
+        BindRankSource();
+        RefreshAppearance(null);
+        RefreshTitle(0, 1);
+        RefreshRankDisplay();
+    }
+
+    private void BindRankSource() {
+        var source = UserDataManager.Instance;
+        if (rankSource == source) return;
+        if (rankSource != null) rankSource.RankDataChanged -= RefreshRankDisplay;
+        rankSource = source;
+        if (rankSource != null) rankSource.RankDataChanged += RefreshRankDisplay;
+    }
+
+    private void OnDestroy() {
+        if (Instance == this) Instance = null;
     }
 
     private void RefreshAppearance(InventoryAppearance appearance) {
         if (UserDataManager.Instance == null || profileImage == null) return;
         profileImage.sprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
         AvatarFrameGraphic.Apply(profileImage, UserDataManager.Instance.AvatarFrameId);
+    }
+
+    private void RefreshLanguage() {
+        RefreshTitle(0, 1);
+        RefreshRankDisplay();
     }
 
     private void RefreshTitle(int userId, int titleId) {
@@ -81,7 +110,7 @@ public class UserContainer : MonoBehaviour {
         if(UserDataManager.Instance==null)return;
         var rating=UserDataManager.Instance.GetRating(CurrentRule);
         bool isGrade=RankedRules.IsGrade(CurrentRule);
-        rankText.text=isGrade?RankedRules.RankCaption(rating):RankedRules.Name(CurrentRule);
+        rankText.text=PlatformText.Get(RankedRules.Name(CurrentRule))+(isGrade?" · "+PlatformText.Get(rating.rank_name):"");
         rankScoreText.gameObject.SetActive(isGrade);
         eloScoreText.gameObject.SetActive(!isGrade);
         if(isGrade)rankScoreText.text=RankedRules.ScoreCaption(rating);

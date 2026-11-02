@@ -22,6 +22,11 @@ INSERT INTO titles (title_id, name, description) VALUES (2, '最初的初段', '
 UPDATE titles SET name = '最初的初段', updated_at = CURRENT_TIMESTAMP
 WHERE title_id = 2 AND name = '初段'
   AND NOT EXISTS (SELECT 1 FROM titles WHERE name = '最初的初段');
+-- Allocate IDs from the existing sequence so administrator-created titles are preserved.
+INSERT INTO titles (name)
+SELECT seed.name FROM (VALUES ('冠绝一世'), ('千恋万花')) AS seed(name)
+WHERE NOT EXISTS (SELECT 1 FROM titles WHERE name = seed.name)
+ON CONFLICT (name) DO NOTHING;
 -- Retain existing legitimate legacy wearers. Revocation always unequips in the same transaction.
 INSERT INTO user_titles (user_id, title_id, grant_reason)
 SELECT us.user_id, us.title_id, '迁移原有佩戴头衔'

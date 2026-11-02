@@ -67,10 +67,13 @@
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="false" />
       <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="false" />
       <ShangraoRoomConfig v-else-if="form.room_rule === 'shangrao'" :form="form" :show-password="false" />
+      <HongqueRoomConfig v-else-if="form.room_rule === 'hongque'" :form="form" :show-password="false" />
+      <BeijingRoomConfig v-else-if="form.room_rule === 'beijing'" :form="form" :show-password="false" />
+      <DuocaiRoomConfig v-else-if="form.room_rule === 'duocai'" :form="form" :show-password="false" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" />
-      <el-alert v-else title="此规则使用默认参数。" type="info" :closable="false" class="preset-notice" />
+      <RoomTimerFields v-else :form="form" />
       <div class="preset-form-actions">
         <el-button type="primary" :loading="busy" :disabled="!loaded || sourceMissing || (!dirty && selectedKey !== 'new')" @click="save">保存配置</el-button>
         <el-button :disabled="busy" @click="cancel">取消修改</el-button>
@@ -84,6 +87,7 @@
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
+import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import ShanxiRoomConfig from '@/components/ShanxiRoomConfig.vue'
@@ -98,6 +102,9 @@ import FuzhouRoomConfig from '@/components/FuzhouRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
 import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import ShangraoRoomConfig from '@/components/ShangraoRoomConfig.vue'
+import HongqueRoomConfig from '@/components/HongqueRoomConfig.vue'
+import BeijingRoomConfig from '@/components/BeijingRoomConfig.vue'
+import DuocaiRoomConfig from '@/components/DuocaiRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
 import SingaporeRoomConfig from '@/components/SingaporeRoomConfig.vue'
 import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'

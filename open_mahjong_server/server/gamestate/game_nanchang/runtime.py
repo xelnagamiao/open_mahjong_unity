@@ -1,4 +1,5 @@
 """Async clock/queue adapter; domain mutation stays in HandFlow."""
+from ..public.settlement_sync import send_game_packet
 
 import asyncio
 import math
@@ -70,7 +71,7 @@ class Runtime:
 
     async def _send_timed_payload(self, index, payload, websocket):
         self._refresh_clock_payload(index, payload)
-        await websocket.send_json(payload)
+        await send_game_packet(self, websocket, payload)
         self.websocket_sent_payloads.append(payload)
         if payload.get("ask_hand_action_info") or payload.get("ask_other_action_info"):
             self._start_action_clock(index, payload)
@@ -78,6 +79,8 @@ class Runtime:
     async def _deliver_claim_payload(self, index, payload):
         # Hook the existing FIFO delivery at the primary player's send, before
         # slower spectator forwarding; another viewer cannot restart this clock.
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, index)
         player = self.player_list[index]
         connection = (getattr(self.game_server, "user_id_to_connection", {}) or {}).get(player.user_id)
         if connection is not None and getattr(connection, "websocket", None) is not None:
@@ -90,6 +93,8 @@ class Runtime:
             prepare_payload=lambda packet: self._refresh_clock_payload(index, packet))
 
     async def send_payload_to_player(self, index, payload, *, record_fallback=True):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, index)
         if index not in range(4):
             raise ValueError("非法座位")
         payload.setdefault("player_index", index)
@@ -245,6 +250,8 @@ class Runtime:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def run_round_ready_phase(self, timeout=None):
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.machine.transition(P.READY)
         self._action_clocks, self._action_deadlines = {}, {}
         self.live_pending_window = None
@@ -255,7 +262,7 @@ class Runtime:
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if pending:
-            await self.wait_action(timeout)
+            await self.wait_action(timeout=ready_remaining(self))
         self.action_dict = empty_actions()
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()

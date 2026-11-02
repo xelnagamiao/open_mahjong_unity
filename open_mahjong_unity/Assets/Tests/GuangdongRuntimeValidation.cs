@@ -48,7 +48,8 @@ public sealed class GuangdongRuntimeValidation : MonoBehaviour {
         void Save(string status)=>System.IO.File.WriteAllText(root+"unity-live-protocol-results.json",Newtonsoft.Json.JsonConvert.SerializeObject(new{status,rounds,eventsChecked,checks,failures,runtimeErrors},Newtonsoft.Json.Formatting.Indented));
         void Check(bool valid,string name,object detail=null){checks.Add(new{name,valid,detail});if(!valid)failures.Add(new{name,detail});}
         System.Collections.IEnumerator Idle(){double end=UnityEngine.Time.realtimeSinceStartupAsDouble+10;while(GameCanvas.Instance.IsChangeHandCardProcessing){if(UnityEngine.Time.realtimeSinceStartupAsDouble>end)throw new Exception("Hand queue stalled");yield return null;}}
-        System.Collections.IEnumerator Sample(float duration){peak=0;var buffer=new float[1024];double end=UnityEngine.Time.realtimeSinceStartupAsDouble+duration;while(UnityEngine.Time.realtimeSinceStartupAsDouble<end){source.GetOutputData(buffer,0);foreach(float v in buffer)peak=Math.Max(peak,Math.Abs(v));yield return null;}}
+        IEnumerable<AudioSource> VoiceSources()=>SoundManager.Instance.GetComponentsInChildren<AudioSource>(true).Where(s=>s.name.StartsWith("SeatVoice_"));
+        System.Collections.IEnumerator Sample(float duration){peak=0;var buffer=new float[1024];double end=UnityEngine.Time.realtimeSinceStartupAsDouble+duration;while(UnityEngine.Time.realtimeSinceStartupAsDouble<end){foreach(var voiceSource in VoiceSources()){voiceSource.GetOutputData(buffer,0);foreach(float v in buffer)peak=Math.Max(peak,Math.Abs(v));}yield return null;}}
         System.Collections.IEnumerator Run(){
          UnityEngine.Application.logMessageReceived+=Log;volume.SetValue(ConfigManager.Instance,100);effects.SetValue(ConfigManager.Instance,0);Save("running");
          var fixtures=Newtonsoft.Json.Linq.JArray.Parse(System.IO.File.ReadAllText(root+"live-protocol-fixtures.json"));var gsm=NormalGameStateManager.Instance;
@@ -61,7 +62,7 @@ public sealed class GuangdongRuntimeValidation : MonoBehaviour {
           Check(RuleRegistry.ActiveGameState is GuangdongMilGameState,"Guangdong state factory",new{group,round});
           foreach(var e in fixture["events"]){
            var response=e.ToObject<Response>();var before=TableMirror.Current.IndexToPosition.ToDictionary(x=>x.Key,x=>TableMirror.Current.Info(x.Value).score);
-           voices.Clear();source.Stop();RuleRegistry.ActiveGameState.HandleMessage(response.type.Split('/')[2],response);
+           voices.Clear();source.Stop();foreach(var voiceSource in VoiceSources())voiceSource.Stop();RuleRegistry.ActiveGameState.HandleMessage(response.type.Split('/')[2],response);
            var action=response.do_action_info;bool announced=action?.action_list?.Any(x=>x=="peng"||x=="gang"||x=="angang"||x=="jiagang")==true;
            if(announced)yield return Sample(.65f);else yield return null;yield return Idle();eventsChecked++;
            if(action!=null){
@@ -71,7 +72,7 @@ public sealed class GuangdongRuntimeValidation : MonoBehaviour {
             if(announced){string expectedFolder=voice==1?"204_xiaoxiao":"1513_qiuqiu";Check(voices.Any(v=>v.Contains(expectedFolder))&&peak>.0001f,"actual action voice "+voice,new{group,round,action=action.action_list,voices=voices.ToArray(),peak});}
            }
           }
-          var final=fixture["result"].ToObject<Response>();voices.Clear();source.Stop();RuleRegistry.ActiveGameState.HandleMessage("show_result",final);yield return Sample(final.show_result_info.guangdong_result.draw?.7f:3.8f);yield return Idle();
+          var final=fixture["result"].ToObject<Response>();voices.Clear();source.Stop();foreach(var voiceSource in VoiceSources())voiceSource.Stop();RuleRegistry.ActiveGameState.HandleMessage("show_result",final);yield return Sample(final.show_result_info.guangdong_result.draw?.7f:3.8f);yield return Idle();
           var info=final.show_result_info;var result=info.guangdong_result;
           if(!result.draw)Check(voices.Any(v=>v.Contains(voice==1?"204_xiaoxiao":"1513_qiuqiu"))&&peak>.0001f,"actual win voice "+voice,new{group,round,voices=voices.ToArray(),peak});
           foreach(var pair in TableMirror.Current.IndexToPosition){

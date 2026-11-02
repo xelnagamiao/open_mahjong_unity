@@ -23,11 +23,11 @@ function fixture({ failAt, quotaError, failAudit } = {}) {
   return { service, calls, audits, batches };
 }
 
-test('both Sichuan paired subrules create pairs as groups without invoking generic wall creation', async () => {
-  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+test('both Sichuan paired subrules create pairs for events and bases without generic wall creation', async () => {
+  for (const kind of ['event', 'base']) for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
     for (const duplicate_round_count of [1,4,8,12,16]) {
       const { service, calls, batches } = fixture();
-      const result = await service.create(event,10,{room_rule:'sichuan',room_count:3,room_config:{sub_rule,duplicate_round_count}});
+      const result = await service.create({ ...event, kind },10,{room_rule:'sichuan',room_count:3,room_config:{sub_rule,duplicate_round_count}});
       assert.equal(result.created_pair_count,3); assert.equal(result.created_room_count,6);
       assert.equal(result.paired,true); assert.equal(batches.length,0);
       assert.ok(calls.every(call => call.body.room_config.duplicate_round_count === duplicate_round_count));
@@ -35,7 +35,7 @@ test('both Sichuan paired subrules create pairs as groups without invoking gener
   }
 });
 
-test('paired rules reject bases, other rule families, foreign walls and invalid counts before creating rooms', async () => {
+test('paired rules reject unknown venue types, other rule families, foreign walls and invalid counts before creating rooms', async () => {
   for (const override of [
     {room_rule:'guobiao'}, {auto_duplicate:true}, {duplicate_enabled:true},
     {room_config:{duplicate_round_count:2}}, {room_config:{duplicate_round_count:'8'}},
@@ -46,34 +46,43 @@ test('paired rules reject bases, other rule families, foreign walls and invalid 
     await assert.rejects(service.create(event,10,body)); assert.equal(calls.length,0);
   }
   const { service, calls }=fixture();
-  await assert.rejects(service.create({...event,kind:'base'},10,{room_rule:'sichuan',room_config:{sub_rule:'sichuan/doubles_duplicate',duplicate_round_count:8}}));
+  await assert.rejects(service.create({...event,kind:'other'},10,{room_rule:'sichuan',room_config:{sub_rule:'sichuan/doubles_duplicate',duplicate_round_count:8}}));
   assert.equal(calls.length,0);
 });
 
-test('ordinary bloodflow modes generate the shared bloodflow wall format for every room', async () => {
+test('ordinary bloodflow cannot reuse a legacy key by omitting the duplicate toggle', async () => {
   for (const sub_rule of ['sichuan/xueliu', 'sichuan/xueliu_exchange']) {
     const { service, calls, batches } = fixture();
-    await service.create(event, 10, { room_rule: 'sichuan', room_count: 3,
-      room_config: { sub_rule }, duplicate_enabled: true, auto_duplicate: true, duplicate_round_count: 4 });
-    assert.equal(batches[0].body.rule, 'sichuan/xueliu');
-    assert.equal(batches[0].body.round_count, 4);
-    assert.deepEqual(calls.map(call => call.body.room_config.duplicate_key), ['key_0', 'key_1', 'key_2']);
-    assert.ok(calls.every(call => call.body.room_config.sub_rule === sub_rule));
+    await assert.rejects(service.create(event, 10, { room_rule: 'sichuan', room_count: 3,
+      room_config: { sub_rule, duplicate_key: 'dup_' + 'a'.repeat(32) } }), /双打复式/);
+    assert.equal(calls.length + batches.length, 0);
   }
 });
 
-test('bloodflow paired rooms bind one existing wall to one open/closed pair without generating another key', async () => {
+for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+test(`${sub_rule} binds one existing wall to one pair without generating another key`, async () => {
   const body = { room_rule: 'sichuan', room_count: 1,
-    room_config: { sub_rule: 'sichuan/xueliu_doubles_duplicate', duplicate_round_count: 8, duplicate_key: 'dup_saved' } };
-  const { service, calls, batches } = fixture();
-  const result = await service.create(event, 10, body);
-  assert.equal(result.created_pair_count, 1);
-  assert.equal(result.created_room_count, 2);
-  assert.equal(calls[0].body.room_config.duplicate_key, 'dup_saved');
-  assert.equal(batches.length, 0);
+    room_config: { sub_rule, duplicate_round_count: 8, duplicate_key: ' dup_saved ' } };
+  for (const kind of ['event', 'base']) {
+    const { service, calls, batches } = fixture();
+    const result = await service.create({ ...event, kind }, 10, body);
+    assert.equal(result.created_pair_count, 1);
+    assert.equal(result.created_room_count, 2);
+    assert.equal(calls[0].body.room_config.duplicate_key, 'dup_saved');
+    assert.equal(batches.length, 0);
+  }
   const invalid = fixture();
   await assert.rejects(invalid.service.create(event, 10, { ...body, room_count: 3 }), /一个已有牌山/);
   assert.equal(invalid.calls.length + invalid.batches.length, 0);
+});
+}
+
+test('old game server gives an actionable message until the base pair change is loaded', async () => {
+  const service = createEventRoomCreationService({ duplicateWalls: {}, writeAudit: async () => {},
+    proxyToGameServer: async () => ({ status: 400, data: { detail: '复式双打只能在比赛场中创建' } }) });
+  await assert.rejects(service.create({ ...event, kind: 'base' }, 10,
+    { room_rule: 'sichuan', room_config: { sub_rule: 'sichuan/doubles_duplicate', duplicate_round_count: 8 } }),
+    { status: 409, message: /尚未加载基地双打复式支持/ });
 });
 
 test('every room count creates that many rooms with the same settings, password and audit', async () => {
@@ -110,6 +119,41 @@ test('automatic duplicate rooms each bind a different event key with the selecte
   }
 });
 
+test('Guobiao base rooms generate venue-scoped duplicate walls just like event rooms', async () => {
+  for (const sub_rule of ['guobiao/standard', 'guobiao/lanshi']) {
+    const { service, calls, batches } = fixture();
+    const base = { ...event, event_id: 'base_A', kind: 'base' };
+    const body = { room_count: 3, room_rule: 'guobiao', room_config: { sub_rule },
+      duplicate_enabled: true, auto_duplicate: true, duplicate_round_count: 4 };
+    const result = await service.create(base, 10, body);
+    assert.equal(result.created_count, 3);
+    assert.equal(result.generated_key_count, 3);
+    assert.equal(batches[0].body.event_id, 'base_A');
+    assert.equal(batches[0].body.scope, 'event');
+    assert.deepEqual(calls.map(call => call.body.room_config.duplicate_key), ['key_0', 'key_1', 'key_2']);
+  }
+});
+
+test('ordinary Sichuan duplicate keys and toggles are rejected before creating any key or room', async () => {
+  for (const kind of ['event', 'base']) {
+    for (const sub_rule of ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles']) {
+      for (const options of [
+        { room_config: { sub_rule, duplicate_key: 'dup_' + 'a'.repeat(32) } },
+        { room_config: { sub_rule }, duplicate_enabled: true, auto_duplicate: true },
+        { room_config: { sub_rule }, duplicate_enabled: true },
+      ]) {
+        const { service, calls, batches } = fixture();
+        await assert.rejects(service.create({ ...event, kind }, 10, { room_rule: 'sichuan', ...options }), /双打复式/);
+        assert.equal(calls.length + batches.length, 0);
+      }
+      const { service, calls, batches } = fixture();
+      await service.create({ ...event, kind }, 10, { room_rule: 'sichuan', room_config: { sub_rule, random_seed: '1234' } });
+      assert.equal(calls[0].body.room_config.random_seed, '1234');
+      assert.equal(batches.length, 0);
+    }
+  }
+});
+
 test('insufficient quota creates no rooms; invalid automatic options create no keys or rooms', async () => {
   const automatic = { room_count: 3, room_rule: 'guobiao', duplicate_enabled: true, auto_duplicate: true };
   const blocked = fixture({ quotaError: true });
@@ -129,7 +173,7 @@ test('insufficient quota creates no rooms; invalid automatic options create no k
     assert.equal(calls.length + batches.length, 0);
   }
   const { service, batches } = fixture();
-  await assert.rejects(service.create({ ...event, kind: 'base' }, 10, automatic), { status: 400 });
+  await assert.rejects(service.create({ ...event, kind: 'other' }, 10, automatic), { status: 400 });
   await assert.rejects(service.create({ ...event, status: 'closed' }, 10, automatic), { status: 400 });
   await assert.rejects(service.create(event, 10, automatic, { platformAdmin: true }), { status: 400 });
   assert.equal(batches.length, 0);
@@ -175,4 +219,24 @@ test('partial room and audit failures report committed rooms and retained keys, 
     return true;
   });
   assert.equal(failedAudit.calls.length, 1);
+});
+
+
+test('paired mode is strict and forwarded with an asynchronous default', async () => {
+  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+    for (const mode of [undefined, false, true]) {
+      const { service, calls } = fixture();
+      const room_config = { sub_rule, duplicate_round_count: 4 };
+      if (mode !== undefined) room_config.duplicate_sync_mode = mode;
+      await service.create(event, 10, { room_rule: 'sichuan', room_count: 3, room_config });
+      assert.equal(calls.length, 3);
+      assert.ok(calls.every(call => call.body.room_config.duplicate_sync_mode === (mode === true)));
+    }
+    for (const duplicate_sync_mode of ['false', 'true', 0, 1, null, [], {}]) {
+      const { service, calls, batches } = fixture();
+      await assert.rejects(service.create(event, 10, { room_rule: 'sichuan',
+        room_config: { sub_rule, duplicate_sync_mode, duplicate_round_count: 4 } }), { status: 400 });
+      assert.equal(calls.length + batches.length, 0);
+    }
+  }
 });

@@ -110,7 +110,11 @@ public partial class SoundManager {
     private void SyncSeatVoicePerspective() {
         GameRecordManager record = ActiveVoiceRecord();
         NormalGameStateManager live = NormalGameStateManager.Instance;
-        Object context = record != null ? (Object)record : live != null && live.IsGameActive ? live : null;
+        // game_end disables gameplay before the final hand/score presentation finishes.
+        // Keep that visible table in the same audio context so LateUpdate cannot cut off its win call.
+        bool hasLiveTable = live != null && (live.IsGameActive
+            || (GameCanvas.Instance != null && GameCanvas.Instance.isActiveAndEnabled));
+        Object context = record != null ? (Object)record : hasLiveTable ? live : null;
         Dictionary<int, string> map = record != null ? record.indexToPosition : context != null ? live.indexToPosition : null;
         int round = record != null ? record.currentRoundIndex : context != null ? TableMirror.Current.CurrentRound : 0;
         bool changed = context != lastVoiceContext || round != lastVoiceRound;

@@ -24,7 +24,7 @@ export function changshaRows(form) {
 }
 
 export function buildChangshaRoomPayload(form) {
-  if (String(form.duplicate_key || '').trim()) throw new Error('复式房间仅支持国标麻将和川麻血流')
+  if (String(form.duplicate_key || '').trim()) throw new Error('复式房间仅支持国标麻将和川麻双打复式')
   if (!['changsha/classic_double_bird', exchangeSixRule].includes(form.sub_rule)) throw new Error('不支持的长沙麻将子规则')
   form = form.sub_rule === exchangeSixRule ? { ...form, ...exchangeOptions } : form
   const config = { room_name: String(form.room_name || '').trim(), sub_rule: form.sub_rule }

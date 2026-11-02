@@ -1,4 +1,4 @@
-const { statisticsSelection, subRuleSql } = require('./statisticsCatalog');
+const { statisticsSelection, statisticsLadderTiers, subRuleSql } = require('./statisticsCatalog');
 const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 const pool = require('../config/database');
@@ -82,19 +82,17 @@ function appendSceneTotalRow(rows, enabled) {
   return [...rows, total];
 }
 
-function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params, { roomType = 'match' } = {}) {
-  const innerWhere = [
-    roomType === 'events'
-      ? "room_type = 'events' AND event_id IS NOT NULL"
-      : "room_type = 'match'",
-  ];
-  if (roomType !== 'events') {
-    const tierPlaceholders = LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ');
-    innerWhere.push(`match_tier IN (${tierPlaceholders})`);
-  }
+function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params, { roomType = 'match', tiers = LADDER_TIERS } = {}) {
+  const tierPlaceholders = tiers.map((_, i) => `$${i + 1}`).join(', ');
+  const ladderWhere = tiers.length ? `room_type = 'match' AND match_tier IN (${tierPlaceholders})` : 'FALSE';
+  const innerWhere = [roomType === 'events'
+    ? "room_type = 'events' AND event_id IS NOT NULL"
+    : roomType === 'custom' ? "room_type = 'custom'"
+      : roomType === 'all' ? `(room_type = 'custom' OR (${ladderWhere}))` : ladderWhere];
   innerWhere.push(...extraWhere);
+  const sceneTier = "CASE WHEN room_type = 'custom' THEN 'custom' ELSE match_tier END";
   const inner = `
-    SELECT game_id, room_type, match_tier, event_id, rule, game_type,
+    SELECT game_id, room_type, ${sceneTier} AS match_tier, event_id, rule, game_type,
            MAX(total_rounds) AS per_game_rounds,
            SUM(win_count) AS win_count,
            SUM(self_draw_count) AS self_draw_count,
@@ -116,7 +114,7 @@ function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params, { roomType =
   if (groupByTierOnly) {
     const orderSql = roomType === 'events'
       ? 'ORDER BY match_tier'
-      : "ORDER BY array_position(ARRAY['beginner','intermediate','advanced','mcrpl']::varchar[], match_tier)";
+      : "ORDER BY array_position(ARRAY['beginner','intermediate','advanced','mcrpl','elo','custom']::varchar[], match_tier)";
     return {
       sql: `
         SELECT match_tier, MAX(event_id) AS event_id, MAX(room_type) AS room_type, ${SCENE_METRIC_SUMS}
@@ -143,10 +141,10 @@ async function getAsOfStatDate() {
   return formatStatDate(result.rows[0]?.as_of);
 }
 
-async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventId } = {}) {
+async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventId, roomType = 'match' } = {}) {
   const extraWhere = [];
   let params;
-  let roomType = 'match';
+  const tiers = roomType === 'all' ? statisticsLadderTiers(rule || 'guobiao') : LADDER_TIERS;
   if (isEventScope(eventId)) {
     roomType = 'events';
     params = [];
@@ -154,9 +152,11 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventI
       params.push(String(eventId).trim());
       extraWhere.push(`(event_id = $${params.length} OR match_tier = $${params.length})`);
     }
+  } else if (roomType === 'custom') {
+    params = [];
   } else {
-    params = [...LADDER_TIERS];
-    if (tier && LADDER_TIERS.includes(tier)) {
+    params = [...tiers];
+    if (tier && tiers.includes(tier)) {
       params.push(tier);
       extraWhere.push(`match_tier = $${params.length}`);
     }
@@ -175,7 +175,7 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventI
   extraWhere.push(`sub_rule = $${params.length}`);
   const groupByTierOnly = detail !== '1';
   const { sql, params: queryParams } = buildSceneTotalsQuery(
-    groupByTierOnly, extraWhere, params, { roomType },
+    groupByTierOnly, extraWhere, params, { roomType, tiers },
   );
   const result = await pool.query(sql, queryParams);
   return appendSceneTotalRow(result.rows.map(mapTotalsRow), groupByTierOnly);
@@ -202,10 +202,32 @@ function fillFanByTier(rawByTier) {
   return fillFanByKeys(rawByTier, LADDER_TIERS);
 }
 
-async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
+// 自定义没有 match_tier，不在 scene_tier_fan_daily 中；直接按相同统计日汇总原始番种。
+async function queryCustomFans(subRule, asOfDate) {
+  const params = [subRule];
+  const where = ["room_type = 'custom'", 'sub_rule = $1'];
+  if (asOfDate) {
+    params.push(asOfDate);
+    where.push(`${STAT_DATE_EXPR} <= $${params.length}::date`);
+  }
+  const result = await pool.query(
+    `SELECT fan.key AS fan_field, SUM(fan.value::int)::int AS fan_count
+     FROM game_player_metrics
+     CROSS JOIN LATERAL jsonb_each_text(COALESCE(fan_stats, '{}'::jsonb)) fan
+     WHERE ${where.join(' AND ')}
+     GROUP BY fan.key`, params,
+  );
+  return Object.fromEntries(result.rows.map(row => [row.fan_field, Number(row.fan_count) || 0]));
+}
+
+async function querySceneTotalsFans({ asOfDate, tier, rule, eventId, roomType = 'match' } = {}) {
   const def = statisticsSelection(rule || "guobiao");
   if (!def?.fan_stats) return {};
   const fanKeys = Object.keys(INFO_FAN_DICT[def.sub_rule] || {});
+  if (!isEventScope(eventId) && roomType === 'custom') {
+    return fillFanByKeys({ custom: await queryCustomFans(def.sub_rule, asOfDate) }, ['custom'], fanKeys);
+  }
+  const tiers = roomType === 'all' ? statisticsLadderTiers(def.key) : LADDER_TIERS;
   const where = [];
   const params = [];
   if (isEventScope(eventId)) {
@@ -217,9 +239,9 @@ async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
     }
   } else {
     const start = params.length;
-    params.push(...LADDER_TIERS);
-    where.push(`match_tier IN (${LADDER_TIERS.map((_, i) => `$${start + i + 1}`).join(', ')})`);
-    if (tier && LADDER_TIERS.includes(tier)) {
+    params.push(...tiers);
+    where.push(tiers.length ? `match_tier IN (${tiers.map((_, i) => `$${start + i + 1}`).join(', ')})` : 'FALSE');
+    if (tier && tiers.includes(tier)) {
       params.push(tier);
       where.push(`match_tier = $${params.length}`);
     }
@@ -249,10 +271,14 @@ async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
       : [String(eventId).trim()];
     return fillFanByKeys(rawByTier, keys, fanKeys);
   }
-  return fillFanByKeys(rawByTier, LADDER_TIERS, fanKeys);
+  if (roomType === 'all') {
+    rawByTier.custom = await queryCustomFans(def.sub_rule, asOfDate);
+    return fillFanByKeys(rawByTier, [...tiers, 'custom'], fanKeys);
+  }
+  return fillFanByKeys(rawByTier, tiers, fanKeys);
 }
 
-async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType, rule, eventId } = {}) {
+async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType, rule, eventId, roomType = 'match' } = {}) {
   const where = [];
   const params = [];
   if (isEventScope(eventId)) {
@@ -261,6 +287,11 @@ async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType
       params.push(String(eventId).trim());
       where.push(`(event_id = $${params.length} OR match_tier = $${params.length})`);
     }
+  } else if (roomType === 'custom') {
+    where.push("room_type = 'custom'");
+  } else if (roomType === 'all') {
+    params.push(statisticsLadderTiers(rule || 'guobiao'));
+    where.push("(room_type = 'custom' OR (room_type = 'match' AND match_tier = ANY($1::varchar[])))");
   } else {
     where.push("room_type = 'match'");
     params.push(...LADDER_TIERS);
@@ -289,11 +320,12 @@ async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType
   if (!def) return [];
   params.push(def.sub_rule);
   where.push(`sub_rule = $${params.length}`);
+  const sceneTier = "CASE WHEN room_type = 'custom' THEN 'custom' ELSE match_tier END";
   const result = await pool.query(
-    `SELECT stat_date, match_tier, SUM(total_games)::int AS total_games
+    `SELECT stat_date, ${sceneTier} AS match_tier, SUM(total_games)::int AS total_games
      FROM scene_daily_stats
      WHERE ${where.join(' AND ')}
-     GROUP BY stat_date, match_tier
+     GROUP BY stat_date, ${sceneTier}
      ORDER BY stat_date ASC, match_tier`,
     params
   );
@@ -340,10 +372,10 @@ async function queryHomeHierarchyStats() {
 }
 
 /**
- * 平台最近牌谱（天梯或比赛场，与数据站对局记录字段对齐，含同桌玩家）
- * @param {{ matchTier?: string|null, eventId?: string|null, limit?: number, offset?: number }} opts
+ * 平台最近牌谱（匹配、自定义或比赛场，与数据站对局记录字段对齐，含同桌玩家）
+ * @param {{ matchTier?: string|null, eventId?: string|null, roomType?: string, limit?: number, offset?: number }} opts
  */
-async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, eventId = null, limit = 20, offset = 0 } = {}) {
+async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, eventId = null, roomType = 'match', limit = 20, offset = 0 } = {}) {
   return withRecordMetadataQuery(pool, async (db) => {
     const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
     const off = Math.max(0, parseInt(offset, 10) || 0);
@@ -358,6 +390,11 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
         params.push(String(eventId).trim());
         conditions.push(`gpr.event_id = $${params.length}`);
       }
+    } else if (roomType === 'custom') {
+      conditions.push("gpr.room_type = 'custom'");
+    } else if (roomType === 'all') {
+      params.push(statisticsLadderTiers(rule));
+      conditions.push(`(gpr.room_type = 'custom' OR (gpr.room_type = 'match' AND gpr.match_tier = ANY($${params.length}::varchar[])))`);
     } else {
       conditions.push(`gpr.room_type = 'match'`);
       if (matchTier && LADDER_TIERS.includes(matchTier)) {

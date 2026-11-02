@@ -41,7 +41,7 @@ public static class VariantLobbyValidation {
         var table = baker.GetMethod("ReadWorkbook").Invoke(null, null);
         var rows = (string[][])table.GetType().GetField("Rows").GetValue(table);
         foreach (var identity in new[] { "filipino/classic16", "vietnamese/classic160" })
-            Check(identity + " support row", rows.Count(row => row[5] == identity && !row[10].Contains("未合并")) == 1);
+            Check(identity + " support row", rows.Count(row => row.Length == 10 && row[5] == identity) == 1);
         var catalog = CreateRoomRuleTextConfigCatalog.Rules;
         foreach (var source in panels) {
             var preview = EditorSceneManager.NewPreviewScene();

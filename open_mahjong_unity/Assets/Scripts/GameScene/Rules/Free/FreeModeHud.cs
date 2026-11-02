@@ -2,43 +2,44 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>自由模式工具箱。主布局保存在预制体，运行时绑定状态并补充上下文操作。</summary>
 public sealed class FreeModeHud : MonoBehaviour {
     [Serializable] public sealed class ScoreRow {
         public GameObject root;
-        public Text name;
-        public Text seat;
-        public InputField input;
+        public TMP_Text name;
+        public TMP_Text seat;
+        public TMP_InputField input;
     }
     public RectTransform toolbox;
     public RectTransform quickBar;
     public Button openButton, closeButton, configurationButton;
     public GameObject configurationTabs;
     public Button[] quickDestinationButtons;
-    public Text summary, voteSummary, drawerTitle;
+    public TMP_Text summary, voteSummary, drawerTitle;
     public Toggle[] voteToggles;
     public Button[] pageButtons;
     public GameObject[] pages;
     public Toggle[] destinationToggles;
     public FreeModeTileView transferTile;
-    public Text transferHint;
+    public TMP_Text transferHint;
     public Button takeTransferButton;
     public Button[] recallButtons;
-    public Text recallHint;
+    public TMP_Text recallHint;
     public RectTransform recallContent, recallMeldContent;
     public ScrollRect recallScroll;
     public FreeModeMeldRow meldTemplate;
     public Toggle includeRiverToggle;
-    public Text meldHint, handCount;
+    public TMP_Text meldHint, handCount;
     public Button createMeldButton, clearSelectionButton;
     public RectTransform selectionContent, handContent;
-    public Text handEmpty;
+    public TMP_Text handEmpty;
     public ScrollRect handScroll;
     public FreeModeTileView tileTemplate;
     public ScoreRow[] scoreRows;
     public Button commitScoresButton, cancelScoresButton;
-    public Text scoreHint;
+    public TMP_Text scoreHint;
 
     private static readonly string[] VoteKeys = { "blank", "end_round", "restart_round", "end_match" };
     private static readonly string[] VoteNames = { "继续本局", "结束本局", "重新本局", "结束对局" };
@@ -56,10 +57,10 @@ public sealed class FreeModeHud : MonoBehaviour {
     private int displayedRevision = -1;
     private string handSnapshot, recallSnapshot;
     private int? previousRiver, previousRiverPlayer;
-    private Text openButtonLabel, configurationButtonLabel;
+    private TMP_Text openButtonLabel, configurationButtonLabel;
     private FreeModeActivityPanel activityPanel;
     private Button transferFaceButton;
-    private Text transferFaceLabel;
+    private TMP_Text transferFaceLabel;
     private readonly List<FreeModeTileView> transferViews = new List<FreeModeTileView>();
     private readonly HashSet<int> selectedTransfer = new HashSet<int>();
     private static readonly string[] PageNames = { "收回手牌", "创建副露", "配置", "配置" };
@@ -68,8 +69,8 @@ public sealed class FreeModeHud : MonoBehaviour {
         state = owner;
         if (!bound) {
             bound = true;
-            openButtonLabel = openButton.GetComponentInChildren<Text>(true);
-            configurationButtonLabel = configurationButton.GetComponentInChildren<Text>(true);
+            openButtonLabel = openButton.GetComponentInChildren<TMP_Text>(true);
+            configurationButtonLabel = configurationButton.GetComponentInChildren<TMP_Text>(true);
             openButton.onClick.AddListener(() => {
                 if (activityPanel != null) activityPanel.SetExpanded(!activityPanel.IsExpanded);
             });
@@ -233,7 +234,7 @@ public sealed class FreeModeHud : MonoBehaviour {
         voteSummary.text = "在座玩家的选择\n" + string.Join("\n", votes);
         summary.text = TableMirror.Current.IndexToPosition.Count + " 人在座   ·   出牌至「" + DestNames[(int)state.DiscardDest] + "」";
         if (pageButtons.Length > 3)
-            pageButtons[3].GetComponentInChildren<Text>(true).text = activeVotes > 0 ? "投票 · " + activeVotes + " 人" : "投票";
+            pageButtons[3].GetComponentInChildren<TMP_Text>(true).text = activeVotes > 0 ? "投票 · " + activeVotes + " 人" : "投票";
         if (configurationButtonLabel != null)
             configurationButtonLabel.text = activeVotes > 0 ? "配置\n" + activeVotes + " 人投票" : "配置";
         RefreshToolButtons();
@@ -292,10 +293,10 @@ public sealed class FreeModeHud : MonoBehaviour {
         rect.pivot = new Vector2(1f, 0.5f);
         rect.anchoredPosition = new Vector2(-8f, 0f);
         rect.sizeDelta = new Vector2(88f, 88f);
-        transferFaceLabel = transferFaceButton.GetComponentInChildren<Text>(true);
-        transferFaceLabel.resizeTextForBestFit = true;
-        transferFaceLabel.resizeTextMinSize = 14;
-        transferFaceLabel.resizeTextMaxSize = 32;
+        transferFaceLabel = transferFaceButton.GetComponentInChildren<TMP_Text>(true);
+        transferFaceLabel.enableAutoSizing = true;
+        transferFaceLabel.fontSizeMin = 14;
+        transferFaceLabel.fontSizeMax = 32;
         transferFaceButton.gameObject.SetActive(false);
     }
 
@@ -351,7 +352,7 @@ public sealed class FreeModeHud : MonoBehaviour {
         }
         transferHint.text = "转移区 " + state.TransferTiles.Count + "/3\n点击选牌，可多选";
         takeTransferButton.interactable = selectedTransfer.Count > 0;
-        takeTransferButton.GetComponentInChildren<Text>(true).text = selectedTransfer.Count > 0
+        takeTransferButton.GetComponentInChildren<TMP_Text>(true).text = selectedTransfer.Count > 0
             ? "收回（" + selectedTransfer.Count + " 张）" : "请选择牌";
     }
 

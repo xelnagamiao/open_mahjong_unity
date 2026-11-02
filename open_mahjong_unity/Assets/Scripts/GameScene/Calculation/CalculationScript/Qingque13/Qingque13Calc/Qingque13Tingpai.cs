@@ -72,6 +72,35 @@ namespace Qingque13
 
             normal_check(player_tiles); // 一般型检查
 
+            // Count physical tiles in both the concealed hand and declared melds.
+            // Shape decomposition alone can otherwise propose a fifth copy.
+            var counts = new Dictionary<int, int>();
+            void CountTile(int tile)
+            {
+                counts.TryGetValue(tile, out int count);
+                counts[tile] = count + 1;
+            }
+            foreach (int tile in player_tiles.hand_tiles) CountTile(tile);
+            foreach (string meld in player_tiles.combination_list)
+            {
+                int tile = int.Parse(meld.Substring(1));
+                switch (char.ToLowerInvariant(meld[0]))
+                {
+                    case 's':
+                        CountTile(tile - 1);
+                        CountTile(tile);
+                        CountTile(tile + 1);
+                        break;
+                    case 'k':
+                    case 'g':
+                        int copies = char.ToLowerInvariant(meld[0]) == 'g' ? 4 : 3;
+                        for (int i = 0; i < copies; i++) CountTile(tile);
+                        break;
+                }
+            }
+            if (counts.Values.Any(count => count > 4)) waiting_tiles.Clear();
+            else waiting_tiles.RemoveWhere(tile => counts.TryGetValue(tile, out int count) && count >= 4);
+
             DebugPrint("等待牌: {0}", string.Join(", ", waiting_tiles));
 
             return waiting_tiles;

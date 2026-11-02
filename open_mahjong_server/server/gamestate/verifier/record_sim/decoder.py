@@ -176,7 +176,7 @@ def accumulate_score_changes_from_tick(score_changes: Optional[List[int]], tick:
             sc = parse_score_changes_array(tick, 6)
         elif step == "chajiao":
             sc = parse_score_changes_array(tick, 5)
-        elif step == "cha_refund":
+        elif step in ("cha_refund", "settle_gang"):
             sc = parse_score_changes_array(tick, 2)
     by_original = convert_score_changes_to_original(sc, seats)
     if by_original is None:

@@ -6,7 +6,9 @@ import random
 import time
 from typing import Any, Optional, Sequence
 
-from .rules import classify_meld
+from .profile import heavenly, rules_for
+from .settlement import win_score_changes
+from .w_rules import is_w
 from .player import HongquePlayer
 from .action_check import (
     can_self_draw_win,
@@ -91,6 +93,9 @@ class HongqueGameState:
         self.gamestate_id = gamestate_id
         self.room_rule = "hongque"
         self.sub_rule = room_data.get("sub_rule", "hongque/v1.6")
+        self.hongque_colourless = room_data.get("hongque_colourless", True) is not False
+        self.hongque_min_fan = int(room_data.get("hongque_min_fan", 0) or 0)
+        self.hongque_min_points = int(room_data.get("hongque_min_points", 0) or 0)
         self.room_type = room_data.get("room_type", "custom")
         self.allow_spectator_config = bool(room_data.get("allow_spectator", True))
         self.realtime_spectators: list = []
@@ -142,6 +147,9 @@ class HongqueGameState:
         self.current_player_index = 0
         self.state_machine = HongqueStateMachine()
         self.action_priority = dict(HONGQUE_ACTION_PRIORITY)
+        from .w_rules import is_w, PRIORITY
+        if is_w(self):
+            self.action_priority.update(PRIORITY)
         self.wall: list[str] = []
         self.backward_tiles_list_type = "double"
         self.last_discard: Optional[dict] = None
@@ -248,6 +256,13 @@ class HongqueGameState:
                     break
                 case _:
                     await asyncio.sleep(0.05)
+
+        # END ends the action loop, not the lifetime of the game. Keep terminal
+        # delivery and cleanup owned by game_task so GameStateManager.run_game
+        # cannot cancel a still-running round task as an early-return failure.
+        if self._round_task is not None:
+            await self._round_task
+        await self._complete_game_lifecycle()
 
     async def _pause_checkpoint(self) -> None:
         vote = getattr(self, "vote_manager", None)
@@ -471,7 +486,7 @@ class HongqueGameState:
             player.drawn_tile = None
         claimed_tile = player.melds[candidate["meld_index"]].get("claimed_tile")
         player.melds[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
-        player.melds[candidate["meld_index"]]["kind"] = classify_meld(
+        player.melds[candidate["meld_index"]]["kind"] = rules_for(self).classify_meld(
             candidate["tiles"]
         ).kind
         self._record_event(
@@ -506,13 +521,19 @@ class HongqueGameState:
         self.turn_started_at = None
         self.claim_started_at = None
         self.claim_deadlines.clear()
+        history_rows = []
         if winners:
             score_changes: dict[str, int] = {}
             winner_results = []
+            discarder = self.last_discard["player"] if reason == "ron" and not is_w(self) else None
             for winner, result in winners:
                 points = result["points"]
-                winner.score += points
-                score_changes[str(winner.index)] = points
+                changes = win_score_changes(winner.index, points, discarder)
+                history_rows.append(changes)
+                for player in self.players:
+                    delta = changes.get(str(player.index), 0)
+                    player.score += delta
+                    score_changes[str(player.index)] = score_changes.get(str(player.index), 0) + delta
                 winner_results.append({
                     "player": winner.index,
                     "hand": result["winning_hand"],
@@ -523,6 +544,7 @@ class HongqueGameState:
                     "fans": result["fans"],
                     "fan_total": result["fan_total"],
                     "points": points,
+                    "score_changes": changes,
                     "melds": list(winner.melds),
                 })
             # Ron winners are ordered by distance from the discarder.  The
@@ -550,19 +572,14 @@ class HongqueGameState:
                 "scores": {str(player.index): player.score for player in self.players},
             }
             self._record_event("draw_game", players=[])
-        record_round_result(self, winners, reason)
+        record_round_result(self, winners, reason, history_rows)
         # 与通用计分板一致：多家和的每位赢家各占一行，局号可重复；流局占一行 0。
-        history_rows = [
-            {str(winner.index): int(result["points"])}
-            for winner, result in winners
-        ] or [{}]
-        for row in history_rows:
+        for row in history_rows or [{}]:
             for player in self.players:
                 delta = int(row.get(str(player.index), 0) or 0)
                 player.score_history.append(f"+{delta}" if delta > 0 else str(delta))
                 player.round_number_history.append(self.current_round)
         self._advance_tick()
-        await self.broadcast_state()
         # 客户端按服务端 fans 数组逐条展示；最后面板的时长只取最后一位赢家的条目数。
         fan_count = len(winners[-1][1].get("fans", ())) if winners else 0
         # round_end 后允许提前接收 ready，以容忍客户端与服务端动画时钟的小偏移；
@@ -572,6 +589,21 @@ class HongqueGameState:
             player.index for player in self.players if player.is_bot
         }
         self._ready_event.clear()
+        from ..public.settlement_sync import begin_ready, prepare_packet
+        # Establish the result identity and the complete presentation deadline
+        # before any recipient sees the round-end snapshot.
+        from .boardcast import state_packet
+        prepare_packet(self, state_packet(self, 0), 0)
+        duration = liuju_ready_wait_seconds()
+        if winners:
+            duration = hu_result_ready_wait_seconds(fan_count)
+            if len(winners) > 1:
+                duration = hu_result_ready_pre_panel_seconds() + sum(
+                    sichuan_settle_hu_panel_wait_seconds(len(item[1].get("fans", ())), is_final=False)
+                    for item in winners[:-1]
+                ) + hu_result_ready_wait_seconds(fan_count, pre_panel_delay_sec=0.0)
+        begin_ready(self, duration, clock=time.monotonic)
+        await self.broadcast_state()
         self._round_task = asyncio.create_task(
             self._complete_round_after_result(
                 bool(winners), fan_count, multi_ron=len(winners) > 1
@@ -617,7 +649,10 @@ class HongqueGameState:
         wait_time = hu_result_ready_wait_seconds(
             fan_count, pre_panel_delay_sec=pre_panel_delay_sec
         ) + extra_seconds
-        deadline = time.monotonic() + wait_time
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        remaining = ready_remaining(self)
+        deadline = (begin_ready(self, wait_time, clock=time.monotonic) if remaining is None
+                    else time.monotonic() + remaining)
         panel_visible_at = (
             time.monotonic()
             + pre_panel_delay_sec
@@ -688,7 +723,6 @@ class HongqueGameState:
                 "paused", "resume_voting", "resume_countdown"
             }:
                 await asyncio.sleep(0.05)
-            game_ended = False
             async with self._lock:
                 if self.phase != "round_end":
                     return
@@ -699,13 +733,12 @@ class HongqueGameState:
                     self.message = "虹雀对局结束"
                     self._advance_tick()
                     await self.broadcast_state()
-                    game_ended = True
                 else:
                     await self._start_round()
-            if game_ended:
-                await self._complete_game_lifecycle()
         except asyncio.CancelledError:
-            return
+            # The main game task awaits the final round. Cancellation must reach
+            # that owner instead of turning an interrupted round into a normal end.
+            raise
 
     async def _complete_game_lifecycle(self) -> None:
         persist_and_remember(self)
@@ -725,7 +758,7 @@ class HongqueGameState:
             return {
                 "tile": viewer.drawn_tile or (viewer.hand[-1] if viewer.hand else None),
                 "self_draw": True,
-                "before_first_discard": not any(item.discards for item in self.players),
+                "before_first_discard": heavenly(self, viewer),
                 "wall_empty": not self.wall,
             }
         if self.phase == "claim" and "claim" in actions and self.last_discard is not None:

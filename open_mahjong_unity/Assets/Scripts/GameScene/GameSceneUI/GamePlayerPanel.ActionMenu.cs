@@ -9,7 +9,6 @@ public partial class GamePlayerPanel {
     const string RecordPerspectiveSpritePath = "Icon/iconmonstr.com/iconmonstr-arrow-right-circle-lined-240";
     const string StickerIconPath = "Icon/iconmonstr.com/iconmonstr-x-mark-square-lined-240";
     const string StickerMutedIconPath = "Icon/iconmonstr.com/iconmonstr-x-mark-square-filled-240";
-    const string MenuFontResource = "font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular SDF";
     const float MenuButtonSize = 76f;
 
     static readonly Color MenuBg = new Color(0.08f, 0.08f, 0.1f, 0.94f);
@@ -113,7 +112,7 @@ public partial class GamePlayerPanel {
     void RefreshMuteVisual() {
         bool muted = IsStickerMutedForBoundPlayer();
         ApplyMuteIconsToButton();
-        if (muteButtonLabel != null) muteButtonLabel.text = muted ? "显示" : "屏蔽";
+        if (muteButtonLabel != null) TableText.Set(muteButtonLabel, muted ? "显示" : "屏蔽");
         Image muteBg = muteButton != null ? muteButton.GetComponent<Image>() : null;
         if (muteBg != null) muteBg.color = muted ? ButtonMutedBg : ButtonBg;
     }
@@ -254,7 +253,7 @@ public partial class GamePlayerPanel {
         labelGo.layer = gameObject.layer;
         labelGo.transform.SetParent(go.transform, false);
         TextMeshProUGUI tmp = labelGo.GetComponent<TextMeshProUGUI>();
-        TMP_FontAsset font = Resources.Load<TMP_FontAsset>(MenuFontResource);
+        TMP_FontAsset font = PlatformTypography.ChineseRegular;
         if (font != null) tmp.font = font;
         tmp.text = label;
         tmp.fontSize = 16f;

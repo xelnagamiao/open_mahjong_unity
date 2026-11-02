@@ -39,8 +39,27 @@ public partial class CreatePanel {
     }
 
 
-    private static void RoomDropdownTemplateHeight(TMP_Dropdown dropdown) {
-        if (dropdown.template)
-            dropdown.template.sizeDelta = new Vector2(0, Mathf.Min(540, dropdown.options.Count * 52 + 8));
+    private void RoomDropdownTemplateHeight(TMP_Dropdown dropdown) {
+        if (!dropdown.template) return;
+        float height = Mathf.Min(540, dropdown.options.Count * 52 + 8);
+        if ((dropdown == chooseRule || dropdown == SubRuleDropdown) && dropdown.itemText) {
+            var label = dropdown.itemText;
+            float savedSize = label.fontSize;
+            bool savedAutoSize = label.enableAutoSizing;
+            label.enableAutoSizing = false;
+            label.fontSize = RoomRuleItemFontSize;
+            float width = ((RectTransform)dropdown.transform).rect.width;
+            foreach (var option in dropdown.options)
+                width = Mathf.Max(width, label.GetPreferredValues(PlatformText.Get(option.text), float.PositiveInfinity, float.PositiveInfinity).x + 40);
+            label.fontSize = savedSize;
+            label.enableAutoSizing = savedAutoSize;
+            width = Mathf.Max(((RectTransform)dropdown.transform).rect.width, Mathf.Min(560, width));
+            dropdown.template.anchorMin = dropdown.template.anchorMax = Vector2.zero;
+            dropdown.template.pivot = new Vector2(0, 1);
+            dropdown.template.anchoredPosition = new Vector2(0, -5);
+            dropdown.template.sizeDelta = new Vector2(width, height);
+        } else {
+            dropdown.template.sizeDelta = new Vector2(0, height);
+        }
     }
 }

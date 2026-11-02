@@ -1,6 +1,10 @@
 import { hongKongRulebooks } from './hongKongRulebooks.js'
 import { milRulebooks } from './milRulebooks.js'
 import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from './shangraoRulebooks.js'
+import { duocaiRulebooks, DUOCAI_DESCRIPTION } from './duocaiRulebooks.js'
+import { beijingRulebooks, BEIJING_DESCRIPTION } from './beijingRulebooks.js'
+import { hongqueRulebooks } from './hongqueRulebooks.js'
+import { FORMULA_RULEBOOK } from './formulaRulebook.js'
 
 /**
  * 麻雀图书馆规则目录
@@ -44,6 +48,8 @@ export const LIBRARY_SECTIONS = [
 ]
 
 export const LIBRARY_RULES = [
+  { key: 'beijing', label: '北京麻将（吃碰提）', short: '北京', categories: ['platform', 'local'], accent: '#925a46', description: BEIJING_DESCRIPTION, resources: beijingRulebooks },
+  { key: 'duocai', label: '夺彩麻将', short: '夺彩', categories: ['platform', 'custom'], accent: '#8b6b32', description: DUOCAI_DESCRIPTION, resources: duocaiRulebooks },
   {
     key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
     description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
@@ -148,6 +154,7 @@ export const LIBRARY_RULES = [
         url: '/rulebooks/riichi-rulebook.pdf',
         filename: 'GGHK-Riichi-Mahjong-Rulebook-CN.pdf',
       },
+      FORMULA_RULEBOOK,
     ],
   },
   {
@@ -204,20 +211,12 @@ export const LIBRARY_RULES = [
   },
   {
     key: 'hongque',
-    label: '虹雀²',
-    short: '虹雀²',
+    label: '虹雀',
+    short: '虹雀',
     categories: ['platform', 'custom'],
-    description:
-      '虹雀是由Null设计的一款以彩虹为主题的拉密类桌游，使用十四种花色、九种数字各一张的麻将牌，最先将手牌全部组成顺子或刻子的玩家赢得一局。牌组的种类千变万化，各种起手都存在无限的可能。游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加虹雀官方Q群497685219一同交流。',
+    description: '',
     accent: '#f97316',
-    resources: [
-      {
-        title: '虹雀² v1.6 规则书',
-        desc: '虹雀² v1.6 规则书，包含基本规则、番种说明及牌例。',
-        url: '/rulebooks/hongque-v1.6.pdf',
-        filename: '虹雀² v1.6.pdf',
-      },
-    ],
+    resources: hongqueRulebooks,
   },
   {
     key: 'classical',

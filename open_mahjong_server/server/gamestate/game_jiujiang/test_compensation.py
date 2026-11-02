@@ -55,11 +55,21 @@ async def settle_and_check(state, winner, payer, tile, expected, expected_flower
         assert player.score_history == [f'{delta:+d}' if delta else '0']
         assert player.round_number_history == [4]
         socket = state.game_server.user_id_to_connection[player.user_id].websocket
-        socket.send_json.assert_any_await(state._terminal_result)
+        delivered = next(call.args[0] for call in socket.send_json.await_args_list
+                         if call.args[0]['type'] == state._terminal_result['type'])
+        assert delivered['show_result_info'] == result
+        assert delivered['gamestate_id'] == state.gamestate_id
+        result_id = delivered['settlement_sync']['result_id']
+        assert result_id
         socket.reset_mock()
         with patch.object(TaiwanGameState, 'player_reconnect', AsyncMock()):
             await state.player_reconnect(player.user_id)
-        socket.send_json.assert_awaited_once_with(state._terminal_result)
+        socket.send_json.assert_awaited_once()
+        restored = socket.send_json.await_args.args[0]
+        assert restored['type'] == delivered['type']
+        assert restored['show_result_info'] == result
+        assert restored['gamestate_id'] == state.gamestate_id
+        assert restored['settlement_sync']['result_id'] == result_id
         assert player.score == before[player.original_player_index] + delta
         assert len(player.score_history) == 1
     payment_tick = next(t for t in ticks(state) if t[:2] == ['jiujiang', 'payments'])

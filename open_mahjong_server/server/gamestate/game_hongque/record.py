@@ -28,7 +28,7 @@ from .tile import HongqueTile
 
 COLOUR_CODES = (
     "AX", "AY", "BX", "BY", "CX", "CY", "DX",
-    "DY", "EX", "EY", "FX", "FY", "GX", "GY",
+    "DY", "EX", "EY", "FX", "FY", "GX", "GY", "HX",
 )
 BASE_ID = 1000
 
@@ -59,7 +59,7 @@ def fan_labels(fans) -> list[str]:
     """Keep achievement count and authoritative fan value in separate fields.
 
     Unity reads the final ``|total``; statistics read the optional ``*count``.
-    A repeated two-fan pattern therefore becomes ``双同顺*2|4``.
+    A repeated two-fan pattern therefore becomes ``双同花*2|4``.
     """
     labels: list[str] = []
     for item in fans or ():
@@ -76,7 +76,7 @@ def fan_labels(fans) -> list[str]:
 
 
 def chi_action_type(claimed: str, tiles: Sequence[str]) -> str:
-    ranked = sorted(tiles, key=lambda tile: (HongqueTile.parse(tile).number, tile))
+    ranked = sorted(tiles, key=lambda tile: (int(tile[2]), tile))
     try:
         index = ranked.index(claimed)
     except ValueError:
@@ -99,6 +99,16 @@ def _ensure_round(game_state) -> bool:
 def snapshot_round_header(game_state) -> None:
     if not getattr(game_state, "game_record", None) or not game_state.game_record.get("game_title"):
         init_game_record(game_state)
+    if getattr(game_state, "sub_rule", None) == "hongque/w-v1.0":
+        game_state.game_record["game_title"]["detailed_config"] = {
+            "hongque_colourless": game_state.hongque_colourless,
+            "hongque_min_fan": game_state.hongque_min_fan,
+            "hongque_min_points": game_state.hongque_min_points,
+        }
+    else:
+        # The persisted sub-rule identifies the continuous rating/statistics
+        # series; record the rules revision independently for new games.
+        game_state.game_record["game_title"].setdefault("detailed_config", {})["hongque_rule_version"] = "1.7"
     game_state.tiles_list = wall_tiles_list_for_record(game_state.wall)
     init_game_round(game_state)
     game_state.spectator_manager.record_game_title()
@@ -130,11 +140,17 @@ def record_kong(game_state, player, candidate: dict) -> None:
     hand_tiles = list(candidate.get("hand_tiles") or ())
     if not hand_tiles:
         return
-    tile_id = code_to_id(hand_tiles[0])
     is_mo = player.drawn_tile in hand_tiles
+    if is_mo:
+        hand_tiles.remove(player.drawn_tile)
+        hand_tiles.insert(0, player.drawn_tile)
+    tile_id = code_to_id(hand_tiles[0])
     # 虹雀可扩展任意明牌，不能沿用“最后一组”的隐含约定。
     # 当前格式：[jg, 追加牌, 摸杠标记, 目标副露索引]；旧谱需独立离线核验，不在运行时猜测目标。
-    append_action_tick(game_state, ["jg", tile_id, "T" if is_mo else "F", int(candidate["meld_index"])])
+    tick = ["jg", tile_id, "T" if is_mo else "F", int(candidate["meld_index"])]
+    if len(hand_tiles) > 1:
+        tick.append(codes_to_ids(hand_tiles))
+    append_action_tick(game_state, tick)
 
 
 def record_claim_apply(game_state, player_index: int, candidate: dict) -> None:
@@ -155,7 +171,7 @@ def record_claim_execute(game_state, player, candidate: dict) -> None:
     kind = candidate.get("kind")
     hand_tiles = list(candidate.get("hand_tiles") or ())
     tiles = list(candidate.get("tiles") or ())
-    if kind == "triplet":
+    if kind == "triplet" or candidate.get("action_type", "").startswith("peng_"):
         action_type = "peng"
     else:
         action_type = chi_action_type(claimed, tiles)
@@ -184,14 +200,7 @@ def record_unclaimed_discard(game_state) -> None:
     flush_unexecuted_claim_applications(game_state, code_to_id(game_state.last_discard["tile"]))
 
 
-def _score_changes(game_state, winners: list[tuple]) -> list[int]:
-    changes = [0, 0, 0, 0]
-    for winner, result in winners:
-        changes[winner.index] = int(result.get("points") or 0)
-    return changes
-
-
-def record_round_result(game_state, winners: list[tuple], reason: str) -> None:
+def record_round_result(game_state, winners: list[tuple], reason: str, score_rows: list[dict[str, int]]) -> None:
     if not _ensure_round(game_state):
         return
     if not winners:
@@ -201,7 +210,7 @@ def record_round_result(game_state, winners: list[tuple], reason: str) -> None:
     discarder = None
     if reason == "ron" and game_state.last_discard:
         discarder = game_state.last_discard["player"]
-    for winner, result in winners:
+    for (winner, result), changes in zip(winners, score_rows, strict=True):
         if reason == "self_draw":
             hu_class = "hu_self"
         else:
@@ -214,7 +223,7 @@ def record_round_result(game_state, winners: list[tuple], reason: str) -> None:
             hu_score=int(result.get("points") or 0),
             hu_fan=fan_labels(result.get("fans")),
             hepai_player_index=winner.index,
-            score_changes=_score_changes(game_state, [(winner, result)]),
+            score_changes=[changes.get(str(index), 0) for index in range(4)],
             hepai_tile=hepai_tile,
             multi_ron=len(winners) > 1,
             ron_discarder_index=discarder if reason == "ron" else None,

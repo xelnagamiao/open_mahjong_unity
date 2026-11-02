@@ -14,6 +14,11 @@ public class ActivityItem : MonoBehaviour {
     [SerializeField] private GameObject badgeRoot;
     [SerializeField] private Image badgeImage;
     [SerializeField] private Color badgeColor = new Color(0.91f, 0.22f, 0.22f, 1f);
+    [SerializeField] private Graphic surface;
+    [SerializeField] private bool customPalette;
+    [SerializeField] private Color restingFill, selectedFill, restingInk, selectedInk;
+    [SerializeField] private TMP_Text dateText, endedText;
+    [SerializeField] private GameObject selectedEdge;
 
     private static readonly Color SelectedTint = new Color(1f, 0.82f, 0.42f, 1f);
     private static readonly Color NormalBg = new Color(0.08f, 0.11f, 0.18f, 1f);
@@ -60,6 +65,8 @@ public class ActivityItem : MonoBehaviour {
                 : "未命名活动";
         }
         SetDescription(entry != null ? entry.description : null);
+        if (dateText != null) dateText.text = NoticeDate(entry != null ? entry.updated_at : null, "MM.dd");
+        if (endedText != null) endedText.gameObject.SetActive(entry != null && ActivityStatus.IsEnded(entry.status, entry.ended));
         RefreshBadge();
         if (_button == null) return;
         _button.onClick.RemoveAllListeners();
@@ -74,6 +81,12 @@ public class ActivityItem : MonoBehaviour {
     }
 
     private void ApplySelected() {
+        if (customPalette) {
+            if (surface != null) surface.color = _selected ? selectedFill : restingFill;
+            if (titleText != null) titleText.color = _selected ? selectedInk : restingInk;
+            if (selectedEdge != null) selectedEdge.SetActive(_selected);
+            return;
+        }
         if (_background != null) {
             _background.color = _selected ? SelectedTint : NormalBg;
         }
@@ -123,5 +136,10 @@ public class ActivityItem : MonoBehaviour {
         Navigation nav = _button.navigation;
         nav.mode = Navigation.Mode.None;
         _button.navigation = nav;
+    }
+
+    public static string NoticeDate(string value, string format) {
+        return System.DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date) ? date.ToString(format) : "";
     }
 }

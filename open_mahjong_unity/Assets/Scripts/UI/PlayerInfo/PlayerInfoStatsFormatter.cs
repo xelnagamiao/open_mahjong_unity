@@ -42,22 +42,20 @@ public static class PlayerInfoStatsFormatter {
     }
 
     public static string ModeCaption(string rule, string mode, bool ranked) {
-        if (string.IsNullOrEmpty(mode)) return RuleName(rule) + "总计" + CategorySuffix(rule, ranked);
-        if (ranked && rule == "hongque") return "虹雀 · " + mode.Split('/')[0] + "局（Elo 匹配）";
-        if (rule == RiichiSanmaRankConfig.Rule) return RuleName(rule) + " · " + RiichiModeCaption(mode) + CategorySuffix(rule, ranked);
-        if (rule == PlayerInfoRuleCatalog.GuobiaoSanma) return RuleName(rule) + " · "
-            + RoundTextDictionary.GetMatchTypeDisplay("guobiao", mode.Replace("_sanma", "")) + CategorySuffix(rule, ranked);
-        if(ranked&&(rule=="sichuan" || rule==RankedRules.XueliuExchangeRule))return RankedRules.Name(rule)+(mode=="4/4_rank"?" · 全庄（16局，历史）":mode=="2/4_rank"?" · 半庄（8局）":" · 四局（历史）")+"（Elo 匹配）";
-        string match = rule == "riichi" && mode == "2/4" ? "半庄（东南战）"
-            : rule == "riichi" && mode == "3/4" ? "东南西战（历史）"
-            : rule == "riichi" && mode == "4/4" ? "全庄战（历史）"
-            : RoundTextDictionary.GetMatchTypeDisplay(PlayerInfoRuleCatalog.SourceRule(rule), mode);
-        return RuleName(rule) + match + CategorySuffix(rule, ranked);
+        if (string.IsNullOrEmpty(mode)) return "总计";
+        if (!int.TryParse(mode.Split('/')[0], out int rounds) || rounds <= 0) return "无固定时限";
+        string source = PlayerInfoRuleCatalog.SourceRule(rule);
+        if (source == "sichuan") return (rounds * PlayerInfoRuleCatalog.PlayerCount(rule)) + "副";
+        if (source == "hongque") return rounds + "局";
+        switch (rounds) {
+            case 1: return "东风战";
+            case 2: return "东南战";
+            case 3: return "东西战";
+            case 4: return "全庄战";
+            default: return rounds + "局";
+        }
     }
-    static string RiichiModeCaption(string mode) => mode.StartsWith("2/") ? "半庄（东南战）"
-        : mode.StartsWith("3/") ? "东南西战（历史）" : mode.StartsWith("4/") ? "全庄战（历史）" : "东风战";
-    public static string CategorySuffix(string rule, bool ranked) => ranked ? "（匹配）" : "（自定义）";
-    public static string FanCaption(string rule, bool ranked) => RuleName(rule).Replace("麻将", "") + "番数总计" + CategorySuffix(rule, ranked);
+    public static string FanCaption(string rule, bool ranked) => "番种达成次数";
 
     public static PlayerStatsInfo Find(RuleStatsResponse response, string rule, string mode) {
         if (response?.history_stats == null) return null;

@@ -26,7 +26,7 @@ function applicationRouter(pool) {
   return sandbox.module.exports;
 }
 
-test('badge count API is administrator-only, uncached, and counts pending event/base separately', async () => {
+test('badge count API is administrator-only and includes pending applications and profile changes by kind', async () => {
   let queries = 0;
   const app = express();
   app.use('/api/admin/event-applications', requireAdmin, applicationRouter({ query: async sql => {
@@ -34,6 +34,9 @@ test('badge count API is administrator-only, uncached, and counts pending event/
     assert.match(sql, /WHERE status = 'pending'/);
     assert.match(sql, /kind = 'event'/);
     assert.match(sql, /kind = 'base'/);
+    assert.match(sql, /UNION ALL/);
+    assert.match(sql, /FROM event_profile_change_requests r/);
+    assert.match(sql, /WHERE r.status = 'pending'/);
     return { rows: [{ event: 2, base: 3 }] };
   } }));
   // The same guard used by the admin router must block the room-management route too.

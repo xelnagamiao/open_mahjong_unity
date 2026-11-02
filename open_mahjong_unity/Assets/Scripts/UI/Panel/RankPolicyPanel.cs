@@ -10,7 +10,12 @@ public sealed class RankPolicyPanel : MonoBehaviour {
     [SerializeField] private TMP_Text title;
     private void Awake() => closeButton.onClick.AddListener(Hide);
     public void Show() => Present(false);
-    public void ShowElo() => Present(true);
+    public void ShowElo() => ShowElo(null);
+    public void ShowElo(string rule) {
+        var text=eloContent.GetComponent<TMP_Text>();
+        if(text!=null)text.text=rule=="qingque"?RankedRules.QingqueEloDescription:RankedRules.EloDescription;
+        Present(true);
+    }
     private void Present(bool elo) {
         policyContent.SetActive(!elo); eloContent.SetActive(elo);
         title.text=elo?"Elo 匹配说明":"段位与匹配说明";

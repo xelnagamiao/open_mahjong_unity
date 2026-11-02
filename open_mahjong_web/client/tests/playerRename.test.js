@@ -7,7 +7,8 @@ const newUsername = '新的名字'
 const currentAccount = {
   user_id: userId,
   username: newUsername,
-  rename_count: 0,
+  rename_card_count: 0,
+  rename_card_usable_count: 0,
   email: null,
   email_verified: false,
   is_event_admin: false,
@@ -54,7 +55,7 @@ for (const [label, error] of [
     const result = await renamePlayer(api, newUsername, userId)
     assert.equal(result.success, true)
     assert.equal(result.data.username, newUsername)
-    assert.equal(result.data.rename_count, 0)
+    assert.equal(result.data.rename_card_count, 0)
     assert.match(result.message, /改名成功/)
     assert.deepEqual(api.calls, [
       { method: 'POST', url: '/auth/rename', body: { new_username: newUsername } },
@@ -92,7 +93,7 @@ for (const status of [400, 401, 403, 409, 429]) {
 }
 
 for (const [label, account] of [
-  ['rename still pending', { ...currentAccount, username: '原来的名字', rename_count: 1 }],
+  ['rename still pending', { ...currentAccount, username: '原来的名字', rename_card_count: 1, rename_card_usable_count: 1 }],
   ['different account with matching name', { ...currentAccount, user_id: 202 }],
   ['missing account data', null],
 ]) {

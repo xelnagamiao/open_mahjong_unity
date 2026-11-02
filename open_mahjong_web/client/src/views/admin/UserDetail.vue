@@ -32,7 +32,7 @@
 
           <el-descriptions-item label="类型">{{ detail.user.is_tourist ? '游客' : '注册' }}</el-descriptions-item>
 
-          <el-descriptions-item label="剩余改名次数">{{ detail.user.rename_count ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="改名卡">{{ detail.user.rename_card_count ?? 0 }} 张（可用 {{ detail.user.rename_card_usable_count ?? 0 }} 张）</el-descriptions-item>
 
           <el-descriptions-item label="牌谱数">{{ detail.game_record_count }}</el-descriptions-item>
 

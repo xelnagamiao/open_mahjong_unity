@@ -1,4 +1,5 @@
 """One viewer-safe snapshot for live play, reconnect, and real-time spectating."""
+from ..public.settlement_sync import send_game_packet
 
 import math
 
@@ -189,4 +190,4 @@ class Protocol:
             await self.prepare_client_context(index)
             for payload in self.restore_payloads(index):
                 self._refresh_clock_payload(index, payload)
-                await connection.websocket.send_json(payload)
+                await send_game_packet(self, connection.websocket, payload)

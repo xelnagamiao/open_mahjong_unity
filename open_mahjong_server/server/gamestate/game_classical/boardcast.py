@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet, remember_result
 from ..public.action_window import prepare_action_window, prepare_ready_window
 from ..public.ready_phase import ready_status_by_seat
 from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
@@ -114,7 +115,7 @@ async def broadcast_game_start(self):
                 game_info=game_info,
             )
 
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             await self.send_to_realtime_spectators(current_player.player_index, response)
             logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
         except Exception as e:
@@ -142,7 +143,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         message="实时观战初始化",
         game_info=GameInfo(**payload),
     )
-    await conn.websocket.send_json(response.dict(exclude_none=True))
+    await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
     logger.info(f"已向实时观战玩家 {spectator_user_id} 发送古典 game_start（视角座位 {view_player_index}）")
     await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
@@ -338,7 +339,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
         if self.action_dict.get(view_player_index):
@@ -355,7 +356,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     action_tick=self.server_action_tick,
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_other 给玩家 {player.username}，剩余时间 {remaining_sent}s")
 
 
@@ -426,7 +427,7 @@ async def broadcast_do_action(
                         cut_from_player=cut_from_player,
                     )
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
@@ -452,6 +453,26 @@ async def broadcast_result(self,
     for i, current_player in enumerate(self.player_list):
         try:
             # 如果玩家掉线，跳过广播
+            response = Response(
+                type="gamestate/classical/show_result",
+                success=True,
+                message="显示结算结果",
+                show_result_info=Show_result_info(
+                    hepai_player_index=hepai_player_index,
+                    player_to_score=player_to_score,
+                    hu_score=hu_score,
+                    hu_fan=hu_fan,
+                    hu_class=hu_class,
+                    hepai_player_hand=hepai_player_hand,
+                    hepai_player_huapai=hepai_player_huapai,
+                    hepai_player_combination_mask=hepai_player_combination_mask,
+                    action_tick=self.server_action_tick,
+                    base_fu=base_fu,
+                    fu_fan_list=fu_fan_list,
+                    score_changes=score_changes,
+                )
+            )
+            remember_result(self, response, current_player.player_index)
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
@@ -462,26 +483,7 @@ async def broadcast_result(self,
             
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="gamestate/classical/show_result",
-                    success=True,
-                    message="显示结算结果",
-                    show_result_info=Show_result_info(
-                        hepai_player_index=hepai_player_index,
-                        player_to_score=player_to_score,
-                        hu_score=hu_score,
-                        hu_fan=hu_fan,
-                        hu_class=hu_class,
-                        hepai_player_hand=hepai_player_hand,
-                        hepai_player_huapai=hepai_player_huapai,
-                        hepai_player_combination_mask=hepai_player_combination_mask,
-                        action_tick=self.server_action_tick,
-                        base_fu=base_fu,
-                        fu_fan_list=fu_fan_list,
-                        score_changes=score_changes,
-                    )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
             else:
@@ -533,7 +535,7 @@ async def broadcast_game_end(self):
                     )
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
             else:
@@ -571,7 +573,7 @@ async def broadcast_switch_seat(self):
                     switch_seat_info=switch_seat_info
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送换位信息")
             else:
@@ -614,7 +616,7 @@ async def broadcast_refresh_player_tag_list(self):
                     refresh_player_tag_list_info=refresh_tag_info
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
             else:
@@ -655,7 +657,7 @@ async def broadcast_ready_status(self):
                     ready_status_info=ready_info
                 )
                 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送准备状态信息")
             else:
@@ -681,30 +683,31 @@ async def broadcast_shuhewei(
     self.server_action_tick += 1
     for i, current_player in enumerate(self.player_list):
         try:
+            response = Response(
+                type="gamestate/classical/show_shuhewei",
+                success=True,
+                message="数和尾结算",
+                show_shuhewei_info=Show_shuhewei_info(
+                    player_fu=player_fu,
+                    player_to_score=player_to_score,
+                    score_changes=score_changes,
+                    player_fan=player_fan,
+                    player_fu_types=player_fu_types,
+                    hu_class=hu_class,
+                    hepai_player_index=hepai_player_index,
+                    hepai_player_hand=hepai_player_hand,
+                    hepai_player_combination_mask=hepai_player_combination_mask,
+                    next_status=next_status,
+                )
+            )
+            remember_result(self, response, current_player.player_index)
             if "offline" in current_player.tag_list:
                 continue
             if current_player.user_id == 0:
                 continue
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="gamestate/classical/show_shuhewei",
-                    success=True,
-                    message="数和尾结算",
-                    show_shuhewei_info=Show_shuhewei_info(
-                        player_fu=player_fu,
-                        player_to_score=player_to_score,
-                        score_changes=score_changes,
-                        player_fan=player_fan,
-                        player_fu_types=player_fu_types,
-                        hu_class=hu_class,
-                        hepai_player_index=hepai_player_index,
-                        hepai_player_hand=hepai_player_hand,
-                        hepai_player_combination_mask=hepai_player_combination_mask,
-                        next_status=next_status,
-                    )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播数和尾结算信息")
         except Exception as e:

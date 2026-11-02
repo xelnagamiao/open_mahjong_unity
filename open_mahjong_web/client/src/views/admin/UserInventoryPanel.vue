@@ -1,10 +1,10 @@
 <template>
   <el-card v-loading="loading">
     <template #header><div class="header"><span>角色、道具与装扮</span><el-button link type="primary" :disabled="busy" @click="load">刷新</el-button></div></template>
-    <p class="hint">玩家点击主菜单“背包”，在背包分类中使用改名卡；每张增加一次账号改名机会。</p>
+    <p class="hint">发放的物品直接存入背包。改名卡在账号中心改名成功时消耗；草牌、好牌仅供收藏，不可使用或消耗。</p>
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
     <div class="form">
-      <el-select v-model="selected" placeholder="选择要发放的物品" filterable :disabled="busy || !!pending || loading || !!error"><el-option v-for="item in grantOptions" :key="item.item_id" :value="item.item_id" :label="`${categories[item.category]} · ${item.name}`" /></el-select>
+      <el-select v-model="selected" placeholder="选择要发放的物品" filterable :disabled="busy || !!pending || loading || !!error"><el-option v-for="item in grantOptions" :key="item.item_id" :value="item.item_id" :label="`${inventoryCategoryLabel(item.category)} · ${item.name}`" /></el-select>
       <el-input-number v-model="quantity" :min="1" :max="selectedItem?.category === 'item' ? 1000000 : 1" :disabled="busy || !!pending" />
       <el-input v-model="reason" maxlength="500" placeholder="发放原因（必填）" :disabled="busy || !!pending" />
       <el-button type="primary" :disabled="!selected || loading || !!error || !!pending" :loading="busy" @click="grant">发放</el-button>
@@ -12,7 +12,7 @@
     <el-alert v-if="pending && !busy" type="warning" :closable="false" show-icon title="上次操作结果尚未确认，原操作编号已保留。重试不会重复发放或回收。"><el-button size="small" @click="submitPending">重试原操作</el-button></el-alert>
     <el-table :data="owned" empty-text="暂无物品">
       <el-table-column prop="name" label="物品" min-width="150" />
-      <el-table-column label="分类" width="90"><template #default="{ row }">{{ categories[row.category] }}</template></el-table-column>
+      <el-table-column label="分类" width="90"><template #default="{ row }">{{ inventoryCategoryLabel(row.category) }}</template></el-table-column>
       <el-table-column prop="quantity" label="数量" width="90" />
       <el-table-column label="状态" min-width="160"><template #default="{ row }"><el-tag v-if="row.is_default">默认可用</el-tag><el-tag v-if="row.equipped" type="success">已装备</el-tag><el-tag v-if="!row.use_enabled" type="info">已停用</el-tag></template></el-table-column>
       <el-table-column label="操作" width="85"><template #default="{ row }"><el-button link type="danger" :disabled="busy || !!pending || row.is_default" @click="openRevoke(row)">回收</el-button></template></el-table-column>
@@ -30,8 +30,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
+import { inventoryCategoryLabel } from '@/constants/inventoryCategories'
 const props = defineProps({ userId: { type: [String, Number], required: true } })
-const categories = { character: '角色', item: '道具', cosmetic: '装扮' }
 const state = ref(null), ledger = ref([]), selected = ref(null), quantity = ref(1), reason = ref('')
 const loading = ref(false), busy = ref(false), error = ref(''), pending = ref(null), revokeVisible = ref(false)
 const revokeForm = reactive({})

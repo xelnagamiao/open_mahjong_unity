@@ -12,7 +12,7 @@ test('filtered player scores and counts use the same records', {
   require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: pool };
   try {
     await pool.query(`
-      CREATE TEMP TABLE game_records (game_id text PRIMARY KEY, created_at timestamp NOT NULL);
+      CREATE TEMP TABLE game_records (game_id text PRIMARY KEY, created_at timestamp NOT NULL, record jsonb DEFAULT '{}');
       CREATE TEMP TABLE game_player_records (
         game_id text, user_id bigint, rule text, sub_rule text, room_type text,
         match_type text, match_tier text, event_id text, score int, rank int,
@@ -20,7 +20,7 @@ test('filtered player scores and counts use the same records', {
       );
       CREATE TEMP TABLE riichi_player_game_stats (game_id text,user_id bigint,version int,stats jsonb);
       CREATE TEMP TABLE game_player_metrics (
-        id bigserial PRIMARY KEY, game_id text, user_id bigint,
+        id bigserial PRIMARY KEY, game_id text, user_id bigint, sub_rule text, fan_stats jsonb DEFAULT '{}',
         total_rounds int, win_count int, self_draw_count int, deal_in_count int,
         total_fan_score int, total_win_turn int, total_fangchong_score int,
         fulu_round_count int, cuohe_count int
@@ -38,10 +38,10 @@ test('filtered player scores and counts use the same records', {
       ['eventB', '2026-08-10 12:00:00', 'events', 'evtB', '1/4', 'evtB', -240, 4],
     ];
     for (const [id, date, room, tier, length, event, score, rank] of fixtures) {
-      await pool.query('INSERT INTO game_records VALUES ($1, $2)', [id, date]);
+      await pool.query('INSERT INTO game_records(game_id,created_at) VALUES ($1, $2)', [id, date]);
       await pool.query(`INSERT INTO game_player_records VALUES
-        ($1, 101, 'guobiao', 'guobiao', $2, $3, $4, $5, $6, $7),
-        ($1, 202, 'guobiao', 'guobiao', $2, $3, $4, $5, -9999, 4)`,
+        ($1, 10000101, 'guobiao', 'guobiao', $2, $3, $4, $5, $6, $7),
+        ($1, 10000202, 'guobiao', 'guobiao', $2, $3, $4, $5, -9999, 4)`,
       [id, room, length, tier, event, score, rank]);
     }
     const metricKeys = ['total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
@@ -51,8 +51,8 @@ test('filtered player scores and counts use the same records', {
     const selectedMetrics = Object.fromEntries(metricKeys.map((key, i) => [key, startMetrics[i] + endMetrics[i]]));
     for (const [id] of fixtures) {
       // Other players and out-of-range games must never contribute to this player's details.
-      for (const userId of [101, 202]) {
-        const metrics = userId === 101 ? (id === 'start' ? startMetrics : endMetrics) : metricKeys.map(() => 9999);
+      for (const userId of [10000101, 10000202]) {
+        const metrics = userId === 10000101 ? (id === 'start' ? startMetrics : endMetrics) : metricKeys.map(() => 9999);
         await pool.query(`INSERT INTO game_player_metrics (game_id, user_id, ${metricKeys.join(',')})
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [id, userId, ...metrics]);
       }
@@ -62,8 +62,9 @@ test('filtered player scores and counts use the same records', {
     const query = { rule: 'guobiao', tier: 'beginner', game_type: 'dongfeng', ...dates };
 
     await t.test('inclusive start, exclusive end and every filter apply to both score and rank', async () => {
-      const result = await fetchPlayerRankStats(101, query);
+      const result = await fetchPlayerRankStats(10000101, query);
       assert.deepEqual(result, {
+        rule: 'guobiao', sub_rule: 'guobiao/standard', supports_fan_stats: true, fan_stats: {},
         total_games: 2, total_round_score: 80,
         first_place_count: 1, second_place_count: 0, third_place_count: 0, fourth_place_count: 1,
         details_available: true, analyzed_games: 2, ...selectedMetrics,
@@ -80,7 +81,7 @@ test('filtered player scores and counts use the same records', {
         [{ ...query, tier: 'events', event_id: 'evtB' }, 1, -240],
         [{ rule: 'guobiao', tier: 'beginner', game_type: 'dongfeng' }, 4, 1080],
       ]) {
-        const result = await fetchPlayerRankStats(101, filters);
+        const result = await fetchPlayerRankStats(10000101, filters);
         assert.equal(result.total_games, games);
         assert.equal(result.total_round_score, score);
         assert.equal(result.details_available, true);
@@ -93,7 +94,7 @@ test('filtered player scores and counts use the same records', {
     });
 
     await t.test('empty date ranges return zero without historical scores', async () => {
-      const result = await fetchPlayerRankStats(101, { ...query, date_from: '2026-12-01', date_to: '2026-12-02' });
+      const result = await fetchPlayerRankStats(10000101, { ...query, date_from: '2026-12-01', date_to: '2026-12-02' });
       assert.equal(result.total_games, 0);
       assert.equal(result.total_round_score, 0);
       assert.equal(result.details_available, true);
@@ -110,12 +111,12 @@ test('filtered player scores and counts use the same records', {
           { ...query, date_to: null, sub_rule: 'guobiao/lanshi' },
           { ...query, date_from: null, sub_rule: 'guobiao/lanshi' },
         ]) {
-          const result = await fetchPlayerRankStats(101, filters);
+          const result = await fetchPlayerRankStats(10000101, filters);
           const expected = filters.sub_rule === 'guobiao' ? startMetrics : endMetrics;
           assert.equal(result.total_games, 1);
           for (const [i, key] of metricKeys.entries()) assert.equal(result[key], expected[i], key);
         }
-        const otherRule = await fetchPlayerRankStats(101, { ...query, rule: 'qingque' });
+        const otherRule = await fetchPlayerRankStats(10000101, { ...query, rule: 'qingque' });
         assert.equal(otherRule.total_games, 0);
         assert.equal(otherRule.total_rounds, 0);
       } finally {
@@ -125,8 +126,8 @@ test('filtered player scores and counts use the same records', {
 
     await t.test('duplicate metric rows use the latest snapshot without multiplying games or scores', async () => {
       await pool.query(`INSERT INTO game_player_metrics (id, game_id, user_id, ${metricKeys.join(',')})
-        VALUES (-1, 'start', 101, 999,999,999,999,999,999,999,999,999)`);
-      const result = await fetchPlayerRankStats(101, query);
+        VALUES (-1, 'start', 10000101, 999,999,999,999,999,999,999,999,999)`);
+      const result = await fetchPlayerRankStats(10000101, query);
       assert.equal(result.total_games, 2);
       assert.equal(result.total_round_score, 80);
       assert.equal(result.analyzed_games, 2);
@@ -135,30 +136,31 @@ test('filtered player scores and counts use the same records', {
     });
 
     await t.test('missing metrics keep settlement totals but do not expose partial details as complete', async () => {
-      await pool.query("UPDATE game_player_metrics SET user_id=303 WHERE game_id='end' AND user_id=101");
+      await pool.query("UPDATE game_player_metrics SET user_id=10000303 WHERE game_id='end' AND user_id=10000101");
       try {
-        const result = await fetchPlayerRankStats(101, query);
+        const result = await fetchPlayerRankStats(10000101, query);
         assert.equal(result.total_games, 2);
         assert.equal(result.total_round_score, 80);
         assert.equal(result.fourth_place_count, 1);
         assert.equal(result.analyzed_games, 1);
         assert.equal(result.details_available, false);
         for (const key of metricKeys) assert.equal(result[key], null, key);
-        const missing = await fetchPlayerRankStats(101, { ...query, date_from: '2026-08-31' });
+        const missing = await fetchPlayerRankStats(10000101, { ...query, date_from: '2026-08-31' });
         assert.equal(missing.total_games, 1);
         assert.equal(missing.analyzed_games, 0);
         assert.equal(missing.details_available, false);
         for (const key of metricKeys) assert.equal(missing[key], null, key);
       } finally {
-        await pool.query("UPDATE game_player_metrics SET user_id=101 WHERE user_id=303");
+        await pool.query("UPDATE game_player_metrics SET user_id=10000101 WHERE user_id=10000303");
       }
     });
 
     await t.test('missing scores and rules with starting points remain unavailable', async () => {
-      await pool.query("UPDATE game_player_records SET score = NULL WHERE game_id='start' AND user_id=101");
-      assert.equal((await fetchPlayerRankStats(101, query)).total_round_score, null);
-      await pool.query("UPDATE game_player_records SET rule='riichi', score=35000 WHERE game_id='start' AND user_id=101");
-      const result = await fetchPlayerRankStats(101, { ...query, rule: 'riichi' });
+      await pool.query("UPDATE game_player_records SET score = NULL WHERE game_id='start' AND user_id=10000101");
+      assert.equal((await fetchPlayerRankStats(10000101, query)).total_round_score, null);
+      await pool.query("UPDATE game_player_records SET rule='riichi', sub_rule='riichi/standard', score=35000 WHERE game_id='start' AND user_id=10000101");
+      await pool.query("UPDATE game_player_metrics SET sub_rule='riichi/standard' WHERE game_id='start' AND user_id=10000101");
+      const result = await fetchPlayerRankStats(10000101, { ...query, rule: 'riichi' });
       assert.equal(result.total_games, 1);
       assert.equal(result.total_round_score, null);
     });
@@ -166,16 +168,17 @@ test('filtered player scores and counts use the same records', {
       const stats = { total_games: 1, total_rounds: 4, total_round_score: 10000, win_count: 1,
         riichi_details: { riichi_round_count: 2, riichi_win_count: 1, net_score_count: 1 }, fan_stats: { riichi: 1 } };
       const { RIICHI_STATS_VERSION } = require('./riichiStats');
-      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['start', 101, RIICHI_STATS_VERSION, stats]);
-      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['outside', 101, RIICHI_STATS_VERSION, { ...stats, total_rounds: 999 }]);
-      const result = await fetchPlayerRankStats(101, { ...query, rule: 'riichi' });
+      await pool.query("UPDATE game_player_metrics SET fan_stats=$1 WHERE game_id='start' AND user_id=10000101", [{ riichi: 1 }]);
+      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['start', 10000101, RIICHI_STATS_VERSION, stats]);
+      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['outside', 10000101, RIICHI_STATS_VERSION, { ...stats, total_rounds: 999 }]);
+      const result = await fetchPlayerRankStats(10000101, { ...query, rule: 'riichi' });
       assert.equal(result.details_available, true);
       assert.equal(result.total_games, 1);
       assert.equal(result.total_rounds, 4);
       assert.equal(result.total_round_score, 10000);
       assert.equal(result.riichi_details.riichi_round_count, 2);
       assert.equal(result.fan_stats.riichi, 1);
-      const empty = await fetchPlayerRankStats(101, { ...query, rule: 'riichi', tier: 'custom' });
+      const empty = await fetchPlayerRankStats(10000101, { ...query, rule: 'riichi', tier: 'custom' });
       assert.equal(empty.total_rounds, 0);
       assert.equal(empty.riichi_details.riichi_round_count, 0);
     });

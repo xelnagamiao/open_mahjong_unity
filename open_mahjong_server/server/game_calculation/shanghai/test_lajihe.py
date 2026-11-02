@@ -11,13 +11,13 @@ HONORS = [41]*2+[42]*2+[43]*2+[44]*2+[45]*2+[46]*2+[47]*2
 
 
 @pytest.mark.parametrize("hand,name,ron,tsumo,extra_tsumo", [
-    (PLAIN,"垃圾和",5,10,15), (PUNGS,"碰碰和",20,30,30),
-    (MIXED,"混一色",25,30,30), (PURE,"清一色",25,30,30),
-    (PAIRS,"七对子",20,30,30),
-    ([11]*3+[14]*3+[41]*3+[45]*3+[19]*2,"混碰",30,30,30),
-    ([11]*3+[14]*3+[17]*3+[19]*3+[18]*2,"清碰",40,30,30),
-    (HONORS,"全风向",40,30,30),
-    ([41]*3+[42]*3+[45]*3+[46]*3+[47]*2,"全风向碰碰和",120,30,30),
+    (PLAIN,"垃圾和",5,10,15), (PUNGS,"碰碰和",20,30,35),
+    (MIXED,"混一色",25,35,40), (PURE,"清一色",25,35,40),
+    (PAIRS,"七对子",20,30,35),
+    ([11]*3+[14]*3+[41]*3+[45]*3+[19]*2,"混碰",30,40,45),
+    ([11]*3+[14]*3+[17]*3+[19]*3+[18]*2,"清碰",40,60,70),
+    (HONORS,"全风向",40,60,70),
+    ([41]*3+[42]*3+[45]*3+[46]*3+[47]*2,"全风向碰碰和",120,160,180),
 ])
 @pytest.mark.parametrize("extra_base", [False, True])
 def test_all_nine_basic_patterns(hand,name,ron,tsumo,extra_tsumo,extra_base):
@@ -28,6 +28,7 @@ def test_all_nine_basic_patterns(hand,name,ron,tsumo,extra_tsumo,extra_base):
                             self_draw_extra_base=extra_base)
         assert result["pattern"] == name
         assert result["base_score"] == expected
+        assert "敲锣" not in result["fan_names"]
 
 
 @pytest.mark.parametrize("count,points", [(0,0),(1,0),(2,0),(3,5),(4,5),(5,10),(6,10),(7,15),(8,20),(9,25),(10,30),(15,55),(20,80)])

@@ -1,0 +1,9 @@
+{
+  "guobiao": ["beginner", "intermediate", "advanced", "mcrpl"],
+  "riichi": ["beginner", "intermediate", "advanced"],
+  "riichi_sanma": ["beginner", "intermediate", "advanced"],
+  "qingque": ["elo"],
+  "sichuan": ["elo"],
+  "sichuan_xueliu_exchange": ["elo"],
+  "hongque": ["elo"]
+}

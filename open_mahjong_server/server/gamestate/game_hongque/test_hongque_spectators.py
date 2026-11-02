@@ -95,7 +95,10 @@ def test_friend_initial_entry_and_live_events_use_same_private_host_view(host_in
         assert all("hand" not in p for p in state["players"])
         game.events = [{"id": 1, "type": "draw", "player": host_index, "tile": host.drawn_tile}]
         watcher.reset_mock()
-        await game.broadcast_state()
+        # Delivery metadata samples the server clock for each recipient. Hold
+        # that clock fixed while comparing the otherwise identical host view.
+        with patch("server.gamestate.public.settlement_sync.time.time", return_value=1000):
+            await game.broadcast_state()
         watcher.assert_awaited_once()
         assert watcher.call_args.args[0] == server.user_id_to_connection[host.user_id].websocket.send_json.call_args.args[0]
         other = server.user_id_to_connection[202].websocket.send_json.call_args.args[0]["hongque_state"]

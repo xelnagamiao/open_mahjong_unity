@@ -215,12 +215,12 @@ public partial class AutoAction : MonoBehaviour{
     }
 
     private void ApplyCompactButtonLabels() {
-        if (expandButtonText != null) expandButtonText.text = "展";
-        if (arrangeHandCardsText != null) arrangeHandCardsText.text = "理";
-        if (autoHepaiText != null) autoHepaiText.text = "和";
-        if (autoBuhuaText != null) autoBuhuaText.text = "补";
-        if (autoPassText != null) autoPassText.text = "鸣";
-        if (autoCutCardText != null) autoCutCardText.text = "切";
+        if (expandButtonText != null) TableText.Set(expandButtonText, TableText.CompactActionKey("展"));
+        if (arrangeHandCardsText != null) TableText.Set(arrangeHandCardsText, TableText.CompactActionKey("理"));
+        if (autoHepaiText != null) TableText.Set(autoHepaiText, TableText.CompactActionKey("和"));
+        if (autoBuhuaText != null) TableText.Set(autoBuhuaText, TableText.CompactActionKey("补"));
+        if (autoPassText != null) TableText.Set(autoPassText, TableText.CompactActionKey("鸣"));
+        if (autoCutCardText != null) TableText.Set(autoCutCardText, TableText.CompactActionKey("切"));
     }
 
     // 为TMP_Text添加点击监听器

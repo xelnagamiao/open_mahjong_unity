@@ -7,7 +7,8 @@ from .room_validators import GBRoomValidator
 from ..game_calculation.tuidao.rules import EDITION, SUB_RULE
 from ..response import Response
 
-CONFIG = {"edition": EDITION, "fan_cap": 32, "wildcards": False}
+PINGJI_ZIMO_NO_CHOW = "pingji_zimo_no_chow"
+CONFIG = {"edition": EDITION, "fan_cap": 32, "wildcards": False, PINGJI_ZIMO_NO_CHOW: False}
 
 
 def normalize_tuidao_config(raw=None):
@@ -18,9 +19,13 @@ def normalize_tuidao_config(raw=None):
     if set(raw)-CONFIG.keys():
         raise ValueError("无癞子标准本不支持额外地方补则")
     for key, value in raw.items():
+        if key == PINGJI_ZIMO_NO_CHOW:
+            if type(value) is not bool:
+                raise ValueError("平鸡自摸禁吃开关必须是布尔值")
+            continue
         if type(value) is not type(CONFIG[key]) or value != CONFIG[key]:
             raise ValueError("不支持的推倒和版本或规则覆盖")
-    return dict(CONFIG)
+    return {**CONFIG, **raw}
 
 
 class TuidaoRoomValidator(GBRoomValidator):

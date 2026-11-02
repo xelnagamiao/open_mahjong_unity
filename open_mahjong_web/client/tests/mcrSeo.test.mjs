@@ -11,8 +11,10 @@ import { MCR_PAGES, mcrPageForPath } from '../src/seo/mcr-pages.js'
 import { STATIC_PAGES, staticPageForPath, pageAlternates } from '../src/seo/pages.js'
 import { escapeHtml } from '../src/seo/mcr-render.js'
 import { requestedGameLocale } from '../src/i18n/locale-utils.js'
+import { SEO_PAGES } from '../src/seo.js'
+import { messages } from '../src/i18n/messages.js'
 
-import { originalHomeIntroduction, originalRule, translateOriginal } from '../scripts/original-seo-content.mjs'
+import { originalHomeIntroduction, originalRule, originalPlatformContent, translateOriginal } from '../scripts/original-seo-content.mjs'
 import { parse as parseHtml } from '@vue/compiler-dom'
 
 const client = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -25,6 +27,26 @@ writeFileSync(resolve(output, 'index.html'), readFileSync(resolve(client, 'index
 execFileSync(process.execPath, ['scripts/prerender-seo.mjs', output], {
   cwd: client,
   env: { ...process.env, VITE_CLOUDFLARE_ANALYTICS_TOKEN: '' },
+})
+
+test('calculator and analysis pages keep their own canonical and sitemap entries', () => {
+  const xml = readFileSync(resolve(output, 'sitemap.xml'), 'utf8')
+  for (const path of ['/paili', '/paili/qingque', '/paili/riichi', '/calc/chinese', '/calc/qingque', '/calc/riichi']) {
+    const html = readFileSync(resolve(output, path.slice(1), 'index.html'), 'utf8')
+    assert.ok(html.includes(`<link rel="canonical" href="https://salasasa.cn${path}"`))
+    assert.ok(html.includes(`<meta property="og:url" content="https://salasasa.cn${path}"`))
+    assert.ok(xml.includes(`<loc>https://salasasa.cn${path}</loc>`))
+  }
+})
+
+test('the four Qingque and Riichi SEO entries remain translated on both pages', () => {
+  for (const path of ['/calc/qingque', '/calc/riichi', '/paili/qingque', '/paili/riichi']) {
+    const entry = SEO_PAGES.find(page => page.path === path)
+    for (const language of ['en', 'fr', 'ja']) for (const field of ['title', 'description', 'keywords']) {
+      assert.ok(messages[language][entry[field]], `${language}: ${path} ${field}`)
+      assert.notEqual(messages[language][entry[field]], entry[field])
+    }
+  }
 })
 
 for (const page of MCR_PAGES) {
@@ -114,7 +136,19 @@ test('localized guides preserve all 15 original sections, credits and account re
     const ids = [...html.matchAll(/<section id="([^"]+)"/g)].map(match => match[1])
     assert.deepEqual(ids, ['intro','features','start','meld-protect','tactical-call','seed','guess-fan','events','addrule','rank-credit','contribute','sponsor','thanks','links','regulations'])
     for (const original of ['open_mahjong_unity','Xelnaga','FFMJ','hashlib','Salasasa Studio']) assert.ok(html.includes(original))
+    const content = originalPlatformContent()
+    for (const credit of content.credits) {
+      assert.ok(html.includes(escapeHtml(translateOriginal(credit.title, lang))), credit.id)
+      if (lang === 'zh') assert.ok(html.includes(escapeHtml(credit.text)), credit.id)
+    }
+    const community = content.communities.find(item => item.id === 'salasasa_qq')
+    if (community?.number) assert.ok(html.includes(community.number))
   }
+})
+
+test('community placeholders have English and French translations', () => {
+  assert.equal(translateOriginal('社群', 'en'), 'Community')
+  assert.equal(translateOriginal('社群', 'fr'), 'Communauté')
 })
 
 test('SEO generation preserves the existing SPA body without adding visible content', () => {

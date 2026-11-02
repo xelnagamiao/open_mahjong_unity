@@ -6,6 +6,12 @@ using System.Linq;
 internal static class ShanghaiHandCalculator {
     internal const string Qing3Hun2Peng2Key = "qing3_hun2_peng2";
     internal const string EnableTianQiaoKey = "enable_tian_qiao";
+    internal const string ForbidLajiheDadiaoKey = "forbid_lajihe_dadiao";
+
+    internal static bool ForbidsLajiheDadiao(IDictionary<string, object> config) {
+        return config != null && config.TryGetValue(ForbidLajiheDadiaoKey, out object value)
+            && bool.TryParse(value?.ToString(), out bool enabled) && enabled;
+    }
 
     internal static bool UsesTianQiao(IDictionary<string, object> config) {
         return config != null && config.TryGetValue(EnableTianQiaoKey, out object value)
@@ -91,7 +97,7 @@ internal static class ShanghaiHandCalculator {
         }
     }
 
-    public static int Score(List<int> hand, List<string> melds, int flowerCount, bool selfDraw, int minFan = 0, bool qing3Hun2Peng2 = false, bool tianQiao = false) {
+    public static int Score(List<int> hand, List<string> melds, int flowerCount, bool selfDraw, int minFan = 0, bool qing3Hun2Peng2 = false, bool tianQiao = false, bool forbidLajiheDadiao = false) {
         melds = melds ?? new List<string>();
         int best = 0;
         var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
@@ -110,6 +116,7 @@ internal static class ShanghaiHandCalculator {
             }
             if (flowers == 0) flowers = 10;
             if (fan == 0 && flowers < (selfDraw ? 2 : 3)) continue;
+            if (minFan == 1 && forbidLajiheDadiao && (fan == 0 || hand.Count == 2)) continue;
             if (fan < minFan) continue;
             best = Math.Max(best, (1 + flowers) * (1 << Math.Min(fan, 3)));
         }
@@ -120,12 +127,13 @@ internal static class ShanghaiHandCalculator {
         int flowers = query.SelfFlowers?.Count ?? query.HuapaiCount;
         bool profile = UsesQing3Hun2Peng2(query.DetailedConfig);
         bool tianQiao = CountsTianQiao(query);
-        int ron = Score(query.HandWithWin, query.Melds, flowers, false, query.HepaiLimit, profile, tianQiao);
+        bool forbidLajiheDadiao = query.HepaiLimit == 1 && ForbidsLajiheDadiao(query.DetailedConfig);
+        int ron = Score(query.HandWithWin, query.Melds, flowers, false, query.HepaiLimit, profile, tianQiao, forbidLajiheDadiao);
         if (ron > 0) return WaitTileHint.Ron($"敲牌后 {ron}分");
-        int tsumo = Score(query.HandWithWin, query.Melds, flowers, true, query.HepaiLimit, profile, tianQiao);
+        int tsumo = Score(query.HandWithWin, query.Melds, flowers, true, query.HepaiLimit, profile, tianQiao, forbidLajiheDadiao);
         if (tsumo > 0) return WaitTileHint.TsumoOnly($"敲牌后仅自摸 {tsumo}分");
         // 其他普通和牌条件已满足时，才将起和番门槛不足单独标为“未起和”。
-        bool belowMinimum = query.HepaiLimit > 0 && Score(query.HandWithWin, query.Melds, flowers, true, 0, profile, tianQiao) > 0;
+        bool belowMinimum = !forbidLajiheDadiao && query.HepaiLimit > 0 && Score(query.HandWithWin, query.Melds, flowers, true, 0, profile, tianQiao) > 0;
         return WaitTileHint.None(belowMinimum ? "未起和" : "未满足");
     }
 }

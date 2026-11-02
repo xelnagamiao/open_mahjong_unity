@@ -25,6 +25,7 @@ const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参
 app.use(cors(config.cors)); // 使用cors配置允许跨域
 // 分享源牌谱有独立的请求大小限制，须先于默认 JSON 解析器挂载。
 app.use('/api/record-convert-shares', require('./routes/recordConvertShares'));
+app.use('/api/admin/platform-content', express.json({ limit: '256kb' }));
 app.use(express.json()); // 使用express.json解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 使用express.urlencoded解析URL编码的请求体
 
@@ -79,6 +80,7 @@ const playerMyEventsRoutes = require('./routes/player/myEvents');
 const player2dRecordsRoutes = require('./routes/player/records2d');
 const playerTileContentRoutes = require('./routes/player/tileContent');
 app.use('/api/player/auth', playerAuthRoutes);
+app.use('/api/player/redeem', require('./routes/player/redeem'));
 app.use('/api/player/event-applications', playerEventApplicationsRoutes);
 app.use('/api/player/tile-content', playerTileContentRoutes);
 app.use('/api/player', playerMyEventsRoutes);
@@ -90,6 +92,7 @@ const platformStatsLimiter = createWindowLimiter({
   max: 30,
   keyFn: (req) => `${getClientIp(req)}:platform-stats`,
 });
+app.use('/api/platform/content', require('./routes/platformContent'));
 app.use('/api/platform', platformStatsLimiter, platformRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/event-admin', eventAdminRoutes);
@@ -193,9 +196,9 @@ async function startServer() {
   }
   try {
     await ensureUserRenameCountColumn();
-    console.log('用户改名次数字段已就绪');
+    console.log('历史改名余额迁移字段已就绪');
   } catch (err) {
-    console.error('用户改名次数字段初始化失败:', err);
+    console.error('历史改名余额迁移字段初始化失败:', err);
   }
   try {
     await ensureLibraryTables();

@@ -1,7 +1,9 @@
 <template>
   <div class="manual-editor">
-    <div class="editor-heading"><strong>{{ bloodflow ? '血流复式' : '标准' }}牌山 {{ allTiles.length }} / {{ rule.tile_count }} 张</strong><el-button size="small" :disabled="disabled || !allTiles.length" @click="clear">清空全部</el-button></div>
-    <p v-if="bloodflow" class="layout-help">每家起手 13 张、固定牌墙 8 张，公共牌墙 24 张。庄家第 14 张取自固定墙；一家摸完后，剩余固定牌按东南西北接到公共墙前。</p>
+    <div class="editor-heading"><strong>{{ bloodflow ? '血流双打复式' : bloodbattle ? '血战双打复式' : '标准' }}牌山 {{ allTiles.length }} / {{ rule.tile_count }} 张</strong><el-button size="small" :disabled="disabled || !allTiles.length" @click="clear">清空全部</el-button></div>
+    <p v-if="bloodflow" class="layout-help">四家均预置 13 张手牌、8 张固定牌墙，另设 24 张公共牌墙。庄家开牌首摸取自固定墙；一家摸空后，剩余固定牌按东南西北接到公共墙前。</p>
+    <p v-if="bloodbattle" class="layout-help">四家均预置 13 张手牌、14 张个人牌墙。庄家开牌首摸取自个人牌墙。无公共牌墙，不预先把庄家第一张摸牌放入手牌。</p>
+    <p v-if="bloodflow || bloodbattle" class="layout-help">第 {{ round }} 副：{{ seatNames[dealerSeat] }}家坐庄。牌墙从第 1 张开始依次摸取。</p>
     <div class="target-controls">
       <label>添加 / 移动到 <select v-model.number="targetSeat" :disabled="disabled" aria-label="目标座位"><option v-for="(name, seat) in seatNames" :key="seat" :value="seat">{{ seat === 4 ? name : `${name}位 · ${seat + 1} 号` }}</option></select></label>
       <select v-model="targetZone" :disabled="disabled" aria-label="目标区域"><option v-if="targetSeat !== 4" value="hand">起始手牌</option><option value="wall">{{ wallLabel(targetSeat) }}</option></select>
@@ -27,13 +29,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import TileChip from './TileChip.vue'
-import { createDuplicateDraft, duplicateRoundSeats, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, tileCounts } from '@/utils/duplicateWalls'
+import { createDuplicateDraft, duplicateRoundSeats, duplicateDealerSeat, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, tileCounts } from '@/utils/duplicateWalls'
 const props = defineProps({ modelValue: { type: Array, required: true }, rule: { type: Object, required: true }, round: { type: Number, default: 1 }, disabled: Boolean })
 const emit = defineEmits(['update:modelValue'])
 const draft = computed(() => props.modelValue)
 const bloodflow = computed(() => props.rule.wall_layout === 'xueliu')
+const bloodbattle = computed(() => props.rule.wall_layout === 'sbr')
 const seatNames = computed(() => [...duplicateRoundSeats(props.round, props.rule.wall_layout).map(seat => ['东', '南', '西', '北'][seat]), ...(bloodflow.value ? ['公共牌墙'] : [])])
-const dealerSeat = computed(() => duplicateRoundSeats(props.round).indexOf(0))
+const dealerSeat = computed(() => duplicateDealerSeat(props.round, props.rule.wall_layout))
 const targetSeat = ref(0)
 const targetZone = ref('hand')
 watch(targetSeat, seat => { if (seat === 4) targetZone.value = 'wall' }, { flush: 'sync' })
@@ -42,7 +45,7 @@ const allTiles = computed(() => flattenDuplicateDraft(draft.value))
 const counts = computed(() => tileCounts(allTiles.value))
 const tileGroups = computed(() => [1, 2, 3, 4, 5].map(suit => props.rule.tiles.filter(tile => Math.floor(tile.tile / 10) === suit)).filter(group => group.length))
 const zoneLimit = (seat, zone) => duplicateZoneLimit(props.rule.tile_count, seat, zone, dealerSeat.value, props.rule.wall_layout)
-const wallLabel = seat => bloodflow.value ? (seat === 4 ? '公共牌墙' : '固定牌墙') : '剩余牌山'
+const wallLabel = seat => bloodflow.value ? (seat === 4 ? '公共牌墙' : '固定牌墙') : bloodbattle.value ? '个人牌墙' : '剩余牌山'
 const zoneName = (seat, zone) => seat === 4 ? '公共牌墙' : `${seatNames.value[seat]}位${zone === 'hand' ? '手牌' : '牌山'}`
 const targetLabel = computed(() => targetSeat.value === 4 ? '公共牌墙' : `${seatNames.value[targetSeat.value]}位${targetZone.value === 'hand' ? '手牌' : wallLabel(targetSeat.value)}`)
 const targetFull = computed(() => draft.value[targetSeat.value][targetZone.value].length >= zoneLimit(targetSeat.value, targetZone.value))

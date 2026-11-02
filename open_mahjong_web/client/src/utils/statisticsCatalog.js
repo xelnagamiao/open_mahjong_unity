@@ -3,11 +3,18 @@ export const STATISTICS_RULES = catalog.rules.filter(row => row.basic_stats);
 export const STATISTIC_VALUE_UNITS = catalog.stat_value_units;
 const canonicalKey = key => ['jiandan', 'jiandan/standard', 'nanque/standard'].includes(key) ? 'nanque' : key;
 export const statisticsSelection = key => STATISTICS_RULES.find(row => row.key === canonicalKey(key) || row.sub_rule === key);
+export function statisticsFanDictionary(key, dictionaries) {
+  const definition = statisticsSelection(key);
+  if (!definition?.fan_stats) return null;
+  // Older servers key fan names by fan_key; prefer the exact subrule on newer servers.
+  return dictionaries?.[definition.sub_rule] ?? dictionaries?.[definition.fan_key] ?? null;
+}
 export const statisticRuleKey = row => row.sub_rule
   ? statisticsSelection(row.sub_rule)?.key
   : statisticsSelection(row.rule)?.key;
 
 export function statisticsGameType(key, mode) {
+  if (statisticsSelection(key)?.rule === 'qingque' && mode === 'unlimited/4_rank') return 'unlimited';
   const hongque = statisticsSelection(key)?.rule === 'hongque';
   const length = Number.parseInt(mode, 10);
   if (hongque) return [4,8,12,16].includes(length) ? `hands${length}` : null;
@@ -17,6 +24,7 @@ export function statisticsGameType(key, mode) {
 export function statisticsModeLabel(key, mode) {
   if (!mode) return '-';
   const type = statisticsGameType(key, mode);
+  if (type === 'unlimited') return '无固定时限';
   if (type?.startsWith('hands')) return `${type.slice(5)}局`;
   return ({dongfeng:'东风战',banzhuang:'半庄战',xifeng:'东西战',quanzhuang:'全庄战'})[type] || mode;
 }

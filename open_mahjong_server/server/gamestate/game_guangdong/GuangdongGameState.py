@@ -1,4 +1,5 @@
 """广东政策适配器：复用台湾/推倒和已经验证的权威动作状态机。"""
+from ..public.settlement_sync import send_game_packet
 
 import random
 from dataclasses import replace
@@ -68,7 +69,7 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongC
         await super().player_reconnect(user_id)
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and self._terminal_result is not None:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     def refresh_waits(self, index):
         player = self.player_list[index]

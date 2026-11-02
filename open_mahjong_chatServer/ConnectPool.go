@@ -27,6 +27,8 @@ func (c *Client) ReadMessage() (int, []byte, error) {
 func (c *Client) WriteJSON(value any) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
+	// A half-open recipient must not block every later broadcast or login.
+	_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	return c.conn.WriteJSON(value)
 }
 

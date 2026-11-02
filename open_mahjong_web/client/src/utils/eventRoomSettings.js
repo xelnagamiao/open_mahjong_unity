@@ -1,3 +1,4 @@
+import { buildHongqueRoomPayload, loadHongqueForm, hongqueRoomRows, hongqueProfiles } from './hongqueRoomConfig.js'
 import { buildGuobiaoRoomPayload, createDefaultGuobiaoRoomConfig } from './guobiaoRoomConfig.js'
 import { shanxiRoomPayload, SHANXI_SUB_RULE } from './shanxiRoomConfig.js'
 import { duplicateWallLabel } from './duplicateWalls.js'
@@ -11,6 +12,8 @@ import { buildFuzhouRoomPayload, loadFuzhouForm } from './fuzhouRoomConfig.js'
 import { buildWenzhouRoomPayload, loadWenzhouForm } from './wenzhouRoomConfig.js'
 import { buildNanchangRoomPayload, loadNanchangForm } from './nanchangRoomConfig.js'
 import { buildShangraoRoomPayload, loadShangraoForm, SHANGRAO_OPTIONS } from './shangraoRoomConfig.js'
+import { buildDuocaiRoomPayload, loadDuocaiForm, duocaiProfile } from './duocaiRoomConfig.js'
+import { buildBeijingRoomPayload, loadBeijingForm, beijingRoomRows, BEIJING_HUN_MODES } from './beijingRoomConfig.js'
 import { buildHangzhouRoomPayload, loadHangzhouForm } from './hangzhouRoomConfig.js'
 import { buildSingaporeRoomPayload, loadSingaporeForm } from './singaporeRoomConfig.js'
 import { buildJiujiangRoomPayload, loadJiujiangForm } from './jiujiangRoomConfig.js'
@@ -52,6 +55,9 @@ export function createEventRoomForm(settings = {}) {
   if (form.room_rule === 'wenzhou') loadWenzhouForm(form, config)
   if (form.room_rule === 'nanchang') loadNanchangForm(form, config)
   if (form.room_rule === 'shangrao') loadShangraoForm(form, config)
+  if (form.room_rule === 'hongque') loadHongqueForm(form, config)
+  if (form.room_rule === 'beijing') loadBeijingForm(form, config)
+  if (form.room_rule === 'duocai') loadDuocaiForm(form, config)
   if (form.room_rule === 'hangzhou') loadHangzhouForm(form, config)
   if (form.room_rule === 'wuhan') loadWuhanForm(form, config)
   if (form.room_rule === 'hongzhong') loadHongzhongForm(form, config)
@@ -78,7 +84,15 @@ export function changeEventRoomRule(form, rule) {
   form.auto_duplicate = false
 }
 
+function validateCommonTimers(form) {
+  for (const [key, max, label] of [['round_timer', 1000, '局时'], ['step_timer', 100, '步时']]) {
+    if (!Number.isInteger(form[key]) || form[key] < 0 || form[key] > max) throw new Error(`${label}须为 0–${max} 秒的整数`)
+  }
+}
+
 export function buildEventRoomSettings(form) {
+  if (form.room_rule !== 'guobiao' && String(form.duplicate_key || '').trim() && !supportsDuplicateKey(form)) throw new Error('复式房间仅支持国标麻将和川麻双打复式')
+  if (form.room_rule === 'hongque') return buildHongqueRoomPayload(form)
   if (form.room_rule === 'changsha') return buildChangshaRoomPayload(form)
   if (form.room_rule === 'guizhou') return buildGuizhouRoomPayload(form)
   if (form.room_rule === 'yixing') return buildYixingRoomPayload(form)
@@ -89,6 +103,8 @@ export function buildEventRoomSettings(form) {
   if (form.room_rule === 'wenzhou') return buildWenzhouRoomPayload(form)
   if (form.room_rule === 'nanchang') return buildNanchangRoomPayload(form)
   if (form.room_rule === 'shangrao') return buildShangraoRoomPayload(form)
+  if (form.room_rule === 'beijing') return buildBeijingRoomPayload(form)
+  if (form.room_rule === 'duocai') return buildDuocaiRoomPayload(form)
   if (form.room_rule === 'hangzhou') return buildHangzhouRoomPayload(form)
   if (form.room_rule === 'singapore') return buildSingaporeRoomPayload(form)
   if (form.room_rule === 'jiujiang') return buildJiujiangRoomPayload(form)
@@ -100,7 +116,6 @@ export function buildEventRoomSettings(form) {
   }
   if (form.room_rule === 'guangdong') return buildGuangdongRoomPayload(form)
   const roomName = String(form.room_name || '').trim()
-  if (String(form.duplicate_key || '').trim() && !supportsDuplicateKey(form)) throw new Error('复式房间仅支持国标麻将和川麻血流')
   if (form.room_rule === 'shanxi') return shanxiRoomPayload(form)
   if (form.room_rule === 'hongkong') {
     if (form.sub_rule !== 'hongkong/new13' && !hkProfiles.some(p => p.value === form.sub_rule)) throw new Error('请选择香港麻将子规则')
@@ -118,6 +133,7 @@ export function buildEventRoomSettings(form) {
     return buildRiichiRoomPayload(form)
   }
   if (form.room_rule === 'sichuan') {
+    validateCommonTimers(form)
     return {
       room_rule: 'sichuan', password: String(form.password || '').trim(),
       room_config: {
@@ -129,9 +145,10 @@ export function buildEventRoomSettings(form) {
       },
     }
   }
+  validateCommonTimers(form)
   return {
     room_rule: form.room_rule,
-    room_config: { ...(roomName ? { room_name: roomName } : {}) },
+    room_config: { ...(roomName ? { room_name: roomName } : {}), round_timer: form.round_timer, step_timer: form.step_timer },
     password: String(form.password || '').trim(),
   }
 }
@@ -142,6 +159,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   const config = settings.room_config || {}
   const isDuplicate = Boolean(form.duplicate_key || config.is_duplicate || config.duplicate_wall_type)
   const duplicate = isDuplicate ? ` · ${duplicateWallLabel(config.duplicate_wall_type) === '—' ? '复式' : duplicateWallLabel(config.duplicate_wall_type)}` : ''
+  if (form.room_rule === 'hongque') return `${hongqueProfiles.find(p => p.value === form.sub_rule)?.label || rule} · ${form.game_round}局`
   if (form.room_rule === 'riichi') return `${selectedRiichiPreset(form)?.label || rule + ' · 自定义'} · 起始 ${form.starting_score} 点 · ${form.riichi_hepai_limit} 番起和（不含宝牌） · 起和线：${riichiWinLineLabel(form.minimum_win_score)}${duplicate}`
   if (form.room_rule === 'hongkong') return `${rule} · ${hkProfileLabel(form)}`
   if (form.room_rule === 'changsha') return `${rule} · ${form.game_round * 4}局 · 开杠${form.open_kong_replacement_count}张 · ${form.small_hu_self_draw_only ? '卡摸' : '小胡可点和'}`
@@ -161,6 +179,8 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
   if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
+  if (form.room_rule === 'beijing') return `${rule} · ${form.game_round}圈 · ${BEIJING_HUN_MODES[form.beijing_hun_mode]} · 庄和连庄`
+  if (form.room_rule === 'duocai') return `${rule} · ${duocaiProfile(form.sub_rule)?.label || form.sub_rule} · ${duocaiProfile(form.sub_rule)?.roundLabel || ''} · 起始40000点`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
   const round = ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈`
   return `${rule} · ${isDuplicate ? (config.duplicate_round_count ? `${config.duplicate_round_count} 局` : '局数跟随密钥') : round} · 局时 ${form.round_timer}s · 步时 ${form.step_timer}s${duplicate}`
@@ -184,6 +204,10 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     'wenzhou/mil2024': '温州 MIL 2024',
     'nanchang/mil2026': '南昌 MIL 2026',
     'shangrao/standard': '上饶麻将',
+    'hongque/v1.6': '虹雀² v1.7', 'hongque/w-v1.0': '虹雀 W v1.0',
+    'beijing/chipengti': '北京麻将（吃碰提）',
+    'duocai/guobiao': '夺彩·国标',
+    'duocai/riichi': '夺彩·立直',
     'hangzhou/mil2025': 'MIL 杭州（2025）',
     'wuhan/mil2025': '武汉 MIL 2025',
     'hongzhong/mil2024': '红中 MIL 2024',
@@ -205,7 +229,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     { label: '房间名', value: form.room_name || '自动命名' },
     { label: '子规则', value: form.room_rule === 'hongkong' ? hkProfileLabel(form) : subRules[form.sub_rule] || form.sub_rule },
     { label: form.room_rule === 'guizhou' ? '局数' : '圈数', value: form.room_rule === 'guizhou' ? `${form.game_round * 4}局` : ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈` },
-    { label: form.room_rule === 'guizhou' ? '局时储备' : '局时', value: Number(form.round_timer) === 0 && form.room_rule !== 'guizhou' ? '不限时' : `${form.round_timer} 秒` },
+    { label: form.room_rule === 'guizhou' ? '局时储备' : '局时', value: Number(form.round_timer) === 0 && !['guizhou', 'sichuan'].includes(form.room_rule) ? '不限时' : `${form.round_timer} 秒` },
     { label: '步时', value: `${form.step_timer} 秒` },
   ]
   if (form.room_rule === 'shanxi') {
@@ -302,6 +326,25 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   if (form.room_rule === 'shangrao') {
     const row = rows.find(item => item.label === '圈数'); if (row) { row.label='副数'; row.value=`${form.game_round * 4}副` }
     rows.push({label:'和牌',value:'仅自摸'}, ...Object.entries(SHANGRAO_OPTIONS).map(([key,label])=>({label,value:enabled(form['shangrao_'+key])})))
+  }
+  if (form.room_rule === 'hongque') {
+    const round = rows.find(row => row.label === '圈数')
+    if (round) { round.label = '局数'; round.value = `${form.game_round}局` }
+    const timer = rows.find(row => row.label === '局时')
+    if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
+    rows.push(...hongqueRoomRows(form))
+  }
+  if (form.room_rule === 'beijing') {
+    const timer = rows.find(row => row.label === '局时')
+    if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
+    rows.push(...beijingRoomRows(form))
+  }
+  if (form.room_rule === 'duocai') {
+    const timer = rows.find(row => row.label === '局时')
+    if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
+    rows.push({ label: '起始 / 返点', value: '40000 / 40000 点' }, { label: '顺位点', value: '0 / 0 / 0 / 0' },
+      { label: '牌组', value: '144张，8赖子；两副牌组交替' }, { label: '起和', value: form.sub_rule === 'duocai/guobiao' ? '8番，不含悬赏与纯赖子杠奖励' : '至少有一个役，奖励不提供役' },
+      { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
   }
   rows.push({ label: '提示', value: enabled(form.tips) })
   if (form.room_rule === 'guobiao') {

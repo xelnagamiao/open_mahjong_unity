@@ -4,6 +4,13 @@
 public static class RoundEndTiming {
     // next_status: "round_continue" | "round_end_by_ready" | "match_end"
 
+    // Client playback is uniform; confirmation still uses SettlementSync's server deadline.
+    public const float SichuanBoardEventSeconds = 2.5f;
+    public const float SichuanBoardWinSeconds = SichuanBoardEventSeconds;
+    public static float GetSichuanBoardEventSeconds(string kind, int recordedDurationMs = 0) {
+        return SichuanBoardEventSeconds;
+    }
+
     public const float RoundEndPresentationFadeSeconds = 0.35f;
     public const float RoundEndHandRevealSeconds = 1.5f;
     /// <summary>与 <see cref="HepaiRevealTiming.TravelSeconds"/> 一致，供注释/对照服务端。</summary>

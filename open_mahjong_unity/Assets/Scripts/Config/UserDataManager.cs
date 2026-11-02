@@ -177,6 +177,7 @@ public class UserDataManager : MonoBehaviour {
     /// 断线/登出时清空在线会话，保留本地保存的账号密码输入。
     /// </summary>
     public void ClearSessionState() {
+        ChatManager.Instance?.EndSession();
         ratings.Clear();GuobiaoRank="10级";GuobiaoScore=0;
         RankDataChanged?.Invoke();
         Username = null;

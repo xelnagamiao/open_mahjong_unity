@@ -1,4 +1,5 @@
 """Viewer-safe physical snapshots; client calculation inputs never expose other hands."""
+from ..public.settlement_sync import send_game_packet
 
 import math
 
@@ -101,18 +102,22 @@ class Protocol:
 
     async def _deliver_claim_payload(self, index, payload):
         """Use the existing pipe, but anchor each seat before later sends wait."""
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, index)
         window = self._live_ask_window(payload)
         if window is not None:
             payload = self._ask_payload(index,window)
         connection = (getattr(self.game_server,"user_id_to_connection",{}) or {}).get(self.player_list[index].user_id)
         if connection is not None and getattr(connection,"websocket",None) is not None:
-            await connection.websocket.send_json(payload)
+            await send_game_packet(self, connection.websocket, payload)
             if window is not None:
                 self.start_action_clock(index,window)
             self.websocket_sent_payloads.append(payload)
         await self.send_to_realtime_spectators(index,payload)
 
     async def send_payload_to_player(self, index, payload, *, record_fallback=True):
+        from ..public.settlement_sync import remember_result
+        remember_result(self, payload, index)
         window = self._live_ask_window(payload)
         if window is not None:
             payload = self._ask_payload(index,window)
@@ -219,4 +224,4 @@ class Protocol:
             from ..public.outbound_pipe import drain_viewer
             await drain_viewer(self,index)
             for payload in self.restore_payloads(index):
-                await connection.websocket.send_json(payload)
+                await send_game_packet(self, connection.websocket, payload)

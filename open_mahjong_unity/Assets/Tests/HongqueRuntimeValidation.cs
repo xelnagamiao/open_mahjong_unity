@@ -12,6 +12,7 @@ using UnityEngine;
 /// <summary>Opt-in, windowless MainScene regression using authoritative server packets.</summary>
 public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     static string folder;
+    static bool preview;
     readonly List<object> checks = new List<object>();
     readonly List<string> failures = new List<string>();
     string currentCase = "boot";
@@ -23,8 +24,13 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void Configure() {
         folder = null;
+        preview = false;
         var args = Environment.GetCommandLineArgs();
         int index = Array.IndexOf(args, "--verify-hongque-client");
+        if (index < 0) {
+            index = Array.IndexOf(args, "--preview-hongque-client");
+            preview = index >= 0;
+        }
         if (index < 0 || index + 1 >= args.Length) return;
         folder = Path.GetFullPath(args[index + 1]);
         ConfigManager.BuildForSteam = false;
@@ -58,6 +64,11 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     }
     IEnumerator Start() {
         Application.targetFrameRate = 60; QualitySettings.vSyncCount = 0;
+        if (preview) {
+            yield return Guard(RunPreview());
+            Save(failures.Count == 0 ? "preview-ready" : "failed");
+            yield break;
+        }
         Time.timeScale = 8;
         Directory.CreateDirectory(folder); Application.logMessageReceived += Log;
         deadline = Time.realtimeSinceStartup + 900;
@@ -224,8 +235,13 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     IEnumerator RunCase(JObject fixture) {
         Time.timeScale = (float?)fixture["timeScale"] ?? 8;
         NormalGameStateManager.Instance.ResetForExit();
+        // Cases are independent sessions, including the lobby-selected game
+        // identity and result deduplication state outside the table manager.
+        PlayerSession.Current.SetGamestateId("");
+        SettlementSync.Reset();
         if (fixture["record"] is JObject) { yield return RunRecord(fixture); yield break; }
         var restore = fixture["restore"].ToObject<Response>();
+        PlayerSession.Current.SetGamestateId(restore.gamestate_id);
         var state = restore.hongque_state;
         UserDataManager.Instance.SetUserInfo("虹雀回归", "fixture-only", state.players[state.you].user_id, false);
         bool spectating = (bool?)fixture["spectator"] == true;
@@ -309,6 +325,8 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
             }
             foreach (var player in state.players) {
                 var info = gsm.player_to_info[gsm.indexToPosition[player.index]];
+                Check(info.score == player.score, "settlement includes authoritative winner and discarder totals " + player.index,
+                    new { expected=player.score, actual=info.score });
                 Check(info.score_history.SequenceEqual(player.score_history), "score history is authoritative " + player.index,
                     new { expected=player.score_history, actual=info.score_history.ToArray() });
                 Check(info.round_number_history.SequenceEqual(player.round_number_history), "history round numbers " + player.index);

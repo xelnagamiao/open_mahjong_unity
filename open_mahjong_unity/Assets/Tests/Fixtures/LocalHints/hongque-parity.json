@@ -170,8 +170,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 27,
-      "points": 216
+      "fan_total": 24,
+      "points": 192
     }
   },
   {
@@ -197,8 +197,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 27,
-      "points": 216
+      "fan_total": 24,
+      "points": 192
     }
   },
   {
@@ -224,8 +224,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 27,
-      "points": 216
+      "fan_total": 24,
+      "points": 192
     }
   },
   {
@@ -251,8 +251,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 27,
-      "points": 216
+      "fan_total": 24,
+      "points": 192
     }
   },
   {
@@ -279,8 +279,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 27,
-      "points": 216
+      "fan_total": 24,
+      "points": 192
     }
   },
   {
@@ -307,8 +307,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 29,
-      "points": 232
+      "fan_total": 26,
+      "points": 208
     }
   },
   {
@@ -335,8 +335,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 44,
-      "points": 352
+      "fan_total": 41,
+      "points": 328
     }
   },
   {
@@ -363,8 +363,8 @@
     },
     "expected": {
       "base": 8,
-      "fan_total": 46,
-      "points": 368
+      "fan_total": 43,
+      "points": 344
     }
   },
   {
@@ -1229,6 +1229,3622 @@
       "base": 9,
       "fan_total": 43,
       "points": 387
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 41,
+      "points": 205
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 56,
+      "points": 280
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 58,
+      "points": 290
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 41,
+      "points": 205
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 56,
+      "points": 280
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX5",
+      "AX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 58,
+      "points": 290
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 52,
+      "points": 260
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 54,
+      "points": 270
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 35,
+      "points": 175
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 52,
+      "points": 260
+    }
+  },
+  {
+    "hand": [
+      "AX5",
+      "BX5",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX5",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 54,
+      "points": 270
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 17,
+      "points": 85
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 17,
+      "points": 85
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 17,
+      "points": 85
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 17,
+      "points": 85
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 17,
+      "points": 85
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 19,
+      "points": 95
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 34,
+      "points": 170
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 36,
+      "points": 180
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 18,
+      "points": 54
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 16,
+      "points": 48
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 18,
+      "points": 54
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 20,
+      "points": 100
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 20,
+      "points": 100
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 20,
+      "points": 100
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 20,
+      "points": 100
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 20,
+      "points": 100
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 22,
+      "points": 110
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX4",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX6",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 21,
+      "points": 63
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 19,
+      "points": 57
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX4",
+        "CX5",
+        "CX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 21,
+      "points": 63
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8",
+      "DY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8",
+      "DY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 14,
+      "points": 70
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8",
+      "DY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 29,
+      "points": 145
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9",
+      "DY7",
+      "DY8",
+      "DY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "DY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 31,
+      "points": 155
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 13,
+      "points": 39
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ],
+      [
+        "DY7",
+        "DY8",
+        "DY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 13,
+      "points": 39
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 9,
+      "points": 45
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 9,
+      "points": 45
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 9,
+      "points": 45
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 9,
+      "points": 45
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 9,
+      "points": 45
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 11,
+      "points": 55
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 26,
+      "points": 130
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BX1",
+      "BX2",
+      "BX3",
+      "CY7",
+      "CY8",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 28,
+      "points": 140
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 10,
+      "points": 30
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 8,
+      "points": 24
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX1",
+        "BX2",
+        "BX3"
+      ],
+      [
+        "CY7",
+        "CY8",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 10,
+      "points": 30
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 19,
+      "points": 152
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 19,
+      "points": 152
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 19,
+      "points": 152
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 19,
+      "points": 152
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 19,
+      "points": 152
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 21,
+      "points": 168
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 36,
+      "points": 288
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1",
+      "BY1",
+      "CY1",
+      "DY1",
+      "AX9",
+      "AY9",
+      "BX9",
+      "BY9",
+      "CX9",
+      "CY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 38,
+      "points": 304
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 20,
+      "points": 120
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 18,
+      "points": 108
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AY1",
+      "BX1"
+    ],
+    "melds": [
+      [
+        "BY1",
+        "CY1",
+        "DY1"
+      ],
+      [
+        "AX9",
+        "AY9",
+        "BX9",
+        "BY9",
+        "CX9",
+        "CY9"
+      ]
+    ],
+    "context": {
+      "tile": "BX1",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 20,
+      "points": 120
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 15,
+      "points": 90
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 15,
+      "points": 90
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 15,
+      "points": 90
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 15,
+      "points": 90
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 15,
+      "points": 90
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 17,
+      "points": 102
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 32,
+      "points": 192
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY6",
+      "BY7",
+      "BY8",
+      "BY9"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BY9",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 6,
+      "fan_total": 34,
+      "points": 204
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 16,
+      "points": 64
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 14,
+      "points": 56
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY6",
+        "BY7",
+        "BY8",
+        "BY9"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 16,
+      "points": 64
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6",
+      "CX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 12,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6",
+      "CX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 14,
+      "points": 70
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6",
+      "CX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 29,
+      "points": 145
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "BY7",
+      "BY8",
+      "BY9",
+      "CX5",
+      "CX6",
+      "CX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "CX7",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 31,
+      "points": 155
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 13,
+      "points": 39
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 11,
+      "points": 33
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BY7",
+        "BY8",
+        "BY9"
+      ],
+      [
+        "CX5",
+        "CX6",
+        "CX7"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 13,
+      "points": 39
     }
   }
 ]

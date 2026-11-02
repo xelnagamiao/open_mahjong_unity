@@ -11,6 +11,11 @@ public partial class RoundEndPresentation {
 
     public void PresentLiuju(string displayText, bool playPresentationEffects = true,
         Dictionary<int, int[]> tenpaiTiles = null, IDictionary<int, string> indexToPosition = null) {
+        if (SettlementSync.IsRestoring) {
+            StopActiveSequence();PreparePresentationRoot(false);
+            EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition);
+            return;
+        }
         StartSequence(CoLiuju(displayText, playPresentationEffects, tenpaiTiles, indexToPosition));
     }
 
@@ -26,7 +31,8 @@ public partial class RoundEndPresentation {
 
     /// <summary>荒牌流局：听牌展开手牌、流局与听牌标记、不听罚符分数变化三段演出。</summary>
     public void PresentDrawWallLiujuAndPenalty(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras, bool playPresentationEffects = true) {
-        StartSequence(CoRiichiDrawWallLiujuSequence(displayText, player_to_score, riichiExtras, playPresentationEffects));
+        StartSequence(CoRiichiDrawWallLiujuSequence(displayText, player_to_score, riichiExtras,
+            playPresentationEffects && !SettlementSync.IsRestoring));
     }
 
     private IEnumerator CoRiichiDrawWallLiujuSequence(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras, bool playPresentationEffects) {
@@ -41,8 +47,10 @@ public partial class RoundEndPresentation {
         PreparePresentationRoot(playPresentationEffects);
         EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles);
         yield return PlayPresentationFade(playPresentationEffects);
-        EndLiujuPanel.Instance.PlayPreparedLiujuPanel(DrawCaptionHoldSeconds);
-        yield return new WaitForSeconds(DrawCaptionHoldSeconds);
+        if (!SettlementSync.IsRestoring) {
+            EndLiujuPanel.Instance.PlayPreparedLiujuPanel(DrawCaptionHoldSeconds);
+            yield return new WaitForSeconds(DrawCaptionHoldSeconds);
+        }
 
         bool hasPenalty = riichiExtras != null && riichiExtras.NotenPenaltyAfterDraw;
         if (hasPenalty) {
@@ -58,6 +66,12 @@ public partial class RoundEndPresentation {
                 scoresByPos[pos] = afterScore;
                 ShowResultPlayerScoreResolver.TryGetDelta(riichiExtras.ScoreChanges, idx, playerInfo.original_player_index, out int delta);
                 deltaByPos[pos] = delta;
+            }
+            if (SettlementSync.IsRestoring) {
+                EndLiujuPanel.Instance.gameObject.SetActive(false);
+                PenaltyPanel.Instance.PreparePenaltyPanel(usernameByPos, scoresByPos, deltaByPos);
+                activeRoundEndCoroutine = null;
+                yield break;
             }
             PenaltyPanel.Instance.PreparePenaltyPanel(usernameByPos, scoresByPos, deltaByPos, PenaltyPresentation.AfterDrawNotenThreePhase);
             PenaltyPanel.Instance.PlayPreparedPenaltyPanel(usernameByPos, scoresByPos, deltaByPos, PenaltyPresentation.AfterDrawNotenThreePhase, DrawNotenPenaltyHoldSeconds);

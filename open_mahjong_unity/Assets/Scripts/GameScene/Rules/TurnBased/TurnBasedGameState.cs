@@ -208,6 +208,8 @@ public class TurnBasedGameState : GameStateBase {
             IsQianggang = info.is_qianggang == true,
             DeferScoreSettlement = info.defer_score_settlement == true,
             NextStatus = info.next_status,
+            SichuanGroupedEndgame = info.sichuan_grouped_endgame,
+            SichuanSettlement = info.sichuan_settlement,
             LiujuStep = info.liuju_step,
             LiujuStatus = info.liuju_status,
             LiujuHands = info.liuju_hands,
@@ -290,7 +292,7 @@ public class TurnBasedGameState : GameStateBase {
         if (!Session.IsRealtimeSpectator && !Session.IsDuplicate) {
             LocalRecordStore.SavePushedDetail(info.record_detail);
         }
-        Manager.GameEnd(info.master_seed, info.commitment, info.salt, info.player_final_data);
+        Manager.GameEnd(info.master_seed, info.commitment, info.salt, info.player_final_data, info.sichuan_match);
     }
 
     protected virtual void OnReadyStatus(Response response) {

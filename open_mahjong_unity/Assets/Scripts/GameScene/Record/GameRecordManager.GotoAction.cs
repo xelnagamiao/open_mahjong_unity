@@ -11,11 +11,13 @@ public partial class GameRecordManager
             return;
         }
         int safeActionIndex = Mathf.Clamp(actionIndex, 0, roundData.actionTicks.Count);
+        if (EndResultPanel.Instance?.IsSichuanBoardVisible == true) ClearRecordRoundEndPanels();
         if (IsExchangeSixRecord()) Game3DManager.Instance.ClearChangshaExchangeHands();
         InvalidateRecordDelayedAdvances();
 
         // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
         Game3DManager.Instance.StopAllRunningAnimations();
+        GameCanvas.Instance.ClearHandCardQueue();
         Game3DManager.Instance.ClearChangshaOpenKongTilesImmediate();
         // 跳转/快进会中断渐隐协程，先销毁残留的操作文本，避免「补花」等字卡死
         GameCanvas.Instance.ClearActionDisplay();
@@ -92,6 +94,7 @@ public partial class GameRecordManager
             RestoreRecordSelfHandContainer();
         }
         SyncRecordBoardScores();
+        RestoreSichuanBoardAfterSeek(roundData, safeActionIndex);
     }
 
     /// <summary>切换牌谱明牌时先释放旧公开行，再重建手牌和剩余批次，避免重复借用实体牌。</summary>
@@ -125,6 +128,8 @@ public partial class GameRecordManager
     }
 
     private void SyncRecordRonDiscardObjectAfterRebuild() {
+        if(IsBeijingRecord()&&recordBeijingEnded)return;
+        if(IsDuocaiRecordRobWin||IsBeijingRecordRobWin||((RecordRuleManifest?.RuleId=="duocai"||IsBeijingRecord())&&lastJiagangPlayerIndex>=0))return;
         if (IsHongKongRecordRobWin || IsHongKongRecordFlowerWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsNanjingRecordForcedWin || IsFuzhouRecordRobWin || IsFuzhouRecordForcedWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin || IsHangzhouRecordTenWinds) return;
         // 鸣牌已将候选置为 -1；历史弃牌不能重新成为荣和来源。
         int winTileId = lastWinnableTileId;
@@ -251,7 +256,7 @@ public partial class GameRecordManager
         else if (action == "jg") {
             int jiagangTile = ParseTickInt(tick, 1);
             bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
-            List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
+            List<int> removedTiles = IsHongqueRecord() ? HongqueReplayKong.RemoveTiles(actingPlayer.tileList, tick) : GameRecordMeldCodec.RemoveNTilesByNormalized(
                 actingPlayer.tileList, IsWenzhouRecord() && tick.Count > 3 ? ParseTickInt(tick, 3) : jiagangTile, 1, preferDrawSlotFirst: isMoGang);
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
             lastWinnableTileId = actualJia;
@@ -343,6 +348,9 @@ public partial class GameRecordManager
                 if (rp.playerIndex == riichiPlayer){ rp.isRiichi = true; rp.isDaburuRiichi = ParseTickInt(tick, 2) != 0; break; }
             }
             ApplyRecordRiichiDeclare(riichiPlayer);
+        }
+        else if (action == "sichuan_kong_reveal") {
+            ApplySichuanKongReveal(tick, false);
         }
         else if (action == "gr") {
             ApplyRecordGangRefundState(tick);

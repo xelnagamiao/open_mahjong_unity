@@ -83,6 +83,12 @@ public class RulebookPanelController : MonoBehaviour {
         popup.Hide();
     }
 
+    public void CloseAll() {
+        _manualFromFanTable = _returnAfterClose = false;
+        if (fanTablePanel && fanTablePanel.IsOpen) fanTablePanel.Close();
+        if (popup) popup.Hide();
+    }
+
     public void HideImmediate() {
         _manualFromFanTable = _returnAfterClose = false;
         if (fanTablePanel) fanTablePanel.HideImmediate();
@@ -112,7 +118,7 @@ public class RulebookPanelController : MonoBehaviour {
     }
 
     /// <summary>规则书弹窗是否处于显示中（含收起动画尚未结束的阶段）。</summary>
-    public bool IsOpen => gameObject.activeSelf || (fanTablePanel && fanTablePanel.IsOpen);
+    public bool IsOpen => (popup ? popup.IsOpen : gameObject.activeInHierarchy) || (fanTablePanel && fanTablePanel.IsOpen);
 
     private void ApplyTexts(string roomRule, string subRule) {
         ApplyRuleName(RuleDisplayName(roomRule, subRule));

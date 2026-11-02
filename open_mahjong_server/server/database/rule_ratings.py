@@ -37,6 +37,14 @@ def ensure_rating_schema(cursor):
             CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque'));
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS players JSONB;
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+        CREATE TABLE IF NOT EXISTS qingque_rating_sessions (
+            game_id TEXT PRIMARY KEY, queue_type TEXT NOT NULL,
+            players JSONB NOT NULL, record JSONB NOT NULL,
+            completed_hands INTEGER NOT NULL CHECK(completed_hands>0),
+            status TEXT NOT NULL CHECK(status IN ('open','pending','complete')),
+            cloud_game_id TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE INDEX IF NOT EXISTS qingque_rating_pending ON qingque_rating_sessions(status,updated_at)
+            WHERE status<>'complete';
     """)
 
 
@@ -52,11 +60,23 @@ def read_ratings(cursor, user_id, national_rank="10级", national_score=0):
     return ratings
 
 
-def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_algorithm=None):
+def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_algorithm=None,
+                      completed_hands=None):
     spec = get_ranked_queue(queue_type)
     if spec is None:
         raise ValueError('不支持的匹配队列')
     rating_rule = spec.rating_rule
+    from ..match.qingque_score_elo import ALGORITHM as POINTS_ALGORITHM, validate_scores, score_elo_details
+    from ..match.rating_rules import ELO_ALGORITHM_VERSION
+    if spec.rule == 'qingque':
+        # Omitted version on historical full games retains the original contract.
+        rating_algorithm = rating_algorithm or (POINTS_ALGORITHM if spec.unlimited_rounds else ELO_ALGORITHM_VERSION)
+        if rating_algorithm not in (POINTS_ALGORITHM, ELO_ALGORITHM_VERSION) or (spec.unlimited_rounds and rating_algorithm != POINTS_ALGORITHM):
+            raise ValueError('不支持的青雀评分算法版本')
+    point_rated = spec.rule == 'qingque' and rating_algorithm == POINTS_ALGORITHM
+    if point_rated:
+        validate_scores(players, completed_hands)
+        players = [{**p, 'completed_hands': completed_hands} for p in players]
     if (len(players) != spec.player_count or len({p["user_id"] for p in players}) != spec.player_count
             or any(p["user_id"] <= 10000000 or type(p['place']) is not int
                    or not 1 <= p['place'] <= spec.player_count for p in players)):
@@ -67,11 +87,16 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
             cur.execute("SELECT pg_advisory_xact_lock_shared(hashtextextended(%s,0))", (RATING_WRITE_LOCK,))
             # Serialize retries of the same game, including concurrent deliveries.
             cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (str(game_id),))
-            cur.execute("SELECT rule,result FROM rating_settlements WHERE game_id=%s", (str(game_id),))
+            cur.execute("SELECT rule,result,players FROM rating_settlements WHERE game_id=%s", (str(game_id),))
             existing = cur.fetchone()
             if existing:
                 if existing[0] != rating_rule or set(existing[1]) != {str(p['user_id']) for p in players}:
                     raise ValueError("重复结算的规则或玩家不一致")
+                if point_rated:
+                    saved = sorted(existing[2] or [], key=lambda p: p['user_id'])
+                    if (saved != sorted(players, key=lambda p: p['user_id'])
+                            or any(p.get('rating_algorithm') != POINTS_ALGORITHM for p in existing[1].values())):
+                        raise ValueError('重复结算的青雀成绩或算法不一致')
                 conn.commit()
                 if spec.graded:
                     return {uid: {k: v for k, v in data.items() if not k.startswith('elo_')}
@@ -100,10 +125,11 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
                 if spec.rule == 'guobiao':
                     rank, score = national
                 before[uid] = (rank,float(score),None if spec.graded else float(elo),games)
-            changes = [0.0] * len(players) if spec.graded else elo_deltas(
+            point_details = score_elo_details([before[p['user_id']][2] for p in players], players, completed_hands) if point_rated else None
+            changes = [d['elo_delta'] for d in point_details] if point_rated else [0.0] * len(players) if spec.graded else elo_deltas(
                 [before[p['user_id']][2] for p in players], [p['place'] for p in players], k=spec.elo_k)
             result = {}
-            for player, delta in zip(players, changes):
+            for index, (player, delta) in enumerate(zip(players, changes)):
                 uid = player['user_id']
                 rank, score, elo, games = before[uid]
                 pt = 0.0
@@ -132,6 +158,10 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
                 if not spec.graded:
                     result[str(uid)].update(elo_before=elo, elo_after=new_elo, elo_delta=delta,
                                            rating_algorithm=spec.elo_algorithm, rating_k=spec.elo_k)
+                    if point_rated:
+                        result[str(uid)].update(point_details[index])
+                    elif spec.rule == 'qingque':
+                        result[str(uid)]['rating_algorithm'] = ELO_ALGORITHM_VERSION
                 cur.execute("UPDATE rule_ratings SET rank_name=%s,rank_score=%s,elo=%s,games=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s AND rule=%s", (new_rank,new_score,new_elo,games+1,uid,rating_rule))
                 if spec.rule == 'guobiao':
                     cur.execute("UPDATE rank_data SET guobiao_rank=%s,guobiao_score=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s", (new_rank,new_score,uid))

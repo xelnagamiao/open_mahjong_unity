@@ -328,7 +328,9 @@ def test_next_round_restores_configured_bank_and_ready_does_not_spend_it():
         await state.submit_action(0, "hu_self")
         state.apply_action_results(state.live_pending_window, await waiter)
         assert state.player_list[0].remaining_time == 37
-        await state.run_round_ready_phase(timeout=0)
+        # The live loop delivers the result before it starts the ready phase.
+        await state.flush_outbound_payloads()
+        await asyncio.wait_for(state.run_round_ready_phase(timeout=0), 1)
         assert state.player_list[0].remaining_time == 37
         state.advance_round_after_ready()
         state.initialize_round()

@@ -73,7 +73,7 @@ public class MatchNetworkManager : MonoBehaviour {
         return user!=null&&!string.IsNullOrEmpty(user.GamestateId);
     }
     private void ApplyServerMatchState(Response response) {
-        if(IsBoundToLiveGame()||IsMatchUiLocked())return;
+        if(IsBoundToLiveGame())return;
         if(response.match_revision.HasValue){
             // A delayed poll must not resurrect a queue removed by a newer response.
             if(response.match_revision.Value<serverRevision)return;
@@ -82,8 +82,16 @@ public class MatchNetworkManager : MonoBehaviour {
         if(response.my_queues==null)return;
         confirmedQueues.Clear();
         foreach(var queue in response.my_queues)if(!string.IsNullOrEmpty(queue)&&!confirmedQueues.Contains(queue))confirmedQueues.Add(queue);
+        // Commitment is authoritative server state, including its release. A poll
+        // during final settlement can still report committed; the newer release
+        // must pass the same revision gate as queue updates.
+        bool commitmentReleased=IsMatchUiLocked()&&!response.match_committed;
+        isMatchFoundLocked=response.match_committed;
+        if(commitmentReleased){
+            MatchStateManager.Instance.StopQueueing();
+            MatchFoundedPanel.Instance?.StopCountdownAndHide();
+        }
         if(response.match_committed){
-            isMatchFoundLocked=true;
             lastJoinedQueueType=response.match_queue_type;
             operations.Clear();inFlight=null;
         }else if(confirmedQueues.Count>0){

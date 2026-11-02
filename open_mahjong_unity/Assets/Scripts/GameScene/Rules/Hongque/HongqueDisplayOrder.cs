@@ -20,8 +20,9 @@ public static class HongqueDisplayOrder {
     }
 
     /// <summary>合法组沿连续花色/等差数字排列；正反方向取字典序较小者，完整色环也有固定起点。</summary>
-    public static int[] Meld(IEnumerable<int> tiles) {
+    public static int[] Meld(IEnumerable<int> tiles, bool? isW = null) {
         int[] source = tiles?.ToArray() ?? Array.Empty<int>();
+        if (isW ?? HongqueWTips.IsActive) return source.OrderBy(Number).ThenBy(Colour).ToArray();
         if (source.Any(id => !HongqueTileVisual.IsHongqueId(id))) return source;
         HongqueMeldShape shape = HongqueScoring.ClassifyMeld(source.ToList());
         if (shape == null) return source;
@@ -97,15 +98,19 @@ public static class HongqueDisplayOrder {
 
     /// <summary>当前虹雀牌谱显式指定目标组；扩展后全组重新排序，追加张不使用普通加杠叠牌标记。</summary>
     public static int[] ExtendRecordedMeld(List<int[]> masks, List<string> combinations, int index, int addedTile) {
+        return ExtendRecordedMeld(masks, combinations, index, new[] { addedTile });
+    }
+    public static int[] ExtendRecordedMeld(List<int[]> masks, List<string> combinations, int index, IEnumerable<int> addedTiles, bool? isW = null) {
         if (index < 0 || index >= masks.Count || index >= combinations.Count || !IsMeldMask(masks[index]))
             throw new InvalidOperationException("虹雀杠牌目标组无效: " + index);
         int[] mask = masks[index];
         var tiles = Enumerable.Range(0, mask.Length / 2).Select(i => mask[i * 2 + 1]).ToList();
-        tiles.Add(addedTile);
-        var shape = HongqueScoring.ClassifyMeld(tiles);
-        if (!HongqueTileVisual.IsHongqueId(addedTile) || shape == null)
+        tiles.AddRange(addedTiles);
+        bool w = isW ?? HongqueWTips.IsActive;
+        var shape = w ? HongqueWScoring.Classify(tiles) : HongqueScoring.ClassifyMeld(tiles);
+        if (addedTiles.Any(tile => !HongqueTileVisual.IsHongqueId(tile)) || shape == null)
             throw new InvalidOperationException("虹雀杠牌扩展后不是合法牌组。");
-        int[] ordered = Meld(tiles);
+        int[] ordered = Meld(tiles, w);
         int[] result = ordered.SelectMany(id => new[] { 0, id }).ToArray();
         masks[index] = result;
         combinations[index] = (shape.Kind == "rainbow" ? "h" : shape.BaseKind == "triplet" ? "k" : "s") + ordered[0];

@@ -103,6 +103,8 @@ class HongKongGameState(HongKongCore,HongKongFlowers,HongKongHandFlow,HongKongSe
         return results
 
     async def run_round_ready_phase(self,timeout=None):
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.machine.transition(P.READY)
         self.live_pending_window = None
         # The last result's confirm button opens the final ranking locally.
@@ -115,7 +117,7 @@ class HongKongGameState(HongKongCore,HongKongFlowers,HongKongHandFlow,HongKongSe
             self.waiting_players_list = sorted(pending)
             self.emit_ready_status_payloads()
             await self.flush_outbound_payloads()
-            responses = await self.wait_action(timeout)
+            responses = await self.wait_action(timeout=ready_remaining(self))
             for index,data in responses.items():
                 if data["action_type"]=="pull_cut":
                     self.cut_pulls(index)

@@ -1,0 +1,112 @@
+{
+  "purpose": "Salasasa 五套首页本地构图预览；原始图片保持不变，未生成、抠图、重绘、裁切或放大源文件。",
+  "retrievedAt": "2026-10-18",
+  "coordinateNote": "alphaBBox 是 PNG 像素坐标 [left, top, right, bottom]；建议构图仅通过 Unity 显示区域和缩放处理。",
+  "selected": [
+    {
+      "theme": "和风",
+      "localFile": "D:/open_mahjong_unity/.om_workspace/salasasa-home-design/art-overlay-20261018/characters/candidate-reimu-aocf.png",
+      "characterChinese": "博丽灵梦",
+      "sourcePage": "https://thwiki.cc/文件:博丽灵梦（深秘录凭依华立绘）.png",
+      "directURL": "https://upload.thbwiki.cc/8/8c/%E5%8D%9A%E4%B8%BD%E7%81%B5%E6%A2%A6%EF%BC%88%E6%B7%B1%E7%A7%98%E5%BD%95%E5%87%AD%E4%BE%9D%E5%8D%8E%E7%AB%8B%E7%BB%98%EF%BC%89.png",
+      "licenseNote": "THBWiki 收录的东方官方游戏立绘；文件页标注官方游戏立绘分类。页面说明引用作品版权归原作者，未见可再分发或商用许可；本次仅用于本地界面构图预览。",
+      "sourceWork": "东方深秘录 / 东方凭依华",
+      "dimensions": [
+        640,
+        720
+      ],
+      "alphaBBox": [
+        4,
+        0,
+        619,
+        720
+      ],
+      "visualNotes": "红白巫女服，三分之二侧站，膝上原图。没有攻击光效；左侧御币和宽袖均属人物轮廓。建议头顶约 y=120，膝部出底边，不把宽袖放入右侧玩法按钮。",
+      "hasTransparency": true
+    },
+    {
+      "theme": "都市",
+      "localFile": "D:/open_mahjong_unity/.om_workspace/salasasa-home-design/art-overlay-20261018/characters/candidate-mokou-aocf.png",
+      "characterChinese": "藤原妹红",
+      "sourcePage": "https://thwiki.cc/文件:藤原妹红（深秘录凭依华立绘）.png",
+      "directURL": "https://upload.thbwiki.cc/8/8c/%E8%97%A4%E5%8E%9F%E5%A6%B9%E7%BA%A2%EF%BC%88%E6%B7%B1%E7%A7%98%E5%BD%95%E5%87%AD%E4%BE%9D%E5%8D%8E%E7%AB%8B%E7%BB%98%EF%BC%89.png",
+      "licenseNote": "THBWiki 收录的东方官方游戏立绘；文件页标注官方游戏立绘分类。页面说明引用作品版权归原作者，未见可再分发或商用许可；本次仅用于本地界面构图预览。",
+      "sourceWork": "东方深秘录 / 东方凭依华",
+      "dimensions": [
+        640,
+        720
+      ],
+      "alphaBBox": [
+        0,
+        19,
+        640,
+        720
+      ],
+      "visualNotes": "白衬衫、红吊带长裤、双手插兜，银白长发。没有攻击特效或横向武器；整体偏轻松都市日常。长发在下半幅展开，右发梢宜止于 UI 左缘。",
+      "hasTransparency": true
+    },
+    {
+      "theme": "终端",
+      "localFile": "D:/open_mahjong_unity/.om_workspace/salasasa-home-design/art-overlay-20261018/characters/candidate-amiya-dialogue.png",
+      "characterChinese": "阿米娅",
+      "sourcePage": "https://prts.wiki/w/文件:Avg_char_002_amiya_6.png",
+      "directURL": "https://media.prts.wiki/6/6f/Avg_char_002_amiya_6.png",
+      "licenseNote": "PRTS 文件页标注剧情用图；页脚说明游戏图片版权属于上海鹰角网络科技有限公司及其关联公司。未见该原图的再分发或商用许可；本次仅用于本地界面构图预览。",
+      "sourceWork": "明日方舟",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "visualNotes": "黑色功能大衣、青蓝内衬，双手自然下垂，无攻击特效或武器。原图为全身且画布留白大，建议使用 alphaBBox 适配后再放大至膝上；保留兔耳，头部和眼睛高于主入口中心。",
+      "alphaBBox": [
+        316,
+        60,
+        754,
+        944
+      ],
+      "hasTransparency": true
+    },
+    {
+      "theme": "校园",
+      "localFile": "D:/open_mahjong_unity/.om_workspace/salasasa-home-design/art-overlay-20261018/characters/candidate-reisen-aocf.png",
+      "characterChinese": "铃仙·优昙华院·因幡",
+      "sourcePage": "https://thwiki.cc/文件:铃仙·优昙华院·因幡（深秘录凭依华立绘）.png",
+      "directURL": "https://upload.thbwiki.cc/6/60/%E9%93%83%E4%BB%99%C2%B7%E4%BC%98%E6%98%99%E5%8D%8E%E9%99%A2%C2%B7%E5%9B%A0%E5%B9%A1%EF%BC%88%E6%B7%B1%E7%A7%98%E5%BD%95%E5%87%AD%E4%BE%9D%E5%8D%8E%E7%AB%8B%E7%BB%98%EF%BC%89.png",
+      "licenseNote": "THBWiki 收录的东方官方游戏立绘；文件页标注官方游戏立绘分类。页面说明引用作品版权归原作者，未见可再分发或商用许可；本次仅用于本地界面构图预览。",
+      "sourceWork": "东方深秘录 / 东方凭依华",
+      "dimensions": [
+        848,
+        912
+      ],
+      "alphaBBox": [
+        0,
+        205,
+        770,
+        912
+      ],
+      "visualNotes": "浅色制服、紫色长发、红色领带，双手持金色扩音器，无攻击光效。透明上留白较大，使用 alphaBBox 适配；保留兔耳，扩音器右缘停在 UI 主入口左侧。此图用于替换堇子披风右缘的明显裁断。",
+      "hasTransparency": true
+    },
+    {
+      "theme": "复古",
+      "localFile": "D:/open_mahjong_unity/.om_workspace/salasasa-home-design/art-overlay-20261018/characters/candidate-sakuya-swr.png",
+      "characterChinese": "十六夜咲夜",
+      "sourcePage": "https://thwiki.cc/文件:十六夜咲夜（绯想天立绘）.png",
+      "directURL": "https://upload.thbwiki.cc/4/4b/%E5%8D%81%E5%85%AD%E5%A4%9C%E5%92%B2%E5%A4%9C%EF%BC%88%E7%BB%AF%E6%83%B3%E5%A4%A9%E7%AB%8B%E7%BB%98%EF%BC%89.png",
+      "licenseNote": "THBWiki 收录的东方官方游戏立绘；文件页标注官方游戏立绘分类。页面说明引用作品版权归原作者，未见可再分发或商用许可；本次仅用于本地界面构图预览。",
+      "sourceWork": "东方绯想天",
+      "dimensions": [
+        428,
+        480
+      ],
+      "alphaBBox": [
+        0,
+        0,
+        428,
+        480
+      ],
+      "visualNotes": "银发、蓝白侍者服与餐盘，较强平涂感和简化线条，适合复古室内。原图低于其他四张，放大后会略软，仅用于构图预览。右手有小型餐刀，范围紧凑；两侧发辫有很小绿色结，主体与背景并非绿色。",
+      "hasTransparency": true
+    }
+  ]
+}

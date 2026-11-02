@@ -142,9 +142,12 @@ class ShanghaiGameState(TaiwanGameState):
         )
         self.qing3_hun2_peng2 = (room_data.get("detailed_config") or {}).get(qiaoma.QING3_HUN2_PENG2) is True
         self.enable_tian_qiao = (room_data.get("detailed_config") or {}).get(qiaoma.ENABLE_TIAN_QIAO) is True
+        self.forbid_lajihe_dadiao = (room_data.get("hepai_limit", 0) == 1
+                                    and (room_data.get("detailed_config") or {}).get(qiaoma.FORBID_LAJIHE_DADIAO) is True)
         self.rules_dict = {"edition": "MIL2024", "fan_cap": 3,
                            qiaoma.QING3_HUN2_PENG2: self.qing3_hun2_peng2,
-                           qiaoma.ENABLE_TIAN_QIAO: self.enable_tian_qiao}
+                           qiaoma.ENABLE_TIAN_QIAO: self.enable_tian_qiao,
+                           qiaoma.FORBID_LAJIHE_DADIAO: self.forbid_lajihe_dadiao}
         self.dead_wall_count = 0
         self.hepai_limit = 1 if room_data.get("hepai_limit", 0) == 1 else 0
         from .bot import shanghai_smart_bot_action
@@ -182,6 +185,7 @@ class ShanghaiGameState(TaiwanGameState):
             rob_kong=source == "robbing_kong", min_fan=self.hepai_limit,
             qing3_hun2_peng2=self.qing3_hun2_peng2,
             tian_qiao=self.enable_tian_qiao and player.tian_qiao,
+            forbid_lajihe_dadiao=self.forbid_lajihe_dadiao,
         )
 
     def ready_candidate_cuts(self, player_index):

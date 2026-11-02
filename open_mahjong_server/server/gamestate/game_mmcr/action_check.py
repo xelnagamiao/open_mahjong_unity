@@ -11,36 +11,25 @@ logger = logging.getLogger(__name__)
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
 
-    # 如果牌堆内仍有牌则可以吃碰杠
-    if self.tiles_list != []:
-        # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
-        next_player_index = next_current_num(self.current_player_index)
-        if cut_tile <= 40:
-            # left 左侧吃牌 [a-2,a-1,a]
-            if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-                    temp_action_dict[next_player_index].append("chi_left")
-            # mid 中间吃牌 [a-1,a,a+1]
-            if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
-                        temp_action_dict[next_player_index].append("chi_mid")
-            # right 右侧吃牌 [a,a+1,a+2]
-            if cut_tile+2 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
-                    temp_action_dict[next_player_index].append("chi_right")
+    # 青雀在需要摸牌而无牌可摸时流局，末张舍牌仍可吃、碰、杠。
+    next_player_index = next_current_num(self.current_player_index)
+    hand = self.player_list[next_player_index].hand_tiles
+    if cut_tile <= 40:
+        if cut_tile - 2 in hand and cut_tile - 1 in hand:
+            temp_action_dict[next_player_index].append("chi_left")
+        if cut_tile - 1 in hand and cut_tile + 1 in hand:
+            temp_action_dict[next_player_index].append("chi_mid")
+        if cut_tile + 1 in hand and cut_tile + 2 in hand:
+            temp_action_dict[next_player_index].append("chi_right")
 
-        # 如果任意一家有C=2，则可以碰
-        for item in self.player_list:
-            if item.hand_tiles.count(cut_tile) >= 2:
-                temp_action_dict[item.player_index].append("peng")
-                break
-        
-        # 检测杠牌：手牌中有3张相同的牌
-        for item in self.player_list:
-            if item.hand_tiles.count(cut_tile) == 3:
-                if self.tiles_list != []:
-                        temp_action_dict[item.player_index].append("gang")
-                        break
+    for item in self.player_list:
+        if item.player_index == self.current_player_index:
+            continue
+        count = item.hand_tiles.count(cut_tile)
+        if count >= 2:
+            temp_action_dict[item.player_index].append("peng")
+        if count == 3:
+            temp_action_dict[item.player_index].append("gang")
 
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
@@ -99,28 +88,10 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     player_item = self.player_list[player_index]
 
-    # 如果牌堆内仍有牌则可以补花暗杠加杠
-    if self.tiles_list != []:
-        # 如果手牌中有花牌 则可以补花
-        if any(carditem >= 50 for carditem in player_item.hand_tiles):
-            if self.tiles_list != []:
-                temp_action_dict[player_index].append("buhua")
+    if self.tiles_list and any(carditem >= 50 for carditem in player_item.hand_tiles):
+        temp_action_dict[player_index].append("buhua")
 
-        # 如果手牌中有4张相同的牌 则可以暗杠
-        processed_cards = set()
-        for carditem in player_item.hand_tiles:
-            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
-                if self.tiles_list != []:
-                    temp_action_dict[player_index].append("angang")
-                    processed_cards.add(carditem)
-                
-        # 如果组合牌中有加杠 则可以加杠
-        for combination_tile in player_item.combination_tiles:
-            if combination_tile[0] == "k":
-                jiagang_index = int(combination_tile[1:])  # 提取所有数字
-                if jiagang_index in player_item.hand_tiles:
-                    if self.tiles_list != []:
-                        temp_action_dict[player_index].append("jiagang")
+    _append_kong_actions(player_item, temp_action_dict[player_index])
 
     # 摸牌后可以切牌
     temp_action_dict[player_index].append("cut")
@@ -136,23 +107,12 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
 
     return temp_action_dict
 
-# 检查吃碰后手牌操作：切牌 + 暗杠/加杠（牌山非空时，与摸牌后杠规则一致）
+# 检查吃碰后手牌操作：切牌 + 暗杠/加杠（不能直接自摸和）
 def check_only_cut(self, player_index):
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     player_item = self.player_list[player_index]
 
-    if self.tiles_list != []:
-        processed_cards = set()
-        for carditem in player_item.hand_tiles:
-            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
-                temp_action_dict[player_index].append("angang")
-                processed_cards.add(carditem)
-
-        for combination_tile in player_item.combination_tiles:
-            if combination_tile[0] == "k":
-                jiagang_index = int(combination_tile[1:])
-                if jiagang_index in player_item.hand_tiles:
-                    temp_action_dict[player_index].append("jiagang")
+    _append_kong_actions(player_item, temp_action_dict[player_index])
 
     temp_action_dict[player_index].append("cut")
 
@@ -163,6 +123,17 @@ def check_only_cut(self, player_index):
         ]
 
     return temp_action_dict
+
+def _append_kong_actions(player, actions):
+    # 无补牌时仍可声明杠；加杠先处理抢杠，再由摸牌阶段结束小局。
+    processed_cards = set()
+    for tile in player.hand_tiles:
+        if tile not in processed_cards and player.hand_tiles.count(tile) == 4:
+            actions.append("angang")
+            processed_cards.add(tile)
+    for meld in player.combination_tiles:
+        if meld[0] == "k" and int(meld[1:]) in player.hand_tiles:
+            actions.append("jiagang")
 
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌
 def refresh_waiting_tiles(self,player_index,is_first_action=False):
@@ -198,6 +169,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 抢杠和
     if hepai_type == "qianggang":
         way_to_hepai.append("抢杠")
+        if not self.tiles_list:
+            way_to_hepai.append("河底捞鱼")
 
     # 荣和 / 地和 / 河底捞鱼
     elif hepai_type == "dianhe":

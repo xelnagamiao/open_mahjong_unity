@@ -1,10 +1,12 @@
+import {duocaiInfoAt,duocaiWallAt,applyDuocaiAction} from '../../utils/duocaiReplay.js'
+import {applyBeijingAction} from '../../utils/beijingReplay.js'
 import {shangraoWallAt} from '../../utils/shangraoReplay.js'
 import type {
   ActiveSessionSnapshot,
   MeldSnapshot,
   SeatSnapshot,
 } from '../game/scene/types'
-import { salasasaTileToMmcr, mmcrTileToSalasasa } from '../salasasa/gameAdapter'
+import { salasasaTileToMmcr, duocaiTileToMmcr, mmcrTileToSalasasa } from '../salasasa/gameAdapter'
 import { hongzhongHintsAt as selectHongzhongHints } from '../../utils/hongzhongReplay.js'
 import { duplicateReplayWall } from '../../utils/duplicateReplayWall.js'
 import { isExternalRecord } from '../../utils/recordConvert/externalPlayers.js'
@@ -37,6 +39,10 @@ export interface RecordRound {
   malaysia?: Record<string, any>
   guizhou?: Record<string, unknown>
   yixing?: Record<string, unknown>
+  beijing?: Record<string, any>
+  beijing_hints?: Record<string, any>
+  duocai?: Record<string, any>
+  duocai_hints?: Record<string, any>
   shangrao?: Record<string, any>
   shangrao_hints?: Record<string, any>
   nanchang?: Record<string, any>
@@ -147,7 +153,7 @@ function scoreChangeFromTick(tick: RecordTick): number[] | null {
   if (['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)) value = tick[4]
   else if (action === 'hu_riichi') value = tick[6]
   else if (action === 'ryuukyoku') value = tick[2]
-  else if (action === 'shangrao' && tick[1] === 'payment') value = (tick[2] as any)?.changes
+  else if (['shangrao', 'beijing'].includes(String(action)) && tick[1] === 'payment') value = (tick[2] as any)?.changes
   else if (action === 'malaysia' && tick[1] === 'payment') value = tick[2]
   else if (action === 'tuidao' && tick[1] === 'kong_score') value = tick[2]
   else if (action === 'hongzhong' && ['kong_score', 'kong_refund'].includes(String(tick[1]))) value = tick[2]
@@ -161,6 +167,8 @@ function scoreChangeFromTick(tick: RecordTick): number[] | null {
 
 function actionName(tick: RecordTick | undefined, rule: string): string {
   if (!tick?.length) return '局初'
+  if(tick[0]==='beijing')return tick[1]==='action'?({tianting:'天听',declare_kan:'补杠宣告',rob_kan:'抢杠'} as Record<string,string>)[(tick[2] as any).action]??'北京操作':tick[1]==='payment'?'盯庄结算':'北京状态'
+  if(tick[0]==='duocai')return tick[1]==='action'?({riichi:'立直',declare_kan:'杠宣告',rob_kan:'抢杠',chi_left:'吃',peng:'碰',gang:'明杠',angang:'暗杠',jiagang:'扩杠'} as Record<string,string>)[(tick[2] as any).action]??'夺彩操作':'夺彩状态'
   const drawCaption = specialDrawCaption(String(tick[0]), rule)
   if (drawCaption) return drawCaption
     if (exchangeSixActionNames[String(tick[0])]) return exchangeSixActionNames[String(tick[0])]
@@ -189,10 +197,11 @@ function sceneKindForAction(action: string): string {
   return kinds[action] || action
 }
 
-export const RECORD_SILENT_ACTIONS = new Set(['fuzhou', 'malaysia', 'reset', 'ask_hand', 'ask_other', 'ca', 'tuidao', 'state', 'guizhou', 'yixing', 'wenzhou', 'nanchang', 'shangrao', 'hangzhou', 'hongzhong', 'guangdong', 'jiujiang'])
+export const RECORD_SILENT_ACTIONS = new Set(['beijing', 'duocai', 'fuzhou', 'malaysia', 'reset', 'ask_hand', 'ask_other', 'ca', 'tuidao', 'state', 'guizhou', 'yixing', 'wenzhou', 'nanchang', 'shangrao', 'hangzhou', 'hongzhong', 'guangdong', 'jiujiang'])
 
 export function isRecordSilentTick(tick?: RecordTick): boolean {
   const action = String(tick?.[0] ?? '')
+  if(action==='duocai'||action==='beijing')return tick?.[1]!=='action'
   return !action || RECORD_SILENT_ACTIONS.has(action)
 }
 
@@ -204,6 +213,7 @@ function hasResetBefore(ticks: RecordTick[], node: number): boolean {
 }
 
 export class RecordReplay {
+  private tileToMmcr=(tile:number)=>this.detail.rule==='duocai'?duocaiTileToMmcr(tile):salasasaTileToMmcr(tile)
   readonly detail: PublicGameRecord
   readonly playerCount: number
   private get seatIndices(): number[] { return Array.from({length: this.playerCount}, (_, i) => i) }
@@ -263,6 +273,16 @@ export class RecordReplay {
       if (tick[0] === 'wenzhou' && tick[1] === 'state' && Array.isArray(tick[3]) && Array.isArray(round.wenzhou?.start_scores)) {
         const scores = tick[3] as number[], start = round.wenzhou.start_scores as number[]
         for (let original = 0; original < this.playerCount; original++) result[original] = int(scores[seats[original]]) - int(start[seats[original]])
+        continue
+      }
+      if (tick[0] === 'beijing' && tick[1] === 'state' && Array.isArray(tick[3]) && round.beijing?.start_scores) {
+        const scores=tick[3] as number[],start=round.beijing.start_scores
+        for(let original=0;original<this.playerCount;original++)result[original]=int(scores[seats[original]])-int(start[seats[original]])
+        continue
+      }
+      if (tick[0] === 'duocai' && tick[1] === 'state' && Array.isArray(tick[3]) && round.duocai?.start_scores) {
+        const scores=tick[3] as number[],start=round.duocai.start_scores
+        for(let original=0;original<this.playerCount;original++)result[original]=int(scores[seats[original]])-int(start[seats[original]])
         continue
       }
       if (tick[0] === 'shangrao' && tick[1] === 'state' && Array.isArray(tick[3]) && Array.isArray(round.shangrao?.start_scores)) {
@@ -336,11 +356,11 @@ export class RecordReplay {
   initialHandsAt(roundIndex: number, node = 0): number[][] {
     const safeRoundIndex = Math.max(0, Math.min(this.rounds.length - 1, roundIndex))
     const round = this.rounds[safeRoundIndex]
-    const jokers = recordHandJokers(this.detail, round, node).map(salasasaTileToMmcr)
+    const jokers = recordHandJokers(this.detail, round, node).map(this.tileToMmcr)
     const key = (tile: number) => jokerFirstSortKey(tile, jokers, mmcrSettlementSortKey)
     return this.seatIndices.map((seat) => {
       const hand = ((round[`p${seat}_tiles` as keyof RecordRound] as number[] | undefined) || [])
-        .map(salasasaTileToMmcr)
+        .map(this.tileToMmcr)
       return jokers.length ? hand.sort((a, b) => key(a) - key(b)) : hand
     })
   }
@@ -430,16 +450,16 @@ export class RecordReplay {
       actor_seat: actorSeat,
       silent: false,
     }
-    if (action === 'rk') { event.tile = salasasaTileToMmcr(int(tick[2])); event.use_drawn_tile = int(tick[3]) !== 0; event.silent = true }
+    if (action === 'rk') { event.tile = this.tileToMmcr(int(tick[2])); event.use_drawn_tile = int(tick[3]) !== 0; event.silent = true }
     if (tick.length > 1 && ['d', 'gd', 'bd', 'c', 'bh', 'cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
-      event.tile = salasasaTileToMmcr(int(tick[1]))
+      event.tile = this.tileToMmcr(int(tick[1]))
     }
     // chowFromRiver receives the sequence's central tile, while a stored
     // cl/cm/cr tick records the claimed discard. Convert the latter just as
     // the live Salasasa adapter does, otherwise it searches the hand for the
     // wrong two tiles and aborts without creating a meld.
-    if (action === 'cl') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) - 1)
-    if (action === 'cr') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) + 1)
+    if (action === 'cl') event.tile = this.tileToMmcr(normalizedTile(int(tick[1])) - 1)
+    if (action === 'cr') event.tile = this.tileToMmcr(normalizedTile(int(tick[1])) + 1)
     if (action === 'c') event.use_drawn_tile = bool(tick[2])
     if (action === 'bh') event.use_drawn_tile = tick.length >= 4 && bool(tick[3])
     if (['cl', 'cm', 'cr', 'p', 'g'].includes(action)) {
@@ -470,8 +490,13 @@ export class RecordReplay {
     if (kind === 'self_drawn_win' || kind === 'discard_win') {
       const beforeActor = before.snapshot.seats.find((seat) => seat.seat_index === actorSeat)
       const afterActor = after.snapshot.seats.find((seat) => seat.seat_index === actorSeat)
-      event.tile = kind === 'self_drawn_win' ? beforeActor?.drawn_tile ?? undefined : undefined
-      if (changsha && Number(tick[5]) > 0) event.tile = salasasaTileToMmcr(Number(tick[5]))
+      const rule = this.detail.record.game_title?.rule || this.detail.rule
+      const recordedTile = action === 'hu_riichi' ? 0 : int(tick[rule === 'classical' ? 7 : 5])
+      // The win owns its tile. Do not infer it from the sorted hand or leave
+      // ron events without a tile while only the settlement panel knows it.
+      event.tile = recordedTile > 0 ? this.tileToMmcr(recordedTile)
+        : kind === 'self_drawn_win' ? beforeActor?.drawn_tile ?? undefined
+          : afterActor?.drawn_tile ?? undefined
       event.revealed_hand_tiles = [
         ...(afterActor?.hand_tiles || beforeActor?.hand_tiles || []),
         ...(afterActor?.drawn_tile != null ? [afterActor.drawn_tile] : []),
@@ -549,6 +574,8 @@ export class RecordReplay {
     const malaysia = this.playerCount === 3
     const yixing = this.detail.record.game_title?.rule === 'yixing' || this.detail.rule === 'yixing'
     const wenzhou = this.detail.record.game_title?.rule === 'wenzhou' || this.detail.rule === 'wenzhou'
+    const beijing = this.detail.rule === 'beijing'
+    const duocai = this.detail.rule === 'duocai'
     const shangrao = this.detail.record.game_title?.rule === 'shangrao' || this.detail.rule === 'shangrao'
     const burntIndices = [[],[],[],[]] as number[][]
     const nanchang = this.detail.record.game_title?.rule === 'nanchang' || this.detail.rule === 'nanchang'
@@ -588,7 +615,7 @@ export class RecordReplay {
       if (action === 'cc' && changchun) {
         const event = tick[1] as any
         if (event && typeof event === 'object') {
-          applyChangchunPhysical(states, event, salasasaTileToMmcr)
+          applyChangchunPhysical(states, event, this.tileToMmcr)
           if (event.kind === 'rob_claim') { lastDiscardPlayer = event.player; lastWinnableTile = event.tile }
           if (event.kind === 'added_robbed') { addedKongSeat = event.player; lastWinnableTile = event.tile; lastDiscardPlayer = -1 }
           if (['special', 'added_offer', 'added_commit'].includes(event.kind)) currentPlayer = event.player
@@ -635,11 +662,38 @@ export class RecordReplay {
         if (['kaijin','kaijin_flower','qiangjin_take','youjin','tingjin','win_source'].includes(String(tick[1]))) lastActor = int(tick[2])
         continue
       }
+      if(action==='beijing') {
+        if(tick[1]==='action') {
+          const event=applyBeijingAction(states,tick[2])
+          if(event.actor!=null){lastActor=event.actor;currentPlayer=event.actor}
+          if(event.robTile!=null){lastWinnableTile=event.robTile;lastDiscardPlayer=-1;addedKongSeat=event.actor}
+        } else if(tick[1]==='state'&&Array.isArray(tick[3])) {
+          if((tick[2] as any)?.ledger) states.forEach(s=>s.melds.forEach(m=>{if(m.concealed)m.concealed_face_down=[false,false,false,false]}))
+        }
+        continue
+      }
+      if(action==='duocai') {
+        if(tick[1]==='action') {
+          const event=applyDuocaiAction(states,tick[2],this.tileToMmcr)
+          if(event.actor!=null){lastActor=event.actor;currentPlayer=event.actor}
+          if(event.robTile!=null){lastWinnableTile=event.robTile;lastDiscardPlayer=-1;addedKongSeat=event.actor}
+        } else if(tick[1]==='state'&&Array.isArray(tick[3])) states.forEach((s,i)=>s.score=int(tick[3][i]))
+        continue
+      }
       if (action === 'shangrao') {
         if(tick[1]==='burnt' && int(tick[2])!==int(round.shangrao?.bao)) {
           const actor=int(tick[3],-1),state=states[actor]
           if(state){burntIndices[actor].push(state.river.length);state.river.push(int(tick[2]));state.riverDrawn.push(false)}
         } else if(tick[1]==='win_source') {lastWinnableTile=int(tick[5]);lastDiscardPlayer=-1;addedKongSeat=-1}
+        continue
+      }
+      if (action === 'sichuan_kong_reveal') {
+        const owner = states[int(tick[1])], tile = this.tileToMmcr(int(tick[2]))
+        const meld = owner?.melds.find(item => item.type === 'kong' && item.tile === tile)
+        if (meld) {
+          meld.physical_mask = [0, tile, 0, tile, 0, tile, 0, tile]
+          meld.concealed_face_down = [false, false, false, false]
+        }
         continue
       }
       if (action === 'wenzhou' || action === 'nanchang') {
@@ -648,13 +702,13 @@ export class RecordReplay {
           const state = states[actor], rawTile = code[0] === 's' && code.length === 7 ? int(code.slice(3,5)) : int(code.slice(1))
           if (state && Array.isArray(mask) && state.melds.length) {
             const prefix = code[0]
-            const logical = salasasaTileToMmcr(rawTile)
+            const logical = this.tileToMmcr(rawTile)
             let index = prefix === 'g' ? state.melds.findIndex(m => m.tile === logical && (m.type === 'kong' || m.type === 'triplet')) : -1
             if (index < 0) index = state.melds.length - 1
             const previous = state.melds[index]
-            state.melds[index] = { ...previous, tile: salasasaTileToMmcr(rawTile),
+            state.melds[index] = { ...previous, tile: this.tileToMmcr(rawTile),
               type: prefix === 's' ? 'sequence' : prefix === 'k' ? 'triplet' : 'kong',
-              concealed: prefix === 'G', physical_mask: mask.map((value, i) => i % 2 ? salasasaTileToMmcr(value) : value),
+              concealed: prefix === 'G', physical_mask: mask.map((value, i) => i % 2 ? this.tileToMmcr(value) : value),
               concealed_face_down: mask.filter((_, i) => i % 2 === 0).map(flag => flag === 2),
             }
           }
@@ -683,7 +737,7 @@ export class RecordReplay {
         const actor = int(tick[2]), tile = int(tick[3]), index = int(tick[4]), slot = int(tick[5])
         const state = states[actor], mask = state?.melds[index]?.physical_mask
         if (state && state.drawn === tile) state.drawn = 81
-        if (mask && slot >= 0 && slot * 2 + 1 < mask.length) mask[slot * 2 + 1] = salasasaTileToMmcr(tile)
+        if (mask && slot >= 0 && slot * 2 + 1 < mask.length) mask[slot * 2 + 1] = this.tileToMmcr(tile)
         continue
       }
       if (action === 'yixing' || action === 'malaysia') {
@@ -827,11 +881,11 @@ export class RecordReplay {
           ? ((actor - lastDiscardPlayer + 3) % 3 === 1 ? 1 : 3)
           : (actor - lastDiscardPlayer + 4) % 4
         state.melds.push({
-          tile: salasasaTileToMmcr(meldTile),
+          tile: this.tileToMmcr(meldTile),
           type,
           chow_mode: action === 'cl' ? 3 : action === 'cm' ? 2 : action === 'cr' ? 1 : 0,
           meld_from_rel: fromRel || 1,
-          ...(malaysia ? {physical_mask: [1, salasasaTileToMmcr(tile), ...physical.flatMap(t => [0, salasasaTileToMmcr(t)])]} : {}),
+          ...(malaysia ? {physical_mask: [1, this.tileToMmcr(tile), ...physical.flatMap(t => [0, this.tileToMmcr(t)])]} : {}),
         })
         lastDiscardPlayer = -1
         currentPlayer = actor
@@ -849,16 +903,16 @@ export class RecordReplay {
         }
         // A kong made from the old hand ends the current draw slot too. Keep
         // that unrelated physical draw in the hand until the supplement arrives.
-        if ((shangrao || fuzhou || hongzhong || jiujiang || malaysia || changsha || this.detail.record.game_title?.sub_rule === 'guobiao/huahun') && state.drawn != null) {
+        if ((beijing || shangrao || fuzhou || hongzhong || jiujiang || malaysia || changsha || this.detail.record.game_title?.sub_rule === 'guobiao/huahun') && state.drawn != null) {
           state.hand.push(state.drawn)
           state.drawn = null
         }
         state.melds.push({
-          tile: salasasaTileToMmcr(normalizedTile(tile)),
+          tile: this.tileToMmcr(normalizedTile(tile)),
           type: 'kong',
           concealed: true,
-          ...(tile === 51 && removed.length === 4 && [51,52,53,54].every(t=>removed.includes(t)) ? { physical_mask: removed.flatMap(t=>[0,salasasaTileToMmcr(t)]), concealed_face_down: [false,false,false,false] } : {}),
-          ...(shangrao ? {concealed_face_down:[false,false,false,false]} : fuzhou || qingque ? { concealed_face_down: [true,false,false,true] } : guizhou ? { concealed_face_down: [true, hiddenOpening, hiddenOpening, true] } : (changchun || wenzhou || nanchang || jiujiang || malaysia) ? { concealed_face_down: [true, true, true, true] } : yixing ? { concealed_face_down: [true, false, true, true] } : (hangzhou || hongzhong || guangdongMil) ? { concealed_face_down: [true, false, false, true] } : {}),
+          ...(tile === 51 && removed.length === 4 && [51,52,53,54].every(t=>removed.includes(t)) ? { physical_mask: removed.flatMap(t=>[0,this.tileToMmcr(t)]), concealed_face_down: [false,false,false,false] } : {}),
+          ...(shangrao ? {concealed_face_down:[false,false,false,false]} : fuzhou || qingque ? { concealed_face_down: [true,false,false,true] } : guizhou ? { concealed_face_down: [true, hiddenOpening, hiddenOpening, true] } : (beijing || changchun || wenzhou || nanchang || jiujiang || malaysia) ? { concealed_face_down: [true, true, true, true] } : yixing ? { concealed_face_down: [true, false, true, true] } : (hangzhou || hongzhong || guangdongMil) ? { concealed_face_down: [true, false, false, true] } : {}),
           chow_mode: 0,
           meld_from_rel: 0,
         })
@@ -879,17 +933,17 @@ export class RecordReplay {
           if (state.drawn != null && normalizedTile(state.drawn) === normalizedTile(physical)) state.drawn = null
           else removeExactOrNormalized(state.hand, physical)
         }
-        if ((shangrao || fuzhou || hongzhong || jiujiang || malaysia || changsha || this.detail.record.game_title?.sub_rule === 'guobiao/huahun') && state.drawn != null) {
+        if ((beijing || shangrao || fuzhou || hongzhong || jiujiang || malaysia || changsha || this.detail.record.game_title?.sub_rule === 'guobiao/huahun') && state.drawn != null) {
           state.hand.push(state.drawn)
           state.drawn = null
         }
         const meld = state.melds.find((item) =>
-          item.type === 'triplet' && item.tile === salasasaTileToMmcr(normalizedTile(tile)))
+          item.type === 'triplet' && item.tile === this.tileToMmcr(normalizedTile(tile)))
         if (meld) {
           meld.type = 'kong'
           meld.meld_from_rel += 4
           if (malaysia) meld.physical_mask = [1, physical, 3, physical, 0, physical, 0, physical]
-            .map((value, i) => i % 2 ? salasasaTileToMmcr(value) : value)
+            .map((value, i) => i % 2 ? this.tileToMmcr(value) : value)
         }
         currentPlayer = actor
       } else if (changsha && ['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)) {
@@ -908,7 +962,7 @@ export class RecordReplay {
           const ron = changshaRon(tick)
           const source = ron?.discarder ?? (addedKongSeat >= 0 ? addedKongSeat : lastDiscardPlayer)
           if (source >= 0 && source < 4 && addedKongSeat === source) {
-            const meld = states[source].melds.find(m => m.type === 'kong' && m.meld_from_rel >= 4 && m.tile === salasasaTileToMmcr(normalizedTile(tile)))
+            const meld = states[source].melds.find(m => m.type === 'kong' && m.meld_from_rel >= 4 && m.tile === this.tileToMmcr(normalizedTile(tile)))
             if (meld) { meld.type = 'triplet'; meld.meld_from_rel -= 4 }
           } else if (source >= 0 && source < 4 && (ron?.recycle ?? true)) {
             const index = states[source].river.lastIndexOf(tile)
@@ -931,7 +985,7 @@ export class RecordReplay {
             // The committed fourth tile is restored to a pung once; subsequent
             // winners must not consume an unrelated river tile instead.
             const meld = states[source].melds.find(item => item.type === 'kong'
-              && item.meld_from_rel >= 4 && item.tile === salasasaTileToMmcr(normalizedTile(tile)))
+              && item.meld_from_rel >= 4 && item.tile === this.tileToMmcr(normalizedTile(tile)))
             if (meld) { meld.type = 'triplet'; meld.meld_from_rel -= 4 }
           } else if (source >= 0 && source < 4 && recycle) {
             const river = states[source].river
@@ -949,12 +1003,20 @@ export class RecordReplay {
         }
         if (bloodBattle) retired.add(actor)
         currentPlayer = nextSichuanPlayer(actor, retired)
-      } else if ((isGuangdong || shanxi || yixing || wenzhou || nanchang || changchun || jiujiang || malaysia) && ['hu_first', 'hu_second', 'hu_third'].includes(action)) {
+      } else if (beijing && ['hu_first', 'hu_second', 'hu_third'].includes(action)) {
+        const tile=int(tick[5],lastWinnableTile??0)
+        if(tile>0&&state.drawn==null)state.drawn=tile
+        if(addedKongSeat<0&&lastDiscardPlayer>=0){
+          const source=states[lastDiscardPlayer],index=source.river.lastIndexOf(tile)
+          if(index>=0){source.river.splice(index,1);source.riverDrawn.splice(index,1)}
+          lastDiscardPlayer=-1
+        }
+      } else if ((duocai || isGuangdong || shanxi || yixing || wenzhou || nanchang || changchun || jiujiang || malaysia) && ['hu_first', 'hu_second', 'hu_third'].includes(action)) {
         const tile = int(tick[5], lastWinnableTile ?? 0)
         if (tile > 0 && state.drawn == null) state.drawn = tile
         if (addedKongSeat >= 0 && (guangdongMil || yixing || wenzhou || malaysia || (Array.isArray(tick[3]) && tick[3].some(fan => String(fan).startsWith('抢杠'))))) {
           const meld = states[addedKongSeat].melds.find(item => item.type === 'kong'
-            && item.meld_from_rel >= 4 && item.tile === salasasaTileToMmcr(normalizedTile(tile)))
+            && item.meld_from_rel >= 4 && item.tile === this.tileToMmcr(normalizedTile(tile)))
           if (meld) { meld.type = 'triplet'; meld.meld_from_rel -= 4 }
         } else if (lastDiscardPlayer >= 0) {
           states[lastDiscardPlayer].river.pop(); states[lastDiscardPlayer].riverDrawn.pop()
@@ -968,6 +1030,18 @@ export class RecordReplay {
         const yaku = Array.isArray(tick[5]) ? tick[5] : []
         if (!yaku.includes('错和') && lastWinnableTile != null && state.hand.length % 3 === 1 && state.drawn == null) {
           state.drawn = lastWinnableTile
+        }
+      } else if (['hu_first', 'hu_second', 'hu_third'].includes(action)) {
+        const fans = Array.isArray(tick[3]) ? tick[3] : []
+        const rule = this.detail.record.game_title?.rule || this.detail.rule
+        const recordedTile = int(tick[rule === 'classical' ? 7 : 5])
+        const tile = recordedTile > 0 ? recordedTile : lastWinnableTile
+        // Common replay/observer path: receive the discard exactly once,
+        // independently of concealed-hand size or same-face copies in hand.
+        // Flower wins have no extra concealed winning tile.
+        if (!fans.includes('错和') && tile != null && tile > 0
+          && !(tile >= FLOWER_MIN && tile <= FLOWER_MAX) && state.drawn == null) {
+          state.drawn = tile
         }
       }
       if (changshaBatches.get(tickIndex)?.tiles.length === 0) currentPlayer = (actor + 1) % this.playerCount
@@ -993,15 +1067,15 @@ export class RecordReplay {
         player_id: player?.user_id ?? null,
         username: player?.username ?? `玩家 ${seat + 1}`,
         voice_id: int(player?.voice_used, 1),
-        discard_pile: state.river.map(salasasaTileToMmcr),
+        discard_pile: state.river.map(this.tileToMmcr),
         discard_drawn_flags: state.riverDrawn,
         ...(shangrao ? {discard_blue_flags:state.river.map((_,i)=>burntIndices[seat].includes(i))}:{}),
         melds: state.melds,
-        flower_tiles: state.flowers.map(salasasaTileToMmcr),
-        ...(changsha ? { public_kong_tiles: state.publicKong.map(salasasaTileToMmcr) } : {}),
+        flower_tiles: state.flowers.map(this.tileToMmcr),
+        ...(changsha ? { public_kong_tiles: state.publicKong.map(this.tileToMmcr) } : {}),
         ...(exchangeInfo ? { hand_revealed: exchangeInfo.open.includes(seat) || exchangeInfo.settlements.some(win => win.winner === seat) } : {}),
-        hand_tiles: state.hand.map(salasasaTileToMmcr),
-        drawn_tile: state.drawn == null ? null : salasasaTileToMmcr(state.drawn),
+        hand_tiles: state.hand.map(this.tileToMmcr),
+        drawn_tile: state.drawn == null ? null : this.tileToMmcr(state.drawn),
       }
     })
     return {
@@ -1012,7 +1086,7 @@ export class RecordReplay {
         state: {
           round_counter: int(round.current_round, safeRoundIndex + 1),
           stage_counter: node,
-          remaining_tile_count: shangrao ? shangraoWallAt(round,node).playable : changsha ? changshaWallAt(round, node).remaining.length : changchun ? changchunWallAt(round, node).playable : Math.max(0, remaining - (shanxi ? 14 + Number(shanxiTailSingle) : wenzhou ? 4 : hangzhou ? 20 : fuzhou ? fuzhouReserve(states, fuzhouInfoAt(round, node)?.rule_version ?? this.detail.record.game_title?.rule_version) : 0)),
+          remaining_tile_count: duocai ? duocaiWallAt(round,node).playable : shangrao ? shangraoWallAt(round,node).playable : changsha ? changshaWallAt(round, node).remaining.length : changchun ? changchunWallAt(round, node).playable : Math.max(0, remaining - (shanxi ? 14 + Number(shanxiTailSingle) : wenzhou ? 4 : hangzhou ? 20 : fuzhou ? fuzhouReserve(states, fuzhouInfoAt(round, node)?.rule_version ?? this.detail.record.game_title?.rule_version) : 0)),
           current_player: currentPlayer,
           last_actor: lastActor,
           last_discarder: lastDiscardPlayer >= 0 ? lastDiscardPlayer : null,
@@ -1026,7 +1100,7 @@ export class RecordReplay {
           available_actions: [],
         },
         reveal_all_hands: revealAllHands,
-        hand_joker_tiles: recordHandJokers(this.detail, round, node).map(salasasaTileToMmcr),
+        hand_joker_tiles: recordHandJokers(this.detail, round, node).map(this.tileToMmcr),
       },
     }
   }
@@ -1057,12 +1131,13 @@ export class RecordReplay {
     const safeRoundIndex = Math.max(0, Math.min(this.rounds.length - 1, roundIndex))
     const round = this.rounds[safeRoundIndex]
     const duplicate = duplicateReplayWall(round, requestedNode, this.detail.record.game_title?.duplicate_rules_version)
-    if (duplicate) return duplicate.filter(item => !item.consumed).map(item => salasasaTileToMmcr(item.tile))
+    if (duplicate) return duplicate.filter(item => !item.consumed).map(item => this.tileToMmcr(item.tile))
     const ticks = round.action_ticks || []
     const node = Math.max(0, Math.min(ticks.length, requestedNode))
-    if (isChangchunRecord(this.detail)) return changchunWallAt(round, node).remaining.map(salasasaTileToMmcr)
-    if (isChangshaRecord(this.detail)) return changshaWallAt(round, node).remaining.map(salasasaTileToMmcr)
-    if (this.detail.rule === 'shangrao' || this.detail.record.game_title?.rule === 'shangrao') return shangraoWallAt(round, node).remaining.map(salasasaTileToMmcr)
+    if (isChangchunRecord(this.detail)) return changchunWallAt(round, node).remaining.map(this.tileToMmcr)
+    if (isChangshaRecord(this.detail)) return changshaWallAt(round, node).remaining.map(this.tileToMmcr)
+    if(this.detail.rule==='duocai')return duocaiWallAt(round,node).remaining.map(this.tileToMmcr)
+    if (this.detail.rule === 'shangrao' || this.detail.record.game_title?.rule === 'shangrao') return shangraoWallAt(round, node).remaining.map(this.tileToMmcr)
     const sichuan = isSichuanRecord(this.detail)
     const wall = [...(round.tiles_list || [])]
     let useSecondFromBack = true
@@ -1090,19 +1165,20 @@ export class RecordReplay {
         }
       }
     }
-    return wall.map(salasasaTileToMmcr)
+    return wall.map(this.tileToMmcr)
   }
 
   wallViewAt(roundIndex: number, requestedNode: number): ReplayWallTile[] {
     const safeRoundIndex = Math.max(0, Math.min(this.rounds.length - 1, roundIndex))
     const round = this.rounds[safeRoundIndex]
     const duplicate = duplicateReplayWall(round, requestedNode, this.detail.record.game_title?.duplicate_rules_version)
-    if (duplicate) return duplicate.map(item => ({ ...item, tile: salasasaTileToMmcr(item.tile) }))
+    if (duplicate) return duplicate.map(item => ({ ...item, tile: this.tileToMmcr(item.tile) }))
     const ticks = round.action_ticks || []
     const node = Math.max(0, Math.min(ticks.length, requestedNode))
-    if (isChangchunRecord(this.detail)) return changchunWallAt(round, node).wall.map(item => ({ ...item, tile: salasasaTileToMmcr(item.tile) }))
-    if (isChangshaRecord(this.detail)) return changshaWallAt(round, node).wall.map(item => ({ ...item, tile: salasasaTileToMmcr(item.tile) }))
-    if (this.detail.rule === 'shangrao' || this.detail.record.game_title?.rule === 'shangrao') return shangraoWallAt(round, node).wall.map(item=>({...item,tile:salasasaTileToMmcr(item.tile)}))
+    if (isChangchunRecord(this.detail)) return changchunWallAt(round, node).wall.map(item => ({ ...item, tile: this.tileToMmcr(item.tile) }))
+    if (isChangshaRecord(this.detail)) return changshaWallAt(round, node).wall.map(item => ({ ...item, tile: this.tileToMmcr(item.tile) }))
+    if(this.detail.rule==='duocai')return duocaiWallAt(round,node).wall.map(t=>({...t,tile:this.tileToMmcr(t.tile)}))
+    if (this.detail.rule === 'shangrao' || this.detail.record.game_title?.rule === 'shangrao') return shangraoWallAt(round, node).wall.map(item=>({...item,tile:this.tileToMmcr(item.tile)}))
     const sichuan = isSichuanRecord(this.detail)
     const original = round.tiles_list || []
     const remainingIndices = original.map((_, index) => index)
@@ -1131,7 +1207,7 @@ export class RecordReplay {
       }
     }
     return original.map((tile, index) => ({
-      tile: salasasaTileToMmcr(tile),
+      tile: this.tileToMmcr(tile),
       consumed: consumed.has(index),
     }))
   }

@@ -614,6 +614,13 @@ class RecordSim:
             if title_str(self.game_title, "sub_rule") in WASHIZU_SUB_RULES and self.current_tiles_list:
                 self.current_tiles_list.pop()
                 self.record_dead_wall_count -= 1
+        elif action == "sichuan_kong_reveal":
+            seat, tile = codec.parse_tick_int(tick, 1), codec.parse_tick_int(tick, 2)
+            player = self.players[seat]
+            for index, mask in enumerate(player.combination_masks):
+                if len(mask) == 8 and all(int(mask[i]) == tile for i in (1, 3, 5, 7)):
+                    player.combination_masks[index] = [0, tile] * 4
+                    break
         elif action == "gr":
             if len(tick) >= 6 and tick[1] == "gs":
                 arr = [codec.parse_tick_int(tick, 2 + i) for i in range(4)]
@@ -628,7 +635,7 @@ class RecordSim:
                     self._apply_score_array(parse_score_changes(tick, 6))
                 elif step == "chajiao":
                     self._apply_score_array(parse_score_changes(tick, 5))
-                elif step == "cha_refund":
+                elif step in ("cha_refund", "settle_gang"):
                     self._apply_score_array(parse_score_changes(tick, 2))
                 elif step == "final" and len(tick) >= 3:
                     scores = parse_score_changes(tick, 2)

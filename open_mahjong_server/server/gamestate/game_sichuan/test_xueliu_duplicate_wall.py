@@ -8,15 +8,11 @@ import pytest
 
 from ...database.duplicate_walls import validate_duplicate_wall, apply_duplicate_room_config
 from ...game_calculation.sichuan.duplicate_rules import TILES, make_board, flatten_board, board_from_tiles, validate_board
-from ..public.duplicate_wall import configure_duplicate_state, duplicate_remaining_tile_counts
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal
 from ..verifier.host import build_db_manager, build_game_server, build_room_data
-from ..verifier.record_sim.goto_action import RecordSim
 from .SichuanGameState import SichuanPlayer
 from .XueliuGameState import XueliuGameState
 from .duplicate_wall import XueliuDuplicateWall, init_duplicate_board, can_draw, wall_exhausted
 from .init_tiles import init_sichuan_tiles
-from .boardcast import _base_game_info
 
 
 def wall_state(number=1):
@@ -109,38 +105,26 @@ def test_wrong_layout_and_back_draw_are_rejected_without_mutation():
 
 @pytest.mark.parametrize("sub", ["sichuan/xueliu", "sichuan/xueliu_exchange"])
 @pytest.mark.parametrize("kind", ["manual", "seed", "key"])
-def test_ordinary_key_room_deals_every_board_and_reconnects_without_secrets(monkeypatch, sub, kind):
-    rounds = [flatten_board(make_board("ordinary", n, layout="xueliu")) for n in range(1, 5)]
+def test_ordinary_bloodflow_rejects_keys_before_loading_or_dealing(monkeypatch, sub, kind):
     saved = dict(id=90, key="dup_" + "1" * 32, rule="sichuan/xueliu", wall_type=kind,
-                 tiles=rounds[0], round_tiles=rounds, round_count=4, seed="ordinary", use_flowers=False)
-    monkeypatch.setattr("server.database.duplicate_walls.load_duplicate_wall", lambda *_: deepcopy(saved))
-    monkeypatch.setattr("server.database.duplicate_walls.reserve_duplicate_game", lambda *_: "ordinary-record")
+                 tiles=list(TILES), round_tiles=[list(TILES)], round_count=1,
+                 event_id="test-event", use_flowers=False)
     db = build_db_manager()
     server = build_game_server(db, messages=[])
     room = build_room_data(seed=0, room_id="912311", hepai_limit=0)
-    room.update(room_rule="sichuan", sub_rule=sub)
-    apply_duplicate_room_config(room, deepcopy(saved))
-    state = XueliuGameState(server, room, server.calculation_service, db, "ordinary-duplicate")
-    for i, p in enumerate(state.player_list):
-        p.original_player_index = p.player_index = i
-    for n in range(1, 5):
-        state.current_round = state.round_index = n
-        init_sichuan_tiles(state)
-        state.current_player_index = state.dealer_index
-        assert isinstance(state.tiles_list, XueliuDuplicateWall)
-        assert not state.spectator_enabled
-        base = _base_game_info(state)
-        assert base["is_duplicate"] and base["salt"] is None and base["commitment"] is None
-        assert base["duplicate_remaining_tiles"] == duplicate_remaining_tile_counts(state)
-        assert not any(key in base for key in ("duplicate_key", "duplicate_seed", "duplicate_tiles", "duplicate_common_wall"))
-        assert state._is_match_end() == (n == 4)
-        assert state._should_play_round()
-        with pytest.raises(ValueError, match="已发牌"):
-            init_sichuan_tiles(state)
-    state.current_round = 5
-    assert not state._should_play_round()
-    with pytest.raises(ValueError, match="范围"):
-        init_sichuan_tiles(state)
+    room.update(room_rule="sichuan", sub_rule=sub, event_id="test-event")
+    before = deepcopy(room)
+    with pytest.raises(ValueError, match="双打复式"):
+        apply_duplicate_room_config(room, saved)
+    assert room == before
+
+    def unexpected_load(*_):
+        pytest.fail("ordinary Sichuan must not load or reserve a duplicate wall")
+    monkeypatch.setattr("server.database.duplicate_walls.load_duplicate_wall", unexpected_load)
+    monkeypatch.setattr("server.database.duplicate_walls.reserve_duplicate_game", unexpected_load)
+    room["duplicate_key"] = saved["key"]
+    with pytest.raises(ValueError, match="成对创建"):
+        XueliuGameState(server, room, server.calculation_service, db, "invalid-duplicate")
 
 
 @pytest.mark.parametrize("bad", ["guobiao", "sichuan/standard", "sichuan/doubles", "sichuan/xueliu_doubles"])
@@ -152,36 +136,25 @@ def test_incompatible_rooms_cannot_reinterpret_a_bloodflow_wall(bad):
 
 
 @pytest.mark.parametrize("sub", ["sichuan/xueliu", "sichuan/xueliu_exchange"])
-@pytest.mark.parametrize("seed", [1807, 2409])
-def test_four_clients_finish_ordinary_duplicate_and_replay_every_draw(monkeypatch, sub, seed):
-    import asyncio
-    from .test_xueliu_integration import full_state
-    from . import test_xueliu_doubles_full_match as driver
-    state, messages = full_state()
-    state.sub_rule = sub
-    state._configure_rule()
-    board = make_board(seed, 1, layout="xueliu")
-    state.duplicate_key = "dup_test_ordinary"
-    state.duplicate_wall_type = "key"
-    state.duplicate_round_count = 1
-    state._duplicate_seed = str(seed)
-    state._duplicate_tiles = flatten_board(board)
-    state._duplicate_round_tiles = [state._duplicate_tiles]
-    state._duplicate_game_id = "duplicate-test"
-    state.spectator_enabled = state.spectator_manager.enabled = False
-    monkeypatch.setattr(driver, "make_state", lambda: (state, messages))
-    state, messages = asyncio.run(driver.play_match(seed))
-    assert len(state.game_record["game_round"]) == 1
-    round_data = state.game_record["game_round"]["round_index_1"]
-    assert round_data["duplicate_wall_layout"] == "xueliu"
-    draws = [tick for tick in round_data["action_ticks"] if tick[0] in ("d", "gd")]
-    assert len(draws) == 55
-    assert len([tick for tick in draws if tick[3] == -1]) == 24
-    assert len(state.tiles_list) == 0 and state.tiles_list.common_started
-    replay = RecordSim(state.game_record)
-    frames = replay.apply_all("round_index_1")
-    for node in (0, len(frames)//2, len(frames)-1):
-        assert replay.goto_action("round_index_1", node) == frames[node]
-    endings = [m["message"]["game_end_info"] for m in messages if m["type"].endswith("/game_end")]
-    assert len(endings) == 4
-    assert all("record_detail" not in e and "master_seed" not in e for e in endings)
+def test_ordinary_bloodflow_keeps_seeded_dealing_and_rejects_injected_duplicate_keys(sub):
+    db = build_db_manager()
+    server = build_game_server(db, messages=[])
+    room = build_room_data(seed=0, room_id="912311", hepai_limit=0)
+    room.update(room_rule="sichuan", sub_rule=sub)
+    hands = []
+    for _ in range(2):
+        state = XueliuGameState(server, room, server.calculation_service, db, "seeded-normal")
+        state.master_seed = 12345
+        for index, player in enumerate(state.player_list):
+            player.original_player_index = player.player_index = index
+        init_sichuan_tiles(state)
+        assert type(state.tiles_list) is list
+        assert [len(p.hand_tiles) for p in state.player_list] == [14, 13, 13, 13]
+        assert len(state.tiles_list) == 55
+        hands.append(([list(p.hand_tiles) for p in state.player_list], list(state.tiles_list)))
+    assert hands[0] == hands[1]
+    before = deepcopy(hands[-1])
+    state.duplicate_key = "dup_" + "1" * 32
+    with pytest.raises(ValueError, match="成对创建"):
+        init_sichuan_tiles(state)
+    assert ([list(p.hand_tiles) for p in state.player_list], list(state.tiles_list)) == before

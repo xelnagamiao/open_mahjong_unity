@@ -14,6 +14,8 @@ from .gamestate.gamestate_router import handle_gamestate_message
 from .database.data_router import handle_data_message
 from .database.title_router import handle_title_message
 from .database.inventory_router import handle_inventory_message, register_inventory_routes
+from .database.redemption_router import handle_redemption_message, register_redemption_routes
+from .database.mail_router import handle_mail_message, register_mail_routes
 from .match.match_router import handle_match_message
 from .friend.friend_router import handle_friend_message
 from .event.event_router import handle_event_message
@@ -25,6 +27,7 @@ from .public.client_ip import get_client_ip_from_websocket
 from .public.ip_registration_limiter import IpRegistrationLimiter
 from .public.username_validation import normalize_username, validate_username
 from .chat_server.chat_server import ChatServer
+from .chat_server.conversation_router import handle_conversation_message
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
 from .match.match_manager import MatchManager
@@ -167,6 +170,11 @@ async def _daily_stats_startup_restore() -> None:
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
+    from .match.qingque_session import recover_checkpoints, recovery_loop
+    await asyncio.to_thread(recover_checkpoints, db_manager, True)
+    # 本版本首次升级完整回填番种，成功后只读完成标记；失败不开放服务。
+    from .database.statistics_fan_backfill import run_startup_fan_upgrade
+    await asyncio.to_thread(run_startup_fan_upgrade, db_manager)
     # 重试近期记录缓存中登记的失败项；不扫描历史牌谱重算统计。
     from .database.player_recent_records import retry_player_recent_record_errors
     await asyncio.to_thread(retry_player_recent_record_errors, db_manager)
@@ -187,6 +195,7 @@ async def lifespan(app: FastAPI):
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())
     restore_task = asyncio.create_task(_daily_stats_startup_restore())
+    qingque_recovery_task = asyncio.create_task(recovery_loop(db_manager))
     game_server.event_auto_matcher.start()
     yield
     await game_server.event_auto_matcher.stop()
@@ -194,13 +203,9 @@ async def lifespan(app: FastAPI):
     sampler_task.cancel()
     stats_task.cancel()
     restore_task.cancel()
-    try:
-        await reset_task
-        await sampler_task
-        await stats_task
-        await restore_task
-    except asyncio.CancelledError:
-        pass
+    qingque_recovery_task.cancel()
+    await asyncio.gather(reset_task, sampler_task, stats_task, restore_task,
+                         qingque_recovery_task, return_exceptions=True)
     await shutdown_bot_executor()
     # 关闭时执行（如果需要清理资源，在这里添加）
 
@@ -361,7 +366,7 @@ class GameServer:
         return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he, joker_multi_wait=joker_multi_wait, no_joker_bonus=no_joker_bonus, black_flower_progressive=black_flower_progressive)
 
     # 创建青雀房间
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, unlimited_rounds: bool = False) -> Response:
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, unlimited_rounds: bool = False) -> Response:
         return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, unlimited_rounds=unlimited_rounds)
 
     # 创建长沙麻将房间
@@ -372,8 +377,8 @@ class GameServer:
     async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
         return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
-    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron", count_tips: bool = False, pointer_tips: bool = True) -> Response:
-        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way, count_tips=count_tips, pointer_tips=pointer_tips)
+    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron", count_tips: bool = False, pointer_tips: bool = True, hongque_colourless: bool = True, hongque_min_fan: int = 0, hongque_min_points: int = 0) -> Response:
+        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way, count_tips=count_tips, pointer_tips=pointer_tips, hongque_colourless=hongque_colourless, hongque_min_fan=hongque_min_fan, hongque_min_points=hongque_min_points)
 
     async def create_Free_room(self, Connect_id: str, room_name: str, password: str, random_seed: int = 0, sub_rule: str = "free/standard", tourist_limit: bool = False, wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True, wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True, pointer_tips: bool = True) -> Response:
         return await self.room_manager.create_Free_room(Connect_id, room_name, password, random_seed, sub_rule, tourist_limit, wall_wan, wall_tong, wall_suo, wall_winds, wall_dragons, wall_flowers, pointer_tips=pointer_tips)
@@ -461,10 +466,13 @@ class GameServer:
 
         # 自定义房间统计仅基于 room_manager.rooms；匹配对局不注册到房间列表
         waiting_rooms = 0
+        venue_waiting_rooms = 0
         playing_rooms = 0
         for room_data in self.room_manager.rooms.values():
             if room_data.get("is_game_running", False):
                 playing_rooms += 1
+            elif room_data.get("room_type") == "events" or room_data.get("event_id"):
+                venue_waiting_rooms += 1
             else:
                 waiting_rooms += 1
 
@@ -473,6 +481,7 @@ class GameServer:
         return {
             "online_players": online_players,
             "waiting_rooms": waiting_rooms,
+            "venue_waiting_rooms": venue_waiting_rooms,
             "playing_rooms": playing_rooms,
             "match_playing_games": match_playing_games,
         }
@@ -489,6 +498,8 @@ register_calc_routes(app, game_server)
 register_admin_message_routes(app, game_server)
 register_admin_user_routes(app, game_server)
 register_inventory_routes(app, game_server)
+register_mail_routes(app, game_server)
+register_redemption_routes(app, game_server)
 register_admin_game_routes(app, game_server)
 register_admin_event_room_routes(app, game_server)
 register_admin_room_routes(app, game_server, proxy_secret=(
@@ -507,9 +518,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             # 心跳消息频繁发送，跳过日志以避免刷屏
             if message.get("type") != "ping":
                 log_message = message
-                if message.get("type") in ("login", "register"):
+                if message.get("type") in ("login", "register", "reward/redeem"):
                     log_message = {
-                        key: "[REDACTED]" if key in ("token", "password", "confirm_password", "email") else value
+                        key: "[REDACTED]" if key in ("token", "password", "confirm_password", "email", "code") else value
                         for key, value in message.items()
                     }
                 logging.info(f"收到消息: {log_message}")
@@ -575,7 +586,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 if response.success and response.login_info:
                     user_id = response.login_info.user_id
                     # 检查该账户是否已经在其他地方登录
-                    if user_id in game_server.user_id_to_connection:
+                    if user_id in game_server.user_id_to_connection and game_server.user_id_to_connection[user_id].Connect_id != Connect_id:
                         old_player = game_server.user_id_to_connection[user_id]
                         old_connect_id = old_player.Connect_id
                         
@@ -601,6 +612,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         
                         # 断开之前的连接
                         await game_server.disconnect(old_connect_id)
+                        # Removing the registry entry alone leaves a live,
+                        # unauthenticated socket which still looks connected.
+                        try:
+                            await old_player.websocket.close(code=1008, reason="login_kickout")
+                        except Exception:
+                            logging.debug("Replaced game connection already closed")
                         logging.info(f"已断开旧连接 {old_connect_id}，用户ID: {user_id}")
                     
                     # 存储新登录的会话
@@ -617,6 +634,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 
                 await websocket.send_json(response.dict(exclude_none=True))
 
+            elif message.get("type", "").startswith("chat/"):
+                await handle_conversation_message(game_server, Connect_id, message, websocket)
+            elif message.get("type", "").startswith("reward/"):
+                await handle_redemption_message(game_server, Connect_id, message, websocket)
+            elif message.get("type", "").startswith("mail/"):
+                await handle_mail_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("inventory/"):
                 await handle_inventory_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("title/"):
@@ -665,6 +688,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 server_stats = ServerStatsInfo(
                     online_players=stats["online_players"],
                     waiting_rooms=stats["waiting_rooms"],
+                    venue_waiting_rooms=stats["venue_waiting_rooms"],
                     playing_rooms=stats["playing_rooms"],
                     match_playing_games=stats["match_playing_games"],
                 )
@@ -775,7 +799,6 @@ async def _finalize_player_login(
     db_manager.record_user_login_ip(user_id, client_ip)
 
     user_key = await chat_server.hash_username(username)
-    logging.info(f" 生成用户秘钥{user_key} ")
 
     from .response import LoginInfo, UserSettings, UserConfig, RankData
     user_settings_data = db_manager.get_user_settings(user_id)

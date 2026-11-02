@@ -27,11 +27,21 @@ public static class SichuanScoreHistoryValidation {
             if (rows.Count == 0 || !actual.SequenceEqual(round.scoreChanges ?? new List<int> {0,0,0,0}))
                 throw new Exception($"Sichuan scoreboard {subRule}, blood={bloodBattle}, seats={string.Join(",",seats)}: "
                     + $"displayed [{string.Join(",",actual)}], replay [{string.Join(",",round.scoreChanges ?? new List<int>())}]");
-            if (SichuanLobby.IsXueliu(subRule) && rows.Count != 1)
-                throw new Exception("血流同局多次结算必须保持一行");
+            if ((SichuanLobby.IsXueliu(subRule) || SichuanLobby.IsDoubles(subRule)) && rows.Count != 1)
+                throw new Exception("川麻双打/血流同副多次结算必须保持一行");
             checks++;
         }
         foreach (var seats in new[] {new[] {0,1,2,3}, new[] {3,0,1,2}, new[] {2,3,0,1}, new[] {1,2,3,0}}) {
+            foreach (string sub in new[] {"sichuan/doubles", "sichuan/doubles_duplicate"}) {
+                Verify(sub, true, seats,
+                    new[] {"liuju","reveal_hu","{}"},
+                    new[] {"liuju","settle_gang","[4,-2,0,-2]"},
+                    new[] {"liuju","settle_hu","hu_self","0","1","[]","[4,-2,0,-2]","1"},
+                    new[] {"liuju","board_summary","{}"}, new[] {"end"});
+                Verify(sub, true, seats,
+                    new[] {"liuju","settle_gang","[0,0,0,0]"},
+                    new[] {"liuju","board_summary","{}"}, new[] {"end"});
+            }
             foreach (bool blood in new[] {true, false}) {
                 Verify("sichuan/standard", blood, seats,
                     new[] {"ag","11","F","11","11","11","11","gs","6","-2","-2","-2"},

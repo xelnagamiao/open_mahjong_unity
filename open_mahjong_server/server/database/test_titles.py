@@ -37,6 +37,20 @@ class TitleDatabaseTests(unittest.TestCase):
         self.conn.commit()
         self.conn.close()
 
+    def test_new_titles_are_seeded_once_and_require_manual_grants(self):
+        state = get_title_state(self.db, 102)
+        self.assertEqual(state['owned'], [])
+        for name in ('冠绝一世', '千恋万花'):
+            matches = [title for title in state['catalog'] if title['name'] == name]
+            self.assertEqual(len(matches), 1)
+            tid = matches[0]['title_id']
+            with self.assertRaisesRegex(ValueError, '尚未获授'):
+                equip_title(self.db, 102, tid)
+            with self.conn.cursor() as cur:
+                cur.execute('INSERT INTO user_titles (user_id,title_id) VALUES (%s,%s)', (102,tid))
+            self.conn.commit()
+            self.assertEqual(equip_title(self.db, 102, tid)['equipped_title_id'], tid)
+
     def test_legacy_grant_and_single_selection_persist(self):
         state = get_title_state(self.db, 101)
         self.assertEqual(state['equipped_title_id'], 2)

@@ -45,6 +45,12 @@ $plan | Format-Table Target, Output -AutoSize | Out-Host
 $plan | Format-Table Target, Profile -AutoSize | Out-Host
 if ($DryRun) { Write-Host 'Dry run: no files changed and no build started.'; return }
 
+# Do not rely only on finally: closing the console can terminate PowerShell
+# without unwinding it, leaving Start-Process children building in the background.
+if (-not ('UnityBatchBuild.OwnedProcess' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'OwnedProcess.cs')
+}
+
 # No junctions/symlinks: mirror deletion must never reach the development project.
 function Assert-NoLinks([string]$Path) {
     $cursor = [IO.Path]::GetFullPath($Path)
@@ -135,11 +141,6 @@ try {
         Write-Host "Building $($item.Target) -> $($item.Output)"
         $arguments = @('-batchmode', '-quit', '-projectPath', $copy)
         $arguments += @('-activeBuildProfile', $item.Profile, '-build', $item.Output, '-logFile', $log)
-        # Windows ProcessStartInfo uses a single command line; quote paths including spaces.
-        $quoted = ($arguments | ForEach-Object {
-            if ($_ -match '["\r\n]') { throw 'Invalid quote/newline in Unity argument.' }
-            '"' + $_ + '"'
-        }) -join ' '
         $exitCode = -1
         $errorText = $null
         $process = $null
@@ -159,7 +160,7 @@ try {
                     $env:TEMP = $javaTemp
                     $env:TMP = $javaTemp
                 }
-                $process = Start-Process -FilePath $UnityPath -ArgumentList $quoted -WindowStyle Hidden -PassThru
+                $process = [UnityBatchBuild.OwnedProcess]::Start($UnityPath, [string[]]$arguments, (Get-Location).ProviderPath)
             } finally {
                 [Environment]::SetEnvironmentVariable('JAVA_TOOL_OPTIONS', $savedJavaOptions, 'Process')
                 [Environment]::SetEnvironmentVariable('TEMP', $savedTemp, 'Process')
@@ -172,7 +173,6 @@ try {
                     $nextProgress = (Get-Date).AddSeconds(30)
                 }
             }
-            $process.Refresh()
             $exitCode = $process.ExitCode
             $artifact = if ($item.Target -eq 'WebGL') { Join-Path $item.Output 'index.html' } else { $item.Output }
             if ($exitCode -ne 0) {
@@ -195,10 +195,13 @@ try {
             if (!(Test-Path -LiteralPath $log) -or !(Select-String -LiteralPath $log -Pattern 'Build Finished, Result: Success|Build completed with a result of .Succeeded' -Quiet)) {
                 throw "No explicit successful build result in Unity log: $log"
             }
+        } catch [System.Management.Automation.PipelineStoppedException] {
+            # Cancellation must not be treated as a failed target followed by
+            # starting the next target. The finally block closes the process job.
+            throw
         } catch { $errorText = $_.Exception.Message }
         finally {
             if ($process) {
-                if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
                 $process.Dispose()
             }
         }

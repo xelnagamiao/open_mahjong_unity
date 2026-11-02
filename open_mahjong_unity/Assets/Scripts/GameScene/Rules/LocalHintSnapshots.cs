@@ -11,6 +11,7 @@ internal static class LocalHintSnapshots {
     private sealed class Entry {
         internal Task<JObject> Job;
         internal bool Watching;
+        internal bool RefreshTips;
         internal readonly Dictionary<Type, object> Values = new Dictionary<Type, object>();
         internal readonly List<Action> Ready = new List<Action>();
     }
@@ -29,7 +30,7 @@ internal static class LocalHintSnapshots {
         }
         return null;
     }
-    internal static T Read<T>(JObject request,Action ready=null) where T:class {
+    internal static T Read<T>(JObject request,Action ready=null,bool refreshTips=true) where T:class {
         if(request==null)return null;
         string key=request.ToString(Formatting.None);
         if(!Cache.TryGetValue(key,out var entry)) {
@@ -42,6 +43,7 @@ internal static class LocalHintSnapshots {
 #endif
             Cache[key]=entry;
         }
+        entry.RefreshTips |= refreshTips;
         if(entry.Job.Status==TaskStatus.RanToCompletion){
             if(typeof(T)==typeof(JObject))return entry.Job.Result as T;
             if(!entry.Values.TryGetValue(typeof(T),out var value))entry.Values[typeof(T)]=value=entry.Job.Result.ToObject<T>();
@@ -52,9 +54,11 @@ internal static class LocalHintSnapshots {
         return null;
     }
     private static IEnumerator Notify(Entry entry) {
+        yield return null;
         while(!entry.Job.IsCompleted)yield return null;
         if(entry.Job.IsFaulted){entry.Ready.Clear();Debug.LogException(entry.Job.Exception.GetBaseException());yield break;}
         var callbacks=entry.Ready.ToArray();entry.Ready.Clear();foreach(var callback in callbacks){try{callback();}catch(Exception e){Debug.LogException(e);}}
+        if(!entry.RefreshTips)yield break;
         var record=GameRecordManager.Instance;
         if(record!=null&&record.ShouldShowRecordTips())record.RefreshRecordTips();
         else if(callbacks.Length==0&&TableMirror.Current.SelfHandTiles!=null)

@@ -4,6 +4,8 @@ import { libraryAuditMessages } from './library-audit.js'
 import { game2dMessages, game2dTextPatterns } from './game2d-messages.js'
 import { statisticsMessages } from './statistics-messages.js'
 import { guobiaoRulesMessages } from './guobiao-rules-messages.js'
+import { calculatorMessages, calculatorTextPatterns } from './calculator-messages.js'
+import { renameCardMessages, renameCardTextPatterns } from './rename-card-messages.js'
 
 const en = {
   '用户名 / 邮箱': 'Username / email',
@@ -432,6 +434,9 @@ Object.assign(en, {
   '如 35m146678p24s344z5m': 'e.g. 35m146678p24s344z5m',
   '解析': 'Parse',
   '特殊牌型': 'Special hands',
+  '和牌牌型': 'Winning hand shapes',
+  '青雀牌理': 'Qingque analysis', '日麻牌理': 'Riichi analysis',
+  '青雀计算器': 'Qingque calculator', '日麻计算器': 'Riichi calculator',
   '国标七对': 'MCR Seven Pairs',
   '日麻七对': 'Riichi Seven Pairs',
   '十三幺': 'Thirteen Orphans',
@@ -551,6 +556,9 @@ Object.assign(ja, {
   '如 35m146678p24s344z5m': '例：35m146678p24s344z5m',
   '解析': '解析',
   '特殊牌型': '特殊形',
+  '和牌牌型': '和了形',
+  '青雀牌理': '青雀牌理', '日麻牌理': 'リーチ牌理',
+  '青雀计算器': '青雀計算機', '日麻计算器': 'リーチ計算機',
   '国标七对': '国標七対子',
   '日麻七对': '日麻七対子',
   '十三幺': '国士無双',
@@ -1805,15 +1813,18 @@ Object.assign(en, auditEnglish, auditShared.en)
 Object.assign(fr, auditShared.fr)
 Object.assign(ja, auditShared.ja)
 for (const [language, target] of Object.entries({ en, fr, ja })) {
-  for (const [source, translated] of Object.entries({ ...game2dMessages[language], ...statisticsMessages[language], ...guobiaoRulesMessages[language] })) {
+  for (const [source, translated] of Object.entries({ ...game2dMessages[language], ...statisticsMessages[language], ...guobiaoRulesMessages[language], ...calculatorMessages[language] })) {
     if (target[source] == null || target[source] === source) target[source] = translated
   }
+  Object.assign(target, renameCardMessages[language])
 }
 export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr }
 
 export const textPatterns = {
-  fr: [...frTextPatterns, ...game2dTextPatterns('fr')],
+  fr: [...renameCardTextPatterns('fr'), ...frTextPatterns, ...game2dTextPatterns('fr'), ...calculatorTextPatterns('fr', fr)],
   en: [
+    ...renameCardTextPatterns('en'),
+    ...calculatorTextPatterns('en', en),
     ...game2dTextPatterns('en'),
     { match: /^牌谱 (\d+)$/, replace: (count) => `${count} records` },
     { match: /^比赛场 · (.+)$/, replace: (name) => `Event Room · ${name}` },
@@ -1865,6 +1876,8 @@ export const textPatterns = {
     { match: /^确定\\((\d+)\\)$/, replace: (seconds) => `Confirm (${seconds})` },
   ],
   ja: [
+    ...renameCardTextPatterns('ja'),
+    ...calculatorTextPatterns('ja', ja),
     ...game2dTextPatterns('ja'),
     { match: /^进入匹配（队列 (\d+)）$/, replace: (count) => `マッチングへ（待機 ${count}人）` },
     { match: /^进入匹配（(国标\+立直|立直) · 队列 (\d+)）$/, replace: (pool, count) => `マッチングへ（${pool === '立直' ? 'リーチ' : '中国公式＋リーチ'} · 待機 ${count}人）` },

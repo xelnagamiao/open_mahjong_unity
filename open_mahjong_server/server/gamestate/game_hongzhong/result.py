@@ -1,4 +1,5 @@
 """终局公开所有手牌；不可变快照用于断线恢复，避免再次支付。"""
+from ..public.settlement_sync import send_game_packet
 import logging
 
 from ...response import Response, Show_result_info
@@ -23,6 +24,6 @@ async def broadcast_result(state, **fields):
         if connection is None:
             continue
         try:
-            await connection.websocket.send_json(state._terminal_result)
+            await send_game_packet(state, connection.websocket, state._terminal_result)
         except Exception:
             logger.exception("红中终局广播失败 user_id=%s", player.user_id)

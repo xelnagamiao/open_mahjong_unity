@@ -37,6 +37,7 @@ public interface IGameSettings {
     bool ForcePassEnabled { get; }
     bool OpeningAutoBuhuaEnabled { get; }
     bool ActionButtonColorEnabled { get; }
+    bool MeldSpacingEnabled { get; }
     bool IsEnglish { get; }
     bool UseBlankWhiteDragonFace(int tileId);
     Color DefaultTableFaceFallbackColor { get; }
@@ -63,6 +64,7 @@ public static class GameSettings {
         public bool ForcePassEnabled => false;
         public bool OpeningAutoBuhuaEnabled => true;
         public bool ActionButtonColorEnabled => false;
+        public bool MeldSpacingEnabled => false;
         public bool IsEnglish => false;
         public bool UseBlankWhiteDragonFace(int tileId) => false;
         public Color DefaultTableFaceFallbackColor => Color.white;

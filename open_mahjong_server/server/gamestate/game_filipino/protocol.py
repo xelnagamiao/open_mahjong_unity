@@ -1,4 +1,5 @@
 """Private hands stay private; reconnect includes the exact pending decision."""
+from ..public.settlement_sync import send_game_packet
 from ..game_zhongyong import boardcast as wire
 from .state_machine import Phase as P
 
@@ -142,4 +143,4 @@ class Protocol:
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and connection.websocket is not None:
             for payload in self.restore_payloads(index):
-                await connection.websocket.send_json(payload)
+                await send_game_packet(self, connection.websocket, payload)

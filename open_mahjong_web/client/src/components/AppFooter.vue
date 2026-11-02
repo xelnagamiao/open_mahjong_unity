@@ -8,32 +8,14 @@
 
       <div class="footer-section">
         <h4>联系我们</h4>
-        <p>
-          salasasa 麻将平台测试群：
-          <a
-            href="https://qm.qq.com/q/MGGZV58hOO"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="footer-link"
-          >906497522</a>
+        <p v-for="item in platformContent?.communities || []" :key="item.id">
+          <router-link class="footer-link" to="/community" data-no-translate>{{ communityText(item, 'title', locale) }} · {{ item.kind === 'wechat' ? tr('微信') : item.kind === 'qq' ? 'QQ' : item.kind }}</router-link>
         </p>
-        <p>
-          open mahjong unity 项目交流：
-          <a
-            href="https://qm.qq.com/q/MualpyNFoi"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="footer-link"
-          >1084537740</a>
-        </p>
-        <p>网站管理员：Q1448826180</p>
       </div>
 
       <div class="footer-section">
         <h4>鸣谢</h4>
-        <p>棋牌游戏研究院</p>
-        <p>国标麻将吧</p>
-        <p>雪枫 XueFun9</p>
+        <p><router-link class="footer-link" to="/guide#thanks">查看完整鸣谢名单</router-link></p>
       </div>
     </div>
 
@@ -55,8 +37,11 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { locale } from '@/i18n'
+import { locale, tr } from '@/i18n'
+import { communityText } from '@/utils/communityText'
 import { accountRegulationsBody } from '@/content/accountRegulations'
+import { usePlatformContent } from '@/composables/usePlatformContent'
+const { content: platformContent } = usePlatformContent()
 
 const regulationsVisible = ref(false)
 const regulationsBody = computed(() => accountRegulationsBody(locale.value))

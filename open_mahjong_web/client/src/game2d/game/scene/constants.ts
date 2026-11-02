@@ -1,5 +1,5 @@
 import { isMobile } from 'pixi.js'
-import { STANDARD_FACE_IDS, GUOBIAO_FACE_IDS, isFlowerFaceId, mmcrFaceId, tileFaceAssetUrl } from '../../lib/tileFaceAsset'
+import { STANDARD_FACE_IDS, GUOBIAO_FACE_IDS, DUOCAI_FACE_IDS, isFlowerFaceId, mmcrFaceId, tileFaceAssetUrl } from '../../lib/tileFaceAsset'
 
 // ── Geometry ──────────────────────────────────────────────────────────
 export const TILE_WIDTH = 360
@@ -29,6 +29,7 @@ const FLOWER_IDS = STANDARD_FACE_IDS.filter(isFlowerFaceId)
 const TABLE_FACE_IDS = STANDARD_FACE_IDS.filter((id) => !isFlowerFaceId(id))
 
 export const TILE_TEXTURE_PATHS: { alias: string; src: string; data?: { autoGenerateMipmaps: boolean } }[] = [
+  ...DUOCAI_FACE_IDS.map(id=>({alias:`regular-${id}`,src:tileFaceAssetUrl(id,{baseUrl:ASSET_ROOT}),data:{autoGenerateMipmaps:true}})),
   { alias: 'regular-Back', src: `${TILE_ROOT}/Regular/Back.svg` },
   { alias: 'black-Back', src: `${TILE_ROOT}/Black/Back.svg` },
   ...STANDARD_FACE_IDS.map((id) => ({

@@ -4,6 +4,8 @@ import { createRequire } from 'node:module'
 import { createDuplicateDraft, duplicateZoneLimit, flattenDuplicateDraft, validateDuplicateDraft, moveDuplicateTile, splitDuplicateWall, duplicateRoundSeats } from '../src/utils/duplicateWalls.js'
 import { duplicateReplayWall } from '../src/utils/duplicateReplayWall.js'
 import { buildEventRoomCreation, createEventRoomCreationForm } from '../src/utils/eventRoomCreation.js'
+import { clearUnsupportedDuplicateRoom } from '../src/utils/eventRoomSettings.js'
+import { supportsDuplicateKey } from '../src/utils/sichuanDuplicate.js'
 const require = createRequire(import.meta.url)
 const { catalog, normalizeInput, fullWall, wallDto } = require('../../server/services/duplicateWalls.js')
 const rule = catalog().rules.find(rule => rule.rule === 'sichuan/xueliu')
@@ -30,7 +32,7 @@ test('manual bloodflow layout has four 13+8 partitions and one 24-tile shared wa
 
 test('seed, random key and manual walls conserve exactly 108 tiles and keep key contents private', () => {
   for (const wall_type of ['seed', 'key', 'manual']) {
-    const input = { rule: rule.rule, wall_type, seed: 'JJ seed', tiles: fullWall(rule.rule) }
+    const input = { scope: 'event', event_id: 'venue-A', rule: rule.rule, wall_type, seed: 'JJ seed', tiles: fullWall(rule.rule) }
     const normalized = normalizeInput(input)
     assert.equal(normalized.tiles.length, 108)
     assert.equal(normalized.use_flowers, false)
@@ -42,7 +44,7 @@ test('seed, random key and manual walls conserve exactly 108 tiles and keep key 
     } else if (wall_type === 'seed') assert.deepEqual(normalizeInput(input).tiles, normalized.tiles)
     else assert.deepEqual(normalized.tiles, input.tiles)
   }
-  assert.throws(() => normalizeInput({ rule: rule.rule, wall_type: 'manual', tiles: fullWall('guobiao') }), /108/)
+  assert.throws(() => normalizeInput({ scope: 'event', event_id: 'venue-A', rule: rule.rule, wall_type: 'manual', tiles: fullWall('guobiao') }), /108/)
 })
 
 test('bloodflow replay consumes original fixed leftovers and then common source -1 exactly once', () => {
@@ -63,16 +65,40 @@ test('bloodflow replay consumes original fixed leftovers and then common source 
   assert.equal(legacy[1].shared,undefined)
 })
 
-test('ordinary and paired room payloads preserve bloodflow keys with their own creation scope', () => {
-  for (const sub_rule of ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/xueliu_doubles_duplicate']) {
+test('only paired Sichuan room payloads accept keys; ordinary saved forms discard retired keys', () => {
+  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
     const form = createEventRoomCreationForm({ room_rule: 'sichuan', room_config: { sub_rule, duplicate_key: 'dup_'+'a'.repeat(32) } })
     const payload = buildEventRoomCreation(form)
+    assert.equal(supportsDuplicateKey(form), true)
     assert.equal(payload.room_config.sub_rule, sub_rule)
     assert.equal(payload.room_config.duplicate_key, form.duplicate_key)
-    if (sub_rule.endsWith('_duplicate')) {
-      assert.equal(payload.duplicate_enabled, undefined)
-      form.room_count = 3
-      assert.throws(() => buildEventRoomCreation(form), /一组/)
-    } else assert.equal(payload.duplicate_enabled, true)
+    assert.equal(payload.duplicate_enabled, undefined)
+    form.room_count = 3
+    assert.throws(() => buildEventRoomCreation(form), /一组/)
+  }
+  for (const sub_rule of ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles']) {
+    const form = createEventRoomCreationForm({ room_rule: 'sichuan', room_config: { sub_rule, duplicate_key: 'dup_'+'a'.repeat(32) } })
+    assert.equal(supportsDuplicateKey(form), false)
+    assert.equal(form.duplicate_key, '')
+    assert.equal(form.duplicate_enabled, false)
+    const payload = buildEventRoomCreation(form)
+    assert.ok(!payload.room_config.duplicate_key)
+    assert.equal(payload.duplicate_enabled, undefined)
+    form.duplicate_key = 'dup_'+'b'.repeat(32)
+    assert.throws(() => buildEventRoomCreation(form), /双打复式/)
+    clearUnsupportedDuplicateRoom(form)
+    form.duplicate_enabled = form.auto_duplicate = true
+    assert.throws(() => buildEventRoomCreation(form), /双打复式/)
+  }
+})
+
+test('personal rule choices exclude both Sichuan layouts, and all three personal creation methods are rejected', () => {
+  assert.deepEqual(catalog().rules.filter(item => item.scopes.includes('personal')).map(item => item.rule), ['guobiao', 'guobiao/lanshi'])
+  for (const rule of catalog().rules.filter(item => item.rule.startsWith('sichuan/'))) {
+    assert.deepEqual(rule.scopes, ['event'])
+    assert.match(rule.label, /双打复式/)
+    for (const wall_type of ['manual', 'seed', 'key']) {
+      assert.throws(() => normalizeInput({ scope: 'personal', rule: rule.rule, wall_type, seed: 'test', tiles: fullWall(rule.rule) }), /赛事或基地/)
+    }
   }
 })

@@ -6,6 +6,7 @@ using UnityEngine;
 /// 结算呈现路径由各族 GameState 决定（TurnBasedGameState.PresentSettlement 及其重写），分数/计分板/演出调用在 <see cref="SettlementPresenter"/>。
 /// </summary>
 public partial class NormalGameStateManager {
+    private SichuanMatchSettlementInfo pendingSichuanMatch;
     private string pendingGameEndMasterSeed;
     private string pendingGameEndCommitment;
     private string pendingGameEndSalt;
@@ -83,7 +84,7 @@ public partial class NormalGameStateManager {
     }
 
     // 游戏结束
-    public void GameEnd(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data){
+    public void GameEnd(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch = null){
         GameSceneUIManager.ResetRealtimeSpectatorUi();
         // 重置自身命令
         TurnClock.Current.Clear("GameEnd");
@@ -94,6 +95,7 @@ public partial class NormalGameStateManager {
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
 
         if (awaitingMatchEnd) {
+            pendingSichuanMatch = sichuanMatch;
             pendingGameEndMasterSeed = master_seed;
             pendingGameEndCommitment = commitment;
             pendingGameEndSalt = salt;
@@ -109,7 +111,7 @@ public partial class NormalGameStateManager {
         if (EndShuheWeiPanel.Instance != null) {
             EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel();
         }
-        RoundEndPresentation.Instance.PresentEndGame(master_seed, commitment, salt, player_final_data);
+        RoundEndPresentation.Instance.PresentEndGame(master_seed, commitment, salt, player_final_data, sichuanMatch);
     }
 
     /// <summary>末局 match_end 点确定后：弹出暂存的终局排名面板。</summary>
@@ -121,13 +123,15 @@ public partial class NormalGameStateManager {
         string masterSeed = pendingGameEndMasterSeed;
         string commitment = pendingGameEndCommitment;
         string salt = pendingGameEndSalt;
+        var sichuanMatch = pendingSichuanMatch;
         var playerFinalData = pendingGameEndPlayerFinalData;
         ClearPendingGameEnd();
-        RoundEndPresentation.Instance.PresentEndGame(masterSeed, commitment, salt, playerFinalData);
+        RoundEndPresentation.Instance.PresentEndGame(masterSeed, commitment, salt, playerFinalData, sichuanMatch);
     }
 
     private void ClearPendingGameEnd() {
         hasPendingGameEnd = false;
+        pendingSichuanMatch = null;
         pendingGameEndMasterSeed = null;
         pendingGameEndCommitment = null;
         pendingGameEndSalt = null;

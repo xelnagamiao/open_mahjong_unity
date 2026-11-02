@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 import asyncio
 import random
 import logging
@@ -492,7 +493,7 @@ class WuhanGameState(TaiwanGameState):
         await super().player_reconnect(user_id)
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection and self._terminal_result:
-            await connection.websocket.send_json(self._terminal_result)
+            await send_game_packet(self, connection.websocket, self._terminal_result)
 
     async def _broadcast_result(self, **fields):
         from ...response import Response, Show_result_info
@@ -510,7 +511,7 @@ class WuhanGameState(TaiwanGameState):
             connection = self.game_server.user_id_to_connection.get(p.user_id)
             if connection and "offline" not in p.tag_list:
                 try:
-                    await connection.websocket.send_json(self._terminal_result)
+                    await send_game_packet(self, connection.websocket, self._terminal_result)
                 except Exception:
                     logging.getLogger(__name__).exception("武汉结算发送失败 seat=%s", p.player_index)
 

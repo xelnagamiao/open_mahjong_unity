@@ -416,6 +416,11 @@ def test_terminal_reconnect_resends_snapshot_without_repaying_or_rebuying_horses
               state.server_action_tick, deepcopy(ticks(state)), deepcopy(state.tiles_list), player.record_counter.zimo_times)
     for index in range(4):
         asyncio.run(state.player_reconnect(state.player_list[index].user_id))
-        assert inbox(state, index)[-1] == snapshot
+        packet = inbox(state, index)[-1]
+        metadata = packet["settlement_sync"]
+        assert metadata["gamestate_id"] == state.gamestate_id and metadata["phase"] == "match_end"
+        assert metadata["result_id"]
+        assert packet["gamestate_id"] == state.gamestate_id
+        assert {k: v for k, v in packet.items() if k not in ("settlement_sync", "gamestate_id")} == snapshot
     assert stable == ([p.score for p in state.player_list], [deepcopy(p.score_history) for p in state.player_list],
                       state.server_action_tick, ticks(state), state.tiles_list, player.record_counter.zimo_times)

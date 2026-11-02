@@ -25,14 +25,14 @@ public partial class CreatePanel {
         roundTimer.SetValueWithoutNotify(3); stepTimer.SetValueWithoutNotify(tier == 1 ? 2 : 1);
         RefreshVisibility(); RefreshSubRuleDescription(); RefreshRoomPresentation(true);
         Canvas.ForceUpdateCanvases();
-        RoomContent.GetComponentInParent<ScrollRect>().StopMovement();
+        RoomContent.GetComponentInParent<ScrollRect>(true).StopMovement();
         RoomContent.anchoredPosition = scrollPosition;
     }
 
     private void BindTierPresets() {
         var root = transform.Find("Create_Panel/TierPresets");
         if (!root) return;
-        for (int i = 0; i < TierNames.Length; i++) {
+        for (int i = 0; i < root.childCount; i++) {
             int tier = i;
             root.GetChild(i).GetComponent<Button>().onClick.AddListener(() => {
                 if (_ruleState == "riichi") ApplyRiichiPreset(RiichiSidebarPresetIndex(tier)); else ApplyGuobiaoTierPreset(tier);
@@ -47,15 +47,19 @@ public partial class CreatePanel {
             || (_ruleState == "riichi" && (GetSelectedRiichiSubRule() == "riichi/standard" || GetSelectedRiichiSubRule() == "riichi/sanma"));
         root.gameObject.SetActive(visible);
         if (!visible) return;
+        int count = _ruleState == "riichi" ? RiichiSidebarPresetIndices().Length : TierNames.Length;
         bool sidebar = margin >= 210;
-        RoomBox(root, sidebar ? 32 : margin, 16, sidebar ? margin - 64 : width - margin - rightMargin, sidebar ? 304 : 64);
-        float buttonWidth = sidebar ? root.rect.width : (root.rect.width - 24) / 4;
+        RoomBox(root, sidebar ? 32 : margin, 16, sidebar ? margin - 64 : width - margin - rightMargin, sidebar ? count * 80 - 16 : 64);
+        float buttonWidth = sidebar ? root.rect.width : (root.rect.width - 8 * (count - 1)) / count;
         for (int i = 0; i < root.childCount; i++) {
             var button = root.GetChild(i).GetComponent<Button>();
-            bool sanma = _ruleState == "riichi" && GetSelectedRiichiSubRule() == "riichi/sanma";
-            button.gameObject.SetActive(!sanma || i < 2);
-            if (sanma && i >= 2) continue;
-            button.GetComponentInChildren<TMP_Text>().text = _ruleState == "riichi" ? RiichiRoomRules.Presets[RiichiSidebarPresetIndex(i)].Label : TierNames[i];
+            button.gameObject.SetActive(i < count);
+            if (i >= count) continue;
+            var label = button.GetComponentInChildren<TMP_Text>();
+            label.text = _ruleState == "riichi" ? RiichiRoomRules.Presets[RiichiSidebarPresetIndex(i)].Label : TierNames[i];
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 20;
+            label.fontSizeMax = 32;
             RoomBox((RectTransform)button.transform, sidebar ? 0 : i * (buttonWidth + 8), sidebar ? i * 80 : 0, buttonWidth, 64);
         }
         if (!sidebar) ((RectTransform)scroll.transform).offsetMax = new Vector2(-rightMargin, -96);
@@ -79,6 +83,14 @@ public partial class CreatePanel {
         }
     }
 
-    private int RiichiSidebarPresetIndex(int slot) => GetSelectedRiichiSubRule() == "riichi/sanma" ? 4 + slot : slot;
+    private int[] RiichiSidebarPresetIndices() => RiichiRoomRules.Presets
+        .Select((preset, index) => new { preset, index })
+        .Where(item => item.preset.SubRule == GetSelectedRiichiSubRule())
+        .Select(item => item.index).ToArray();
+
+    private int RiichiSidebarPresetIndex(int slot) {
+        var indices = RiichiSidebarPresetIndices();
+        return slot >= 0 && slot < indices.Length ? indices[slot] : -1;
+    }
 
 }

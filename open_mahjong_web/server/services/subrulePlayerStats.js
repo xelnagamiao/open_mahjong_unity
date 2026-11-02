@@ -11,8 +11,16 @@ function aggregatePlayerRows(rows, definition) {
   out.supports_fan_stats = definition.fan_stats;
   if (definition.fan_stats) out.fan_stats = {};
   if (definition.rule === 'riichi') out.riichi_details = Object.fromEntries(DETAIL_KEYS.map(key => [key, 0]));
+  let netScore = 0;
+  let netScoreAvailable = true;
   for (const row of rows) {
     const data = definition.rule === 'riichi' ? row.summary : row.metrics;
+    // Riichi settlement scores include starting points; only its saved net summary is valid.
+    // Other rules retain their settlement totals even when behavior metrics are unavailable.
+    const score = definition.rule !== 'riichi' && row.has_settlement_score
+      ? row.settlement_score : data?.total_round_score;
+    if (score == null || !Number.isFinite(Number(score))) netScoreAvailable = false;
+    else netScore += Number(score);
     const rankKey = ['first_place_count', 'second_place_count', 'third_place_count', 'fourth_place_count'][row.rank - 1];
     if (rankKey && row.rank <= definition.player_count) out[rankKey] += 1;
     if (!data) continue;
@@ -26,18 +34,21 @@ function aggregatePlayerRows(rows, definition) {
     }
   }
   if (!out.details_available) {
-    for (const key of BASE_KEYS) if (key !== 'total_games' && !key.endsWith('_place_count')) out[key] = null;
+    for (const key of BASE_KEYS) if (!['total_games', 'total_round_score'].includes(key) && !key.endsWith('_place_count')) out[key] = null;
     if (out.fan_stats) out.fan_stats = null;
     if (out.riichi_details) out.riichi_details = null;
   }
+  out.total_round_score = netScoreAvailable ? netScore : null;
   return out;
 }
 
 async function fetchMetricRows(db, conditions, params) {
   const result = await db.query(`SELECT gpr.match_type AS mode,gpr.room_type,gpr.rank,
-      gpm.sub_rule,to_jsonb(gpm) AS metrics,s.stats AS summary
+      gpm.sub_rule,to_jsonb(gpm) AS metrics,s.stats AS summary,
+      to_jsonb(gpr)->'score' AS settlement_score,to_jsonb(gpr) ? 'score' AS has_settlement_score
     FROM game_player_records gpr JOIN game_records gr USING(game_id)
-    LEFT JOIN game_player_metrics gpm ON gpm.game_id=gpr.game_id AND gpm.user_id=gpr.user_id
+    LEFT JOIN LATERAL (SELECT * FROM game_player_metrics m
+      WHERE m.game_id=gpr.game_id AND m.user_id=gpr.user_id ORDER BY m.id DESC LIMIT 1) gpm ON TRUE
     LEFT JOIN riichi_player_game_stats s ON gpr.rule='riichi' AND s.game_id=gpr.game_id
       AND s.user_id=gpr.user_id AND s.version=${RIICHI_STATS_VERSION}
     WHERE ${conditions.join(' AND ')} ORDER BY gpr.match_type,gpr.game_id`, params);

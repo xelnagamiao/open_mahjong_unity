@@ -13,6 +13,42 @@ function memoryStorage() {
   const map = new Map()
   return { getItem: key => map.get(key) || null, setItem: (key, value) => map.set(key, value) }
 }
+
+test('restored pages import the merged hand once and preserve subsequent shared edits', async t => {
+  const storage = memoryStorage()
+  const { state: source } = session(t, { storage })
+  await source.loadExample('low')
+  source.form.flowerCount = 3
+  source.form.changFeng = '场风南'
+  source.prepareTransfer()
+  const merged = JSON.parse(storage.getItem('salasasa.guobiao-calculator.v1'))
+  delete merged.separatePages
+  storage.setItem('salasasa.unified-calculator.v1', JSON.stringify(merged))
+  storage.setItem('salasasa.guobiao-calculator.v1', 'null')
+  const { state: restored } = session(t, { storage, restoreUnified: true })
+  assert.deepEqual(restored.draft.value, merged.draft)
+  assert.equal(restored.fulu.slots[0].locked.code, 's22')
+  assert.equal(restored.form.flowerCount, 3)
+  assert.equal(restored.form.changFeng, '场风南')
+  await restored.loadExample('ready')
+  const { state: reloaded } = session(t, { storage, restoreUnified: true })
+  assert.deepEqual(reloaded.draft.value, restored.draft.value)
+  assert.equal(reloaded.form.getTile, null)
+  assert.equal(storage.getItem('salasasa.unified-calculator.v1'), JSON.stringify(merged))
+})
+
+test('invalid merged storage leaves a valid separate-page hand intact', async t => {
+  const storage = memoryStorage()
+  const { state: source } = session(t, { storage })
+  await source.loadExample('ready')
+  const saved = JSON.parse(storage.getItem('salasasa.guobiao-calculator.v1'))
+  delete saved.separatePages
+  storage.setItem('salasasa.guobiao-calculator.v1', JSON.stringify(saved))
+  storage.setItem('salasasa.unified-calculator.v1', JSON.stringify({ rule: 'guobiao', draft: {} }))
+  const { state: restored } = session(t, { storage, restoreUnified: true })
+  assert.deepEqual(restored.draft.value, saved.draft)
+  assert.equal(restored.restoreWarning, '')
+})
 function deferredWorkers() {
   const workers = []
   return { workers, workerFactory() {
@@ -144,10 +180,10 @@ test('kong transfer displays four physical tiles and preserves reduced concealed
   const { state } = session(t)
   state.fulu.slots[0].input = '1111z'
   assert.equal(state.fulu.lockSlot(0, { kind: 'G', tileId: 41, label: '暗杠' }), true)
-  state.textInput.value = '123m456p789s1z + 1z'
+  state.textInput.value = '123m456p789s1z(G41) + 1z'
   // This conflicts with the kong; the error must not replace the current input.
   assert.equal(await state.calculate(), false)
-  state.textInput.value = '123m456p789s5z + 5z'
+  state.textInput.value = '123m456p789s5z(G41) + 5z'
   assert.equal(await state.calculate({ decompose: true }), true)
   assert.equal(state.expectedTotalCount.value, 11)
   const kong = state.best.value.groups.find(group => group.label === '暗杠')

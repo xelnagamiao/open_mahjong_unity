@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed1c3dd0726a79b4fabe2cfd436f8883, type: 3}
+  m_Name: Tactical
+  m_EditorClassIdentifier: Assembly-CSharp::Salasasa.ChatLab.ChatArtStyle
+  displayName: "\u77F3\u58A8\u9ED1"
+  bodyFont: {fileID: 11400000, guid: d37bcd4a46a48cc4dac7459c02949faf, type: 2}
+  titleFont: {fileID: 11400000, guid: b39544f34ec200e4bba9ed61bc5cf8bf, type: 2}
+  panel: {r: 0.13725491, g: 0.14509805, b: 0.15294118, a: 1}
+  sidebar: {r: 0.09019608, g: 0.09803922, b: 0.105882354, a: 1}
+  header: {r: 0.09019608, g: 0.09803922, b: 0.105882354, a: 1}
+  row: {r: 0.1882353, g: 0.2, b: 0.21176471, a: 1}
+  text: {r: 0.9411765, g: 0.94509804, b: 0.9490196, a: 1}
+  secondary: {r: 0.70980394, g: 0.72156864, b: 0.7372549, a: 1}
+  accent: {r: 0.8745098, g: 0.88235295, b: 0.89411765, a: 1}
+  ownMessage: {r: 0.25882354, g: 0.2784314, b: 0.3019608, a: 1}
+  input: {r: 0.1882353, g: 0.2, b: 0.21176471, a: 1}
+  border: {r: 0.29411766, g: 0.3137255, b: 0.3372549, a: 1}
+  headerText: {r: 0.9411765, g: 0.94509804, b: 0.9490196, a: 1}
+  sidebarText: {r: 0.9411765, g: 0.94509804, b: 0.9490196, a: 1}
+  sidebarSecondary: {r: 0.70980394, g: 0.72156864, b: 0.7372549, a: 1}
+  accentText: {r: 0.14117648, g: 0.15294118, b: 0.16862746, a: 1}
+  headerAccent: {r: 0.8745098, g: 0.88235295, b: 0.89411765, a: 1}
+  notice: {r: 0.13725491, g: 0.14509805, b: 0.15294118, a: 1}
+  listSelection: {r: 0.21960784, g: 0.23921569, b: 0.2627451, a: 1}
+  sidebarInput: {r: 0.16078432, g: 0.17254902, b: 0.1882353, a: 1}
+  sidebarBorder: {r: 0.25882354, g: 0.2784314, b: 0.3019608, a: 1}
+  chatHeader: {r: 0.22745098, g: 0.25490198, b: 0.2901961, a: 1}
+  chatHeaderText: {r: 0.9411765, g: 0.94509804, b: 0.9490196, a: 1}
+  ownSender: {r: 0.7176471, g: 0.7411765, b: 0.7764706, a: 1}
+  senderColors:
+  - {r: 0.5411765, g: 0.7254902, b: 0.9098039, a: 1}
+  - {r: 0.8627451, g: 0.67058825, b: 0.5254902, a: 1}
+  - {r: 0.7294118, g: 0.627451, b: 0.8745098, a: 1}
+  - {r: 0.5254902, g: 0.7490196, b: 0.69411767, a: 1}
+  - {r: 0.8392157, g: 0.627451, b: 0.7254902, a: 1}
+  - {r: 0.6313726, g: 0.7137255, b: 0.8235294, a: 1}
+  silhouette: 0
+  motif: 0
+  bubbleSilhouette: 0
+  cornerCut: 0
+  borderWidth: 1
+  bubbleBorderWidth: 0

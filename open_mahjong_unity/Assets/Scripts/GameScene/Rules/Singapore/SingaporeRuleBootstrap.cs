@@ -29,7 +29,6 @@ internal static class SingaporeRuleBootstrap {
             FanNameText=(r,n)=>FanName(n),FanValueText=(r,n)=>FanValue(n),
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"{q.HuScore}台",ScoreText=""},
             ScoreboardFanText=q=>$"{q.HuScore}台",
-            SettlementFootnote=q=>SingaporeGameState.Active?.PaymentSummary(),
             RoundName=RoundTextDictionary.WindNumberRoundName,
             RoundSupplementText=q=>"1台起和·5台封顶",
             ActionCaption=a=>a=="buhua" ? "补花" : null,

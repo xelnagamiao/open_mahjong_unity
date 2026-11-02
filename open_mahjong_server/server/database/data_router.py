@@ -2,6 +2,7 @@
 import logging
 import asyncio
 from .statistics_catalog import normalize_match_type
+from .duplicate_walls import DuplicateRecordLockedError
 from functools import partial
 from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings, LeaderboardEntry
 
@@ -355,7 +356,16 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
         await websocket.send_json(response.dict(exclude_none=True))
         return
     
-    result = await _run_record_read(game_server.db_manager.get_record_by_id, game_id)
+    try:
+        result = await _run_record_read(game_server.db_manager.get_record_by_id, game_id)
+    except DuplicateRecordLockedError as error:
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message=str(error),
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
     if result is None:
         response = Response(
             type="data/get_record_by_id",

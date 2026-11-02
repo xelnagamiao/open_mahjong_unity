@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 from ...game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 """
 立直麻将 GameState：
@@ -365,7 +366,7 @@ class RiichiGameState:
                     game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
                                            "washizu_layouts": layouts_for_viewer(self, viewer_pi)})
                     response = Response(type="gamestate/riichi/game_start", success=True, message="重连成功", game_info=game_info)
-                    await conn.websocket.send_json(response.dict(exclude_none=True))
+                    await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
                     await reconnected_send_pending_ask(self, user_id)
                 break
 
@@ -456,8 +457,10 @@ class RiichiGameState:
             self._multi_ron_ready_done = False
             self._multi_ron_any_oya_win = False
 
+            # 闲家首次摸牌前即可荣和；先刷新每家的13张配牌听口。
+            for player in self.player_list:
+                self.refresh_waiting_tiles(player.player_index)
             # 亲家（player_index=0）摸第 14 张
-            self.refresh_waiting_tiles(self.current_player_index)
             self.player_list[0].get_tile(self.tiles_list)
             player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
             await self.broadcast_do_action(
@@ -1407,7 +1410,7 @@ class RiichiGameState:
         from .realtime_hand import layouts_for_viewer
         game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index,
                                "washizu_layouts": layouts_for_viewer(self, view_player_index)})
-        await conn.websocket.send_json(Response(
+        await send_game_packet(self, conn.websocket, Response(
             type="gamestate/riichi/game_start",
             success=True,
             message="实时观战初始化",

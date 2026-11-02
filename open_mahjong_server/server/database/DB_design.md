@@ -43,7 +43,7 @@ PostgreSQL
 | is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
 | email | VARCHAR(255) | NULL | 绑定邮箱 |
 | email_verified_at | TIMESTAMP | NULL | 邮箱验证时间；非空表示已验证 |
-| rename_count | INTEGER | NOT NULL DEFAULT 0 | 剩余自助改名次数。新注册为 0；列首次加入时已有非游客账号回填为 1 |
+| rename_count | INTEGER | NOT NULL DEFAULT 0 | 历史改名次数，供 scripts/migrate_rename_cards.py 一次性按 1:1 折算为改名卡并清零；正常改名直接扣库存卡 |
 | ban_expires_at | TIMESTAMP | NULL | 封禁到期时间；NULL 且 ban_type 非空表示永久封禁 |
 | ban_type | VARCHAR(32) | NULL | 封禁类型：`login` 禁止登录、`chat` 禁止发言、`match` 禁止排位、`full` 全面封禁；NULL 表示未封禁 |
 | ban_reason | TEXT | NULL | 封禁原因，登录被拒时展示给玩家 |

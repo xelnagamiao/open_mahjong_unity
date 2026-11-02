@@ -1,4 +1,5 @@
 """终局明手与断线恢复；局中不发送其他玩家的手牌。"""
+from ..public.settlement_sync import send_game_packet
 import logging
 
 from ...response import Response, Show_result_info
@@ -31,6 +32,6 @@ async def broadcast_result(state, **fields):
         if connection is None:
             continue
         try:
-            await connection.websocket.send_json(state._terminal_result)
+            await send_game_packet(state, connection.websocket, state._terminal_result)
         except Exception:
             logger.exception("推倒和终局广播失败 user_id=%s", player.user_id)

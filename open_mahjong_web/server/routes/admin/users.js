@@ -8,6 +8,7 @@ const { fetchUserStatsBundle } = require('../../services/playerStats');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 const { getAccountGeography } = require('../../services/accountGeography');
+const { RENAME_CARD_COLUMNS } = require('../../services/renameCards');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const GAME_SERVER_TIMEOUT_MS = config.calcServer.timeoutMs;
@@ -54,7 +55,7 @@ const USER_LIST_COLUMNS = `u.user_id, u.username, u.email, u.email_verified_at, 
                 ${LADDER_PASS_FIELDS.map((field) => `u.${field}`).join(', ')},
                 u.ban_expires_at, u.ban_type, u.ban_reason,
                 u.created_at`;
-const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, rename_count, sponsor_expires_at,
+const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, ${RENAME_CARD_COLUMNS}, sponsor_expires_at,
               ${LADDER_PASS_FIELDS.join(', ')},
               ban_expires_at, ban_type, ban_reason, created_at`;
 const USER_PATCH_SELECT_COLUMNS = `user_id, username, sponsor_expires_at,

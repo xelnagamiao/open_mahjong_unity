@@ -36,7 +36,7 @@ users（账号）
 | is_beginner_qualified | BOOLEAN | 否 | FALSE | 初级场特许入场 |
 | is_intermediate_qualified | BOOLEAN | 否 | FALSE | 中级场特许入场；不解除中级场段位上限 |
 | is_advanced_qualified | BOOLEAN | 否 | FALSE | 高级场特许入场 |
-| rename_count | INTEGER | 否 | 0 | 剩余自助改名次数；字段最初迁移时已有非游客补 1 次 |
+| rename_count | INTEGER | 否 | 0 | 历史改名次数，仅供一次性 1:1 折算为库存改名卡；折算后为 0，正常业务不再读取或累加 |
 
 注册 ID 序列从 `10000001` 开始，不复用。游客使用独立 `tourist_user_id_seq`，范围 `9000000–9900000`，允许循环。机器人 ID `<=10` 不依赖真实用户记录。不要在后续物品表用用户名作关联键。
 
@@ -107,7 +107,7 @@ Unity 的其他本机设置还有 PlayerPrefs，不全在此表内。
 
 ## 与背包的关系
 
-库存沿用“定义 → 用户持有 → 当前装备”的关系拆分。后台的头衔目录和授权表保持独立，方便动态新增；Unity 统一投影为“仓库”物品集合，头衔作为可装配物品，与改名卡共用网格、搜索、详情及操作，不再按两套系统分页面。当前目录仅有“最初的初段”和改名卡，另有无需授权的默认项“暂无头衔”。`user_settings.character_id/voice_id/profile_image_id` 是装备结果的兼容投影，所有权由 `user_inventory` 校验；头像框来自 `user_equipment`，API 的 `avatar_frame_id` 为派生字段，不是 user_settings 新列。改名卡在同一事务内扣道具并增加 `users.rename_count`，网页账号中心继续使用该计数。本次统一仓库不新增或迁移数据库字段。
+库存沿用“定义 → 用户持有 → 当前装备”的关系拆分。后台的头衔目录和授权表保持独立，方便动态新增；Unity 统一投影为“仓库”物品集合，头衔作为可装配物品，与改名卡共用网格、搜索、详情及操作，不再按两套系统分页面。当前目录仅有“最初的初段”和改名卡，另有无需授权的默认项“暂无头衔”。`user_settings.character_id/voice_id/profile_image_id` 是装备结果的兼容投影，所有权由 `user_inventory` 校验；头像框来自 `user_equipment`，API 的 `avatar_frame_id` 为派生字段，不是 user_settings 新列。网页账号中心改名成功时在同一事务内直接扣除库存中的 1 张改名卡；不再兑换或消费次数。旧 `users.rename_count` 通过一次性脚本按 1:1 加入已有改名卡余额并归零，详见 [rename-cards.md](rename-cards.md)。
 
 牌谱表另新增 `game_player_records.avatar_frame_used INTEGER NOT NULL DEFAULT 0` 保存该局头像框；不计入上述十一张核心表。完整使用方法、内置物品和新增表全部字段见 [inventory-system.md](inventory-system.md)。
 

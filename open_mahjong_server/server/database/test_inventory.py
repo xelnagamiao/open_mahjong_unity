@@ -1,6 +1,5 @@
 """Real PostgreSQL transactions in disposable schemas; never modify live users."""
 import ast
-from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import re
@@ -15,8 +14,9 @@ from server.database.inventory import (InventoryError, ensure_inventory_tables, 
     mutate_inventory, save_definition, get_catalog, get_ledger)
 from server.database.inventory_router import handle_inventory_message, _sync, attach_game_frames
 from server.database.titles import ensure_title_tables
-from server.database.inventory_assets import DEFAULT_AVATAR_FRAME_ID, B1_AVATAR_FRAME_ID
+from server.database.inventory_assets import DEFAULT_AVATAR_FRAME_ID, A1_AVATAR_FRAME_ID, B1_AVATAR_FRAME_ID
 from server.database.db_manager import DatabaseManager
+from scripts.migrate_rename_cards import migrate_database
 
 
 @unittest.skipUnless(os.environ.get('INVENTORY_TEST_DATABASE_URL'), 'requires PostgreSQL test connection')
@@ -74,26 +74,46 @@ class InventoryDatabaseTests(unittest.TestCase):
 
     def test_minimal_catalog_does_not_reseed_retired_presets(self):
         self.ensure_schema()
-        self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'金橙色'),(2202,'青色'),(3001,'改名卡')])
-        self.assertEqual(self.sql('SELECT title_id,name FROM titles'),[(2,'最初的初段')])
+        self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'金橙色'),(2202,'青色'),(2301,'默认头像'),(2302,'博丽灵梦'),(2303,'琪露诺'),(3001,'改名卡'),(3011,'草牌'),(3012,'好牌')])
+        self.assertEqual(self.sql('SELECT name FROM titles ORDER BY title_id'),[('最初的初段',),('冠绝一世',),('千恋万花',)])
         self.assertEqual(self.qty(1002,103),0)
         self.assertEqual(get_inventory(self.db,103)['appearance']['voice_id'],2)
-        self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar_frame','item_id':2201}])
-        self.assertEqual(get_inventory(self.db,103)['owned'],[{'item_id':2201,'quantity':1},{'item_id':2202,'quantity':1}])
+        self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar','item_id':2301}])
+        self.assertEqual(get_inventory(self.db,103)['owned'],[{'item_id':iid,'quantity':1} for iid in (2201,2202,2301,2302,2303)])
         self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(0,)])
 
     def test_schema_bootstrap_preserves_catalog_ownership_and_appearance(self):
         self.call('grant',3001,4)
         self.sql("""UPDATE users SET rename_count=7 WHERE user_id=101;
-            INSERT INTO titles(title_id,name) VALUES(3,'管理员新增头衔');
-            INSERT INTO user_titles(user_id,title_id) VALUES(101,3);
-            UPDATE user_settings SET title_id=3,character_id=2,voice_id=2 WHERE user_id=101;""")
+            INSERT INTO titles(title_id,name) VALUES(50,'管理员新增头衔');
+            INSERT INTO user_titles(user_id,title_id) VALUES(101,50);
+            UPDATE user_settings SET title_id=50,character_id=2,voice_id=2 WHERE user_id=101;""")
         before=get_inventory(self.db,101)
         self.ensure_schema()
         self.ensure_schema()
         self.assertEqual(get_inventory(self.db,101),before)
-        self.assertEqual(self.sql('SELECT title_id FROM user_settings WHERE user_id=101'),[(3,)])
+        self.assertEqual(self.sql('SELECT title_id FROM user_settings WHERE user_id=101'),[(50,)])
         self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(0,)])
+
+    def test_collectible_gifts_require_manual_grants_and_cannot_be_consumed(self):
+        for iid, name in ((3011, '草牌'), (3012, '好牌')):
+            self.assertEqual(self.qty(iid), 0)
+            item = next(i for i in get_catalog(self.db) if i['item_id'] == iid)
+            self.assertEqual(item['name'], name)
+            self.assertEqual(item['effect'], 'collectible')
+            self.assertTrue(item['icon_path'].startswith('image/Inventory/'))
+            self.call('grant', iid, 3)
+            before = self.sql('SELECT COUNT(*) FROM inventory_ledger')
+            with self.assertRaisesRegex(InventoryError, '收藏礼物'):
+                self.call('use', iid)
+            with self.assertRaises(InventoryError):
+                self.call('equip', iid, slot='character')
+            self.assertEqual(self.qty(iid), 3)
+            self.assertEqual(self.sql('SELECT COUNT(*) FROM inventory_ledger'), before)
+            self.ensure_schema()
+            self.assertEqual(self.qty(iid), 3)
+            self.call('revoke', iid, 1)
+            self.assertEqual(self.qty(iid), 2)
 
     def test_removed_items_and_equipping_consumables_are_rejected(self):
         with self.assertRaises(InventoryError): self.call('equip',1002,slot='character')
@@ -101,13 +121,13 @@ class InventoryDatabaseTests(unittest.TestCase):
             with self.assertRaises(InventoryError): self.call('grant',iid)
         self.call('grant',3001)
         with self.assertRaises(InventoryError): self.call('equip',3001,slot='character')
-        self.assertEqual(get_inventory(self.db,101)['equipment'],[{'slot':'avatar_frame','item_id':2201}])
+        self.assertEqual(get_inventory(self.db,101)['equipment'],[{'slot':'avatar','item_id':2301}])
 
     def test_builtin_frames_default_switch_persist_and_reset(self):
         for uid in (101,102):
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
             self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
-            self.assertEqual(self.qty(DEFAULT_AVATAR_FRAME_ID,uid),1)
+            self.assertEqual(self.qty(A1_AVATAR_FRAME_ID,uid),1)
             self.assertEqual(self.qty(B1_AVATAR_FRAME_ID,uid),1)
             self.call('equip',B1_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],B1_AVATAR_FRAME_ID)
@@ -117,9 +137,34 @@ class InventoryDatabaseTests(unittest.TestCase):
             self.call('equip',0,uid=uid,slot='avatar_frame')
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
             self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
+            self.call('equip',A1_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
+            self.ensure_schema()
+            self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],A1_AVATAR_FRAME_ID)
             self.call('equip',DEFAULT_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
-            self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
+            self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],0)
+            self.assertEqual(self.sql("SELECT COUNT(*) FROM user_equipment WHERE user_id=%s AND slot='avatar_frame'",(uid,)),[(0,)])
             self.assertEqual(get_ledger(self.db,uid),[])
+
+    def test_default_avatars_are_owned_and_only_change_the_avatar(self):
+        for iid in (2301, 2302, 2303):
+            self.assertEqual(self.qty(iid, 103), 1)
+        for iid, expected in ((2302, 2302), (2303, 2303), (2301, 1), (0, 1)):
+            state = self.call('equip', iid, uid=103, slot='avatar')['inventory_state']
+            self.assertEqual(state['appearance']['profile_image_id'], expected)
+            self.assertEqual(state['appearance']['character_id'], 2)
+            self.assertEqual(state['appearance']['voice_id'], 2)
+            self.ensure_schema()
+            self.assertEqual(get_inventory(self.db, 103)['appearance'], state['appearance'])
+        self.assertEqual(get_ledger(self.db, 103), [])
+        with self.assertRaises(InventoryError):
+            self.call('equip', 999999, uid=103, slot='avatar')
+
+    def test_avatar_frames_do_not_reset_other_appearance_slots(self):
+        self.call('equip', 2302, uid=103, slot='avatar')
+        for iid in (2202, 2201, 0):
+            state = self.call('equip', iid, uid=103, slot='avatar_frame')['inventory_state']
+            self.assertEqual((state['appearance']['character_id'], state['appearance']['voice_id']), (2, 2))
+            self.assertEqual(state['appearance']['profile_image_id'], 2302)
 
     def test_idempotency_replay_conflict_and_revoke(self):
         body=dict(request_id=uuid.uuid4().hex,item_id=3001,quantity=3,reason='retry')
@@ -131,42 +176,19 @@ class InventoryDatabaseTests(unittest.TestCase):
         self.assertEqual(self.qty(3001),2)
         self.assertEqual(len(get_ledger(self.db,101)),2)
 
-    def test_consume_is_atomic_and_cannot_race_below_zero(self):
-        self.call('grant',3001)
-        def use():
-            try: self.call('use',3001); return True
-            except InventoryError: return False
-        with ThreadPoolExecutor(max_workers=2) as pool: results=list(pool.map(lambda _:use(),range(2)))
-        self.assertEqual(sorted(results),[False,True])
-        self.assertEqual(self.qty(3001),0)
-        self.assertEqual(get_inventory(self.db,101)['rename_count'],1)
-        self.assertEqual(len(get_ledger(self.db,101)),2)
-
-    def test_use_retry_after_commit_does_not_consume_twice(self):
-        self.call('grant',3001,2)
-        body=dict(request_id=uuid.uuid4().hex,item_id=3001,quantity=1)
-        mutate_inventory(self.db,101,'use',body)
-        mutate_inventory(self.db,101,'use',body)
-        self.assertEqual(self.qty(3001),1)
-        self.assertEqual(get_inventory(self.db,101)['rename_count'],1)
-
-    def test_batch_use_adds_to_existing_rename_credits_and_persists(self):
+    def test_legacy_use_and_retries_never_exchange_cards_for_credits(self):
         self.sql('UPDATE users SET rename_count=5 WHERE user_id=101')
         self.call('grant',3001,4)
-        result=self.call('use',3001,3)
-        self.assertEqual(result['inventory_state']['rename_count'],8)
-        self.assertEqual(result['inventory_state']['owned'],[{'item_id':3001,'quantity':1},{'item_id':2201,'quantity':1},{'item_id':2202,'quantity':1}])
-        self.assertEqual(get_inventory(self.db,101)['rename_count'],8)
-        self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(8,)])
-        ledger=get_ledger(self.db,101)
-        self.assertEqual([(row['delta'],row['quantity_after']) for row in ledger],[(-3,1),(4,4)])
-
-    def test_rename_credit_limit_rolls_back_card_consumption(self):
-        self.sql('UPDATE users SET rename_count=2147483646 WHERE user_id=101')
-        self.call('grant',3001,2)
-        with self.assertRaises(InventoryError): self.call('use',3001,2)
-        self.assertEqual(self.qty(3001),2)
-        self.assertEqual(get_inventory(self.db,101)['rename_count'],2147483646)
+        body=dict(request_id=uuid.uuid4().hex,item_id=3001,quantity=3)
+        for _ in range(2):
+            with self.assertRaisesRegex(InventoryError,'网页账号中心'):
+                mutate_inventory(self.db,101,'use',body)
+        state=get_inventory(self.db,101)
+        self.assertEqual(state['rename_card_count'],4)
+        self.assertEqual(state['rename_card_usable_count'],4)
+        self.assertNotIn('rename_count',state)
+        self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(5,)])
+        self.assertEqual(self.qty(3001),4)
         self.assertEqual(len(get_ledger(self.db,101)),1)
 
     def test_guest_and_invalid_amount_leave_no_partial_ledger(self):
@@ -195,7 +217,8 @@ class InventoryDatabaseTests(unittest.TestCase):
         save_definition(self.db,999,3001,body)
         for uid in (101,102):
             self.assertEqual(self.qty(3001,uid),1)
-            self.assertEqual(get_inventory(self.db,uid)['rename_count'],0)
+            self.assertEqual(get_inventory(self.db,uid)['rename_card_count'],1)
+            self.assertEqual(get_inventory(self.db,uid)['rename_card_usable_count'],0)
             with self.assertRaises(InventoryError): self.call('use',3001,uid=uid)
 
     def test_retired_templates_rejected_and_future_additions_survive_restart(self):
@@ -208,8 +231,72 @@ class InventoryDatabaseTests(unittest.TestCase):
         self.call('grant',created['item_id'])
         self.ensure_schema()
         self.assertEqual(self.qty(created['item_id']),1)
-        self.call('use',created['item_id'])
-        self.assertEqual(get_inventory(self.db,101)['rename_count'],1)
+        with self.assertRaisesRegex(InventoryError,'网页账号中心'): self.call('use',created['item_id'])
+        self.assertEqual(get_inventory(self.db,101)['rename_card_count'],1)
+
+    def migrate(self,**kwargs):
+        conn=self.pool.getconn()
+        try: return migrate_database(conn,**kwargs)
+        finally:
+            conn.set_session(readonly=False,isolation_level='READ COMMITTED')
+            self.pool.putconn(conn)
+
+    def test_migration_preview_is_read_only_and_apply_preserves_all_balances(self):
+        self.call('grant',3001,2)
+        self.call('grant',3001,1,uid=102)
+        self.call('grant',3001,7,uid=103)
+        self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 3 WHEN 102 THEN 2 ELSE 0 END')
+        before=self.sql('SELECT user_id,rename_count FROM users ORDER BY user_id')
+        preview=self.migrate()
+        self.assertEqual((preview['affected_users'],preview['cards_to_add'],preview['tourist_users']),(2,5,1))
+        self.assertFalse(preview['applied'])
+        self.assertEqual(self.sql('SELECT user_id,rename_count FROM users ORDER BY user_id'),before)
+        self.assertEqual(self.qty(3001),2)
+        self.assertEqual(len(get_ledger(self.db,101)),1)
+        result=self.migrate(apply=True,expected_fingerprint=preview['fingerprint'])
+        self.assertEqual(result['status'],'complete')
+        self.assertEqual([self.qty(3001,uid) for uid in (101,102,103)],[5,3,7])
+        self.assertEqual(self.sql('SELECT SUM(rename_count) FROM users'),[(0,)])
+        self.assertEqual([(r['delta'],r['quantity_after']) for r in get_ledger(self.db,101)],[(3,5),(2,2)])
+        self.assertEqual(self.migrate(apply=True)['status'],'already_complete')
+        self.assertEqual(self.qty(3001),5)
+        self.sql('UPDATE users SET rename_count=1 WHERE user_id=101')
+        with self.assertRaisesRegex(ValueError,'又出现'): self.migrate(apply=True)
+        self.assertEqual(self.qty(3001),5)
+
+    def test_migration_overflow_or_invalid_credit_aborts_entire_batch(self):
+        for invalid in (1000001,-1):
+            self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 2 WHEN 102 THEN %s ELSE 0 END',(invalid,))
+            with self.assertRaises(ValueError): self.migrate(apply=True)
+            self.assertEqual(self.qty(3001),0)
+            self.assertEqual(get_ledger(self.db,101),[])
+            self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(2,)])
+
+    def test_migration_adds_to_disabled_card_without_enabling_or_clipping(self):
+        self.call('grant',3001,999999)
+        self.sql('UPDATE users SET rename_count=1 WHERE user_id=101')
+        self.sql('UPDATE item_definitions SET use_enabled=FALSE,grant_enabled=FALSE WHERE item_id=3001')
+        self.migrate(apply=True)
+        state=get_inventory(self.db,101)
+        self.assertEqual(state['rename_card_count'],1000000)
+        self.assertEqual(state['rename_card_usable_count'],0)
+
+    def test_migration_ledger_failure_rolls_back_previous_users_and_completion_marker(self):
+        self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 1 WHEN 102 THEN 2 ELSE 0 END')
+        self.sql('ALTER TABLE inventory_ledger ADD CONSTRAINT reject_migration CHECK (delta<>2)')
+        with self.assertRaises(psycopg2.IntegrityError): self.migrate(apply=True)
+        self.assertEqual(self.qty(3001),0)
+        self.assertEqual(self.sql('SELECT SUM(rename_count) FROM users'),[(3,)])
+        self.assertEqual(self.sql('SELECT COUNT(*) FROM inventory_operations'),[(0,)])
+        self.assertEqual(self.sql('SELECT COUNT(*) FROM admin_audit_log'),[(0,)])
+
+    def test_migration_preview_fingerprint_rejects_drift(self):
+        self.sql('UPDATE users SET rename_count=2 WHERE user_id=101')
+        preview=self.migrate()
+        self.call('grant',3001)
+        with self.assertRaisesRegex(ValueError,'指纹'): self.migrate(apply=True,expected_fingerprint=preview['fingerprint'])
+        self.assertEqual(self.qty(3001),1)
+        self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(2,)])
 
     def test_audit_failure_rolls_grant_back(self):
         self.sql("ALTER TABLE admin_audit_log ADD CONSTRAINT fail_audit CHECK (reason <> 'fail')")

@@ -40,6 +40,15 @@ namespace Sichuan {
                 result.UnionWith(SevenPairWaits(handTileList));
             }
             result.RemoveWhere(i => i == 10 || i == 20 || i == 30 || i == 40 || i < 11 || i > 39);
+            var physical = new List<int>(handTileList);
+            foreach (string meld in combs) {
+                int tile = int.Parse(meld.Substring(1));
+                char kind = char.ToLowerInvariant(meld[0]);
+                if (kind == 's') physical.AddRange(new[] { tile - 1, tile, tile + 1 });
+                else if (kind == 'k' || kind == 'g')
+                    for (int i = 0; i < (kind == 'g' ? 4 : 3); i++) physical.Add(tile);
+            }
+            result.RemoveWhere(tile => CountOf(physical, tile) >= 4);
             return result;
         }
 

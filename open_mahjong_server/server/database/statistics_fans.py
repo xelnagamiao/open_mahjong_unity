@@ -14,7 +14,7 @@ SICHUAN_NAMES = "平和 杠 根 大对子 金钩钓 清一色 七对 杠上花 �
 HONGQUE_NAMES = """清顺 清刻 双同刻 双同顺 双同花 三连顺 一条龙 七归一 四连顺
 三同刻 三同顺 三同花 九归一 彩虹 双虹会 清一色 全彩 光谱 双色 三色 全纯色
 全半色 清一数 二数 三数 四数 全带幺 天和 门清 海底 碰碰和 平和 金龙 二金 三金
-四同刻 四同顺 四同花""".split()
+四同刻 四同顺 四同花 镜像""".split()
 QIAOMA_NAMES = "门清 大吊车 混一色 清一色 碰碰和 天敲 杠开 抢杠".split()
 HONGKONG_OLD_NAMES = """小花糊 大花糊 混一色 清一色 全番子 清么九 花么 门前清 十三么
 九子连环 天糊 地糊 抢杠 无花 门风花 一台花 平糊 对对糊 小三元 大三元 小四喜
@@ -83,4 +83,7 @@ def fan_names(sub_rule):
         return _names(FANS)
     if sub_rule == "hongque/v1.6":
         return _names(HONGQUE_NAMES)
+    if sub_rule == "hongque/w-v1.0":
+        from ..gamestate.game_hongque.w_scoring import FAN_VALUES
+        return _names(FAN_VALUES)
     raise ValueError(f"缺少子规则番种目录: {sub_rule}")

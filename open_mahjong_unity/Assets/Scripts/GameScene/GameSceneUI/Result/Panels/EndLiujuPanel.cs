@@ -52,7 +52,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         if (liujuText != null) liujuText.text = displayText;
-        EndResultPanel.ApplyRuleFootnote(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
+        EndResultPanel.ApplyGuobiaoConcealedKongs(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
         ClearTenpaiMarkers();
         ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex, indexToPosition);
         gameObject.SetActive(true);
@@ -72,7 +72,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         ClearTenpaiMarkers();
-        EndResultPanel.HideRuleFootnote(guobiaoAngangCheckText);
+        EndResultPanel.HideGuobiaoConcealedKongs(guobiaoAngangCheckText);
         gameObject.SetActive(false);
     }
 

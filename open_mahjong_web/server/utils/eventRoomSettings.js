@@ -1,3 +1,4 @@
+const { normalizeHongqueRoomConfig } = require('./hongqueRoomSettings');
 const washizuCaptain = require('../../shared/washizuDoubles.json');
 const { normalizeWuhanRoomConfig } = require('./wuhanRoomSettings');
 const { randomUUID, createHash } = require('node:crypto');
@@ -9,6 +10,8 @@ const { normalizeNanjingRoomConfig } = require('./nanjingRoomSettings');
 const { normalizeFuzhouRoomConfig } = require('./fuzhouRoomSettings');
 const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
 const { normalizeNanchangRoomConfig } = require('./nanchangRoomSettings');
+const { normalizeDuocaiRoomConfig } = require('./duocaiRoomSettings');
+const { normalizeBeijingRoomConfig } = require('./beijingRoomSettings');
 const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
 const { normalizeSingaporeRoomConfig } = require('./singaporeRoomSettings');
 const { normalizeJiujiangRoomConfig } = require('./jiujiangRoomSettings');
@@ -22,6 +25,9 @@ const MAX_PRESETS = 50;
 // A v1 custom automatic setting may need one extra row during migration.
 const MAX_STORED_PRESETS = MAX_PRESETS + 1;
 const DEFAULT_SUB_RULES = Object.freeze({
+  hongque: 'hongque/v1.6',
+  beijing: 'beijing/chipengti',
+  duocai: 'duocai/guobiao',
   guobiao: 'guobiao/standard',
   qingque: 'qingque/standard',
   classical: 'classical/standard',
@@ -69,6 +75,9 @@ const changshaOptions = require('../../shared/changshaRoomOptions.json');
 const exchangeOptions = require('../../shared/changshaExchangeSixOptions.json');
 
 function defaultConfig(rule = 'guobiao') {
+  if (rule === 'hongque') return normalizeHongqueRoomConfig({}, SettingsError);
+  if (rule === 'beijing') return normalizeBeijingRoomConfig({}, SettingsError);
+  if (rule === 'duocai') return normalizeDuocaiRoomConfig({}, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig({}, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig({}, SettingsError);
@@ -132,6 +141,9 @@ function integerField(config, key, min, max, label) {
 
 /** Persist only settings understood by the current room editor and game server. */
 function normalizeRoomConfig(rule, raw) {
+  if (rule === 'hongque') return normalizeHongqueRoomConfig(raw, SettingsError);
+  if (rule === 'beijing') return normalizeBeijingRoomConfig(raw, SettingsError);
+  if (rule === 'duocai') return normalizeDuocaiRoomConfig(raw, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig(raw, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig(raw, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig(raw, SettingsError);
@@ -169,7 +181,7 @@ function normalizeRoomConfig(rule, raw) {
     }
     config.duplicate_key = config.duplicate_key.trim();
     if (!supportsWall(rule, config.sub_rule) && config.duplicate_key) {
-      throw new SettingsError(400, '此子规则不支持复式密钥，仅支持国标标准、小林、K神、蓝十和川麻血流');
+      throw new SettingsError(400, '此入口的复式密钥仅支持国标标准、小林、K神、蓝十；川麻双打复式请在赛事或基地中成对创建');
     }
   }
   const validSubRule = rule === 'guobiao'
@@ -342,8 +354,7 @@ function preserveLegacyAuto(settings, snapshot) {
 }
 
 function supportsWall(rule, subRule) {
-  return (rule === 'guobiao' && ['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(subRule || DEFAULT_SUB_RULES.guobiao))
-    || (rule === 'sichuan' && ['sichuan/xueliu', 'sichuan/xueliu_exchange'].includes(subRule));
+  return rule === 'guobiao' && ['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(subRule || DEFAULT_SUB_RULES.guobiao);
 }
 
 function hasRetiredDuplicate(snapshot) {

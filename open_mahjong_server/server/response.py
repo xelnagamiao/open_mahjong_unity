@@ -98,6 +98,7 @@ class GameInfo(BaseModel):
     duplicate_round_count: Optional[int] = None
     duplicate_wall_type: Optional[str] = None
     duplicate_remaining_tiles: Optional[List[int]] = None  # 复式各原始座位 0..3 的个人牌山余张
+    sichuan_wall_masks: Optional[List[int]] = None  # 川麻复式四面实体墙的占位位图；仅公开位置，不含牌面
     room_id: int
     gamestate_id: str  # 游戏状态ID（用于客户端发送游戏操作请求）
     tips: bool
@@ -115,6 +116,8 @@ class GameInfo(BaseModel):
     round_time: int
     room_type: str
     room_rule: str
+    match_queue_type: Optional[str] = None  # Current table metadata, also used after reconnect.
+    match_tier: Optional[str] = None
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     hepai_limit: Optional[int] = None  # 起和番限制
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
@@ -240,6 +243,7 @@ class Do_action_info(BaseModel):
     shenyang: Optional[Dict[str, object]] = None
     changchun: Optional[Dict[str, object]] = None
     duplicate_remaining_tiles: Optional[List[int]] = None  # 动作生成时的余张快照，按原始座位 0..3
+    sichuan_wall_masks: Optional[List[int]] = None
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
     # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_buhua_tile]（is_mo_buhua 标注摸补/手补）
     action_list: List[str] 
@@ -363,6 +367,8 @@ class Show_result_info(BaseModel):
     tenpai_tiles_sichuan: Optional[Dict[int, List[int]]] = None  # 各家听牌张（流局亮牌用）
     liuju_status: Optional[Dict[int, str]] = None  # 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu_passive"/"hua_zhu_active"}
     liuju_hands: Optional[Dict[int, List[int]]] = None  # 流局未和家手牌（亮牌+状态面板用）
+    sichuan_grouped_endgame: Optional[bool] = None
+    sichuan_settlement: Optional[dict] = None
     liuju_step: Optional[str] = None  # 流局/终局演出：reveal_hu/settle_hu/chajiao/final（cha_refund 已并入 chajiao）
     liuju_status_final: Optional[bool] = None  # 流局逐家状态面板是否为最后一条（客户端在此条应用最终分数）
     liuju_refund: Optional[bool] = None  # 该查叫面板内含刮风下雨退税（客户端加“退税”标签并多停 0.5s）
@@ -401,6 +407,13 @@ class Player_final_data(BaseModel):
     rating_system: Optional[str] = None
     rating_pt: Optional[float] = None
     rating_algorithm: Optional[str] = None
+    rating_completed_hands: Optional[int] = None
+    rating_net_points: Optional[int] = None
+    rating_average_points: Optional[float] = None
+    rating_expected_average: Optional[float] = None
+    rating_base_delta: Optional[float] = None
+    rating_protection_bonus: Optional[float] = None
+    rating_k: Optional[float] = None
     rating_match_points: Optional[float] = None
     rating_game_multiplier: Optional[float] = None
     rating_tier_multiplier: Optional[float] = None
@@ -420,6 +433,7 @@ class Player_final_data(BaseModel):
     score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
+    sichuan_match: Optional[dict] = None
     duplicate_match: Optional[dict] = None
     team_result: Optional[dict] = None
     is_duplicate: bool = False
@@ -586,6 +600,7 @@ class ServerStatsInfo(BaseModel):
     """服务器统计信息"""
     online_players: int  # 在线人数
     waiting_rooms: int  # 等待房间数（自定义房间）
+    venue_waiting_rooms: int = 0  # 基地和赛事中的等待房间数
     playing_rooms: int  # 进行房间数（自定义房间）
     match_playing_games: int = 0  # 进行中的排位匹配对局数
 
@@ -702,6 +717,8 @@ class Player_recent_records_response(BaseModel):
 
 
 class Response(BaseModel):
+    settlement_sync: Optional[dict] = None
+    settlement_restore: Optional[List[dict]] = None
     washizu_layouts: Optional[Dict[int, dict]] = None
     hand_order_request_id: Optional[int] = None
     duplicate_match_info: Optional[dict] = None

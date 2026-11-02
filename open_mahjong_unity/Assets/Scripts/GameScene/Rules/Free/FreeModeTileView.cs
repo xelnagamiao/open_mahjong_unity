@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// 自由模式工具面板里的牌张视图。牌体、花纹、选中框和说明由 prefab 提供，
@@ -11,11 +12,9 @@ public sealed class FreeModeTileView : MonoBehaviour {
     public Image face;
     public Image selection;
     public RectTransform art;
-    public Text caption;
+    public TMP_Text caption;
     public Button button;
     public Vector2 artworkBounds = new Vector2(92f, 82f);
-
-    private const string FontResource = "font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular";
     private static readonly string[] NumberNames = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
     private static readonly string[] HonorNames = { "东", "南", "西", "北", "中", "白", "发" };
     private static readonly string[] FlowerNames = { "春", "夏", "秋", "冬", "梅", "兰", "竹", "菊" };
@@ -45,13 +44,13 @@ public sealed class FreeModeTileView : MonoBehaviour {
         if (caption != null) {
             caption.text = label ?? (orient == 2 ? "背面" : TileLabel(tileId));
             caption.raycastTarget = false;
-            caption.supportRichText = false;
-            caption.horizontalOverflow = HorizontalWrapMode.Wrap;
-            caption.verticalOverflow = VerticalWrapMode.Truncate;
-            caption.resizeTextForBestFit = true;
-            caption.resizeTextMinSize = 10;
-            caption.resizeTextMaxSize = Mathf.Max(12, caption.fontSize);
-            if (caption.font == null) caption.font = Resources.Load<Font>(FontResource);
+            caption.richText = false;
+            caption.textWrappingMode = TextWrappingModes.Normal;
+            caption.overflowMode = TextOverflowModes.Truncate;
+            caption.enableAutoSizing = true;
+            caption.fontSizeMin = 10;
+            caption.fontSizeMax = Mathf.Max(12, caption.fontSize);
+            if (caption.font == null) caption.font = PlatformTypography.ChineseRegular;
         }
         if (button != null) {
             if (clickHandler != null) button.onClick.RemoveListener(clickHandler);

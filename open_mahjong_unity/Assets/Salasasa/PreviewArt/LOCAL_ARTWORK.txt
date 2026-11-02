@@ -1,0 +1,47 @@
+首页默认素材与本地开发素材
+========================
+
+Git 保留以下默认图像及对应 .meta：
+  TaiseiCharacters/taisei-reimu.png
+  BackgroundLibrary/minchi-cafe-1.jpg
+
+正式头像仍位于 Assets/Resources/image/Profiles/，包括原有默认头像、
+2302（灵梦）和 2303（琪露诺），不受本地素材忽略规则影响。
+
+本目录其余 PNG、JPG、JPEG、WebP 及其图像 .meta 是可选的本地开发素材，
+由仓库根目录的 .gitignore 排除。文件留在原目录，不需要改名或删除。
+素材目录、来源、许可证、布局清单和代码继续提交。
+
+加载与构建
+----------
+MainScene 保存默认灵梦与咖啡馆背景，不保存对整套开发图片的引用。
+development-artwork-catalog.json 保存开发素材的相对资源路径、角色/背景名称、
+位置、裁切区域、配色、署名、表情和初始选择；其中不保存 Unity 对象引用。
+
+编辑器进入运行状态时，DevelopmentArtworkCatalog 按清单加载本地已有图片。
+缺失的角色、背景、表情会跳过；完全没有开发素材时仍使用默认内容。
+开发版构建（BuildOptions.Development 或 ConfigManager.Debug 开启）会在构建
+场景副本中补入本地素材。构建过程不把这些引用写回 MainScene。
+
+正式构建继续只保留默认角色和背景，并排除开发表情和相关开发入口。
+正式版和开发版都允许开发素材目录缺失，不要求先下载完整素材库。
+Git 忽略规则不控制包体：本地素材完整时，开发版仍会包含它们。
+
+在其他电脑恢复完整开发素材
+------------------------
+把本地素材包中的 open_mahjong_unity/Assets/Salasasa/PreviewArt/ 目录
+按相同相对路径复制到工作区；图像与其 .meta 一起复制，保留原 GUID 和导入设置。
+备用头像对应 other/AvatarPortraits/Taisei/512/ 和 1024/，也按原路径复制。
+重入编辑器运行状态或重新构建开发版，即可使用已有切换界面。
+开发版独立播放器已经包含构建时可用的素材，不依赖原电脑的素材目录。
+
+维护
+----
+新增素材时为它配置正确的 .meta，并更新 development-artwork-catalog.json。
+清单字段 artwork 使用 LobbyArtwork 的布局字段，characterPath/backgroundPath
+使用以 Assets/ 开头的资源路径。表情 resourcePath 为 Resources 相对路径。
+清单只记录信息，不能用它替代默认图片。默认文件缺失仍属于配置错误。
+不要把只含默认内容的场景导出覆盖完整开发清单。
+
+新增或再次分发素材时保留 THIRD_PARTY_NOTICES.txt、Licenses/ 和各来源清单。
+本地排除与文件移动不改变原素材的许可条件。

@@ -64,7 +64,7 @@ public sealed class HongzhongGameState : TurnBasedGameState {
             hands[hand.Key] = hand.Value == null ? null : (int[])hand.Value.Clone();
         settlementHost = Game3DManager.Instance;
         if (settlementHost != null)
-            settlementCoroutine = settlementHost.StartCoroutine(PresentSettlementWhenIdle(env, hands, settlementHost, settlementGeneration));
+            settlementCoroutine = settlementHost.StartCoroutine(SettlementSync.PreserveContext(PresentSettlementWhenIdle(env, hands, settlementHost, settlementGeneration)));
     }
     private bool IsCurrentSettlement(int generation) => Active == this && generation == settlementGeneration;
     private IEnumerator PresentSettlementWhenIdle(SettlementEnvelope env, Dictionary<int,int[]> hands, Game3DManager table, int generation) {
@@ -104,6 +104,7 @@ public sealed class HongzhongGameState : TurnBasedGameState {
         settlementCoroutine = null; settlementHost = null;
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         var payment = env.ScoreChanges;
         if (Info?.round_score_changes != null && Info.start_scores != null) {
             // 杠分已即时加到镜像。计分板要记整副净变化，先恢复局初再走公共历史逻辑。

@@ -5,6 +5,8 @@ public sealed class HepaiPresentationRequest {
     public string HuClass;
     public int[] HepaiPlayerHand;
     public HepaiWinTilePresentMode WinTileMode;
+    /// <summary>明牌已同步摆好、尚未让出当前帧时通知呈现层，供本家 2D/3D 手牌无空帧切换。</summary>
+    public System.Action OnHandReady;
     /// <summary>国标荣和错和结束后需恢复为继续对局的手牌/河牌画面。</summary>
     public bool RestoreMidGameAfterReveal;
     /// <summary>荣和时供牌方座位（用于校验河牌对象）。</summary>

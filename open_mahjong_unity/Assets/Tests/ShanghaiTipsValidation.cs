@@ -187,6 +187,46 @@ public static class ShanghaiTipsValidation {
         Check("天敲结算番值", manifest.FanNameText("shanghai/qiaoma","天敲（2番）") == "天敲"
             && manifest.FanValueText("shanghai/qiaoma","天敲（2番）") == "2番"
             && manifest.FanValueText("shanghai/qiaoma","天敲") == "2番");
+        Check("禁垃圾和大吊默认关闭", manifest.CreateRoomDefaults[ShanghaiHandCalculator.ForbidLajiheDadiaoKey] is bool defaultException && !defaultException);
+        var dadiaoMelds = new List<string> {"s12","s22","s32","s18"};
+        foreach (bool enabled in new[] {false,true}) {
+            var config = new Dictionary<string,object> {{ShanghaiHandCalculator.ForbidLajiheDadiaoKey, enabled}};
+            foreach (var row in new[] {
+                new {Name="一花垃圾和", Hand=open, Melds=melds, Flowers=1, Kind=WaitTileHint.KindNone, Label="未满足"},
+                new {Name="二花垃圾和", Hand=open, Melds=melds, Flowers=2, Kind=WaitTileHint.KindNone, Label="未起和"},
+                new {Name="三花垃圾和", Hand=open, Melds=melds, Flowers=3, Kind=WaitTileHint.KindNone, Label="未起和"},
+                new {Name="无花垃圾和", Hand=open, Melds=melds, Flowers=0, Kind=WaitTileHint.KindNone, Label="未起和"},
+                new {Name="单独大吊", Hand=new List<int>{44}, Melds=dadiaoMelds, Flowers=1, Kind=WaitTileHint.KindRon, Label="敲牌后 4分"},
+                new {Name="无花大吊", Hand=new List<int>{44}, Melds=dadiaoMelds, Flowers=0, Kind=WaitTileHint.KindRon, Label="敲牌后 22分"},
+                new {Name="大吊混一色", Hand=new List<int>{44}, Melds=new List<string>{"s12","s13","s15","s18"}, Flowers=1, Kind=WaitTileHint.KindRon, Label="敲牌后 8分"},
+            }) {
+                string suffix = row.Name + (enabled ? "开" : "关");
+                var query = Query(row.Hand, row.Melds, row.Flowers, 1); query.DetailedConfig = config;
+                var expectedKind = enabled ? WaitTileHint.KindNone : row.Kind;
+                string expectedLabel = enabled ? "未满足" : row.Label;
+                var hint = RuleTips.DescribeWaitingTile(manifest, query);
+                Check("禁和开关实时标签"+suffix, hint.Kind == expectedKind && hint.Label == expectedLabel);
+                var waiting = ShanghaiHandCalculator.Waits(row.Hand, row.Melds);
+                Check("禁和开关不清空结构待牌"+suffix, waiting.Contains(44));
+                var player = Player(row.Hand,row.Melds,row.Flowers,true);
+                var ctx = Context(player,1); ctx.DetailedConfig = config;
+                var replayQuery = RecordWaitHintCalculator.BuildQueries(ctx,row.Hand,waiting.ToList()).Single(q=>q.HepaiTile==44);
+                var replay = RuleTips.DescribeWaitingTile(manifest,replayQuery);
+                Check("禁和开关牌谱提示一致"+suffix, replay.Kind==hint.Kind && replay.Label==hint.Label);
+                var preview = RecordWaitHintCalculator.BuildQueries(ctx,row.Hand,waiting.ToList(),29).Single(q=>q.HepaiTile==44);
+                Check("禁和开关切牌预览一致"+suffix, RuleTips.DescribeWaitingTile(manifest,preview).Label==hint.Label);
+                var players = new Dictionary<string,GameRecordManager.RecordPlayer>{{"left",player}};
+                var danger = RecordChongHintCalculator.ComputeDangerTiles(players,"shanghai",null,"shanghai/qiaoma",p=>ctx);
+                Check("禁和开关牌谱放铳过滤"+suffix, danger.Contains(44)==(hint.Kind==WaitTileHint.KindRon));
+                player.tagList.Clear(); ctx.SelfTags.Clear();
+                Check("禁和开关不绕过报敲"+suffix, RecordChongHintCalculator.ComputeDangerTiles(players,"shanghai",null,"shanghai/qiaoma",p=>ctx).Count==0);
+            }
+            Check("无门槛大吊不受附属开关影响"+enabled, ShanghaiHandCalculator.Score(new List<int>{44,44},dadiaoMelds,1,false,0,false,false,enabled)==4);
+            foreach (bool profile in new[] {false,true}) {
+                Check("禁和大吊复合混一色仍禁止"+enabled+profile, ShanghaiHandCalculator.Score(new List<int>{44,44},new List<string>{"s12","s13","s15","s18"},1,false,1,profile,false,enabled)==(enabled?0:profile?16:8));
+                Check("禁和开关不改变天敲门清排除"+enabled+profile, ShanghaiHandCalculator.Score(tianHand,new List<string>(),1,false,1,profile,true,enabled)==8);
+            }
+        }
         return checks.ToArray();
     }
 }

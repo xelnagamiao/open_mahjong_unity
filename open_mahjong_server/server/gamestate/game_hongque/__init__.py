@@ -1,7 +1,7 @@
-"""Hongque 2 prototype game state.
+"""Hongque game state, managed by the shared game/session lifecycle.
 
-The prototype is deliberately memory-only: it does not create statistics or
-game records.  Public tile codes match the Unity HQv3.1 resource names.
+Match settlement, persisted records and spectating use the shared services.
+Public tile codes match the Unity HQv3.1 resource names.
 """
 
 from .HongqueGameState import HongqueGameState

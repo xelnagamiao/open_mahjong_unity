@@ -7,6 +7,7 @@
 | 牌面原画、可用牌包、布局参数与来源许可 | `tiles/` |
 | 麻将牌模型源文件与规范导出 | `3Dcard/` |
 | 桌布、桌框、缝线及可编辑源文件 | `Tablecloth/` |
+| 11 位角色的透明头像裁图、裁切清单及独立许可 | [AvatarPortraits/Taisei](AvatarPortraits/Taisei/README.txt) |
 | 段位配表、PSD、商店展示素材 | 本目录配表、PSD 与 `steamstorepage/` |
 | 麻将规则支持、匹配与统计能力配表 | [麻将规则支持表.xlsx](麻将规则支持表.xlsx) |
 | 麻将规则与可追溯的参考资料 | `rule/` |

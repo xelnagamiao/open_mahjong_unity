@@ -86,7 +86,7 @@ public sealed class ShangraoGameState : TurnBasedGameState {
         endHands = response.show_result_info.shangrao_end_hands;
         pendingSettlement = true; Presenter.CloseTableForSettlement();
         settlementHost = Game3DManager.Instance;
-        if (settlementHost != null) settlementCoroutine = settlementHost.StartCoroutine(WaitForTable(response, generation));
+        if (settlementHost != null) settlementCoroutine = settlementHost.StartCoroutine(SettlementSync.PreserveContext(WaitForTable(response, generation)));
         else CompleteSettlement(response, generation);
     }
     private IEnumerator WaitForTable(Response response, int expected) {
@@ -124,6 +124,7 @@ public sealed class ShangraoGameState : TurnBasedGameState {
         if (env.IsLiuju) Presenter.ApplyScores(env.ScoresAfter);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (SettlementSync.IsRestoring) return;
         if (Info?.start_scores?.Length == 4) {
             int rows = 0; bool replaced = false;
             foreach (var seat in Mirror.IndexToPosition) {

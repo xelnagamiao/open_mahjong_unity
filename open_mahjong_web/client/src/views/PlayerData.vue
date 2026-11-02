@@ -365,7 +365,7 @@
 </template>
 
 <script setup>
-import { STATISTICS_RULES, statisticsSelection, statisticsGameType, statisticsModeLabel } from '@/utils/statisticsCatalog'
+import { STATISTICS_RULES, statisticsSelection, statisticsFanDictionary, statisticsGameType, statisticsModeLabel } from '@/utils/statisticsCatalog'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { formatPtChange } from '@/utils/ptChange'
 import { useRoute, useRouter } from 'vue-router'
@@ -685,7 +685,7 @@ const pieTotal = computed(() => rankedGames(activeStats.value))
 
 const currentFanDict = computed(() => {
   if (!playerInfo.value || !currentRuleDef.value?.fanField) return null
-  return playerInfo.value.fan_dict?.[currentRuleDef.value.fanField] || null
+  return statisticsFanDictionary(currentRule.value, playerInfo.value.fan_dict)
 })
 
 const fanEntries = computed(() => {

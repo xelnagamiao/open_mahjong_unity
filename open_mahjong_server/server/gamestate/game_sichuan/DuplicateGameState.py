@@ -1,5 +1,6 @@
 """Two explicit subrules; table-local Sichuan logic remains shared."""
 from copy import deepcopy
+import asyncio
 
 from .SichuanGameState import SichuanGameState
 from .XueliuDoublesGameState import XueliuDoublesGameState
@@ -45,18 +46,17 @@ class DuplicateMixin:
         title["duplicate_profile"] = deepcopy(self.duplicate_match.data["profile"])
         title["duplicate_match_id"] = self.duplicate_match.data["id"]
         title["duplicate_table"] = self.duplicate_table
+        title["duplicate_sync_mode"] = self.duplicate_match.synchronous
         title["doubles_rule_profile"].update(self.duplicate_match.data["profile"])
 
     def _reset_round_state(self):
         super()._reset_round_state()
         self.duplicate_adjustments = [0, 0]
 
-    def _active_flower_pig_penalty(self, player_index):
-        self.duplicate_adjustments[1 - self.player_list[player_index].team_id] += 12
-        return 12
-
     async def _after_round_settled(self):
-        self.game_status = "duplicate_wait"
+        waits = self.duplicate_match.synchronous or self.current_round >= len(self.duplicate_match.data["boards"])
+        self.game_status = "duplicate_wait" if waits else "round_settled"
+        self.duplicate_waiting_for = ("board" if self.duplicate_match.synchronous else "match") if waits else None
         self.action_dict = {i: [] for i in range(4)}
         self.waiting_players_list = []
         changes = self.team_round_history[-1]["score_changes"]
@@ -77,7 +77,25 @@ class DuplicateMixin:
                                           "round_number_history": [list(p.round_number_history) for p in self.player_list],
                                           "team_round_history": self.team_round_history})
         self.game_status = "round_settled"
+        self.duplicate_waiting_for = None
         await broadcast_duplicate_status(self)
+        if self.duplicate_match.synchronous and self.duplicate_match.completed:
+            # The last board also receives the fixed comparison presentation.
+            await asyncio.sleep(8)
+
+    async def _ready_phase(self, liuju):
+        if not self.duplicate_match.synchronous:
+            return await super()._ready_phase(liuju)
+        from ..public.ready_phase import run_result_ready_phase
+        from .boardcast import broadcast_ready_status, broadcast_duplicate_status
+        from .board_settlement import ready_seconds
+        await run_result_ready_phase(self, ready_seconds(self), broadcast_ready_status)
+        self.game_status = "duplicate_wait"
+        self.duplicate_waiting_for = "ready"
+        await broadcast_duplicate_status(self)
+        await self.duplicate_match.wait_ready(self.duplicate_table, self.current_round)
+        self.game_status = "round_settled"
+        self.duplicate_waiting_for = None
 
     def _restore_match_checkpoint(self):
         data = self.duplicate_match.data
@@ -138,10 +156,21 @@ class DuplicateMixin:
         self.game_record["game_title"]["duplicate_round_tiles"] = [flatten_board(b) for b in data["boards"]]
         for player in self.player_list:
             player.record_counter.rank_result = 1 if winner is None or player.team_id == winner else 2
+        # Rebuild the same final UI payload from durable checkpoints after a restart.
+        from .board_settlement import match_summary
+        settlement = match_summary(self)
+        if settlement is not None:
+            self.game_record['game_title']['sichuan_match'] = settlement
 
 
 class SbrDuplicateGameState(DuplicateMixin, SichuanGameState):
-    pass
+    def _active_flower_pig_score_changes(self, player_index):
+        offender_team = self.player_list[player_index].team_id
+        changes = {player_index: -12}
+        changes.update({player.player_index: 6 for player in self.player_list
+                        if player.team_id != offender_team})
+        # 两位对手直接入账，队分由个人分汇总；不再额外添加 pair_adjustments。
+        return changes
 
 
 class XueliuDuplicateGameState(DuplicateMixin, XueliuDoublesGameState):

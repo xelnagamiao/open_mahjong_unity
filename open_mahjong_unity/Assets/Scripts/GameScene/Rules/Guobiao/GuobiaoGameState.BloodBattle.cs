@@ -23,7 +23,7 @@ public partial class GuobiaoGameState {
                 }
             }
         }
-        if (gameInfo.blood_battle_result != null) {
+        if (gameInfo.blood_battle_result != null && !SettlementSync.HasEmbeddedRestore) {
             Game3DManager.Instance.RevealSichuanLiujuAllHands(gameInfo.blood_battle_result.liuju_hu_hands);
             PresentSettlement(BuildEnvelope(gameInfo.blood_battle_result));
         }

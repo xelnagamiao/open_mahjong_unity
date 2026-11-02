@@ -76,17 +76,3 @@ public static class CreateRoomRuleTextConfigCatalog {
         return new CreateRoomRuleTextConfig(manifest.RuleId, name, subs);
     }
 }
-
-/// <summary>各子规则说明文案。实时查清单，不在静态构造时缓存（注册发生在 SubsystemRegistration）。</summary>
-public static class SubRuleDescriptionDictionary {
-    public static string GetDescription(string subRule) {
-        if (string.IsNullOrEmpty(subRule)) return "";
-        foreach (RuleManifest manifest in RuleRegistry.All) {
-            if (manifest.LobbySubRules == null) continue;
-            foreach (RuleLobbySubRule row in manifest.LobbySubRules) {
-                if (row.Key == subRule) return row.Description ?? "";
-            }
-        }
-        return "";
-    }
-}

@@ -31,8 +31,7 @@ public static class AppSession {
         CreatePanel.ResetAllSessionCaches();
         UserDataManager.Instance?.ClearSessionState();
         UnreadBadgeStore.BindUser(0);
-        HeaderPanel.Instance?.SetBackToGameVisible(false);
-        HeaderPanel.Instance?.RefreshMatchButtonVisibility();
+        WindowsManager.Instance?.SetBackToGameVisible(false);
 
         NetworkManager.Instance?.RestartLoginConnection();
     }

@@ -32,10 +32,9 @@ public partial class GameRecordManager {
             return;
         }
         if (!SichuanLobby.IsTeamMode(subRule)) return;
-        if (gameRecord.gameTitle.TryGetValue("team_by_player_index", out object value) && value != null) {
-            int[] teams = JArray.FromObject(value).ToObject<int[]>();
-            GameCanvas.Instance.UpdateSichuanTeams(teams, indexToPosition, SichuanLobby.IsXueliuDoubles(subRule));
-        }
+        var teamSnapshot = SichuanRoundScoreState.RecordSnapshot(gameRecord, currentRoundIndex);
+        if (teamSnapshot != null)
+            GameCanvas.Instance.UpdateSichuanTeams(teamSnapshot.team_by_player_index, indexToPosition, SichuanLobby.IsXueliuDoubles(subRule));
     }
     /// <summary>终局分步结算的分差累加（回放自己持有，不借用对局族实例）。</summary>
     private readonly SichuanEndgameLedger sichuanRecordLedger = new SichuanEndgameLedger();
@@ -294,6 +293,7 @@ public partial class GameRecordManager {
                 if (tick.Count < 6) return;
                 ApplyScoreDeltasFromTickIndex(tick, 5);
                 break;
+            case "settle_gang":
             case "cha_refund":
                 if (tick.Count < 3) return;
                 ApplyScoreDeltasFromTickIndex(tick, 2);
@@ -319,6 +319,14 @@ public partial class GameRecordManager {
         }
 
         string step = tick[1];
+        if (step == "board_summary" && tick.Count > 2) {
+            var summary = Newtonsoft.Json.JsonConvert.DeserializeObject<SichuanBoardSettlementInfo>(tick[2]);
+            if (!summary.dealer_seat.HasValue && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round summaryRound))
+                summary.dealer_seat = summaryRound.dealerIndex;
+            RoundEndPresentation.Instance.PresentSichuanBoard(summary, null, true);
+            return;
+        }
+        if (TryPresentGroupedSichuanRecord(tick)) return;
         switch (step) {
             case "reveal_hu":
                 HandleSichuanRecordRevealHu(tick);
@@ -329,6 +337,9 @@ public partial class GameRecordManager {
                 break;
             case "chajiao":
                 HandleSichuanRecordChajiao(tick);
+                break;
+            case "settle_gang":
+                HandleSichuanRecordKongSettlement(tick);
                 break;
             case "cha_refund":
                 HandleSichuanRecordChaRefund(tick);
@@ -448,6 +459,34 @@ public partial class GameRecordManager {
             Debug.LogWarning($"[GameRecord] chajiao hand parse failed: {e.Message}");
             return null;
         }
+    }
+
+    private IEnumerator NextAfterSichuanKongReveal() {
+        while (Game3DManager.Instance.HasPendingSichuanKongAnimations) yield return null;
+        yield return AutoNextActionAfterDelay(.1f);
+    }
+
+    private void ApplySichuanKongReveal(List<string> tick, bool animate) {
+        if (tick.Count < 3) return;
+        int seat = ParseTickInt(tick, 1), tile = ParseTickInt(tick, 2);
+        if (!indexToPosition.TryGetValue(seat, out string position)
+            || !recordPlayer_to_info.TryGetValue(position, out RecordPlayer player)) return;
+        int index = player.combinationTiles.FindIndex(c => c == "g" + tile || c == "G" + tile);
+        if (index < 0 || player.combinationMasks[index]?.Length != 8) return;
+        if (animate) Game3DManager.Instance.RevealSichuanUnscoredKong(position, player.combinationMasks, index, tile);
+        else player.combinationMasks[index] = new[] {0,tile,0,tile,0,tile,0,tile};
+    }
+
+    private void HandleSichuanRecordKongSettlement(List<string> tick) {
+        if (tick.Count < 3) return;
+        var changes = new Dictionary<int, int>();
+        MapTickScoreChangesToDeltas(ParseTickScoreChanges(tick, 2), changes);
+        ApplyScoreDeltas(changes, out var before, out var after);
+        sichuanRecordLedger.Accumulate(changes);
+        BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
+        string[] labels = tick.Count > 3 ? JArray.Parse(tick[3]).ToObject<string[]>() : Array.Empty<string>();
+        RoundEndPresentation.Instance.EnqueueSichuanKongSettlement(after, changes, labels, BuildRecordSettlementView(before, after));
+        StartCoroutine(AutoNextActionAfterDelay(RoundEndTiming.RoundEndPresentationFadeSeconds + 2f));
     }
 
     private void HandleSichuanRecordChaRefund(List<string> tick) {

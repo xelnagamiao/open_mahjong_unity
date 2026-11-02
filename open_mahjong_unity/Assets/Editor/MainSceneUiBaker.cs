@@ -16,6 +16,9 @@ public static class MainSceneUiBaker {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
             throw new InvalidOperationException("请先退出播放模式。");
         var scene = SceneManager.GetActiveScene();
+        InterfaceSceneCleanupBaker.Bake(scene);
+        EventContentUiBaker.Bake(scene);
+        PlatformTypographyBaker.RepairSceneMaterials(scene);
         foreach (var panel in Find<CreatePanel>(scene)) {
             Undo.RegisterFullObjectHierarchyUndo(panel.gameObject, "Bake create room UI");
             panel.BakeFixedRoomUi();
@@ -29,10 +32,7 @@ public static class MainSceneUiBaker {
             panel.ApplyHintStyle();
             MarkHierarchy(panel.gameObject);
         }
-        foreach (var chat in Find<ChatPanel>(scene)) {
-            if (!chat.GetComponent<CanvasGroup>()) Undo.AddComponent<CanvasGroup>(chat.gameObject);
-            MarkHierarchy(chat.gameObject);
-        }
+        ChatUiBaker.Bake(scene);
         foreach (var panel in Find<InventoryPanel>(scene)) panel.BakeWarehouseUi();
         foreach (var panel in Find<RoomPanel>(scene)) {
             Undo.RegisterFullObjectHierarchyUndo(panel.gameObject, "Bake room bot speed");
@@ -41,6 +41,38 @@ public static class MainSceneUiBaker {
         }
         RuleSupportTableBaker.Bake(scene);
         GuobiaoFanTableUiBaker.Bake(scene);
+        HomeArtworkUiBaker.Bake(scene);
+        RoundPanelUiBaker.Bake(scene);
+        ReplayControlsBaker.Bake(scene);
+        TableHudClarityBaker.Bake(scene);
+        HomepageLocalizationBaker.BakePrefabs(scene);
+        HomepageLocalizationBaker.Bake(scene);
+        PlatformEnglishLayoutBaker.Bake(scene);
+        InterfacePlansPolishBaker.Bake(scene);
+        CommunityUiBaker.ApplyFixed(scene);
+        MailUiBaker.Bake(scene);
+        RewardUiBaker.Bake(scene);
+        MailBatchLayoutBaker.Bake(scene);
+        GameNavigationUiBaker.Bake(scene);
+        PlatformNavigationBaker.Bake(scene);
+        LobbyIconSelectionBaker.Bake(scene);
+        MatchCardLayoutBaker.Bake(scene);
+        RoomMatchPageLayoutBaker.Bake(scene);
+        MatchDetailUiBaker.Bake(scene);
+        EventContentUiBaker.Bake(scene);
+        EventVenuePresentationBaker.Bake(scene);
+        VenueListPolishBaker.Bake(scene);
+        InterfaceDesignPresetsBaker.Bake(scene);
+        HomepageLocalizationBaker.Bake(scene);
+        PlatformTypographyBaker.BakePrefabs(scene);
+        PlatformTypographyBaker.Bake(scene);
+        GameUiLocalizationBaker.BakePrefabs();
+        GameUiLocalizationBaker.Bake(scene);
+        FriendPaletteBaker.Bake(scene);
+        LobbyTableTransitionBaker.Bake(scene);
+        FontFallbackRepairBaker.Bake(scene);
+        SceneAuthoringLayoutBaker.Bake(scene);
+        foreach (var panel in Find<CreatePanel>(scene)) panel.SaveDeferredPanels();
         Validate(scene);
         EditorSceneManager.MarkSceneDirty(scene);
     }
@@ -52,6 +84,21 @@ public static class MainSceneUiBaker {
     }
 
     public static void Validate(Scene scene) {
+        InterfaceSceneCleanupBaker.Validate(scene);
+        MainCanvasPresentationValidation.Validate(scene);
+        DataPageUiBaker.Validate(scene);
+        RoomMatchPageLayoutBaker.Validate(scene);
+        MatchDetailUiBaker.Validate(scene);
+        ReplayControlsBaker.Validate(scene);
+        EventContentUiBaker.Validate(scene);
+        EventVenuePresentationBaker.Validate(scene);
+        VenueListPolishBaker.Validate(scene);
+        InterfaceDesignPresetsBaker.Validate(scene);
+        FriendPaletteBaker.Validate(scene);
+        EventVenueTypographyBaker.Validate(scene);
+        FreeModeTypographyBaker.Validate();
+        PlayerDataIconBaker.Validate(scene);
+        HomeArtworkUiBaker.Validate(scene);
         GuobiaoFanTableUiBaker.Validate(scene);
         RuleSupportTableBaker.Validate(scene);
         foreach (var panel in Find<CreatePanel>(scene)) {
@@ -60,17 +107,9 @@ public static class MainSceneUiBaker {
             while (property.NextVisible(true))
                 if (property.propertyType == SerializedPropertyType.ObjectReference)
                     Require(property.objectReferenceValue, panel, property.propertyPath);
-            foreach (var key in new[] { "taiwan", "riichi" }) {
-                var overlay = panel.transform.Find("DetailedConfigPanel_" + key);
-                Require(overlay && overlay.GetComponent<CreateRoomPopupMotion>(), panel, key + " 弹窗动画");
-                Require(!overlay.gameObject.activeSelf, panel, key + " 弹窗初始状态");
-                var scroll = overlay.Find("Dialog/Create_Panel/ScrollArea").GetComponent<ScrollRect>();
-                var layout = scroll.content.GetComponent<CreateRoomDetailsLayout>();
-                Require(layout && layout.Columns == (key == "riichi" ? 4 : 2), panel, key + " 布局列数");
-                Require(scroll.scrollSensitivity >= 100 && layout.padding.bottom >= 72, panel, key + " 滚动设置");
-            }
+            panel.ValidateDeferredPanels();
             panel.ValidateFixedRuleOptions();
-            Require(panel.transform.Find("Create_Panel/TierPresets")?.childCount == 4, panel, "四种规则预设");
+            Require(panel.transform.Find("Create_Panel/TierPresets")?.childCount >= 5, panel, "规则预设（含雀庄公式战）");
         }
         foreach (var panel in Find<SpectatorPanel>(scene)) {
             SpectatorUiBaker.Validate(panel);
@@ -78,9 +117,8 @@ public static class MainSceneUiBaker {
             var item = new SerializedObject(panel).FindProperty("SpectatorPrefab").objectReferenceValue;
             Require(item && PrefabUtility.IsPartOfPrefabAsset(item), panel, "观战条目预制体");
         }
-        foreach (var chat in Find<ChatPanel>(scene)) {
-            Require(chat.GetComponent<CanvasGroup>(), chat, "创房时的聊天显示控制");
-        }
+        ChatUiBaker.Validate(scene);
+        RewardUiBaker.Validate(scene);
         foreach (var player in Find<GamePlayerPanel>(scene))
             GamePlayerPanelUiBaker.Validate(player);
         foreach (var tips in Find<TipsContainer>(scene))
@@ -104,6 +142,8 @@ public static class MainSceneUiBaker {
 public sealed class MainSceneUiBuildCheck : IProcessSceneWithReport {
     public int callbackOrder => 1;
     public void OnProcessScene(Scene scene, BuildReport report) {
+        // Play Mode has already initialized the UI; authored inactive-state checks apply to player builds.
+        if (report == null) return;
         try { RuleSupportTableBaker.Bake(scene); MainSceneUiBaker.Validate(scene); }
         catch (Exception error) { throw new BuildFailedException(error.Message); }
     }

@@ -22,6 +22,28 @@
 /open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
 /open_mahjong_unity/Assets/_Recovery/
 /open_mahjong_unity/Assets/_Recovery.meta
+/open_mahjong_unity/Assets/Salasasa/OriginalReference/
+/open_mahjong_unity/Assets/Salasasa/OriginalReference.meta
+
+# Optional local development artwork. Keep defaults, catalogs, credits and licenses in Git.
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/Resources/
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/Resources.meta
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/BuildExcludedExpressions/
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/BuildExcludedExpressions.meta
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.png
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.png.meta
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.jpg
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.jpg.meta
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.jpeg
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.jpeg.meta
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.webp
+/open_mahjong_unity/Assets/Salasasa/PreviewArt/**/*.webp.meta
+!/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-reimu.png
+!/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-reimu.png.meta
+!/open_mahjong_unity/Assets/Salasasa/PreviewArt/BackgroundLibrary/minchi-cafe-1.jpg
+!/open_mahjong_unity/Assets/Salasasa/PreviewArt/BackgroundLibrary/minchi-cafe-1.jpg.meta
+/other/AvatarPortraits/Taisei/512/*.png
+/other/AvatarPortraits/Taisei/1024/*.png
 
 # Python 项目的源码入口；虚拟环境和本机部署文件不进入仓库。
 /open_mahjong_server/*
@@ -35,8 +57,8 @@
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py
-!/open_mahjong_server/scripts/backfill_statistics_values.py
-!/open_mahjong_server/scripts/repair_hongque_record_fans.py
+!/open_mahjong_server/scripts/sync_rule_display_catalog.py
+!/open_mahjong_server/scripts/migrate_rename_cards.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
 !/open_mahjong_server/scripts/validate_singapore_clients.py
 /open_mahjong_server/server/error_log/
@@ -98,6 +120,7 @@ secret_key.txt
 # Web 构建输出及本机放置的游戏包；public 下仅保留放置说明。
 /open_mahjong_web/client/dist/
 /open_mahjong_web/client/coverage/
+/open_mahjong_web/client/deploy-static.tgz
 /open_mahjong_web/client/public/unity-game/*
 !/open_mahjong_web/client/public/unity-game/*.md
 /open_mahjong_web/client/public/android-game/*
@@ -115,6 +138,8 @@ secret_key.txt
 !/open_mahjong_web/data/user-content/.gitkeep
 /open_mahjong_web/data/fun-data/**
 !/open_mahjong_web/data/fun-data/.gitkeep
+/open_mahjong_web/data/platform-content/**
+!/open_mahjong_web/data/platform-content/.gitkeep
 /open_mahjong_web/data/record-convert-shares/
 /open_mahjong_web/data/geoip/
 

@@ -57,6 +57,7 @@ public class RoomWindowsManager : MonoBehaviour {
             case "roomInfo":
                 return roomPanel;
             case "createRoom":
+                createRoomPanel.GetComponent<CreatePanel>().PrepareForRoom();
                 return createRoomPanel;
             default:
                 Debug.LogWarning($"未知的房间窗口类型: {targetWindow}");

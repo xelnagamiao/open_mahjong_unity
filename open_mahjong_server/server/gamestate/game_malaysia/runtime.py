@@ -160,6 +160,8 @@ class Runtime:
                 await asyncio.gather(*tasks, return_exceptions=True)
 
     async def run_round_ready_phase(self, timeout=None):
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.machine.transition(P.READY)
         self.live_pending_window = None
         # Ready may arrive during the first broadcast, before wait_action has
@@ -172,7 +174,7 @@ class Runtime:
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if self.waiting_players_list:
-            await self.wait_action(timeout)
+            await self.wait_action(timeout=ready_remaining(self))
         self.action_dict = A.empty()
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()

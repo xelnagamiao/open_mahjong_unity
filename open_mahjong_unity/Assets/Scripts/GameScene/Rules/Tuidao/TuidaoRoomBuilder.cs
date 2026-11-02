@@ -24,6 +24,6 @@ internal static class TuidaoRoomBuilder {
         if (!config.Validate(out string error, input.PasswordEnabled, input.RandomSeedEnabled)) {
             return RoomCreationRequest.Invalid($"创建房间失败: {error}");
         }
-        return RoomCreationRequest.Valid(config, network => network.Create_Guangdong_Room(config, input.GuangdongMinimumScore));
+        return RoomCreationRequest.Valid(config, network => network.Create_Guangdong_Room(config, input.GuangdongMinimumScore, input.TuidaoPingjiZimoNoChow));
     }
 }

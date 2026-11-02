@@ -1,3 +1,4 @@
+from .settlement_sync import send_game_packet
 from copy import deepcopy
 
 AI_RESERVED_MAX_USER_ID = 10
@@ -55,6 +56,6 @@ async def deliver_realtime_spectator_message(game_state, broadcast_player_index:
             payload = deepcopy(payload)
             prepare_payload(payload)
         try:
-            await conn.websocket.send_json(payload)
+            await send_game_packet(game_state, conn.websocket, payload, broadcast_player_index)
         except Exception:
             pass

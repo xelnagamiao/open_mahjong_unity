@@ -47,7 +47,7 @@ def test_host_can_reach_every_unique_role_assignment_without_unassigning(roles):
 @pytest.mark.parametrize('actor,seat,role,revision', [
     (102, 0, 2, 0), (999, 1, 2, 0), (102, 1, 2, 0),
     (101, True, 0, 0), (101, -1, 0, 0), (101, 4, 0, 0),
-    (101, 0, True, 0), (101, 0, '1', 0), (101, 0, -1, 0), (101, 0, 4, 0),
+    (101, 0, True, 0), (101, 0, '1', 0), (101, 0, -2, 0), (101, 0, 4, 0),
     (101, 0, None, 0), (101, 0, 2, None), (101, 0, 2, True), (101, 0, 2, 1),
 ])
 def test_invalid_or_unauthorized_requests_are_atomic(actor, seat, role, revision):
@@ -72,6 +72,31 @@ def test_empty_role_selection_leave_join_noop_and_match_lock():
     before = deepcopy(value)
     with pytest.raises(ValueError): assign_team(value, 101, 0, None, 3, role_id=3)
     assert value == before
+
+
+
+def test_players_can_unassign_and_reselect_without_taking_another_unassigned_seat():
+    value = room()
+    assign_team(value, 102, 1, None, 0, role_id=-1)
+    assert value['team_role_by_seat'] == [0, -1, 2, 3]
+    assert value['team_by_seat'] == [0, -1, 1, 1]
+    assert value['roster_revision'] == 1 and value['ready_list'] == []
+    assign_team(value, 101, 0, None, 1, role_id=-1)
+    assert value['team_role_by_seat'] == [-1, -1, 2, 3]
+    assign_team(value, 102, 1, None, 2, role_id=-1)
+    assert value['roster_revision'] == 2
+    with pytest.raises(ValueError): validate_team_start(value, 2)
+    assign_team(value, 102, 1, None, 2, role_id=0)
+    assert value['team_role_by_seat'] == [-1, 0, 2, 3]
+    assign_team(value, 101, 0, None, 3, role_id=1)
+    validate_team_start(value, 4)
+
+
+def test_unassign_keeps_permissions_revision_and_running_lock():
+    for actor, seat, revision, running in [(102, 0, 0, False), (101, 0, 1, False), (101, 0, 0, True)]:
+        value = room(); value['is_game_running'] = running; before = deepcopy(value)
+        with pytest.raises(ValueError): assign_team(value, actor, seat, None, revision, role_id=-1)
+        assert value == before
 
 
 def test_create_join_swap_ready_start_reconnect_identity_and_return():

@@ -6,7 +6,9 @@ const { RIICHI_STATS_VERSION, BASE_KEYS, DETAIL_KEYS } = require('./riichiStats'
 test('home rule statistics keep personal denominators, subrules and every scene aligned', {
   skip: !process.env.RECORD_METADATA_TEST_DATABASE_URL,
 }, async (t) => {
-  const pool = new Pool({ connectionString: process.env.RECORD_METADATA_TEST_DATABASE_URL, max: 1 });
+  const connectionPool = new Pool({ connectionString: process.env.RECORD_METADATA_TEST_DATABASE_URL, max: 1 });
+  // Keep temporary tables on the same connection after intentional missing-table errors.
+  const pool = await connectionPool.connect();
   const databasePath = require.resolve('../config/database');
   const previous = require.cache[databasePath];
   require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: pool };
@@ -202,6 +204,7 @@ test('home rule statistics keep personal denominators, subrules and every scene 
   } finally {
     if (previous) require.cache[databasePath] = previous; else delete require.cache[databasePath];
     if (previousService) require.cache[servicePath] = previousService; else delete require.cache[servicePath];
-    await pool.end();
+    pool.release();
+    await connectionPool.end();
   }
 });

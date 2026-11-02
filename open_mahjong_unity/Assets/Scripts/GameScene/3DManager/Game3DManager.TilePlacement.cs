@@ -71,6 +71,25 @@ public partial class Game3DManager {
         normal = Vector3.up;
     }
 
+    // Shared live-wall layout: Duocai and Sichuan use the same table-centered
+    // radius, tile scale and stack spacing. Each rule supplies its own slot order.
+    private const float TableWallRadius = 120f;
+    private const float TableWallScale = .82f;
+
+    private Vector3 WallSlotPosition(string seat, float centeredStack) {
+        GetTileSurface(out Vector3 tableCenter, out _);
+        Vector3 direction = seat == "self" ? RightDirection : seat == "right" ? FrontDirection
+            : seat == "top" ? LeftDirection : BackDirection;
+        Vector3 outward = Vector3.Cross(Vector3.up, direction);
+        return tableCenter + outward * TableWallRadius + direction * (centeredStack * cardWidth * TableWallScale);
+    }
+
+    private void SetWallTileScale(Transform tile, float scale) {
+        Vector3 parent = tile.parent == null ? Vector3.one : tile.parent.lossyScale;
+        tile.localScale = new Vector3(tileWorldScale.x / parent.x, tileWorldScale.y / parent.y,
+            tileWorldScale.z / parent.z) * scale;
+    }
+
     private Matrix4x4 TileBodyAt(Vector3 rootPosition, Quaternion worldRotation) {
         return Matrix4x4.TRS(rootPosition, worldRotation, tileWorldScale) * tileBodyFromRoot;
     }
@@ -129,6 +148,7 @@ public partial class Game3DManager {
 
     // Animator 在 Update 后采样，这里仅处理正在倒牌的组。静止牌没有每帧放置开销。
     private void LateUpdate() {
+        RefreshPendingMeldSpacing();
         RefreshWashizuPresentation();
         RefreshTileLightingFrame();
         bool anyActive = false;

@@ -9,6 +9,7 @@ public class MatchPanel : MonoBehaviour {
 
     public MatchButton[] matchButtons;
     [SerializeField] private MatchLobbyView lobbyView;
+    [SerializeField] private MatchLobbyView[] alternateViews = new MatchLobbyView[0];
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -24,11 +25,11 @@ public class MatchPanel : MonoBehaviour {
             matchButtons = GetComponentsInChildren<MatchButton>(true);
         }
         RefreshAllButtons();
-        NetworkPollingManager.Instance.StartMatchPanelQueuePolling();
+        NetworkPollingManager.Instance?.StartMatchPanelQueuePolling();
     }
 
     private void OnDisable() {
-        NetworkPollingManager.Instance.StopMatchPanelQueuePolling();
+        NetworkPollingManager.Existing?.StopMatchPanelQueuePolling();
     }
 
     private void RefreshAllButtons() {
@@ -43,6 +44,7 @@ public class MatchPanel : MonoBehaviour {
     public void UpdateQueueStatus(Dictionary<string, QueueStatusEntry> queueStatus, Dictionary<string, int> rulePlayerCounts = null) {
         if (queueStatus == null) return;
         lobbyView?.UpdateRulePlayerCounts(rulePlayerCounts);
+        foreach (var view in alternateViews) if (view != null && view != lobbyView) view.UpdateRulePlayerCounts(rulePlayerCounts);
         if (matchButtons == null || matchButtons.Length == 0) {
             matchButtons = GetComponentsInChildren<MatchButton>(true);
         }

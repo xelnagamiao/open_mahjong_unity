@@ -42,3 +42,32 @@ test('拒绝强制类型转换、跨版本配置和未提供的馆规', () => {
   assert.throws(() => guangdongDetail({ sub_rule: 'guangdong/invalid' }))
   assert.throws(() => guangdongDetail({ sub_rule: GUANGDONG_MIL_SUB_RULE, require_minimum_score: 'true' }))
 })
+
+test('平鸡自摸禁吃默认关闭，开关经建房与预设存储往返保留', () => {
+  const legacy = createEventRoomForm({ room_rule: 'guangdong' })
+  assert.equal(legacy.pingji_zimo_no_chow, false)
+  for (const enabled of [false, true]) {
+    legacy.pingji_zimo_no_chow = enabled
+    const payload = buildEventRoomSettings(legacy)
+    assert.equal(payload.room_config.detailed_config.pingji_zimo_no_chow, enabled)
+    const restored = createEventRoomForm(save(payload))
+    assert.equal(restored.pingji_zimo_no_chow, enabled)
+    assert.deepEqual(buildEventRoomSettings(restored).room_config, payload.room_config)
+    const row = eventRoomSettingsRows(payload).find(row => row.label === '平鸡自摸禁吃')
+    assert.equal(row.value, enabled ? '开启（不能吃，鸡胡只能自摸）' : '关闭')
+  }
+  legacy.sub_rule = GUANGDONG_MIL_SUB_RULE
+  assert.equal('pingji_zimo_no_chow' in guangdongDetail(legacy), false)
+})
+
+test('平鸡自摸禁吃拒绝非布尔值和花鬼跨版本覆盖', () => {
+  for (const value of ['false', 0, 1, null, [], {}]) {
+    assert.throws(() => save({ room_rule: 'guangdong', room_config: {
+      sub_rule: TUIDAO_SUB_RULE, detailed_config: { pingji_zimo_no_chow: value },
+    } }))
+  }
+  assert.throws(() => guangdongDetail({ sub_rule: TUIDAO_SUB_RULE, pingji_zimo_no_chow: 'false' }))
+  assert.throws(() => save({ room_rule: 'guangdong', room_config: {
+    sub_rule: GUANGDONG_MIL_SUB_RULE, detailed_config: { pingji_zimo_no_chow: true },
+  } }))
+})

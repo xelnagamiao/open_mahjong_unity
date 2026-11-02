@@ -176,6 +176,8 @@ class Session:
                 task.cancel()
 
     async def run_round_ready_phase(self, timeout=None):
+        from ..public.settlement_sync import begin_ready, ready_remaining
+        begin_ready(self, timeout)
         self.machine.transition(P.READY)
         self.live_pending_window = None
         pending = [] if self.match_finishing else [i for i,p in enumerate(self.player_list) if not p.is_bot]
@@ -185,7 +187,7 @@ class Session:
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if pending:
-            await self.wait_action(timeout)
+            await self.wait_action(timeout=ready_remaining(self))
         self.action_dict = empty_actions()
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()

@@ -48,14 +48,23 @@ public partial class NormalGameStateManager {
     }
 
     private void HandleRealtimeKicked(Response response) {
-        if (!IsRealtimeSpectator) return;
+        if (!IsCurrentRealtimeSession(response)) return;
         GameHost.Current.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
         PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 
     private void HandleRealtimeEnded(Response response) {
-        if (!IsRealtimeSpectator) return;
+        if (!IsCurrentRealtimeSession(response)) return;
         GameHost.Current.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
         PostGameNavigator.ExitToLobby(forceTeardown: true);
+    }
+
+    private bool IsCurrentRealtimeSession(Response response) {
+        // Membership exists before the first snapshot. After GameEnd releases
+        // it, the rendered session still owns its final spectator notification.
+        string sessionId = PlayerSession.Current.GamestateId;
+        if (string.IsNullOrEmpty(sessionId)) sessionId = GameSession.Current.GamestateId;
+        return IsRealtimeSpectator && !string.IsNullOrEmpty(sessionId)
+            && response?.realtime_gamestate_id == sessionId;
     }
 }

@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
@@ -405,7 +406,7 @@ class ChangshaGameState:
                         game_info=game_info
                     )
 
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break

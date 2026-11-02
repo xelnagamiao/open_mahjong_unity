@@ -6,9 +6,10 @@ using TMPro;
 public class MeunPanel : MonoBehaviour {
     public static MeunPanel Instance { get; private set; }
 
-    [Header("排位匹配入口")]
-    [SerializeField] private Button matchEntryButton;
-    [SerializeField] private TMP_Text matchPlayerCountText;
+    public bool HasMatchPlayerCount { get; private set; }
+    public int MatchPlayerCount { get; private set; }
+    public float MatchPlayerCountReceivedAt { get; private set; }
+    public event System.Action MatchPlayerCountChanged;
 
     [Header("规则阅读入口")]
     [SerializeField] private RulebookPanelController rulebookPanelController;
@@ -21,25 +22,26 @@ public class MeunPanel : MonoBehaviour {
         Instance = this;
     }
 
-    private void Start() {
-        if (matchEntryButton != null) {
-            matchEntryButton.onClick.RemoveListener(GoToMatch);
-            matchEntryButton.onClick.AddListener(GoToMatch);
-        }
-    }
-
     private void OnEnable() {
-        UpdateMatchPlayerCountText(0);
-        NetworkPollingManager.Instance.StartMenuMatchPlayerCountPolling();
+        HasMatchPlayerCount = false;
+        MatchPlayerCountChanged?.Invoke();
+        NetworkPollingManager.Instance?.StartMenuMatchPlayerCountPolling();
     }
 
     private void OnDisable() {
-        if (rulebookPanelController) rulebookPanelController.HideImmediate();
-        NetworkPollingManager.Instance.StopMenuMatchPlayerCountPolling();
+        HasMatchPlayerCount = false;
+        MatchPlayerCountChanged?.Invoke();
+        if (rulebookPanelController) rulebookPanelController.CloseAll();
+        NetworkPollingManager.Existing?.StopMenuMatchPlayerCountPolling();
     }
 
     public void OpenFanTable() {
         rulebookPanelController.Open("guobiao");
+    }
+    public bool IsFanTableOpen => rulebookPanelController && rulebookPanelController.IsOpen;
+
+    public void CloseFanTable() {
+        if (rulebookPanelController) rulebookPanelController.CloseAll();
     }
 
     // 设置用户信息（通过UserContainer处理UI，UserDataManager管理数据）
@@ -48,17 +50,15 @@ public class MeunPanel : MonoBehaviour {
     }
 
     // 显示服务器统计信息（通过NowPlayer显示）
-    public void DisplayServerStats(int onlinePlayerCount, int waitingRoomCount, int playingRoomCount, int matchPlayingGames) {
-        NowPlayer.Instance.DisplayServerStats(onlinePlayerCount, waitingRoomCount, playingRoomCount, matchPlayingGames);
-    }
-
-    public void GoToMatch() {
-        // 对局/房间中允许查阅匹配页人数；真正加入队列时再由 MatchNetworkManager 拦截
-        WindowsManager.Instance.SwitchWindow("match");
+    public void DisplayServerStats(int onlinePlayerCount, int waitingRoomCount, int playingRoomCount, int matchPlayingGames, int venueWaitingRoomCount) {
+        NowPlayer.Instance.DisplayServerStats(onlinePlayerCount, waitingRoomCount, playingRoomCount, matchPlayingGames, venueWaitingRoomCount);
     }
 
     public void UpdateMatchPlayerCount(Dictionary<string, QueueStatusEntry> queueStatus, int? uniquePlayerCount = null) {
-        UpdateMatchPlayerCountText(uniquePlayerCount ?? CountTotalMatchPlayers(queueStatus));
+        MatchPlayerCount = uniquePlayerCount ?? CountTotalMatchPlayers(queueStatus);
+        MatchPlayerCountReceivedAt = Time.realtimeSinceStartup;
+        HasMatchPlayerCount = true;
+        MatchPlayerCountChanged?.Invoke();
     }
 
     public static int CountTotalMatchPlayers(Dictionary<string, QueueStatusEntry> queueStatus) {
@@ -70,10 +70,5 @@ public class MeunPanel : MonoBehaviour {
         return total;
     }
 
-    private void UpdateMatchPlayerCountText(int count) {
-        if (matchPlayerCountText != null) {
-            matchPlayerCountText.text = $"匹配人数({count})";
-        }
-    }
 
 }

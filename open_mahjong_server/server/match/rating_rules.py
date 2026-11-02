@@ -6,6 +6,7 @@ Guobiao and Riichi use grades/PT; the other ranked pools calculate Elo.
 from dataclasses import dataclass
 from itertools import combinations
 import math
+from .qingque_score_elo import ALGORITHM as QINGQUE_ELO_ALGORITHM
 
 XUELIU_EXCHANGE_RATING_RULE = 'sichuan_xueliu_exchange'
 XUELIU_EXCHANGE_SUB_RULE = 'sichuan/xueliu_exchange'
@@ -34,6 +35,7 @@ class RankedQueue:
     sub_rule: str = ''
     elo_k: float = 32.0
     elo_algorithm: str = ELO_ALGORITHM_VERSION
+    unlimited_rounds: bool = False
 
     @property
     def rating_rule(self):
@@ -54,7 +56,11 @@ for rule in ("guobiao", "riichi"):
                 continue  # Riichi supports East and East-South games.
             key = f"{tier}_{mode}" if rule == "guobiao" else f"{rule}_{tier}_{mode}"
             QUEUES[key] = RankedQueue(rule, tier, mode, rounds)
-QUEUES["qingque_elo_quanzhuang"] = RankedQueue("qingque", "elo", "quanzhuang", 4)
+QUEUES["qingque_elo_quanzhuang"] = RankedQueue("qingque", "elo", "quanzhuang", 4,
+                                              elo_algorithm=QINGQUE_ELO_ALGORITHM)
+QUEUES["qingque_elo_unlimited"] = RankedQueue("qingque", "elo", "unlimited", 4,
+                                             elo_algorithm=QINGQUE_ELO_ALGORITHM,
+                                             unlimited_rounds=True)
 QUEUES["hongque_elo_banzhuang"] = RankedQueue("hongque", "elo", "banzhuang", 8,
                                             sub_rule="hongque/v1.6", elo_k=16.0,
                                             elo_algorithm=HONGQUE_ELO_ALGORITHM_VERSION)

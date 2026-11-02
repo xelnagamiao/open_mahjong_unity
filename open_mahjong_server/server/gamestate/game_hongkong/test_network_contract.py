@@ -114,18 +114,30 @@ def test_ready_reconnect_and_observer_restore_rule_metadata_and_never_other_hand
         state.machine.transition(P.READY)
         state.waiting_players_list = [0,1,2,3]
         state.action_dict = {i:['ready'] for i in range(4)}
-        state.send_payload_to_player = AsyncMock()
+        player_socket = SimpleNamespace(send_json=AsyncMock())
+        observer_socket = SimpleNamespace(send_json=AsyncMock())
+        state.game_server = SimpleNamespace(user_id_to_connection={
+            state.player_list[1].user_id: SimpleNamespace(websocket=player_socket),
+            999: SimpleNamespace(websocket=observer_socket),
+        })
         state.player_list[1].tag_list.append('offline')
         await state.player_reconnect(state.player_list[1].user_id)
-        payloads = [c.args[1] for c in state.send_payload_to_player.await_args_list]
+        payloads = [c.args[0] for c in player_socket.send_json.await_args_list]
         assert payloads[-1]['ready_status_info']['hongkong_info']['rule_version']==state.rules.version
         assert 'offline' not in state.player_list[1].tag_list
         view = payloads[0]['game_info']['players_info']
         assert all(p['hand_tiles'] is None for i,p in enumerate(view) if i!=1)
-        socket = SimpleNamespace(send_json=AsyncMock())
-        state.game_server = SimpleNamespace(user_id_to_connection={999:SimpleNamespace(websocket=socket)})
         await state.send_realtime_spectator_snapshot(999,1)
-        assert [c.args[0] for c in socket.send_json.await_args_list]==payloads
+        observed = [c.args[0] for c in observer_socket.send_json.await_args_list]
+        assert len(observed) == len(payloads) == 3
+        # Compare real wire projections. Delivery adds per-recipient restoration
+        # metadata and samples the ready clock; neither is rule payload data.
+        for player_packet, observer_packet in zip(payloads, observed):
+            assert observer_packet['gamestate_id'] == player_packet['gamestate_id'] == state.gamestate_id
+            for field in ('type', 'game_info', 'show_result_info', 'ready_status_info'):
+                assert observer_packet.get(field) == player_packet.get(field)
+        assert observed[-1]['settlement_sync']['result_id'] == payloads[-1]['settlement_sync']['result_id']
+        assert observed[-1]['settlement_sync']['player_to_ready'] == payloads[-1]['settlement_sync']['player_to_ready']
     asyncio.run(run())
 
 

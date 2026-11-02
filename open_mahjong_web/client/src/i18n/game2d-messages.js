@@ -1,6 +1,8 @@
 // Complete sentences keep replay and room labels reactive without translating user data.
 // Columns: source, English, Japanese, French. Traditional Chinese uses the shared converter.
 const entries = [
+  ['夺彩麻将·国标', 'Duocai · MCR', '奪彩麻雀・中国公式', 'Duocai · MCR'],
+  ['夺彩麻将·立直', 'Duocai · Riichi', '奪彩麻雀・リーチ', 'Duocai · Riichi'],
   ['仅点和', 'Discard win only', 'ロンのみ', 'Sur écart uniquement'],
   ['设定牌桌', 'Table setup', '卓の設定', 'Réglage de la table'],
   ['随机牌桌', 'Randomize table', '卓をランダム生成', 'Table aléatoire'],

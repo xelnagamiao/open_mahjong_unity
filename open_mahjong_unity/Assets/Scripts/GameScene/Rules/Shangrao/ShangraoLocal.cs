@@ -57,11 +57,24 @@ internal sealed class ShangraoLocal {
         if (memo.Count >= 50000) memo.Clear();
         memo[key] = result; return result;
     }
-    private int[] Pairs(List<int> hand, bool triplets = false) {
+    private int[] Pairs(List<int> hand, bool triplets = false, int? win = null) {
         if (triplets && melds.Any(m => m[0] == 's')) return Array.Empty<int>();
         int wild = hand.Count(t => t == bao);
         int[] counts = Tiles.Select(t => t == bao ? 0 : hand.Count(x => x == t)).ToArray();
         var result = new HashSet<int>();
+        if (wild > 0) {
+            int[] natural = Tiles.Select(t => hand.Count(x => x == t)).ToArray();
+            for (int i = 0; i < natural.Length; i++) {
+                if (natural[i] < 2) continue;
+                int[] rest = (int[])natural.Clone(); rest[i] -= 2;
+                if (Groups(rest, 0, 4 - melds.Count, triplets)) { result.Add(0); break; }
+            }
+        }
+        if (wild > 0 && win.HasValue) {
+            int[] rest = (int[])counts.Clone();
+            if (win.Value != bao) rest[Index[win.Value]]--;
+            if (!Groups(rest, wild - 1 - (win.Value == bao ? 1 : 0), 4 - melds.Count, triplets)) return result.ToArray();
+        }
         if (wild >= 2 && Groups(counts, wild - 2, 4 - melds.Count, triplets)) result.Add(2);
         for (int i = 0; i < counts.Length; i++) {
             int used = wild > 0 ? 1 : 2;
@@ -106,7 +119,8 @@ internal sealed class ShangraoLocal {
         bool legacy = (string)config["rule_version"] == "shangrao-v1";
         int wild = hand.Count(t => t == bao);
         bool firstBao = !opening && win == bao && wild == 1;
-        int[] pairs = firstBao ? Array.Empty<int>() : Pairs(hand), triplets = firstBao ? Array.Empty<int>() : Pairs(hand, true);
+        int? pairWin = opening ? (int?)null : win;
+        int[] pairs = Pairs(hand, win:pairWin), triplets = Pairs(hand, true, pairWin);
         bool seven = !firstBao && Seven(hand, win, opening);
         bool luxury = seven && hand.Where(t => t != bao).GroupBy(t => t).Any(g => g.Count() == 4);
         bool allowBao = Option("allow_special_bao"), nine = hand.All(t => Terminal(t) || allowBao && t == bao) && melds.SelectMany(Meld).All(Terminal);
@@ -114,7 +128,7 @@ internal sealed class ShangraoLocal {
         if (cut == bao && Honors.Contains(bao)) { var before = new List<int>(hand); before.Remove(win); before.Add(cut.Value); flown |= !legacy || Stars(before, false, false); }
         bool stars = Stars(hand, legacy && allowBao, Option("flying_seven_stars") && flown);
         var candidates = new List<(string name, int value, string shape, int[] pairs)>();
-        if (pairs.Length > 0) candidates.Add((wild > 0 ? "钓头" : "平和", 1, "standard", pairs));
+        if (pairs.Length > 0) candidates.Add((pairs.Any(used => used > 0) ? "钓头" : "平和", 1, "standard", pairs));
         if (triplets.Length > 0) candidates.Add((wild > 0 ? "碰碰和" : "清碰", wild > 0 ? 2 : 4, "triplets", triplets));
         int sevenPairBao = wild >= 2 && hand.Where(t => t != bao).GroupBy(t => t).Sum(g => g.Count() % 2) <= wild - 2 ? 2 : Math.Min(1, wild);
         if (seven) candidates.Add(((luxury ? "豪华" : "") + (wild > 0 ? "七对" : "硬七对"), (wild > 0 ? 2 : 4) * (luxury ? 2 : 1), "seven", new[] {sevenPairBao}));
@@ -134,6 +148,7 @@ internal sealed class ShangraoLocal {
         if (!legacy) {
             if (qing) foreach (var candidate in candidates.ToArray()) {
                 if (candidate.shape == "nine" || candidate.shape == "lan") continue;
+                if (wild > 0 && !candidate.pairs.Any(used => used > 0) && !suits.Contains(bao / 10)) continue;
                 string label = candidate.shape == "standard" ? (wild > 0 ? "清一色" : "无宝清一色") : "清一色" + candidate.name;
                 candidates.Add((label, candidate.shape == "standard" && wild == 0 ? 4 : candidate.value * 2, candidate.shape, candidate.pairs));
             }
@@ -150,12 +165,12 @@ internal sealed class ShangraoLocal {
         JObject best = null;
         foreach (var candidate in candidates) {
             var multipliers = new JObject();
-            if (legacy && qing && candidate.shape != "nine" && candidate.shape != "lan") multipliers["清一色"] = 2;
+            if (legacy && qing && candidate.shape != "nine" && candidate.shape != "lan" && (candidate.pairs.Any(used => used > 0) || wild == 0 || suits.Contains(bao / 10))) multipliers["清一色"] = 2;
             if (legacy && zi) multipliers["字一色"] = 2;
             if (melds.Count == 0 && candidate.shape != "seven" && candidate.shape != "lan") multipliers["门清"] = 2;
             if (melds.Count == 4) multipliers["单钓"] = 2;
             if (afterKong) multipliers["杠上开花"] = 2;
-            if (candidate.pairs.Length > 0 && wild > 0 && win == bao) multipliers["宝钓宝"] = 2;
+            if (candidate.pairs.Any(used => used > 0) && win == bao) multipliers["宝钓宝"] = 2;
             if (win != bao && candidate.pairs.Contains(2)) multipliers["宝还原"] = 2;
             if (flying > 0) multipliers["飞宝"] = 1 << flying;
             int points = candidate.value;

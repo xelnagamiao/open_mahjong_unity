@@ -19,7 +19,7 @@ internal static class QingqueLobby {
             { CreateRoomKeys.RandomSeed, false },
             { CreateRoomKeys.TouristLimit, false },
             { CreateRoomKeys.AllowSpectator, true },
-            { CreateRoomKeys.TacticalCall, false },
+            { CreateRoomKeys.TacticalCall, true },
         };
     }
 }

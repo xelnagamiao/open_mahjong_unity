@@ -4,6 +4,10 @@ async function listUserEvents(userId) {
   const result = await pool.query(
     `SELECT e.event_id, e.name, e.description, e.status, e.kind, e.reopen_requested, e.closed_at, e.created_at, e.updated_at,
             ea.role,
+            EXISTS (
+              SELECT 1 FROM event_profile_change_requests pr
+              WHERE pr.event_id = e.event_id AND pr.status = 'pending'
+            ) AS profile_change_pending,
             (
               SELECT COUNT(*)::int FROM event_admins ea2
               WHERE ea2.event_id = e.event_id AND ea2.role = 'admin'

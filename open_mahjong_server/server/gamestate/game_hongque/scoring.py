@@ -128,6 +128,15 @@ def _dragon_fan(shapes: Sequence[MeldShape]) -> dict | None:
     return None
 
 
+def _is_mirror(groups: Sequence[Sequence[str]]) -> bool:
+    """Match groups about 5, preserving boundaries, lengths and multiplicity."""
+    counts = Counter(tuple(sorted(HongqueTile.parse(code).number for code in group)) for group in groups)
+    return bool(counts) and all(
+        counts[numbers] == counts[tuple(10 - number for number in reversed(numbers))]
+        for numbers in counts
+    )
+
+
 def score_partition(
     concealed_partition: Sequence[Sequence[str]],
     open_melds: Sequence[dict],
@@ -176,7 +185,7 @@ def score_partition(
     if dragon:
         fans.append(dragon)
     fans.extend(_same_shape_fans(shapes, "triplet", {2: ("双同刻", 2), 3: ("三同刻", 6), 4: ("四同刻", 12)}))
-    fans.extend(_same_shape_fans(shapes, "sequence", {2: ("双同顺", 2), 3: ("三同顺", 6), 4: ("四同顺", 12)}))
+    fans.extend(_same_shape_fans(shapes, "sequence", {2: ("双同顺", 1), 3: ("三同顺", 3), 4: ("四同顺", 6)}))
     fans.extend(_same_colour_layout_fans(shapes))
     consecutive = _consecutive_sequence_fan(shapes)
     if consecutive:
@@ -240,6 +249,9 @@ def score_partition(
         for group in groups
     ):
         fans.append(_entry("全带幺", 2))
+
+    if _is_mirror(groups):
+        fans.append(_entry("镜像", 2))
 
     is_heavenly = self_draw and before_first_discard and concealed
     if is_heavenly:

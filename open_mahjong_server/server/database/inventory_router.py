@@ -74,7 +74,7 @@ async def handle_inventory_message(server,connection_id,message,websocket):
                 elif kind in ('inventory/equip','inventory/use'):
                     body={key:message[key] for key in ('request_id','item_id','slot','quantity') if key in message}
                     result=await asyncio.to_thread(mutate_inventory,server.db_manager,player.user_id,kind.split('/')[1],body)
-                    response.update(success=True,inventory_state=result['inventory_state'],message=result['message'])
+                    response.update(success=True,inventory_state=result['inventory_state'],message=result['message'],reward_receipt=result.get('reward_receipt'))
                 else: raise InventoryError('未知的背包操作')
             await _send(websocket,response)
             if kind in ('inventory/equip','inventory/use'):
@@ -165,6 +165,9 @@ def register_inventory_routes(app,server):
                 except Exception:
                     synced=False
                     logger.exception('物品已保存，在线通知失败')
+                if isinstance(data,dict) and data.get('reward_receipt'):
+                    from .reward_receipts import notify_reward
+                    await notify_reward(server,data)
                 return {'success':True,'data':data,'synced_online':synced}
         except InventoryError as error: raise HTTPException(status_code=error.status,detail=str(error))
         except (ValueError,TypeError): raise HTTPException(status_code=400,detail='请求参数无效')

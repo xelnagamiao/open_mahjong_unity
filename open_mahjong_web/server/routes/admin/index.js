@@ -40,6 +40,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/users', usersRoutes);
 router.use('/titles', titlesRoutes);
 router.use('/inventory', require('./inventory'));
+router.use('/redemption', require('./redemption'));
 router.use('/rank', rankRoutes);
 router.use('/games', gamesRoutes);
 router.use('/game-control', gameControlRoutes);
@@ -55,5 +56,6 @@ router.use('/event-profile-changes', eventProfileChangesRoutes);
 router.use('/activities', activitiesRoutes);
 router.use('/classic-records', classicRecordsRoutes);
 router.use('/tile-content', tileContentRoutes);
+router.use('/platform-content', require('./platformContent'));
 
 module.exports = router;

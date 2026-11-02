@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // 全局连接池实例
@@ -15,7 +16,6 @@ var Pool = ConnectionPool{
 
 // 房间管理器实例
 var roomManager = RoomManager{
-	secretKey:      GetSecretKey(),
 	uuidToUsername: make(map[string]string),
 	usernameToUUID: make(map[string]string),
 	usernameRooms:  make(map[string]map[int]struct{}),
@@ -83,8 +83,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var jsonMsg struct {
-			Type string          `json:"type"`
-			Data json.RawMessage `json:"data"`
+			Type      string          `json:"type"`
+			Data      json.RawMessage `json:"data"`
+			RequestID string          `json:"requestId"`
 		}
 
 		type LoginMsg struct {
@@ -110,13 +111,23 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error parsing JSON message from player %s: %v", playerId, err)
 			continue // 跳过当前消息，继续处理下一条
 		}
-		log.Printf("收到消息 type: %s, data: %s", jsonMsg.Type, string(jsonMsg.Data))
+		// Never log credentials or chat contents.
+		if len(jsonMsg.RequestID) > 64 {
+			jsonMsg.RequestID = ""
+		}
+		reply := func(response ChatResponse) error {
+			response.RequestType = jsonMsg.Type
+			response.RequestID = jsonMsg.RequestID
+			response.Success = response.ResponseType != "False"
+			response.ProtocolVersion = 2
+			return client.WriteJSON(response)
+		}
 		// 处理不同类型的消息
 		switch jsonMsg.Type {
 		// 登录游戏大厅
 		case "login":
 			if authenticated {
-				if err := client.WriteJSON(ChatResponse{
+				if err := reply(ChatResponse{
 					ResponseType: "False",
 					TargetRoomID: 0,
 					Content:      "当前聊天连接已经登录",
@@ -144,10 +155,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 						log.Printf("Failed to notify replaced connection %s: %v", result.ReplacedConnectionID, err)
 					}
 					Pool.Remove(result.ReplacedConnectionID, oldClient)
-					oldClient.CloseWithReason(4001, "login_kickout")
+					// NativeWebSocket preserves standard codes; custom 4001 was lost.
+					oldClient.CloseWithReason(websocket.ClosePolicyViolation, "login_kickout")
 				}
 			}
-			if err := client.WriteJSON(result.Response); err != nil {
+			if err := reply(result.Response); err != nil {
 				log.Printf("Error sending login message to player %s: %v", playerId, err)
 				return
 			}
@@ -161,7 +173,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			// 加入聊天房间 发送加入房间结果
 			resp := roomManager.joinRoom(playerId, joinRoomMsg.RoomId)
-			if err := client.WriteJSON(resp); err != nil {
+			if err := reply(resp); err != nil {
 				log.Printf("Error sending join room success message to player %s: %v", playerId, err)
 				return
 			}
@@ -175,7 +187,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			// 处理离开房间消息 发送离开房间结果
 			resp := roomManager.exitRoom(playerId, leaveRoomMsg.RoomId)
-			if err := client.WriteJSON(resp); err != nil {
+			if err := reply(resp); err != nil {
 				log.Printf("Error sending leave room success message to player %s: %v", playerId, err)
 				return
 			}
@@ -187,13 +199,32 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Error parsing send chat message from player %s: %v", playerId, err)
 				continue
 			}
+			if _, _, allowed := roomManager.chatRecipients(playerId, sendChatMsg.RoomId); !allowed {
+				if err := reply(ChatResponse{ResponseType: "False", TargetRoomID: sendChatMsg.RoomId,
+					Content: "聊天频道尚未连接，请稍后重试", Code: "not_joined"}); err != nil {
+					return
+				}
+				continue
+			}
 			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, &Pool) {
 				// 聊天成功，向客户端发送聊天成功消息
 				resp := ChatResponse{ResponseType: "sendChatOk", TargetRoomID: sendChatMsg.RoomId, Content: sendChatMsg.Content} // 发送接受到的聊天信息原句
-				if err := client.WriteJSON(resp); err != nil {
+				if err := reply(resp); err != nil {
 					log.Printf("Error sending chat success message to player %s: %v", playerId, err)
 					return
 				}
+			} else {
+				if err := reply(ChatResponse{ResponseType: "False", TargetRoomID: sendChatMsg.RoomId,
+					Content: "消息发送未确认，请核对聊天记录后重试", Code: "delivery_failed"}); err != nil {
+					return
+				}
+			}
+		case "ping":
+			// Heartbeating clients must not remain registered forever after a
+			// silent network loss. Legacy clients without ping keep their behavior.
+			_ = client.conn.SetReadDeadline(time.Now().Add(45 * time.Second))
+			if err := reply(ChatResponse{ResponseType: "pong"}); err != nil {
+				return
 			}
 		default:
 			log.Printf("Unknown message type from player %s: %s", playerId, jsonMsg.Type)
@@ -203,6 +234,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	roomManager.secretKey = GetSecretKey()
 
 	// 设置路由处理函数
 	http.HandleFunc("/chat/", handleWebSocket) // 匹配所有 /chat/ 开头的路径

@@ -40,8 +40,21 @@ public static class GuobiaoFanTableUiBaker {
         if (legacyEntry) Object.DestroyImmediate(legacyEntry.gameObject);
         var panel = ownerData.FindProperty("fanTablePanel").objectReferenceValue as GuobiaoFanTablePanel;
         if (!panel) panel = CreatePanel(owner.transform.parent, font, returnButton);
+        var backdrop = panel.transform.Find("Backdrop")?.GetComponent<UnityEngine.UI.Image>();
+        if (backdrop) {
+            backdrop.color = Color.clear;
+            backdrop.raycastTarget = true;
+            var dismissal = backdrop.GetComponent<UnityEngine.UI.Button>();
+            if (dismissal) {
+                dismissal.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
+                dismissal.interactable = false;
+                EditorUtility.SetDirty(dismissal);
+            }
+        }
         ConfigureHeader(panel, font, returnButton);
         ConfigurePages(panel, font);
+        var placement = panel.GetComponent<Salasasa.Home.LobbyFanTablePlacement>();
+        if (placement) placement.Apply();
         Set(panel, "rulebookController", owner);
         var manualLabel = (TMP_Text)ownerData.FindProperty("openButtonText").objectReferenceValue;
         manualLabel.fontSize = 20;
@@ -59,30 +72,17 @@ public static class GuobiaoFanTableUiBaker {
 
     public static void BakeMenuEntry(Scene scene) {
         foreach (var menu in Find<MeunPanel>(scene)) {
-            var sidebar = menu.transform.Find("GameObject");
-            var inventory = sidebar?.Find("InventoryButton")?.GetComponent<UnityEngine.UI.Button>();
-            if (!inventory) throw new InvalidOperationException("主菜单背包入口缺失，无法烘焙番表入口。");
-            var button = sidebar.Find("FanTableButton")?.GetComponent<UnityEngine.UI.Button>();
-            if (!button) {
-                button = Object.Instantiate(inventory, sidebar);
-                button.name = "FanTableButton";
-                button.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
-            }
-            button.transform.SetSiblingIndex(inventory.transform.GetSiblingIndex() + 1);
-            button.GetComponentInChildren<TMP_Text>(true).text = "查看番数表";
-            while (button.onClick.GetPersistentEventCount() > 0)
-                UnityEditor.Events.UnityEventTools.RemovePersistentListener(button.onClick, 0);
-            UnityEditor.Events.UnityEventTools.AddPersistentListener(button.onClick, menu.OpenFanTable);
-
+            var button = HomeFanEntry(scene);
             var menuData = new SerializedObject(menu);
             var owner = menuData.FindProperty("rulebookPanelController").objectReferenceValue as RulebookPanelController;
             if (!owner) {
-                var overlay = Rect("RulebookOverlay", menu.transform);
+                var globalOverlay=scene.GetRootGameObjects().FirstOrDefault(g=>g.name=="OverlayCanvas");
+                var parent=globalOverlay ? globalOverlay.transform.Find("PageOverlays") ?? globalOverlay.transform : menu.transform;
+                var overlay = Rect("RulebookOverlay", parent);
                 Stretch(overlay, 0, 0, 0, 0);
                 // 保持菜单生命周期，同时覆盖大厅聊天等浮层。
                 var canvas = overlay.gameObject.AddComponent<Canvas>();
-                canvas.overrideSorting = true;
-                canvas.sortingOrder = 11;
+                UiCanvasLayers.Apply(canvas, UiCanvasLayers.Overlay, UiCanvasLayers.RulebookOrder);
                 overlay.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
                 var page = Find<GamePageControl>(scene).First();
                 var source = (RulebookPanelController)new SerializedObject(page).FindProperty("rulebookPanelController").objectReferenceValue;
@@ -92,11 +92,28 @@ public static class GuobiaoFanTableUiBaker {
                 // 副本使用自己的阅读面板，不能保留对局面板的引用。
                 Set(owner, "fanTablePanel", null);
                 Set(menu, "rulebookPanelController", owner);
+                if(globalOverlay) {
+                    var scope=menu.GetComponent<PageOwnedOverlays>()??menu.gameObject.AddComponent<PageOwnedOverlays>();
+                    scope.overlays=(scope.overlays??Array.Empty<GameObject>()).Concat(new[]{owner.gameObject}).Distinct().ToArray();
+                }
+            }
+            // 已存在并迁入 OverlayCanvas 的阅读器也要同步排序层，不能只处理新建分支。
+            var overlayCanvas = owner.transform.parent.GetComponent<Canvas>();
+            if (overlayCanvas) {
+                UiCanvasLayers.Apply(overlayCanvas, UiCanvasLayers.Overlay, UiCanvasLayers.RulebookOrder);
+                EditorUtility.SetDirty(overlayCanvas);
             }
             ConfigureReader(owner, button);
             foreach (var component in button.GetComponentsInChildren<Component>(true)) if (component) EditorUtility.SetDirty(component);
             EditorUtility.SetDirty(menu);
         }
+    }
+
+    private static UnityEngine.UI.Button HomeFanEntry(Scene scene) {
+        var home = Find<Salasasa.Home.CompleteLobbyController>(scene).Single();
+        var entry = home.artwork.pages[0].GetComponentsInChildren<Salasasa.Home.LobbyAction>(true)
+            .Single(action => action.action == "tutorial" && action.transform.parent.name == "MetroBottomNavigation");
+        return entry.GetComponent<UnityEngine.UI.Button>();
     }
 
     private static GuobiaoFanTablePanel CreatePanel(Transform parent, TMP_FontAsset font, UnityEngine.UI.Button returnButton) {
@@ -107,7 +124,7 @@ public static class GuobiaoFanTableUiBaker {
         var panel = root.gameObject.AddComponent<GuobiaoFanTablePanel>();
         var backdrop = Rect("Backdrop", root);
         Stretch(backdrop, 0, 0, 0, 0);
-        var veil = Image(backdrop, new Color(0, 0, 0, .72f), true);
+        var veil = Image(backdrop, Color.clear, true);
         var backdropButton = backdrop.gameObject.AddComponent<UnityEngine.UI.Button>();
         backdropButton.targetGraphic = veil;
         backdropButton.transition = UnityEngine.UI.Selectable.Transition.None;
@@ -242,15 +259,11 @@ public static class GuobiaoFanTableUiBaker {
     public static void Validate(Scene scene) {
         foreach (var menu in Find<MeunPanel>(scene)) {
             var owner = new SerializedObject(menu).FindProperty("rulebookPanelController").objectReferenceValue as RulebookPanelController;
-            var sidebar = menu.transform.Find("GameObject");
-            var inventory = sidebar?.Find("InventoryButton");
-            var button = sidebar?.Find("FanTableButton")?.GetComponent<UnityEngine.UI.Button>();
-            if (!owner || !owner.transform.IsChildOf(menu.transform) || !inventory || !button
-                || button.transform.GetSiblingIndex() != inventory.GetSiblingIndex() + 1
-                || button.GetComponentInChildren<TMP_Text>(true).text != "查看番数表"
-                || button.onClick.GetPersistentEventCount() != 1
-                || button.onClick.GetPersistentTarget(0) != menu
-                || button.onClick.GetPersistentMethodName(0) != nameof(MeunPanel.OpenFanTable))
+            var button = HomeFanEntry(scene);
+            var scope=menu.GetComponent<PageOwnedOverlays>();
+            bool owned=owner&&(owner.transform.IsChildOf(menu.transform)
+                || owner.transform.root.name=="OverlayCanvas" && scope && scope.overlays!=null && scope.overlays.Contains(owner.gameObject));
+            if (!owned || !button)
                 throw new InvalidOperationException("首页番表入口未烘焙或绑定错误。");
         }
         foreach (var owner in Find<RulebookPanelController>(scene)) {
@@ -273,6 +286,9 @@ public static class GuobiaoFanTableUiBaker {
             if (!scroll.content || !scroll.viewport || !scroll.viewport.GetComponent<UnityEngine.UI.Mask>() || !scroll.verticalScrollbar)
                 throw new InvalidOperationException("国标番表滚动结构缺失。");
             if (panel.gameObject.activeSelf) throw new InvalidOperationException("国标番表初始应隐藏。");
+            var backdrop = (UnityEngine.UI.Button)panelData.FindProperty("backdropButton").objectReferenceValue;
+            if (backdrop.interactable || backdrop.onClick.GetPersistentEventCount() != 0)
+                throw new InvalidOperationException("番表背景不能关闭面板。");
             var row = new SerializedObject(panelData.FindProperty("rowTemplate").objectReferenceValue);
             if (!row.FindProperty("headerBackground").objectReferenceValue) throw new InvalidOperationException("番种标题背景缺失。");
             var dropdown = (TMP_Dropdown)panelData.FindProperty("ruleDropdown").objectReferenceValue;
@@ -282,9 +298,10 @@ public static class GuobiaoFanTableUiBaker {
     }
 
     private static void ConfigureHeader(GuobiaoFanTablePanel panel, TMP_FontAsset font, UnityEngine.UI.Button returnButton) {
+        panel.GetComponent<PanelPopupTransition>().AnimateScale = false;
         var frame = (RectTransform)panel.transform.Find("Dialog");
-        frame.anchorMin = new Vector2(.10f, .11f);
-        frame.anchorMax = new Vector2(.90f, .89f);
+        frame.anchorMin = new Vector2(.13f, .11f);
+        frame.anchorMax = new Vector2(.87f, .89f);
         frame.offsetMin = frame.offsetMax = Vector2.zero;
         foreach (string name in new[] { "Subtitle", "Footer", "Selection" }) {
             var legacy = frame.Find(name);
@@ -346,7 +363,9 @@ public static class GuobiaoFanTableUiBaker {
         var tabs = data.FindProperty("fanButtons");
         for (int i = 0; i < tabs.arraySize; i++) {
             var button = (UnityEngine.UI.Button)tabs.GetArrayElementAtIndex(i).objectReferenceValue;
-            button.GetComponentInChildren<TMP_Text>(true).fontSize = 22;
+            var caption = button.GetComponentInChildren<TMP_Text>(true);
+            caption.fontSize = 22;
+            caption.textWrappingMode = TextWrappingModes.NoWrap;
             var navigation = button.navigation;
             navigation.selectOnUp = dropdown;
             button.navigation = navigation;

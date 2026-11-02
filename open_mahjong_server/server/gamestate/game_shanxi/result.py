@@ -1,4 +1,5 @@
 """MIL V.9: expose all four hands at the terminal result, never midhand."""
+from ..public.settlement_sync import send_game_packet
 import copy
 import logging
 
@@ -26,7 +27,7 @@ async def broadcast_result(state, **fields):
         if player.user_id < 10 or 'offline' in player.tag_list or connection is None:
             continue
         try:
-            await connection.websocket.send_json(state._terminal_result)
+            await send_game_packet(state, connection.websocket, state._terminal_result)
         except Exception:
             logger.exception('山西终局广播失败 user_id=%s', player.user_id)
 
@@ -37,4 +38,4 @@ async def restore_terminal_result(state, user_id):
         return
     payload = copy.deepcopy(state._terminal_result)
     payload['show_result_info']['silent'] = True
-    await connection.websocket.send_json(payload)
+    await send_game_packet(state, connection.websocket, payload)

@@ -15,7 +15,7 @@ namespace Classical {
             int completeStep = combinationList.Count * 3;
             var pt = new ClassicalPlayerTiles(handTileList, combinationList, completeStep);
             CheckWaitingTiles(pt);
-            _waitingTiles.RemoveWhere(t => InvalidTiles.Contains(t));
+            _waitingTiles.RemoveWhere(t => InvalidTiles.Contains(t) || handTileList.FindAll(tile => tile == t).Count >= 4);
             return new HashSet<int>(_waitingTiles);
         }
 

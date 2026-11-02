@@ -36,6 +36,7 @@ public class MahjongObjectPool : MonoBehaviour {
     private readonly Dictionary<Material, Material> washizuInkMaterials = new Dictionary<Material, Material>();
     private readonly Dictionary<Material, Material> washizuReadingMaterials = new Dictionary<Material, Material>();
     private Mesh washizuReadingMesh;
+    private readonly Dictionary<int, int> hongquePoolCapacity = new Dictionary<int, int>();
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
     private Dictionary<int, Material> customStandardMaterialCache = new Dictionary<int, Material>();
 
@@ -139,29 +140,27 @@ public class MahjongObjectPool : MonoBehaviour {
 
     }
 
-    /// <summary>
-    /// 仅在进入虹雀时建立 126 张唯一牌的 3D 对象与材质。
-    /// 虹雀每张牌只出现一次，因此每个牌面一个对象即可；把 Instantiate/材质创建集中到开局，
-    /// 避免实战中每次首次亮出新牌都卡住一帧。
-    /// </summary>
-    public void PrewarmHongquePool() {
-        for (int colour = 0; colour < HongqueTileVisual.ColourCount; colour++) {
-            for (int number = 1; number <= HongqueTileVisual.NumberCount; number++) {
-                EnsureHongqueTilePool(HongqueTileVisual.BaseId + colour * 10 + number);
-            }
-        }
+    public void PrewarmHongquePool(int copies = 1) {
+        for (int colour = 0; colour < HongqueTileVisual.ColourCount; colour++)
+            for (int number = 1; number <= HongqueTileVisual.NumberCount; number++)
+                EnsureHongqueTilePool(HongqueTileVisual.BaseId + colour * 10 + number, copies);
     }
 
-    private void EnsureHongqueTilePool(int tileId) {
-        if (poolDictionary.ContainsKey(tileId)) return;
-        Queue<GameObject> objectPool = new Queue<GameObject>();
-        GameObject obj = Instantiate(tile3DPrefab);
-        obj.SetActive(false);
-        obj.transform.SetParent(transform);
-        SetupPooledTile(obj);
-        ApplyCardTexture(obj, tileId);
-        objectPool.Enqueue(obj);
-        poolDictionary[tileId] = objectPool;
+    private void EnsureHongqueTilePool(int tileId, int copies) {
+        if (!poolDictionary.TryGetValue(tileId, out var objectPool)) {
+            objectPool = new Queue<GameObject>();
+            poolDictionary[tileId] = objectPool;
+        }
+        hongquePoolCapacity.TryGetValue(tileId, out int capacity);
+        for (int i = capacity; i < copies; i++) {
+            GameObject obj = Instantiate(tile3DPrefab);
+            obj.SetActive(false);
+            obj.transform.SetParent(transform);
+            SetupPooledTile(obj);
+            ApplyCardTexture(obj, tileId);
+            objectPool.Enqueue(obj);
+        }
+        hongquePoolCapacity[tileId] = Mathf.Max(capacity, copies);
     }
 
     private void SetupPooledTile(GameObject obj) {
@@ -267,15 +266,16 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 从池中取出一张指定类型的牌
     /// </summary>
     public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
+        if(DuocaiTileVisual.IsCurrent(type))return SpawnPresentationTile(type,position,rotation);
         int logicalType = type;
         if(VietnameseTileVisual.IsExtra(type) && !poolDictionary.ContainsKey(type)) {
             var queue=new Queue<GameObject>();var extra=Instantiate(tile3DPrefab,transform);
             extra.SetActive(false);SetupPooledTile(extra);ApplyCardTexture(extra,type);queue.Enqueue(extra);poolDictionary[type]=queue;
         }
         type = WashizuTile.Face(type);
-        if (HongqueTileVisual.IsHongqueId(type) && !poolDictionary.ContainsKey(type)) {
+        if (HongqueTileVisual.IsHongqueId(type)) {
             // 兼容旧入口/重连：正常虹雀对局会在首个快照时整批预热。
-            EnsureHongqueTilePool(type);
+            EnsureHongqueTilePool(type, HongqueWTips.IsActive ? 2 : 1);
         }
         if (!poolDictionary.ContainsKey(type)) {
             Debug.LogError("牌型不存在于对象池中: " + type);
@@ -353,7 +353,7 @@ public class MahjongObjectPool : MonoBehaviour {
 
     /// <summary>独立展示实例不借用实体牌池；调用方注销悬停并 Destroy，不能 Return。</summary>
     public GameObject CreatePresentationTile(int tileId) {
-        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId) && !VietnameseTileVisual.IsExtra(tileId)))
+        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId) && !VietnameseTileVisual.IsExtra(tileId) && !DuocaiTileVisual.IsCurrent(tileId)))
             return null;
         CardBackManager.EnsureSavedConfigApplied();
         GameObject tile = Instantiate(tile3DPrefab);
@@ -459,7 +459,7 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D.SetTileIds(tileId, face);
             return;
         }
-        if (HongqueTileVisual.IsHongqueId(tileId)) {
+        if (!DuocaiTileVisual.IsCurrent(tileId) && HongqueTileVisual.IsHongqueId(tileId)) {
             Texture2D texture = HongqueTileVisual.LoadTableTexture(tileId);
             if (texture == null) {
                 Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.TableResourcePath(tileId)}");

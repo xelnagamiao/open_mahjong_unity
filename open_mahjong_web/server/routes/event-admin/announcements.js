@@ -69,12 +69,13 @@ async function fetchLatestRejectedProfileChange(eventId) {
             u.username AS requester_username
      FROM event_profile_change_requests r
      LEFT JOIN users u ON u.user_id = r.requested_by
-     WHERE r.event_id = $1 AND r.status = 'rejected'
-     ORDER BY r.reviewed_at DESC NULLS LAST, r.updated_at DESC
+     WHERE r.event_id = $1
+     ORDER BY r.created_at DESC, r.request_id DESC
      LIMIT 1`,
     [eventId]
   );
-  return result.rows[0] || null;
+  const latest = result.rows[0];
+  return latest?.status === 'rejected' ? latest : null;
 }
 
 router.get('/announcements', requireEventMembership, async (req, res) => {

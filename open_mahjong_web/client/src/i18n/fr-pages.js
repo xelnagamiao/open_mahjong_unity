@@ -227,7 +227,6 @@ export const frPageMessages = {
   "平均和了番数": "Fans moyens par victoire",
   "和牌番数合计 / 和牌次数。": "Total des fans des mains gagnantes / nombre de victoires.",
   "已拒绝": "Refusé",
-  "13 张显示听牌与进张；14 张计算番种、得分及全部拆解，未和牌时显示切牌分析。": "Avec 13 tuiles, affiche les attentes et les tuiles utiles. Avec 14, calcule les combinaisons, le score et les décompositions, ou analyse les écarts si la main n'est pas gagnante.",
   "牌面简写": "Notation des tuiles",
   "如 11122333m44455p66z + 和牌张": "Ex. : 11122333m44455p66z + tuile gagnante",
   "解析": "Lire",

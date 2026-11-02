@@ -177,9 +177,13 @@ public partial class GameCanvas{
                 drawCard.isDrawSlotPinned = selfPlayer.HasSeparateDrawSlot;
                 drawCard.handSortIndex = mainTiles.Length;
             }
-            LayoutHandCardsFromCurrentOrder();
-            if (selfPlayer?.DrawSlotIsMerged == true)
-                yield return RearrangeHandCardsWithAnimation(clearMoqieMark: false);
+            // Seeking restores a snapshot immediately, including a draw tile already merged into the hand.
+            // Keep its currentGetTile marker for discard semantics without replaying the merge animation.
+            var main = GetMainHandCardsOrdered();
+            var draw = GetPinnedDrawTile();
+            if (selfPlayer?.DrawSlotIsMerged == true && !WashizuTile.IsRealtimeHandOrder)
+                TileIdOrder.SortHand(main, card => card.tileId);
+            ApplyHandLayoutPositions(BuildHandLayoutPositions(main, draw), main, draw);
             // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
             if (WashizuTile.IsRealtimeHandOrder) {

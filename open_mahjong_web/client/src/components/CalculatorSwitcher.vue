@@ -21,19 +21,26 @@ const router = useRouter()
 
 const calculators = [
   { to: '/calc/chinese', label: '国标计算器' },
+  { to: '/calc/qingque', label: '青雀计算器' },
+  { to: '/calc/riichi', label: '日麻计算器' },
   { to: '/calc/hongque', label: '虹雀² 计算器' },
 ]
 
 const isActive = (to) => route.path === to
 
 const go = (to) => {
-  if (route.path !== to) router.replace(to)
+  if (route.path === to) return
+  router.replace(to)
 }
 </script>
 
 <style scoped>
 .calc-switcher {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
   gap: 4px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.5);

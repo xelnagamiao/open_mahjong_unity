@@ -41,6 +41,18 @@ def make_state(rule):
     return state
 
 
+def connect_realtime_views(state):
+    """Compare actual observer packets, including shared delivery metadata."""
+    from .spectator_rules import deliver_realtime_spectator_message
+    state.realtime_spectators = [SimpleNamespace(user_id=200+i, host_user_id=100+i) for i in range(4)]
+    for spectator in state.realtime_spectators:
+        state.game_server.user_id_to_connection[spectator.user_id] = SimpleNamespace(
+            websocket=SimpleNamespace(send_json=AsyncMock()))
+    async def deliver(viewer, response):
+        await deliver_realtime_spectator_message(state, viewer, response)
+    state.send_to_realtime_spectators = AsyncMock(side_effect=deliver)
+
+
 class ConcealedKongVisibilityTest(unittest.TestCase):
     def test_live_and_reconnect_snapshots_follow_each_rules_kong_visibility(self):
         for rule, wire in (("classical", classical), ("qingque", qingque)):
@@ -90,6 +102,7 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
 
     def test_classical_angang_broadcast_shows_middle_tiles_to_all_seats_and_observers(self):
         state = make_state("classical")
+        connect_realtime_views(state)
         mask = [2, 35, 0, 35, 0, 35, 2, 35]
         asyncio.run(classical.broadcast_do_action(
             state, ["angang"], 0, combination_mask=mask, combination_target="G35", is_mo_gang=True,
@@ -103,11 +116,14 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
             self.assertTrue(info["is_mo_gang"])
             spectator_view, response = state.send_to_realtime_spectators.await_args_list[viewer].args
             self.assertEqual(spectator_view, viewer)
-            self.assertEqual(response.model_dump(exclude_none=True), packet)
+            observer = state.game_server.user_id_to_connection[200 + viewer].websocket.send_json.await_args.args[0]
+            self.assertEqual(observer, packet)
+            self.assertEqual(packet["gamestate_id"], state.gamestate_id)
         self.assertEqual(mask, [2, 35, 0, 35, 0, 35, 2, 35])
 
     def test_qingque_angang_broadcast_shows_middle_tiles_to_all_seats_and_observers(self):
         state = make_state("qingque")
+        connect_realtime_views(state)
         mask = [2, 35, 0, 35, 0, 35, 2, 35]
         asyncio.run(qingque.broadcast_do_action(
             state, ["angang"], 0, combination_mask=mask, combination_target="G35", is_mo_gang=True,
@@ -120,7 +136,9 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
             self.assertTrue(info["is_mo_gang"])
             spectator_view, response = state.send_to_realtime_spectators.await_args_list[viewer].args
             self.assertEqual(spectator_view, viewer)
-            self.assertEqual(response.model_dump(exclude_none=True), packet)
+            observer = state.game_server.user_id_to_connection[200 + viewer].websocket.send_json.await_args.args[0]
+            self.assertEqual(observer, packet)
+            self.assertEqual(packet["gamestate_id"], state.gamestate_id)
 
     def test_qingque_angang_action_builds_two_visible_middle_tiles(self):
         async def run_action():

@@ -14,20 +14,24 @@ FLOWERS = (45, 46, 47, 51, 52, 53, 54, 55, 56, 57, 58)
 SUB_RULE = "shanghai/qiaoma"
 QING3_HUN2_PENG2 = "qing3_hun2_peng2"
 ENABLE_TIAN_QIAO = "enable_tian_qiao"
+FORBID_LAJIHE_DADIAO = "forbid_lajihe_dadiao"
 
 
-def normalize_room_config(config=None, sub_rule=SUB_RULE):
+def normalize_room_config(config=None, sub_rule=SUB_RULE, *, hepai_limit=0):
     if config is None:
         config = {}
-    if not isinstance(config, dict) or set(config) - {QING3_HUN2_PENG2, ENABLE_TIAN_QIAO}:
+    if not isinstance(config, dict) or set(config) - {QING3_HUN2_PENG2, ENABLE_TIAN_QIAO, FORBID_LAJIHE_DADIAO}:
         raise ValueError("不支持的上海敲麻细则")
     values = {}
-    for key, label in ((QING3_HUN2_PENG2, "清三混二碰二"), (ENABLE_TIAN_QIAO, "开启天敲")):
+    for key, label in ((QING3_HUN2_PENG2, "清三混二碰二"), (ENABLE_TIAN_QIAO, "开启天敲"),
+                       (FORBID_LAJIHE_DADIAO, "禁止垃圾和/大吊")):
         enabled = config.get(key, False)
         if type(enabled) is not bool:
             raise ValueError(f"{label}配置必须为布尔值")
         if sub_rule != SUB_RULE and enabled:
             raise ValueError(f"{label}仅适用于上海敲麻")
+        if key == FORBID_LAJIHE_DADIAO and enabled and hepai_limit != 1:
+            raise ValueError("禁止垃圾和/大吊仅在开启一番和时可用")
         values[key] = enabled
     return values if sub_rule == SUB_RULE else None
 
@@ -114,7 +118,8 @@ def physical_flower_count(flowers, melds=(), concealed_sets=()):
 
 
 def score(hand, melds=(), flowers=(), *, declared_ready=False, self_draw=False,
-          replacement=False, rob_kong=False, min_fan=0, qing3_hun2_peng2=False, tian_qiao=False):
+          replacement=False, rob_kong=False, min_fan=0, qing3_hun2_peng2=False, tian_qiao=False,
+          forbid_lajihe_dadiao=False):
     if not declared_ready:
         return None
     candidates = []
@@ -145,6 +150,9 @@ def score(hand, melds=(), flowers=(), *, declared_ready=False, self_draw=False,
         if rob_kong:
             fans.append(("抢杠", 1))
         fan = sum(value for _, value in fans)
+        # 垃圾牌型按常规番识别；杠开、抢杠不能绕过禁和设置。
+        if min_fan == 1 and forbid_lajihe_dadiao and (regular_fan == 0 or len(hand) == 2):
+            continue
         if fan < min_fan:
             continue
         capped = min(fan, 3)

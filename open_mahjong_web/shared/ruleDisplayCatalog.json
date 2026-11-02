@@ -1,0 +1,464 @@
+{
+  "source": "other/麻将规则支持表.xlsx",
+  "generated_by": "open_mahjong_server/scripts/sync_rule_display_catalog.py",
+  "rules": [
+    {
+      "rule": "guobiao",
+      "label": "国标麻将",
+      "subRules": [
+        {
+          "sub_rule": "guobiao/standard",
+          "label": "标准规(新编MCR)"
+        },
+        {
+          "sub_rule": "guobiao/xiaolin",
+          "label": "国标麻将(小林改)"
+        },
+        {
+          "sub_rule": "guobiao/kshen",
+          "label": "K神麻将"
+        },
+        {
+          "sub_rule": "guobiao/lanshi",
+          "label": "国标麻将(蓝十改)"
+        },
+        {
+          "sub_rule": "guobiao/blood_battle",
+          "label": "国标麻将(血战到底)"
+        },
+        {
+          "sub_rule": "guobiao/sanma",
+          "label": "三人国标"
+        },
+        {
+          "sub_rule": "guobiao/transparent",
+          "label": "透明国标"
+        },
+        {
+          "sub_rule": "guobiao/transparent_realtime",
+          "label": "国标透明（实时手牌）"
+        },
+        {
+          "sub_rule": "guobiao/huahun",
+          "label": "国标（花混癞子）"
+        },
+        {
+          "sub_rule": "guobiao/four_jokers",
+          "label": "国标麻将(四癞子)"
+        },
+        {
+          "sub_rule": "guobiao/sixteen",
+          "label": "国标麻将（十六张）"
+        }
+      ]
+    },
+    {
+      "rule": "riichi",
+      "label": "立直麻将",
+      "subRules": [
+        {
+          "sub_rule": "riichi/standard",
+          "label": "立直麻将(标准)"
+        },
+        {
+          "sub_rule": "riichi/langyong",
+          "label": "浪涌麻将"
+        },
+        {
+          "sub_rule": "riichi/sanma",
+          "label": "三人立直麻将"
+        },
+        {
+          "sub_rule": "riichi/washizu",
+          "label": "鹫巢麻将"
+        },
+        {
+          "sub_rule": "riichi/washizu_realtime",
+          "label": "鹫巢麻将（实时手牌）"
+        },
+        {
+          "sub_rule": "riichi/washizu_doubles",
+          "label": "鹫巢麻将（双打）"
+        }
+      ]
+    },
+    {
+      "rule": "qingque",
+      "label": "青雀",
+      "subRules": [
+        {
+          "sub_rule": "qingque/standard",
+          "label": "青雀"
+        }
+      ]
+    },
+    {
+      "rule": "classical",
+      "label": "古典麻将",
+      "subRules": [
+        {
+          "sub_rule": "classical/standard",
+          "label": "古典麻雀"
+        }
+      ]
+    },
+    {
+      "rule": "sichuan",
+      "label": "四川麻将",
+      "subRules": [
+        {
+          "sub_rule": "sichuan/standard",
+          "label": "四川麻将(血战到底)"
+        },
+        {
+          "sub_rule": "sichuan/xueliu",
+          "label": "血流成河·弃三张"
+        },
+        {
+          "sub_rule": "sichuan/xueliu_exchange",
+          "label": "血流成河·换三张"
+        },
+        {
+          "sub_rule": "sichuan/doubles",
+          "label": "血战双打·2V2"
+        },
+        {
+          "sub_rule": "sichuan/xueliu_doubles",
+          "label": "血流双打·2V2"
+        },
+        {
+          "sub_rule": "sichuan/doubles_duplicate",
+          "label": "血战双打复式"
+        },
+        {
+          "sub_rule": "sichuan/xueliu_doubles_duplicate",
+          "label": "血流双打复式"
+        }
+      ]
+    },
+    {
+      "rule": "changsha",
+      "label": "长沙麻将",
+      "subRules": [
+        {
+          "sub_rule": "changsha/classic_double_bird",
+          "label": "长沙麻将(经典双鸟)"
+        },
+        {
+          "sub_rule": "changsha/exchange_six",
+          "label": "长沙麻将(换六张)"
+        }
+      ]
+    },
+    {
+      "rule": "zhongyong",
+      "label": "中庸麻将",
+      "subRules": [
+        {
+          "sub_rule": "zhongyong/standard",
+          "label": "标准规"
+        },
+        {
+          "sub_rule": "zhongyong/nanque",
+          "label": "南雀"
+        }
+      ]
+    },
+    {
+      "rule": "taiwan",
+      "label": "台湾麻将",
+      "subRules": [
+        {
+          "sub_rule": "taiwan/standard",
+          "label": "标准规"
+        }
+      ]
+    },
+    {
+      "rule": "shanghai",
+      "label": "上海麻将",
+      "subRules": [
+        {
+          "sub_rule": "shanghai/qiaoma",
+          "label": "上海敲麻"
+        },
+        {
+          "sub_rule": "shanghai/qinghunpeng",
+          "label": "清混碰"
+        },
+        {
+          "sub_rule": "shanghai/lajihe",
+          "label": "上海垃圾和"
+        }
+      ]
+    },
+    {
+      "rule": "hongkong",
+      "label": "香港麻将",
+      "subRules": [
+        {
+          "sub_rule": "hongkong/qingzhang",
+          "label": "清章十三"
+        },
+        {
+          "sub_rule": "hongkong/new13_gametower",
+          "label": "新章十三（Wiki）"
+        },
+        {
+          "sub_rule": "hongkong/new13_lianhuise",
+          "label": "新章十三（恋绘色）"
+        },
+        {
+          "sub_rule": "hongkong/qingzhang_lianhuise",
+          "label": "新章十三（恋绘色魔改）"
+        },
+        {
+          "sub_rule": "hongkong/new16",
+          "label": "新章十六"
+        }
+      ]
+    },
+    {
+      "rule": "guangdong",
+      "label": "广东麻将",
+      "subRules": [
+        {
+          "sub_rule": "guangdong/tuidao_mil2024",
+          "label": "MIL 2024（推倒和）"
+        },
+        {
+          "sub_rule": "guangdong/mil2023",
+          "label": "MIL 2023（花鬼）"
+        }
+      ]
+    },
+    {
+      "rule": "shanxi",
+      "label": "山西麻将",
+      "subRules": [
+        {
+          "sub_rule": "shanxi/mil2023",
+          "label": "MIL 2023"
+        }
+      ]
+    },
+    {
+      "rule": "changchun",
+      "label": "长春麻将",
+      "subRules": [
+        {
+          "sub_rule": "changchun/mil2024",
+          "label": "MIL 2024"
+        }
+      ]
+    },
+    {
+      "rule": "guizhou",
+      "label": "贵州麻将",
+      "subRules": [
+        {
+          "sub_rule": "guizhou/standard",
+          "label": "MIL 2023"
+        }
+      ]
+    },
+    {
+      "rule": "yixing",
+      "label": "宜兴麻将",
+      "subRules": [
+        {
+          "sub_rule": "yixing/standard",
+          "label": "标准规"
+        }
+      ]
+    },
+    {
+      "rule": "wenzhou",
+      "label": "温州麻将",
+      "subRules": [
+        {
+          "sub_rule": "wenzhou/mil2024",
+          "label": "MIL 2024"
+        }
+      ]
+    },
+    {
+      "rule": "hangzhou",
+      "label": "杭州麻将",
+      "subRules": [
+        {
+          "sub_rule": "hangzhou/mil2025",
+          "label": "MIL 2025"
+        }
+      ]
+    },
+    {
+      "rule": "hongzhong",
+      "label": "红中麻将",
+      "subRules": [
+        {
+          "sub_rule": "hongzhong/mil2024",
+          "label": "MIL 2024"
+        }
+      ]
+    },
+    {
+      "rule": "jiujiang",
+      "label": "九江麻将",
+      "subRules": [
+        {
+          "sub_rule": "jiujiang/standard",
+          "label": "标准"
+        }
+      ]
+    },
+    {
+      "rule": "singapore",
+      "label": "新加坡四人麻将",
+      "subRules": [
+        {
+          "sub_rule": "singapore/spgg2024",
+          "label": "SPGG 2024"
+        }
+      ]
+    },
+    {
+      "rule": "hongque",
+      "label": "虹雀",
+      "subRules": [
+        {
+          "sub_rule": "hongque/v1.6",
+          "label": "虹雀²"
+        },
+        {
+          "sub_rule": "hongque/w-v1.0",
+          "label": "虹雀 W"
+        }
+      ]
+    },
+    {
+      "rule": "free",
+      "label": "自由模式",
+      "subRules": [
+        {
+          "sub_rule": "free/standard",
+          "label": "自由模式"
+        }
+      ]
+    },
+    {
+      "rule": "wuhan",
+      "label": "武汉麻将",
+      "subRules": [
+        {
+          "sub_rule": "wuhan/mil2025",
+          "label": "MIL 2025"
+        }
+      ]
+    },
+    {
+      "rule": "shenyang",
+      "label": "沈阳麻将",
+      "subRules": [
+        {
+          "sub_rule": "shenyang/mil2025",
+          "label": "MIL 2025"
+        }
+      ]
+    },
+    {
+      "rule": "nanjing",
+      "label": "南京麻将",
+      "subRules": [
+        {
+          "sub_rule": "nanjing/mil2024",
+          "label": "MIL 2024"
+        }
+      ]
+    },
+    {
+      "rule": "nanchang",
+      "label": "南昌麻将",
+      "subRules": [
+        {
+          "sub_rule": "nanchang/mil2026",
+          "label": "MIL 2026（单打）"
+        }
+      ]
+    },
+    {
+      "rule": "malaysia",
+      "label": "马来西亚三人麻将",
+      "subRules": [
+        {
+          "sub_rule": "malaysia/traditional84",
+          "label": "传统84张"
+        }
+      ]
+    },
+    {
+      "rule": "filipino",
+      "label": "菲律宾麻将",
+      "subRules": [
+        {
+          "sub_rule": "filipino/classic16",
+          "label": "经典十六张"
+        }
+      ]
+    },
+    {
+      "rule": "vietnamese",
+      "label": "越南麻将",
+      "subRules": [
+        {
+          "sub_rule": "vietnamese/classic160",
+          "label": "Classic 160张"
+        }
+      ]
+    },
+    {
+      "rule": "fuzhou",
+      "label": "福州麻将",
+      "subRules": [
+        {
+          "sub_rule": "fuzhou/standard",
+          "label": "十六张规则书版"
+        }
+      ]
+    },
+    {
+      "rule": "shangrao",
+      "label": "上饶麻将",
+      "subRules": [
+        {
+          "sub_rule": "shangrao/standard",
+          "label": "飞宝麻将 V0.2"
+        }
+      ]
+    },
+    {
+      "rule": "duocai",
+      "label": "夺彩麻将",
+      "subRules": [
+        {
+          "sub_rule": "duocai/guobiao",
+          "label": "国标"
+        },
+        {
+          "sub_rule": "duocai/riichi",
+          "label": "立直"
+        }
+      ]
+    },
+    {
+      "rule": "beijing",
+      "label": "北京",
+      "subRules": [
+        {
+          "sub_rule": "beijing/chipengti",
+          "label": "吃碰提"
+        }
+      ]
+    }
+  ]
+}

@@ -7,24 +7,30 @@ using UnityEngine.UI;
 
 public partial class CreatePanel {
     private TMP_Dropdown _fuzhouBaseScore;
-    private static readonly int[] FuzhouBaseScores={10,15,20};
-    private void BindFuzhouMainControls() {
-        var root=RoomContent.Find("FuzhouSettings");
-        _fuzhouBaseScore=root?.GetComponentInChildren<TMP_Dropdown>(true);
-        if(!_fuzhouBaseScore) {Debug.LogError("福州麻将主页面设置尚未烘焙。",this);return;}
+    private RectTransform fuzhouView;
+    private int fuzhouBaseScoreIndex = 1;
+    private static readonly int[] FuzhouBaseScores = {10,15,20};
+
+    private void BindFuzhouMainControls(GameObject view) {
+        fuzhouView = (RectTransform)view.transform;
+        _fuzhouBaseScore = view.GetComponentInChildren<TMP_Dropdown>(true);
         _fuzhouBaseScore.onValueChanged.RemoveAllListeners();
-        _fuzhouBaseScore.ClearOptions();_fuzhouBaseScore.AddOptions(FuzhouBaseScores.Select(x=>$"{x}分").ToList());
-        _fuzhouBaseScore.SetValueWithoutNotify(1);RoomDropdownTemplateHeight(_fuzhouBaseScore);
+        _fuzhouBaseScore.ClearOptions(); _fuzhouBaseScore.AddOptions(FuzhouBaseScores.Select(x=>$"{x}分").ToList());
+        _fuzhouBaseScore.SetValueWithoutNotify(fuzhouBaseScoreIndex);
+        _fuzhouBaseScore.onValueChanged.AddListener(index => fuzhouBaseScoreIndex = index);
+        RoomDropdownTemplateHeight(_fuzhouBaseScore);
         RefreshFuzhouControls();
     }
     private void RefreshFuzhouControls() {
-        var root=RoomContent?RoomContent.Find("FuzhouSettings"):null;
-        if(root) root.gameObject.SetActive(_ruleState==FuzhouGameState.RuleId);
+        if (!Application.isPlaying && !fuzhouView) fuzhouView = RoomContent.Find("FuzhouSettings") as RectTransform;
+        bool selected = _ruleState == FuzhouGameState.RuleId;
+        if (fuzhouView) fuzhouView.gameObject.SetActive(selected);
+        else if (selected && Application.isPlaying && isActiveAndEnabled) RequestDeferredPanel("FuzhouSettings", null);
     }
-    private Dictionary<string,object> FuzhouConfigValues()=>new Dictionary<string,object> {
-        {"base_score",FuzhouBaseScores[Mathf.Clamp(_fuzhouBaseScore?_fuzhouBaseScore.value:1,0,2)]},
+    private Dictionary<string,object> FuzhouConfigValues() => new Dictionary<string,object> {
+        {"base_score", FuzhouBaseScores[Mathf.Clamp(fuzhouBaseScoreIndex,0,2)]},
     };
-    private void ResetFuzhouControls() {if(_fuzhouBaseScore) _fuzhouBaseScore.SetValueWithoutNotify(1);}
+    private void ResetFuzhouControls() { fuzhouBaseScoreIndex = 1; if(_fuzhouBaseScore) _fuzhouBaseScore.SetValueWithoutNotify(1); }
 #if UNITY_EDITOR
     public void BakeFuzhouMainControls() {
         var root=RoomContent.Find("FuzhouSettings") as RectTransform;

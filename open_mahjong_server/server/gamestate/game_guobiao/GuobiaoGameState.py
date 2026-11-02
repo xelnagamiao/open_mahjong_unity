@@ -1,3 +1,4 @@
+from ..public.settlement_sync import send_game_packet
 from .four_jokers_runtime import evaluate_actions
 from ...game_calculation import guobiao_sixteen as sixteen
 from ..public.duplicate_wall import DuplicateFinished, finish_duplicate_game, draw_tile_for_player, duplicate_remaining_tile_counts, duplicate_match_complete
@@ -429,7 +430,7 @@ class GuobiaoGameState:
                         game_info=game_info
                     )
 
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break

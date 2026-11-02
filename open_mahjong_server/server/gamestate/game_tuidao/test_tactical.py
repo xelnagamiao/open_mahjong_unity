@@ -209,6 +209,7 @@ def test_actual_bot_addition_disables_room_option_and_broadcasts_it(bot_id):
             game_server=SimpleNamespace(players={'unit':player},user_id_to_connection={101:SimpleNamespace(websocket=socket)}))
         async def broadcast(room_id):await RoomManager._broadcast_room_info(manager,room_id)
         manager._broadcast_room_info=broadcast
+        manager._seat_room_bot=RoomManager._seat_room_bot.__get__(manager)
         result=await RoomManager._add_room_bot(manager,'unit','123456',bot_id,None)
         assert result.success and bot_id in room['player_list']
         assert not room['tactical_call'] and not socket.messages[-1]['room_info']['tactical_call']

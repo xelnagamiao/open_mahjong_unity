@@ -25,7 +25,7 @@ def sync(write_unity=True):
             sub = resolve_statistics_identity(queue.rule, queue.sub_rule, {},
                 f"{queue.rounds}/{queue.player_count}")[1]
             if sub == row["sub_rule"]:
-                ranked.add(f"{queue.rounds}/{queue.player_count}_rank")
+                ranked.add(f"{'unlimited' if queue.unlimited_rounds else queue.rounds}/{queue.player_count}_rank")
         row["ranked_modes"] = sorted(ranked)
         row["matchmaking"] = bool(ranked)
         assert len(row["custom_modes"]) == len(set(row["custom_modes"]))

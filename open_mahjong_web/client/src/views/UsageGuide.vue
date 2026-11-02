@@ -23,7 +23,7 @@
                   <p>
                     open_mahjong_unity 是一款基于 Unity / Python-FastAPI 的麻将平台项目，遵循
                     MIT 许可协议，免费、开源，支持 PC / 安卓 / iOS 三端互通；目标是支持所有麻将规则，并提供给玩家自定义规则的选项。欢迎加入 QQ 群
-                    <a href="https://qm.qq.com/q/MGGZV58hOO" target="_blank" rel="noopener noreferrer">906497522</a>
+                    <router-link to="/community">{{ platformContent?.communities.find(item => item.id === 'salasasa_qq')?.number || '社群' }}</router-link>
                     参与讨论、协助和测试。
                   </p>
                 </li>
@@ -109,7 +109,7 @@
                 </li>
                 <li>
                   <p>
-                    如有规则方面的疑问，可在此处查询完整的<router-link to="/rulebook">规则书</router-link>文本；如果在游戏过程中发现任何问题，可以到QQ群<a href="https://qm.qq.com/q/MGGZV58hOO" target="_blank" rel="noopener noreferrer">906497522</a>反馈，也可以直接联系测试群群主及开发者Q1448826180。
+                    如有规则方面的疑问，可在此处查询完整的<router-link to="/rulebook">规则书</router-link>文本；如果在游戏过程中发现任何问题，可以到QQ群<router-link to="/community">{{ platformContent?.communities.find(item => item.id === 'salasasa_qq')?.number || '社群' }}</router-link>反馈，也可以直接联系测试群群主及开发者Q1448826180。
                   </p>
                 </li>
               </ol>
@@ -410,40 +410,13 @@
 
             <template v-else-if="sec.id === 'thanks'">
               <ul class="thanks-list">
-                <li>
-                  <span class="k">开发团队</span>
-                  <span data-no-translate>{{ creditLine("Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe(bug修复)  salasasasa数据bot(PCX1078)  插件开发(新手求教)") }}</span>
-                </li>
-                <li>
-                  <span class="k">自定义规则设计</span>
-                  <span data-no-translate>{{ creditLine("莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)") }}</span>
-                </li>
-                <li>
-                  <span class="k">地方规则考据</span>
-                  <span data-no-translate>{{ creditLine("上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)") }}</span>
-                </li>
-                <li>
-                  <span class="k">直播宣传</span>
-                  <span data-no-translate>Cloud980Ti  轻轻的飘  等候1234  立直喵  Ce/Est1al  鬼头刀鱼fish  神源之心  方片杰克  Ni9e_9  大柠劳斯</span>
-                </li>
-                <li>
-                  <span class="k">赞助</span>
-                  <span data-no-translate>九曜、kiki、健哥、何苏、Null、莫莫柴、恋绘色、Zazaka、中山大学国标麻将同好会、东西喵、山东大学老年人活动中心、Sw123</span>
-                </li>
-                <li>
-                  <span class="k">特别感谢</span>
-                  <span data-no-translate>{{ creditLine("莫莫柴、码龙、Null、坏狗影子、何苏、FFMJ法国麻将协会(翻译支持)") }}</span>
-                </li>
-                <li>
-                  <span class="k">支持社团</span>
-                  <span data-no-translate>棋牌游戏研究院、立直麻雀研习社、柴の麻将群、雀渣玩家群、中山大学国标麻将同好会</span>
-                </li>
-                <li>
-                  <span class="k">早期测试</span>
-                  <span data-no-translate>夜色祢 chlorine 陪练的命运</span>
+                <li v-for="group in platformContent?.credits || []" :key="group.id">
+                  <span class="k">{{ group.title }}</span>
+                  <span data-no-translate>{{ creditLine(group.text) }}</span>
                 </li>
               </ul>
-              <p class="thanks-message">以及游玩salasasa平台的所有玩家！</p>
+              <p v-if="platformContent?.thanksClosing" class="thanks-message">{{ platformContent.thanksClosing }}</p>
+              <p v-if="platformContentError">{{ platformContentError }}</p>
             </template>
 
             <template v-else-if="sec.id === 'links'">
@@ -466,7 +439,7 @@
                 </li>
                 <li>
                   <span class="k"><span>交流测试群</span>：</span>
-                  <a href="https://qm.qq.com/q/MGGZV58hOO" target="_blank" rel="noopener noreferrer">906497522</a>
+                  <router-link to="/community">{{ platformContent?.communities.find(item => item.id === 'salasasa_qq')?.number || '社群' }}</router-link>
                 </li>
                 <li>
                   <span class="k"><span>OMU 开发群</span>：</span>
@@ -519,6 +492,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { locale, tr } from '@/i18n'
 import { accountRegulationsFor } from '@/content/accountRegulations'
+import { usePlatformContent } from '@/composables/usePlatformContent'
+const { content: platformContent, error: platformContentError } = usePlatformContent()
 
 const regulationsVisible = ref(false)
 const localizedRegulations = computed(() => accountRegulationsFor(locale.value))

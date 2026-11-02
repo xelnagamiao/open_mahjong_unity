@@ -10,6 +10,34 @@ async function moduleAt(relative){const result=await build({entryPoints:[fileURL
 const {ShangraoLocal}=await moduleAt('../src/game2d/calc/shangraoLocal.ts')
 const {regionalSnapshot}=await moduleAt('../src/game2d/calc/regionalLocal.ts')
 const {RecordReplay}=await moduleAt('../src/game2d/replay/recordReplay.ts')
+test('basic wildcard wins reserve a held bao for the actual draw',()=>{
+  const solver=new ShangraoLocal(['k14','g17'],{indicator:22})
+  const hand=[23,23,13,15,16,24,24,14]
+  assert.equal(solver.score(hand,14),null)
+  assert.equal(solver.describe(hand,14).label,'未满足')
+  const ready=[23,23,13,14,15,24,24]
+  const valid=new ShangraoLocal(['k11','g19'],{indicator:22})
+  for(const draw of [11,12,14,23,24,31,41,47])assert.ok(valid.score([...ready,draw],draw))
+})
+test('bao keeps its printed identity without needing a wildcard pair',()=>{
+  const hand=[16,14,14,17,17,18,18,19,24,25,26,27,28,26]
+  const solver=new ShangraoLocal([],{indicator:15})
+  for(const draw of [26,16]){
+    assert.equal(solver.score(hand,draw).pattern,'平和')
+    assert.equal(solver.describe(hand,draw).label,'仅自摸\n2分')
+    assert.deepEqual(solver.score(hand,draw).multipliers,{'门清':2})
+  }
+  assert.equal(solver.score(hand.map((t,i)=>i===1?15:t),26),null)
+})
+test('Shangrao publishes one rulebook directly readable in the page',async()=>{
+  const {shangraoRulebooks}=await import('../src/constants/shangraoRulebooks.js')
+  assert.equal(shangraoRulebooks.length,1)
+  assert.equal(shangraoRulebooks[0].url,'/rulebooks/shangrao/rules.html')
+  assert.equal(shangraoRulebooks[0].filename,undefined)
+  const html=fs.readFileSync(new URL('../public/rulebooks/shangrao/rules.html',import.meta.url),'utf8')
+  assert.ok(html.includes('宝牌可以作为万能牌使用，也可以作为普通牌使用'))
+  assert.doesNotMatch(html,/平台适用约定|历史资料|下载规则书原件|普通牌型、碰碰和保留既有用宝判定/)
+})
 test('five optional switches round trip through venue and event room payloads',()=>{
   const form=loadShangraoForm({room_rule:'shangrao'})
   let packet=buildShangraoRoomPayload(form)
