@@ -1,5 +1,7 @@
 # open_mahjong_unity 开发文档
 
+[简体中文](README.md) | [日本語](other/readme/README.ja.md) | [English](other/readme/README.en.md) | [Français](other/readme/README.fr.md) | [Deutsch](other/readme/README.de.md) | [Русский](other/readme/README.ru.md)
+
 ## 概述
 
 欢迎使用 open_mahjong_unity！
