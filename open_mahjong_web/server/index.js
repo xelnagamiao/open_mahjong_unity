@@ -99,6 +99,7 @@ app.use('/api/event-admin', eventAdminRoutes);
 app.use('/api/bot', botapiRoutes);
 app.use('/api/library', libraryRoutes);
 app.use('/api/duplicate-walls', require('./routes/duplicateWalls'));
+app.use('/api/client-updates/android', require('./routes/androidContent'));
 app.use('/api/client-updates/android', require('./routes/androidUpdate'));
 app.use('/activity-assets', (req, res, next) => {
   if (String(req.path || '').includes('_catalog')) {

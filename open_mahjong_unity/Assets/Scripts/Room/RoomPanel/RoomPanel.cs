@@ -31,6 +31,7 @@ public partial class RoomPanel : MonoBehaviour {
 
     // Start is called before the first frame update
     void Start() {
+        InitializeInvitation();
         backButton.onClick.AddListener(BackButtonClicked);
         startButton.onClick.AddListener(StartButtonClicked);
         if (readyButton != null) {
@@ -56,7 +57,7 @@ public partial class RoomPanel : MonoBehaviour {
 
     public static bool SupportsClaimProtection(string rule) {
         return rule == "guobiao" || rule == "qingque" || rule == "sichuan" || rule == "changsha"
-            || rule == "zhongyong" || rule == "nanque" || rule == "jiandan" || rule == "riichi";
+            || rule == "zhongyong" || rule == "riichi";
     }
 
     private static bool SupportsHighPerformanceBot(RoomInfo roomInfo) {
@@ -69,9 +70,12 @@ public partial class RoomPanel : MonoBehaviour {
 
     public void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo) {
         lastRoomInfo = roomInfo;
+        RefreshInvitation();
         // 设置房间号
         roomIdText.text = $"房间号: {roomInfo.room_id}";
         roomnameText.text = StreamerModeHelper.FormatRoomLabel("房间名: ", roomInfo.room_name);
+
+        if (RefreshDuplicateLobby(roomInfo)) return;
 
         var panels = new[] { playerPanel1, playerPanel2, playerPanel3, playerPanel4 };
         int maxPlayers = roomInfo.max_player > 0
@@ -221,6 +225,7 @@ public partial class RoomPanel : MonoBehaviour {
     public void ClearRoomState() {
         HideDoublesTeams();
         lastRoomInfo = null;
+        RefreshInvitation();
         roomIdText.text = "";
         roomnameText.text = "";
         if (hostNameText) hostNameText.gameObject.SetActive(false);

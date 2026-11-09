@@ -26,6 +26,8 @@ public class NotificationManager : MonoBehaviour {
     [SerializeField] private MessagePrefab messagePrefab;        // Message 预制体
 
     public static NotificationManager Instance { get; private set; }
+    public Transform ModalRoot => messagePosition != null && messagePosition.GetComponentInParent<Canvas>() != null
+        ? messagePosition.GetComponentInParent<Canvas>().transform : transform;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -48,9 +50,13 @@ public class NotificationManager : MonoBehaviour {
     /// <param name="message">显示内容</param>
     /// <param name="duration">自定义显示时长，传入 &lt;=0 则使用默认值</param>
     public void ShowTip(string type, bool isSuccess, string message, float duration = -1f) {
+        ShowTip(type, isSuccess, message, duration, null);
+    }
+
+    public void ShowTip(string type, bool isSuccess, string message, float duration, string ruleContext) {
         Transform parent = tipsPosition.transform;
         TipItem tipItem = Instantiate(tipItemPrefab, parent.position, parent.rotation, parent);
-        tipItem.ShowMessage(type, isSuccess, message);
+        tipItem.ShowMessage(type, isSuccess, message, ruleContext);
         float lifeTime = duration > 0f ? duration : defaultTipDuration;
         _tipStack.Push(tipItem);
         tipItem.Init(lifeTime);
@@ -97,10 +103,11 @@ public class NotificationManager : MonoBehaviour {
             return null;
         }
         Transform parent = messagePosition != null ? messagePosition.transform : transform;
+        CanvasReferenceLayout contentLayout = parent.GetComponentInParent<CanvasReferenceLayout>();
         GameObject modalOwner = null;
         if (modal) {
             Canvas canvas = parent.GetComponentInParent<Canvas>();
-            if (canvas != null) parent = canvas.transform;
+            if (canvas != null) parent = MobileViewportLayout.Enabled ? canvas.rootCanvas.transform : canvas.transform;
             modalOwner = new GameObject("MessageModal", typeof(RectTransform), typeof(Canvas),
                 typeof(UnityEngine.UI.GraphicRaycaster), typeof(UnityEngine.UI.Image));
             modalOwner.layer = parent.gameObject.layer;
@@ -126,6 +133,20 @@ public class NotificationManager : MonoBehaviour {
             blocker.color = new Color(.04f, .06f, .09f, .55f);
             blocker.raycastTarget = true;
             parent = modalOwner.transform;
+            if (contentLayout != null && contentLayout.referenceArea != null && contentLayout.scaleSettings != null) {
+                // The dimmer covers the whole canvas, while the dialog keeps the
+                // same safe area and authored scale as the existing popup root.
+                var contentSpace = new GameObject("MessageContentSpace", typeof(RectTransform));
+                contentSpace.layer = modalOwner.layer;
+                contentSpace.transform.SetParent(parent, false);
+                var layout = contentSpace.AddComponent<CanvasReferenceLayout>();
+                layout.referenceArea = contentLayout.referenceArea;
+                layout.scaleSettings = contentLayout.scaleSettings;
+                layout.includeTopInset = contentLayout.includeTopInset;
+                layout.keepMobilePopupSize = contentLayout.keepMobilePopupSize;
+                layout.Apply(true);
+                parent = contentSpace.transform;
+            }
         }
         MessagePrefab message = Instantiate(messagePrefab, parent);
         if (modalOwner != null) {

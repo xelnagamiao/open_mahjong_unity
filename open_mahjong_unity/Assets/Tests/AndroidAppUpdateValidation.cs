@@ -349,7 +349,11 @@ public static class AndroidAppUpdateValidation {
         .GetField("panel", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(updater);
 
     private static UnityEngine.UI.Button Button(AndroidAppUpdater updater, string text) => Panel(updater)
-        .GetComponentsInChildren<UnityEngine.UI.Button>().Single(b => b.GetComponentInChildren<TMP_Text>()?.text == text);
+        .GetComponentsInChildren<UnityEngine.UI.Button>().Single(b => {
+            var label = b.GetComponentInChildren<TMP_Text>();
+            return label && (label.text == text || label.text == PlatformText.Get(text)
+                || label.GetComponent<LocalizedPlatformLabel>()?.Source == text);
+        });
 
     private static IEnumerator WaitState(AndroidAppUpdater updater, string state) {
         float limit = Time.realtimeSinceStartup + 20;
@@ -374,11 +378,15 @@ public static class AndroidAppUpdateValidation {
             Check(File.Exists(Path.Combine(directory, "update.apk")) && !File.Exists(Path.Combine(directory, "update.apk.part")), "retry downloads and verifies file");
             Button(updater, "安装").onClick.Invoke();
             Check(updater.State == "permission" && installer.InstallRequests == 0, "installation waits for permission");
+            Button(updater, "关闭").onClick.Invoke();
+            Check(updater.State == "ready" && File.Exists(Path.Combine(directory, "update.apk")), "closing permission keeps the install choice and APK");
+            Button(updater, "安装").onClick.Invoke();
             Button(updater, "去授权").onClick.Invoke();
             Check(installer.PermissionRequests == 1, "permission settings requested");
             updater.SendMessage("OnApplicationPause", true);
             updater.SendMessage("OnApplicationPause", false);
-            Check(updater.State == "permission" && installer.InstallRequests == 0, "permission denial remains retryable");
+            Check(updater.State == "ready" && installer.InstallRequests == 0, "permission denial returns to the install choice");
+            Button(updater, "安装").onClick.Invoke();
             Button(updater, "去授权").onClick.Invoke();
             installer.CanInstall = true;
             updater.SendMessage("OnApplicationFocus", false);
@@ -394,6 +402,13 @@ public static class AndroidAppUpdateValidation {
             yield return SetMode(origin, "corrupt");
             updater = new GameObject("AndroidUpdateRuntimeValidation").AddComponent<AndroidAppUpdater>();
             updater.Initialize(31, origin, installer);
+            yield return WaitState(updater, "ready");
+            Check(File.Exists(Path.Combine(directory, "update.apk")), "reopening reuses the verified APK even if the download endpoint fails");
+            Button(updater, "关闭").onClick.Invoke();
+            yield return null; yield return null;
+            File.Delete(Path.Combine(directory, "update.apk"));
+            updater = new GameObject("AndroidUpdateRuntimeValidation").AddComponent<AndroidAppUpdater>();
+            updater.Initialize(31, origin, installer);
             yield return WaitState(updater, "error");
             Check(!File.Exists(Path.Combine(directory, "update.apk.part")) && installer.InstallRequests == 2, "corrupted download cannot install");
             yield return SetMode(origin, "flaky");
@@ -406,12 +421,13 @@ public static class AndroidAppUpdateValidation {
             yield return null; yield return null;
 
             yield return SetMode(origin, "slow");
+            File.Delete(Path.Combine(directory, "update.apk"));
             updater = new GameObject("AndroidUpdateRuntimeValidation").AddComponent<AndroidAppUpdater>();
             updater.Initialize(31, origin, installer);
             yield return WaitState(updater, "downloading");
             yield return new WaitForSecondsRealtime(.6f);
             Check(!Button(updater, "下载中…").interactable, "duplicate downloads disabled");
-            Check(Panel(updater).GetComponentsInChildren<TMP_Text>().Any(text => text.text.Contains("进度：") && text.text.Contains(" MB")), "download percentage and bytes displayed");
+            Check(Panel(updater).GetComponentsInChildren<TMP_Text>().Any(text => text.text.Contains("%") && text.text.Contains(" MB")), "download percentage and bytes displayed");
             Button(updater, "关闭").onClick.Invoke();
             yield return null; yield return null;
             Check(updater == null && !File.Exists(Path.Combine(directory, "update.apk.part")), "cancel aborts request and removes partial file");

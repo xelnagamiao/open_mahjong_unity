@@ -1,4 +1,5 @@
 from collections import Counter
+from itertools import permutations
 
 import pytest
 
@@ -57,6 +58,31 @@ def test_meld_may_change_sequence_to_pung_but_call_jokers_preserve_role():
     assert {g.kind for g in meld_options(Meld((t.CHOW, 15, t.EMPEROR), declared='chi'))} == {'sequence'}
     assert {g.kind for g in meld_options(Meld((t.PUNG, 15, t.EMPEROR), declared='peng'))} == {'triplet'}
     assert not meld_options(Meld((t.CHOW, 15, 15, t.EMPEROR), declared='chi'))
+
+
+@pytest.mark.parametrize('joker', t.JOKERS)
+@pytest.mark.parametrize('declared', ('chi', 'peng'))
+def test_meld_domains_preserve_every_legal_physical_assignment(joker, declared):
+    samples = ((joker, 11, 12), (joker, 12, 13), (joker, 17, 19),
+               (joker, 19, 21), (joker, 41, 41), (joker, 13, 1013),
+               (joker, t.EMPEROR, 15), (joker, 15, 15, 15),
+               (joker, t.PUNG, 15, 15))
+    for physical in samples:
+        expected = set()
+        if t.valid_physical(physical):
+            kinds = ('sequence', 'triplet') if len(physical) == 3 else ('kong',)
+            for kind in kinds:
+                for face in t.FACES:
+                    if kind == 'sequence' and (face >= 40 or face % 10 > 7):
+                        continue
+                    logical = (face, face + 1, face + 2) if kind == 'sequence' else (face,) * len(physical)
+                    if any(all(t.allows(tile, value, kind, slot, start=face,
+                                        external=True, declared=declared)
+                               for slot, (tile, value) in enumerate(zip(order, logical)))
+                           for order in set(permutations(physical))):
+                        expected.add((kind, logical))
+        actual = {(group.kind, group.logical) for group in meld_options(Meld(physical, declared=declared))}
+        assert actual == expected, (physical, declared)
 
 
 def test_constrained_winning_face_and_physical_bonus_identity():

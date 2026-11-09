@@ -68,6 +68,8 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'use_flowers': getattr(self, 'use_flowers', True),
         'tian_di_ren_he': getattr(self, 'tian_di_ren_he', False),
+        'jinluo_mode': getattr(self, 'jinluo_mode', False),
+        'jinluo_weather': getattr(self, 'jinluo_weather', 'dragon_pairs'),
         'joker_multi_wait': getattr(self, 'joker_multi_wait', False),
         'no_joker_bonus': getattr(self, 'no_joker_bonus', 'add8'),
         'black_flower_progressive': getattr(self, 'black_flower_progressive', True),

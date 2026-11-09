@@ -4,13 +4,17 @@ using System.Linq;
 /// <summary>Client presentation and fixed room settings for the captain format.</summary>
 public static class WashizuDoubles {
     public static readonly string[] RoleLabels = { "A队主将", "A队助手", "B队主将", "B队助手" };
-    public const string Description = "鹫巢麻将规则变体，四位玩家分为A、B两队，助手坐上家，主将坐下家，副将无击飞，最终两队只比对主将的分数判断胜负，鹫巢双打没有连庄。";
+    public const string Description = "四人分为A、B两队，助手在主将下家，最终比较两位主将的分数。庄家和牌或听牌流局连庄；末局庄家和牌后全场单独第一时，可以结束对局或继续连庄。";
     public static readonly Dictionary<string, object> FixedOptions = new Dictionary<string, object> {
         { "pao", false }, { "pao_suukantsu", false }, { "rank_points", "none" },
         { "return_score", 0 }, { "end_deposits", "discard" }, { "chombo_penalty", "fixed_9000" },
-        { "tenpai_renchan", true }, { "agari_yame", false }, { "tenpai_yame", false },
+        { "tenpai_renchan", true }, { "agari_yame", true }, { "tenpai_yame", false },
         { "target_score", 0 }, { "extension_rounds", 0 }, { "tie_break", "shared" },
     };
+    public const string VisibleTeammateHandKey = "show_teammate_hand";
+    public static bool ShowsTeammateHand(string subRule, IDictionary<string, object> config) => IsEnabled(subRule)
+        && config != null && config.TryGetValue(VisibleTeammateHandKey, out object value)
+        && bool.TryParse(value?.ToString(), out bool enabled) && enabled;
     public static bool IsEnabled(string subRule) => subRule == WashizuTile.DoublesSubRule;
     public static bool ValidRoles(int[] roles) => roles != null && roles.Length == 4
         && roles.OrderBy(r => r).SequenceEqual(new[] { 0, 1, 2, 3 });

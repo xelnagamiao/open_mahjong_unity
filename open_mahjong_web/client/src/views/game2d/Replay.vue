@@ -105,6 +105,7 @@
           selectable
           :players="scoreboardPlayers"
           :settlements="scoreboardSettlements"
+          :rule="detail?.rule"
           :round-label-format="appearance.roundLabelFormat"
           :round-labeler="replayRoundLabeler"
           @select-row="jumpToScoreboardRound"
@@ -214,16 +215,16 @@
                 :key="`${fan.name}-${index}`"
                 class="end-result-fan"
                 :class="{ 'is-visible': index < revealedFanCount }"
-                :style="{ '--fan-name-size': `${fanNameFontSize(translateFanName(fan.name))}px` }"
+                :style="{ '--fan-name-size': `${fanNameFontSize(translateFanName(fan.name, locale, replayRule))}px` }"
               >
-                <span>{{ translateFanName(fan.name) }}</span>
-                <strong>{{ tr(fan.value) }}</strong>
+                <span>{{ translateFanName(fan.name, locale, replayRule) }}</span>
+                <strong>{{ translateRuleText(fan.value, locale, replayRule) }}</strong>
               </div>
             </div>
             <div class="end-result-total" :class="{ 'is-visible': showResultTotal }">
               <div class="end-result-total__line">
                 <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                <strong>{{ roundResult.fan }}</strong><span>{{ tr(detail?.rule === 'beijing' ? '点' : detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['fuzhou', 'malaysia', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang', 'shangrao', 'changsha'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番') }}</span>
+                <strong>{{ roundResult.fan }}</strong><span>{{ translateRuleText(detail?.rule === 'beijing' ? '点' : detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['fuzhou', 'malaysia', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang', 'shangrao', 'changsha'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番', locale, replayRule, roundResult.fan) }}</span>
               </div>
             </div>
             <div class="end-result-diamond">
@@ -425,8 +426,8 @@
           <div ref="gameInfoScrollElement" class="replay-meta__scroll" @wheel.prevent="onGameInfoWheel">
             <dl>
               <div v-for="row in gameInfoRows" :key="row.label">
-                <dt>{{ tr(row.label) }}</dt>
-                <dd :class="{ 'is-code': row.code }" :data-no-translate="row.verbatim ? '' : null">{{ row.verbatim ? row.value : tr(row.value) }}</dd>
+                <dt>{{ translateRuleText(row.label, locale, replayRule) }}</dt>
+                <dd :class="{ 'is-code': row.code }" :data-no-translate="row.verbatim ? '' : null">{{ row.verbatim ? row.value : translateRuleText(row.value, locale, replayRule) }}</dd>
               </div>
             </dl>
           </div>
@@ -476,7 +477,7 @@ import { buildShanxiWaitData, shanxiWaits, shanxiMeldTiles, shanxiKnownConcealed
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
-import { formatFanCount, translateFanName } from '@/i18n/fanNames'
+import { formatFanCount, translateFanName, translateRuleText } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
 import { replaySharePath } from '@/utils/recordShareLink'
 import { riichiWinLineLabel } from '@/utils/riichiWinRequirements.js'
@@ -528,6 +529,7 @@ const stageElement = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
 const detail = ref<PublicGameRecord | null>(null)
+const replayRule = computed(() => detail.value?.sub_rule || detail.value?.rule || detail.value?.record?.game_title?.sub_rule || detail.value?.record?.game_title?.rule || 'guobiao')
 const replay = ref<RecordReplay | null>(null)
 const roundIndex = ref(0)
 const node = ref(0)
@@ -588,7 +590,9 @@ const viewpointPlayers = computed(() => {
       original,
       wind: winds[seat] || String(seat + 1),
       windShort: locale.value === 'en' ? ['E', 'S', 'W', 'N'][seat]
-        : locale.value === 'fr' ? ['E', 'S', 'O', 'N'][seat] : tr(winds[seat] || String(seat + 1)),
+        : locale.value === 'fr' ? ['E', 'S', 'O', 'N'][seat]
+        : locale.value === 'de' ? ['O', 'S', 'W', 'N'][seat]
+        : locale.value === 'ru' ? ['В', 'Ю', 'З', 'С'][seat] : tr(winds[seat] || String(seat + 1)),
       username: player?.username || tr(`玩家 ${original + 1}`),
       score: currentScores.value[original] ?? player?.score ?? 0,
     }
@@ -762,7 +766,7 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (title.rule === 'fuzhou') push('底分', `${title.detailed_config?.base_score ?? (isFuzhouV2(title.rule_version) ? 15 : 10)}分`)
   else if (title.rule === 'jiujiang') push('起和分', '1分（含花分）')
   else if (detail.value?.rule === 'shanxi') push('起和牌值', '自摸≥3点，点和≥6点（须报听）')
-  else if (hasGameTitleField(title, 'hepai_limit')) push('起和番', tr(title.rule === 'riichi' ? '{count} 番（不含宝牌）' : '{count} 番', { count: Number(title.hepai_limit) || 0 }))
+  else if (hasGameTitleField(title, 'hepai_limit')) push('起和番', translateRuleText(title.rule === 'riichi' ? '{count} 番（不含宝牌）' : '{count} 番', locale.value, replayRule.value, 1, { count: Number(title.hepai_limit) || 0 }))
   if (title.rule === 'riichi') push('起和线', riichiWinLineLabel(title.detailed_config?.minimum_win_score ?? 0))
   if (title.rule === 'shanghai' && (title.sub_rule || 'shanghai/qiaoma') === 'shanghai/qiaoma') {
     push('清三混二碰二', enabledLabel(title.detailed_config?.qing3_hun2_peng2 === true))
@@ -966,7 +970,7 @@ const resultFans = computed(() => roundResult.value?.kind === 'win'
     if (guangdongFan) return guangdongFan
     if ((detail.value?.sub_rule || detail.value?.record?.game_title?.sub_rule) === 'guobiao/lanshi') {
       const points = lanshiFanPoints(name)
-      return { name: translateFanName(name), value: points == null ? '' : `${points}分` }
+      return { name, value: points == null ? '' : `${points}分` }
     }
     const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
     const openingFan = detail.value?.record?.game_title?.tian_di_ren_he && ['天和', '地和', '人和'].includes(name)
@@ -974,8 +978,8 @@ const resultFans = computed(() => roundResult.value?.kind === 'win'
       ? `${totalValue ?? formatFanField(definition.fan)}番`
       : ''
     return {
-      name: translateFanName(name),
-      value: value ? formatFanCount(value.replace(/番$/, '')) : '',
+      name,
+      value: value ? formatFanCount(value.replace(/番$/, ''), locale.value, replayRule.value) : '',
     }
   })
   : [])
@@ -1691,14 +1695,14 @@ function refreshReplayHints(snapshot: ActiveSessionSnapshot) {
   if (waitData?.type === 'waits') {
     scene?.setReplayWaitTips({
       type: 'waits',
-      details: waitData.details.map((item) => ({ ...item, tile: salasasaTileToMmcr(item.tile) })),
+      details: waitData.details.map((item) => ({ ...item, rule: replayRule.value, tile: salasasaTileToMmcr(item.tile) })),
     })
   } else if (waitData?.type === 'waits_all') {
     scene?.setReplayWaitTips({
       type: 'waits_all',
       details: waitData.details.map((item) => ({
         discard_tile: salasasaTileToMmcr(item.discard_tile),
-        adds: item.adds.map((add) => ({ ...add, tile: salasasaTileToMmcr(add.tile) })),
+        adds: item.adds.map((add) => ({ ...add, rule: replayRule.value, tile: salasasaTileToMmcr(add.tile) })),
       })),
     })
   } else {
@@ -1895,6 +1899,7 @@ function onKeydown(event: KeyboardEvent) {
 async function mountScene() {
   if (!stageElement.value || scene) return
   const currentScene = new MahjongScene(() => {})
+  currentScene.localizationRule = detail.value?.rule || 'guobiao'
   currentScene.setPresentationMode('replay')
   currentScene.setRoundLabelFormatter(replayRoundLabeler.value)
   currentScene.setReplayRecordVersion(6)

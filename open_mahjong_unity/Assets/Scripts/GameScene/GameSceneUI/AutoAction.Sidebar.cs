@@ -168,7 +168,7 @@ public partial class AutoAction {
                 "自动摸切" => "table.auto.cut.full", _ => row.fullName
             };
             TableText.Set(row.label, IsSidebarExpanded ? fullName : TableText.CompactActionKey(row.compactName));
-            bool english = ConfigManager.CurrentLanguage == AppLanguage.English;
+            bool english = ConfigManager.CurrentLanguage == AppLanguage.English || PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage);
             row.label.fontSize = IsSidebarExpanded ? (english ? 30f : 36f) : (english ? 22f : 40f);
             row.label.enableAutoSizing = false;
             row.label.textWrappingMode = TextWrappingModes.NoWrap;

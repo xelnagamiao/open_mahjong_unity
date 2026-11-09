@@ -78,7 +78,7 @@ def settle_kongs(state):
     labels = []
     kinds = {'guafeng': '明杠', 'xiayu1': '加杠', 'xiayu2': '暗杠', 'non_timely': '加杠'}
     reasons = {'non_timely': '非及时', 'no_payer': '不计分', 'gang_shang_pao': '杠上炮退税',
-               'no_ting': '未听退税', 'robbed_kong': '被抢杠'}
+               'no_ting': '没叫退税', 'robbed_kong': '被抢杠'}
     for player in state.player_list:
         for record in player.gang_score_records:
             if not record.get('deferred') or record.get('settled'):

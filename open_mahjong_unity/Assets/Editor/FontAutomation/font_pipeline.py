@@ -16,7 +16,7 @@ VERSION = 2
 REGULAR = "Assets/font/思源黑体/SourceHanSansSC-Regular.otf"
 SOURCES = {w: f"Assets/Editor/FontAutomation/Sources/SourceHanSansSC-{w}.otf"
            for w in ("Medium", "Bold")}
-BASE_RANGES = [(32, 591), (0x1E00, 0x1EFF), (0x2000, 0x206F),
+BASE_RANGES = [(32, 591), (0x0400, 0x052F), (0x1E00, 0x1EFF), (0x2000, 0x206F),
                (0x2070, 0x209F), (0x20A0, 0x20CF), (0x2100, 0x214F),
                (0x2190, 0x21FF), (0x2200, 0x22FF), (0x25A0, 0x25FF),
                (0xFF01, 0xFF5E)]
@@ -252,6 +252,15 @@ def run(project, output, cache_dir):
         values = [entry.get(k, "") for k in ("key", "zh", "tw", "en")]
         for value in values:
             translations[value] = values
+    for locale_path in sorted((project / "Assets/Resources/Localization").glob("PlatformUI.*.json")):
+        locale_catalog = read_json(locale_path, {})
+        locale_entries = list(locale_catalog.get("entries", []))
+        for context in locale_catalog.get("contexts", []):
+            locale_entries.extend(context.get("entries", []))
+        for entry in locale_entries:
+            key, text = entry.get("key", ""), entry.get("text", "")
+            if key and text:
+                translations.setdefault(key, [key]).append(text)
     scoped = {}
     for record in records.values():
         for guid, texts in record.get("scoped", {}).items():

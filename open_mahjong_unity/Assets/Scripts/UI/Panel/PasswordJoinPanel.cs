@@ -15,13 +15,15 @@ public class PasswordJoinPanel : MonoBehaviour {
     [SerializeField] private Button cancelButton;
 
     private string _roomId;
+    private System.Action<string> _join;
+    private System.Action _cancel;
 
-    public static void TryJoin(string roomId, bool needPassword) {
+    public static void TryJoin(string roomId, bool needPassword, System.Action<string> join = null, System.Action cancel = null) {
         if (needPassword) {
-            Instance.ShowForRoom(roomId);
+            Instance.ShowForRoom(roomId, join, cancel);
             return;
         }
-        RoomNetworkManager.Instance.JoinRoom(roomId, "");
+        if (join != null) join(""); else RoomNetworkManager.Instance.JoinRoom(roomId, "");
     }
 
     private void Awake() {
@@ -35,13 +37,15 @@ public class PasswordJoinPanel : MonoBehaviour {
         if (Instance == this) Instance = null;
     }
 
-    public void ShowForRoom(string roomId) {
+    public void ShowForRoom(string roomId, System.Action<string> join = null, System.Action cancel = null) {
         if (LobbyStateGuard.BlockIfInMatchQueueForRoom()) return;
         if (LobbyStateGuard.IsInRoom) {
             NotificationManager.Instance.ShowTip("join_room", false, "请先退出当前房间");
             return;
         }
         _roomId = roomId;
+        _join = join;
+        _cancel = cancel;
         input.text = "";
         transition.Show();
     }
@@ -53,10 +57,15 @@ public class PasswordJoinPanel : MonoBehaviour {
         }
         string pwd = input.text;
         string roomId = _roomId;
-        transition.Hide(() => RoomNetworkManager.Instance.JoinRoom(roomId, pwd));
+        var join = _join;
+        _join = null; _cancel = null; input.text = "";
+        transition.Hide(() => { if (join != null) join(pwd); else RoomNetworkManager.Instance.JoinRoom(roomId, pwd); });
     }
 
     private void Cancel() {
+        var cancel = _cancel;
+        _join = null; _cancel = null; input.text = "";
         transition.Hide();
+        cancel?.Invoke();
     }
 }

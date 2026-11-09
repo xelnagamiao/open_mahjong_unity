@@ -11,6 +11,7 @@ public static class UiCanvasLayers {
     public const string Feedback = "FeedbackUI";
 
     // Overlay rendering and camera rendering must agree on both the layer and the order.
+    public const int SettlementOrder = 20;
     public const int NavigationOrder = 1000;
     public const int OverlayOrder = 2000;
     public const int ChatOrder = OverlayOrder + 200;

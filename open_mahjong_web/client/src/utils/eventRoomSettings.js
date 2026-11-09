@@ -23,8 +23,9 @@ import { buildChangchunRoomPayload, loadChangchunForm } from './changchunRoomCon
 import { buildGuangdongRoomPayload, loadGuangdongForm, guangdongRows, guangdongProfiles } from './guangdongRoomConfig.js'
 import { loadHongKongForm, hongKongDetail, hongKongRows, hkProfiles, hkProfileLabel } from './hongKongRoomConfig.js'
 import { riichiWinLineLabel } from './riichiWinRequirements.js'
-import { loadRiichiForm, buildRiichiRoomPayload, selectedRiichiPreset } from './riichiRoomConfig.js'
+import { loadRiichiForm, buildRiichiRoomPayload, selectedRiichiPreset, riichiModes } from './riichiRoomConfig.js'
 import { loadChangshaForm, buildChangshaRoomPayload, changshaRows } from './changshaRoomConfig.js'
+import { loadEventRoomExtensions, extendEventRoomPayload, eventExtensionRows, duplicateRoomActive } from './eventRoomExtensions.js'
 
 export function clearUnsupportedDuplicateRoom(form) {
   if (!supportsDuplicateKey(form)) form.duplicate_key = ''
@@ -69,6 +70,7 @@ export function createEventRoomForm(settings = {}) {
     loadRiichiForm(form, config)
   }
   form.password = String(settings.password || '')
+  loadEventRoomExtensions(form, config)
   clearUnsupportedDuplicateRoom(form)
   return form
 }
@@ -91,6 +93,10 @@ function validateCommonTimers(form) {
 }
 
 export function buildEventRoomSettings(form) {
+  return extendEventRoomPayload(form, buildBaseEventRoomSettings(form))
+}
+
+function buildBaseEventRoomSettings(form) {
   if (form.room_rule !== 'guobiao' && String(form.duplicate_key || '').trim() && !supportsDuplicateKey(form)) throw new Error('复式房间仅支持国标麻将和川麻双打复式')
   if (form.room_rule === 'hongque') return buildHongqueRoomPayload(form)
   if (form.room_rule === 'changsha') return buildChangshaRoomPayload(form)
@@ -157,7 +163,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   const form = createEventRoomForm(settings)
   const rule = ruleLabels[form.room_rule] || form.room_rule
   const config = settings.room_config || {}
-  const isDuplicate = Boolean(form.duplicate_key || config.is_duplicate || config.duplicate_wall_type)
+  const isDuplicate = Boolean(duplicateRoomActive(form) || config.is_duplicate || config.duplicate_wall_type)
   const duplicate = isDuplicate ? ` · ${duplicateWallLabel(config.duplicate_wall_type) === '—' ? '复式' : duplicateWallLabel(config.duplicate_wall_type)}` : ''
   if (form.room_rule === 'hongque') return `${hongqueProfiles.find(p => p.value === form.sub_rule)?.label || rule} · ${form.game_round}局`
   if (form.room_rule === 'riichi') return `${selectedRiichiPreset(form)?.label || rule + ' · 自定义'} · 起始 ${form.starting_score} 点 · ${form.riichi_hepai_limit} 番起和（不含宝牌） · 起和线：${riichiWinLineLabel(form.minimum_win_score)}${duplicate}`
@@ -190,7 +196,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
 export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   const form = createEventRoomForm(settings)
   const config = settings.room_config || {}
-  const isDuplicate = Boolean(form.duplicate_key || config.is_duplicate || config.duplicate_wall_type)
+  const isDuplicate = Boolean(duplicateRoomActive(form) || config.is_duplicate || config.duplicate_wall_type)
   const enabled = value => value ? '开启' : '关闭'
   const subRules = {
     'guangdong/tuidao_mil2024': 'MIL 2024（无癞子）',
@@ -215,14 +221,18 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     'jiujiang/standard': '九江麻将',
     'changchun/mil2024': '长春 MIL 2024',
     'guobiao/standard': '国标标准', 'guobiao/xiaolin': '小林', 'guobiao/kshen': 'K神', 'guobiao/lanshi': '蓝十', 'guobiao/transparent': '透明国标',
+    'guobiao/blood_battle': '国标麻将（血战到底）', 'guobiao/sanma': '三人国标',
   'guobiao/transparent_realtime': '国标透明（实时手牌）',
   'guobiao/huahun': '国标（花混癞子）',
   'guobiao/sixteen': '国标麻将（十六张）',
   'guobiao/four_jokers': '国标麻将(四癞子)',
     'shanxi/mil2023': 'MIL山西（2023）',
     'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
+    ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
     'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
     'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
+    'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
+    'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
   }
   const rows = [
     { label: '规则', value: ruleLabels[form.room_rule] || form.room_rule },
@@ -363,5 +373,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   rows.push({ label: '限制游客', value: enabled(form.tourist_limit) }, { label: '允许观战', value: enabled(form.allow_spectator) })
   if (form.room_rule === 'sichuan') rows.push({ label: '战术鸣牌', value: enabled(form.tactical_call) })
   if (form.room_rule === 'guobiao') rows.push({ label: '战术鸣牌', value: enabled(form.tactical_call) }, { label: '鸣牌保护', value: enabled(form.claim_protection) })
+  const shown = new Set(rows.map(row => row.label))
+  rows.push(...eventExtensionRows(form).filter(row => !shown.has(row.label)))
   return rows
 }

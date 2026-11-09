@@ -135,14 +135,13 @@ def test_one_viewer_send_does_not_delay_another_claim_prompt(adapter):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("rule", ["zhongyong", "nanque", "jiandan"])
+@pytest.mark.parametrize("rule", ["zhongyong", "nanque"])
 @pytest.mark.parametrize("phase", ["hand", "claim"])
 def test_driver_wait_preserves_reply_during_flush(rule, phase):
     from ..game_zhongyong import ZhongyongGameState, NanqueGameState
-    from ..game_jiandan.JiandanGameState import JiandanGameState
 
     async def run():
-        state = {"zhongyong": ZhongyongGameState, "nanque": NanqueGameState, "jiandan": JiandanGameState}[rule]()
+        state = {"zhongyong": ZhongyongGameState, "nanque": NanqueGameState}[rule]()
         state.initialize_round()
         state.step_time = 5
         state.game_server = build_game_server(build_db_manager(), messages=[])

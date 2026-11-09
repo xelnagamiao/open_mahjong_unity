@@ -6,6 +6,17 @@ public partial class GameRecordManager {
     private int washizuRecordCutIndex = -1;
     public bool IsWashizuRealtimeRecord() => WashizuTile.IsRealtimeSubRule(ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""));
 
+    public bool CanSeeWashizuTeammateHand(string position) {
+        if (!WashizuDoubles.ShowsTeammateHand(ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""), GetDetailedConfigSnapshot())
+            || position == "self" || !recordPlayer_to_info.TryGetValue("self", out var viewer)
+            || !recordPlayer_to_info.TryGetValue(position, out var subject)
+            || !gameRecord.gameTitle.TryGetValue("team_by_player_index", out object rawTeams) || rawTeams == null) return false;
+        var teams = rawTeams as Newtonsoft.Json.Linq.JArray ?? Newtonsoft.Json.Linq.JArray.FromObject(rawTeams);
+        int self = viewer.originalPlayerIndex, other = subject.originalPlayerIndex;
+        return self >= 0 && other >= 0 && self < teams.Count && other < teams.Count
+            && (int?)teams[self] is int team && (team == 0 || team == 1) && team == (int?)teams[other];
+    }
+
     private bool LegacyGroupedRealtimeRecord => ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == WashizuTile.RealtimeSubRule
         && ReadGameTitleString(gameRecord?.gameTitle, "realtime_initial_order", "") != "deal";
 

@@ -68,7 +68,7 @@ public static class PlayerInfoRuleCatalog {
     private static readonly Entry[] Entries = {
 ENTRIES
     };
-    private static Entry Find(string key) => Array.Find(Entries, e => e.Key == (key == "jiandan" ? Nanque : key) || e.SubRule == key);
+    private static Entry Find(string key) => Array.Find(Entries, e => e.Key == key || e.SubRule == key);
     private static readonly Dictionary<string, Dictionary<string,string>> FansBySubRule = new Dictionary<string, Dictionary<string,string>> {
 FANS
     };

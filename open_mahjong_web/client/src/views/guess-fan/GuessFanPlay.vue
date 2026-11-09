@@ -60,11 +60,11 @@
           </div>
 
           <div v-if="reveal" class="reveal">
-            答案：<strong>{{ reveal.name }}</strong>
+            答案：<strong>{{ guessFanName(reveal.name, reveal.rules) }}</strong>
             · {{ (reveal.rules || []).join('/') }}
             · {{ (reveal.types || []).join('、') }}
             · 组数 {{ formatGroups(reveal.reqLength) }}
-            · 番数 {{ reveal.fan }}
+            · {{ translateRuleText('番数', locale, revealRule(reveal)) }} {{ reveal.fan }}
           </div>
           <p v-if="error" class="err">{{ error }}</p>
         </div>
@@ -104,8 +104,8 @@
           <p class="result-message">{{ resultMessage }}</p>
           <div v-if="reveal" class="answer-card">
             <span>正确答案</span>
-            <strong>{{ reveal.name }}</strong>
-            <small>{{ (reveal.rules || []).join(' / ') }} · {{ (reveal.types || []).join('、') }} · {{ reveal.fan }} 番</small>
+            <strong>{{ guessFanName(reveal.name, reveal.rules) }}</strong>
+            <small>{{ (reveal.rules || []).join(' / ') }} · {{ (reveal.types || []).join('、') }} · {{ revealFanValue(reveal) }}</small>
           </div>
           <div class="result-players">
             <article v-for="player in resultPlayers" :key="player.id" class="result-player">
@@ -116,7 +116,7 @@
               </header>
               <ol v-if="player.guesses?.length" class="guess-history">
                 <li v-for="(guess, index) in player.guesses" :key="`${player.id}-${index}`" :class="{ correct: guess.result?.correct }">
-                  <span>{{ index + 1 }}</span><strong>{{ guess.name || '未知番种' }}</strong><em>{{ guess.result?.correct ? '命中' : '未命中' }}</em>
+                  <span>{{ index + 1 }}</span><strong>{{ guessFanName(guess.name || '未知番种', guess.result?.rules?.value) }}</strong><em>{{ guess.result?.correct ? '命中' : '未命中' }}</em>
                 </li>
               </ol>
               <p v-else class="no-guesses">本局没有提交猜测</p>
@@ -144,6 +144,9 @@
 import GuessFanInput from './GuessFanInput.vue'
 import GuessFanBoardPanel from './GuessFanBoardPanel.vue'
 import { MAX_GUESSES } from '@/constants/guessFanCatalog'
+import { guessFanName } from '@/i18n/guessFanNames.js'
+import { locale } from '@/i18n'
+import { formatFanCount, translateRuleText } from '@/i18n/fanNames.js'
 
 defineProps({
   title: { type: String, default: '猜番对抗' },
@@ -177,6 +180,20 @@ defineProps({
 const emit = defineEmits(['guess', 'leave', 'restart'])
 function emitLeave() {
   emit('leave')
+}
+
+function revealRule(item) {
+  const rule = Array.isArray(item.rules) ? item.rules[0] : String(item.rules || '').split('/')[0]
+  if (['guobiao', '国标'].includes(rule)) return 'guobiao'
+  if (['riichi', '立直', '日麻'].includes(rule)) return 'riichi'
+  return rule || ''
+}
+
+function revealFanValue(item) {
+  const value = Array.isArray(item.fan) ? item.fan.join('/') : String(item.fan ?? '')
+  return value.split('/').map(part => /^\d+(?:\.\d+)?$/.test(part)
+    ? formatFanCount(part, locale.value, revealRule(item))
+    : translateRuleText(part, locale.value, revealRule(item))).join(' / ')
 }
 
 function formatGroups(value) {

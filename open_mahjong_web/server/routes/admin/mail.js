@@ -113,7 +113,7 @@ router.post('/send', async (req, res) => {
 
     await writeAudit({
       adminUserId: req.admin.userId,
-      action: 'mail.send',
+      action: 'email.send',
       targetType: targetUserId ? 'user' : 'email',
       targetId: targetUserId || null,
       payload: {

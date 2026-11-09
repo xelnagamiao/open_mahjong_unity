@@ -18,6 +18,7 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     if (body.duplicate_enabled !== undefined && typeof body.duplicate_enabled !== 'boolean') fail(400, '复式开关必须为布尔值');
     const roomConfig = { ...(body.room_config || {}) };
     const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(roomConfig.sub_rule);
+    if (paired || roomConfig.duplicate_key || body.auto_duplicate) roomConfig.allow_spectator = false;
     if (rule === 'sichuan' && !paired && (roomConfig.duplicate_key || body.duplicate_enabled || body.auto_duplicate)) {
       fail(400, '川麻仅支持血战或血流双打复式，请选择对应的双打复式子规则');
     }
@@ -25,7 +26,7 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
       if (roomConfig.duplicate_sync_mode !== undefined && typeof roomConfig.duplicate_sync_mode !== 'boolean') fail(400, '复式同步模式必须为布尔值');
       roomConfig.duplicate_sync_mode ??= false;
       if (rule !== 'sichuan' || !['event', 'base'].includes(event.kind)) fail(400, '复式双打只能在赛事或基地中创建');
-      if (body.auto_duplicate || body.duplicate_enabled || roomConfig.random_seed) fail(400, '复式双打请选择自动生成或输入已有密钥');
+      if (body.auto_duplicate || body.duplicate_enabled || roomConfig.random_seed) fail(400, '正式复式不能同时使用场景复现，请使用普通房间填写随机种子');
       if (roomConfig.duplicate_key !== undefined) {
         if (typeof roomConfig.duplicate_key !== 'string') fail(400, '复式密钥格式不正确');
         roomConfig.duplicate_key = roomConfig.duplicate_key.trim();
@@ -60,7 +61,8 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     const result = () => ({
       ...(items.length === 1 ? items[0] : {}), items,
       requested_count: count, created_count: items.length,
-      ...(paired ? { paired: true, created_pair_count: items.length, created_room_count: items.length * 2 } : {}),
+      ...(paired ? { paired: true, created_pair_count: items.length, created_room_count: items.length,
+        created_table_count: items.length * 2 } : {}),
       generated_key_count: generated.walls.length, duplicate_quota: generated.quota,
     });
     for (let index = 0; index < count; index += 1) {

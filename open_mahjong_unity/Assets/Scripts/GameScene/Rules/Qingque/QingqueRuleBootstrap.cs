@@ -22,6 +22,7 @@ internal static class QingqueRuleBootstrap {
             PlaysGongHuSound = (rule, fans, score) => score > 18.5,
             SettlementTotal = QingqueFanText.SettlementTotal,
             ScoreboardFanText = QingqueFanText.ScoreboardFanText,
+            ScoreboardShowsFanValues = false,
             ScoreboardMainFanRank = QingqueFanText.ScoreboardMainFanRank,
             RoundName = RoundTextDictionary.WindNumberRoundName,
             MaxRoundInfoText = info => info.unlimited_rounds ? "无固定时限" : RoundTextDictionary.GetMaxRoundText(info.max_round),

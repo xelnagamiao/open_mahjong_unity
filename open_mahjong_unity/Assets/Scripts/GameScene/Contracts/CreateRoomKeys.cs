@@ -11,6 +11,8 @@ public static class CreateRoomKeys {
     public const string PointerTips = "pointer_tips";
     public const string UseFlowers = "use_flowers";
     public const string TianDiRenHe = "tian_di_ren_he";
+    public const string JinluoMode = "jinluo_mode";
+    public const string JinluoWeather = "jinluo_weather";
     public const string NoJokerBonus = "no_joker_bonus";
     public const string BlackFlowerProgressive = "black_flower_progressive";
     public const string JokerMultiWait = "joker_multi_wait";

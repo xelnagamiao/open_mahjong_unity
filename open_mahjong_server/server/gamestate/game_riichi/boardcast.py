@@ -94,12 +94,12 @@ def _player_to_tag_list_for_viewer(player_list, viewer_player_index: int) -> dic
     return {p.player_index: _tag_list_for_viewer(p.tag_list, p.player_index, viewer_player_index) for p in player_list}
 
 
-def _build_base_game_info(self) -> dict:
+def _build_base_game_info(self, viewer_player_index=None) -> dict:
     from .washizu import public_hands
     from .doubles import public_state
     info = {
         "washizu_doubles": public_state(self),
-        "washizu_hands": public_hands(self),
+        "washizu_hands": public_hands(self, viewer_player_index),
         "room_id": self.room_id,
         "gamestate_id": self.gamestate_id,
         "tips": self.tips,
@@ -170,7 +170,6 @@ def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dic
 async def broadcast_game_start(self):
     from .realtime_hand import layouts_for_viewer
     ensure_hand_draw_source_round(self)
-    base = _build_base_game_info(self)
     for cp in self.player_list:
         try:
             if "offline" in cp.tag_list or cp.user_id == 0:
@@ -179,7 +178,7 @@ async def broadcast_game_start(self):
                 continue
             player_conn = self.game_server.user_id_to_connection[cp.user_id]
             infos = [_build_player_info(p, cp.user_id, cp.player_index) for p in self.player_list]
-            game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
+            game_info = GameInfo(**{**_build_base_game_info(self, cp.player_index), "players_info": infos, "self_hand_tiles": None,
                                     "washizu_layouts": layouts_for_viewer(self, cp.player_index)})
             response = Response(type="gamestate/riichi/game_start", success=True, message="游戏开始", game_info=game_info)
             await _send_response(self, cp.player_index, response)
@@ -188,6 +187,15 @@ async def broadcast_game_start(self):
     if hasattr(self, "spectator_manager"):
         self.spectator_manager.record_game_title()
         self.spectator_manager.record_round_start()
+
+
+def _hand_kong_candidates_for_viewer(self, player_index):
+    from .action_check import hand_kong_candidates
+    actions = self.action_dict.get(player_index, [])
+    if player_index != self.current_player_index or not any(a in actions for a in ('angang', 'jiagang')):
+        return {'angang': [], 'jiagang': []}
+    return {action: tiles if action in actions else []
+            for action, tiles in hand_kong_candidates(self, player_index).items()}
 
 
 async def broadcast_ask_hand_action(self):
@@ -227,6 +235,7 @@ async def broadcast_ask_hand_action(self):
                     deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     riichi_candidate_cuts=riichi_cuts,
                     forbidden_cut_tiles=forbidden,
+                    kong_candidates=_hand_kong_candidates_for_viewer(self, i),
                 ),
             )
             await _send_ask_response_to_viewer(self, i, response, block=(i == self.current_player_index))
@@ -326,7 +335,7 @@ async def broadcast_do_action(
                 success=True,
                 message="返回操作内容",
                 do_action_info=Do_action_info(
-                    washizu_hands=public_hands(self),
+                    washizu_hands=public_hands(self, cp.player_index),
                     washizu_layouts=layouts_for_viewer(self, cp.player_index) if not is_claim else None,
                     tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule in WASHIZU_SUB_RULES else None,
                     action_list=action_list,
@@ -670,6 +679,7 @@ async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, 
                     deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     riichi_candidate_cuts=riichi_cuts,
                     forbidden_cut_tiles=forbidden,
+                    kong_candidates=_hand_kong_candidates_for_viewer(self, idx),
                 ),
             )
             await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))

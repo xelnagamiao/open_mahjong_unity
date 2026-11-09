@@ -5,8 +5,11 @@ internal static class SichuanRoomBuilder {
         var limitError = input.ValidateHepaiLimit(0);
         if (limitError != null) return limitError;
         string subRule = input.SubRule;
-        if (input.DuplicateEnabled || !string.IsNullOrEmpty(input.DuplicateKey))
-            return RoomCreationRequest.Invalid("川麻双打复式请在赛事或基地中成对创建开闭室");
+        bool duplicate = SichuanLobby.IsDuplicate(subRule);
+        if (!duplicate && (input.DuplicateEnabled || !string.IsNullOrEmpty(input.DuplicateKey)))
+            return RoomCreationRequest.Invalid("川麻复式密钥仅支持双打复式子规则");
+        if (duplicate && input.RandomSeedEnabled)
+            return RoomCreationRequest.Invalid("复式双打请选择自动生成或输入已有密钥");
         int hepaiLimit = (int)input.Defaults[CreateRoomKeys.HepaiLimit];
         if (input.HepaiLimitEnabled && int.TryParse(input.HepaiLimitText, out int parsed)) {
             hepaiLimit = parsed;
@@ -28,11 +31,14 @@ internal static class SichuanRoomBuilder {
             CountTips = input.CountTips,
             PointerTips = input.PointerTips,
             TouristLimit = input.TouristLimit,
-            AllowSpectator = input.AllowSpectator,
+            AllowSpectator = !duplicate && input.AllowSpectator,
             TacticalCall = input.TacticalCall,
             BloodBattle = bloodBattle,
             HepaiLimit = hepaiLimit,
             EventId = input.EventId,
+            DuplicateKey = duplicate ? input.DuplicateKey : null,
+            DuplicateRoundCount = duplicate ? input.DuplicateRoundCount : 0,
+            DuplicateSyncMode = duplicate && input.DuplicateSyncMode,
         };
 
         if (!config.Validate(out string error, input.PasswordEnabled, input.RandomSeedEnabled)) {

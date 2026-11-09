@@ -315,7 +315,7 @@ public class Chinese_Hepai_Check {
         }
 
         // 主要和牌检查方法
-        public Tuple<int, List<string>> HepaiCheck(List<int> hand_list, List<string> tiles_combination, List<string> way_to_hepai, int get_tile) {
+        public Tuple<int, List<string>> HepaiCheck(List<int> hand_list, List<string> tiles_combination, List<string> way_to_hepai, int get_tile, Func<Tuple<int, List<string>>, bool> resultFilter = null) {
             int complete_step = tiles_combination.Count * 3;
             var player_tiles = new PlayerTiles(hand_list, tiles_combination, complete_step);
 
@@ -372,7 +372,7 @@ public class Chinese_Hepai_Check {
                 throw new ArgumentOutOfRangeException("allow_list", allow_list.Count, debug_info);
             }
 
-            return allow_list[0];
+            return resultFilter == null ? allow_list[0] : allow_list.FirstOrDefault(resultFilter) ?? allow_list[0];
         }
 
         // 国士无双检查

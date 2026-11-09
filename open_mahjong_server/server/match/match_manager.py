@@ -59,6 +59,9 @@ class MatchManager:
                         message=message, **self.snapshot(user_id))
 
     def _join_block_reason(self, player, user_id):
+        party_manager = getattr(self.game_server, 'party_manager', None)
+        if party_manager and party_manager.multi(user_id):
+            return '组队期间无法进行单人匹配'
         if getattr(player, "is_tourist", False):
             return "游客无法进行排位匹配，请先注册账号"
         if getattr(player, "current_room_id", None) or self._is_user_in_custom_room(user_id):
@@ -90,6 +93,8 @@ class MatchManager:
             return self._reply("join", user_id, False, "连接已断开，请重新匹配")
         if not isinstance(queue_type, str) or queue_type not in self.queues:
             return self._reply("join", user_id, False, "无效的匹配类型")
+        if QUEUES[queue_type].party_size > 1:
+            return self._reply('join', user_id, False, '进入2v2匹配需要邀请好友组队')
         blocked = self._join_block_reason(player, user_id)
         if blocked:
             return self._reply("join", user_id, False, blocked)
@@ -150,6 +155,12 @@ class MatchManager:
         user_id = getattr(player, "user_id", None)
         if not user_id:
             return self._reply("leave", user_id, False, "请先登录")
+        parties = getattr(self.game_server, 'party_manager', None)
+        party = parties.get(user_id) if parties else None
+        if party and party.queued_at:
+            response = await parties.handle(connect_id, {'type': 'party/cancel'})
+            response.type = 'match/leave_queue_done'
+            return response
         epoch = self.disconnect_epochs.get(user_id, 0)
         async with self.user_locks[user_id]:
             if (self.game_server.players.get(connect_id) is not player
@@ -163,6 +174,9 @@ class MatchManager:
             return self._reply("leave", user_id, True, "已取消匹配")
 
     def player_disconnect(self, user_id: int):
+        party_manager = getattr(self.game_server, 'party_manager', None)
+        if party_manager:
+            party_manager.disconnected(user_id)
         self.disconnect_epochs[user_id] = self.disconnect_epochs.get(user_id, 0) + 1
         self._remove_queues(user_id)
 
@@ -218,14 +232,16 @@ class MatchManager:
 
     # ==================== 匹配与开局 ====================
 
-    async def _try_start_match(self, queue_type: str):
+    async def _try_start_match(self, queue_type: str, matched_users=None):
         """按队列所需人数凑桌，并在首次 await 前移除所有竞争队列。"""
         queue = self.queues[queue_type]
         player_count = QUEUES[queue_type].player_count
         if len(queue) < player_count:
             return
 
-        matched_users = queue[:player_count]
+        if QUEUES[queue_type].party_size > 1 and matched_users is None:
+            return
+        matched_users = matched_users or queue[:player_count]
         # Commit the whole table before the first await.
         for uid in matched_users:
             self._remove_queues(uid)
@@ -275,6 +291,8 @@ class MatchManager:
                 return
 
             room_config = queue_type_to_room_config(queue_type)
+            if QUEUES[queue_type].party_size > 1:
+                room_config['team_by_seat'] = [0, 1, 0, 1]
             # 申请一个不与自定义房间冲突、且不进入房间列表的匹配专用房间号
             room_id = self.game_server.room_manager.allocate_match_room_id()
 
@@ -397,6 +415,10 @@ class MatchManager:
                         await conn.websocket.send_json(fail_response.dict(exclude_none=True))
                     except Exception:
                         pass
+        finally:
+            parties = getattr(self.game_server, 'party_manager', None)
+            if parties and not any(uid in self.committed_users for uid in user_ids):
+                asyncio.create_task(parties.released(user_ids))
 
     def release_match(self, gamestate_id: str):
         """匹配对局彻底结束（正常结束或全员掉线清理）时，统一释放该局的匹配状态。
@@ -422,3 +444,6 @@ class MatchManager:
         if room_id is not None:
             self.game_server.room_manager.release_match_room_id(room_id)
         logger.info(f"匹配对局结束，已释放匹配状态：gamestate_id={gamestate_id}, 玩家={user_ids}")
+        party_manager = getattr(self.game_server, 'party_manager', None)
+        if party_manager:
+            asyncio.create_task(party_manager.released(user_ids))

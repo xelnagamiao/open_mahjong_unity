@@ -71,7 +71,7 @@ class Recording:
             return None
         if hasattr(self, "_persisted_game_id"):
             return self._persisted_game_id
-        game_id = self.db_manager.store_jiandan_game_record(self.game_record, self.player_list, self.room_type, f"{self.max_round}/3")
+        game_id = self.db_manager.store_zhongyong_game_record(self.game_record, self.player_list, self.room_type, f"{self.max_round}/3")
         if game_id:
             self._persisted_game_id = game_id
         return game_id

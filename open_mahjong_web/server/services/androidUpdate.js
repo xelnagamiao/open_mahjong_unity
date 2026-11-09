@@ -24,6 +24,7 @@ function validateManifest(value) {
   return {
     schemaVersion: 1, versionName: value.versionName, versionCode: value.versionCode,
     releaseVersion: value.releaseVersion, packageName: value.packageName,
+    ...(Number.isSafeInteger(value.baseVersion) && value.baseVersion > 0 ? { baseVersion: value.baseVersion } : {}),
     file: value.file, sizeBytes: value.sizeBytes, sha256: value.sha256.toLowerCase(),
     notes: typeof value.notes === 'string' ? value.notes.slice(0, 4000) : '',
   };
@@ -77,4 +78,4 @@ function createAndroidUpdateStore(directory = releaseDirectory) {
   return { openRelease };
 }
 
-module.exports = { MANIFEST_NAME, validateManifest, createAndroidUpdateStore };
+module.exports = { MANIFEST_NAME, validateManifest, createAndroidUpdateStore, releaseDirectory };

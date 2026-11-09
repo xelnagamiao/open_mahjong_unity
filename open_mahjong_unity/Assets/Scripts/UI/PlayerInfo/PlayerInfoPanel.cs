@@ -263,7 +263,6 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     }
 
     public void SelectRule(string rule) {
-        if (rule == "jiandan") rule = PlayerInfoRuleCatalog.Nanque;
         if (ShowingRanked && !RankedRules.Supports(rule)) return;
         if (!PlayerInfoRuleCatalog.Supports(rule)) return;
         CurrentRule = rule;
@@ -297,9 +296,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     private void RefreshRecentRecords() {
         PlayerRecentCategory category = null;
         if (recentRecords?.rules != null) {
-            // 旧近期记录以 jiandan 缓存南雀；界面与新统计统一使用 nanque。
-            if (recentRecords.rules.TryGetValue(CurrentRule, out var rule)
-                || (CurrentRule == PlayerInfoRuleCatalog.Nanque && recentRecords.rules.TryGetValue("jiandan", out rule)))
+            if (recentRecords.rules.TryGetValue(CurrentRule, out var rule))
                 rule.TryGetValue(ShowingRanked ? "match" : "custom", out category);
         }
         var win = CurrentRule == "guobiao" ? category?.big_win : null;
@@ -386,5 +383,4 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     public void OnRiichiStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("riichi", success, message, stats);
     public void OnQingqueStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("qingque", success, message, stats);
     public void OnClassicalStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("classical", success, message, stats);
-    public void OnJiandanStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("jiandan", success, message, stats);
 }

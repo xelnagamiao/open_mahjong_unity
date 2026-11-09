@@ -10,12 +10,17 @@ public static class SettlementSync {
     public static bool HasEmbeddedRestore { get; private set; }
     private static readonly HashSet<string> Presented = new HashSet<string>();
     private static double? deadline;
+    private static double? dealerChoiceAvailableAt;
+    public static bool DealerChoicePending => Current?.phase == "waiting_dealer_choice"
+        && Current.dealer_choice != null && string.IsNullOrEmpty(Current.dealer_choice.selected);
+    public static bool DealerChoiceAvailable => DealerChoicePending
+        && (!dealerChoiceAvailableAt.HasValue || Now() >= dealerChoiceAvailableAt.Value);
     private static double MonotonicNow() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency;
     public static Func<double> Now = MonotonicNow;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     public static void Reset() {
-        Current = null; deadline = null; Presented.Clear();
+        Current = null; deadline = null; dealerChoiceAvailableAt = null; Presented.Clear();
         IsRestoring = HasEmbeddedRestore = false;
         Now = MonotonicNow;
     }
@@ -31,6 +36,9 @@ public static class SettlementSync {
         double? nextDeadline = info.remaining_ms.HasValue ? (receivedAt ?? Now()) + Math.Max(0, info.remaining_ms.Value) / 1000.0 : null;
         deadline = sameResult && deadline.HasValue && nextDeadline.HasValue
             ? Math.Min(deadline.Value, nextDeadline.Value) : nextDeadline;
+        double? availableAt = info.dealer_choice == null ? null : (receivedAt ?? Now()) + Math.Max(0, info.dealer_choice.available_in_ms) / 1000.0;
+        dealerChoiceAvailableAt = sameResult && dealerChoiceAvailableAt.HasValue && availableAt.HasValue
+            ? Math.Min(dealerChoiceAvailableAt.Value, availableAt.Value) : availableAt;
         Current = info;
         return true;
     }

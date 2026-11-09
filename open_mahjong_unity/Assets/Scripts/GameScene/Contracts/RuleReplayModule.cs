@@ -15,8 +15,13 @@ public sealed class RuleReplayModule {
     public Func<IReadOnlyList<string>, bool> ApplyBeforeMutation;
     public Func<IReadOnlyList<string>, bool> IsSilentTick;
     public Func<IReadOnlyList<string>, int, int> NextPlayer;
+    // An out-of-turn replacement must not redirect the following ordinary draw.
+    public Func<IReadOnlyList<string>, int, int, int> ActingPlayer;
     public Func<string, bool> ConsumeWallTile;
     public Func<int> RemainingTiles;
+    // Optional ordinary-draw horizon when a later end phase differs from the
+    // current public remaining counter (e.g. Changchun's final four draws).
+    public Func<int> ForecastDrawCount;
     public Action RefreshPlayerTags;
     public Action RefreshAfterAction;
     public Action RefreshAfterSeek;

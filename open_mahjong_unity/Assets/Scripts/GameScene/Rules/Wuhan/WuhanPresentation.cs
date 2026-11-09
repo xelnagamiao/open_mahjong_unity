@@ -20,7 +20,7 @@ public static class WuhanPresentation {
         if (panel != null) {
             string first = info?.joker is int joker ? "癞：" + TileName(joker) : "待庄家首打";
             string second = "皮：" + string.Join(" ", (info?.skins ?? new[] {45}).Select(TileName));
-            string third = info?.sea == true ? "海底：仅自摸或过" : info?.push_gold == true ? "推金：须杠出皮子" : "皮癞：杠补牌 / 打出过";
+            string third = info?.sea == true ? "海底：仅自摸或过" : info?.push_gold == true ? "推金：须杠出皮子" : "皮癞：杠补牌 / 打出不补牌";
             panel.UpdateSupplementalLines(first, second, third);
         }
         if (!refreshBadges) return;

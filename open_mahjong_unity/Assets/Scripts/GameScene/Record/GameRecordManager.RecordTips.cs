@@ -171,6 +171,8 @@ public partial class GameRecordManager {
             SubRule = subRule,
             HepaiLimit = hepaiLimit,
             JokerMultiWait = ReadGameTitleBool(gameRecord.gameTitle, "joker_multi_wait", false),
+            JinluoMode = ReadGameTitleBool(gameRecord.gameTitle, "jinluo_mode", false),
+            JinluoWeather = ReadGameTitleString(gameRecord.gameTitle, "jinluo_weather", JinluoRules.DefaultWeather),
             NoJokerBonus = ReadGameTitleString(gameRecord.gameTitle, "no_joker_bonus", "add8"),
             BlackFlowerProgressive = ReadGameTitleBool(gameRecord.gameTitle, "black_flower_progressive", true),
             CurrentRound = displayRound,
@@ -201,7 +203,8 @@ public partial class GameRecordManager {
                 DiscardTiles = kv.Value.discardTiles ?? new List<int>(),
                 CombinationTiles = kv.Value.combinationTiles ?? new List<string>(),
                 CombinationMasks = kv.Value.combinationMasks,
-                PublicHandTiles = IsTransparentRecord() ? kv.Value.tileList.FindAll(WashizuTile.IsTransparent) : null,
+                PublicHandTiles = IsTransparentRecord() ? (CanSeeWashizuTeammateHand(kv.Key)
+                    ? new List<int>(kv.Value.tileList) : kv.Value.tileList.FindAll(WashizuTile.IsTransparent)) : null,
             };
         }
 

@@ -13,7 +13,7 @@ public sealed class RankPolicyPanel : MonoBehaviour {
     public void ShowElo() => ShowElo(null);
     public void ShowElo(string rule) {
         var text=eloContent.GetComponent<TMP_Text>();
-        if(text!=null)text.text=rule=="qingque"?RankedRules.QingqueEloDescription:RankedRules.EloDescription;
+        if(text!=null)text.text=rule==RankedRules.DoublesRule?RankedRules.DoublesDescription:rule=="qingque"?RankedRules.QingqueEloDescription:RankedRules.EloDescription;
         Present(true);
     }
     private void Present(bool elo) {

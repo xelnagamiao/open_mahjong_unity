@@ -42,7 +42,8 @@ Shader "Custom/WashizuGlassTile"
         _FrontTexExtendEdge ("Front Tex Extend Edge", Range(0, 1)) = 0
 
         _GrayScale ("Gray Scale", Range(0, 1)) = 0.0
-        _FrontRotation ("Front Rotation (度)", Range(0, 360)) = 0.0
+        [HideInInspector] _ArtworkLayout ("Artwork position and scale", Vector) = (0,0,1,0)
+        [HideInInspector] _ArtworkBaseline ("Artwork baseline", Vector) = (0,0,1,1)
         [HideInInspector] _TileInstanceParams ("Tile Instance Params", Vector) = (0,0,0,0)
         [HideInInspector] _InkPass ("Opaque paint layer", Float) = 0
         [HideInInspector] _Cull ("Cull", Float) = 0
@@ -83,7 +84,6 @@ Shader "Custom/WashizuGlassTile"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
         CBUFFER_START(UnityPerMaterial)
-            float _FrontRotation;
             float _TableFaceImageScale;
             float _FrontTexContain;
             float _InkPass;
@@ -96,6 +96,8 @@ Shader "Custom/WashizuGlassTile"
         TEXTURE2D(_FrontTex); SAMPLER(sampler_FrontTex);
         UNITY_INSTANCING_BUFFER_START(TilePerInstance)
             UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkLayout)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkBaseline)
             UNITY_DEFINE_INSTANCED_PROP(float4, _FrontColor)
             UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
         UNITY_INSTANCING_BUFFER_END(TilePerInstance)
@@ -129,11 +131,12 @@ Shader "Custom/WashizuGlassTile"
             float scale=options.y>0 ? options.y : _TableFaceImageScale;
             // Turn within this tile's canvas, not around the whole sprite atlas.
             float2 faceUV=lerp(i.uv,1-i.uv,saturate(options.z));
-            float2 canvas=(faceUV-.5)/max(scale,.1)+.5;
+            float4 layout=UNITY_ACCESS_INSTANCED_PROP(TilePerInstance,_ArtworkLayout);
+            float4 baseline=UNITY_ACCESS_INSTANCED_PROP(TilePerInstance,_ArtworkBaseline);
+            float2 adjusted=(faceUV-.5-layout.xy)/max(layout.z,.01);
+            float2 canvas=(adjusted-baseline.xy)/max(scale*baseline.zw,.025)+.5;
             half inside=step(0,canvas.x)*step(canvas.x,1)*step(0,canvas.y)*step(canvas.y,1);
             float2 uv=canvas*mapping.xy+mapping.zw;
-            float angle=radians(_FrontRotation), c=cos(angle), s=sin(angle);
-            uv=mul(float2x2(c,-s,s,c),uv-.5)+.5;
             half4 art=SAMPLE_TEXTURE2D(_FrontTex,sampler_FrontTex,uv);
             half contained=step(0,uv.x)*step(uv.x,1)*step(0,uv.y)*step(uv.y,1);
             coverage=inside*lerp(1.0h,contained,saturate(_FrontTexContain))*art.a;

@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 from .test_bot_speed import manager
 from .room_router import handle_room_message, handle_create_Riichi_room
-from .room_validators import GBRoomValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator
+from .room_validators import GBRoomValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, ZhongyongRoomValidator
 from ..gamestate.public.claim_protection import CLAIM_PROTECTION_RULES
 
 
@@ -41,7 +41,7 @@ def test_unauthorized_or_invalid_toggle_does_not_mutate(who,room,rule,running,va
     m._broadcast_room_info.assert_not_awaited()
 
 
-@pytest.mark.parametrize('cls',[GBRoomValidator,RiichiRoomValidator,SichuanRoomValidator,ChangshaRoomValidator,JiandanRoomValidator])
+@pytest.mark.parametrize('cls',[GBRoomValidator,RiichiRoomValidator,SichuanRoomValidator,ChangshaRoomValidator,ZhongyongRoomValidator])
 @pytest.mark.parametrize('value',[True,False,'true','false',0,1,None,[]])
 def test_room_config_accepts_only_actual_switch_values(cls,value):
     data=dict(room_name='test',game_round=1,round_timer=20,step_timer=5,claim_protection=value)
@@ -65,7 +65,7 @@ def test_riichi_creation_router_forwards_switch_with_legacy_default_off(value):
     ('guobiao','GB','guobiao/standard'),('guobiao','GB','guobiao/blood_battle'),
     ('qingque','Qingque','qingque/standard'),('changsha','Changsha','changsha/classic_double_bird'),
     ('sichuan','Sichuan','sichuan/standard'),('sichuan','Sichuan','sichuan/xueliu'),
-    ('zhongyong','Jiandan','zhongyong/standard'),('zhongyong','Jiandan','zhongyong/nanque'),
+    ('zhongyong','Zhongyong','zhongyong/standard'),('zhongyong','Zhongyong','zhongyong/nanque'),
     ('riichi','Riichi','riichi/standard'),('riichi','Riichi','riichi/langyong'),
 ])
 @pytest.mark.parametrize('enabled',[False,True])

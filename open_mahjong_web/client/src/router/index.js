@@ -51,6 +51,7 @@ import AdminGameControl from '@/views/admin/GameControl.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
 import AdminMessages from '@/views/admin/Messages.vue'
 import AdminSendEmail from '@/views/admin/SendEmail.vue'
+import AdminMailbox from '@/views/admin/Mailbox.vue'
 import AdminIpBans from '@/views/admin/IpBans.vue'
 import AdminStats from '@/views/admin/Stats.vue'
 import AdminEvents from '@/views/admin/Events.vue'
@@ -369,6 +370,7 @@ const routes = [
       { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
       { path: 'titles', name: 'AdminTitles', component: AdminTitles, meta: { title: '头衔管理' } },
       { path: 'inventory', name: 'AdminInventory', component: AdminInventory, meta: { title: '物品管理' } },
+      { path: 'shop', name: 'AdminShop', component: () => import('@/views/admin/Shop.vue'), meta: { title: '商店管理' } },
       { path: 'redemption', name: 'AdminRedemption', component: AdminRedemption, meta: { title: '兑换码' } },
       {
         path: 'users/:userId',
@@ -411,6 +413,7 @@ const routes = [
       { path: 'classic-records', name: 'AdminClassicRecords', component: AdminClassicRecords, meta: { title: '经典牌谱' } },
       { path: 'platform-content', name: 'AdminPlatformContent', component: () => import('@/views/admin/PlatformContent.vue'), meta: { title: '鸣谢与社群' } },
       { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
+      { path: 'mailbox', name: 'AdminMailbox', component: AdminMailbox, meta: { title: '邮箱 · 游戏内邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }
     ]

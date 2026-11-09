@@ -62,7 +62,7 @@ namespace Salasasa.Community {
             if (initialized) return;
             var developmentEndpoint = ConfigManager.Debug ? Salasasa.Home.CompleteLobbyEnvironment.Value("-community-api") : null;
             Endpoint = string.IsNullOrWhiteSpace(developmentEndpoint)
-                ? ConfigManager.webApiUrl.TrimEnd('/') + "/api/platform/content"
+                ? ConfigManager.webApiUrl.TrimEnd('/') + ConfigManager.PlatformContentPath
                 : developmentEndpoint;
             string key; using (var sha = SHA256.Create()) key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(Endpoint))).Replace("-", "").Substring(0, 16);
             cachePath = Path.Combine(Application.persistentDataPath, "platform-content-v2-" + key + ".json");

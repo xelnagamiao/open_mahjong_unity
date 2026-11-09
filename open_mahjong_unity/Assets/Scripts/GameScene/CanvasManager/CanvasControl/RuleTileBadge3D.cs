@@ -1,47 +1,69 @@
-using System.Linq;
 using TMPro;
 using UnityEngine;
 
-/// <summary>A corner marker on the visible physical face. Hidden/logical-only tile IDs never receive it.</summary>
+/// <summary>Physical face labels inherit the tile mesh transform and never expose concealed faces.</summary>
 public sealed class RuleTileBadge3D : MonoBehaviour {
-    private TextMeshPro label;
-    private string previousCaption;
-    public static void Apply(Renderer faceRenderer, int visibleTileId, bool faceUp) {
-        if (faceRenderer == null) return;
+    private TextMeshPro label, auxiliary;
+
+    public static void Apply(Renderer faceRenderer, int visibleTileId, bool faceUp, bool halfTurn = false) {
+        if (!faceRenderer) return;
         var badge = faceRenderer.GetComponent<RuleTileBadge3D>();
         string caption = faceUp ? RuleRegistry.Current?.TileBadgeText?.Invoke(visibleTileId) : null;
-        if (string.IsNullOrEmpty(caption)) {
-            if (badge?.label != null) badge.label.gameObject.SetActive(false);
-            return;
+        string tileName = faceUp && TileCornerLabel.Enabled ? TileCornerLabel.Caption(visibleTileId) : null;
+        if (!badge && string.IsNullOrEmpty(caption) && string.IsNullOrEmpty(tileName)) return;
+        if (!badge) badge = faceRenderer.gameObject.AddComponent<RuleTileBadge3D>();
+        badge.SetLabel(ref badge.label, caption, faceRenderer, false, string.IsNullOrEmpty(tileName), RuleTileBadge.Ink, halfTurn);
+        badge.SetLabel(ref badge.auxiliary, tileName, faceRenderer, true, true, TileCornerLabel.Ink(visibleTileId), halfTurn);
+    }
+
+    private void SetLabel(ref TextMeshPro target, string caption, Renderer face, bool helper, bool right, Color ink, bool halfTurn) {
+        if (string.IsNullOrEmpty(caption)) { if (target) target.gameObject.SetActive(false); return; }
+        if (!target) {
+            var marker = new GameObject(helper ? "TileCornerLabel3D" : "RuleTileBadge3D", typeof(TextMeshPro));
+            marker.transform.SetParent(face.transform, false); marker.layer = face.gameObject.layer;
+            target = marker.GetComponent<TextMeshPro>();
+            target.font = (helper ? PlatformTypography.LatinBold : PlatformTypography.ChineseRegular) ?? TMP_Settings.defaultFontAsset;
+            target.fontSize = 10; target.fontStyle = FontStyles.Normal;
+            target.alignment = TextAlignmentOptions.Center;
+            target.raycastTarget = false; target.textWrappingMode = TextWrappingModes.NoWrap;
+            target.rectTransform.sizeDelta = new Vector2(2, 2);
         }
-        if (badge == null) badge = faceRenderer.gameObject.AddComponent<RuleTileBadge3D>();
-        if (badge.label == null) {
-            var marker = new GameObject("RuleTileBadge3D", typeof(TextMeshPro));
-            marker.transform.SetParent(faceRenderer.transform, false);
-            marker.layer = faceRenderer.gameObject.layer;
-            badge.label = marker.GetComponent<TextMeshPro>();
-            badge.label.font = GameCanvas.Instance?.GetComponentsInChildren<TMP_Text>(true).FirstOrDefault(t => t.font != null)?.font ?? TMP_Settings.defaultFontAsset;
-            badge.label.fontSize = 10;
-            badge.label.alignment = TextAlignmentOptions.Center;
-            badge.label.color = new Color(.8f, .19f, .08f);
-            badge.label.raycastTarget = false;
-            badge.label.textWrappingMode = TextWrappingModes.NoWrap;
-            badge.label.rectTransform.sizeDelta = new Vector2(2, 2);
-        }
-        badge.label.gameObject.SetActive(true);
-        if (badge.previousCaption == caption) return;
-        badge.previousCaption = caption;
-        badge.label.text = caption;
-        badge.label.ForceMeshUpdate(true, true);
-        // ThreeDTiles.shader defines the front cap as local -Z. Using the
-        // renderer's local bounds preserves the authored model and all skins.
-        Bounds bounds = faceRenderer.localBounds;
-        float height = Mathf.Min(bounds.size.x, bounds.size.y) * .25f;
-        float scale = height / Mathf.Max(.001f, badge.label.textBounds.size.y);
-        var markerTransform = badge.label.transform;
+        target.gameObject.SetActive(true);
+        target.color = ink;
+        if (target.text != caption) { target.text = caption; target.ForceMeshUpdate(true, true); }
+        Bounds bounds = face.localBounds;
+        float width = Mathf.Min(bounds.size.x, bounds.size.y);
+        float height = width * (helper ? .22f : .265f);
+        // The line box is too tall for Latin indices, while Mesh.bounds may
+        // still be zero on inactive pooled TMP objects in a Player build.
+        // Glyph metrics are available from TMP's generated layout in both cases.
+        Bounds text = InkBounds(target);
+        float scale = Mathf.Min(height / Mathf.Max(.001f, text.size.y), width * .36f / Mathf.Max(.001f, text.size.x));
+        var markerTransform = target.transform;
         markerTransform.localScale = Vector3.one * scale;
-        markerTransform.localRotation = Quaternion.identity;
-        markerTransform.localPosition = new Vector3(bounds.max.x - height * .72f, bounds.max.y - height * .72f, bounds.min.z - Mathf.Max(.0001f, bounds.size.z * .004f));
-        markerTransform.localPosition -= badge.label.textBounds.center * scale;
+        markerTransform.localRotation = TileFaceFrame.Rotation(halfTurn);
+        float x = (right ? 1 : -1) * (bounds.extents.x - width * .075f - text.size.x * scale * .5f);
+        float y = bounds.extents.y - width * .075f - text.size.y * scale * .5f;
+        markerTransform.localPosition = TileFaceFrame.Point(bounds, new Vector2(x, y), halfTurn)
+            - markerTransform.localRotation * text.center * scale;
+    }
+
+    private static Bounds InkBounds(TMP_Text text) {
+        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        for (int i = 0; i < text.textInfo.characterCount; i++) {
+            var character = text.textInfo.characterInfo[i];
+            if (!character.isVisible || character.textElement?.glyph == null) continue;
+            var metrics = character.textElement.glyph.metrics;
+            Vector2 topLeft = new Vector2(character.origin + metrics.horizontalBearingX * character.scale,
+                character.baseLine + metrics.horizontalBearingY * character.scale);
+            min = Vector2.Min(min, topLeft - Vector2.up * metrics.height * character.scale);
+            max = Vector2.Max(max, topLeft + Vector2.right * metrics.width * character.scale);
+        }
+        if (max.x > min.x && max.y > min.y) return new Bounds((min + max) * .5f, max - min);
+        // A missing font must never expand an index into a table-sized quad.
+        Bounds fallback = text.textBounds;
+        return fallback.size.x > .001f && fallback.size.y > .001f
+            ? fallback : new Bounds(Vector3.zero, Vector3.one);
     }
 }

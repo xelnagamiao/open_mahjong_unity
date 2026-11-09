@@ -67,9 +67,14 @@ public sealed class MatchQueueSlot : MonoBehaviour {
             tierFontSize=tierText.fontSize;modeFontSize=modeText.fontSize;
             textRightBoundary=modeText.rectTransform.anchorMax.x;
         }
-        tierText.font=value.IsElo?modeText.font:originalTierFont;
-        tierText.fontSharedMaterial=value.IsElo?modeText.fontSharedMaterial:originalTierMaterial;
+        tierText.font=originalTierFont;
+        tierText.fontSharedMaterial=originalTierMaterial;
         tierText.text=value.TierTitle;
+        var typeface=tierText.GetComponent<PlatformFontBinding>();
+        if(typeface){
+            typeface.authoredFont=originalTierFont;typeface.authoredMaterial=originalTierMaterial;
+            typeface.preserveAuthoredTypeface=true;typeface.Apply();
+        }
         modeText.text=value.ModeTitle;
         tierText.enableAutoSizing=modeText.enableAutoSizing=true;
         tierText.fontSizeMax=tierFontSize;modeText.fontSizeMax=modeFontSize;

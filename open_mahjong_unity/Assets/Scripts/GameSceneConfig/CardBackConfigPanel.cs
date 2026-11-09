@@ -30,6 +30,7 @@ public partial class CardBackConfigPanel : MonoBehaviour
     [SerializeField] private Button clearImageButton;
     [SerializeField] private Button[] colorSwatches;
 
+    [SerializeField] private CardDesignImagePicker imageLibrary;
     private Color currentColor = ConfigManager.DefaultCardBackColor;
     private float currentBrightness;
     private Texture2D currentTexture;
@@ -51,6 +52,10 @@ public partial class CardBackConfigPanel : MonoBehaviour
     private void OnEnable()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
+        if (imageLibrary != null) {
+            UnityAssetIdb.BindReadOnlyDrop(OnWebGlBytes, err => { if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err); });
+            return;
+        }
         UnityAssetIdb.BindDrop(UnityAssetIdb.KeyCardBack, OnWebGlBytes, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
@@ -142,6 +147,15 @@ public partial class CardBackConfigPanel : MonoBehaviour
         previewArtwork.enabled = previewSprite != null;
     }
 
+    public Color PickerColor => ConfigManager.ApplyColorBrightness(currentColor, currentBrightness);
+
+    public void ApplyPickerColor(Color color)
+    {
+        currentBrightness = 0f;
+        ConfigManager.Instance?.SetCardBackBrightness(0f);
+        SetColor(color);
+    }
+
     private void SetColor(Color color)
     {
         if (syncing || SceneConfigColorUi.IsLayoutRefresh) return;
@@ -180,6 +194,7 @@ public partial class CardBackConfigPanel : MonoBehaviour
             ConfigManager.Instance.SetCardBackBrightness(0f);
             ConfigManager.Instance.SetCardBackColor(currentColor);
         }
+        if (imageLibrary != null) { imageLibrary.ResetImage(); LoadSavedIntoUI(); return; }
         ClearPersistedImage();
         CardBackManager.ClearPersistedCardBack();
         SyncUIFromColor();
@@ -188,6 +203,7 @@ public partial class CardBackConfigPanel : MonoBehaviour
 
     private void ClearImage()
     {
+        if (imageLibrary != null) { imageLibrary.ConfirmDelete(); return; }
         ClearPersistedImage();
         CardBackManager.ClearPersistedCardBack();
         UpdatePreview();
@@ -206,6 +222,11 @@ public partial class CardBackConfigPanel : MonoBehaviour
     private void OpenFilePicker()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
+        if (imageLibrary != null) {
+            UnityAssetIdb.PickBytes(ImageAccept, (name, bytes) => { if (this != null && isActiveAndEnabled) ApplyBodyBytes(bytes, name); },
+                err => { if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err); });
+            return;
+        }
         UnityAssetIdb.PickAndPut(UnityAssetIdb.KeyCardBack, ImageAccept, OnWebGlBytes, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
@@ -253,6 +274,13 @@ public partial class CardBackConfigPanel : MonoBehaviour
 
     private void ApplyBodyBytes(byte[] bytes, string name)
     {
+        if (imageLibrary != null) {
+            if (CardBackManager.TryParseBodyZip(bytes, out var rear, out _)) {
+                if (rear != null) imageLibrary.Import(rear, name); else SceneConfigUi.ShowTip("压缩包需包含 back.png");
+            } else if (CardBackManager.IsZip(bytes)) SceneConfigUi.ShowTip("压缩包需包含 back.png");
+            else imageLibrary.Import(bytes, name);
+            return;
+        }
         if (bytes == null || bytes.Length == 0)
         {
             SceneConfigUi.ShowTip("图片加载失败");

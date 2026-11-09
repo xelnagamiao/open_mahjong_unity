@@ -33,7 +33,6 @@ class PlayerAppearanceResponseTests(unittest.IsolatedAsyncioTestCase):
             ('riichi', 'get_riichi_fan_stats_total', {}),
             ('qingque', 'get_qingque_fan_stats_total', {}),
             ('classical', 'get_classical_fan_stats_total', {}),
-            ('jiandan', 'get_jiandan_fan_stats_total', {}),
         )
         for frame in (2202, 2201, None):
             if frame is None:

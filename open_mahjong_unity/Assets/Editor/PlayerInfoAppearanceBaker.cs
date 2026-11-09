@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using Salasasa.Home;
 using UnityEditor;
+using UnityEditor.Events;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -20,6 +22,7 @@ public static class PlayerInfoAppearanceBaker {
         Undo.RegisterFullObjectHierarchyUndo(panel.gameObject, "Restyle player profile");
         BakeHeadingFont();
         var root = panel.transform;
+        BakeLayout(panel);
         var appearance = panel.GetComponent<PlayerInfoAppearance>();
         if (!appearance) appearance = Undo.AddComponent<PlayerInfoAppearance>(panel.gameObject);
         Set(panel, "appearance", appearance);
@@ -54,7 +57,7 @@ public static class PlayerInfoAppearanceBaker {
         var handle = root.Find("titlePanel (2)/Slider (1)/Handle Slide Area/Handle").GetComponent<Image>();
         handle.color = Color.clear; handle.raycastTarget = false;
 
-        var categories = root.Find("TypeContainer"); Place((RectTransform)categories, 24, 164, 752, 40);
+        var categories = root.Find("TypeContainer");
         int categoryIndex = 0;
         foreach (string name in new[] { "Match", "Custom" }) {
             var control = categories.Find(name).GetComponent<Button>();
@@ -65,8 +68,6 @@ public static class PlayerInfoAppearanceBaker {
             Set(panel, name == "Match" ? "rankedTabIndicator" : "customTabIndicator", line);
         }
         var baseline = Background(categories, "Baseline", 0, 39, 752, 1); baseline.transform.SetAsFirstSibling(); Bind(baseline, Role.Divider);
-        Place((RectTransform)root.Find("RuleContainer"), 24, 216, 752, 44);
-        Place((RectTransform)root.Find("RecentBigWin"), 24, 280, 752, 112);
         foreach (var control in root.Find("RuleContainer").GetComponentsInChildren<Button>(true)) {
             control.image.sprite = null; control.image.type = Image.Type.Simple;
             var text = control.GetComponentInChildren<TMP_Text>(true); Format(text, 22, TextAlignmentOptions.Midline, true);
@@ -125,16 +126,11 @@ public static class PlayerInfoAppearanceBaker {
         Ink("RecentBigWin/Hand/NoRecentWin", Role.Muted);
         foreach (var text in root.Find("RecentTrend").GetComponentsInChildren<TMP_Text>(true).Where(t => t.name.StartsWith("Place_"))) {
             text.rectTransform.sizeDelta = new Vector2(44,32);
-            Format(text, 20, TextAlignmentOptions.MidlineLeft); Bind(text, Role.Muted);
+            Format(text, 20, TextAlignmentOptions.MidlineLeft, true); Bind(text, Role.Muted);
         }
         var scroll = Ref<ScrollRect>(Ref<PlayerInfoStatistics>(panel, "statistics"), "scroll");
         Bind(scroll.verticalScrollbar.GetComponent<Image>(), Role.Detail);
         controls.Add(new PlayerInfoAppearance.ControlBinding { control = scroll.verticalScrollbar, fill = Role.Divider });
-        Place((RectTransform)root.Find("RecentTrend"), 24, 400, 752, 180);
-        Place((RectTransform)root.Find("RecentTrend/PlaceLine"), 56, 60, 696, 96);
-        for (int i = 0; i < 4; i++)
-            Place((RectTransform)root.Find("RecentTrend/Place_" + i), 6, 44 + i * 32, 44, 32);
-        Place((RectTransform)scroll.transform, 24, 596, 752, 284);
         scroll.viewport.offsetMin = scroll.viewport.offsetMax = Vector2.zero;
         scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
         var scrollbarRect = (RectTransform)scroll.verticalScrollbar.transform;
@@ -152,7 +148,71 @@ public static class PlayerInfoAppearanceBaker {
         foreach (var entry in panel.GetComponentsInChildren<PlayerInfoEntry>(true)) BakeEntry(entry);
         foreach (var cell in panel.GetComponentsInChildren<PlayerInfoStatField>(true)) BakeField(cell);
         appearance.ConfigureBaked(panel, Ref<PlayerInfoStatistics>(panel, "statistics"), Ref<PlayerInfoTrendChart>(panel, "trendChart"), bindings.ToArray(), controls.ToArray());
+        BakePaletteControls(scene, appearance);
         EditorUtility.SetDirty(panel); EditorUtility.SetDirty(appearance);
+    }
+
+    public static void BakeLayout(PlayerInfoPanel panel) {
+        var root = (RectTransform)panel.transform;
+        var position = (RectTransform)root.parent;
+        // Grow upward by 40 units from the former visible bottom, retaining the popup's central pivot.
+        position.anchorMin = position.anchorMax = new Vector2(0, 1);
+        position.pivot = new Vector2(.5f, .5f);
+        position.anchoredPosition = new Vector2(153, -68);
+        position.localScale = Vector3.one;
+        root.anchorMin = root.anchorMax = root.pivot = new Vector2(.5f, .5f);
+        root.sizeDelta = new Vector2(800, 940);
+        root.anchoredPosition = new Vector2(400, -470);
+        var fit = position.GetComponent<ViewportPanelFit>();
+        if (fit) {
+            fit.authoredPosition = position.anchoredPosition;
+            fit.allowTopNavigationOverlap = true;
+            EditorUtility.SetDirty(fit);
+        }
+        Place((RectTransform)root.Find("TypeContainer"), 24, 164, 752, 40);
+        Place((RectTransform)root.Find("RuleContainer"), 24, 232, 752, 44);
+        Place((RectTransform)root.Find("RecentBigWin"), 24, 296, 752, 112);
+        Place((RectTransform)root.Find("RecentTrend"), 24, 416, 752, 182);
+        Place((RectTransform)root.Find("RecentTrend/PlaceLine"), 56, 64, 680, 96);
+        for (int i = 0; i < 4; i++)
+            Place((RectTransform)root.Find("RecentTrend/Place_" + i), 6, 48 + i * 32, 44, 32);
+        Place((RectTransform)root.Find("Statistics"), 24, 620, 752, 300);
+    }
+
+    public static void BakePaletteControls(Scene scene, PlayerInfoAppearance appearance = null) {
+        var roots = scene.GetRootGameObjects();
+        var plans = roots.SelectMany(root => root.GetComponentsInChildren<InterfacePlansController>(true)).Single();
+        if (!appearance) appearance = roots.SelectMany(root => root.GetComponentsInChildren<PlayerInfoAppearance>(true)).Single();
+        plans.profile = appearance;
+        var parent = plans.pages[1].transform;
+        var row = parent.Find("ProfilePalette");
+        if (!row) { row = new GameObject("ProfilePalette", typeof(RectTransform)).transform; row.SetParent(parent, false); }
+        float top = parent.Cast<Transform>().Where(node => node != row).Select(node => {
+            var rect = (RectTransform)node;
+            return -rect.anchoredPosition.y + rect.rect.height;
+        }).DefaultIfEmpty(0).Max();
+        Place((RectTransform)row, 24, top, 552, 60);
+        var title = row.Find("Title")?.GetComponent<TMP_Text>();
+        if (!title) title = Object.Instantiate(parent.Find("Settings/Title").GetComponent<TMP_Text>(), row);
+        title.name = "Title"; Text(title, "个人资料"); Place(title.rectTransform, 0, 5, 118, 40); Format(title, 18, TextAlignmentOptions.MidlineLeft);
+        var template = plans.choices.Single(choice => choice.option == DesignOption.Settings).buttons[0];
+        var buttons = new Button[PlayerInfoAppearance.PaletteNames.Length];
+        for (int i = 0; i < buttons.Length; i++) {
+            var node = row.Find("Choice" + i);
+            var button = node ? node.GetComponent<Button>() : Object.Instantiate(template, row);
+            button.name = "Choice" + i; Place((RectTransform)button.transform, 122 + i * 170, 5, 164, 40);
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            Text(label, PlayerInfoAppearance.PaletteNames[i]); Place(label.rectTransform, 0, 0, 164, 40); Format(label, 18, TextAlignmentOptions.Midline, true);
+            button.onClick = new Button.ButtonClickedEvent();
+            UnityEventTools.AddIntPersistentListener(button.onClick, plans.SelectProfilePalette, i);
+            buttons[i] = button;
+        }
+        plans.choices = plans.choices.Where(choice => choice.option != DesignOption.ProfilePalette)
+            .Concat(new[] { new DesignChoiceGroup { option = DesignOption.ProfilePalette, buttons = buttons, values = new[] { 0, 1 } } }).ToArray();
+        plans.presetDefaults = plans.presetDefaults.Where(preset => preset.option != DesignOption.ProfilePalette)
+            .Concat(new[] { new DesignPresetChoice { option = DesignOption.ProfilePalette, value = 0 } }).ToArray();
+        plans.pageHeights[1] = top + 192;
+        EditorUtility.SetDirty(plans);
     }
 
     const string HeadingFontPath = "Assets/Salasasa/Fonts/PlayerInfoHeadingMedium.asset";

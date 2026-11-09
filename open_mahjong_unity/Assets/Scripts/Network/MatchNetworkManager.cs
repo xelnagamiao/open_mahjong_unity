@@ -72,6 +72,7 @@ public class MatchNetworkManager : MonoBehaviour {
         var user=UserDataManager.Instance;
         return user!=null&&!string.IsNullOrEmpty(user.GamestateId);
     }
+    public void SynchronizePartyMatch(Response response) => ApplyServerMatchState(response);
     private void ApplyServerMatchState(Response response) {
         if(IsBoundToLiveGame())return;
         if(response.match_revision.HasValue){
@@ -121,6 +122,8 @@ public class MatchNetworkManager : MonoBehaviour {
     }
     public void ResetMatchLock(){isMatchFoundLocked=false;confirmedQueues.Clear();lastJoinedQueueType=null;RebuildVisibleQueues();}
     public void SendJoinQueue(string queueType) {
+        if (queueType == PartyNetworkManager.Queue) { PartyNetworkManager.Instance?.RequestQueue(); return; }
+        if (PartyNetworkManager.Instance && PartyNetworkManager.Instance.MemberCount > 1) { Tip("组队期间无法进行单人匹配"); return; }
         if(string.IsNullOrEmpty(queueType)||visibleQueues.Contains(queueType)||operations.Exists(op=>!op.Join&&op.Queue==null))return;
         if(UserDataManager.Instance==null||UserDataManager.Instance.IsTourist){Tip("游客无法进行排位匹配，请先注册账号");return;}
         if(IsMatchUiLocked()){Tip("已匹配到对局，正在进入游戏");return;}

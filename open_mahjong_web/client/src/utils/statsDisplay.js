@@ -1,4 +1,6 @@
 import { statisticsSelection, STATISTIC_VALUE_UNITS } from './statisticsCatalog.js';
+import { locale } from '../i18n/index.js';
+import { translateRuleText } from '../i18n/fanNames.js';
 
 export const ratio = (n, d, suffix = '%') =>
   (!d || d <= 0 ? '0.00' + suffix : (((Number(n) || 0) / d) * 100).toFixed(2) + suffix);
@@ -92,7 +94,7 @@ function applyValueUnits(rows, rule) {
     if (!win && row.label !== '平均铳番') return row;
     const unit = definition?.[win ? 'win_stat_unit' : 'deal_in_stat_unit'] || 'fan';
     const label = STATISTIC_VALUE_UNITS[unit][win ? 'win_label' : 'deal_in_label'];
-    return label ? { ...row, label } : null;
+    return label ? { ...row, label: translateRuleText(label, locale.value, definition?.rule || rule) } : null;
   }).filter(Boolean);
 }
 

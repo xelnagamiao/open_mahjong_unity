@@ -6,6 +6,11 @@ from .room_seats import get_seats
 def list_admin_rooms(manager):
     items = []
     for room in list(manager.rooms.values()):
+        if room.get("duplicate_lobby_room_id"):
+            if room["room_id"] != room["duplicate_lobby_room_id"]:
+                continue
+            from .sichuan_lobby import public_lobby
+            room = public_lobby(manager, room)
         room.setdefault("instance_id", str(uuid.uuid4()))
         seats = get_seats(room)
         settings = room.get("player_settings", {})
@@ -21,7 +26,11 @@ def list_admin_rooms(manager):
             "room_id", "instance_id", "room_name", "room_type", "room_rule", "sub_rule",
             "event_id", "host_user_id", "host_name", "max_player", "is_game_running",
             "active_gamestate_id", "duplicate_match_id", "duplicate_table", "duplicate_status",
-            "event_seating_pending", "created_by_admin")})
+            "event_seating_pending", "created_by_admin", "duplicate_lobby")})
+        for uid in (room.get("duplicate_lobby") or {}).get("waiting", []):
+            profile = settings.get(uid, settings.get(str(uid), {}))
+            players.append(dict(user_id=uid, seat_index=None, username=profile.get("username", str(uid)),
+                                is_bot=False, online=manager.is_room_member_online(uid), waiting=True))
         items[-1].update(players=players, online_count=sum(p["online"] for p in players),
                          persist_empty=manager._is_persist_empty_room(room))
     return items

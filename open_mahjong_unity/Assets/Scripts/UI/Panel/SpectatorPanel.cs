@@ -43,6 +43,11 @@ public class SpectatorPanel : MonoBehaviour {
         if (roomFilterDropdown != null) roomFilterDropdown.onValueChanged.AddListener(OnRoomFilterChanged);
         if (tierFilterDropdown != null) tierFilterDropdown.onValueChanged.AddListener(OnDropdownChanged);
         if (formatFilterDropdown != null) formatFilterDropdown.onValueChanged.AddListener(OnDropdownChanged);
+        if (spectatorScrollRect != null) {
+            spectatorScrollRect.movementType = UnityEngine.UI.ScrollRect.MovementType.Elastic;
+            spectatorScrollRect.elasticity = .12f;
+            spectatorScrollRect.inertia = true;
+        }
         ApplyFilter();
     }
 

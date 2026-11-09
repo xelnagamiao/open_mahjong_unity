@@ -1,0 +1,15 @@
+using System.Collections.Generic;
+
+/// <summary>
+/// 南雀旧兼容听牌与和牌张提示：只算静态手牌番；海底/岭上/抢杠等情境番以服务端结算为准。
+/// </summary>
+internal static class NanqueTips {
+    public static HashSet<int> Tingpai(TingpaiQuery q) {
+        return NanqueExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>());
+    }
+
+    public static WaitTileHint Describe(WaitHintQuery q) {
+        var result = NanqueExternal.HepaiCheck(q.HandWithWin, q.Melds, q.HepaiTile);
+        return WaitTileHint.Ron($"{result.Item1}番");
+    }
+}

@@ -17,12 +17,12 @@ internal static class RiichiTips {
 
     public static WaitTileHint Describe(WaitHintQuery q) {
         var ronContext = BuildContext(q, isTsumo: false);
-        RiichiHandResult ron = RiichiExternal.FullHepaiCheck(
+        RiichiHandResult ron = RiichiExternal.WaitHintHepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, ronContext);
         if (ron.MeetsWinRequirements(q.HepaiLimit, ronContext.MinimumWinScore)) {
             return WaitTileHint.Ron(FormatLabel(ron));
         }
-        RiichiHandResult tsumo = RiichiExternal.FullHepaiCheck(
+        RiichiHandResult tsumo = RiichiExternal.WaitHintHepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, BuildContext(q, isTsumo: true));
         return tsumo.MeetsWinRequirements(q.HepaiLimit, ronContext.MinimumWinScore)
             ? WaitTileHint.TsumoOnly(FormatLabel(tsumo))

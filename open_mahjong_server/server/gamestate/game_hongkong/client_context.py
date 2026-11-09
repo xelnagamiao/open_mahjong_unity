@@ -11,5 +11,6 @@ def private_context(state,index):
         flowers_enabled=state.rules.flowers, new13_version=state.rules.new13_version,
         self_draw_only=state.rules.self_draw_only, flowers=p.huapai_list,
         seat=index, round_wind=41+(state.current_round-1)//4%4,
-        ready=p.ready_kind if p.declared_ready else '', dealer_streak=state.dealer_streak)["local_request"]
+        ready=p.ready_kind if p.declared_ready else '', dealer_streak=state.dealer_streak,
+        called_chow_or_pung=p.called_chow_or_pung)["local_request"]
     return {"__local__": [{"local_request": request}]}

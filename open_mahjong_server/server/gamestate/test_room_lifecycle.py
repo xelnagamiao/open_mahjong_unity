@@ -18,7 +18,7 @@ RULES = {
     "guobiao": module.GuobiaoGameState, "qingque": module.QingqueGameState,
     "changsha": module.ChangshaGameState, "classical": module.ClassicalGameState,
     "riichi": module.RiichiGameState, "sichuan": module.SichuanGameState,
-    "xueliu": module.XueliuGameState, "jiandan": module.JiandanGameState,
+    "xueliu": module.XueliuGameState, "zhongyong": module.ZhongyongGameState,
     "taiwan": module.TaiwanGameState, "shanghai": module.ShanghaiGameState,
     "hongque": module.HongqueGameState, "free": module.FreeGameState,
 }

@@ -15,7 +15,7 @@ from server.gamestate.public.game_record_manager import init_game_record, init_g
 NORMAL_RULES = [
     ("guobiao", "Guobiao"), ("mmcr", "Qingque"), ("classical", "Classical"),
     ("changsha", "Changsha"), ("sichuan", "Sichuan"), ("riichi", "Riichi"),
-    ("jiandan", "Jiandan"), ("taiwan", "Taiwan"),
+    ("zhongyong", "Zhongyong"), ("taiwan", "Taiwan"),
 ]
 RULES = [("guobiao", "Guobiao")]
 SUBRULES = ["guobiao/standard", "guobiao/lanshi"]
@@ -181,8 +181,8 @@ def test_actual_end_payload_never_contains_seed_or_local_record(folder, name, su
         player.record_counter.rank_result = index + 1
         state.game_server.user_id_to_connection[player.user_id] = SimpleNamespace(websocket=SimpleNamespace(send_json=AsyncMock()))
     state._local_record_detail = {"private": "must never be sent"}
-    if name == "Jiandan":
-        from server.gamestate.game_jiandan.boardcast import game_end_payload
+    if name == "Zhongyong":
+        from server.gamestate.game_zhongyong.boardcast import game_end_payload
         payload = game_end_payload(state, 0)
     else:
         asyncio.run(state.broadcast_game_end())
@@ -194,7 +194,7 @@ def test_actual_end_payload_never_contains_seed_or_local_record(folder, name, su
     assert info.get("master_seed") is None and "record_detail" not in info
 
 
-@pytest.mark.parametrize("name", ["GB", "Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Jiandan", "Taiwan"])
+@pytest.mark.parametrize("name", ["GB", "Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Zhongyong", "Taiwan"])
 def test_custom_room_has_only_public_duplicate_metadata_before_broadcast(name):
     from server.room.room_manager import RoomManager
     from server.database.duplicate_walls import duplicate_room_context
@@ -256,7 +256,7 @@ def test_guobiao_event_room_accepts_standard_and_lanshi(sub_rule, monkeypatch):
     assert response.room_info["sub_rule"] == sub_rule
 
 
-@pytest.mark.parametrize("name", ["Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Jiandan", "Taiwan", "Hongque", "Free"])
+@pytest.mark.parametrize("name", ["Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Zhongyong", "Taiwan", "Hongque", "Free"])
 def test_non_guobiao_route_rejects_key_before_db_load(name):
     from server.room.room_router import handle_room_message
     server = SimpleNamespace(db_manager=Mock())
@@ -301,7 +301,7 @@ def test_ordinary_seeded_initialization_stays_reproducible(folder, name):
         assert first.dead_wall_count == 14 and len(first.dora_indicators) == 1
 
 
-@pytest.mark.parametrize("name", ["GB", "Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Jiandan", "Taiwan"])
+@pytest.mark.parametrize("name", ["GB", "Qingque", "Classical", "Changsha", "Sichuan", "Riichi", "Zhongyong", "Taiwan"])
 def test_scene_reproduction_room_keeps_original_seed(name):
     from server.room.room_manager import RoomManager
     player = SimpleNamespace(user_id=10000001, username="host", current_room_id=None)

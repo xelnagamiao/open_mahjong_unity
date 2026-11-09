@@ -52,7 +52,7 @@ async def test_ordinary_sichuan_keys_are_rejected_before_creating_event_rooms(ro
     assert not rooms.rooms and not rooms.saved
 
 
-@pytest.mark.parametrize('sub', ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', SBR_DUPLICATE, XUELIU_DUPLICATE])
+@pytest.mark.parametrize('sub', ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'])
 @run_async
 async def test_player_socket_cannot_bypass_paired_creation_with_a_key(rooms, monkeypatch, sub):
     from .room_router import handle_room_message
@@ -214,9 +214,9 @@ async def test_database_failure_rolls_back_both_rooms_before_broadcast(rooms,mon
 
 @pytest.mark.parametrize('sub',[SBR_DUPLICATE,XUELIU_DUPLICATE])
 @run_async
-async def test_regular_create_rejected_even_without_login(rooms,sub):
+async def test_duplicate_creation_still_requires_login(rooms,sub):
     result=await rooms.create_Sichuan_room('missing','x',1,'',20,5,True,sub_rule=sub)
-    assert not result.success and '只能在比赛场' in result.message and not rooms.rooms
+    assert not result.success and '登录' in result.message and not rooms.rooms
 
 
 @pytest.mark.parametrize('status',['completed','cancelled'])
@@ -283,7 +283,10 @@ async def prepare_pair(rooms,monkeypatch):
     await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
     gm=rooms.game_server.gamestate_manager
     pair=next(iter(gm.sichuan_duplicate_matches.values()))
+    # Existing persisted two-room matches must retain their original two-host gate.
+    pair.data.pop('lobby', None)
     for t,room in enumerate(rooms.rooms.values()):
+        room.pop('duplicate_lobby_room_id', None)
         ids=list(range(101+4*t,105+4*t))
         room.update(player_list=ids.copy(),seat_list=ids.copy(),host_user_id=ids[0],ready_list=ids[1:],roster_revision=1)
         rooms.game_server.user_id_to_connection[ids[0]]=NS(Connect_id=str(ids[0]),user_id=ids[0])

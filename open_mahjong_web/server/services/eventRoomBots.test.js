@@ -25,7 +25,7 @@ test('event identity comes from membership, and the chosen seat and bot type rea
 
 test('invalid seats, bot types, stale form identities and inactive events never send a mutation', async () => {
   const { service, calls } = fixture();
-  for (const patch of [{ seat_index: -1 }, { seat_index: 4 }, { seat_index: 1.5 }, { seat_index: true },
+  for (const patch of [{ seat_index: -1 }, { seat_index: 8 }, { seat_index: 1.5 }, { seat_index: true },
     { seat_index: '2' }, { bot_type: 'unknown' }, { instance_id: '' }, { instance_id: null }]) {
     await assert.rejects(service.add(event, 101, '12', { ...body, ...patch }), { status: 400 });
   }

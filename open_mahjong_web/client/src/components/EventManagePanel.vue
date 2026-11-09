@@ -253,14 +253,14 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="准备组桌" name="ready">
+        <el-tab-pane label="建房预设" name="presets">
           <section class="emp-ready-card emp-default-settings" data-testid="default-settings">
             <div class="emp-ready-section-head">
               <div class="emp-ready-summary"><h4>默认配置</h4><span>{{ roomSettingsSummary }}</span></div>
-              <el-button link type="primary" :disabled="!roomSettingsLoaded || savingRoomSettings" @click="togglePresetEditor">{{ settingsEditorExpanded ? '收起对局设置' : '修改对局设置' }}</el-button>
+              <el-button text type="primary" :loading="loadingRoomSettings" :disabled="savingRoomSettings || savingMatchmaking" @click="loadRoomSettings()">刷新</el-button>
             </div>
+            <el-alert v-if="!roomSettingsLoaded && !loadingRoomSettings" title="建房预设未加载，请点击刷新后再操作。" type="warning" :closable="false" show-icon class="emp-alert" />
             <EventRoomPresetEditor
-              v-show="settingsEditorExpanded"
               ref="presetEditorRef"
               :key="eventId"
               :settings-doc="roomSettingsDoc"
@@ -271,6 +271,9 @@
               :remove-preset="removeRoomPreset"
             />
           </section>
+        </el-tab-pane>
+
+        <el-tab-pane label="准备组桌" name="ready">
           <el-alert v-if="!roomSettingsLoaded && !loadingRoomSettings" title="对局设置未加载，请点击刷新后再操作。" type="warning" :closable="false" show-icon class="emp-alert" />
 
           <section class="emp-ready-card emp-manual-seating" data-testid="manual-seating">
@@ -654,6 +657,7 @@
 </template>
 
 <script setup>
+import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { tr } from '@/i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -701,7 +705,6 @@ const RULE_LABELS = {
   beijing: '北京麻将（吃碰提）',
   duocai: '夺彩麻将',
   shanxi: '山西麻将',
-  jiandan: '南雀',
   zhongyong: '中庸麻将',
 }
 
@@ -757,7 +760,6 @@ const openingRoomDialog = ref(false)
 const roomDialogVisible = ref(false)
 const roomPresetChoice = ref('default')
 const presetEditorRef = ref(null)
-const settingsEditorExpanded = ref(true)
 const loadingRoomSettings = ref(false)
 const roomSettingsLoaded = ref(false)
 const savingRoomSettings = ref(false)
@@ -780,32 +782,7 @@ const matchingStatusLabel = computed(() => {
 const roomDialogTitle = computed(() => isBase.value ? '创建基地房间' : '创建赛事房间')
 const roomSettingsSummary = computed(() => eventRoomSettingsSummary(manualSettings.value, RULE_LABELS))
 const matchingSettingsSummary = computed(() => eventRoomSettingsSummary(settingsForChoice(matchingPresetChoice.value) || {}, RULE_LABELS))
-const roomRuleOptions = [
-  { value: 'singapore', label: '新加坡麻将' },
-  { value: 'jiujiang', label: '九江麻将' },
-  { value: 'guobiao', label: '国标' },
-  { value: 'riichi', label: '立直' },
-  { value: 'qingque', label: '青雀' },
-  { value: 'classical', label: '古典' },
-  { value: 'sichuan', label: '四川' },
-  { value: 'changsha', label: '长沙麻将' },
-  { value: 'taiwan', label: '台湾麻将' },
-  { value: 'hongkong', label: '香港麻将' },
-  { value: 'guangdong', label: '广东麻将' },
-  { value: 'guizhou', label: '贵州麻将' },
-  { value: 'yixing', label: '宜兴麻将' },
-  { value: 'malaysia', label: '马来西亚三人麻将' },
-  { value: 'shenyang', label: '沈阳麻将' },
-  { value: 'nanjing', label: '南京麻将' },
-  { value: 'fuzhou', label: '福州麻将' },
-  { value: 'wuhan', label: '武汉麻将' },
-  { value: 'nanchang', label: '南昌麻将' },
-  { value: 'shangrao', label: '上饶麻将' },
-  { value: 'hongque', label: '虹雀' },
-  { value: 'beijing', label: '北京麻将（吃碰提）' },
-  { value: 'duocai', label: '夺彩麻将' },
-  { value: 'shanxi', label: '山西麻将' },
-]
+const roomRuleOptions = eventRoomRuleOptions
 const roomForm = reactive(createEventRoomCreationForm())
 
 const games = ref([])
@@ -1471,14 +1448,6 @@ function settingsForChoice(choice) {
   return choice === 'default' ? manualSettings.value : roomPresets.value.find(item => item.preset_id === choice)
 }
 
-async function togglePresetEditor() {
-  if (settingsEditorExpanded.value) {
-    if (!await presetEditorRef.value?.canDiscard()) return
-    presetEditorRef.value?.resetDraft()
-  }
-  settingsEditorExpanded.value = !settingsEditorExpanded.value
-}
-
 async function closeManagePanel() {
   if (presetEditorRef.value && !await presetEditorRef.value.canDiscard()) return
   emit('close')
@@ -1742,7 +1711,7 @@ async function createRoom() {
     roomForm.room_count = 1
     roomForm.auto_duplicate = false
     roomDialogVisible.value = false
-    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 组开闭室，共 ${created * 2} 间房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
+    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 个八人复式房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
     await loadRooms()
   } catch (e) {
     ElMessage.error({ message: eventRoomCreationError(e), duration: 8000 })
@@ -1879,7 +1848,6 @@ watch(
     roomDialogVisible.value = false
     openingRoomDialog.value = false
     roomPresetChoice.value = 'default'
-    settingsEditorExpanded.value = true
     seatDialogVisible.value = false
     seatingPlayers.value = []
     matchingPresetChoice.value = 'default'
@@ -1896,16 +1864,18 @@ watch(
 )
 
 watch(activeTab, (tab) => {
+  if (tab === 'presets') loadRoomSettings()
   if (tab === 'ready') refreshReadyTab()
   if (tab === 'rooms') loadRooms()
 })
 
 let pollingReady = false
 const readyPollTimer = setInterval(async () => {
-  if (activeTab.value !== 'ready' || document.hidden || loading.value || pollingReady || loadingReady.value || seatingTable.value || savingRoomSettings.value || savingMatchmaking.value) return
+  if (!['ready', 'presets'].includes(activeTab.value) || document.hidden || loading.value || pollingReady || loadingReady.value || seatingTable.value || savingRoomSettings.value || savingMatchmaking.value) return
   pollingReady = true
   try {
-    await Promise.all([loadReady(), loadRoomSettings(true), loadMatchingRuntime()])
+    if (activeTab.value === 'presets') await loadRoomSettings(true)
+    else await Promise.all([loadReady(), loadRoomSettings(true), loadMatchingRuntime()])
   } finally {
     pollingReady = false
   }
@@ -2086,6 +2056,7 @@ onUnmounted(() => clearInterval(readyPollTimer))
 .emp-ready-section-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin: 0 0 14px; }
 .emp-ready-section-head h4 { margin: 0; color: #303133; font-size: 14px; font-weight: 600; }
 .emp-default-settings > .emp-ready-section-head { align-items: center; }
+.emp-default-settings > .emp-ready-section-head h4 { font-weight: 400; }
 .emp-default-settings > .emp-ready-section-head .emp-ready-summary { display: block; min-width: 0; }
 .emp-default-settings > .emp-ready-section-head .emp-ready-summary > span { display: block; margin-top: 5px; color: #909399; line-height: 1.6; }
 .emp-default-settings > .emp-ready-section-head > .el-button { flex-shrink: 0; margin-left: 0; }

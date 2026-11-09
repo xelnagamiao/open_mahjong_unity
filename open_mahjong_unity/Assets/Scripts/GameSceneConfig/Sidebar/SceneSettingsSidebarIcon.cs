@@ -22,6 +22,7 @@ namespace Mahjong.SceneSettingsUI
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();mesh=vh;symbolScale=1;ink=color;
+            if(kind==9){DrawSmoothReset();return;}
             if(useRedesign){symbolColor=color;symbolColor.a=1;DrawRedesign();return;}
             switch(kind)
             {
@@ -39,6 +40,71 @@ namespace Mahjong.SceneSettingsUI
                 default: Stroke(3,20,10,12);Stroke(10,12,20,9);Stroke(20,9,30,12);Stroke(30,12,37,20);Stroke(37,20,30,28);Stroke(30,28,20,31);Stroke(20,31,10,28);Stroke(10,28,3,20);Ring(20,20,5,2);if(kind==7)Stroke(6,35,34,5,2.5f);break;
             }
         }
+        void DrawSmoothReset()
+        {
+            const int segments=96;
+            const float radius=12,half=2.1f;
+            float scale=Mathf.Max(.01f,Mathf.Min(rectTransform.rect.width,rectTransform.rect.height)/40f*(canvas!=null?canvas.scaleFactor:1));
+            float feather=1f/scale;
+            int start=mesh.currentVertCount;
+            for(int i=0;i<=segments;i++)
+            {
+                float angle=Mathf.Lerp(-135,155,i/(float)segments)*Mathf.Deg2Rad;
+                var direction=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle));
+                var center=new Vector2(20,20);
+                SoftVertex(center+direction*(radius-half-feather),0);
+                SoftVertex(center+direction*(radius-half),1);
+                SoftVertex(center+direction*(radius+half),1);
+                SoftVertex(center+direction*(radius+half+feather),0);
+            }
+            for(int i=0;i<segments;i++)for(int band=0;band<3;band++)
+            {
+                int a=start+i*4+band,b=a+4;
+                mesh.AddTriangle(a,b,a+1);mesh.AddTriangle(a+1,b,b+1);
+            }
+            float tailAngle=155*Mathf.Deg2Rad;
+            SoftDisk(new Vector2(20+Mathf.Cos(tailAngle)*radius,20+Mathf.Sin(tailAngle)*radius),half,feather);
+            float headAngle=-135*Mathf.Deg2Rad;
+            var anchor=new Vector2(20+Mathf.Cos(headAngle)*radius,20+Mathf.Sin(headAngle)*radius);
+            var tangent=new Vector2(Mathf.Sin(headAngle),-Mathf.Cos(headAngle));
+            var normal=new Vector2(-tangent.y,tangent.x);
+            SoftTriangle(anchor+tangent*5,anchor-tangent*2+normal*4,anchor-tangent*2-normal*4,feather);
+        }
+        void SoftVertex(Vector2 point,float alpha)
+        {
+            var vertexColor=color;vertexColor.a*=alpha;mesh.AddVert(Point(point),vertexColor,Vector2.zero);
+        }
+        void SoftDisk(Vector2 center,float radius,float feather)
+        {
+            const int segments=32;int start=mesh.currentVertCount;SoftVertex(center,1);
+            for(int i=0;i<=segments;i++)
+            {
+                float angle=i*Mathf.PI*2/segments;var direction=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle));
+                SoftVertex(center+direction*radius,1);SoftVertex(center+direction*(radius+feather),0);
+            }
+            for(int i=0;i<segments;i++)
+            {
+                int a=start+1+i*2,b=a+2;mesh.AddTriangle(start,a,b);mesh.AddTriangle(a,a+1,b);mesh.AddTriangle(a+1,b+1,b);
+            }
+        }
+        void SoftTriangle(Vector2 a,Vector2 b,Vector2 c,float feather)
+        {
+            var points=new[]{a,b,c};float signed=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+            float orientation=signed>=0?1:-1;int start=mesh.currentVertCount;
+            for(int i=0;i<3;i++)
+            {
+                var previous=(points[i]-points[(i+2)%3]).normalized;var next=(points[(i+1)%3]-points[i]).normalized;
+                var n0=new Vector2(previous.y,-previous.x)*orientation;var n1=new Vector2(next.y,-next.x)*orientation;
+                var outward=(n0+n1).normalized;float distance=feather/Mathf.Max(.25f,Vector2.Dot(outward,n1));
+                SoftVertex(points[i],1);SoftVertex(points[i]+outward*distance,0);
+            }
+            mesh.AddTriangle(start,start+2,start+4);
+            for(int i=0;i<3;i++)
+            {
+                int a0=start+i*2,b0=start+((i+1)%3)*2;mesh.AddTriangle(a0,b0,a0+1);mesh.AddTriangle(a0+1,b0,b0+1);
+            }
+        }
+
         void DrawRedesign()
         {
             if(family==0){DrawOriginal();return;}

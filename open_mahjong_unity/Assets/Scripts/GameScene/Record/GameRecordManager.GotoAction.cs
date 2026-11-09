@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class GameRecordManager
 {
     public void GotoAction(int actionIndex){
+        HideRecordMatchResult();
         CancelRecordHuPresentation();
         ClearPendingRecordCuoheContinue();
         // 获取当前局数的node列表
@@ -77,14 +78,14 @@ public partial class GameRecordManager
         if (recordRiichiTenbousClearedAfterHu) {
             Game3DManager.Instance.ClearAllRiichiTenbous();
         }
+        RefreshRecordRulePlayerTags();
+        RecordReplay.RefreshAfterSeek?.Invoke();
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         RefreshTileListViewIfVisible();
         RefreshRecordRiichiRoundPanel();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
-        RefreshRecordRulePlayerTags();
-        RecordReplay.RefreshAfterSeek?.Invoke();
         RefreshExchangeSixRecordPresentation();
         SyncRecordRonDiscardObjectAfterRebuild();
         if (IsBloodBattleRecord() && bloodRecordRevealedHands != null) {
@@ -95,6 +96,7 @@ public partial class GameRecordManager
         }
         SyncRecordBoardScores();
         RestoreSichuanBoardAfterSeek(roundData, safeActionIndex);
+        if (AtMatchEnd && !IsSpectatorSession) ShowRecordMatchResult();
     }
 
     /// <summary>切换牌谱明牌时先释放旧公开行，再重建手牌和剩余批次，避免重复借用实体牌。</summary>
@@ -160,7 +162,7 @@ public partial class GameRecordManager
             return;
         }
 
-        int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
+        int actingPlayerIndex = ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex, lastDiscardPlayerIndex);
 
         string actingPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer actingPlayer = recordPlayer_to_info[actingPlayerPosition];

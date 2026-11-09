@@ -7,6 +7,8 @@ namespace Salasasa.Chat
     [DisallowMultipleComponent]
     public sealed class TableChatLauncher : MonoBehaviour
     {
+        const float PreviewHoldSeconds = 8f;
+        const float PreviewFadeSeconds = 1f;
         public GraphiteChatBridge chat;
         public CanvasGroup visibility;
         public Button open;
@@ -19,6 +21,7 @@ namespace Salasasa.Chat
         GameSceneMouseInputController registeredInput;
         int observedChannel = -1;
         CanvasGroup previewOpacity;
+        float previewReceivedAt;
 
         void Awake()
         {
@@ -46,8 +49,9 @@ namespace Salasasa.Chat
             int room = chat.RoomChannel;
             if (room != observedChannel) { observedChannel = room; Clear(); }
             if (chat.IsVisible) { UnreadCount = 0; badgeRoot.SetActive(false); }
-            previewRoot.SetActive(visible && !chat.IsVisible && latest != null);
-            previewOpacity.alpha = 1;
+            float fade = Mathf.Clamp01((Time.unscaledTime - previewReceivedAt - PreviewHoldSeconds) / PreviewFadeSeconds);
+            previewOpacity.alpha = latest != null ? 1f - fade * fade * (3f - 2f * fade) : 0f;
+            previewRoot.SetActive(visible && latest != null && previewOpacity.alpha > 0f);
             caption.text = PlatformText.Get(chat.IsVisible ? "收起聊天" : "聊天室");
             surface.color = chat.IsVisible ? new Color32(49, 96, 119, 250) : new Color32(29, 36, 47, 238);
         }
@@ -59,21 +63,22 @@ namespace Salasasa.Chat
         }
         public void Receive(GraphiteChatBridge.Message message)
         {
-            if (!chat.AtTable || !chat.Available || message.mine || (message.type != "Chat" && message.type != "Sercet")) return;
+            if (!chat.AtTable || !chat.Available || (message.type != "Chat" && message.type != "Sercet")) return;
             if (message.room != 0 && message.room != chat.RoomChannel) return;
             if (observedChannel != chat.RoomChannel) { observedChannel = chat.RoomChannel; Clear(); }
             latest = message;
-            if (!chat.IsVisible) UnreadCount++;
+            previewReceivedAt = Time.unscaledTime;
+            if (!message.mine && !chat.IsVisible) UnreadCount++;
             Refresh();
         }
-        public void Clear() { latest = null; UnreadCount = 0; Refresh(); }
+        public void Clear() { latest = null; UnreadCount = 0; if (previewOpacity) previewOpacity.alpha = 0; previewRoot.SetActive(false); Refresh(); }
         void Refresh()
         {
             badge.text = UnreadCount > 99 ? "99+" : UnreadCount.ToString();
             badgeRoot.SetActive(UnreadCount > 0);
             if (latest == null) { previewBody.text = ""; return; }
             string channel = latest.room == 0 ? PlatformText.Get("[大厅]") : PlatformText.Format("[房间{0}]", latest.room);
-            string content = latest.sourceContent ?? (latest.author + ": " + latest.text);
+            string content = latest.mine ? latest.text : latest.sourceContent ?? (latest.author + ": " + latest.text);
             previewBody.text = channel + ": " + content;
             previewBody.color = latest.type == "Sercet" ? Color.green : Color.white;
         }

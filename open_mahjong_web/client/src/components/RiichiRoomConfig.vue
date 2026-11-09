@@ -31,14 +31,14 @@
     </el-form-item>
     <p class="riichi-setting-help">{{ riichiWinLineHelp }}</p>
     <div class="riichi-switches">
-      <el-checkbox v-model="form.red_dora" :disabled="isCaptain">赤宝牌</el-checkbox>
-      <el-checkbox v-model="form.allow_kuikae">允许食替</el-checkbox>
-      <el-checkbox v-model="form.open_xiru" :disabled="isCaptain">允许延长战</el-checkbox>
+      <el-checkbox v-model="form.red_dora" :disabled="washizuMode">赤宝牌</el-checkbox>
+      <el-checkbox v-model="form.allow_kuikae" :disabled="form.sub_rule === 'riichi/langyong'">允许食替</el-checkbox>
+      <el-checkbox v-model="form.open_xiru" :disabled="washizuMode">允许延长战</el-checkbox>
       <el-checkbox v-model="form.open_tobi" :disabled="isCaptain">{{ isCaptain ? '主将负分结束' : '击飞结束' }}</el-checkbox>
       <el-checkbox v-model="form.open_cuohe" @change="value => { if (value) form.tips = false }">允许错和宣告</el-checkbox>
     </div>
     <el-form-item label="多家荣和">
-      <el-select v-model="form.hepai_way" :disabled="isCaptain" aria-label="多家荣和">
+      <el-select v-model="form.hepai_way" :disabled="washizuMode" aria-label="多家荣和">
         <el-option label="多响" value="multi_ron" />
         <el-option label="三家荣和流局" value="three_ron_abort" />
         <el-option label="头跳" value="head_bump" />
@@ -71,13 +71,15 @@
 <script setup>
 import { riichiWinLines, riichiWinLineHelp } from '@/utils/riichiWinRequirements.js'
 import { computed } from 'vue'
-import { riichiPresets, riichiOptions, applyRiichiPreset, selectedRiichiPreset, riichiModes, changeRiichiMode, isWashizuCaptain, captainFixedKeys } from '@/utils/riichiRoomConfig.js'
+import { riichiPresets, riichiOptions, applyRiichiPreset, selectedRiichiPreset, riichiModes, changeRiichiMode, isWashizu, isWashizuCaptain, captainFixedKeys } from '@/utils/riichiRoomConfig.js'
 
 const props = defineProps({ form: { type: Object, required: true } })
 const isCaptain = computed(() => isWashizuCaptain(props.form))
+const washizuMode = computed(() => isWashizu(props.form))
 const sections = computed(() => {
   const groups = new Map()
   for (const option of riichiOptions) {
+    if (option.key === 'show_teammate_hand' && !isCaptain.value) continue
     if (isCaptain.value && captainFixedKeys.includes(option.key)) continue
     if (option.key === 'minimum_win_score' || (option.section === '三人麻将' && props.form.sub_rule !== 'riichi/sanma')) continue
     if (!groups.has(option.section)) groups.set(option.section, { name: option.section, options: [] })

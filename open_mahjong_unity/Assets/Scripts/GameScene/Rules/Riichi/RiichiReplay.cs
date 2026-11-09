@@ -39,6 +39,13 @@ public partial class GameRecordManager {
         return RecordManifest()?.RecordTracksRiichiField == true;
     }
 
+    public bool IsVisibleRecordDora(int tile) {
+        if (!IsRiichiRuleRecord() || gameRecord?.gameTitle == null) return false;
+        bool red = !gameRecord.gameTitle.TryGetValue("red_dora", out object value)
+            || !bool.TryParse(value?.ToString(), out bool enabled) || enabled;
+        return RiichiDoraHints.Matches(tile, recordRiichiDoraIndicators, IsSanmaRecord(), red);
+    }
+
     /// <summary>立直及香港牌谱起手分（按 original 0~3），从牌谱读取，不按当前规则回推。</summary>
     private int[] GetRecordStartingScoresByOriginal() {
         var scores = new int[4];
@@ -149,6 +156,7 @@ public partial class GameRecordManager {
 
     /// <summary>将推演后的宝牌/本场/场供同步到 RoundPanel。</summary>
     private void RefreshRecordRiichiRoundPanel() {
+        DoraTileSheen.RefreshAll();
         if (!IsRiichiRuleRecord() || RoundPanel.Instance == null) return;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return;
 

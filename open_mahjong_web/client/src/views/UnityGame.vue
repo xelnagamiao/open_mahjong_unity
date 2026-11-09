@@ -1,13 +1,27 @@
 <template>
   <div class="unity-game-container">
-    <div v-if="hintVisible" class="unity-page-hint">{{ hintText }}</div>
     <div id="unity-container" class="unity-container">
       <canvas id="unity-canvas" ref="unityCanvas"></canvas>
-      <div id="unity-loading-bar" class="unity-loading-bar">
-        <div id="unity-logo" class="unity-logo"></div>
-        <div id="unity-progress-bar-empty" class="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full" class="unity-progress-bar-full"></div>
+      <div v-if="loadingVisible" id="unity-loading-bar" class="unity-loading-bar" data-no-translate>
+        <div class="unity-loading-title">open_mahjong_unity</div>
+        <div id="unity-progress-bar-empty" class="unity-progress-bar-empty"
+          role="progressbar" :aria-label="loadingText.progress" aria-valuemin="0" aria-valuemax="100"
+          :aria-valuenow="loadingPercent" :aria-valuetext="loadingText[loadingPhase]"
+          :class="{ 'is-starting': loadingPhase === 'initializing', 'is-error': loadingPhase === 'error' }">
+          <div id="unity-progress-bar-full" class="unity-progress-bar-full" :style="{ width: loadingPercent + '%' }"></div>
         </div>
+        <div class="unity-loading-caption">
+          <span role="status" aria-live="polite">{{ loadingText[loadingPhase] }}</span>
+          <span v-if="loadingPhase !== 'error'" class="unity-loading-percent" aria-hidden="true">{{ loadingPercent }}%</span>
+        </div>
+        <div class="unity-loading-details">
+          <span>{{ downloadSizeText }}</span>
+          <span>{{ loadingText.elapsed }} {{ totalTimeText }}</span>
+        </div>
+        <div v-if="loadingPhase === 'initializing'" class="unity-loading-stage-time">
+          {{ loadingText.stageTime }} {{ stageTimeText }}
+        </div>
+        <button v-if="loadingPhase === 'error'" class="unity-loading-retry" @click="reloadGame">{{ loadingText.retry }}</button>
       </div>
       <div id="unity-warning" class="unity-warning"></div>
       <div id="unity-footer" class="unity-footer">
@@ -20,13 +34,103 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { locale } from '@/i18n'
+import { unityLoadingProgress, unityLoadingText, createUnityDownloadMeter, formatLoadingBytes, formatLoadingTime } from '@/utils/unityLoading.js'
 
 const unityCanvas = ref(null)
-const hintVisible = ref(true)
-const hintText = ref('正在准备 WebGL，界面可能短暂无响应属正常现象…')
+const loadingVisible = ref(true)
+const loadingPhase = ref('preparing')
+const loadingPercent = ref(0)
+const loadingText = computed(() => unityLoadingText(locale.value))
+let loadingProgress = 0
+const downloadSizeText = ref('')
+const clockTime = ref(0)
+const phaseStartedAt = ref(0)
+let loadingStartedAt = 0
+let loadingClock = null
+let downloadObserver = null
+let metadataAbort = null
+let downloadMeter = null
+const totalTimeText = computed(() => formatLoadingTime(clockTime.value - loadingStartedAt))
+const stageTimeText = computed(() => formatLoadingTime(clockTime.value - phaseStartedAt.value))
+
+function setLoadingPhase(phase) {
+  if (loadingPhase.value !== phase) phaseStartedAt.value = performance.now()
+  loadingPhase.value = phase
+}
+
+function stopLoadingMonitor() {
+  clearInterval(loadingClock)
+  loadingClock = null
+  downloadObserver?.disconnect()
+  downloadObserver = null
+  metadataAbort?.abort()
+  metadataAbort = null
+}
+
+function updateLoadingProgress(progress = loadingProgress) {
+  if (!loadingVisible.value || loadingPhase.value === 'error' || leavingByHardNav) return
+  const meter = downloadMeter?.snapshot(progress)
+  const next = unityLoadingProgress(loadingProgress, progress, downloadObserver && meter ? meter.complete : null)
+  if (meter?.total && next.phase === 'downloading') next.percent = Math.min(79, Math.floor(meter.loaded / meter.total * 80))
+  loadingProgress = next.progress
+  loadingPercent.value = Math.max(loadingPercent.value, next.percent)
+  setLoadingPhase(next.phase)
+  if (meter) downloadSizeText.value = formatLoadingBytes(meter)
+}
+
+function monitorDownloads(fileConfig, gen) {
+  downloadMeter = createUnityDownloadMeter()
+  const files = ['dataUrl', 'codeUrl', 'frameworkUrl'].map(key => [new URL(fileConfig[key], location.href).href, key])
+  const keys = new Map(files)
+  if (typeof PerformanceObserver !== 'undefined') {
+    try {
+      downloadObserver = new PerformanceObserver(list => {
+        if (gen !== unityMountGeneration) return
+        let changed = false
+        for (const entry of list.getEntries()) {
+          const key = keys.get(entry.name)
+          if (key) {
+            downloadMeter.complete(key, entry.encodedBodySize)
+            changed = true
+          }
+        }
+        if (changed) updateLoadingProgress()
+      })
+      downloadObserver.observe({ type: 'resource' })
+    } catch {
+      downloadObserver = null
+    }
+  }
+  const controller = new AbortController()
+  metadataAbort = controller
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  // Only headers are requested; downloading starts immediately in parallel.
+  // A separate query prevents HEAD timing entries from completing the GET meter.
+  Promise.allSettled(files.map(async ([url, key]) => {
+    const metadataUrl = new URL(url)
+    metadataUrl.searchParams.set('download-size', '1')
+    const response = await fetch(metadataUrl, { method: 'HEAD', signal: controller.signal })
+    if (response.ok && gen === unityMountGeneration && loadingVisible.value) {
+      downloadMeter.setSize(key, Number(response.headers.get('Content-Length')))
+      downloadSizeText.value = formatLoadingBytes(downloadMeter.snapshot(loadingProgress))
+    }
+  })).finally(() => clearTimeout(timeout))
+}
+
+function failLoading(error) {
+  console.error('Unity 加载失败:', error)
+  setLoadingPhase('error')
+  loadingVisible.value = true
+  stopLoadingMonitor()
+}
+
+function reloadGame() {
+  window.location.reload()
+}
 
 let unityInstance = null
 let unityMountGeneration = 0
@@ -139,6 +243,7 @@ function removeUnityLoaderScript() {
 async function parseUnityConfig() {
   try {
     const response = await fetch('/unity-game/index.html', { cache: 'no-store' })
+    if (!response.ok) throw new Error(`Unity configuration: HTTP ${response.status}`)
     const html = await response.text()
 
     const loaderMatch = html.match(/var\s+loaderUrl\s*=\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
@@ -172,6 +277,7 @@ function unityShowBanner(msg, type) {
   warningBanner.appendChild(div)
 
   if (type === 'error') {
+    failLoading(msg)
     div.style = 'background: red; padding: 10px;'
   } else if (type === 'warning') {
     div.style = 'background: yellow; padding: 10px;'
@@ -215,24 +321,23 @@ async function loadUnityGame(gen) {
   const canvas = unityCanvas.value
   if (!canvas) return
 
-  const loadingBar = document.querySelector('#unity-loading-bar')
-  const progressBarFull = document.querySelector('#unity-progress-bar-full')
   const fullscreenButton = document.querySelector('#unity-fullscreen-button')
 
-  if (loadingBar) {
-    loadingBar.style.display = 'block'
-  }
+  loadingVisible.value = true
+  loadingPhase.value = 'preparing'
+  loadingPercent.value = 0
+  loadingProgress = 0
+  downloadSizeText.value = ''
+  loadingStartedAt = performance.now()
+  clockTime.value = loadingStartedAt
+  phaseStartedAt.value = loadingStartedAt
+  loadingClock = setInterval(() => { clockTime.value = performance.now() }, 250)
 
   const fileConfig = await parseUnityConfig()
   if (gen !== unityMountGeneration) return
 
-  if (!fileConfig || !fileConfig.loaderUrl) {
-    console.error('无法解析Unity配置文件')
-    alert('无法加载Unity游戏配置，请检查Unity构建文件是否存在')
-    if (loadingBar) {
-      loadingBar.style.display = 'none'
-    }
-    hintVisible.value = false
+  if (!fileConfig || !fileConfig.loaderUrl || !fileConfig.dataUrl || !fileConfig.frameworkUrl || !fileConfig.codeUrl) {
+    failLoading('无法解析Unity配置文件')
     return
   }
 
@@ -248,26 +353,25 @@ async function loadUnityGame(gen) {
     showBanner: unityShowBanner
   }
 
+  monitorDownloads(fileConfig, gen)
+
   removeUnityLoaderScript()
   const script = document.createElement('script')
   script.id = UNITY_LOADER_SCRIPT_ID
   script.src = fileConfig.loaderUrl
+  setLoadingPhase('loader')
   script.onload = () => {
     if (gen !== unityMountGeneration) return
-    hintText.value = '正在下载与编译资源，请稍候…'
+    setLoadingPhase('downloading')
     requestAnimationFrame(() => {
       if (gen !== unityMountGeneration) return
       if (typeof createUnityInstance !== 'function') {
-        console.error('createUnityInstance 未定义')
-        alert('Unity 加载器异常')
-        if (loadingBar) loadingBar.style.display = 'none'
-        hintVisible.value = false
+        failLoading('createUnityInstance 未定义')
         return
       }
       createUnityInstance(canvas, config, (progress) => {
-        if (progressBarFull) {
-          progressBarFull.style.width = 100 * progress + '%'
-        }
+        if (gen !== unityMountGeneration || leavingByHardNav || loadingPhase.value === 'error') return
+        updateLoadingProgress(progress)
       })
         .then((instance) => {
           if (gen !== unityMountGeneration || leavingByHardNav) {
@@ -275,10 +379,9 @@ async function loadUnityGame(gen) {
             return
           }
           unityInstance = instance
-          if (loadingBar) {
-            loadingBar.style.display = 'none'
-          }
-          hintVisible.value = false
+          loadingPercent.value = 100
+          loadingVisible.value = false
+          stopLoadingMonitor()
           if (fullscreenButton) {
             fullscreenButton.onclick = () => {
               if (unityInstance) {
@@ -288,19 +391,12 @@ async function loadUnityGame(gen) {
           }
         })
         .catch((message) => {
-          console.error('Unity 加载失败:', message)
-          alert('Unity 游戏加载失败: ' + message)
-          hintVisible.value = false
+          if (gen === unityMountGeneration && !leavingByHardNav) failLoading(message)
         })
     })
   }
   script.onerror = () => {
-    console.error('无法加载 Unity loader')
-    alert('无法加载 Unity 游戏文件')
-    if (loadingBar) {
-      loadingBar.style.display = 'none'
-    }
-    hintVisible.value = false
+    if (gen === unityMountGeneration && !leavingByHardNav) failLoading('无法加载 Unity loader')
   }
   document.body.appendChild(script)
 }
@@ -335,6 +431,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
   removeLeaveGuard()
+  stopLoadingMonitor()
 
   // 故意不调用 Quit：SPA 卸载时 Quit 会冻死主线程；硬跳转路径由浏览器整页回收
   unityInstance = null
@@ -351,24 +448,6 @@ onUnmounted(() => {
   background: #000000;
   overflow: hidden;
   position: relative;
-}
-
-.unity-page-hint {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  max-width: min(520px, 92vw);
-  padding: 8px 14px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: #334155;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
-  text-align: center;
 }
 
 .unity-container {
@@ -388,33 +467,124 @@ onUnmounted(() => {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  display: none;
+  width: 84%;
+  max-width: 560px;
+  box-sizing: border-box;
   z-index: 10;
+  color: #dedede;
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
 }
 
-.unity-logo {
-  width: 154px;
-  height: 130px;
-  background: url('/unity-game/TemplateData/unity-logo-dark.png') no-repeat center;
-  background-size: contain;
-  margin: 0 auto;
+.unity-loading-title {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  color: #eeeeee;
+  font-size: 17px;
+  line-height: 1.4;
+  letter-spacing: 0.025em;
+  overflow-wrap: anywhere;
 }
 
 .unity-progress-bar-empty {
-  width: 141px;
-  height: 18px;
-  margin-top: 10px;
-  margin-left: 6.5px;
-  background: url('/unity-game/TemplateData/progress-bar-empty-dark.png') no-repeat center;
-  background-size: contain;
+  position: relative;
+  width: 100%;
+  height: 12px;
+  box-sizing: border-box;
+  margin-top: 0;
+  padding: 2px;
+  border: 1px solid #767676;
+  background: #191919;
+  overflow: hidden;
+}
+
+.unity-progress-bar-empty::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 80%;
+  width: 1px;
+  background: #191919;
 }
 
 .unity-progress-bar-full {
   width: 0%;
-  height: 18px;
+  height: 100%;
+  background: #eeeeee;
+  transition: width 160ms linear;
+}
+
+.unity-loading-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
   margin-top: 10px;
-  background: url('/unity-game/TemplateData/progress-bar-full-dark.png') no-repeat center;
-  background-size: contain;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.unity-loading-percent {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.unity-loading-details {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.unity-loading-stage-time {
+  margin-top: 4px;
+  color: #aaa;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.is-starting .unity-progress-bar-full {
+  animation: unity-starting 1.6s ease-in-out infinite alternate;
+}
+
+.is-error {
+  border-color: #b99292;
+}
+
+.unity-loading-retry {
+  display: block;
+  margin-top: 14px;
+  padding: 6px 18px;
+  border: 1px solid #767676;
+  color: #eeeeee;
+  background: #191919;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.unity-loading-retry:hover,
+.unity-loading-retry:focus-visible {
+  background: #333333;
+}
+
+@keyframes unity-starting {
+  to { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unity-progress-bar-full {
+    transition: none;
+    animation: none;
+  }
 }
 
 .unity-warning {

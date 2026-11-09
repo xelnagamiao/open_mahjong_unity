@@ -14,6 +14,16 @@ import java.io.IOException;
 public final class AndroidUpdateBridge {
     private AndroidUpdateBridge() {}
 
+    public static void restartGame(android.app.Activity activity) {
+        Intent launch = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+        if (launch == null) throw new IllegalStateException("Cannot find the game launcher");
+        // A foreground Activity in a separate private process survives the Unity process exit.
+        Intent restart = new Intent(activity, RestartGameActivity.class);
+        restart.putExtra("gamePid", android.os.Process.myPid());
+        restart.putExtra("gameLaunch", launch);
+        activity.runOnUiThread(() -> activity.startActivity(restart));
+    }
+
     public static long installedVersionCode(Context context) throws PackageManager.NameNotFoundException {
         return versionCode(context.getPackageManager().getPackageInfo(context.getPackageName(), 0));
     }

@@ -13,8 +13,8 @@ const FLOWERS = [51, 52, 53, 54, 55, 56, 57, 58];
 const RULES = {
   guobiao: { label: '国标麻将', base: [...NUMBER_TILES, ...HONORS], flowers: FLOWERS },
   'guobiao/lanshi': { label: '国标蓝十改（无花）', base: [...NUMBER_TILES, ...HONORS] },
-  'sichuan/xueliu': { label: '川麻血流双打复式', base: NUMBER_TILES, wall_layout: 'xueliu', event_only: true },
-  'sichuan/sbr': { label: '川麻血战双打复式（SBR）', base: NUMBER_TILES, wall_layout: 'sbr', event_only: true },
+  'sichuan/xueliu': { label: '川麻血流双打复式', base: NUMBER_TILES, wall_layout: 'xueliu' },
+  'sichuan/sbr': { label: '川麻血战双打复式（SBR）', base: NUMBER_TILES, wall_layout: 'sbr' },
 };
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
@@ -85,7 +85,6 @@ function normalizeInput(body = {}) {
   if (typeof rule !== 'string') fail(400, '复式规则必须为有效的规则名称');
   if (rule.startsWith('sichuan/') && body.use_flowers === true) fail(400, '川麻复式只有 108 张数牌，不能启用花牌');
   const useFlowers = normalizeUseFlowers(rule, body.use_flowers);
-  if (RULES[rule].event_only && scope !== 'event') fail(400, '川麻仅支持双打复式，密钥请在赛事或基地中创建');
   const name = String(body.name || '').trim();
   if (name.length > 80) fail(400, '名称最多 80 字');
   let seed = null;

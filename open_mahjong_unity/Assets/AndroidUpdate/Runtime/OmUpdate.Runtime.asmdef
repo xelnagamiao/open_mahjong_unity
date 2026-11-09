@@ -1,0 +1,5 @@
+{
+  "name": "OmUpdate.Runtime",
+  "references": ["OmUpdate.Core", "Unity.ugui"],
+  "autoReferenced": true
+}

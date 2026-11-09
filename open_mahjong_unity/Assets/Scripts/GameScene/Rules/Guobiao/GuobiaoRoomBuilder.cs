@@ -7,6 +7,7 @@ internal static class GuobiaoRoomBuilder {
         if (input.DuplicateEnabled && string.IsNullOrEmpty(input.DuplicateKey))
             return RoomCreationRequest.Invalid("请填写在网站账户面板创建的复式密钥");
         string subRule = input.SubRule;
+        bool jinluo = subRule == "guobiao/standard" && input.JinluoMode;
         int hepaiLimit = ResolveHepaiLimit(input);
 
         var config = new GB_Create_RoomConfig {
@@ -22,14 +23,15 @@ internal static class GuobiaoRoomBuilder {
             TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule)) && input.TianDiRenHe,
             Rule = "guobiao",
             SubRule = subRule,
+            JinluoMode = jinluo, JinluoWeather = input.JinluoWeather,
             RoundTimer = input.RoundTimer,
             StepTimer = input.StepTimer,
-            Tips = input.Tips,
+            Tips = !jinluo && input.Tips,
             CountTips = input.CountTips,
             PointerTips = input.PointerTips,
-            CuoHe = subRule != "guobiao/blood_battle" && (subRule == "guobiao/lanshi" || input.CuoHe),
+            CuoHe = subRule != "guobiao/blood_battle" && (jinluo || subRule == "guobiao/lanshi" || input.CuoHe),
             CuoheType = subRule == "guobiao/lanshi" ? 1 : input.CuoheType,
-            HepaiLimit = (subRule == "guobiao/blood_battle" || subRule == GuobiaoGameState.HuahunSubRule) ? 8 : hepaiLimit,
+            HepaiLimit = (jinluo || subRule == "guobiao/blood_battle" || subRule == GuobiaoGameState.HuahunSubRule) ? 8 : hepaiLimit,
             TouristLimit = input.TouristLimit,
             AllowSpectator = input.AllowSpectator,
             TacticalCall = subRule != "guobiao/blood_battle" && input.TacticalCall,

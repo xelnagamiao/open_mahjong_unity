@@ -17,12 +17,14 @@ public class TipsFanCount : MonoBehaviour
 
     [Header("颜色设置")]
     public Color dianheColor = Color.green; // 点和颜色（绿色，可和牌）
-    public Color zimoColor = Color.yellow; // 单一和法颜色（黄色，仅自摸 / 仅点和）
+    public Color zimoColor = Color.yellow; // 仅自摸颜色（黄色）
     public Color wuyiColor = new Color32(166, 0, 0, 255); // 未起和 / 无役（与提示预制体一致的红色）
     public Color exhaustedColor = new Color(0.55f, 0.55f, 0.55f, 1f); // 听牌张已用尽（灰色）
 
     /// <summary>枚数与番数共用和牌资格；关闭番数只隐藏分值，不跳过起和判定。</summary>
     public void SetHint(WaitTileHint hint, int remaining, bool showFan, bool showCount) {
+        var rect = (RectTransform)transform;
+        float previousHeight = rect.rect.height;
         string label = "";
         if (showFan || showCount) {
             // 尚未算完或缺少权威快照时，不能用枚数暗示已经可以和牌。
@@ -38,6 +40,12 @@ public class TipsFanCount : MonoBehaviour
         // 未起和始终显示红色；合法但已耗尽的听张沿用番数行的灰色。
         string fanKind = remaining <= 0 && hint != null && kind != WaitTileHint.KindNone ? "exhausted" : kind;
         SetTipsFanCount(label, fanKind, kind);
+        // An asynchronous refresh must not collapse existing rows to the one-line
+        // pending label, then expand them again. Do not display stale eligibility.
+        if (hint == null && (showFan || showCount)) {
+            float pendingHeight = showFan && showCount ? RowHeight * 2 + RowGap : RowHeight;
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(previousHeight, pendingHeight));
+        }
     }
 
     public void SetTipsFanCount(string fanCount, string colorType, string countKind = null) {
@@ -47,14 +55,14 @@ public class TipsFanCount : MonoBehaviour
         TableText.Set(secondHintText, twoLines ? lines[1] : "");
         secondHintText.gameObject.SetActive(twoLines);
         secondChip.gameObject.SetActive(twoLines);
-        // 枚数可占第一、二或三行：单一和法用同款黄底，两种和法均可保留蓝底。
+        // 枚数可占第一、二或三行：仅自摸用黄底，仅点和与两种和法均可使用蓝底。
         string firstLine = lines[0].Trim();
         bool countOnly = !twoLines && firstLine.EndsWith("枚")
             && int.TryParse(firstLine.Substring(0, firstLine.Length - 1), out _);
-        Color countColor = (countKind ?? colorType) == WaitTileHint.KindTsumoOnly || (countKind ?? colorType) == WaitTileHint.KindRonOnly ? zimoColor
+        Color countColor = (countKind ?? colorType) == WaitTileHint.KindTsumoOnly ? zimoColor
             : (countKind ?? colorType) == WaitTileHint.KindNone ? wuyiColor : new Color32(70,86,126,255);
         Color fanColor = colorType == "exhausted" ? exhaustedColor
-            : colorType == WaitTileHint.KindTsumoOnly || colorType == WaitTileHint.KindRonOnly ? zimoColor
+            : colorType == WaitTileHint.KindTsumoOnly ? zimoColor
             : colorType == "wuyi" ? wuyiColor
             : colorType == "dianhe" ? dianheColor : countColor;
         SetChipColor(firstChip, countOnly ? countColor : fanColor);

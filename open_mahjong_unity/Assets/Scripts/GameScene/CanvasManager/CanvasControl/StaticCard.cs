@@ -17,6 +17,9 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private static readonly Color ZimoTintColor = new Color(0.65f, 0.8f, 1f, 1f);
 
     public int TileId => tileId;
+    public Image BadgeBody => faceBackground != null && faceBackground.enabled ? faceBackground : tileImage;
+    public Image FaceArtwork => tileImage;
+    public Image FaceTexture => tableBackground;
 
     private void OnEnable() {
         if (tileId >= 0) RefreshVisual();
@@ -54,13 +57,15 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         ApplyDisplayColor();
         GuangdongMilTileVisual.Refresh(transform, tileId);
         RuleTileBadge.Apply(transform, tileId);
+        TileCornerLabel.Apply(transform, tileId);
+        DoraTileSheen.Apply(transform, tileId);
     }
 
     private void OnRectTransformDimensionsChange() {
         if (!useTableFace || tileImage == null || faceBackground == null) return;
         faceBackground.rectTransform.sizeDelta = ((RectTransform)transform).rect.size;
         TileFaceFit.FitTableArtwork(faceBackground.rectTransform, tileImage, tableBackground,
-            TileFaceResolver.TableImageScaleFor(tileId));
+            TileFaceResolver.TableImageScaleFor(tileId), tileId);
     }
 
     public void SetTileImageColor(Color color) {

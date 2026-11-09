@@ -6,6 +6,10 @@ public static class SystemAppLanguage
     public static AppLanguage FromTag(string tag)
     {
         var parts = (tag ?? "").Trim().Replace('_', '-').ToLowerInvariant().Split('-');
+        if (parts[0] == "fr") return AppLanguage.French;
+        if (parts[0] == "de") return AppLanguage.German;
+        if (parts[0] == "ru") return AppLanguage.Russian;
+        if (parts[0] == "ja") return AppLanguage.Japanese;
         if (parts[0] != "zh") return AppLanguage.English;
         if (System.Array.IndexOf(parts, "hans") >= 0) return AppLanguage.SimplifiedChinese;
         if (System.Array.IndexOf(parts, "hant") >= 0) return AppLanguage.TraditionalChinese;
@@ -19,7 +23,7 @@ public static class SystemAppLanguage
     public static AppLanguage Detect()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return (AppLanguage)Mathf.Clamp(SalasasaSystemLanguage(), 0, 2);
+        return (AppLanguage)Mathf.Clamp(SalasasaSystemLanguage(), 0, (int)AppLanguage.Japanese);
 #elif UNITY_ANDROID && !UNITY_EDITOR
         try
         {
@@ -31,6 +35,10 @@ public static class SystemAppLanguage
 #endif
         return Application.systemLanguage switch
         {
+            SystemLanguage.French => AppLanguage.French,
+            SystemLanguage.German => AppLanguage.German,
+            SystemLanguage.Russian => AppLanguage.Russian,
+            SystemLanguage.Japanese => AppLanguage.Japanese,
             SystemLanguage.ChineseTraditional => AppLanguage.TraditionalChinese,
             SystemLanguage.ChineseSimplified or SystemLanguage.Chinese => AppLanguage.SimplifiedChinese,
             _ => AppLanguage.English

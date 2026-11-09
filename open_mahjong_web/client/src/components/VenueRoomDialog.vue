@@ -29,7 +29,7 @@
         </el-form-item>
         <el-form-item label="创建数量">
           <el-select v-model="form.room_count" aria-label="创建数量" style="width: 100%">
-            <el-option v-for="count in EVENT_ROOM_COUNTS" :key="count" :label="paired ? `${count} 组（${count * 2} 间）` : `${count} 个房间`" :value="count" />
+            <el-option v-for="count in EVENT_ROOM_COUNTS" :key="count" :label="paired ? `${count} 个八人房间` : `${count} 个房间`" :value="count" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="showReason" label="操作原因" required class="room-top-full">
@@ -62,11 +62,12 @@
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <RoomTimerFields v-else :form="form" />
+      <EventRoomSupplementFields :form="form" :show-password="showPassword" />
       <div v-if="paired" class="paired-settings">
-        <div class="paired-preview" aria-label="开闭室配对">
-          <div><strong>开室</strong><span>东西蓝队 · 南北红队</span></div>
+        <div class="paired-preview" aria-label="八人复式房间">
+          <div><span class="table-title">闭室</span><span>东西红队 · 南北蓝队</span></div>
           <span class="paired-link" aria-hidden="true">⇄</span>
-          <div><strong>闭室</strong><span>东西红队 · 南北蓝队</span></div>
+          <div><span class="table-title">开室</span><span>东西蓝队 · 南北红队</span></div>
         </div>
         <el-form-item label="复式模式">
           <el-radio-group v-model="form.duplicate_sync_mode" aria-label="复式模式">
@@ -91,7 +92,7 @@
           <DuplicateRoomField v-model="form.duplicate_key" required sichuan :create-to="{ path: '/account', hash: '#sec-duplicate-event' }" />
           <p class="duplicate-help">支持本赛事／基地的手动牌山、复现牌山、密钥牌山；规则须与房间一致。</p>
         </template>
-        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，两桌同时就绪后开始。' : '逐副分差以 80 分封顶累计，同时记录 JJ IMP；按副分判定，平分时两室同步加副。两桌同时就绪后开始。' }}</p>
+        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，八人入座准备后由房主统一开始。' : '逐副分差以 80 分封顶累计，同时记录 JJ IMP；按副分判定，平分时两室同步加副。八人入座准备后由房主统一开始。' }}</p>
         <el-alert v-if="creationProblem" :title="creationProblem" type="warning" :closable="false" show-icon />
       </div>
       <div v-if="supportsDuplicateKey(form) && !paired" class="duplicate-settings">
@@ -120,13 +121,14 @@
     </el-form>
     <template #footer>
       <el-button :disabled="loading" @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="loading" :disabled="Boolean(creationProblem)" @click="confirm">{{ paired ? `创建 ${form.room_count} 组开闭室` : form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
+      <el-button type="primary" :loading="loading" :disabled="Boolean(creationProblem)" @click="confirm">{{ paired ? `创建 ${form.room_count} 个八人房间` : form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import EventRoomSupplementFields from '@/components/EventRoomSupplementFields.vue'
 import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
@@ -180,14 +182,15 @@ const pairedKeySource = computed({
   get: () => props.form.duplicate_key_source || (props.form.duplicate_key?.trim() ? 'existing' : 'auto'),
   set: value => {
     props.form.duplicate_key_source = value
-    if (value === 'auto') props.form.duplicate_key = ''
+    if (value !== 'existing') props.form.duplicate_key = ''
   },
 })
 watch(() => props.form.sub_rule, value => {
-  if (isSichuanDuplicate(value)) {
+  if (isSichuanDuplicate(value) && !props.form.duplicate_key?.trim() && !props.form.scene_reproduction) {
     props.form.duplicate_round_count = value === 'sichuan/doubles_duplicate' ? 8 : 16
     props.form.duplicate_key_source = 'auto'
     props.form.duplicate_key = ''
+    props.form.scene_reproduction = false
   }
 })
 const quotaLoading = ref(false)
@@ -259,7 +262,7 @@ function confirm() {
 .paired-settings { margin-top: 16px; padding: 16px; background: #f0f5fc; border: 1px solid #d9e5f5; border-radius: 12px; }
 .paired-preview { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; }
 .paired-preview > div { display: flex; flex-direction: column; gap: 6px; padding: 14px; background: #fff; border-radius: 8px; }
-.paired-preview strong { color: #344f73; font-size: 15px; }
+.paired-preview .table-title { color: #344f73; font-size: 15px; font-weight: 400; }
 .paired-preview span { color: #657b98; font-size: 12px; }
 .paired-preview .paired-link { font-size: 23px; }
 @media (max-width: 440px) { .paired-preview { gap: 6px; } .paired-preview > div { padding: 10px; } }

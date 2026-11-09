@@ -43,7 +43,7 @@ PostgreSQL
 | is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
 | email | VARCHAR(255) | NULL | 绑定邮箱 |
 | email_verified_at | TIMESTAMP | NULL | 邮箱验证时间；非空表示已验证 |
-| rename_count | INTEGER | NOT NULL DEFAULT 0 | 历史改名次数，供 scripts/migrate_rename_cards.py 一次性按 1:1 折算为改名卡并清零；正常改名直接扣库存卡 |
+| rename_count | INTEGER | NOT NULL DEFAULT 0 | 历史改名次数兼容列，已按 1:1 折算为改名卡并清零；正常改名直接扣库存卡 |
 | ban_expires_at | TIMESTAMP | NULL | 封禁到期时间；NULL 且 ban_type 非空表示永久封禁 |
 | ban_type | VARCHAR(32) | NULL | 封禁类型：`login` 禁止登录、`chat` 禁止发言、`match` 禁止排位、`full` 全面封禁；NULL 表示未封禁 |
 | ban_reason | TEXT | NULL | 封禁原因，登录被拒时展示给玩家 |
@@ -179,4 +179,3 @@ Web 上下分周榜按最近七个完整统计日累计 `pt_change`（北京时�
 > - **game_player_records** 表已移除外键约束，删除用户时不会删除牌谱记录
 > - 如果用户有牌谱记录，删除操作会被阻止，以保留牌谱完整性
 > - 牌谱记录中的 `user_id` 和 `username` 会永久保留，即使对应的用户已被删除
-

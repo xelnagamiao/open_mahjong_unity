@@ -1,5 +1,6 @@
 import { locale, tr } from './index.js'
 import { frenchFanNames } from './fr.js'
+import { contextualMessage, formatLocaleQuantity, formatLocaleUnit } from './extended-locales.js'
 
 // English terms match Assets/Scripts/Config/FanTextDictionary.cs in the Unity client.
 const english = {
@@ -55,20 +56,62 @@ const japanese = {
   喜相逢: '喜相逢', 幺九刻: '幺九刻', 连六: '連六', 花牌: '花牌',
 }
 
-export function translateFanName(value, targetLocale = locale.value) {
+export function translateFanName(value, targetLocale = locale.value, context = '') {
   const source = String(value || '')
   if (!source || targetLocale === 'zh-CN') return source
+  const contextual = contextualMessage(source, targetLocale, String(context).split('/')[0])
+  if (contextual != null) return contextual
+  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+    const valued = source.match(/^(.+?)[（(]\s*([\d.]+)\s*番\s*[）)]$/)
+    if (valued) return `${translateFanName(valued[1], targetLocale, context)} (${formatFanCount(valued[2], targetLocale, context)})`
+    const badge = source.match(/^(.+?)\s+([\d.]+)\s*番$/)
+    if (badge) return `${translateFanName(badge[1], targetLocale, context)} ${formatFanCount(badge[2], targetLocale, context)}`
+  }
   const match = source.match(/^(.*?)(\*\d+)$/)
   const base = match ? match[1] : source
   const suffix = match ? match[2] : ''
   if (targetLocale === 'en') return `${english[base] || tr(base, {}, targetLocale)}${suffix}`
   if (targetLocale === 'ja') return `${japanese[base] || tr(base, {}, targetLocale)}${suffix}`
   if (targetLocale === 'fr') return `${frenchFanNames[base] || tr(base, {}, targetLocale)}${suffix}`
-  return tr(source, {}, targetLocale)
+  return `${tr(base, {}, targetLocale)}${suffix}`
 }
 
-export function formatFanCount(value, targetLocale = locale.value) {
+export function translateRuleText(value, targetLocale = locale.value, context = '', amount = 1, params = {}) {
+  const source = String(value ?? '')
+  context = String(context || '').split('/')[0]
+  const interpolate = text => text.replace(/\{(\w+)\}/g, (token, key) => Object.hasOwn(params, key) ? String(params[key]) : token)
+  const expanded = interpolate(source)
+  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+    const whole = expanded.match(/^([+−\-]?[\d,.]+)\s*(番|翻|符|副|点|分|台|倍)$/)
+    if (whole) return formatLocaleQuantity(whole[1], whole[2], targetLocale, context) || tr(source, params, targetLocale)
+    const selfDrawn = expanded.match(/^自摸\s*([+−\-]?[\d,.]+)\s*(番|分)$/)
+    if (selfDrawn) return `${tr('自摸', {}, targetLocale)} ${formatLocaleQuantity(selfDrawn[1], selfDrawn[2], targetLocale, context)}`
+    const unit = formatLocaleUnit(amount, source, targetLocale, context)
+    if (unit) return unit.split('{n}').join('').trim()
+  }
+  const contextual = contextualMessage(source, targetLocale, context)
+  if (contextual != null) return interpolate(contextual)
+  const expandedContextual = contextualMessage(expanded, targetLocale, context)
+  if (expandedContextual != null) return expandedContextual
+  let result = tr(source, params, targetLocale)
+  if (result === expanded && source !== expanded) result = tr(expanded, {}, targetLocale)
+  for (const match of expanded.matchAll(/([+−\-]?[\d,.]+)\s*(番|翻|副)/g)) {
+    const general = formatLocaleQuantity(match[1], match[2], targetLocale)
+    const specific = formatLocaleQuantity(match[1], match[2], targetLocale, context)
+    if (general && specific && general !== specific) result = result.split(general).join(specific)
+  }
+  return result
+}
+
+export function formatFanUnit(value, targetLocale = locale.value, context = '') {
+  return formatLocaleUnit(value, '番', targetLocale, String(context).split('/')[0])
+    ?? (targetLocale === 'fr' && Number(value) !== 1 ? 'fans' : tr('番', {}, targetLocale))
+}
+
+export function formatFanCount(value, targetLocale = locale.value, context = '') {
   const amount = String(value ?? 0)
+  const formatted = formatLocaleQuantity(amount, '番', targetLocale, String(context).split('/')[0])
+  if (formatted != null) return formatted
   if (targetLocale === 'fr') return `${amount} fan${Number(value) === 1 ? '' : 's'}`
   return targetLocale === 'en' ? `${amount} Fan` : `${amount}${tr('番', {}, targetLocale)}`
 }

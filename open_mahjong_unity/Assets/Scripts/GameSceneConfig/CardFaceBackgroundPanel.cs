@@ -22,7 +22,7 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
         + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整张牌面请关闭。\n"
         + "背景与牌背默认使用靛蓝，经典位于列表末尾。支持多份上传，确认名称后保存；下拉切换，使用“改名”“删除”管理。返回不保存，恢复默认不删除图库。\n"
         + "ZIP 导入只需确认一次名称，默认为 ZIP 文件名，背景与牌背使用同一名称；同类素材不能重名。\n"
-        + "牌背右上角“自动跟随”亮起时，切换背景会使用同名牌背；没有同名牌背时保留当前牌背。手动选牌背会关闭跟随。\n"
+        + "2D手牌牌背标题栏的“自动同步手牌背景”默认开启，切换背景会使用同名牌背；没有同名牌背时保留当前牌背。手动选牌背会关闭同步。\n"
         + "手牌背景右上角“牌面位置”可调整花纹的水平、垂直位置和等比缩放；每个背景独立保存，返回撤销，确认保存。\n"
         + "3D 牌面背景只用于 3D 卡牌正面，不是手牌背景。\n"
         + "请到「3D 卡牌设计」中的「3D牌面背景」标签设置背景和纯色，3D 牌背请到「牌背」标签设置。";
@@ -63,6 +63,8 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text helpText;
     [SerializeField] private Button useTableBackgroundButton;
     [SerializeField] private Button noTableBackgroundButton;
+
+    [SerializeField] private CardDesignImagePicker tableImageLibrary;
 
     private enum PickMode { HandBg, CardBack, TableBg, Pair }
 
@@ -132,6 +134,10 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
 
     public void HidePanel() {
         gameObject.SetActive(false);
+    }
+
+    public void SelectInlineSurface(int index, bool back) {
+        SelectHandSurface(index, null, back);
     }
 
     private void OpenPicker(PickMode mode) {
@@ -207,11 +213,18 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void ApplyBytes(byte[] bytes, string name) {
         if (bytes == null || bytes.Length == 0) return;
+        if (tableImageLibrary != null && (pickMode == PickMode.TableBg || CardBackManager.IsTableBgFileName(name))) {
+            if (CardBackManager.TryParseTableBgZip(bytes, out var background)) tableImageLibrary.Import(background, name);
+            else if (CardBackManager.IsZip(bytes)) SceneConfigUi.ShowTip("压缩包需包含 table-bg.png");
+            else tableImageLibrary.Import(bytes, name);
+            return;
+        }
         if (CardBackManager.TryParseFaceBodyZip(bytes, out byte[] handBackPng, out byte[] handBgPng)) {
             QueueHandImport(handBgPng, handBackPng, name);
             return;
         }
         if (CardBackManager.TryParseTableBgZip(bytes, out byte[] tableBgPng)) {
+            if (tableImageLibrary != null) { tableImageLibrary.Import(tableBgPng, name); return; }
             CardBackManager.PersistTableBackground(tableBgPng);
             SceneConfigUi.ShowTip("3D 牌面背景已应用");
             RefreshPreviews();
@@ -245,11 +258,13 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void RestoreTableBg() {
+        if (tableImageLibrary != null) { tableImageLibrary.ResetImage(); return; }
         CardBackManager.ClearPersistedTableBackground();
         RefreshPreviews();
     }
 
     private void ClearTableBg() {
+        if (tableImageLibrary != null) { tableImageLibrary.ConfirmDelete(); return; }
         CardBackManager.ClearPersistedTableBackground();
         SceneConfigUi.ShowTip("已删除 3D 牌面背景");
         RefreshPreviews();
@@ -291,7 +306,7 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void RefreshHandBackFollowButton() {
         if (handBackFollowButton == null) return;
-        SceneConfigUi.SetButtonSelected(handBackFollowButton, ConfigManager.Instance != null && ConfigManager.Instance.HandBackAutoFollow);
+        SceneConfigUi.SetButtonSelected(handBackFollowButton, ConfigManager.Instance == null || ConfigManager.Instance.HandBackAutoFollow);
         handBackFollowButton.GetComponentInChildren<TMP_Text>(true).color = Color.white;
     }
 
@@ -371,6 +386,15 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
         SceneConfigColorUi.SyncChannel(tableFaceSliderB, tableFaceValueB, color.b);
         SceneConfigColorUi.SyncBrightness(tableFaceSliderBrightness, tableFaceValueBrightness, ConfigManager.Instance?.TableFaceBrightness ?? 0f);
         syncingTableFaceColor = false;
+    }
+
+    public Color PickerColor => ConfigManager.ApplyColorBrightness(CurrentTableFaceColor,
+        ConfigManager.Instance?.TableFaceBrightness ?? 0f);
+
+    public void ApplyPickerColor(Color color) {
+        CardBackManager.SetTableFaceBrightness(0f);
+        CardBackManager.SetTableFaceColor(color);
+        RefreshSolidColorUi();
     }
 
     private void SetTableFaceRgb(float r, float g, float b) {

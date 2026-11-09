@@ -92,7 +92,7 @@ Bot 应按 `system` 选择显示字段，不能要求每项都有 Elo。四人�
 ### info 中的基础统计与南雀
 
 - 原有 `guobiao_stats`、`riichi_stats`、`qingque_stats`、`classical_stats`、`changsha_stats` 保留。
-- 新增 `nanque_stats`：南雀基础统计和番种统计。统计存储沿用内部 `jiandan_*` 表，对外规则标识为 `rule=zhongyong`、`sub_rule=zhongyong/nanque`，不新增“简单麻将”规则。
+- 新增 `nanque_stats`：南雀基础统计和番种统计。统计读取通用逐局指标，对外规则标识为 `rule=zhongyong`、`sub_rule=zhongyong/nanque`，不新增“简单麻将”规则。
 - `fan_dict` 新增 `riichi` 和 `nanque` 中文番种字典。
 - 基础统计行新增 `mode_fan_stats`，只统计该行 `mode` 的番种。原 `fan_stats` 仍为全历史番种合计，放在第一行；按匹配/自定义或局制筛选时请使用 `mode_fan_stats`。
 - `ranked_stats` 以六种评级规则 ID 为键，各项为按 `mode` 分组的匹配统计数组。四人立直与三人立直、川麻血战与血流换三张分别统计，不混入自定义房。立直统计来自已保存的日麻统计，其他规则来自每玩家指标；缺少统计数据的历史对局可能无法补齐，与记录列表的对局数可能不同。

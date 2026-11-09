@@ -29,6 +29,7 @@ public static class LocalHintValidation {
             sixteen=Guobiao(Path.Combine(root,"sixteen-parity.json"),true),
             regional=Regional(Path.Combine(root,"regional-parity.json")),
             hongkong=Regional(Path.Combine(root,"hongkong-parity.json")),
+            hongkongKongs=Regional(Path.Combine(root,"hongkong-kongs-parity.json")),
             hongque=Hongque(Path.Combine(root,"hongque-parity.json")),
             changshaExchangeSix=Snapshots(Path.Combine(root,"changsha-exchange-six-parity.json"))
         };

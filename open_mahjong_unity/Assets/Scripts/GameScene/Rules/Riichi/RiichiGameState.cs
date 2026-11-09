@@ -25,7 +25,7 @@ public class RiichiGameState : TurnBasedGameState {
         if (washizuPublicHands == null) yield break;
         foreach (var pair in washizuPublicHands) {
             if (!Mirror.IndexToPosition.TryGetValue(pair.Key, out string seat) || seat == "self") continue;
-            foreach (int tile in pair.Value) if (WashizuTile.IsTransparent(tile)) yield return tile;
+            foreach (int tile in pair.Value) if (tile != 0) yield return tile;
         }
     }
     public int DealerIndex { get; private set; }
@@ -51,6 +51,7 @@ public class RiichiGameState : TurnBasedGameState {
         KanDoraIndicators = gameInfo.kan_dora_indicators != null ? new List<int>(gameInfo.kan_dora_indicators) : new List<int>();
         HepaiWay = gameInfo.hepai_way ?? "multi_ron";
         RedDora = gameInfo.red_dora ?? false;
+        DoraTileSheen.RefreshAll();
         DealerIndex = gameInfo.dealer_index ?? 0;
 
         // 仅为已支付供托的玩家还原点棒；旧快照未带成立字段时兼容原有标签。
@@ -185,6 +186,7 @@ public class RiichiGameState : TurnBasedGameState {
     private void OnDoraUpdated(int[] doraFromServer, int[] kanDoraFromServer) {
         if (doraFromServer != null) DoraIndicators = new List<int>(doraFromServer);
         if (kanDoraFromServer != null) KanDoraIndicators = new List<int>(kanDoraFromServer);
+        DoraTileSheen.RefreshAll();
         RefreshRoundPanel();
         TipsContainer.Instance?.RefreshTenpaiTipsIfCached();
     }

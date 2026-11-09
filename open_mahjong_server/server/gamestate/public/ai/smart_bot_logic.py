@@ -137,8 +137,10 @@ def count_visible_tiles(game_state, viewer_index=None) -> List[int]:
         for player in game_state.player_list:
             if player.player_index == viewer_index:
                 continue  # Own hand is subtracted separately by count_acceptance.
+            from ...game_riichi.washizu import can_see_teammate_hand
+            reveal_teammate = can_see_teammate_hand(game_state, player, viewer_index)
             for tile in player.hand_tiles:
-                if is_transparent(tile):
+                if is_transparent(tile) or reveal_teammate:
                     visible[tile_to_34(tile)] += 1
         for tile in getattr(game_state, "dora_indicators", []) + getattr(game_state, "kan_dora_indicators", []):
             visible[tile_to_34(tile)] += 1
@@ -238,6 +240,21 @@ def should_accept_hu(game_state, player_index: int, hu_action: str) -> bool:
     """
     hepai_limit = getattr(game_state, 'hepai_limit', 0)
     result = getattr(game_state, 'result_dict', {}).get(hu_action)
+    from ....game_calculation import guobiao_jinluo as jinluo
+    if jinluo.enabled(game_state):
+        if not result:
+            return False
+        player = game_state.player_list[player_index]
+        hand = list(player.hand_tiles)
+        if hu_action != "hu_self":
+            tile = getattr(game_state, "jiagang_tile", None)
+            if tile is None:
+                discards = game_state.player_list[game_state.current_player_index].discard_tiles
+                if not discards:
+                    return False
+                tile = discards[-1]
+            hand.append(tile)
+        return jinluo.allows_state_win(game_state, result, hand, player.combination_tiles, player_index)
     if isinstance(result, dict):
         if not result:
             return True

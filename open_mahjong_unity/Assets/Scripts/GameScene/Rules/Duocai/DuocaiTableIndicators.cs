@@ -26,17 +26,25 @@ public static class DuocaiTableIndicators {
 
 public sealed class DuocaiTableOverlay : MonoBehaviour {
     public bool Dirty;
+    private bool backsPending;
     private void LateUpdate() {
-        var manager=Game3DManager.Instance;if(manager==null||manager.HasPendingRecordTableAnimations)return;
-        if(Dirty){manager.RefreshDuocaiWall(DuocaiTableIndicators.DisplayedInfo);Dirty=false;}
-        manager.RefreshDuocaiBacks(DuocaiTableIndicators.DisplayedInfo,DuocaiTableIndicators.Players);
+        var manager=Game3DManager.Instance;if(manager==null)return;
+        bool animating=manager.HasPendingRecordTableAnimations;
+        if(Dirty) {
+            manager.RefreshDuocaiWall(DuocaiTableIndicators.DisplayedInfo);
+            manager.RefreshDuocaiBacks(DuocaiTableIndicators.DisplayedInfo,DuocaiTableIndicators.Players);
+            Dirty=false;backsPending=animating;
+        } else if(backsPending&&!animating) {
+            manager.RefreshDuocaiBacks(DuocaiTableIndicators.DisplayedInfo,DuocaiTableIndicators.Players);
+            backsPending=false;
+        }
     }
     private void OnDestroy(){if(Game3DManager.Instance!=null)Game3DManager.Instance.RefreshDuocaiWall(null);}
 }
 
 public partial class Game3DManager {
-    // Approved plan E uses the shared R120 / 0.82 live-wall layout.
     private readonly Dictionary<int,GameObject> duocaiWall=new Dictionary<int,GameObject>();
+    private readonly Dictionary<int,(int face,int back,string seat,int stack,int layer)> duocaiWallViews=new Dictionary<int,(int,int,string,int,int)>();
     private Transform duocaiWallRoot;
     internal void RefreshDuocaiWall(DuocaiInfo info) {
         if(MahjongObjectPool.Instance==null)return;
@@ -47,24 +55,38 @@ public partial class Game3DManager {
                 MahjongObjectPool.Instance.Return(-1,duocaiWall[position]);
             }
             duocaiWall.Remove(position);
+            duocaiWallViews.Remove(position);
         }
         if(info?.wall==null)return;
         if(duocaiWallRoot==null){duocaiWallRoot=new GameObject("DuocaiWall").transform;duocaiWallRoot.SetParent(transform,false);}
         foreach(var tile in info.wall.Where(v=>!v.removed)) {
             string seat=DuocaiTableIndicators.SeatOf(tile.side);var panel=GetPosPanel(seat);if(panel?.cardsPosition==null||panel.discardsPosition==null)continue;
-            var rotation=RiverTileWorldRotation(seat);
-            Vector3 position=WallSlotPosition(seat,tile.stack-8.5f);
-            if(!duocaiWall.TryGetValue(tile.position,out var obj)||obj==null) {
+            bool created=!duocaiWall.TryGetValue(tile.position,out var obj)||obj==null;
+            bool known=duocaiWallViews.TryGetValue(tile.position,out var previous);
+            int face=tile.tile??0;
+            bool moved=created||!known||previous.seat!=seat||previous.stack!=tile.stack||previous.layer!=tile.layer;
+            if(created) {
+                var rotation=RiverTileWorldRotation(seat);
+                Vector3 position=WallSlotPosition(seat,tile.stack-8.5f);
                 obj=MahjongObjectPool.Instance.SpawnPresentationTile(tile.tile??0,position,rotation);
                 if(obj==null)continue;obj.name="DuocaiWall_"+tile.position;obj.transform.SetParent(duocaiWallRoot,true);duocaiWall[tile.position]=obj;
-            } else MahjongObjectPool.Instance.SetPresentationFace(obj,tile.tile??0);
-            SetWallTileScale(obj.transform,TableWallScale);
-            position=KeepMovingTileAboveTable(obj.transform,position,rotation);
-            obj.transform.SetPositionAndRotation(position,rotation);
-            var renderer=obj.GetComponentInChildren<Renderer>();
-            if(tile.layer==0&&renderer!=null)obj.transform.position+=Vector3.up*renderer.bounds.size.y;
-            var state=MahjongObjectPool.GetTile3D(obj);state.SetConcealedFaceDown(!tile.tile.HasValue);state.SetHoverPeekAllowed(false);state.SetRuleBackColor(DuocaiTileVisual.BackColor(tile.back));
-            foreach(var collider in obj.GetComponentsInChildren<Collider>())collider.enabled=false;
+            } else if(!known||previous.face!=face)MahjongObjectPool.Instance.SetPresentationFace(obj,face);
+            if(moved) {
+                var rotation=RiverTileWorldRotation(seat);
+                SetWallTileScale(obj.transform,TableWallScale);
+                Vector3 position=KeepMovingTileAboveTable(obj.transform,WallSlotPosition(seat,tile.stack-8.5f),rotation);
+                obj.transform.SetPositionAndRotation(position,rotation);
+                var renderer=obj.GetComponentInChildren<Renderer>();
+                if(tile.layer==0&&renderer!=null)obj.transform.position+=Vector3.up*renderer.bounds.size.y;
+            }
+            var state=MahjongObjectPool.GetTile3D(obj);
+            if(created||!known||previous.face!=face)state.SetConcealedFaceDown(!tile.tile.HasValue);
+            if(created||!known||previous.back!=tile.back)state.SetRuleBackColor(DuocaiTileVisual.BackColor(tile.back));
+            if(created) {
+                state.SetHoverPeekAllowed(false);
+                foreach(var collider in obj.GetComponentsInChildren<Collider>())collider.enabled=false;
+            }
+            duocaiWallViews[tile.position]=(face,tile.back,seat,tile.stack,tile.layer);
         }
     }
     internal void RefreshDuocaiBacks(DuocaiInfo info,PlayerInfo[] players) {

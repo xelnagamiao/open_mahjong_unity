@@ -23,6 +23,7 @@ public partial class SceneConfigPanel : MonoBehaviour
     [SerializeField] private Button ShowCardFaceBgPanelButton;
     [SerializeField] private Button ShowCenterDisplayPanelButton;
     [SerializeField] private Button HideAllPanelButton;
+    [SerializeField] private Button ShowCardRotationPanelButton;
 
     private string nowPage = "";
     private bool panelVisible;
@@ -49,6 +50,8 @@ public partial class SceneConfigPanel : MonoBehaviour
         ShowCardFaceBgPanelButton.onClick.AddListener(() => TogglePage(cardDesignTabs != null ? "FaceDesign" : "CardFaceBg", ShowCardFaceBgPanel));
         if (ShowCenterDisplayPanelButton != null)
             ShowCenterDisplayPanelButton.onClick.AddListener(() => TogglePage("CenterDisplay", ShowCenterDisplayPanel));
+        if (ShowCardRotationPanelButton != null)
+            ShowCardRotationPanelButton.onClick.AddListener(() => TogglePage("CardRotation", ShowCardRotationPanel));
         HideAllPanelButton.onClick.AddListener(TogglePanelVisibility);
         if (cardDesignTabs != null) cardDesignTabs.PanelShown += OnCardPanelShown;
         UpdateVisibilityLabel();
@@ -96,7 +99,14 @@ public partial class SceneConfigPanel : MonoBehaviour
         cardDesignTabs.ShowCard(cardDesignTabs.SelectedCardTab);
     }
 
+    public void ShowCardRotationPanel() {
+        RestoreCardDesign();
+        cardPresets.OpenRotationPage();
+        SetCurrentPage("CardDesign");
+    }
+
     private void HideContentPanels() {
+        cardPresets?.HidePages();
         if (cardDesignTabs != null) cardDesignTabs.HidePanels();
         SetActive(tableClothPanel, false);
         SetActive(tableEdgePanel, false);
@@ -197,6 +207,7 @@ public partial class SceneConfigPanel : MonoBehaviour
             case "CenterDisplay": ShowCenterDisplayPanel(); break;
             case "FaceDesign": RestoreFaceDesign(); break;
             case "CardDesign": RestoreCardDesign(); break;
+            case "CardRotation": ShowCardRotationPanel(); break;
             case "CardBack": ShowCardBackPanel(); break;
             case "CardEdge": ShowCardEdgePanel(); break;
             case "CardFace": ShowCardFacePanel(); break;
@@ -208,11 +219,16 @@ public partial class SceneConfigPanel : MonoBehaviour
     public void RefreshPage() {
         // Upload callbacks may complete after the user has hidden the panel.
         if (!panelVisible) return;
+        if (nowPage == "CardDesign" && cardPresets != null && cardPresets.IsRotationOpen) {
+            cardPresets.RefreshRotationPage(); return;
+        }
         if (cardDesignTabs != null && (nowPage == "FaceDesign" || nowPage == "CardDesign")) {
             cardDesignTabs.RefreshPanel();
             return;
         }
-        if (nowPage == "TableCloth") {
+        if (nowPage == "CardRotation") {
+            cardPresets.RefreshRotationPage();
+        } else if (nowPage == "TableCloth") {
             tableClothPanel.LoadTablecloths();
         } else if (nowPage == "TableEdge") {
             tableEdgePanel.LoadTableEdges();

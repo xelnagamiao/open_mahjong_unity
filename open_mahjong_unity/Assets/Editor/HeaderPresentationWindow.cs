@@ -23,7 +23,7 @@ public sealed class HeaderPresentationWindow : EditorWindow
 
     void Preview()
     {
-        foreach (var controller in Object.FindObjectsByType<HeaderPresentation>(FindObjectsInactive.Include))
+        foreach (var controller in Object.FindObjectsByType<HeaderPresentation>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None))
         {
             if (controller.profile != profile) continue;
             controller.Refresh();

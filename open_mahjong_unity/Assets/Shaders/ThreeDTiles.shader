@@ -42,8 +42,9 @@ Shader "Custom/ThreeDTiles"
         _FrontTexExtendEdge ("Front Tex Extend Edge", Range(0, 1)) = 0
 
         _GrayScale ("Gray Scale", Range(0, 1)) = 0.0
-        _FrontRotation ("Front Rotation (度)", Range(0, 360)) = 0.0
         [HideInInspector] _TileInstanceParams ("Tile Instance Params", Vector) = (0,0,0,0)
+        [HideInInspector] _ArtworkLayout ("Artwork position and scale", Vector) = (0,0,1,0)
+        [HideInInspector] _ArtworkBaseline ("Artwork baseline", Vector) = (0,0,1,1)
 
         // Matte cel shading: two albedo-multiplied tones, without additive
         // highlights, reflections, or a separately brightened bevel/face mask.
@@ -94,6 +95,8 @@ Shader "Custom/ThreeDTiles"
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkLayout)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkBaseline)
                 // 牌背贴图逐牌旋转角（度）：按牌当前世界朝向与相机统一校正，保证背图朝镜头正向；0 = 默认
                 UNITY_DEFINE_INSTANCED_PROP(float, _BackRotation)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontColor)
@@ -101,7 +104,7 @@ Shader "Custom/ThreeDTiles"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackEdgeColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontEdgeColor)
-                // x = gray scale; y = image area scale override (0 = material); zw reserved
+                // x = gray scale; y = image area scale override; z = glass face half-turn; w = rule back override
                 UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
             UNITY_INSTANCING_BUFFER_END(TilePerInstance)
 
@@ -173,19 +176,18 @@ Shader "Custom/ThreeDTiles"
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontEdgeColor);
                 float4 instanceParams =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams);
+                float4 artworkLayout = UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _ArtworkLayout);
+                float4 artworkBaseline = UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _ArtworkBaseline);
 
                 // 图集和独立图片都采样完整画布；雪枫图案已按倒角范围留白，
                 // 普通上传图使用较小的区域。下方掩码避免采到相邻图集格。
                 float imageScale = instanceParams.y > 0.0 ? instanceParams.y : _TableFaceImageScale;
-                float2 imageUV = (input.uvFront - 0.5) / max(imageScale, 0.1) + 0.5;
+                float2 adjustedUV = (input.uvFront - 0.5 - artworkLayout.xy) / max(artworkLayout.z, 0.01);
+                float2 imageUV = (adjustedUV - artworkBaseline.xy) / max(imageScale * artworkBaseline.zw, 0.025) + 0.5;
                 half imageInside = step(0.0, imageUV.x) * step(imageUV.x, 1.0)
                     * step(0.0, imageUV.y) * step(imageUV.y, 1.0);
                 float2 frontUV =
                     imageUV * frontTilingOffset.xy + frontTilingOffset.zw;
-                if (_FrontRotation != 0.0h)
-                {
-                    frontUV = RotateUV(frontUV, _FrontRotation);
-                }
 
                 // _FrontBgTex：当 _FrontBgBlend=1 时，_FrontBgTex 作为底图铺满牌面，
                 // _FrontTex（前景花纹）按其 RGB 与 alpha 覆盖在底图上方（无花纹处仍透底图色），
@@ -203,14 +205,10 @@ Shader "Custom/ThreeDTiles"
                 if (saturate(_FrontBgBlend) > 0.0h)
                 {
                     float2 frontBgUV = input.uvFront;
-                    if (_FrontRotation != 0.0h)
-                    {
-                        frontBgUV = RotateUV(frontBgUV, _FrontRotation);
-                    }
                     half bgInside = 1.0h;
                     if (saturate(_TableBgCoverFace) < 0.5h)
                     {
-                        // 在旋转后的纹理宽/高轴上与前景采用相同的完整等比居中。
+                        // 标准牌面宽/高轴上与前景采用相同的完整等比居中。
                         float faceAspect = max(_TableFaceAspect, 0.001);
                         float texAspect = _FrontBgTexAspect;
                         if (texAspect > 0.0)

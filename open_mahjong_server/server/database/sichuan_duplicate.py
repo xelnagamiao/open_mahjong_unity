@@ -10,10 +10,11 @@ def ensure_tables(cursor):
     ensure_duplicate_tables(cursor)
     cursor.execute("""CREATE TABLE IF NOT EXISTS sichuan_duplicate_matches (
         id UUID PRIMARY KEY, wall_id BIGINT NOT NULL REFERENCES duplicate_walls(id),
-        event_id VARCHAR(32) NOT NULL, status VARCHAR(20) NOT NULL,
+        event_id VARCHAR(32) NULL, status VARCHAR(20) NOT NULL,
         revision INTEGER NOT NULL DEFAULT 0, data JSONB NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
         CREATE INDEX IF NOT EXISTS idx_sichuan_duplicate_event ON sichuan_duplicate_matches(event_id);
+        ALTER TABLE sichuan_duplicate_matches ALTER COLUMN event_id DROP NOT NULL;
     """)
 
 
@@ -27,18 +28,23 @@ class PairedMatchStore:
             with conn.cursor() as cursor:
                 ensure_tables(cursor)
                 rounds = [flatten_board(b) for b in snapshot["boards"]]
-                cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"duplicate:event:{event_id}",))
+                scope = "event" if event_id else "personal"
+                quota_owner = event_id if event_id else owner_id
+                if scope == "personal" and (type(owner_id) is not int or owner_id <= 10):
+                    raise ValueError("个人复式须由已登录玩家创建")
+                cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"duplicate:{scope}:{quota_owner}",))
                 cursor.execute("""SELECT COUNT(*) FILTER (WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date =
                     (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai')::date), COUNT(*) FILTER (WHERE deleted_at IS NULL)
-                    FROM duplicate_walls WHERE scope='event' AND event_id=%s""", (event_id,))
+                    FROM duplicate_walls WHERE scope=%s AND """ + ("event_id=%s" if event_id else "owner_user_id=%s"), (scope, quota_owner))
                 today, stored = cursor.fetchone()
-                if not snapshot.get("source_wall_id") and (today >= 25 or stored >= 100):
-                    raise ValueError("比赛场复式牌墙达到每日 25 个或同时保存 100 个的限额")
+                daily, storage = (25, 100) if event_id else (5, 25)
+                if not snapshot.get("source_wall_id") and (today >= daily or stored >= storage):
+                    raise ValueError(f"复式牌墙达到每日 {daily} 个或同时保存 {storage} 个的限额")
                 if snapshot.get("source_wall_id"):
-                    cursor.execute("SELECT id FROM duplicate_walls WHERE id=%s AND event_id=%s AND deleted_at IS NULL AND is_unlocked=FALSE FOR UPDATE",
-                                   (snapshot["source_wall_id"], event_id))
+                    cursor.execute("SELECT id FROM duplicate_walls WHERE id=%s AND scope=%s AND event_id IS NOT DISTINCT FROM %s AND deleted_at IS NULL AND is_unlocked=FALSE FOR UPDATE",
+                                   (snapshot["source_wall_id"], scope, event_id))
                     if not cursor.fetchone():
-                        raise ValueError("所选牌山必须为本比赛尚未解锁的密钥")
+                        raise ValueError("所选牌山必须为当前范围内尚未解锁的密钥")
                     cursor.execute("SELECT id FROM sichuan_duplicate_matches WHERE wall_id=%s", (snapshot["source_wall_id"],))
                     if cursor.fetchone():
                         raise ValueError("该牌山已绑定一组开闭室，请创建新的比赛牌山")
@@ -49,11 +55,11 @@ class PairedMatchStore:
                     key = 'dup_' + secrets.token_hex(16)
                     cursor.execute("""INSERT INTO duplicate_walls
                     (key, owner_user_id, event_id, scope, wall_type, rule, name, tiles, seed, use_flowers, round_count, round_tiles)
-                    VALUES (%s,%s,%s,'event','key',%s,%s,%s,%s,FALSE,%s,%s) RETURNING id""",
-                    (key, owner_id, event_id, snapshot["profile"]["sub_rule"], name[:80],
+                    VALUES (%s,%s,%s,%s,'key',%s,%s,%s,%s,FALSE,%s,%s) RETURNING id""",
+                    (key, owner_id, event_id, scope, snapshot["profile"]["sub_rule"], name[:80],
                      json.dumps(rounds[0]), snapshot["seed"], len(rounds), json.dumps(rounds)))
                     wall_id = cursor.fetchone()[0]
-                snapshot.update(key=key, wall_id=wall_id, event_id=event_id)
+                snapshot.update(key=key, wall_id=wall_id, event_id=event_id, scope=scope, owner_user_id=owner_id)
                 cursor.execute("""INSERT INTO sichuan_duplicate_matches (id,wall_id,event_id,status,revision,data)
                     VALUES (%s,%s,%s,%s,%s,%s)""", (snapshot["id"], wall_id, event_id,
                     snapshot["status"], snapshot["revision"], json.dumps(snapshot, default=str)))

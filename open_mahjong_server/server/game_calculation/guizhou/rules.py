@@ -10,7 +10,7 @@ from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
 
-from ..jiandan.decompose import Meld, find_standard_decompositions
+from ..nanque.decompose import Meld, find_standard_decompositions
 
 RULE_VERSION = "mil-guizhou-2023-om1"
 SUB_RULE = "guizhou/standard"

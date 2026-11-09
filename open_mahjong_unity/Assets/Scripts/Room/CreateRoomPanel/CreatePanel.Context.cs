@@ -63,6 +63,11 @@ public partial class CreatePanel {
         if (parent && transform.parent != parent) transform.SetParent(parent, false);
         if (venueOverlayParent) venueOverlayParent.gameObject.SetActive(next != CreationContext.Room);
         if (changing) RestoreDraft(contextDrafts.TryGetValue(next, out var saved) ? saved : initialDraft);
+        if (next != CreationContext.Room) {
+            if (duplicateVenueDraftId != eventId && DuplicateKeyInput) DuplicateKeyInput.SetTextWithoutNotify("");
+            duplicateVenueDraftId = eventId;
+        }
+        ApplyCreationContextColors();
         ApplyDefaultRoomNameForCurrentUser();
         RefreshVisibility();
         RefreshRoomPresentation();

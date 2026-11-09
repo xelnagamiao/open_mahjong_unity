@@ -188,6 +188,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -213,6 +214,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &21571907173904551
 GameObject:
   m_ObjectHideFlags: 0
@@ -875,6 +877,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -900,6 +903,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &101866234136129345
 GameObject:
   m_ObjectHideFlags: 0
@@ -1932,6 +1936,81 @@ MonoBehaviour:
   m_EffectColor: {r: 0.53333336, g: 0.5529412, b: 0.6117647, a: 1}
   m_EffectDistance: {x: 1, y: -1}
   m_UseGraphicAlpha: 1
+--- !u!1 &208278358886751411
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5054265690602798836}
+  - component: {fileID: 7893921236494775180}
+  - component: {fileID: 1635005295999765979}
+  m_Layer: 5
+  m_Name: Item Background
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &5054265690602798836
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208278358886751411}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8088587023599117045}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7893921236494775180
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208278358886751411}
+  m_CullTransparentMesh: 1
+--- !u!114 &1635005295999765979
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208278358886751411}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &208794486021755975
 GameObject:
   m_ObjectHideFlags: 0
@@ -2084,6 +2163,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7EC8\u5C40\u4E0E\u987A\u4F4D"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -2109,6 +2189,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &246179659496216435
 GameObject:
   m_ObjectHideFlags: 0
@@ -2412,6 +2493,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5EF6\u957F\u4E0A\u9650"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -2437,6 +2519,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &253855464852468855
 GameObject:
   m_ObjectHideFlags: 0
@@ -3844,6 +3927,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173\u95ED"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -3869,6 +3953,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &423956614483610082
 GameObject:
   m_ObjectHideFlags: 0
@@ -4096,6 +4181,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u4F59\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -4121,6 +4207,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &446240322687973377
 GameObject:
   m_ObjectHideFlags: 0
@@ -4659,6 +4746,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D23\u4EFB\u652F\u4ED8"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -4684,6 +4772,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &492451780388154008
 GameObject:
   m_ObjectHideFlags: 0
@@ -5487,6 +5576,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E09\u9EBB\u81EA\u6478\u652F\u4ED8"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -5512,6 +5602,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &628552568804782321
 GameObject:
   m_ObjectHideFlags: 0
@@ -5964,6 +6055,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5934\u540D\u9886\u53D6"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -5989,6 +6081,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &755751599369874077
 GameObject:
   m_ObjectHideFlags: 0
@@ -6216,6 +6309,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6760\u91CC\u5B9D\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -6241,6 +6335,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &778941343058779988
 GameObject:
   m_ObjectHideFlags: 0
@@ -6544,6 +6639,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -6569,6 +6665,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &781748712165230719
 GameObject:
   m_ObjectHideFlags: 0
@@ -6721,6 +6818,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -6746,6 +6844,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &816921034388611379
 GameObject:
   m_ObjectHideFlags: 0
@@ -7024,6 +7123,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -7049,6 +7149,44 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
+--- !u!1 &838344461978861382
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4830115484724494680}
+  m_Layer: 0
+  m_Name: DetailedConfig_show_teammate_hand
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &4830115484724494680
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 838344461978861382}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6669417801806075439}
+  - {fileID: 4892698706329374077}
+  m_Father: {fileID: 7312702142874577158}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &838898416181382789
 GameObject:
   m_ObjectHideFlags: 0
@@ -7201,6 +7339,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u660E\u6760\u7FFB\u5B9D"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -7226,6 +7365,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &846805481376046367
 GameObject:
   m_ObjectHideFlags: 0
@@ -7540,6 +7680,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -7565,6 +7706,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &882040187547035857
 GameObject:
   m_ObjectHideFlags: 0
@@ -7868,6 +8010,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E5D\u79CD\u4E5D\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -7893,6 +8036,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &891757304465958884
 GameObject:
   m_ObjectHideFlags: 0
@@ -8282,6 +8426,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u987A\u4F4D\u5206"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -8307,6 +8452,97 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
+--- !u!1 &942366763751371918
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7585809657544288724}
+  - component: {fileID: 2380791637263051082}
+  - component: {fileID: 1728175745183536269}
+  - component: {fileID: 7660125447384239416}
+  m_Layer: 5
+  m_Name: Viewport
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7585809657544288724
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942366763751371918}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5191000420257974805}
+  m_Father: {fileID: 5381034912094712414}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 4, y: -4}
+  m_SizeDelta: {x: -8, y: -8}
+  m_Pivot: {x: 0, y: 1}
+--- !u!114 &2380791637263051082
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942366763751371918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31a19414c41e5ae4aae2af33fee712f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ShowMaskGraphic: 0
+--- !u!222 &1728175745183536269
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942366763751371918}
+  m_CullTransparentMesh: 1
+--- !u!114 &7660125447384239416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942366763751371918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10917, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &971978328862455552
 GameObject:
   m_ObjectHideFlags: 0
@@ -8570,6 +8806,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -8595,6 +8832,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1003786227387652404
 GameObject:
   m_ObjectHideFlags: 0
@@ -9399,6 +9637,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5207\u4E0A\u6EE1\u8D2F"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -9424,6 +9663,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1110253162768875610
 GameObject:
   m_ObjectHideFlags: 0
@@ -9576,6 +9816,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u548C\u724C\u95E8\u69DB"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -9601,6 +9842,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1114895648090282369
 GameObject:
   m_ObjectHideFlags: 0
@@ -9753,6 +9995,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -9778,6 +10021,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1115630117446528281
 GameObject:
   m_ObjectHideFlags: 0
@@ -10181,6 +10425,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u62D4\u5317\u8865\u724C\u5CAD\u4E0A\u5F00\u82B1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -10206,6 +10451,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1156018387946570460
 GameObject:
   m_ObjectHideFlags: 0
@@ -11798,6 +12044,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -11823,6 +12070,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1349384418236209073
 GameObject:
   m_ObjectHideFlags: 0
@@ -12215,6 +12463,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u53D6\u6D88"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -12240,6 +12489,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1370043594895635416
 GameObject:
   m_ObjectHideFlags: 0
@@ -12809,6 +13059,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u56DB\u6760\u6563\u4E86"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -12834,6 +13085,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1431004973639055156
 GameObject:
   m_ObjectHideFlags: 0
@@ -13061,6 +13313,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -13086,6 +13339,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1439289361981841944
 GameObject:
   m_ObjectHideFlags: 0
@@ -13238,6 +13492,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5F79\u79CD\u4E0E\u5B9D\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -13263,6 +13518,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1449870276182596282
 GameObject:
   m_ObjectHideFlags: 0
@@ -13490,6 +13746,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -13515,6 +13772,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1478966640893060680
 GameObject:
   m_ObjectHideFlags: 0
@@ -13883,6 +14141,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7EC8\u5C40\u4F9B\u6258"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -13908,6 +14167,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1527711953009434782
 GameObject:
   m_ObjectHideFlags: 0
@@ -15368,6 +15628,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -15393,6 +15654,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1772364453400521826
 GameObject:
   m_ObjectHideFlags: 0
@@ -15620,6 +15882,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06 \xB7 \u9AD8\u7EA7\u8BBE\u7F6E"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -15645,6 +15908,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1800009724539220440
 GameObject:
   m_ObjectHideFlags: 0
@@ -15834,6 +16098,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -15859,6 +16124,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1807261609252670612
 GameObject:
   m_ObjectHideFlags: 0
@@ -16123,6 +16389,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u672B\u5E84\u548C\u4E86\u6B62"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -16148,6 +16415,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1852237817375867182
 GameObject:
   m_ObjectHideFlags: 0
@@ -16300,6 +16568,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E00\u53D1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -16325,6 +16594,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1864725422106519261
 GameObject:
   m_ObjectHideFlags: 0
@@ -16639,6 +16909,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -16664,6 +16935,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1896989970140201948
 GameObject:
   m_ObjectHideFlags: 0
@@ -16816,6 +17088,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5F79\u6EE1\u590D\u5408"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -16841,6 +17114,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1901460415073007121
 GameObject:
   m_ObjectHideFlags: 0
@@ -17192,6 +17466,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -17217,6 +17492,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1933911703692016221
 GameObject:
   m_ObjectHideFlags: 0
@@ -17369,6 +17645,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u98DF\u65AD"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -17394,6 +17671,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1952427338575689443
 GameObject:
   m_ObjectHideFlags: 0
@@ -17621,6 +17899,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -17646,6 +17925,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1968200045956625392
 GameObject:
   m_ObjectHideFlags: 0
@@ -17798,6 +18078,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6062\u590D\u9ED8\u8BA4\u8BBE\u7F6E"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -17823,6 +18104,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &1973743659011479844
 GameObject:
   m_ObjectHideFlags: 0
@@ -18011,6 +18293,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -18036,6 +18319,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2002301261789665709
 GameObject:
   m_ObjectHideFlags: 0
@@ -18459,6 +18743,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5F62\u5F0F\u542C\u724C\u8017\u5C3D\u5224\u5B9A"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -18484,6 +18769,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2042385136528646668
 GameObject:
   m_ObjectHideFlags: 0
@@ -18672,6 +18958,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u56DB\u6760\u5B50\u5305\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -18697,6 +18984,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2050781924483672333
 GameObject:
   m_ObjectHideFlags: 0
@@ -18849,6 +19137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6709\u5F79\u5373\u53EF"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -18874,6 +19163,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2063864867447629167
 GameObject:
   m_ObjectHideFlags: 0
@@ -19026,6 +19316,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u81EA\u6478\u635F"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -19051,6 +19342,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2073178792167725810
 GameObject:
   m_ObjectHideFlags: 0
@@ -19401,6 +19693,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -19426,6 +19719,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2103452219978540971
 GameObject:
   m_ObjectHideFlags: 0
@@ -20486,6 +20780,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7EC8\u5C40\u8FD4\u8FD8\u70B9"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -20511,6 +20806,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2340419100910693687
 GameObject:
   m_ObjectHideFlags: 0
@@ -21256,6 +21552,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D77\u59CB\u70B91.2\u500D"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -21281,6 +21578,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2446311208282766956
 GameObject:
   m_ObjectHideFlags: 0
@@ -21433,6 +21731,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -21458,6 +21757,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2451597950305387087
 GameObject:
   m_ObjectHideFlags: 0
@@ -21842,6 +22142,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -21867,6 +22168,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2482137175041092417
 GameObject:
   m_ObjectHideFlags: 0
@@ -22062,6 +22364,132 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &2510977378044253544
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4014890060726790611}
+  - component: {fileID: 7864767399093168478}
+  - component: {fileID: 3581181159222484446}
+  - component: {fileID: 1191039500476463306}
+  m_Layer: 5
+  m_Name: Scrollbar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4014890060726790611
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2510977378044253544}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6993882485546035731}
+  m_Father: {fileID: 5381034912094712414}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 20, y: 0}
+  m_Pivot: {x: 1, y: 1}
+--- !u!222 &7864767399093168478
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2510977378044253544}
+  m_CullTransparentMesh: 1
+--- !u!114 &3581181159222484446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2510977378044253544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1191039500476463306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2510977378044253544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a4db7a114972834c8e4117be1d82ba3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 2812040344067261048}
+  m_HandleRect: {fileID: 9069116094435416083}
+  m_Direction: 2
+  m_Value: 1
+  m_Size: 1
+  m_NumberOfSteps: 0
+  m_OnValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &2517185726741623530
 GameObject:
   m_ObjectHideFlags: 0
@@ -22137,6 +22565,185 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &2524882520393524270
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6669417801806075439}
+  - component: {fileID: 7337256167119975516}
+  - component: {fileID: 2584374233561841878}
+  - component: {fileID: 4779167224962717511}
+  - component: {fileID: 5859454436569135823}
+  m_Layer: 0
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &6669417801806075439
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2524882520393524270}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4830115484724494680}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: -20}
+  m_SizeDelta: {x: -32, y: 40}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7337256167119975516
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2524882520393524270}
+  m_CullTransparentMesh: 1
+--- !u!114 &2584374233561841878
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2524882520393524270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: "\u53EF\u89C6\u961F\u53CB\u6697\u724C"
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: 0
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 26
+  m_fontSizeBase: 26
+  m_fontWeight: 400
+  m_enableAutoSizing: 0
+  m_fontSizeMin: 0
+  m_fontSizeMax: 0
+  m_fontStyle: 0
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 4096
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 0
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 1
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 0
+  m_ActiveFontFeatures: 00000000
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 0
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4779167224962717511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2524882520393524270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da62fef08b802534ebfb5d48e5053cb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
+  key: "\u53EF\u89C6\u961F\u53CB\u6697\u724C"
+  context: 
+  followSourceChanges: 1
+  fitTranslation: 1
+  trimOuterWhitespace: 0
+  authoredAutoSize: 0
+  typographyBaked: 1
+  authoredSize: 26
+  minimumSize: 18.199999
+--- !u!114 &5859454436569135823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2524882520393524270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  authoredMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2534591689516332948
 GameObject:
   m_ObjectHideFlags: 0
@@ -22917,6 +23524,42 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &2703823693104232913
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6993882485546035731}
+  m_Layer: 5
+  m_Name: Sliding Area
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &6993882485546035731
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2703823693104232913}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 9069116094435416083}
+  m_Father: {fileID: 4014890060726790611}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: -20, y: -20}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &2706305659243103723
 GameObject:
   m_ObjectHideFlags: 0
@@ -23319,6 +23962,93 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &2738481326620952681
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8088587023599117045}
+  - component: {fileID: 6523724889066106112}
+  m_Layer: 5
+  m_Name: Item
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &8088587023599117045
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2738481326620952681}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5054265690602798836}
+  - {fileID: 7816221911272343595}
+  - {fileID: 8401821115678532183}
+  m_Father: {fileID: 5191000420257974805}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 52}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &6523724889066106112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2738481326620952681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9085046f02f69544eb97fd06b6048fe2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 1635005295999765979}
+  toggleTransition: 1
+  graphic: {fileID: 2110803738445239619}
+  m_Group: {fileID: 0}
+  onValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_IsOn: 1
 --- !u!1 &2772212902786260906
 GameObject:
   m_ObjectHideFlags: 0
@@ -23897,6 +24627,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -23922,6 +24653,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2857266184041489843
 GameObject:
   m_ObjectHideFlags: 0
@@ -24074,6 +24806,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -24099,6 +24832,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &2877867845942724727
 GameObject:
   m_ObjectHideFlags: 0
@@ -24602,6 +25336,42 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &2936348130972766392
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5191000420257974805}
+  m_Layer: 5
+  m_Name: Content
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &5191000420257974805
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2936348130972766392}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8088587023599117045}
+  m_Father: {fileID: 7585809657544288724}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 52}
+  m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &2942525829563056996
 GameObject:
   m_ObjectHideFlags: 0
@@ -25195,6 +25965,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E0B\u6B21\u6478\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -25220,6 +25991,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3038475155339326728
 GameObject:
   m_ObjectHideFlags: 0
@@ -25462,6 +26234,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -25487,6 +26260,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3044523950142572642
 GameObject:
   m_ObjectHideFlags: 0
@@ -25639,6 +26413,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E00\u500D"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -25664,6 +26439,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3083546749988498655
 GameObject:
   m_ObjectHideFlags: 0
@@ -27297,6 +28073,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u91CC\u5B9D\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -27322,6 +28099,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3360865936229991914
 GameObject:
   m_ObjectHideFlags: 0
@@ -27624,6 +28402,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u65E0\u9650\u5236"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -27649,6 +28428,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3380275771821729016
 GameObject:
   m_ObjectHideFlags: 0
@@ -28086,6 +28866,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u540E\u6697\u6760"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -28111,6 +28892,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3408917335403382253
 GameObject:
   m_ObjectHideFlags: 0
@@ -28353,6 +29135,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -28378,6 +29161,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3425933911167541367
 GameObject:
   m_ObjectHideFlags: 0
@@ -29572,6 +30356,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6760\u5B9D\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -29597,6 +30382,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3591469299793042178
 GameObject:
   m_ObjectHideFlags: 0
@@ -30343,6 +31129,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -30368,6 +31155,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3702517389777814267
 GameObject:
   m_ObjectHideFlags: 0
@@ -30892,6 +31680,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u9519\u548C\u7F5A\u5219"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -30917,6 +31706,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3734888949206437656
 GameObject:
   m_ObjectHideFlags: 0
@@ -31069,6 +31859,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -31094,6 +31885,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3738693894149596673
 GameObject:
   m_ObjectHideFlags: 0
@@ -31246,6 +32038,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -31271,6 +32064,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3739774607104105444
 GameObject:
   m_ObjectHideFlags: 0
@@ -31488,6 +32282,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -31513,6 +32308,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3762449697354389869
 GameObject:
   m_ObjectHideFlags: 0
@@ -31665,6 +32461,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D23\u4EFB\u8005\u652F\u4ED8"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -31690,6 +32487,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3812998400212787093
 GameObject:
   m_ObjectHideFlags: 0
@@ -31842,6 +32640,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -31867,6 +32666,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3821234761088372917
 GameObject:
   m_ObjectHideFlags: 0
@@ -32105,6 +32905,81 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &3857768220728963344
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9069116094435416083}
+  - component: {fileID: 6500831861172334021}
+  - component: {fileID: 2812040344067261048}
+  m_Layer: 5
+  m_Name: Handle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &9069116094435416083
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3857768220728963344}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6993882485546035731}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 20, y: 20}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &6500831861172334021
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3857768220728963344}
+  m_CullTransparentMesh: 1
+--- !u!114 &2812040344067261048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3857768220728963344}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &3884110576853680191
 GameObject:
   m_ObjectHideFlags: 0
@@ -32623,6 +33498,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -32648,6 +33524,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &3914592901439360715
 GameObject:
   m_ObjectHideFlags: 0
@@ -33371,6 +34248,162 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &3988294846033318155
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4892698706329374077}
+  - component: {fileID: 201226605793845715}
+  - component: {fileID: 6122684180449912405}
+  - component: {fileID: 5383399733357486260}
+  - component: {fileID: 7205711042649471584}
+  m_Layer: 5
+  m_Name: Dropdown
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4892698706329374077
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988294846033318155}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2460407246863976772}
+  - {fileID: 6410300372793060760}
+  - {fileID: 5381034912094712414}
+  m_Father: {fileID: 4830115484724494680}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: -42}
+  m_SizeDelta: {x: 0, y: -50}
+  m_Pivot: {x: 0, y: 1}
+--- !u!222 &201226605793845715
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988294846033318155}
+  m_CullTransparentMesh: 1
+--- !u!114 &6122684180449912405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988294846033318155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &5383399733357486260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988294846033318155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b743370ac3e4ec2a1668f5455a8ef8a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.96, g: 0.96, b: 0.96, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 1, g: 1, b: 1, a: 1}
+    m_DisabledColor: {r: 0.9, g: 0.9, b: 0.92, a: 1}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 6122684180449912405}
+  m_Template: {fileID: 5381034912094712414}
+  m_CaptionText: {fileID: 4327775235611095945}
+  m_CaptionImage: {fileID: 0}
+  m_Placeholder: {fileID: 0}
+  m_ItemText: {fileID: 6912669638502013529}
+  m_ItemImage: {fileID: 0}
+  m_Value: 0
+  m_MultiSelect: 0
+  m_Options:
+    m_Options:
+    - m_Text: "\u5173"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u5F00"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_OnValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_AlphaFadeSpeed: 0.15
+--- !u!114 &7205711042649471584
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988294846033318155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0.53333336, g: 0.5529412, b: 0.6117647, a: 1}
+  m_EffectDistance: {x: 1, y: -1}
+  m_UseGraphicAlpha: 1
 --- !u!1 &3992024325973297223
 GameObject:
   m_ObjectHideFlags: 0
@@ -33649,6 +34682,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -33674,6 +34708,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4038356742689385132
 GameObject:
   m_ObjectHideFlags: 0
@@ -33826,6 +34861,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u4E0E\u6D41\u5C40"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -33851,6 +34887,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4055450379204671268
 GameObject:
   m_ObjectHideFlags: 0
@@ -34572,6 +35609,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u53CC\u500D\u5F79\u6EE1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -34597,6 +35635,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4208733568760628804
 GameObject:
   m_ObjectHideFlags: 0
@@ -35827,6 +36866,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u81F3\u5C111\u5F20"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -35852,6 +36892,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4383735679725143860
 GameObject:
   m_ObjectHideFlags: 0
@@ -36170,6 +37211,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6253\u724C\u540E"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -36195,6 +37237,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4416772806981752950
 GameObject:
   m_ObjectHideFlags: 0
@@ -36422,6 +37465,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -36447,6 +37491,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4429209049133152145
 GameObject:
   m_ObjectHideFlags: 0
@@ -37103,6 +38148,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u590D\u5408\u5F79\u6EE1\u5305\u724C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -37128,6 +38174,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4552420180635040489
 GameObject:
   m_ObjectHideFlags: 0
@@ -37280,6 +38327,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8FDE\u98CE\u96C0\u5934"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -37305,6 +38353,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4563437065824145058
 GameObject:
   m_ObjectHideFlags: 0
@@ -37544,6 +38593,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -37569,6 +38619,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4594483269031188675
 GameObject:
   m_ObjectHideFlags: 0
@@ -37786,6 +38837,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7EC8\u5C40\u76EE\u6807\u5206"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -37811,6 +38863,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4621641753973941125
 GameObject:
   m_ObjectHideFlags: 0
@@ -38214,6 +39267,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -38239,6 +39293,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4664778635227847787
 GameObject:
   m_ObjectHideFlags: 0
@@ -38557,6 +39612,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -38582,6 +39638,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4709198704140433483
 GameObject:
   m_ObjectHideFlags: 0
@@ -39368,6 +40425,7 @@ RectTransform:
   - {fileID: 3532232841359168185}
   - {fileID: 7263293381061246320}
   - {fileID: 7557261319591720265}
+  - {fileID: 4830115484724494680}
   - {fileID: 1739446889620602343}
   - {fileID: 5417206773239835496}
   - {fileID: 1897027743212784614}
@@ -39934,6 +40992,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -39959,6 +41018,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4851014005513958368
 GameObject:
   m_ObjectHideFlags: 0
@@ -40952,6 +42012,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D23\u4EFB\u652F\u4ED8\u4E0E\u9519\u548C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -40977,6 +42038,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &4998629900879088341
 GameObject:
   m_ObjectHideFlags: 0
@@ -41570,6 +42632,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -41595,6 +42658,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5073244336467973830
 GameObject:
   m_ObjectHideFlags: 0
@@ -44449,6 +45513,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u56DB\u98CE\u8FDE\u6253"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -44474,6 +45539,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5412170726588080168
 GameObject:
   m_ObjectHideFlags: 0
@@ -45243,6 +46309,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4EC5\u5305\u724C\u5F79\u6EE1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -45268,6 +46335,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5466244414093065567
 GameObject:
   m_ObjectHideFlags: 0
@@ -45798,6 +46866,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -45823,6 +46892,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5528474755070629759
 GameObject:
   m_ObjectHideFlags: 0
@@ -46050,6 +47120,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -46075,6 +47146,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5542663362301072912
 GameObject:
   m_ObjectHideFlags: 0
@@ -47108,6 +48180,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E0D\u9650"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -47133,6 +48206,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5641962913974023396
 GameObject:
   m_ObjectHideFlags: 0
@@ -47899,6 +48973,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -47924,6 +48999,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5787013031108013671
 GameObject:
   m_ObjectHideFlags: 0
@@ -48076,6 +49152,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u89C4\u5219\u9884\u8BBE"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -48101,6 +49178,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5826389468045602974
 GameObject:
   m_ObjectHideFlags: 0
@@ -48253,6 +49331,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -48278,6 +49357,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5826687867398675222
 GameObject:
   m_ObjectHideFlags: 0
@@ -48430,6 +49510,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4EC5\u6697\u624B\u56DB\u5F20\u4E0D\u542C"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -48455,6 +49536,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5827748083134547758
 GameObject:
   m_ObjectHideFlags: 0
@@ -48940,6 +50022,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u540C\u5206\u987A\u4F4D"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -48965,6 +50048,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5849885410633645220
 GameObject:
   m_ObjectHideFlags: 0
@@ -49204,6 +50288,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -49229,6 +50314,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5875887628205926306
 GameObject:
   m_ObjectHideFlags: 0
@@ -49381,6 +50467,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -49406,6 +50493,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5903819010085176757
 GameObject:
   m_ObjectHideFlags: 0
@@ -49532,6 +50620,185 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &5910463771426501809
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8401821115678532183}
+  - component: {fileID: 6483942837973361818}
+  - component: {fileID: 6912669638502013529}
+  - component: {fileID: 5316994928761523424}
+  - component: {fileID: 4271003790733441778}
+  m_Layer: 5
+  m_Name: Item Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &8401821115678532183
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5910463771426501809}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8088587023599117045}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 22, y: 0}
+  m_SizeDelta: {x: -64, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &6483942837973361818
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5910463771426501809}
+  m_CullTransparentMesh: 1
+--- !u!114 &6912669638502013529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5910463771426501809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: "\u7ACB\u76F4\u9EBB\u5C06"
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4281479730
+  m_fontColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 24
+  m_fontSizeBase: 24
+  m_fontWeight: 400
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 18
+  m_fontSizeMax: 24
+  m_fontStyle: 0
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 4096
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 1
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 1
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 1
+  m_ActiveFontFeatures: 00000000
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &5316994928761523424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5910463771426501809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da62fef08b802534ebfb5d48e5053cb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
+  key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
+  followSourceChanges: 1
+  fitTranslation: 1
+  trimOuterWhitespace: 0
+  authoredAutoSize: 1
+  typographyBaked: 1
+  authoredSize: 24
+  minimumSize: 16.8
+--- !u!114 &4271003790733441778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5910463771426501809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  authoredMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5924364221100984686
 GameObject:
   m_ObjectHideFlags: 0
@@ -49684,6 +50951,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u56FD\u58EB\u62A2\u6697\u6760"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -49709,6 +50977,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5936605664945340049
 GameObject:
   m_ObjectHideFlags: 0
@@ -49861,6 +51130,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -49886,6 +51156,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &5937065082972582330
 GameObject:
   m_ObjectHideFlags: 0
@@ -50795,6 +52066,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u62A2\u62D4\u5317"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -50820,6 +52092,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6072204590673918576
 GameObject:
   m_ObjectHideFlags: 0
@@ -51300,6 +52573,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E0D\u542C\u7F5A\u7B26"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -51325,6 +52599,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6127087429627689227
 GameObject:
   m_ObjectHideFlags: 0
@@ -51769,6 +53044,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -51794,6 +53070,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6181279650815109178
 GameObject:
   m_ObjectHideFlags: 0
@@ -52011,6 +53288,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u542C\u5F20\u4E0D\u53D8"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -52036,6 +53314,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6189976503235843268
 GameObject:
   m_ObjectHideFlags: 0
@@ -52873,6 +54152,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -52898,6 +54178,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6248939690997633025
 GameObject:
   m_ObjectHideFlags: 0
@@ -53176,6 +54457,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u56DB\u5BB6\u7ACB\u76F4"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -53201,6 +54483,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6258873869454985627
 GameObject:
   m_ObjectHideFlags: 0
@@ -54227,6 +55510,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -54252,6 +55536,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6353135461348491467
 GameObject:
   m_ObjectHideFlags: 0
@@ -54404,6 +55689,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6D41\u5C40\u6EE1\u8D2F"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -54429,6 +55715,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6383803442239577665
 GameObject:
   m_ObjectHideFlags: 0
@@ -55272,6 +56559,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -55297,6 +56585,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6524309665558197235
 GameObject:
   m_ObjectHideFlags: 0
@@ -55449,6 +56738,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -55474,6 +56764,158 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
+--- !u!1 &6527470032323616221
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5381034912094712414}
+  - component: {fileID: 8126551089031930392}
+  - component: {fileID: 2195465002093427163}
+  - component: {fileID: 4962994476969553032}
+  - component: {fileID: 2699844675468454265}
+  - component: {fileID: 5362583185471543191}
+  - component: {fileID: 2584057126932976231}
+  m_Layer: 5
+  m_Name: Template
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &5381034912094712414
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7585809657544288724}
+  - {fileID: 4014890060726790611}
+  m_Father: {fileID: 4892698706329374077}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: 0, y: -5}
+  m_SizeDelta: {x: 0, y: 476}
+  m_Pivot: {x: 0.5, y: 1}
+--- !u!222 &8126551089031930392
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_CullTransparentMesh: 1
+--- !u!114 &2195465002093427163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4962994476969553032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1aa08ab6e0800fa44ae55d278d1423e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Content: {fileID: 5191000420257974805}
+  m_Horizontal: 0
+  m_Vertical: 1
+  m_MovementType: 2
+  m_Elasticity: 0.1
+  m_Inertia: 1
+  m_DecelerationRate: 0.135
+  m_ScrollSensitivity: 60
+  m_Viewport: {fileID: 7585809657544288724}
+  m_HorizontalScrollbar: {fileID: 0}
+  m_VerticalScrollbar: {fileID: 1191039500476463306}
+  m_HorizontalScrollbarVisibility: 0
+  m_VerticalScrollbarVisibility: 2
+  m_HorizontalScrollbarSpacing: 0
+  m_VerticalScrollbarSpacing: -3
+  m_OnValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &2699844675468454265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89d0194a2e4651c4aa46f23890702c52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateRoomScrollbarSize
+--- !u!114 &5362583185471543191
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0.12, g: 0.2, b: 0.4, a: 0.16}
+  m_EffectDistance: {x: 0, y: -4}
+  m_UseGraphicAlpha: 1
+--- !u!114 &2584057126932976231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6527470032323616221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 203f041c33cc6184ab3bcf7663099dd9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DropdownCanvasScope
+  owner: {fileID: 5383399733357486260}
 --- !u!1 &6555380343766050383
 GameObject:
   m_ObjectHideFlags: 0
@@ -55818,6 +57260,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5355\u500D\u5F79\u6EE1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -55843,6 +57286,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6587176028634002880
 GameObject:
   m_ObjectHideFlags: 0
@@ -56273,6 +57717,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5F79\u6EE1\u4E0A\u9650"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -56298,6 +57743,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6682308586545298306
 GameObject:
   m_ObjectHideFlags: 0
@@ -57581,6 +59027,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5168\u90E8\u914D\u7F6E"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -57606,6 +59053,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6852078401585409082
 GameObject:
   m_ObjectHideFlags: 0
@@ -58010,6 +59458,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -58035,6 +59484,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6907340935427122555
 GameObject:
   m_ObjectHideFlags: 0
@@ -58187,6 +59637,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u65E0"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -58212,6 +59663,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6917428815255092132
 GameObject:
   m_ObjectHideFlags: 0
@@ -58530,6 +59982,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -58555,6 +60008,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &6927073511254416358
 GameObject:
   m_ObjectHideFlags: 0
@@ -60026,6 +61480,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "2\u7B26"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -60051,6 +61506,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7218248835386361585
 GameObject:
   m_ObjectHideFlags: 0
@@ -60670,6 +62126,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -60695,6 +62152,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7329578983739579575
 GameObject:
   m_ObjectHideFlags: 0
@@ -61279,6 +62737,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u540C\u8D77\u59CB\u70B9"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -61304,6 +62763,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7399284664267185966
 GameObject:
   m_ObjectHideFlags: 0
@@ -61456,6 +62916,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5404\u4ED83000"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -61481,6 +62942,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7403512801178546993
 GameObject:
   m_ObjectHideFlags: 0
@@ -63145,6 +64607,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u4E09\u4EBA\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -63170,6 +64633,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7698182099860099288
 GameObject:
   m_ObjectHideFlags: 0
@@ -63394,6 +64858,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -63419,6 +64884,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7730260002943561080
 GameObject:
   m_ObjectHideFlags: 0
@@ -63641,6 +65107,250 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &7765047840220113696
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 565706901138892851}
+  - component: {fileID: 1517384096808390561}
+  - component: {fileID: 2872297852340340757}
+  m_Layer: 0
+  m_Name: Indicator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &565706901138892851
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7765047840220113696}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6410300372793060760}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &1517384096808390561
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7765047840220113696}
+  m_CullTransparentMesh: 1
+--- !u!114 &2872297852340340757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7765047840220113696}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53e282d8872297b40a830821e2456615, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateRoomDropdownArrow
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.3254902, g: 0.3372549, b: 0.3882353, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &7783644447780610902
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2460407246863976772}
+  - component: {fileID: 3793638624421633771}
+  - component: {fileID: 4327775235611095945}
+  - component: {fileID: 3123694529187719449}
+  - component: {fileID: 656410838856464447}
+  m_Layer: 5
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2460407246863976772
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7783644447780610902}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4892698706329374077}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -13, y: 0}
+  m_SizeDelta: {x: -58, y: -2}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &3793638624421633771
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7783644447780610902}
+  m_CullTransparentMesh: 1
+--- !u!114 &4327775235611095945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7783644447780610902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: "\u5173"
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4281479730
+  m_fontColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 24
+  m_fontSizeBase: 26
+  m_fontWeight: 400
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 18
+  m_fontSizeMax: 24
+  m_fontStyle: 0
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 4096
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 1
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 1
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 1
+  m_ActiveFontFeatures: 6e72656b
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &3123694529187719449
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7783644447780610902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da62fef08b802534ebfb5d48e5053cb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
+  key: "\u4E0D\u9650"
+  context: 
+  followSourceChanges: 1
+  fitTranslation: 1
+  trimOuterWhitespace: 0
+  authoredAutoSize: 1
+  typographyBaked: 1
+  authoredSize: 24
+  minimumSize: 16.8
+--- !u!114 &656410838856464447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7783644447780610902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2829eb45d0fc5144093b18fd9dc99287, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformFontBinding
+  authoredFont: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+  authoredMaterial: {fileID: 2100000, guid: 96180657e60ceb4459145a2f4426cc05, type: 2}
+  authoredStyle: 0
+  authoredWeight: 400
+  styleCaptured: 1
+  preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7794085803466116792
 GameObject:
   m_ObjectHideFlags: 0
@@ -63830,6 +65540,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8363\u548C\u5305\u724C\u672C\u573A"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -63855,6 +65566,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7829388381913305568
 GameObject:
   m_ObjectHideFlags: 0
@@ -64007,6 +65719,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -64032,6 +65745,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7835074982371417520
 GameObject:
   m_ObjectHideFlags: 0
@@ -64375,6 +66089,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u542C\u724C\u8FDE\u5E84"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -64400,6 +66115,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7853152869403448946
 GameObject:
   m_ObjectHideFlags: 0
@@ -65043,6 +66759,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -65068,6 +66785,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7944609521711014926
 GameObject:
   m_ObjectHideFlags: 0
@@ -65419,6 +67137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -65444,6 +67163,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &7985181711206659307
 GameObject:
   m_ObjectHideFlags: 0
@@ -67137,6 +68857,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -67162,6 +68883,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8198238810412875732
 GameObject:
   m_ObjectHideFlags: 0
@@ -67314,6 +69036,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u65E0"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -67339,6 +69062,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8234249133387342813
 GameObject:
   m_ObjectHideFlags: 0
@@ -67491,6 +69215,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -67516,6 +69241,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8253964473019129934
 GameObject:
   m_ObjectHideFlags: 0
@@ -67705,6 +69431,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -67730,6 +69457,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8264691155976993814
 GameObject:
   m_ObjectHideFlags: 0
@@ -67882,6 +69610,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -67907,6 +69636,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8272376654649628270
 GameObject:
   m_ObjectHideFlags: 0
@@ -68467,6 +70197,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u6D41\u6EE1\u5141\u8BB8\u526F\u9732"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -68492,6 +70223,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8363959517373381863
 GameObject:
   m_ObjectHideFlags: 0
@@ -70158,6 +71890,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5173"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -70183,6 +71916,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8655330200368662924
 GameObject:
   m_ObjectHideFlags: 0
@@ -70335,6 +72069,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u672B\u5E84\u542C\u724C\u6B62"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -70360,6 +72095,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8683577358830036870
 GameObject:
   m_ObjectHideFlags: 0
@@ -70599,6 +72335,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -70624,6 +72361,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8724137260732465283
 GameObject:
   m_ObjectHideFlags: 0
@@ -71161,6 +72899,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u540C\u5DE1\u632F\u542C\u89E3\u9664"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -71186,6 +72925,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8806823767581479949
 GameObject:
   m_ObjectHideFlags: 0
@@ -71222,6 +72962,81 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &8811702690003176126
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7816221911272343595}
+  - component: {fileID: 4205380837559670232}
+  - component: {fileID: 2110803738445239619}
+  m_Layer: 5
+  m_Name: Item Checkmark
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7816221911272343595
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8811702690003176126}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8088587023599117045}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchoredPosition: {x: 30.5, y: 0}
+  m_SizeDelta: {x: 33, y: 32}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &4205380837559670232
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8811702690003176126}
+  m_CullTransparentMesh: 1
+--- !u!114 &2110803738445239619
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8811702690003176126}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10901, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &8819433656581323128
 GameObject:
   m_ObjectHideFlags: 0
@@ -71474,6 +73289,82 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &8882208246896641863
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6410300372793060760}
+  - component: {fileID: 3120981871959963051}
+  - component: {fileID: 7181004173297197695}
+  m_Layer: 5
+  m_Name: Arrow
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &6410300372793060760
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8882208246896641863}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 565706901138892851}
+  m_Father: {fileID: 4892698706329374077}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: -22, y: 0}
+  m_SizeDelta: {x: 13, y: 8}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &3120981871959963051
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8882208246896641863}
+  m_CullTransparentMesh: 1
+--- !u!114 &7181004173297197695
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8882208246896641863}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10915, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &8910979906123556334
 GameObject:
   m_ObjectHideFlags: 0
@@ -71626,6 +73517,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7D2F\u8BA1\u5F79\u6EE1"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -71651,6 +73543,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8912870012796961804
 GameObject:
   m_ObjectHideFlags: 0
@@ -71803,6 +73696,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D77\u5BB6\u4F18\u5148"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -71828,6 +73722,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &8923239861488445161
 GameObject:
   m_ObjectHideFlags: 0
@@ -72483,6 +74378,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5E94\u7528\u89C4\u5219"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -72508,6 +74404,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &9008469442664834614
 GameObject:
   m_ObjectHideFlags: 0
@@ -72660,6 +74557,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u8D77\u548C\u7EBF"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -72685,6 +74583,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &9013883133786715772
 GameObject:
   m_ObjectHideFlags: 0
@@ -73064,6 +74963,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u5929\u51E4\u89C4"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -73089,6 +74989,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &9077727941536087961
 GameObject:
   m_ObjectHideFlags: 0
@@ -73412,6 +75313,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -73437,6 +75339,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &9106588849513015053
 GameObject:
   m_ObjectHideFlags: 0
@@ -73763,6 +75666,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedPlatformLabel
   key: "\u7ACB\u76F4\u9EBB\u5C06"
+  context: 
   followSourceChanges: 1
   fitTranslation: 1
   trimOuterWhitespace: 0
@@ -73788,6 +75692,7 @@ MonoBehaviour:
   authoredWeight: 400
   styleCaptured: 1
   preserveAuthoredTypeface: 0
+  preserveAuthoredChineseFace: 0
 --- !u!1 &9180579227273676395
 GameObject:
   m_ObjectHideFlags: 0

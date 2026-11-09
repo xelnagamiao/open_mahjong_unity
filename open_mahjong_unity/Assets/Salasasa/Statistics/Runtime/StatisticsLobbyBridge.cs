@@ -20,12 +20,20 @@ namespace Salasasa.Statistics
         public bool IsOpen => panel && panel.pageRoot.activeSelf;
 
         void Awake() { panel.Closed += OnClosed; }
+        void OnEnable() { if(IsOpen)BringToFront(); }
         void OnDestroy() { if(panel)panel.Closed -= OnClosed; }
         void OnClosed() { if(!closing && owner)owner.OpenHome(); }
 
+        void BringToFront()
+        {
+            // Returning from the table activates MeunPanel above the cached data page.
+            // Restore the same page order used when opening it from the header.
+            if(owner && transform.IsChildOf(owner.pageRoot))transform.SetAsLastSibling();
+        }
+
         public void Open()
         {
-            if(transform.IsChildOf(owner.pageRoot))transform.SetAsLastSibling();
+            BringToFront();
             enteringUntil=Time.unscaledTime+1;
             panel.Open();
             ApplyInsets();

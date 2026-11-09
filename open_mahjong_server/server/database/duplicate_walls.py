@@ -34,13 +34,13 @@ def load_duplicate_wall(db, key):
     conn = db._get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id, key, rule, wall_type, tiles, event_id, deleted_at, seed, use_flowers, round_count, round_tiles FROM duplicate_walls WHERE key = %s", (key,))
+            cursor.execute("SELECT id, key, rule, wall_type, tiles, event_id, deleted_at, seed, use_flowers, round_count, round_tiles, scope, owner_user_id FROM duplicate_walls WHERE key = %s", (key,))
             row = cursor.fetchone()
         if not row or row[6] is not None:
             raise ValueError("复式密钥不存在或已删除")
         tiles = json.loads(row[4]) if isinstance(row[4], str) else row[4]
         return dict(id=row[0], key=row[1], rule=row[2], wall_type=row[3], tiles=tiles,
-                    event_id=row[5], seed=row[7], use_flowers=row[8], round_count=row[9],
+                    event_id=row[5], seed=row[7], use_flowers=row[8], round_count=row[9], scope=row[11], owner_user_id=row[12],
                     round_tiles=json.loads(row[10]) if isinstance(row[10], str) else row[10])
     finally:
         db._put_connection(conn)
@@ -61,8 +61,8 @@ def validate_duplicate_wall(wall, room):
     accepted_rules = (XUELIU_WALL_RULE,) if bloodflow else (SBR_WALL_RULE,) if bloodbattle else (rule, sub_rule)
     if wall["rule"] not in accepted_rules:
         raise ValueError("复式牌墙的玩法与房间不一致")
-    if sichuan and (not wall.get("event_id") or wall["event_id"] != room.get("event_id")):
-        raise ValueError("川麻双打复式须使用本赛事或基地的密钥")
+    if sichuan and wall.get("event_id") != room.get("event_id"):
+        raise ValueError("川麻双打复式须使用当前个人、赛事或基地范围内的密钥")
     if wall.get("event_id") and wall["event_id"] != room.get("event_id"):
         raise ValueError("比赛复式牌墙只能用于所属比赛")
     numbers = list(range(11, 20)) + list(range(21, 30)) + list(range(31, 40))

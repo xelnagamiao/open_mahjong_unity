@@ -83,19 +83,20 @@ async def test_one_human_can_start_real_pair_with_seven_bots(rooms,monkeypatch,s
     gm=server.gamestate_manager
     pair=next(iter(gm.sichuan_duplicate_matches.values()))
     a,b=list(rooms.rooms.values())
-    a.update(player_list=[101],seat_list=[101,-1,-1,-1],host_user_id=101,player_settings={101:{'username':'test'}})
-    human.current_room_id=a['room_id']
-    for room in (a,b):
-        for index,uid in enumerate(get_seats(room)):
-            if uid<0:
-                response=await rooms.admin_add_event_bot(room['room_id'],'evt_pair',room['instance_id'],2,index)
-                assert response.success,response
+    from .sichuan_lobby import action
+    human.current_room_id=None
+    assert (await rooms.join_room('101',a['room_id'],'')).success
+    assert await action(rooms,'101',a['room_id'],dict(action='seat',seat_index=4,
+        roster_revision=pair.data['lobby']['revision'])) is None
+    for index in (0,1,2,3,5,6,7):
+        response=await rooms.admin_add_event_bot(a['room_id'],'evt_pair',a['instance_id'],2,index)
+        assert response.success,response
     monkeypatch.setattr('server.database.duplicate_walls.reserve_duplicate_game',lambda *_:'reserved-id')
     monkeypatch.setattr(DuplicateMixin,'run_game_loop',parked_loop)
     try:
         rejected=await gm.start_game(None,b['room_id'],roster_revision=b['roster_revision'])
         assert not rejected.success
-        assert await gm.start_game('101',a['room_id'],roster_revision=a['roster_revision']) is None
+        assert await gm.start_game('101',a['room_id'],roster_revision=pair.data['lobby']['revision']) is None
         await asyncio.sleep(0)
         assert pair.data['status']=='running' and pair.start_gate.is_set()
         assert len(pair.states)==2 and len(gm.gamestate_id_to_game_state)==2

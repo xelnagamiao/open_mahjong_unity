@@ -8,7 +8,8 @@ clear_tactical_grace_passes 清掉。
 仅在当前打断窗口内 pass 的玩家在本轮申请等待中不再重复询问；切换到新的低优先级申请时清空。
 
 国标（tactical_commit_lock=True）：玩家成功提交非 pass 鸣牌后本张弃牌区间内不可改选其他鸣牌；
-grace 多轮抢断时已承诺者不再作为竞争者。川麻 / 青雀不启用承诺锁。
+grace 多轮抢断时已承诺者不再作为竞争者。川麻只锁定已确认和牌者，保留一炮多响；
+碰/杠申请不锁定。青雀不启用承诺锁。
 """
 from __future__ import annotations
 
@@ -62,7 +63,7 @@ def tactical_commit_lock_enabled(gs) -> bool:
 # 「保存已确定行为」：玩家提交非 pass 后即锁定本次选择；后续只询问尚未
 # 承诺且能以更高优先级打断的玩家，已确定者不再改选。
 def tactical_mark_player_committed(gs, player_index: int) -> None:
-    """国标：玩家已成功提交非 pass 鸣牌，本张弃牌区间内不可改选。"""
+    """锁定已确认的申请；国标用于非 pass 鸣牌，川麻用于和牌。"""
     if not tactical_commit_lock_enabled(gs):
         return
     committed = getattr(gs, "_tactical_committed_players", None)

@@ -17,7 +17,7 @@ from .smart_bot_logic import (
     find_best_cut, find_best_cut_score,
     normalize_tile, count_acceptance,
 )
-from ...game_riichi.action_check import _is_furiten
+from ...game_riichi.action_check import _is_furiten, hand_kong_candidates
 from .smart_bot_ai import _handle_buhua_round, _wait_until_actionable
 
 logger = logging.getLogger(__name__)
@@ -154,7 +154,7 @@ def _remove_one_normalized(hand: List[int], normal_target: int) -> bool:
 
 
 def _choose_riichi_hand_plan(
-    hand, combs, meld_count, visible, action_list, is_riichi, candidates, forbidden
+    hand, combs, meld_count, visible, action_list, is_riichi, candidates, forbidden, kong_candidates
 ):
     hand = list(hand)
     combs = list(combs)
@@ -170,6 +170,8 @@ def _choose_riichi_hand_plan(
             if norm in seen:
                 continue
             seen.add(norm)
+            if norm not in kong_candidates['angang']:
+                continue
             if _count_normalized(hand, norm) >= 4:
                 test = [t for t in hand if normalize_tile(t) != norm]
                 if evaluate_hand(test, meld_count + 1, visible) >= evaluate_hand(hand, meld_count, visible):
@@ -181,6 +183,8 @@ def _choose_riichi_hand_plan(
             try:
                 tile = int(c[1:])
             except ValueError:
+                continue
+            if tile not in kong_candidates['jiagang']:
                 continue
             if _count_normalized(hand, tile) >= 1:
                 test = hand[:]
@@ -314,6 +318,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         is_riichi,
         candidates,
         frozenset(forbidden),
+        hand_kong_candidates(game_state, player_index),
     )
     if not bot_action_is_current(game_state, player_index, expected_tick):
         return

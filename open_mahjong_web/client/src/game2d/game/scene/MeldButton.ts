@@ -70,7 +70,7 @@ export class MeldButton extends Container {
     })
     label.anchor.set(0.5)
     const labelWidth = TILE_WIDTH * (isSimple && small === 0 ? 2.2 : 0.9)
-    if (locale.value === 'fr' && label.width > labelWidth) {
+    if (['fr', 'de', 'ru'].includes(locale.value) && label.width > labelWidth) {
       label.scale.set(labelWidth / label.width)
     }
     label.x = -TILE_WIDTH * 0.7

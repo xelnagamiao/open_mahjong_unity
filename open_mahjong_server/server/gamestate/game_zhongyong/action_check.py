@@ -72,11 +72,11 @@ def check_only_cut(game_state, player_index: int) -> Dict[int, list[str]]:
 
 
 def refresh_waiting_tiles(game_state, player_index: int, *, exclude_last_tile: bool = False) -> set[int]:
-    """Refresh a player's waiting-tile cache from the Jiandan calculator."""
+    """Refresh a player's waiting-tile cache from the Nanque calculator."""
     player = game_state.player_list[player_index]
     hand_tiles = player.hand_tiles[:-1] if exclude_last_tile else player.hand_tiles
     if game_state.is_nanque:
-        player.waiting_tiles = game_state.calculation_service.Jiandan_tingpai_check(hand_tiles, player.combination_tiles)
+        player.waiting_tiles = game_state.calculation_service.Nanque_tingpai_check(hand_tiles, player.combination_tiles)
     else:
         from ...game_calculation.zhongyong import tingpai_check
         player.waiting_tiles = tingpai_check(hand_tiles, player.combination_tiles)
@@ -144,7 +144,7 @@ def _is_suited(tile: int) -> bool:
 
 
 class ZhongyongActionPolicy:
-    """Replaceable legal-action module used by the Jiandan composition."""
+    """Replaceable legal-action module used by the Nanque composition."""
 
     check_hand_action = staticmethod(check_action_hand_action)
     check_after_cut = staticmethod(check_action_after_cut)

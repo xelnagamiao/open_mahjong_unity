@@ -38,11 +38,12 @@ public sealed partial class PlatformTypography : ScriptableObject
         string style = font.faceInfo.styleName.ToLowerInvariant();
         return style.Contains("bold") || style.Contains("black") || style.Contains("heavy") || style.Contains("medium");
     }
-    public static string NormalizeChineseMarkup(string value) => HasChinese(value) && value.IndexOf('<') >= 0 ? BoldMarkup.Replace(value, "") : value;
+    public static string NormalizeChineseMarkup(string value) => HasCjk(value) && value.IndexOf('<') >= 0 ? BoldMarkup.Replace(value, "") : value;
     public static TMP_FontAsset Resolve(TMP_FontAsset original) => Resolve(original, null);
     public static TMP_FontAsset Resolve(TMP_FontAsset original, string text, bool richText = false)
     {
         if (!original) return original;
+        if (UseJapaneseFont(text) && JapaneseRegular) return JapaneseRegular;
         var mixed = Profile ? Profile.mixedFonts.Find(entry => entry.font == original) : null;
         var latin = mixed != null ? mixed.latin : ResolveLatin(original);
         original = mixed != null ? mixed.chinese : original;

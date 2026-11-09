@@ -50,6 +50,11 @@ def nanjing_record(rotation, win):
         for index in (1, 2):
             s.player_list[index].hand_tiles = PLAIN[:-1]
     s.start_game_recording()
+    # This fixture simulates a rotated table after assigning registered IDs.
+    for player in s.player_list:
+        seat = player.original_player_index
+        s.game_record["game_title"][f"p{seat}_uid"] = player.user_id
+        s.game_record["game_title"][f"p{seat}_name"] = player.username
     s.start_round_recording()
     act(s, action_type="buhua")
     if win:
@@ -65,6 +70,9 @@ def nanjing_record(rotation, win):
         s.end_draw()
     s.finalize_round_recording()
     s.finalize_game_recording()
+    # The real lifecycle assigns final ranks immediately before persistence.
+    from server.gamestate.public.logic_common import assign_strict_final_ranks
+    assign_strict_final_ranks(list(s.player_list))
     return s, before, {1, 2} if win else set(), set(), {0: 2} if win else {}
 
 

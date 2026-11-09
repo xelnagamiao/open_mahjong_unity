@@ -17,7 +17,7 @@ def analyze_shared_record_for_player(record, original_index):
     win_unit, loss_unit = statistic_units(title)
     sichuan = title.get("rule") == "sichuan"
     exchange_six = title.get("rule") == "changsha" and title.get("sub_rule") == "changsha/exchange_six"
-    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang", "shangrao", "beijing", "duocai", "malaysia", "fuzhou")
+    own_turns = sichuan or title.get("rule") in ("zhongyong", "nanjing", "nanchang", "shangrao", "beijing", "duocai", "malaysia", "fuzhou")
     dealer_cut_turns = exchange_six or title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
     fractional_fan_total = Decimal(0)
     for rd in (record.get("game_round") or {}).values():

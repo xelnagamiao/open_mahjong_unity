@@ -22,6 +22,9 @@ public class Sichuan_Create_RoomConfig {
     public bool BloodBattle { get; set; }
     public int HepaiLimit { get; set; }
     public string EventId { get; set; }
+    public string DuplicateKey { get; set; }
+    public int DuplicateRoundCount { get; set; }
+    public bool DuplicateSyncMode { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
         if (string.IsNullOrEmpty(RoomName)) {
@@ -40,6 +43,10 @@ public class Sichuan_Create_RoomConfig {
         }
         if (GameRound < 1 || GameRound > 4) {
             error = "游戏圈数必须在1-4之间";
+            return false;
+        }
+        if (SichuanLobby.IsDuplicate(SubRule) && System.Array.IndexOf(new[] { 1, 4, 8, 12, 16 }, DuplicateRoundCount) < 0) {
+            error = "复式副数必须为1、4、8、12或16";
             return false;
         }
         if (RoundTimer < 0) {

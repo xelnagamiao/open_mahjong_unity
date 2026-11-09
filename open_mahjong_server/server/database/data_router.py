@@ -53,6 +53,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_update_record_note(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_guobiao_stats":
         await handle_get_guobiao_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_player_info_by_name":
+        await handle_get_player_info_by_name(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_player_recent_records":
         await handle_get_player_recent_records(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_riichi_stats":
@@ -61,8 +63,6 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_qingque_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_classical_stats":
         await handle_get_classical_stats(game_server, Connect_id, message, websocket)
-    elif message_type == "data/get_jiandan_stats":
-        await handle_get_jiandan_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_rule_stats":
         await handle_get_rule_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_leaderboard":
@@ -405,14 +405,34 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
         )
     await websocket.send_json(response.dict(exclude_none=True))
 
-async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, websocket):
+async def handle_get_player_info_by_name(game_server, Connect_id: str, message: dict, websocket):
+    """Resolve legacy chat senders without interpreting numeric usernames as IDs."""
+    username = message.get("username")
+    player = (game_server.db_manager.get_user_by_username(username)
+              if isinstance(username, str) and username.strip() else None)
+    if player is None:
+        response = Response(
+            type="data/get_player_info_by_name", success=False,
+            message="未找到该玩家，用户名可能已变更",
+            data_request_id=message.get("data_request_id"))
+        await websocket.send_json(response.model_dump(exclude_none=True))
+        return
+    await handle_get_guobiao_stats(game_server, Connect_id, {
+        "userid": player["user_id"], "need_player_info": True,
+        "data_request_id": message.get("data_request_id")
+    }, websocket, response_type="data/get_player_info_by_name")
+
+
+async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, websocket,
+                                  *, response_type="data/get_guobiao_stats"):
     """处理获取国标统计数据请求"""
     from .guobiao.get_guobiao_stats import get_guobiao_history_stats
     try:
         target_user_id = int(message.get("userid"))
     except (ValueError, TypeError):
         response = Response(
-            type="data/get_guobiao_stats",
+            type=response_type,
+            data_request_id=message.get("data_request_id"),
             success=False,
             message="无效的用户ID"
         )
@@ -485,7 +505,8 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
     )
     
     response = Response(
-        type="data/get_guobiao_stats",
+        type=response_type,
+        data_request_id=message.get("data_request_id"),
         success=True,
         message="获取国标统计数据成功",
         rule_stats=rule_stats_response,
@@ -713,83 +734,5 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
         message="获取古典麻将统计数据成功",
         rule_stats=rule_stats_response,
         player_info=player_info
-    )
-    await websocket.send_json(response.dict(exclude_none=True))
-
-
-async def handle_get_jiandan_stats(game_server, Connect_id: str, message: dict, websocket):
-    """Handle the Jiandan player statistics request."""
-    from .jiandan.get_jiandan_stats import (
-        get_jiandan_fan_stats_total,
-        get_jiandan_history_stats,
-    )
-
-    try:
-        target_user_id = int(message.get("userid"))
-    except (ValueError, TypeError):
-        response = Response(
-            type="data/get_jiandan_stats",
-            success=False,
-            message="无效的用户ID",
-        )
-        await websocket.send_json(response.dict(exclude_none=True))
-        return
-
-    need_player_info = message.get("need_player_info", False)
-    player_info = None
-    if need_player_info:
-        user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
-        if user_settings_data:
-            rank_data = game_server.db_manager.get_rank_data(target_user_id)
-            player_info = Player_info_response(
-                user_id=target_user_id,
-                user_settings=UserSettings(
-                    user_id=user_settings_data.get("user_id"),
-                    username=user_settings_data.get("username"),
-                    title_id=user_settings_data.get("title_id"),
-                    profile_image_id=user_settings_data.get("profile_image_id"),
-                    avatar_frame_id=user_settings_data.get("avatar_frame_id", 0),
-                    character_id=user_settings_data.get("character_id"),
-                    voice_id=user_settings_data.get("voice_id"),
-                ),
-                gb_stats=[],
-                jp_stats=[],
-                ratings=rank_data.get('ratings', {}) if rank_data else {},
-                guobiao_rank=rank_data.get("guobiao_rank", "10级") if rank_data else "10级",
-                guobiao_score=rank_data.get("guobiao_score", 0.0) if rank_data else 0.0,
-            )
-
-    history_stats_list = [
-        Player_stats_info(
-            rule=stats_row.get("rule", "jiandan"),
-            mode=stats_row.get("mode"),
-            total_games=stats_row.get("total_games"),
-            total_rounds=stats_row.get("total_rounds"),
-            win_count=stats_row.get("win_count"),
-            self_draw_count=stats_row.get("self_draw_count"),
-            deal_in_count=stats_row.get("deal_in_count"),
-            total_fan_score=stats_row.get("total_fan_score"),
-            total_win_turn=stats_row.get("total_win_turn"),
-            total_fangchong_score=stats_row.get("total_fangchong_score"),
-            first_place_count=stats_row.get("first_place_count"),
-            second_place_count=stats_row.get("second_place_count"),
-            third_place_count=stats_row.get("third_place_count"),
-            fourth_place_count=stats_row.get("fourth_place_count"),
-            fulu_round_count=stats_row.get("fulu_round_count"),
-            fan_stats=None,
-        )
-        for stats_row in get_jiandan_history_stats(game_server.db_manager, target_user_id)
-    ]
-    rule_stats_response = Rule_stats_response(
-        rule="jiandan",
-        history_stats=history_stats_list,
-        total_fan_stats=get_jiandan_fan_stats_total(game_server.db_manager, target_user_id),
-    )
-    response = Response(
-        type="data/get_jiandan_stats",
-        success=True,
-        message="获取南雀统计数据成功",
-        rule_stats=rule_stats_response,
-        player_info=player_info,
     )
     await websocket.send_json(response.dict(exclude_none=True))

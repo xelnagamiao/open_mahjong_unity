@@ -144,7 +144,8 @@ class HongKongCore:
             heavenly=self_draw and index==0 and not self.discard_log and opening,
             earthly=earthly,humanly=human,ready=p.ready_kind if p.declared_ready else "",
             immediate=p.declared_ready and p.immediate_ready,river_count=river_count,
-            multi_ron=multi,dealer=dealer_involved,dealer_streak=self.dealer_streak,flower_win=flower)
+            multi_ron=multi,dealer=dealer_involved,dealer_streak=self.dealer_streak,flower_win=flower,
+            called_chow_or_pung=p.called_chow_or_pung)
         return score_hand(context,self.rules)
 
     def can_win(self,index,source,tile,*,payer=None,flower=""):

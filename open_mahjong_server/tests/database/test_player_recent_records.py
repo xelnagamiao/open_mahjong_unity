@@ -286,7 +286,7 @@ def test_lifetime_record_survives_more_than_thirty_games_and_updates(database):
 def test_real_rule_save_entry_updates_in_same_transaction(database, rule):
     from server.database.db_manager import DatabaseManager
     definition = BY_KEY[rule]
-    family = "jiandan" if definition["sub_rule"] == "zhongyong/nanque" else definition["rule"]
+    family = "nanque" if definition["sub_rule"] == "zhongyong/nanque" else definition["rule"]
     save = getattr(DatabaseManager, f"store_{family}_game_record", DatabaseManager.store_taiwan_game_record)
     uids = UIDS[:definition["player_count"]]
     players = [SimpleNamespace(user_id=uid, username=f"u{i}", score=0, original_player_index=i,

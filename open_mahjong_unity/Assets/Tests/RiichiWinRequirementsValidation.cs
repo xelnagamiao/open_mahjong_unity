@@ -73,6 +73,47 @@ public static class RiichiWinRequirementsValidation {
         Check(RiichiTips.Describe(query).Kind==WaitTileHint.KindNone,"hint blocks score below haneman");
         query.DetailedConfig=null;
         Check(RiichiTips.Describe(query).Kind==WaitTileHint.KindRon,"old record defaults to no score gate");
+
+        // 提示可试算被自家杠牌用尽的和牌张，正式和牌仍须满足实体牌张数限制。
+        var exhaustedHand = new List<int> {24,25,26,34,305,36,39,39};
+        var exhaustedMelds = new List<string> {"G24","g47"};
+        var exhaustedQuery = new WaitHintQuery {
+            SubRule="riichi/sanma", HandWithWin=exhaustedHand, Melds=exhaustedMelds,
+            HepaiTile=24, HepaiLimit=1, SelfIndex=0, CurrentRound=3,
+            Record=new RecordTipsContext {RedDora=true, DoraIndicators=new List<int>{43,23,29}, SelfHuapaiList=new List<int>{44}}
+        };
+        var exhaustedHint = RiichiTips.Describe(exhaustedQuery);
+        Check(exhaustedHint.Kind==WaitTileHint.KindRon && exhaustedHint.Label=="9番",
+            "exhausted own-kan wait keeps its green-dragon yaku and dora");
+        Check(!RiichiExternal.FullHepaiCheck(exhaustedHand,exhaustedMelds,24,new RiichiHandContext {IsSanma=true}).IsValid,
+            "actual win still rejects the fifth copy");
+        exhaustedQuery.HepaiLimit=2;
+        Check(RiichiTips.Describe(exhaustedQuery).Label=="未起和","exhausted wait still requires actual yaku han");
+        exhaustedQuery.HepaiLimit=1;
+        exhaustedQuery.Melds=new List<string>{"G24","g44"};
+        Check(RiichiTips.Describe(exhaustedQuery).Label=="无役","exhausted wait with only bonus han remains no-yaku");
+        exhaustedQuery.Melds=new List<string>{"G24","G44"};
+        Check(RiichiTips.Describe(exhaustedQuery).Kind==WaitTileHint.KindTsumoOnly,
+            "exhausted closed wait retains self-draw-only yaku");
+        exhaustedQuery.Melds=exhaustedMelds;
+        exhaustedQuery.HandWithWin=new List<int>{27,25,26,34,305,36,39,39};
+        exhaustedQuery.HepaiTile=27;
+        Check(RiichiTips.Describe(exhaustedQuery).Label=="8番","available alternate wait retains its original han");
+        var redWait = new List<int>{23,24,205,34,35,36,39,39};
+        var redMelds = new List<string>{"G25","g47"};
+        Check(calc.CalculateWaitHint(redWait,redMelds,205,new RiichiHandContext {IsSanma=true}).IsValid
+            && !calc.Calculate(redWait,redMelds,205,new RiichiHandContext {IsSanma=true}).IsValid,
+            "red winning tile shares the normal-five copy limit");
+        Check(!calc.CalculateWaitHint(new List<int>{24,24,24,25,26},new List<string>{"G24","g47","k39"},26,new RiichiHandContext {IsSanma=true}).IsValid,
+            "hint rejects excess copies of a different tile");
+        Check(!calc.CalculateWaitHint(new List<int>{24,24,25,26,27,34,35,36},exhaustedMelds,24,new RiichiHandContext {IsSanma=true}).IsValid,
+            "hint rejects a sixth winning-tile copy");
+        Check(!calc.CalculateWaitHint(new List<int>{24,24,24,24,24,31,32,33,41,41,41,47,47,47},new List<string>(),24,new RiichiHandContext()).IsValid,
+            "hint rejects five copies in concealed tiles");
+        Check(!calc.CalculateWaitHint(exhaustedHand.Take(7).ToList(),exhaustedMelds,24,new RiichiHandContext {IsSanma=true}).IsValid,
+            "hint still rejects wrong hand size");
+        Check(!calc.CalculateWaitHint(new List<int>{24,25,26,12,13,14,39,39},exhaustedMelds,24,new RiichiHandContext {IsSanma=true}).IsValid,
+            "hint still rejects unavailable sanma tile types");
         return new {count=checks.Count,checks};
     }
 

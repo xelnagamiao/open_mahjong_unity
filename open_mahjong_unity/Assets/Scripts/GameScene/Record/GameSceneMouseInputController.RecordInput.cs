@@ -1,4 +1,7 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
 
 public partial class GameSceneMouseInputController {
     private const float RecordHoldDelaySeconds = 0.4f;
@@ -27,9 +30,16 @@ public partial class GameSceneMouseInputController {
 
         Vector2 position = Input.mousePosition;
         var manager = GameRecordManager.Instance;
+        bool keyboardShift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        foreach (KeyCode key in RecordNavigationKeys) {
+            if (Input.GetKeyDown(key)) {
+                HandleRecordNavigationKey(key, keyboardShift, position);
+                return;
+            }
+        }
         if (Input.GetMouseButton(1)) {
             CancelRecordScreenHold();
-            if (Input.GetMouseButtonDown(1) && manager != null && !IsRecordScreenPointerBlocked(position)) {
+            if (Input.GetMouseButtonDown(1) && manager != null && !IsRecordNavigationPointerBlocked(position)) {
                 manager.StepRecordFromInput(false);
             }
             return;
@@ -38,11 +48,11 @@ public partial class GameSceneMouseInputController {
         float scroll = Input.mouseScrollDelta.y;
         if (Mathf.Abs(scroll) > 0.01f) {
             CancelRecordScreenHold();
-            if (manager == null || manager.BlocksRecordNavigation || IsRecordScreenPointerBlocked(position)) return;
+            if (manager == null || manager.BlocksRecordNavigation || IsRecordNavigationPointerBlocked(position)) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             if (shift) {
                 if (scroll < 0f) manager.StepToNextRoundFromInput();
-                else manager.GotoSelectRound(manager.currentRoundIndex - 1);
+                else manager.StepToPreviousRoundFromInput();
             } else {
                 if (scroll < 0f) manager.NextXunmu();
                 else manager.BackXunmu();
@@ -50,6 +60,46 @@ public partial class GameSceneMouseInputController {
             return;
         }
         HandleRecordScreenPointer(position, Input.GetMouseButtonDown(0), Input.GetMouseButton(0));
+    }
+
+    private static readonly KeyCode[] RecordNavigationKeys = { KeyCode.LeftArrow, KeyCode.RightArrow, KeyCode.Space };
+
+    public void HandleRecordNavigationKey(KeyCode key, bool shift, Vector2 position) {
+        CancelRecordScreenHold();
+        var manager = GameRecordManager.Instance;
+        if (state != StateRecord || !IsGameSceneForeground() || manager == null
+            || manager.BlocksRecordNavigation || IsRecordNavigationPointerBlocked(position)) return;
+        if (key == KeyCode.Space) manager.ToggleRecordAutoPlay();
+        else if (key == KeyCode.LeftArrow) {
+            if (shift) manager.StepToPreviousRoundFromInput();
+            else manager.StepRecordFromInput(false);
+        } else if (key == KeyCode.RightArrow) {
+            if (shift) manager.StepToNextRoundFromInput();
+            else manager.StepRecordFromInput(true);
+        }
+    }
+
+    public bool IsRecordNavigationPointerBlocked(Vector2 position) {
+        if (position.x < 0 || position.y < 0 || position.x >= Screen.width || position.y >= Screen.height) return true;
+        if (EndGamePanel.Instance && EndGamePanel.Instance.IsRecordResultVisible) return true;
+        var events = EventSystem.current;
+        if (!events) return false;
+        var selected = events.currentSelectedGameObject;
+        if (selected && (selected.GetComponentInParent<TMP_InputField>()?.isFocused == true
+            || selected.GetComponentInParent<InputField>()?.isFocused == true)) return true;
+        if (_pointerEventData == null) _pointerEventData = new PointerEventData(events);
+        _pointerEventData.Reset(); _pointerEventData.position = position;
+        _uiRaycastResults.Clear(); events.RaycastAll(_pointerEventData, _uiRaycastResults);
+        foreach (var result in _uiRaycastResults) {
+            var hit = result.gameObject;
+            if (!hit || !BelongsToAnyExcludeRoot(hit.transform)) continue;
+            // Transport buttons accept navigation shortcuts. A selector list,
+            // chat/settings modal or focused text input keeps its own input.
+            return !GameRecordManager.Instance.IsRecordTransportControl(hit.transform)
+                || hit.GetComponentInParent<ScrollRect>() != null
+                || hit.GetComponentInParent<TMP_InputField>() != null;
+        }
+        return false;
     }
 
     private void HandleRecordScreenTouch(int touchCount, int fingerId, TouchPhase phase, Vector2 position) {

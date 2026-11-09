@@ -77,10 +77,10 @@ def test_actual_loop_three_rounds_and_exact_once_persistence():
         assert s.machine.phase==P.FINISHED and s.lifecycle_completed
         assert len(s.game_record['game_round'])==3
         before=len(s.outbound_payloads);await s.complete_game_lifecycle();assert len(s.outbound_payloads)==before
-        db=MagicMock();db.store_jiandan_game_record.return_value='saved';s.db_manager=db
+        db=MagicMock();db.store_zhongyong_game_record.return_value='saved';s.db_manager=db
         assert s.persist_game_record()=='saved' and s.persist_game_record()=='saved'
-        db.store_jiandan_game_record.assert_called_once()
-        assert db.store_jiandan_game_record.call_args.args[-1]=='1/3'
+        db.store_zhongyong_game_record.assert_called_once()
+        assert db.store_zhongyong_game_record.call_args.args[-1]=='1/3'
     asyncio.run(run())
 
 def test_metrics_include_instant_payments_and_correct_discarder():

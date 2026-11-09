@@ -32,7 +32,6 @@ const ALLOWED_RULE_KEYS = new Set([
   'sichuan',
   'changsha',
   'taiwan',
-  'jiandan',
   'shiyangjin',
   'guobiao-kobayashi',
   'guobiao-kshen',

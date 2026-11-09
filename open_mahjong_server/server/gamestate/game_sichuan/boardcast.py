@@ -421,6 +421,8 @@ async def broadcast_xueliu_throw_three_ask(self):
 
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.jiagang_tile if self.game_status == "waiting_action_qianggang" else self.player_list[self.current_player_index].discard_tiles[-1]
+    if not is_tactical_recheck:
+        self._tactical_hu_claimants = set()
     self.server_action_tick += 1
     prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
     begin_ask_round(self)
@@ -574,6 +576,8 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
     elif action_list and cut_tile is not None:
         from ..public.game_record_manager import track_claim_application
         track_claim_application(self, action_player, action_list[0], cut_tile)
+        if action_list[0] == "hu":
+            self._tactical_hu_claimants.add(action_player)
 
     interval_active = claim_protection_enabled(self) and getattr(self, "_cp_active", False)
     is_cut = bool(action_list) and action_list[0] == "cut"
@@ -786,7 +790,14 @@ async def broadcast_result(self, hu_class: str, **kwargs):
         kwargs.pop("hu_fan", None)
         kwargs.pop("hu_score", None)
     silent = kwargs.pop("silent", False)
-    if not silent and getattr(self, "_tactical_silent_action", False):
+    hu_claimants = getattr(self, "_tactical_hu_claimants", set())
+    winner = kwargs.get("hepai_player_index")
+    if winner is not None and hu_class.startswith("hu_"):
+        # 多家可先后申请和牌；按玩家去重，不能只静音第一家的结算。
+        silent = silent or winner in hu_claimants
+        hu_claimants.discard(winner)
+        self._tactical_silent_action = False
+    elif not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
         self._tactical_silent_action = False
     self.server_action_tick += 1

@@ -14,7 +14,7 @@
         >
           <div class="decomp-header">
             <span class="decomp-rank">#{{ idx + 1 }}</span>
-            <span class="decomp-score">{{ calculatorScoreText(item) }}</span>
+            <span class="decomp-score">{{ calculatorScoreText(item, item.rule || 'guobiao') }}</span>
           </div>
           <div class="decomp-tiles">
             <div
@@ -30,7 +30,7 @@
           </div>
           <div class="decomp-fans">
             <el-tag v-for="(name, fIdx) in item.fanNames" :key="fIdx" size="small" effect="plain">
-              {{ item.rule ? name : formatGuobiaoFanComposition(name) }}
+              {{ translateFanName(item.rule ? name : formatGuobiaoFanComposition(name), locale, item.rule || 'guobiao') }}
             </el-tag>
           </div>
         </div>
@@ -41,6 +41,8 @@
 <script setup>
 import TileMiniGlyph from './TileMiniGlyph.vue'
 import { formatGuobiaoFanComposition } from '../constants/guobiaoFanDict'
+import { translateFanName } from '../i18n/fanNames.js'
+import { locale } from '../i18n/index.js'
 import { calculatorScoreText } from '../utils/calculatorScoreText.js'
 defineProps({ decompositions: { type: Array, required: true } })
 </script>
@@ -110,13 +112,13 @@ defineProps({ decompositions: { type: Array, required: true } })
 }
 .decomp-fans { display: flex; flex-wrap: wrap; gap: 4px; }
 
-.decomp-fans:lang(fr) :deep(.el-tag) {
+.decomp-fans:is(:lang(fr), :lang(de), :lang(ru)) :deep(.el-tag) {
   max-width: 100%;
   height: auto;
   min-height: 20px;
 }
 
-.decomp-fans:lang(fr) :deep(.el-tag__content) {
+.decomp-fans:is(:lang(fr), :lang(de), :lang(ru)) :deep(.el-tag__content) {
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.4;

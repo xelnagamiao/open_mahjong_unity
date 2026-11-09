@@ -220,14 +220,14 @@
 }
 .battle-mode .queue-banner + .lobby-grid { margin-top: 20px; }
 
-.lobby-page:lang(fr) .lobby-header { flex-wrap: wrap; }
-.lobby-page:lang(fr) .lobby-header__actions { max-width: 100%; }
+.lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .lobby-header { flex-wrap: wrap; }
+.lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .lobby-header__actions { max-width: 100%; }
 
-.lobby-page:lang(fr) .match-row {
+.lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .match-row {
   grid-template-columns: minmax(0, 1fr) 180px 170px;
 }
 
-.lobby-page:lang(fr) .match-row > .el-button {
+.lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .match-row > .el-button {
   width: 100%;
   min-width: 0;
   height: auto;
@@ -238,18 +238,18 @@
 }
 
 @media (max-width: 720px) {
-  .lobby-page:lang(fr) .match-row {
+  .lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .match-row {
     grid-template-columns: minmax(0, 1fr) 150px;
   }
 
-  .lobby-page:lang(fr) .match-row__counts {
+  .lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .match-row__counts {
     grid-column: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
 
-  .lobby-page:lang(fr) .match-row > .el-button {
+  .lobby-page:is(:lang(fr), :lang(de), :lang(ru)) .match-row > .el-button {
     grid-column: 2;
     grid-row: 1 / 3;
   }

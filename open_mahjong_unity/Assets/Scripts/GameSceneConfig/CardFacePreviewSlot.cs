@@ -4,15 +4,18 @@ using UnityEngine.UI;
 /// <summary>场景里画好的单张牌面预览槽。背景在根 Image 上，花纹叠在 FaceOverlay 上。</summary>
 public partial class CardFacePreviewSlot : MonoBehaviour {
     public int tileId;
+    [System.NonSerialized] public string packId;
     public Image image;
     [SerializeField] private Image overlay;
     [SerializeField] private Image tableBackgroundLayer;
     private bool showingTable;
+    private bool standaloneHand;
     private float tableImageScale = TileTextureLayout.TableImageScale;
 
     public void ApplyTable(Sprite sprite, Sprite background, Color baseColor, bool dimMissingCustom,
         float imageScale = TileTextureLayout.TableImageScale) {
         showingTable = true;
+        standaloneHand = false;
         overlay.rectTransform.localScale = Vector3.one;
         tableImageScale = imageScale;
         image.sprite = TileFaceResolver.FlatTableBackground;
@@ -46,6 +49,7 @@ public partial class CardFacePreviewSlot : MonoBehaviour {
 
     public void Apply(Sprite sprite, Sprite background, bool dimMissingCustom) {
         showingTable = false;
+        standaloneHand = false;
         if (tableBackgroundLayer != null) tableBackgroundLayer.gameObject.SetActive(false);
         // 切回手牌时恢复原槽位内的完整等比预览，2D 牌体比例保持原资源设计。
         StretchToParent(overlay.rectTransform);
@@ -77,6 +81,16 @@ public partial class CardFacePreviewSlot : MonoBehaviour {
         }
     }
 
+    public void ApplyStandaloneHand(Sprite sprite) {
+        showingTable = false; standaloneHand = true;
+        if (tableBackgroundLayer != null) tableBackgroundLayer.gameObject.SetActive(false);
+        image.sprite = null; image.color = Color.clear;
+        overlay.sprite = sprite; overlay.color = Color.white;
+        overlay.type = Image.Type.Simple; overlay.useSpriteMesh = false; overlay.preserveAspect = true;
+        overlay.enabled = sprite != null; overlay.gameObject.SetActive(sprite != null);
+        FitHandLayers();
+    }
+
     private void OnRectTransformDimensionsChange() {
         if (image == null || overlay == null) return;
         if (showingTable) FitTableLayers();
@@ -84,11 +98,12 @@ public partial class CardFacePreviewSlot : MonoBehaviour {
     }
 
     private void FitHandLayers() {
-        TileFaceFit.ApplyHandArtwork(overlay, image, tileId, HandSurfaceLibrary.CurrentFaceLayout);
+        if (standaloneHand) TileFaceFit.ApplyStandaloneHand(overlay, image.rectTransform, tileId, packId);
+        else TileFaceFit.ApplyHandArtwork(overlay, image, tileId, HandSurfaceLibrary.CurrentFaceLayout, packId);
     }
 
     private void FitTableLayers() {
-        TileFaceFit.FitTableArtwork(image.rectTransform, overlay, tableBackgroundLayer, tableImageScale);
+        TileFaceFit.FitTableArtwork(image.rectTransform, overlay, tableBackgroundLayer, tableImageScale, tileId, packId);
     }
 
     private static void StretchToParent(RectTransform rect) {

@@ -29,6 +29,9 @@ public static class SceneConfigUi
     public const float ToggleColorFade = 0.1f;
     public const float SurfaceHeaderHeight = 80f;
     public static readonly Color SurfaceHeaderBackground = new Color32(237, 242, 248, 255);
+    public static readonly Color CardActionCaption = new Color32(238, 243, 250, 255);
+    public static readonly Color CardHeaderAction = new Color32(68, 82, 104, 255);
+    public static readonly Color CardHeaderSelected = new Color32(53, 78, 112, 255);
 
 #if UNITY_EDITOR
     public static TMP_Text CreateSurfaceHeaderTitle(Transform parent, string caption, TMP_FontAsset font)
@@ -135,6 +138,18 @@ public static class SceneConfigUi
         colors.colorMultiplier = 1f;
         colors.fadeDuration = .1f;
         selectable.colors = colors;
+    }
+
+    public static void ConfigureCardDesignButton(Button button, Color normal)
+    {
+        if (button == null) return;
+        ConfigureButtonFeedback(button, normal);
+        var caption = button.GetComponentInChildren<TMP_Text>(true);
+        if (caption == null) return;
+        caption.color = CardActionCaption;
+        caption.enableVertexGradient = false;
+        caption.fontStyle = FontStyles.Normal;
+        caption.fontWeight = FontWeight.Regular;
     }
 
     /// <summary>

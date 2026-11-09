@@ -8,13 +8,14 @@ from .boardcast import _send_do_action_payload_to_viewer, broadcast_update_dora
 import asyncio
 from ..public.lifecycle import start_owned_task
 import logging
-from .rule_logic import option, ankan_allowed, record_pao_call
+from .rule_logic import option, record_pao_call
 
 from .action_check import (
     check_action_after_cut,
     refresh_waiting_tiles,
     compute_kuikae_forbidden,
     _chi_pair_has_valid_discard,
+    hand_kong_candidates,
 )
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_riichi_accepted, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
@@ -73,12 +74,8 @@ def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
     if action_type == 'nuki':
         from .nuki_actions import can_nuki
         return can_nuki(self, player_index)
-    if action_type == 'angang':
-        return ankan_allowed(self, player, action_data.get('target_tile'))
-    if action_type == 'jiagang':
-        target = action_data.get('target_tile')
-        return ('riichi' not in player.tag_list and f'k{_normalize(target)}' in player.combination_tiles
-                and any(_normalize(t) == _normalize(target) for t in player.hand_tiles))
+    if action_type in ('angang', 'jiagang'):
+        return _normalize(action_data.get('target_tile')) in hand_kong_candidates(self, player_index)[action_type]
     if action_type not in ("cut", "riichi_cut"):
         return True
     tile_id = action_data.get("TileId")
@@ -176,6 +173,11 @@ async def wait_action(self):
                 temp_action_type = temp_action_data.get("action_type")
                 temp_action_data = dict(temp_action_data)
                 if not _is_valid_cut_action(self, temp_player_index, temp_action_data):
+                    if self.game_status in ('waiting_hand_action', 'onlycut_after_action'):
+                        # The client closes its controls on submission. Restore
+                        # this same ask without advancing its tick or restarting time.
+                        from .boardcast import reconnected_send_pending_ask
+                        await reconnected_send_pending_ask(self, self.player_list[temp_player_index].user_id)
                     continue
 
                 used_int_time = int(get_ask_elapsed(self, temp_player_index))

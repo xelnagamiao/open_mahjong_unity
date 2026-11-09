@@ -15,7 +15,7 @@
           <el-tag size="small" type="info">#{{ currentRoom.room_id }}</el-tag>
           <el-tag size="small">{{ tr(subRuleLabel(currentRoom.sub_rule)) }}</el-tag>
           <el-tag
-            v-if="['guobiao', 'qingque', 'changsha', 'sichuan', 'zhongyong', 'nanque', 'jiandan', 'riichi'].includes(currentRoom.room_rule)"
+            v-if="['guobiao', 'qingque', 'changsha', 'sichuan', 'zhongyong', 'riichi'].includes(currentRoom.room_rule)"
             size="small" type="info"
           >{{ tr('鸣牌保护：{state}', { state: tr((currentRoom.claim_protection ?? (currentRoom.room_rule !== 'riichi')) ? '开' : '关') }) }}</el-tag>
           <el-tag v-if="currentRoom.is_duplicate || currentRoom.duplicate_wall_type" size="small" type="warning">{{ tr(duplicateRoomLabel(currentRoom)) }} · {{ tr('{count} 局', { count: currentRoom.duplicate_round_count || 1 }) }}</el-tag>
@@ -74,11 +74,11 @@
 
     <el-card v-else class="room-list-card" shadow="never">
       <el-table v-loading="listBusy" :data="visibleRooms" size="small" :empty-text="tr('暂无公开自定义房间')">
-        <el-table-column prop="room_id" :label="tr('房号')" width="72" />
+        <el-table-column prop="room_id" :label="tr('房号')" :width="['fr', 'de', 'ru'].includes(locale) ? 130 : 72" />
         <el-table-column prop="room_name" :label="tr('房间名')" min-width="120" show-overflow-tooltip>
           <template #default="{ row }"><span data-no-translate>{{ row.room_name }}</span></template>
         </el-table-column>
-        <el-table-column :label="tr('人数')" width="72">
+        <el-table-column :label="tr('人数')" :width="['fr', 'de', 'ru'].includes(locale) ? 132 : 72">
           <template #default="{ row }">{{ (row.player_list || []).length }}/{{ row.max_player || 4 }}</template>
         </el-table-column>
         <el-table-column :label="tr('规则')" min-width="100">
@@ -94,7 +94,7 @@
           </template>
         </el-table-column>
         <el-table-column :label="tr('牌山')" min-width="125"><template #default="{ row }">{{ tr(duplicateRoomLabel(row)) }}<span v-if="row.is_duplicate"> · {{ tr('{count} 局', { count: row.duplicate_round_count || 1 }) }}</span></template></el-table-column>
-        <el-table-column :label="tr('密码')" width="64">
+        <el-table-column :label="tr('密码')" :width="['fr', 'de', 'ru'].includes(locale) ? 120 : 64">
           <template #default="{ row }">{{ tr(row.has_password ? '有' : '无') }}</template>
         </el-table-column>
         <el-table-column label="" width="88" align="right">
@@ -161,7 +161,6 @@ const RULE_LABELS = {
   qingque: '青雀',
   changsha: '长沙',
   sichuan: '四川',
-  jiandan: '南雀',
   zhongyong: '中庸麻将',
   classical: '古典麻将',
 }
@@ -546,7 +545,7 @@ defineExpose({ handleResponse, refreshRoomList, hasRoom: () => Boolean(currentRo
 .room-bot-speed { display: flex; align-items: center; gap: 12px; }
 .room-bot-speed .el-select { width: 180px; }
 .custom-room :deep(.el-dialog .el-select) { width: 100% !important; max-width: 100%; }
-.custom-room:lang(fr) :deep(.duplicate-room-help a) { margin-inline-start: 0.25em; }
+.custom-room:is(:lang(fr), :lang(de), :lang(ru)) :deep(.duplicate-room-help a) { margin-inline-start: 0.25em; }
 .seat-bot-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
 .seat-bot-actions .el-button + .el-button { margin-left: 0; }
 .seat-bot-actions .el-button { height: auto; min-height: 32px; padding: 8px 10px; white-space: normal; }

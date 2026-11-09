@@ -66,46 +66,52 @@ public partial class GameRecordManager {
         System.Array.Clear(duplicateSupplementDraws, 0, duplicateSupplementDraws.Length);
     }
 
-    internal bool TryGetDuplicateDrawIndices(ICollection<int> indices, int count) {
-        if (!TryGetDuplicateWallRange(selectedPlayerIndex, out int start, out int end)) return false;
-        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round flowRound)
-            && flowRound.duplicateWallLayout == "xueliu") {
-            int offset = 0;
-            bool rolled = false;
-            foreach (var part in flowRound.duplicateWalls) {
-                int stop = offset + (part?.Count ?? 0);
-                if (!currentOriginalIndices.Any(i => i >= offset && i < stop)) rolled = true;
-                offset = stop;
-            }
-            if (rolled) {
-                // All remaining indices already have the shared queue's E/S/W/N order.
-                int anchor = IsWaitingForDrawAfterCutForChongHint && LastDiscardPlayerIndexForChongHint >= 0
-                    ? LastDiscardPlayerIndexForChongHint : currentPlayerIndex;
-                int next = (selectedPlayerIndex - anchor + 3) % 4;
-                int position = 0;
-                foreach (int index in currentOriginalIndices) {
-                    if (position++ % 4 != next) continue;
-                    indices.Add(index);
-                    if (--count <= 0) break;
-                }
-                return true;
-            }
+    private bool TryGetDuplicateDrawIndices(ICollection<int> indices, int count, List<int> seats, int next) {
+        if (!TryGetDuplicateWallRange(selectedPlayerIndex, out _, out _)) return false;
+        Round round = gameRecord.gameRound.rounds[currentRoundIndex];
+        bool flow = round.duplicateWallLayout == "xueliu";
+        var walls = new List<Queue<int>>();
+        int start = 0;
+        foreach (var part in round.duplicateWalls) {
+            int end = start + (part?.Count ?? 0);
+            walls.Add(new Queue<int>(currentOriginalIndices.Where(i => i >= start && i < end)));
+            start = end;
         }
-        foreach (int index in currentOriginalIndices) {
-            if (index < start || index >= end) continue;
-            indices.Add(index);
-            if (--count <= 0) break;
+        var common = new Queue<int>(currentOriginalIndices.Where(i => i >= start));
+        bool shared = false;
+        void RollIntoCommon() {
+            // Server joins remaining private walls in original E/S/W/N order.
+            common = new Queue<int>(walls.SelectMany(w => w).Concat(common));
+            foreach (var wall in walls) wall.Clear();
+            shared = true;
         }
-        if (count > 0 && IsSichuanRecord() && ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == "sichuan/doubles_duplicate") {
-            RecordPlayer selected = recordPlayerList.Find(p => p.playerIndex == selectedPlayerIndex);
-            RecordPlayer partner = selected == null ? null : recordPlayerList.Find(p => p.originalPlayerIndex == (selected.originalPlayerIndex + 2) % 4);
-            if (selected != null && !selected.isHu && partner != null && partner.isHu && TryGetDuplicateWallRange(partner.playerIndex, out int partnerStart, out int partnerEnd)) {
-                foreach (int index in currentOriginalIndices) {
-                    if (index < partnerStart || index >= partnerEnd) continue;
-                    indices.Add(index);
-                    if (--count <= 0) break;
-                }
+        if (flow && walls.Any(w => w.Count == 0)) RollIntoCommon();
+        int emptyTurns = 0;
+        for (int step = 0; step < currentOriginalIndices.Count + seats.Count; step++) {
+            int actor = seats[next];
+            RecordPlayer player = recordPlayerList.Find(p => p.playerIndex == actor);
+            int source = player != null ? player.originalPlayerIndex : actor;
+            Queue<int> queue = shared ? common : walls[source];
+            if (!flow && IsSichuanRecord() && queue.Count == 0) {
+                RecordPlayer partner = recordPlayerList.Find(p => p.originalPlayerIndex == (source + 2) % 4);
+                if (partner?.isHu == true) queue = walls[partner.originalPlayerIndex];
             }
+            if (queue.Count == 0) {
+                // Guobiao ends as soon as the next seat cannot draw. Sichuan
+                // skips exhausted private walls until no active seat can draw.
+                if (!IsSichuanRecord() || shared || ++emptyTurns >= seats.Count) break;
+                next = (next + 1) % seats.Count;
+                step--; // Skips do not consume a physical tile.
+                continue;
+            }
+            emptyTurns = 0;
+            int index = queue.Dequeue();
+            if (actor == selectedPlayerIndex) {
+                indices.Add(index);
+                if (--count <= 0) break;
+            }
+            if (flow && !shared && queue.Count == 0) RollIntoCommon();
+            next = (next + 1) % seats.Count;
         }
         return true;
     }
@@ -126,6 +132,7 @@ public partial class GameRecordManager {
     }
 
     private void OnDisable() {
+        HideRecordMatchResult();
         CancelRecordBuhuaContinuation();
         TileFaceResolver.OnPackChanged -= RefreshTileListLayout;
         HideRecordPlayerWaits();
@@ -182,42 +189,46 @@ public partial class GameRecordManager {
             return;
         }
 
-        TryGetActiveRecordRuleContext(out string roomRule, out _);
-        bool isRiichi = !IsWashizuRecord() && !IsDuplicateReplay && RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField == true;
-
         BuildInitialHandSection(player0HandsContainer, round.p0Tiles);
         BuildInitialHandSection(player1HandsContainer, round.p1Tiles);
         BuildInitialHandSection(player2HandsContainer, round.p2Tiles);
         BuildInitialHandSection(player3HandsContainer, round.p3Tiles);
 
-        int wallCount = originalTilesList.Count;
-        int mainWallCount = isRiichi && wallCount > 14 ? wallCount - 14 : wallCount;
-
-        BuildWallSection(tilesListContainer, 0, mainWallCount);
-
-        if (last14TilesContainer != null) {
-            bool showDeadWall = isRiichi && wallCount > 14;
-            last14TilesContainer.gameObject.SetActive(showDeadWall);
-            if (showDeadWall) {
-                BuildWallSection(last14TilesContainer, mainWallCount, wallCount - mainWallCount);
-            }
-        }
+        wallViewReservedIndices = null;
+        RefreshWallSections();
 
         RefreshTileListLayout();
         UpdateTileListOpacity();
         FocusTileListScrollOnWallSection();
     }
 
-    private void BuildWallSection(Transform sectionContainer, int startIndex, int count) {
-        if (sectionContainer == null || count <= 0) return;
+    private HashSet<int> wallViewReservedIndices;
 
+    private void RefreshWallSections() {
+        if (staticCardPrefab == null || tilesListContainer == null || gameRecord?.gameRound?.rounds == null) return;
+        HashSet<int> reserved = RecordReservedWallIndices();
+        if (last14TilesContainer == null) reserved.Clear();
+        if (wallViewReservedIndices != null && wallViewReservedIndices.SetEquals(reserved)
+            && tileListCards.Count == originalTilesList.Count) return;
+        wallViewReservedIndices = reserved;
+        ClearTransformChildren(tilesListContainer);
+        ClearTransformChildren(last14TilesContainer);
+        tileListCards.Clear();
+        for (int i = 0; i < originalTilesList.Count; i++) tileListCards.Add(null);
+        BuildWallSection(tilesListContainer, Enumerable.Range(0, originalTilesList.Count).Where(i => !reserved.Contains(i)));
+        if (last14TilesContainer != null) {
+            last14TilesContainer.gameObject.SetActive(reserved.Count > 0);
+            BuildWallSection(last14TilesContainer, Enumerable.Range(0, originalTilesList.Count).Where(reserved.Contains));
+        }
+        RefreshTileListLayout();
+    }
+
+    private void BuildWallSection(Transform sectionContainer, IEnumerable<int> indices) {
+        if (sectionContainer == null) return;
         Transform currentRow = null;
         int rowCount = TileListRowSize;
-        for (int i = startIndex; i < startIndex + count; i++) {
-            StaticCard card = SpawnSingleTileInSection(sectionContainer, originalTilesList[i], ref currentRow, ref rowCount);
-            if (card != null) {
-                tileListCards.Add(card);
-            }
+        foreach (int i in indices) {
+            tileListCards[i] = SpawnSingleTileInSection(sectionContainer, originalTilesList[i], ref currentRow, ref rowCount);
         }
     }
 

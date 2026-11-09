@@ -104,7 +104,7 @@ const canCreate = computed(() => !busy.value && !loading.value && Boolean(select
 const scopeParams = () => ({ scope: props.scope, ...(props.scope === 'event' ? { event_id: eventId.value } : {}) })
 let loadVersion = 0
 function message(err) { return err.response?.data?.message || err.message || '操作失败，请重试' }
-function ruleLabel(rule) { return ({ 'sichuan/doubles_duplicate': '川麻血战双打复式（SBR）', 'sichuan/xueliu_doubles_duplicate': '川麻血流双打复式', 'sichuan/xueliu': props.scope === 'personal' ? '旧版血流密钥（已停用）' : '川麻血流双打复式' })[rule] || rules.value.find(item => item.rule === rule)?.label || rule }
+function ruleLabel(rule) { return ({ 'sichuan/doubles_duplicate': '川麻血战双打复式（SBR）', 'sichuan/xueliu_doubles_duplicate': '川麻血流双打复式' })[rule] || rules.value.find(item => item.rule === rule)?.label || rule }
 
 async function loadCatalog() {
   loadingCatalog.value = true

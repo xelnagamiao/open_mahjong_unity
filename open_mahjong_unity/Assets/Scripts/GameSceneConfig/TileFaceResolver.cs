@@ -12,7 +12,6 @@ public static class TileFaceResolver {
     private static readonly Dictionary<int, Sprite> CustomHandSprites = new Dictionary<int, Sprite>();
     private static readonly Dictionary<int, Texture2D> CustomHandTextures = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Texture2D> CustomTableTextures = new Dictionary<int, Texture2D>();
-    private static readonly Dictionary<int, float> CustomTableImageScales = new Dictionary<int, float>();
     private static readonly Dictionary<int, Sprite> CustomTableSprites = new Dictionary<int, Sprite>();
     private static readonly Dictionary<int, Sprite> OfficialSpriteCache = new Dictionary<int, Sprite>();
     private static Sprite handBackgroundSprite;
@@ -35,6 +34,8 @@ public static class TileFaceResolver {
             || TilePackIds.IsBuiltinLayeredPack(ConfigManager.Instance.StandardTilePackId));
 
     public static IReadOnlyDictionary<int, Sprite> CustomHandPreview => CustomHandSprites;
+    public static bool HasCustomArtwork(int tileId, bool table) => table
+        ? CustomTableTextures.ContainsKey(WashizuTile.Face(tileId)) : CustomHandSprites.ContainsKey(WashizuTile.Face(tileId));
 
     // 标准手牌统一自动叠底，不依赖旧 UseHandFaceBackground 存档。
     public static bool UsesLayeredHandFaces => true;
@@ -77,6 +78,7 @@ public static class TileFaceResolver {
         if (persist) {
             TilePackStorage.SaveImported(imported);
         }
+        TilePackLayoutConfig.Register(TilePackIds.PackCustom, imported.LayoutConfig);
         ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
         if (enableFlag && ConfigManager.Instance != null) {
             ConfigManager.Instance.SetStandardTilePackId(TilePackIds.PackCustom);
@@ -93,6 +95,7 @@ public static class TileFaceResolver {
         loadVersion++;
         ConfigManager.Instance?.SetStandardTilePackId(id);
         diskLoaded = webGlLoadStarted = true;
+        TilePackLayoutConfig.Register(id, imported.LayoutConfig);
         ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
         NotifyChanged();
     }
@@ -105,6 +108,7 @@ public static class TileFaceResolver {
     }
 
     public static Sprite LoadSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
+        if (RuleRegistry.Current?.RuleId == "malaysia" && MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Sprite(tileId);
         if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTileVisual.Sprite(tileId);
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Sprite(tileId);
         if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Sprite(tileId);
@@ -122,7 +126,7 @@ public static class TileFaceResolver {
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinPack(packId)) {
-            Sprite builtin = BuiltinTileSprites.Hand(packId, faceId);
+            Sprite builtin = BuiltinTileSprites.Shared(packId, faceId) ?? BuiltinTileSprites.Hand(packId, faceId);
             if (builtin != null) {
                 return builtin;
             }
@@ -142,7 +146,19 @@ public static class TileFaceResolver {
         return official;
     }
 
+    /// <summary>The shared atlas sprite actually used by this tile, including the official missing-face fallback.</summary>
+    public static Sprite LoadSharedTableSprite(int tileId) {
+        if (FixedFacePack.TryResolve(tileId, out _, out _)) return null;
+        EnsureLoaded();
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting: true);
+        string packId = CurrentPackId();
+        if (TilePackIds.IsCustomPack(packId) && CustomTableTextures.ContainsKey(faceId)) return null;
+        if (!TilePackIds.IsBuiltinPack(packId)) packId = TilePackIds.PackOfficial;
+        return BuiltinTileSprites.Shared(packId, faceId) ?? BuiltinTileSprites.Shared(TilePackIds.PackOfficial, faceId);
+    }
+
     public static Texture2D LoadTableTexture(int tileId) {
+        if (RuleRegistry.Current?.RuleId == "malaysia" && MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Texture(tileId);
         if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTileVisual.Texture(tileId);
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Texture(tileId);
         if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Texture(tileId);
@@ -151,11 +167,13 @@ public static class TileFaceResolver {
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadTableTexture(tileId);
         }
-        if (!UsesCustomStandardFaces) {
-            return null;
-        }
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting: true);
         string packId = CurrentPackId();
+        if (TilePackIds.IsBuiltinPack(packId)) {
+            Sprite shared = BuiltinTileSprites.Shared(packId, faceId);
+            if (shared != null) return shared.texture;
+        }
+        if (!UsesCustomStandardFaces) return null;
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             Texture2D builtin = Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId));
             if (builtin != null) {
@@ -166,12 +184,12 @@ public static class TileFaceResolver {
             && CustomTableTextures.TryGetValue(faceId, out Texture2D table) && table != null) {
             return table;
         }
-        return null;
+        return BuiltinTileSprites.Shared(TilePackIds.PackOfficial, faceId)?.texture;
     }
 
     /// <summary>按实际图案来源返回排版尺度；缺图回退与直接使用官方保持一致。</summary>
-    public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true) {
-        if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTiles.Joker(tileId)?1f:TableImageScaleFor(tileId%1000,applyWhiteDragonFaceSetting);
+    public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true, bool useManzuDefaults = true) {
+        if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTiles.Joker(tileId)?1f:TableImageScaleFor(tileId%1000,applyWhiteDragonFaceSetting,false);
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return 1f;
         if (SingaporeTileVisual.IsAnimal(tileId)) return 1f;
         if (MalaysiaTileVisual.Contains(tileId)) return 1f;
@@ -179,10 +197,15 @@ public static class TileFaceResolver {
         if (HongqueTileVisual.IsHongqueId(tileId)) return 1f;
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
+        // Manzu's old image-area inset is already in its visible 3D tile defaults.
+        if (useManzuDefaults && TilePackLayoutConfig.UsesVisibleManzuDefaults(packId, faceId)) return 1f;
+        if (TilePackIds.IsBuiltinPack(packId) && BuiltinTileSprites.Shared(packId, faceId) != null)
+            return packId == TilePackIds.PackOfficial ? TileTextureLayout.SnowTableImageScale : TileTextureLayout.TableImageScale;
         if (TilePackIds.IsCustomPack(packId)
             && CustomTableTextures.TryGetValue(faceId, out Texture2D uploaded) && uploaded != null) {
-            return CustomTableImageScales.TryGetValue(faceId, out float scale)
-                ? scale : TileTextureLayout.TableImageScale;
+            // Uploaded PNGs have no implicit inset or PNG-metadata scale. Their
+            // visible pack/per-tile settings (initialized from .cfg) are the only adjustments.
+            return 1f;
         }
         if (TilePackIds.IsBuiltinLayeredPack(packId)
             && Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null) {
@@ -201,16 +224,21 @@ public static class TileFaceResolver {
     }
 
     public static Sprite LoadTableSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
+        if (RuleRegistry.Current?.RuleId == "malaysia" && MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Sprite(tileId);
         if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTileVisual.Sprite(tileId,true);
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Sprite(tileId);
         if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Sprite(tileId);
         if (MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Sprite(tileId);
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
-            return HongqueTileVisual.LoadSprite(tileId);
+            return FixedFacePack.Load(FixedFacePack.Hongque, tileId, true);
         }
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
+        if (TilePackIds.IsBuiltinPack(packId)) {
+            Sprite shared = BuiltinTileSprites.Shared(packId, faceId);
+            if (shared != null) return shared;
+        }
         if (packId == TilePackIds.PackOfficial) {
             return BuiltinTileSprites.OfficialTable(faceId);
         }
@@ -360,6 +388,13 @@ public static class TileFaceResolver {
         OnPackChanged?.Invoke();
     }
 
+    public static void NotifyTableLayoutChanged() {
+        foreach (var tile in UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            if (tile != null) tile.RefreshArtworkLayout();
+        RefreshVisibleHandCards();
+        OnPackChanged?.Invoke();
+    }
+
     public static void NotifyHandBackgroundChanged() {
         if (handBackgroundTexture != null && handBackgroundTexture != defaultHandBackgroundTexture) {
             ReplaceHandBackgroundSprite(null);
@@ -405,13 +440,14 @@ public static class TileFaceResolver {
     private static bool HasPackHandFace(int faceId) {
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinPack(packId)) {
-            return BuiltinTileSprites.Hand(packId, faceId) != null;
+            return BuiltinTileSprites.Shared(packId, faceId) != null || BuiltinTileSprites.Hand(packId, faceId) != null;
         }
         return CustomHandSprites.ContainsKey(faceId);
     }
 
     private static bool HasPackTableFace(int faceId) {
         string packId = CurrentPackId();
+        if (TilePackIds.IsBuiltinPack(packId) && BuiltinTileSprites.Shared(packId, faceId) != null) return true;
         if (packId == TilePackIds.PackOfficial) return BuiltinTileSprites.OfficialTable(faceId) != null;
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             return Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null;
@@ -427,6 +463,7 @@ public static class TileFaceResolver {
         TilePackLibrary.Load(id, imported => {
             // 异步读取返回时，用户可能已切到另一套牌面。
             if (version != loadVersion || id != CurrentPackId()) return;
+            TilePackLayoutConfig.Register(id, imported.LayoutConfig);
             ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
             NotifyChanged();
         }, error => {
@@ -463,10 +500,11 @@ public static class TileFaceResolver {
         }
         if (tablePngs != null) {
             foreach (var pair in tablePngs) {
-                Texture2D texture = BytesToTexture(pair.Value, "CustomTable_" + pair.Key, true);
+                Texture2D texture = handPngs != null && handPngs.TryGetValue(pair.Key, out byte[] handBytes)
+                    && ReferenceEquals(handBytes, pair.Value) && CustomHandTextures.TryGetValue(pair.Key, out Texture2D shared)
+                    ? shared : BytesToTexture(pair.Value, "CustomTable_" + pair.Key, true);
                 if (texture != null) {
                     CustomTableTextures[pair.Key] = texture;
-                    CustomTableImageScales[pair.Key] = TileTextureLayout.ReadTableImageScale(pair.Value);
                 }
             }
         }
@@ -535,9 +573,11 @@ public static class TileFaceResolver {
         if (png == null || png.Length == 0) {
             return null;
         }
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
         texture.name = name;
         texture.filterMode = FilterMode.Bilinear;
+        texture.anisoLevel = 16;
+        texture.mipMapBias = -.5f;
         texture.wrapMode = TextureWrapMode.Clamp;
         if (!ImageConversion.LoadImage(texture, png, markNonReadable)) {
             DestroyTransient(texture);
@@ -547,7 +587,6 @@ public static class TileFaceResolver {
     }
 
     private static void DestroyCustomTextures() {
-        CustomTableImageScales.Clear();
         if (!ownsRuntimeTextures) {
             CustomHandSprites.Clear();
             CustomHandTextures.Clear();
@@ -571,7 +610,7 @@ public static class TileFaceResolver {
             }
         }
         foreach (var pair in CustomTableTextures) {
-            if (pair.Value != null) {
+            if (pair.Value != null && !CustomHandTextures.ContainsValue(pair.Value)) {
                 DestroyTransient(pair.Value);
             }
         }

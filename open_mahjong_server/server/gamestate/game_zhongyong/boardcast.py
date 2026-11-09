@@ -397,7 +397,7 @@ def _final_show_result_info(game_state: Any, settlement_index: Optional[int] = N
     return {
         "hepai_player_index": winner_index,
         "player_to_score": player_to_score,
-        # The ordinary client has no Jiandan-specific display multiplier.
+        # The ordinary client has no Nanque-specific display multiplier.
         # The fan total and payment are distinct; score_changes carries payments.
         "hu_score": int(settlement.get("points", 0) or 0),
         "hu_fan": list(settlement.get("fan_ids") or settlement.get("fan_names") or []),

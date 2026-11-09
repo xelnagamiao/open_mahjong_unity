@@ -217,6 +217,24 @@ def check_action_ankan(self, tile):
     return actions
 
 
+def hand_kong_candidates(self, player_index: int):
+    """Shared authoritative targets for asks, bots and submitted hand actions."""
+    candidates = {'angang': [], 'jiagang': []}
+    if (getattr(self, 'total_kans', 0) >= 4
+            or getattr(self, 'rinshan_count', 0) >= (8 if self.sub_rule == 'riichi/sanma' else 4)
+            or len(self.tiles_list) <= self.dead_wall_count):
+        return candidates
+    player = self.player_list[player_index]
+    normals = list(dict.fromkeys(_normalize(t) for t in player.hand_tiles))
+    candidates['angang'] = [tile for tile in normals if ankan_allowed(self, player, tile)]
+    if 'riichi' not in player.tag_list:
+        candidates['jiagang'] = list(dict.fromkeys(
+            int(meld[1:]) for meld in player.combination_tiles
+            if meld[0] == 'k' and int(meld[1:]) in normals
+        ))
+    return candidates
+
+
 def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = False, is_first_action: bool = False, is_nuki_tile: bool = False):
     """摸牌后的手牌动作检查：和牌/暗杠/加杠/立直/切牌。
     立直已宣告者：不允许加杠，仅允许「不改变听牌张集合且不改变听牌结构」的暗杠；其余仅可切牌（强制摸切由主循环处理）。
@@ -225,32 +243,8 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
     player_item = self.player_list[player_index]
     is_riichi = "riichi" in player_item.tag_list
 
-    # 四杠已达上限后禁止任何开杠
-    kan_allowed = (getattr(self, "total_kans", 0) < 4
-                   and getattr(self, 'rinshan_count', 0) < (8 if self.sub_rule == 'riichi/sanma' else 4))
-    if kan_allowed and len(self.tiles_list) > self.dead_wall_count:
-        processed = set()
-        for carditem in player_item.hand_tiles:
-            normal = _normalize(carditem)
-            if normal in processed:
-                continue
-            if sum(1 for t in player_item.hand_tiles if _normalize(t) == normal) != 4:
-                continue
-            if is_riichi:
-                if ankan_allowed(self, player_item, normal):
-                    temp_action_dict[player_index].append("angang")
-                processed.add(normal)
-            else:
-                temp_action_dict[player_index].append("angang")
-                processed.add(normal)
-
-        # 加杠仅非立直家可用
-        if not is_riichi:
-            for combination_tile in player_item.combination_tiles:
-                if combination_tile[0] == "k":
-                    jiagang_tile = int(combination_tile[1:])
-                    if jiagang_tile in [_normalize(t) for t in player_item.hand_tiles]:
-                        temp_action_dict[player_index].append("jiagang")
+    for action, targets in hand_kong_candidates(self, player_index).items():
+        temp_action_dict[player_index].extend([action] * len(targets))
 
     from .nuki_actions import can_nuki
     if can_nuki(self, player_index):

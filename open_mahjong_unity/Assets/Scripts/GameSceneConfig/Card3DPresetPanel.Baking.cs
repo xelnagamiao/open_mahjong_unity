@@ -11,6 +11,8 @@ public sealed partial class Card3DPresetPanel
 {
     public void BakeLayout(SceneConfigPanel sceneOwner)
     {
+        owner = sceneOwner;
+        if (designRoot == null) designRoot = sceneOwner.transform.Find("Card3DDesignPanel") as RectTransform;
         if (presets != null) { UpgradeLayout(); return; }
         owner = sceneOwner;
         var canvas = GetComponentInParent<Canvas>();
@@ -19,7 +21,7 @@ public sealed partial class Card3DPresetPanel
         if (template == null) { Debug.LogWarning("卡牌预设缺少下拉框模板"); return; }
         font = template.captionText.font;
         // Instantiate under an inactive container so no original dropdown can open while cloning.
-        var header = Rect("CardPresetHeader", transform); header.gameObject.SetActive(false);
+        var header = Rect("CardPresetHeader", designRoot); header.gameObject.SetActive(false);
         presets = Dropdown("PresetDropdown", header, template);
         rotation = Dropdown("RotationDropdown", header, template);
         rotation.AddOptions(new List<string> { "无轮转", "两副轮转", "随机轮转" });
@@ -28,7 +30,7 @@ public sealed partial class Card3DPresetPanel
         remove = Button("DeletePresetButton", header, "删除", null);
         rotationTrigger = rotation.gameObject.AddComponent<EventTrigger>();
         header.anchorMin = header.anchorMax = new Vector2(0,1); header.pivot = new Vector2(0,1);
-        header.anchoredPosition = Vector2.zero; header.sizeDelta = new Vector2(((RectTransform)transform).rect.width, 80);
+        header.anchoredPosition = Vector2.zero; header.sizeDelta = new Vector2(designRoot.rect.width, 80);
         header.gameObject.SetActive(true);
         BuildRotationPage(); BuildCreateDialog(); LayoutHeader();
         BuildRowTemplate();
@@ -45,32 +47,162 @@ public sealed partial class Card3DPresetPanel
 
     private void LayoutHeader()
     {
-        float lastWidth = ((RectTransform)transform).rect.width;
+        if (presetSection != null) { presets.transform.parent.gameObject.SetActive(false); return; }
+        float lastWidth = designRoot.rect.width;
         ((RectTransform)presets.transform.parent).sizeDelta = new Vector2(lastWidth,80);
-        // 900px authored panel: title | preset + | rotation | restore. All controls share one baseline.
-        float restoreLeft = lastWidth - 230;
-        float rotationLeft = restoreLeft - 186;
-        float addLeft = rotationLeft - 54;
-        float deleteLeft = addLeft - 62;
         float presetLeft = 170;
-        Place((RectTransform)presets.transform,presetLeft,24,Mathf.Max(100,deleteLeft-presetLeft-10),42);
-        Place((RectTransform)remove.transform,deleteLeft,24,52,42);
+        float presetWidth = Mathf.Clamp(lastWidth * .2f, 180, 300);
+        float deleteLeft = presetLeft + presetWidth + 10;
+        Place((RectTransform)presets.transform, presetLeft, 24, presetWidth, 42);
+        Place((RectTransform)remove.transform, deleteLeft, 24, 52, 42);
         remove.GetComponentInChildren<TMP_Text>(true).fontSize = 17;
-        Place((RectTransform)add.transform,addLeft,24,44,42);
-        Place((RectTransform)rotation.transform,rotationLeft,24,174,42);
-        var title = transform.Find("Title") as RectTransform;
+        Place((RectTransform)add.transform, deleteLeft + 62, 24, 44, 42);
+        var title = designRoot.Find("Title") as RectTransform;
         if (title != null) {
             title.anchorMin = title.anchorMax = title.pivot = new Vector2(0,1); title.anchoredPosition = new Vector2(30,-24); title.sizeDelta = new Vector2(130,42);
             var text = title.GetComponent<TMP_Text>();
             if (text != null) { text.enableAutoSizing = true; text.fontSizeMax = 30; text.fontSizeMin = 22; text.textWrappingMode = TextWrappingModes.NoWrap; }
         }
     }
+    public GameObject BakeStandaloneRotation(SceneConfigPanel sceneOwner, RectTransform cardRoot)
+    {
+        BakeInPageRotation(sceneOwner, cardRoot);
+        return rotationPage.gameObject;
+    }
+
+    public void BakeInPageRotation(SceneConfigPanel sceneOwner, RectTransform cardRoot)
+    {
+        owner = sceneOwner; designRoot = cardRoot;
+        if (!HasBakedUi) BakeLayout(sceneOwner);
+        inlineLayout = cardRoot.GetComponent<CardDesignSurfaceLayout>();
+        if (inlineLayout == null) return;
+        inlineLayout.rotation = this;
+        rotationPage.SetParent(inlineLayout.content, false);
+        rotationPage.gameObject.SetActive(true);
+        var surface = rotationPage.GetComponent<Image>();
+        if (surface != null) surface.enabled = false;
+        var backdrop = rotationPage.Find("SectionTitleBackground") as RectTransform;
+        if (backdrop == null)
+        {
+            backdrop = (RectTransform)Instantiate(inlineLayout.background.transform.Find("SectionTitleBackground"), rotationPage, false);
+            backdrop.name = "SectionTitleBackground";
+        }
+        Place(backdrop, 0, 0, 610, 42); backdrop.SetAsFirstSibling();
+        var title = rotationPage.Find("Title").GetComponent<TMP_Text>();
+        Place(title.rectTransform, 12, 0, 586, 42);
+        title.fontStyle = FontStyles.Normal; title.fontWeight = FontWeight.Regular;
+        rotation.transform.SetParent(rotationPage, false);
+        Place((RectTransform)rotation.transform, 170, 54, 440, 44);
+        var modeLabel = rotationPage.Find("ModeLabel")?.GetComponent<TMP_Text>() ?? Text("ModeLabel", rotationPage, "轮转方式", 22);
+        Place(modeLabel.rectTransform, 12, 54, 146, 44);
+        modeLabel.fontStyle = FontStyles.Normal; modeLabel.fontWeight = FontWeight.Regular;
+        Place(hint.rectTransform, 12, 110, 586, 112);
+        if (hint.TryGetComponent<LocalizedPlatformLabel>(out var localization)) localization.SetSource(NoneHint);
+        else hint.text = NoneHint;
+        hint.enableAutoSizing = false; hint.fontSize = 19;
+        hint.alignment = TextAlignmentOptions.TopLeft;
+        hint.textWrappingMode = TextWrappingModes.Normal;
+        var list = rotationPage.Find("PresetsScroll").GetComponent<ScrollRect>();
+        list.StopMovement(); list.enabled = false;
+        if (list.verticalScrollbar != null) list.verticalScrollbar.gameObject.SetActive(false);
+        Stretch(list.viewport, 0, 0, 0, 0);
+        listContent.anchorMin = new Vector2(0, 1); listContent.anchorMax = Vector2.one;
+        listContent.pivot = new Vector2(.5f, 1); listContent.anchoredPosition = Vector2.zero;
+        listContent.sizeDelta = new Vector2(0, listContent.sizeDelta.y);
+        inlineList = (RectTransform)list.transform;
+        backRotation.gameObject.SetActive(false);
+        if (confirmRotation != null) confirmRotation.gameObject.SetActive(false);
+        if (openRotation != null)
+        {
+            var previous = openRotation.gameObject; openRotation = null; DestroyImmediate(previous);
+        }
+        designBody = new GameObject[0]; rotationRequested = false;
+        rotationTrigger.triggers.Clear(); rotationTrigger.enabled = false;
+        rotationPage.SetAsLastSibling();
+        inlineLayout.RefreshLayout();
+        UnityEditor.EditorUtility.SetDirty(inlineLayout);
+    }
+
+    public void BakePresetChoices(SceneConfigPanel sceneOwner, RectTransform cardRoot)
+    {
+        owner = sceneOwner; designRoot = cardRoot;
+        var layout = cardRoot.GetComponent<CardDesignSurfaceLayout>();
+        if (layout == null) return;
+        if (presetSection == null)
+        {
+            presetSection = Rect("CardPresetChoices", layout.content);
+            var backdrop = Instantiate(layout.background.transform.Find("SectionTitleBackground"), presetSection, false);
+            backdrop.name = "SectionTitleBackground"; Place((RectTransform)backdrop, 0, 0, 610, 42);
+            var title = Instantiate(layout.background.transform.Find("SectionTitle").GetComponent<TMP_Text>(), presetSection, false);
+            title.name = "SectionTitle"; title.text = "卡牌预设";
+            title.fontStyle = FontStyles.Normal; title.fontWeight = FontWeight.Regular;
+            Place(title.rectTransform, 12, 0, 490, 42);
+            presetChoices = Rect("Choices", presetSection); Place(presetChoices, 0, 54, 610, 86);
+        }
+        if (presetChoiceTemplate == null)
+        {
+            var button = Instantiate(layout.background.solidButton, presetChoices, false);
+            button.name = "PresetChoiceTemplate"; button.gameObject.SetActive(false);
+            button.onClick = new Button.ButtonClickedEvent(); button.transition = Selectable.Transition.None;
+            var old = button.GetComponent<CardDesignImageOption>();
+            old.surface.gameObject.SetActive(false);
+            presetChoiceTemplate = button.gameObject.AddComponent<Card3DPresetChoice>();
+            presetChoiceTemplate.caption = old.caption; presetChoiceTemplate.caption.name = "Name";
+            presetChoiceTemplate.selection = old.selection;
+            var view = Rect("Card3D", button.transform); Place(view, 12, 8.5f, 42, 63);
+            var picture = view.gameObject.AddComponent<RawImage>(); picture.raycastTarget = false;
+            presetChoiceTemplate.preview = view.gameObject.AddComponent<CardDesignModelPreview>();
+            var source = cardRoot.Find("Actual3DPreview").GetComponentInChildren<CardDesignModelPreview>(true);
+            var preview = new UnityEditor.SerializedObject(presetChoiceTemplate.preview);
+            preview.FindProperty("tilePrefab").objectReferenceValue = new UnityEditor.SerializedObject(source).FindProperty("tilePrefab").objectReferenceValue;
+            var views = preview.FindProperty("views"); views.arraySize = 1; views.GetArrayElementAtIndex(0).objectReferenceValue = picture;
+            preview.FindProperty("autoSpin").boolValue = true;
+            preview.FindProperty("renderWidth").intValue = 128; preview.FindProperty("renderHeight").intValue = 192;
+            preview.FindProperty("orthographicSize").floatValue = 1.5f;
+            preview.ApplyModifiedPropertiesWithoutUndo();
+            DestroyImmediate(old);
+            var previousAdd = add;
+            add = Instantiate(layout.background.uploadButton, presetChoices, false);
+            add.name = "AddPresetButton"; add.onClick = new Button.ButtonClickedEvent(); add.gameObject.SetActive(true);
+            DestroyImmediate(previousAdd.gameObject);
+        }
+        BindChoiceFeedback(presetChoiceTemplate);
+        remove.transform.SetParent(presetSection, false);
+        Place((RectTransform)remove.transform, 534, 4, 76, 34);
+        presets.gameObject.SetActive(false); presets.transform.parent.gameObject.SetActive(false);
+        if (rowTemplate.GetComponent<Card3DPresetChoice>() == null)
+        {
+            var previous = rowTemplate;
+            var row = Instantiate(presetChoiceTemplate, rotationPage, false);
+            row.name = "PresetRowTemplate"; row.gameObject.SetActive(false);
+            DestroyImmediate(row.GetComponent<Button>());
+            rowTemplate = row.gameObject.AddComponent<Toggle>(); rowTemplate.targetGraphic = row.selection.frame;
+            rowTemplate.transition = Selectable.Transition.None; rowTemplate.toggleTransition = Toggle.ToggleTransition.None; rowTemplate.graphic = null;
+            Place(row.caption.rectTransform, 62, 4, 128, 44);
+            row.order = Text("Order", row.transform, "", 16); Place(row.order.rectTransform, 62, 48, 128, 24);
+            row.order.color = new Color32(241,183,121,255);
+            DestroyImmediate(previous.gameObject);
+        }
+        BindChoiceFeedback(rowTemplate.GetComponent<Card3DPresetChoice>());
+        presetSection.SetAsFirstSibling();
+        layout.RefreshLayout();
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+
+    private static void BindChoiceFeedback(Card3DPresetChoice choice)
+    {
+        var group = choice.GetComponent<CanvasGroup>();
+        if (group == null) group = choice.gameObject.AddComponent<CanvasGroup>();
+        choice.feedback = group;
+        UnityEditor.EditorUtility.SetDirty(choice);
+    }
+
     private void BuildRotationPage()
     {
         rotationPage = Rect("CardRotationPage", transform, new Color32(31,40,57,255));
         Stretch(rotationPage, 24, 88, 24, 24);
         var title = Text("Title",rotationPage,"卡牌轮转",25); Place(title.rectTransform,24,20,250,38);
-        confirmRotation = Button("ConfirmRotation",rotationPage,"确定",ConfirmRotation);
+        confirmRotation = Button("ConfirmRotation",rotationPage,"确定",null);
         ConfigureActionColors(confirmRotation, SceneConfigUi.TabOn);
         confirmRotation.interactable = false;
         var br = (RectTransform)confirmRotation.transform; br.anchorMin = br.anchorMax = br.pivot = Vector2.one; br.anchoredPosition = new Vector2(-24,-20); br.sizeDelta = new Vector2(124,38);
@@ -109,7 +241,7 @@ public sealed partial class Card3DPresetPanel
 
     private void BuildCreateDialog()
     {
-        createModal = Rect("CreateCardPreset",transform,new Color(0,0,0,.65f)); Stretch(createModal,0,0,0,0);
+        createModal = Rect("CreateCardPreset",designRoot,new Color(0,0,0,.65f)); Stretch(createModal,0,0,0,0);
         var box = Rect("Dialog",createModal,new Color32(38,49,69,255)); box.anchorMin = box.anchorMax = box.pivot = new Vector2(.5f,.5f); box.sizeDelta = new Vector2(480,230);
         var title = Text("Title",box,"创建预设",26); Place(title.rectTransform,28,22,424,38); title.alignment = TextAlignmentOptions.Center;
         var field = Rect("NameInput",box,new Color32(21,29,43,255)); Place(field,28,80,424,46);

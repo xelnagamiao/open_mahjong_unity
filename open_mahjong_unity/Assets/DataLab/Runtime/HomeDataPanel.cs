@@ -114,7 +114,7 @@ namespace Salasasa.DataLab
             }
             ProfileOnClick.OpenPlayerInfo(id,ruleKey);
         }
-        public string DataStationUrl=>(string.IsNullOrWhiteSpace(ConfigManager.webUrl)?"https://salasasa.cn":ConfigManager.webUrl.TrimEnd('/'))+"/player-data/platform";
+        public string DataStationUrl=>ConfigManager.dataStationUrl;
         public void ConfirmVisitDataStation()
         {
             NotificationManager.Instance?.ShowConfirmation("前往数据站","前往数据站需要跳转网页，您确定吗？",()=>Application.OpenURL(DataStationUrl));
@@ -334,7 +334,7 @@ namespace Salasasa.DataLab
         }
         IEnumerator FetchHome()
         {
-            var request=UnityWebRequest.Get(apiBase.TrimEnd('/')+"/api/platform/home-stats");homeRequest=request;request.timeout=12;yield return request.SendWebRequest();
+            var request=UnityWebRequest.Get(apiBase.TrimEnd('/')+ConfigManager.PlatformHomeStatsPath);homeRequest=request;request.timeout=12;yield return request.SendWebRequest();
             if(request.result==UnityWebRequest.Result.Success){
                 try{homeJson=request.downloadHandler.text;RenderStats();state="ready";status.text="更新于 "+DateTime.Now.ToString("HH:mm");}
                 catch(Exception){homeJson=null;state="error";status.text="数据格式异常，请刷新重试";ClearMetrics();}
@@ -371,7 +371,7 @@ namespace Salasasa.DataLab
             recordsStatus.text="正在读取…";recordEmpty.gameObject.SetActive(records.records.Count==0);recordEmpty.text="正在读取最近对局…";
             recordRoutine=StartCoroutine(FetchRecords(offset,recordGeneration));
         }
-        public string RecordsRoute(int offset)=>"/api/platform/recent-records?rule="+UnityWebRequest.EscapeURL(ruleKey)+"&limit="+rows.Count+"&offset="+offset+
+        public string RecordsRoute(int offset)=>ConfigManager.PlatformRecentRecordsPath+"?rule="+UnityWebRequest.EscapeURL(ruleKey)+"&limit="+rows.Count+"&offset="+offset+
             (RecordScope=="events"?"&event_id=all":RecordScope=="rank"||RecordScope=="all"?"":"&match_tier="+UnityWebRequest.EscapeURL(RecordScope));
         string SnapshotRecords(int offset)
         {

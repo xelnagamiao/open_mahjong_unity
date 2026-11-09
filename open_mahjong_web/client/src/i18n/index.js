@@ -1,5 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { messages, textPatterns } from './messages.js'
+import { formatLocaleQuantity } from './extended-locales.js'
 import { SUPPORTED_LOCALES, normalizeLocale, requestedGameLocale } from './locale-utils.js'
 import { staticPageForPath } from '../seo/pages.js'
 
@@ -40,7 +41,7 @@ export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale =
   const index = Math.max(0, Math.trunc(number) - 1)
   const prevailingWind = ROUND_WINDS[Math.floor(index / 4) % 4]
   const handIndex = index % 4
-  return targetLocale === 'en' || targetLocale === 'fr' || format === 'round-number'
+  return ['en', 'fr', 'de', 'ru'].includes(targetLocale) || format === 'round-number'
     ? `${prevailingWind}${ROUND_NUMBERS[handIndex]}局`
     : `${prevailingWind}风${ROUND_WINDS[handIndex]}`
 }
@@ -59,6 +60,13 @@ export function setLocale(value) {
 export function tr(source, params = {}, targetLocale = locale.value) {
   if (source == null) return ''
   const raw = String(source)
+  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+    const quantity = raw.match(/^\{(\w+)\}\s*(分钟|本场|人|名|场|局|副|番|翻|符|点|分|张|枚|件|秒|级|段|页|条|底|台|倍|巡|圈|组|种|项|次)$/)
+    if (quantity && Object.prototype.hasOwnProperty.call(params, quantity[1])) {
+      const formatted = formatLocaleQuantity(params[quantity[1]], quantity[2], targetLocale)
+      if (formatted != null) return formatted
+    }
+  }
   let translated = messages[targetLocale]?.[raw] ?? messages[targetLocale]?.[raw.replace(/\s+/g, ' ').trim()] ?? raw
   if (translated === raw && targetLocale !== 'zh-CN') {
     for (const pattern of textPatterns[targetLocale] || []) {

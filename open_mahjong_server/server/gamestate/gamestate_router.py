@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from .public.ai.get_action import get_action
-from .game_jiandan.get_action import get_action as jiandan_get_action
+from .game_zhongyong.get_action import get_action as zhongyong_get_action
 from .public.sticker import broadcast_sticker, resolve_sticker_sender
 from ..response import Response
 
@@ -101,10 +101,10 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/riichi/reorder_hand", "gamestate/guobiao/reorder_hand"}:
         from .game_riichi.realtime_hand import handle_reorder
         await handle_reorder(game_server, Connect_id, message, websocket)
-    elif message_type in {"gamestate/jiandan/cut_tile", "gamestate/zhongyong/cut_tile"}:
-        await handle_jiandan_cut_tile(game_server, Connect_id, message)
-    elif message_type in {"gamestate/jiandan/send_action", "gamestate/zhongyong/send_action"}:
-        await handle_jiandan_send_action(game_server, Connect_id, message)
+    elif message_type in {"gamestate/zhongyong/cut_tile"}:
+        await handle_zhongyong_cut_tile(game_server, Connect_id, message)
+    elif message_type in {"gamestate/zhongyong/send_action"}:
+        await handle_zhongyong_send_action(game_server, Connect_id, message)
     elif message_type in {"gamestate/filipino/cut_tile", "gamestate/filipino/send_action"}:
         from .game_filipino.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
@@ -341,6 +341,11 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
         if not guobiao_game_state:
             logger.warning(f"gamestate_id {gamestate_id} 的游戏状态不存在")
             return
+        if (getattr(guobiao_game_state, 'game_status', '') == 'waiting_dealer_choice'
+                or message.get('action') in ('dealer_continue', 'dealer_end')):
+            from .game_riichi.dealer_choice import submit
+            await submit(guobiao_game_state, Connect_id, message)
+            return
         await get_action(
             guobiao_game_state, 
             Connect_id, 
@@ -357,8 +362,8 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)
 
 
-def _get_jiandan_state(game_server, message: dict):
-    """Resolve a Jiandan state without allowing cross-rule action routing."""
+def _get_zhongyong_state(game_server, message: dict):
+    """Resolve a Nanque state without allowing cross-rule action routing."""
     gamestate_id = message.get("gamestate_id")
     if not gamestate_id:
         logger.warning(f"中庸／南雀操作缺少 gamestate_id: {message}")
@@ -367,19 +372,19 @@ def _get_jiandan_state(game_server, message: dict):
     if game_state is None:
         logger.warning(f"中庸／南雀游戏状态不存在: {gamestate_id}")
         return None
-    if getattr(game_state, "room_rule", None) != ("zhongyong" if "/zhongyong/" in message.get("type", "") else "jiandan"):
+    if getattr(game_state, "room_rule", None) != "zhongyong":
         logger.warning(f"中庸／南雀操作被路由到其他规则: {gamestate_id}")
         return None
     return game_state
 
 
-async def handle_jiandan_cut_tile(game_server, Connect_id: str, message: dict):
-    """Forward a Jiandan discard to the rule's action adapter."""
+async def handle_zhongyong_cut_tile(game_server, Connect_id: str, message: dict):
+    """Forward a Nanque discard to the rule's action adapter."""
     try:
-        game_state = _get_jiandan_state(game_server, message)
+        game_state = _get_zhongyong_state(game_server, message)
         if game_state is None:
             return
-        await jiandan_get_action(
+        await zhongyong_get_action(
             game_state,
             Connect_id,
             "cut",
@@ -393,13 +398,13 @@ async def handle_jiandan_cut_tile(game_server, Connect_id: str, message: dict):
         logger.error(f"处理中庸／南雀切牌请求失败: {e}", exc_info=True)
 
 
-async def handle_jiandan_send_action(game_server, Connect_id: str, message: dict):
-    """Forward a Jiandan non-discard action to the rule's action adapter."""
+async def handle_zhongyong_send_action(game_server, Connect_id: str, message: dict):
+    """Forward a Nanque non-discard action to the rule's action adapter."""
     try:
-        game_state = _get_jiandan_state(game_server, message)
+        game_state = _get_zhongyong_state(game_server, message)
         if game_state is None:
             return
-        await jiandan_get_action(
+        await zhongyong_get_action(
             game_state,
             Connect_id,
             message.get("action"),

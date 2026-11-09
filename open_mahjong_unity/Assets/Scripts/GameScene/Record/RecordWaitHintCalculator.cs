@@ -53,6 +53,7 @@ public static class RecordWaitHintCalculator {
                 HuapaiCount = ctx.SelfHuapaiList?.Count ?? 0,
                 SubRule = ctx.SubRule,
                 HepaiLimit = ctx.HepaiLimit,
+                JinluoMode = ctx.JinluoMode, JinluoWeather = ctx.JinluoWeather,
                 JokerMultiWait = ctx.JokerMultiWait,
                 NoJokerBonus = ctx.NoJokerBonus, BlackFlowerProgressive = ctx.BlackFlowerProgressive,
                 SelfIndex = ctx.SelfPlayerIndex,
@@ -84,7 +85,8 @@ public static class RecordWaitHintCalculator {
         foreach (var entry in ctx.PlayersByPosition) {
             var player = entry.Value;
             if (entry.Key != "self" && WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.PublicHandTiles != null)
-                foreach (int tile in player.PublicHandTiles) if (WashizuTile.IsTransparent(tile)) Add(tile);
+                foreach (int tile in player.PublicHandTiles)
+                    if (WashizuTile.IsTransparent(tile) || (tile != 0 && WashizuDoubles.ShowsTeammateHand(ctx.SubRule, ctx.DetailedConfig))) Add(tile);
             if (player?.DiscardTiles != null) foreach (int tile in player.DiscardTiles) Add(tile);
             if (manifest?.RecordVisibleMeldTiles != null) {
                 foreach (int tile in manifest.RecordVisibleMeldTiles(player?.CombinationMasks)) Add(tile);

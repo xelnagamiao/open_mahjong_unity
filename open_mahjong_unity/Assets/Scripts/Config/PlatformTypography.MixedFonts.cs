@@ -22,12 +22,12 @@ public sealed partial class PlatformTypography
         {
             if (richText && c == '<') { inTag = true; continue; }
             if (inTag) { if (c == '>') inTag = false; continue; }
-            if (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c >= '\u00C0' && c <= '\u024F') return true;
+            if (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c >= '\u00C0' && c <= '\u024F' || c >= '\u0400' && c <= '\u052F') return true;
         }
         return false;
     }
 
-    static bool IsLatinGlyph(uint value) => value >= 32 && value <= 0x024F || value >= 0x1E00 && value <= 0x1EFF
+    static bool IsLatinGlyph(uint value) => value >= 32 && value <= 0x024F || value >= 0x0400 && value <= 0x052F || value >= 0x1E00 && value <= 0x1EFF
         || value >= 0x2000 && value <= 0x22FF || value >= 0x25A0 && value <= 0x25FF || value >= 0xFF01 && value <= 0xFF5E;
 
 #if UNITY_EDITOR
@@ -124,7 +124,7 @@ public sealed partial class PlatformTypography
         {
             var glyphs = latin.characterTable.ToDictionary(c=>c.unicode,c=>c.glyph);
             if (!font.atlasTextures.SequenceEqual(latin.atlasTextures) || font.characterTable.Any(c=>
-                glyphs.TryGetValue(c.unicode,out var glyph) && (!c.glyph.glyphRect.Equals(glyph.glyphRect) || !c.glyph.metrics.Equals(glyph.metrics)))) return false;
+                glyphs.TryGetValue(c.unicode,out var glyph) && (c.glyph == null || glyph == null || !c.glyph.glyphRect.Equals(glyph.glyphRect) || !c.glyph.metrics.Equals(glyph.metrics)))) return false;
         }
         if (!Application.isPlaying && (!UnityEditor.AssetDatabase.Contains(font)
             || !UnityEditor.AssetDatabase.Contains(font.material))) return false;

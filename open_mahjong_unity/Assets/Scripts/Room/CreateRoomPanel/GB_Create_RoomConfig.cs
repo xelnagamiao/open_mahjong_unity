@@ -16,6 +16,8 @@ public class GB_Create_RoomConfig {
     public string DuplicateKey { get; set; }
     public bool UseFlowers { get; set; } = true;
     public bool TianDiRenHe { get; set; }
+    public bool JinluoMode { get; set; }
+    public string JinluoWeather { get; set; } = JinluoRules.DefaultWeather;
     public bool JokerMultiWait { get; set; }
     public string NoJokerBonus { get; set; } = "add8";
     public bool BlackFlowerProgressive { get; set; } = true;
@@ -29,6 +31,10 @@ public class GB_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error,bool passwordToggle,bool setRandomSeedToggle) {
+        if (JinluoMode && (SubRule != "guobiao/standard" || !JinluoRules.IsWeather(JinluoWeather))) {
+            error = "金锣赛仅支持标准国标，请选择有效的七对天气";
+            return false;
+        }
         if ((GuobiaoGameState.IsTransparentSubRule(SubRule) || GuobiaoGameState.UsesAsyncLocalTips(SubRule)) && !string.IsNullOrWhiteSpace(DuplicateKey)) {
             error = "此子规则不能使用普通复式牌墙，可用随机种子复现牌局";
             return false;

@@ -5,20 +5,33 @@
       <div class="toolbar">
         <el-button type="primary" @click="openCreate">创建房间</el-button>
         <el-button :loading="loading" @click="fetchList">刷新列表</el-button>
+        <el-checkbox v-model="autoRefresh">自动刷新（5s）</el-checkbox>
+      </div>
+      <div class="filters">
+        <el-select v-model="roomScope" class="scope" popper-class="room-filter-popper" aria-label="房间范围">
+          <el-option label="大厅房间" value="lobby" />
+          <el-option label="赛事房间" value="event" />
+          <el-option label="基地房间" value="base" />
+          <el-option label="全部房间" value="all" />
+        </el-select>
+        <el-select v-if="roomScope === 'event' || roomScope === 'base'" v-model="filterVenueId" filterable clearable class="venue-filter" popper-class="room-filter-popper"
+          :placeholder="roomScope === 'base' ? '全部基地（可搜索名称或 ID）' : '全部赛事（可搜索名称或 ID）'"
+          :aria-label="roomScope === 'base' ? '筛选基地' : '筛选赛事'">
+          <el-option v-for="venue in venueFilterOptions" :key="venue.event_id" :value="venue.event_id" :label="`${venue.name} (${venue.event_id})`" />
+        </el-select>
         <el-input v-model="keyword" placeholder="房间号、名称、房主或玩家" clearable class="search" />
-        <el-select v-model="status" class="status" aria-label="房间状态">
+        <el-select v-model="status" class="status" popper-class="room-filter-popper" aria-label="房间状态">
           <el-option label="全部状态" value="all" />
           <el-option label="等待中" value="waiting" />
           <el-option label="对局中" value="playing" />
           <el-option label="无人在线" value="offline" />
         </el-select>
-        <el-checkbox v-model="autoRefresh">自动刷新（5s）</el-checkbox>
       </div>
       <el-table :data="filteredItems" v-loading="loading" class="room-table" empty-text="没有符合条件的房间">
         <el-table-column prop="room_id" label="房间号" width="100" />
         <el-table-column prop="room_name" label="房间名称" min-width="160" />
         <el-table-column label="所属" min-width="150">
-          <template #default="{ row }">{{ row.event_id ? `${row.venue_kind === 'base' ? '基地' : '赛事'} · ${row.event_name || row.event_id}` : '普通房间' }}</template>
+          <template #default="{ row }">{{ row.event_id ? `${row.venue_kind === 'base' ? '基地' : '赛事'} · ${row.event_name || row.event_id}` : '大厅房间' }}</template>
         </el-table-column>
         <el-table-column label="玩法" min-width="180">
           <template #default="{ row }">{{ row.sub_rule ? formatSubRule(row.sub_rule) : formatRule(row.room_rule) }}</template>
@@ -28,7 +41,7 @@
         </el-table-column>
         <el-table-column label="玩家" min-width="230">
           <template #default="{ row }">
-            <div v-for="p in row.players" :key="p.seat_index" class="player">
+            <div v-for="p in row.players" :key="p.waiting ? `waiting-${p.user_id}` : p.seat_index" class="player">
               {{ p.username }}<span class="muted"> ({{ p.user_id }})</span>
               <el-tag :type="p.is_bot ? 'info' : p.online ? 'success' : 'warning'" size="small">{{ p.is_bot ? '机器人' : p.online ? '在线' : '离线' }}</el-tag>
             </div>
@@ -39,7 +52,7 @@
           <template #default="{ row }">
             <el-tag :type="row.is_game_running ? 'success' : row.online_count ? 'info' : 'warning'">{{ row.is_game_running ? '对局中' : '等待中' }}</el-tag>
             <div class="muted">{{ row.players.length }}/{{ row.max_player }} 座 · {{ row.online_count }} 人在线</div>
-            <div v-if="row.duplicate_match_id" class="muted">{{ row.duplicate_table === 'open' ? '开室' : '闭室' }} · 配对房间</div>
+            <div v-if="row.duplicate_match_id" class="muted">{{ row.duplicate_lobby ? '八人复式房间' : (row.duplicate_table === 'open' ? '开室' : '闭室') + ' · 配对房间' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="110" fixed="right">
@@ -48,13 +61,14 @@
           </template>
         </el-table-column>
       </el-table>
-      <p class="muted">共 {{ filteredItems.length }} 个房间。赛事、基地及管理员创建的房间允许保留空房，玩家创建的普通房间无人后自动解散。</p>
+      <p class="muted">当前筛选共 {{ filteredItems.length }} 个房间。默认显示大厅房间，可切换房间范围查看赛事或基地房间。</p>
+      <p class="muted">赛事、基地及管理员创建的房间允许保留空房，玩家创建的大厅房间无人后自动解散。</p>
     </el-card>
     <VenueRoomDialog v-model="createVisible" :form="form" :loading="creating" :room-rule-options="roomRuleOptions" :show-auto-duplicate="Boolean(selectedVenue)" :allow-paired="Boolean(selectedVenue)" :load-duplicate-quota="loadDuplicateQuota" show-reason @confirm="createRoom">
       <template #before-settings>
         <el-form-item label="房间所属">
-          <el-select v-model="venueId" filterable placeholder="普通房间" style="width: 100%" aria-label="房间所属">
-            <el-option label="普通房间" value="" />
+          <el-select v-model="venueId" filterable placeholder="大厅房间" style="width: 100%" aria-label="房间所属">
+            <el-option label="大厅房间" value="" />
             <el-option v-for="venue in venues" :key="venue.event_id" :value="venue.event_id" :label="`${venue.kind === 'base' ? '基地' : '赛事'} · ${venue.name} (${venue.event_id})`" />
           </el-select>
         </el-form-item>
@@ -64,6 +78,7 @@
 </template>
 
 <script setup>
+import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
 import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -73,6 +88,8 @@ import { formatRule, formatSubRule } from '@/utils/gameMeta'
 
 const items = ref([])
 const loading = ref(false)
+const roomScope = ref('lobby')
+const filterVenueId = ref('')
 const keyword = ref('')
 const status = ref('all')
 const autoRefresh = ref(false)
@@ -93,17 +110,23 @@ watch(venueId, () => {
     form.sub_rule = form.sub_rule.replace('_duplicate', '')
   }
 })
-const roomRuleOptions = [
-  ['hongque', '虹雀'],
-  ['beijing', '北京麻将（吃碰提）'],
-  ['duocai', '夺彩麻将'],
-  ['guobiao', '国标'], ['riichi', '立直'], ['qingque', '青雀'], ['classical', '古典'], ['sichuan', '四川'],
-  ['changsha', '长沙麻将'], ['taiwan', '台湾麻将'], ['hongkong', '香港麻将'], ['guizhou', '贵州麻将'],
-  ['yixing', '宜兴麻将'], ['shenyang', '沈阳麻将'], ['nanjing', '南京麻将'], ['fuzhou', '福州麻将'], ['wuhan', '武汉麻将'],
-  ['shangrao', '上饶麻将'], ['nanchang', '南昌麻将'], ['wenzhou', '温州麻将'], ['hangzhou', '杭州麻将'], ['jiujiang', '九江麻将'],
-  ['hongzhong', '红中麻将'], ['changchun', '长春麻将'], ['guangdong', '广东麻将'], ['shanxi', '山西麻将'],
-].map(([value, label]) => ({ value, label }))
+const roomRuleOptions = eventRoomRuleOptions
+function getRoomScope(room) {
+  return room.event_id ? (room.venue_kind === 'base' ? 'base' : 'event') : 'lobby'
+}
+const venueFilterOptions = computed(() => {
+  const options = new Map()
+  for (const room of items.value) {
+    if (room.event_id && getRoomScope(room) === roomScope.value) {
+      options.set(room.event_id, { event_id: room.event_id, name: room.event_name || room.event_id })
+    }
+  }
+  return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN') || a.event_id.localeCompare(b.event_id))
+})
+watch(roomScope, () => { filterVenueId.value = '' })
 const filteredItems = computed(() => items.value.filter(room => {
+  if (roomScope.value !== 'all' && getRoomScope(room) !== roomScope.value) return false
+  if (filterVenueId.value && room.event_id !== filterVenueId.value) return false
   if (status.value === 'playing' && !room.is_game_running) return false
   if (status.value === 'waiting' && room.is_game_running) return false
   if (status.value === 'offline' && room.online_count) return false
@@ -144,7 +167,7 @@ async function createRoom() {
     const response = await adminApi.post('/room-control/create', {
       ...buildEventRoomCreation(form), event_id: venueId.value || undefined, reason: form.reason.trim(),
     })
-    ElMessage.success(`已创建 ${response.data.data.created_count} ${paired ? '组开闭室' : '个房间'}`)
+    ElMessage.success(`已创建 ${response.data.data.created_count} ${paired ? '个八人复式房间' : '个房间'}`)
     createVisible.value = false
     form.reason = ''
     form.password = ''
@@ -177,11 +200,16 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer) })
 </script>
 
 <style scoped>
-.page-title { margin: 0 0 16px; }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.page-title { margin: 0 0 16px; font-weight: 400; }
+.toolbar, .filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.filters { margin-top: 12px; }
+.scope { width: 140px; }
+.venue-filter { width: 280px; max-width: 100%; }
 .search { width: 240px; max-width: 100%; }
 .status { width: 125px; }
 .room-table { margin-top: 16px; }
+.room-table :deep(th.el-table__cell) { font-weight: 400; }
+:global(.room-filter-popper .el-select-dropdown__item.is-selected) { font-weight: 400; }
 .muted { color: #909399; font-size: 12px; line-height: 1.8; }
 .player { margin: 3px 0; font-size: 13px; }
 .player .el-tag { margin-left: 6px; }

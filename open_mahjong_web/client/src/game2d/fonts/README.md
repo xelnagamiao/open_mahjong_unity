@@ -25,3 +25,18 @@
 | Noto Sans Latin | `noto-sans-latin.woff2` | SIL OFL 1.1 |
 
 系统楷体只在本机存在时使用，不会把 Windows 的 SimKai 字体复制到服务器。
+
+## 西里尔字符回退
+
+俄语使用 `noto-sans-cyrillic.woff2`（Noto Sans Regular 400，Google Fonts 官方
+西里尔子集，7,096 字节），许可证为随附的 `OFL-Noto-Sans.txt`（SIL OFL 1.1）。
+字体及许可证保持下载原样，作为本地资源发布，不在运行时请求 Google Fonts。
+
+- 字体声明来源：https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400&display=swap
+- 字体文件：https://fonts.gstatic.com/s/notosans/v42/o-0mIpQlx3QUlC5A4PNB6Ryti20_6n1iPHjcz6L1SoM-jCpoiyD9A-9e6VLKzA.woff2
+- 许可证来源：https://github.com/google/fonts/blob/main/ofl/notosans/OFL.txt
+- SHA-256：`05af9e705d3b63aedba67197d19fb448b97353e1386930716c7e835b08f126ba`
+
+该字体放在所选英文字体之后、中文字体之前，并使用上游的 `unicode-range`。
+这样俄文字母不会落到楷体的全宽字形，同时保留已有中英文字体选择。预加载使用
+俄文样本，确保此子集在进入牌桌前就绪。

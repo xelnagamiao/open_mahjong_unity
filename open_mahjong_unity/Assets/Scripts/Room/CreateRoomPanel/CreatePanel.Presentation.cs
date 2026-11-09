@@ -12,9 +12,12 @@ public partial class CreatePanel {
     private void RefreshHepaiLimitCaption() {
         var label = InputHepaiLimitToggle.GetComponentInChildren<TMP_Text>(true);
         if (!label) return;
-        if (string.IsNullOrWhiteSpace(defaultHepaiLimitCaption))
-            defaultHepaiLimitCaption = string.IsNullOrWhiteSpace(label.text) ? "修改起和番" : label.text;
-        label.text = IsShanghaiQiaoma ? "一番和" : defaultHepaiLimitCaption;
+        if (string.IsNullOrWhiteSpace(defaultHepaiLimitCaption)) {
+            var localized = label.GetComponent<LocalizedPlatformLabel>();
+            string source = localized ? localized.Source : label.text;
+            defaultHepaiLimitCaption = string.IsNullOrWhiteSpace(source) ? "修改起和番" : source;
+        }
+        TableText.Set(label, IsShanghaiQiaoma ? "一番和" : defaultHepaiLimitCaption, _ruleState);
     }
     private const float RoomRuleCaptionFontSize = 28;
     private const float RoomRuleItemFontSize = 25;
@@ -25,8 +28,8 @@ public partial class CreatePanel {
     private Toggle[] RoomOptionToggles => new[] {
         tipsToggle, countTipsToggle, CuoHeheToggle, passwordToggle, TacticalCallToggle, ClaimProtectionToggle,
         TouristLimitToggle, InputHepaiLimitToggle, AllowSpectatorToggle, RedDoraToggle,
-        KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle,
-        GuobiaoFlowersToggle, TianDiRenHeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
+        KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle, SichuanDuplicateSyncToggle,
+        GuobiaoFlowersToggle, TianDiRenHeToggle, JinluoModeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
         ChangshaInitialBanBanHuToggle, ChangshaInitialQueYiSeToggle, ChangshaInitialLiuLiuShunToggle,
         ChangshaInitialSanTongToggle, ChangshaDealerBirdToggle, ChangshaBaseScoreNoDealerToggle,
         WallWanToggle, WallTongToggle, WallSuoToggle, WallWindsToggle, WallDragonsToggle, WallFlowersToggle, YixingSevenPairsToggle, GuangdongMinimumScoreToggle, TuidaoPingjiZimoNoChowToggle
@@ -35,6 +38,8 @@ public partial class CreatePanel {
 
 
     private void BindFixedCreateControls() {
+        BindSichuanDuplicateControls();
+        BindJinluoControls();
         DuplicateWallToggle.onValueChanged.AddListener(isOn => {
             if (isOn) SetRandomSeedToggle.isOn = false;
             DuplicateWallPanel.SetActive(isOn);
@@ -64,13 +69,15 @@ public partial class CreatePanel {
 
     private void RefreshRoomPresentation(bool animate = false) {
         RefreshExchangeSixSelectionTime();
+        RefreshRuleTextContexts();
         if (!roomPresentationBaked) return;
         RefreshTierPresets();
         SubRuleText.text = "子规则"; SubRuleText.gameObject.SetActive(true); SubRuleDropdown.gameObject.SetActive(true);
         RoomFieldState(PasswordPanel, passwordInput, true, passwordToggle.isOn);
         RoomFieldState(SetRandomSeedPanel, randomSeedInput, true, SetRandomSeedToggle.isOn);
         RoomFieldState(InputHepaiLimitPlane, HepaiLimitInput, InputHepaiLimitToggle.gameObject.activeSelf && !IsShanghaiQiaoma, InputHepaiLimitToggle.isOn);
-        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall, DuplicateWallToggle && DuplicateWallToggle.isOn);
+        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall || IsSichuanDuplicate,
+            IsSichuanDuplicate || (DuplicateWallToggle && DuplicateWallToggle.isOn));
         bool cuoheVisible = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CuoheType) && CuoHeheToggle.gameObject.activeSelf;
         if (CuoheTypePanel) CuoheTypePanel.SetActive(cuoheVisible);
         if (CuoheTypeDropdown) CuoheTypeDropdown.interactable = CuoHeheToggle.isOn;
@@ -81,6 +88,8 @@ public partial class CreatePanel {
         if (stepTimer) stepTimer.transform.parent.gameObject.SetActive(stepTimer.gameObject.activeSelf);
         if (roundTimer) roundTimer.transform.parent.gameObject.SetActive(roundTimer.gameObject.activeSelf);
         var rounds = RoomContent.Find("RoundSelection"); if (rounds) rounds.gameObject.SetActive(gameTime1Button.gameObject.activeSelf);
+        RefreshSichuanDuplicateControls();
+        ApplyCreationContextColors();
         if (GuobiaoFlowersLabel) GuobiaoFlowersLabel.text = "花牌";
         bool changsha = _ruleState == "changsha" && !IsChangshaExchangeSix;
         if (ChangshaScoreRow) {
@@ -91,6 +100,22 @@ public partial class CreatePanel {
             }
         }
     }
+    private void RefreshRuleTextContexts() {
+        // Only authored rule controls: input contents can contain user names or room passwords.
+        void Bind(Transform root) {
+            if (!root) return;
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(true)) {
+                if (label.GetComponentInParent<TMP_InputField>(true)) continue;
+                var localized = label.GetComponent<LocalizedPlatformLabel>();
+                string source = localized ? localized.Source : label.text;
+                TableText.Set(label, source, _ruleState);
+            }
+        }
+        Bind(tipsToggle ? tipsToggle.transform : null);
+        Bind(InputHepaiLimitToggle ? InputHepaiLimitToggle.transform : null);
+        Bind(InputHepaiLimitPlane ? InputHepaiLimitPlane.transform : null);
+    }
+
     private static void RoomFieldState(GameObject panel, TMP_InputField input, bool visible, bool enabled) {
         if (!panel || !input) return;
         if (panel.activeSelf != visible) panel.SetActive(visible);
@@ -169,6 +194,7 @@ public partial class CreatePanel {
             dialog.anchorMin = new Vector2(.5f, 0); dialog.anchorMax = new Vector2(.5f, 1); dialog.pivot = new Vector2(.5f, .5f);
             dialog.anchoredPosition = new Vector2(0, 24); dialog.sizeDelta = new Vector2(Mathf.Min(1480, width - 80), -64);
         }
+        ReflowJinluoWeather();
         LayoutRebuilder.MarkLayoutForRebuild(content);
     }
     private static void RoomSingleLine(TMP_Text label, float maximum, float minimum) {

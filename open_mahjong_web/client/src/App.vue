@@ -13,9 +13,14 @@ import zhTw from 'element-plus/dist/locale/zh-tw.mjs'
 import en from 'element-plus/dist/locale/en.mjs'
 import ja from 'element-plus/dist/locale/ja.mjs'
 import fr from 'element-plus/dist/locale/fr.mjs'
+import de from 'element-plus/dist/locale/de.mjs'
+import ru from 'element-plus/dist/locale/ru.mjs'
 import { installDomLocalization, locale } from '@/i18n'
 
-const localePacks = { 'zh-CN': zhCn, 'zh-TW': zhTw, 'zh-HK': zhTw, en, ja, fr }
+// This Element Plus version omits numeric-stepper labels from the German and Russian packs.
+const deLocale = { ...de, el: { ...de.el, inputNumber: { decrease: 'Wert verringern', increase: 'Wert erhöhen' } } }
+const ruLocale = { ...ru, el: { ...ru.el, inputNumber: { decrease: 'Уменьшить значение', increase: 'Увеличить значение' } } }
+const localePacks = { 'zh-CN': zhCn, 'zh-TW': zhTw, 'zh-HK': zhTw, en, ja, fr, de: deLocale, ru: ruLocale }
 const elementLocale = computed(() => localePacks[locale.value] || zhCn)
 let disposeLocalization
 

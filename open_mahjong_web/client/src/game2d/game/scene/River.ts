@@ -182,7 +182,7 @@ export class River extends Container {
 
   private resizeFlowerAreaInfo(): void {
     const maxWidth = FLOWER_AREA_WIDTH - TILE_WIDTH * 0.35
-    const baseSizes = [locale.value === 'fr' ? 190 : 310, 205]
+    const baseSizes = [['fr', 'de', 'ru'].includes(locale.value) ? 190 : 310, 205]
     const labels = [this.flowerAreaRank, this.flowerAreaName]
     labels.forEach((text, index) => {
       text.style.fontSize = baseSizes[index] * this.flowerAreaLabelScale

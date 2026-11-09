@@ -138,7 +138,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 决定这条消息由哪个族实例处理：
     /// - game_start（新对局/重连/下一局）或尚无族实例：按消息里的 rule 段建/换族；
     /// - 消息属于另一个已注册族：换族；
-    /// - 其余（含 GB/jiandan 等出站通道回包）沿用当前族，不因通道名切换实例。
+    /// - 其余（含 GB/nanque 等出站通道回包）沿用当前族，不因通道名切换实例。
     /// </summary>
     private static IGameState ResolveGameStateForMessage(string rule, string suffix) {
         IGameState active = RuleRegistry.ActiveGameState;
@@ -216,7 +216,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 type = $"gamestate/{OutboundChannel}/send_action",
                 gamestate_id = UserDataManager.Instance.GamestateId,
                 action = action,
-                settlement_id = action == "ready" ? SettlementSync.ResultId : null,
+                settlement_id = action == "ready" || action == "dealer_continue" || action == "dealer_end" ? SettlementSync.ResultId : null,
                 targetTile = targetTile,
                 chiComboIndex = chiComboIndex,
                 action_tick = NormalGameStateManager.Instance.LastAskActionTick,

@@ -45,7 +45,7 @@ HU_CLAIM_ACTIONS = frozenset({"hu", "hu_first", "hu_second", "hu_third"})
 
 
 # Only these engines implement the discard visibility protocol.
-CLAIM_PROTECTION_RULES = frozenset({"guobiao", "qingque", "changsha", "sichuan", "zhongyong", "nanque", "jiandan", "riichi"})
+CLAIM_PROTECTION_RULES = frozenset({"guobiao", "qingque", "changsha", "sichuan", "zhongyong", "riichi"})
 
 
 def supports_claim_protection(rule) -> bool:

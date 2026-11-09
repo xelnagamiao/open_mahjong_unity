@@ -1,5 +1,6 @@
 from ..public.settlement_sync import send_game_packet
 from .four_jokers_runtime import evaluate_actions
+from ...game_calculation import guobiao_jinluo as jinluo
 from ...game_calculation import guobiao_sixteen as sixteen
 from ..public.duplicate_wall import DuplicateFinished, finish_duplicate_game, draw_tile_for_player, duplicate_remaining_tile_counts, duplicate_match_complete
 from . import blood_battle, transparent
@@ -183,6 +184,9 @@ class GuobiaoGameState:
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule", "guobiao/standard") # 子规则
+        self.jinluo_mode = bool(room_data.get("jinluo_mode", False))
+        self.jinluo_weather = room_data.get("jinluo_weather", jinluo.DEFAULT_WEATHER)
+        jinluo.validate_room_config(self.sub_rule, self.jinluo_mode, self.jinluo_weather)
         self.joker_multi_wait = four_jokers.enabled(self) and bool(room_data.get("joker_multi_wait", False))
         self.no_joker_bonus = room_data.get("no_joker_bonus", "add8") if huahun.enabled(self) else "add8"
         self.black_flower_progressive = bool(room_data.get("black_flower_progressive", True))
@@ -197,6 +201,9 @@ class GuobiaoGameState:
         self.cuohe_type = room_data.get("cuohe_type", 0) # 错和形式：0=-30/+10，1=-40/+0
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = 8 if huahun.enabled(self) else room_data.get("hepai_limit", 8) # 起和番限制（默认8）
+        if self.jinluo_mode:
+            self.open_cuohe, self.hepai_limit = True, 8
+            self.tips = False
         if self.sub_rule == "guobiao/lanshi":
             # 蓝十改固定为 5 分起和；错和者单独扣 40 分并停和续局。
             self.hepai_limit = 5
@@ -370,6 +377,8 @@ class GuobiaoGameState:
                         'room_rule': self.room_rule,
                         'sub_rule': self.sub_rule,
                         'hepai_limit': self.hepai_limit,
+                        'jinluo_mode': self.jinluo_mode,
+                        'jinluo_weather': self.jinluo_weather,
                         'open_cuohe': self.open_cuohe,
                         'show_moqie_hint': self.show_moqie_hint,
                         'tactical_call': getattr(self, 'tactical_call', False),
@@ -702,6 +711,9 @@ class GuobiaoGameState:
                             winning_hand.append(self.jiagang_tile if is_qianggang else self.player_list[self.current_player_index].discard_tiles[-1])
                         enough = (huahun.qualifying_fan((hu_score, hu_fan)) >= huahun.minimum(winning_hand, self.player_list[winner].combination_tiles)
                                   if huahun.enabled(self) else hu_score - huapai_count >= self.hepai_limit)
+                        if self.jinluo_mode:
+                            enough = jinluo.allows_state_win(self, (hu_score, hu_fan), winning_hand,
+                                                            self.player_list[winner].combination_tiles, winner)
                         if enough:
                             # 荣和/抢杠确认后才写入手牌，供局终展示/牌谱；错和路径永不污染 hand_tiles
                             if self.hu_class in ("hu_first", "hu_second", "hu_third"):
@@ -1046,7 +1058,7 @@ class GuobiaoGameState:
         is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
         is_kshen = (self.sub_rule == "guobiao/kshen")
         is_lanshi = (self.sub_rule == "guobiao/lanshi")
-        is_custom_hepai = (self.hepai_limit != 8)
+        is_custom_hepai = (self.hepai_limit != 8) or self.jinluo_mode
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         
         if self.sub_rule == SANMA_SUB_RULE:

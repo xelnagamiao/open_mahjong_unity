@@ -9,6 +9,9 @@ import math
 from .qingque_score_elo import ALGORITHM as QINGQUE_ELO_ALGORITHM
 
 XUELIU_EXCHANGE_RATING_RULE = 'sichuan_xueliu_exchange'
+DOUBLES_RATING_RULE = 'sichuan_doubles'
+DOUBLES_QUEUE = 'sichuan_doubles_elo_banzhuang'
+DOUBLES_ALGORITHM = 'team_elo_mean_2400_v1'
 XUELIU_EXCHANGE_SUB_RULE = 'sichuan/xueliu_exchange'
 XUELIU_EXCHANGE_QUEUE = 'sichuan_xueliu_exchange_elo_banzhuang'
 XUELIU_EXCHANGE_LEGACY_QUEUE = 'sichuan_xueliu_exchange_elo_quanzhuang'
@@ -16,6 +19,8 @@ RULES = {"guobiao": "国标麻将", "riichi": "立直麻将", "qingque": "青雀
          XUELIU_EXCHANGE_RATING_RULE: "川麻血流换三张", "hongque": "虹雀"}
 GRADE_RULES = {"guobiao", "riichi", "riichi_sanma"}
 ELO_RULES = set(RULES) - GRADE_RULES
+RULES[DOUBLES_RATING_RULE] = '川麻血战·2V2'
+ELO_RULES.add(DOUBLES_RATING_RULE)
 DEFAULT_R = 1500.0
 ELO_EXPECTATION_SCALE = 2400.0
 ELO_TABLE_AVERAGE_FLOOR = 1500.0
@@ -36,9 +41,12 @@ class RankedQueue:
     elo_k: float = 32.0
     elo_algorithm: str = ELO_ALGORITHM_VERSION
     unlimited_rounds: bool = False
+    party_size: int = 1
 
     @property
     def rating_rule(self):
+        if self.sub_rule == 'sichuan/doubles':
+            return DOUBLES_RATING_RULE
         if self.rule == 'sichuan' and self.sub_rule == XUELIU_EXCHANGE_SUB_RULE:
             return XUELIU_EXCHANGE_RATING_RULE
         return 'riichi_sanma' if self.rule == 'riichi' and self.player_count == 3 else self.rule
@@ -69,6 +77,8 @@ QUEUES["hongque_elo_quanzhuang"] = RankedQueue("hongque", "elo", "quanzhuang", 1
                                             elo_algorithm=HONGQUE_ELO_ALGORITHM_VERSION)
 # Keep the existing Sichuan queue ID for clients and historical records.
 QUEUES["sichuan_elo_xuezhan"] = RankedQueue("sichuan", "elo", "banzhuang", 2)
+QUEUES[DOUBLES_QUEUE] = RankedQueue('sichuan', 'elo', 'banzhuang', 2,
+    sub_rule='sichuan/doubles', elo_algorithm=DOUBLES_ALGORITHM, party_size=2)
 QUEUES[XUELIU_EXCHANGE_QUEUE] = RankedQueue('sichuan', 'elo', 'banzhuang', 2,
                                           sub_rule=XUELIU_EXCHANGE_SUB_RULE)
 for tier in ('beginner', 'intermediate', 'advanced'):
@@ -93,6 +103,8 @@ def ranked_record_scope(rule):
         raise ValueError('不支持的匹配规则')
     if rule == XUELIU_EXCHANGE_RATING_RULE:
         return 'sichuan', XUELIU_EXCHANGE_SUB_RULE
+    if rule == DOUBLES_RATING_RULE:
+        return 'sichuan', 'sichuan/doubles'
     if rule == 'sichuan':
         return 'sichuan', 'sichuan/standard'
     if rule in ('riichi', 'riichi_sanma'):

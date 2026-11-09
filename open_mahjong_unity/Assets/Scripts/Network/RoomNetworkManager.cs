@@ -118,6 +118,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
             return;
         }
 
+        if (!string.IsNullOrEmpty(pendingInvitationInstance)
+            && response.room_info.instance_id != pendingInvitationInstance) return;
         string roomId = response.room_info.room_id;
         string currentWindow = WindowsManager.Instance.GetCurrentWindow();
         bool onRoomPage = currentWindow == "room";
@@ -149,6 +151,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
             response.room_info
         );
         AutoReconnect.OnRoomSyncDone();
+        SharedRoomInvite.OnLobbySynchronized();
     }
 
     public void AcceptForcedRoomEntry(RoomInfo roomInfo) {
@@ -175,6 +178,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
             ApplyLeftRoomState(silent: AutoReconnect.IsActive || !hadRoom);
         }
         AutoReconnect.OnRoomSyncDone();
+        SharedRoomInvite.OnLobbySynchronized();
     }
 
     private bool ShouldNavigateToRoomOnRefresh(string roomId) {
@@ -197,6 +201,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
 
     private void ClearPendingRoomEntry() {
         _pendingEnterRoomId = null;
+        pendingInvitationInstance = null;
     }
 
     /// <summary>
@@ -322,6 +327,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 no_joker_bonus = config.NoJokerBonus, black_flower_progressive = config.BlackFlowerProgressive,
                 joker_multi_wait = GuobiaoGameState.IsJokerSubRule(config.SubRule) && config.JokerMultiWait,
                 tian_di_ren_he = (config.SubRule == "guobiao/standard" || config.SubRule == GuobiaoGameState.SanmaSubRule || config.SubRule == GuobiaoGameState.BloodBattleSubRule) && config.TianDiRenHe,
+                jinluo_mode = config.JinluoMode, jinluo_weather = config.JinluoWeather,
                 open_cuohe = config.CuoHe,
                 cuohe_type = config.CuoheType,
                 hepai_limit = config.HepaiLimit,
@@ -480,7 +486,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>Create a Zhongyong family room using the shared no-flower room DTO.</summary>
-    public async void Create_Jiandan_Room(Jiandan_Create_RoomConfig config) {
+    public async void Create_Zhongyong_Room(Zhongyong_Create_RoomConfig config) {
         if (!TryBeginCreateRequest()) return;
         try {
             if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
@@ -518,7 +524,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>创建不写统计、不存牌谱的虹雀 v1.6 原型房间。</summary>
-    public async void Create_Hongque_Room(Jiandan_Create_RoomConfig config) {
+    public async void Create_Hongque_Room(Zhongyong_Create_RoomConfig config) {
         if (!TryBeginCreateRequest()) return;
         try {
             if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
@@ -729,6 +735,9 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "sichuan/standard",
+                duplicate_key = string.IsNullOrEmpty(config.DuplicateKey) ? null : config.DuplicateKey,
+                duplicate_round_count = config.DuplicateRoundCount > 0 ? config.DuplicateRoundCount : (int?)null,
+                duplicate_sync_mode = config.DuplicateSyncMode,
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
@@ -1064,6 +1073,16 @@ public partial class RoomNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             NotificationManager.Instance.ShowTip("seat", false, "调整座位失败：" + e.Message);
         }
+    }
+
+    public async void DuplicateLobbyAction(string roomId, int revision, string action,
+        int? seatIndex = null, int? sourceSeat = null, int? userId = null, int? botKind = null) {
+        var request = new {
+            type = "room/duplicate_lobby_action", room_id = roomId, roster_revision = revision,
+            action, seat_index = seatIndex, source_seat = sourceSeat,
+            user_id = userId ?? UserDataManager.Instance.UserId, bot_kind = botKind
+        };
+        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
 
     /// <summary>创建自由模式房间：独立请求，不把墙勾选带进国标建房。</summary>

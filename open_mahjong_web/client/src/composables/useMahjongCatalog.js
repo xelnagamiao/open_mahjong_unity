@@ -104,7 +104,6 @@ const TAG_MAP = {
   zungjung: ['zungjung', 'zhongyong', '中庸'],
   zhongyong: ['zungjung', 'zhongyong', '中庸'],
   shiyangjin: ['shiyangjin', '十样锦'],
-  jiandan: ['jiandan', '南雀'],
 }
 
 export function useMahjongCatalog() {

@@ -78,9 +78,12 @@ public class FixedAspectRatio : MonoBehaviour {
 
     void Start() {
 #if USE_WINAPI
-        hwnd = GetUnityWindowHandle();
-        HookWindowProc();
+        if (!MobileViewportLayout.Enabled) {
+            hwnd = GetUnityWindowHandle();
+            HookWindowProc();
+        }
 #endif
+        MobileViewportLayout.Install(gameObject);
         SetupBlackBars();
         CacheLetterboxRootCanvases();
         ApplyCameraViewport();
@@ -386,6 +389,7 @@ public class FixedAspectRatio : MonoBehaviour {
     }
 
     private bool ShouldLetterbox() {
+        if (MobileViewportLayout.Enabled) return false;
 #if USE_WINAPI
         // Snapping, fullscreen changes and restored window sizes can bypass
         // WM_SIZING. Keep both the board and overlay UI inside the same viewport.

@@ -39,7 +39,7 @@ for (const [ruleId, layout, wallCount] of [['sichuan/sbr', 'sbr', 14], ['sichuan
 test('SBR key editor uses fixed seats and 13+14 partitions in every board', () => {
   assert.ok(isDuplicateWallRule(rule.rule))
   assert.equal(rule.wall_layout, 'sbr')
-  assert.deepEqual(rule.scopes, ['event'])
+  assert.deepEqual(rule.scopes, ['personal', 'event'])
   const tiles = fullWall(rule.rule)
   const draft = createDuplicateDraft(rule.wall_layout)
   splitDuplicateWall(tiles, rule.tile_count, rule.wall_layout).forEach((part, seat) => {

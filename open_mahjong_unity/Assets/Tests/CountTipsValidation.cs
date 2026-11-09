@@ -42,7 +42,7 @@ public static class CountTipsValidation {
                 (name: "点和零番", hint: WaitTileHint.Ron("0番"), color: blue),
                 (name: "点和", hint: WaitTileHint.Ron("8番"), color: blue),
                 (name: "仅自摸", hint: WaitTileHint.TsumoOnly("仅自摸"), color: view.zimoColor),
-                (name: "仅点和", hint: WaitTileHint.RonOnly(), color: view.zimoColor),
+                (name: "仅点和", hint: WaitTileHint.RonOnly(), color: blue),
                 (name: "日麻自摸有役", hint: WaitTileHint.TsumoOnly("1番"), color: view.zimoColor),
                 (name: "未起和", hint: WaitTileHint.None("未起和"), color: view.wuyiColor),
                 (name: "日麻无役", hint: WaitTileHint.None("无役"), color: view.wuyiColor),
@@ -65,7 +65,8 @@ public static class CountTipsValidation {
                         if (!fan && !count) continue;
                         Color[] colors = Colors(view);
                         Color fanColor = blocked ? view.wuyiColor : remaining == 0 ? view.exhaustedColor
-                            : sample.hint.Kind == WaitTileHint.KindTsumoOnly || sample.hint.Kind == WaitTileHint.KindRonOnly ? view.zimoColor : view.dianheColor;
+                            : sample.hint.Kind == WaitTileHint.KindTsumoOnly ? view.zimoColor
+                            : sample.hint.Kind == WaitTileHint.KindRonOnly ? blue : view.dianheColor;
                         Check(name + "/首行色", colors[0] == (fan || blocked ? fanColor : sample.color));
                         if (fan && count && !blocked) Check(name + "/枚数色", colors[1] == sample.color);
                         Check(name + "/行高", Mathf.Approximately(((RectTransform)view.transform).rect.height, expected.Length == 2 ? 77f : 33f));
@@ -184,6 +185,21 @@ public static class CountTipsValidation {
                 var hint = RiichiTips.Describe(query);
                 Check(sub + "/门清自摸资格", hint.Kind == WaitTileHint.KindTsumoOnly);
                 Actual(sub + "/仅自摸枚数", hint, "3枚");
+            }
+            var exhaustedRiichi = Query("riichi/sanma");
+            exhaustedRiichi.HandWithWin = new List<int>{24,25,26,34,305,36,39,39};
+            exhaustedRiichi.Melds = new List<string>{"G24","g47"};
+            exhaustedRiichi.HepaiTile = 24; exhaustedRiichi.HepaiLimit = 1;
+            exhaustedRiichi.Record.RedDora = false;
+            var exhaustedHint = RiichiTips.Describe(exhaustedRiichi);
+            Check("日麻自家杠牌用尽仍有役", exhaustedHint.Kind == WaitTileHint.KindRon && exhaustedHint.Label == "1番");
+            foreach (bool fan in new[] {false,true}) foreach (bool count in new[] {false,true}) {
+                view.SetHint(exhaustedHint, 0, fan, count);
+                var expected = !fan && !count ? Array.Empty<string>()
+                    : fan && count ? new[] {"1番","0枚"} : new[] {fan ? "1番" : "0枚"};
+                Check($"日麻用尽听张保留原文案/{fan}/{count}", Lines(view).SequenceEqual(expected));
+                if (fan) Check($"日麻用尽番数灰底/{count}", Colors(view)[0] == view.exhaustedColor);
+                if (count) Check($"日麻零枚沿用枚数底色/{fan}", Colors(view).Last() == blue);
             }
             var sichuan = Query("sichuan/standard");
             sichuan.HandWithWin = new List<int> {21,22,23,24,25,26,27,28,29,31,32,33,35,35};

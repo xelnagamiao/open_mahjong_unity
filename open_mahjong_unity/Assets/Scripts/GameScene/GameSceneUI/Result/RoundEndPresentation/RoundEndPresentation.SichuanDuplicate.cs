@@ -21,6 +21,8 @@ public partial class RoundEndPresentation {
     public void ShowSichuanDuplicateResult(DuplicateMatchInfo info) {
         if(EndResultPanel.Instance?.IsSichuanBoardVisible==true && SichuanDuplicateResultPanel.ShouldShow(info)) {
             pendingSichuanDuplicateInfo=info;
+            if(info.waiting_for=="ready" && EndResultPanel.Instance.AllSichuanPlayersReady)
+                OpenPendingSichuanDuplicateResult();
             return;
         }
         if (!SichuanDuplicateResultPanel.ShouldShow(info)) {

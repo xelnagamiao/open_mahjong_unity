@@ -17,7 +17,6 @@ from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_sichuan.XueliuGameState import XueliuGameState
 from .game_sichuan.XueliuDoublesGameState import XueliuDoublesGameState
-from .game_jiandan.JiandanGameState import JiandanGameState
 from .game_zhongyong import ZhongyongGameState, NanqueGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
 from .game_hongkong import HongKongGameState
@@ -68,7 +67,6 @@ class GameStateManager:
         self.room_id_to_ClassicalGameState: Dict[str, ClassicalGameState] = {}
         self.room_id_to_RiichiGameState: Dict[str, RiichiGameState] = {}
         self.room_id_to_SichuanGameState: Dict[str, SichuanGameState] = {}
-        self.room_id_to_JiandanGameState: Dict[str, JiandanGameState] = {}
         self.room_id_to_ZhongyongGameState: Dict[str, ZhongyongGameState] = {}
         self.room_id_to_TaiwanGameState: Dict[str, TaiwanGameState] = {}
         self.room_id_to_FilipinoGameState: Dict[str, FilipinoGameState] = {}
@@ -119,6 +117,9 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间不存在")
             
         room_data = self.game_server.room_manager.rooms[room_id]
+        if room_data.get("duplicate_lobby_room_id") and not _paired_prepare:
+            from ..room.sichuan_duplicate import request_start
+            return await request_start(self, room_data, Connect_id, lobby_revision=roster_revision)
         if room_data.get("admin_closing"):
             return Response(type="error_message", success=False, message="房间正在关闭")
         from ..room.changchun_room import enforce_changchun_tactical_room
@@ -137,7 +138,7 @@ class GameStateManager:
         bot_peer_prepare = (_paired_prepare and pair is not None and pair.lock.locked()
                             and pair.data["room_ids"].get(room_data.get("duplicate_table")) == room_id
                             and is_duplicate_sub_rule(room_data.get("sub_rule"))
-                            and is_full_bot_table(room_data))
+                            and (is_full_bot_table(room_data) or "lobby" in pair.data))
         player = self.game_server.players.get(Connect_id)
         self.game_server.room_manager._sync_room_host(room_data)
         if not bot_peer_prepare and (player is None or player.user_id != room_data.get("host_user_id")):
@@ -202,7 +203,7 @@ class GameStateManager:
             "guobiao": GuobiaoGameState, "qingque": QingqueGameState,
             "changsha": ChangshaGameState, "classical": ClassicalGameState,
             "riichi": RiichiGameState, "sichuan": SichuanGameState,
-            "jiandan": JiandanGameState, "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
+            "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
@@ -418,8 +419,6 @@ class GameStateManager:
             return self.room_id_to_SichuanGameState.get(room_id)
         elif room_id in self.room_id_to_ZhongyongGameState:
             return self.room_id_to_ZhongyongGameState.get(room_id)
-        elif room_id in self.room_id_to_JiandanGameState:
-            return self.room_id_to_JiandanGameState.get(room_id)
         elif room_id in self.room_id_to_TaiwanGameState:
             return self.room_id_to_TaiwanGameState.get(room_id)
         elif room_id in self.room_id_to_ShanghaiGameState:

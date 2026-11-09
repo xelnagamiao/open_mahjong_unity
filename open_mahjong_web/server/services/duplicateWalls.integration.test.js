@@ -140,14 +140,16 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       } finally { await new Promise((resolve) => server.close(resolve)); }
     });
 
-    await t.test('bloodflow doubles manual, seed and key walls require venue scope and keep hidden keys private', async () => {
+    await t.test('bloodflow doubles manual, seed and key walls support personal scope and keep hidden keys private', async () => {
       for (const [index, wall_type] of ['manual', 'seed', 'key'].entries()) {
         const owner = 81200 + index;
         const input = { scope: 'event', event_id: `bloodflow-${index}`, rule: 'sichuan/xueliu', wall_type, round_count: 4,
           seed: 'bloodflow-db', round_tiles: Array.from({ length: 4 }, () => fullWall('sichuan/xueliu')) };
         await pool.query("INSERT INTO events VALUES ($1,'Bloodflow doubles','base','active')", [input.event_id]);
         await pool.query('INSERT INTO event_admins VALUES ($1,$2)', [input.event_id, owner]);
-        await assert.rejects(service.create(owner, { ...input, scope: 'personal' }), { status: 400 });
+        const personal = await service.create(owner, { ...input, scope: 'personal' });
+        assert.equal(personal.wall.scope, 'personal');
+        assert.equal(personal.wall.event_id, null);
         const { wall } = await service.create(owner, input);
         assert.equal(wall.wall_layout, 'xueliu');
         assert.equal(wall.tile_count, 108);

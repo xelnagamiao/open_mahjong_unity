@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -53,7 +54,7 @@ public partial class GameRecordManager {
         rect.SetAsLastSibling();
     }
 
-    private void ToggleRecordAutoPlay() {
+    public void ToggleRecordAutoPlay() {
         if (IsRecordAutoPlaying) {
             StopRecordAutoPlay();
             return;
@@ -114,7 +115,7 @@ public partial class GameRecordManager {
                     yield return new WaitForSeconds(0.5f);
                     continue;
                 }
-                CompleteRecordAutoPlay();
+                FinishRecordMatch();
                 yield break;
             }
 
@@ -211,6 +212,24 @@ public partial class GameRecordManager {
         GotoSelectRound(currentRoundIndex + 1);
     }
 
+    private int PreviousRecordRoundIndex() {
+        var rounds = gameRecord?.gameRound?.rounds;
+        if (rounds == null || rounds.Count == 0) return 0;
+        int previous = rounds.Keys.Where(index => index < currentRoundIndex).DefaultIfEmpty(0).Max();
+        // Offline replay may wrap. Live spectators must never jump to a future deal.
+        return previous > 0 || IsSpectatorSession ? previous : rounds.Keys.Max();
+    }
+
+    public void StepToPreviousRoundFromInput() {
+        StopRecordAutoPlay();
+        if (BlocksRecordNavigation) return;
+        int previous = PreviousRecordRoundIndex();
+        if (previous > 0) GotoSelectRound(previous);
+    }
+
+    public bool IsRecordTransportControl(Transform target) => nextStepButton
+        && target && (target == nextStepButton.transform.parent || target.IsChildOf(nextStepButton.transform.parent));
+
     public void NextXunmu() {
         StopRecordAutoPlay();
         if (BlocksRecordNavigation) return;
@@ -306,7 +325,7 @@ public partial class GameRecordManager {
         }
         if (targetNode < 0) {
             // 在 0 巡继续向上：切到上一局最后一巡
-            int prevRound = currentRoundIndex - 1;
+            int prevRound = PreviousRecordRoundIndex();
             if (prevRound >= 1 && gameRecord.gameRound.rounds.ContainsKey(prevRound)) {
                 GotoSelectRound(prevRound, true);
                 int lastXunNode = xunmuNodeList.Count > 0 ? xunmuNodeList[xunmuNodeList.Count - 1] : 0;
@@ -318,6 +337,8 @@ public partial class GameRecordManager {
     }
 
     public void NextStep() {
+        if (IsRecordMatchResultVisible) return;
+        if (AtMatchEnd && !BlocksRecordNavigation) { FinishRecordMatch(); return; }
         if (HasPendingRecordBuhuaContinuation) return;
         AdvanceRecordStep();
     }
@@ -339,6 +360,7 @@ public partial class GameRecordManager {
     }
 
     public void BackStep() {
+        HideRecordMatchResult();
         StopRecordAutoPlay();
         if (BlocksRecordNavigation) return;
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {

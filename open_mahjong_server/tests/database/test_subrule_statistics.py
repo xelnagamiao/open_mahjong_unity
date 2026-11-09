@@ -33,7 +33,11 @@ def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert resolve_statistics_identity('fuzhou', 'fuzhou/standard') == ('fuzhou', 'fuzhou/standard')
     sixteen_entry = next(r for r in RULES if r['sub_rule'] == 'guobiao/sixteen')
     assert sixteen_entry['basic_stats'] and sixteen_entry['fan_stats'] and sixteen_entry['fan_key'] == 'guobiao'
-    assert sum(r['matchmaking'] for r in RULES) == 7
+    from server.match.rating_rules import QUEUES
+    from server.database.statistics_catalog import DEFAULTS
+    queue_subrules = {queue.sub_rule or (queue.rule + '/sanma' if queue.player_count == 3 else DEFAULTS[queue.rule])
+                     for queue in QUEUES.values()}
+    assert {r['sub_rule'] for r in RULES if r['matchmaking']} == queue_subrules
     assert resolve_statistics_identity('hongkong', 'hongkong/new13', {'detailed_config': {'new13_version':'lianhuise'}}) == ('hongkong','hongkong/new13_lianhuise')
     assert resolve_statistics_identity('riichi', None, {}, '1/3') == ('riichi','riichi/sanma')
 
@@ -78,8 +82,12 @@ def db():
         CREATE TABLE guobiao_fan_stats(user_id bigint,rule varchar(10),mode text,pinghe int DEFAULT 0,PRIMARY KEY(user_id,rule,mode));
     """)
     try:
+        execute('''CREATE TABLE users(user_id bigint PRIMARY KEY,is_tourist boolean NOT NULL DEFAULT FALSE);
+            INSERT INTO users(user_id) VALUES(10000101),(10000102),(10000103),(10000104);''')
+        from server.database.inventory import ensure_inventory_tables
         with conn.cursor() as cur:
             ensure_statistics_schema(cur)
+            ensure_inventory_tables(cur)
         conn.commit()
         yield model
     finally:
@@ -135,7 +143,7 @@ def test_legacy_accumulators_keep_same_mode_variants_separate(db):
     ({'rule': 'guobiao', 'sub_rule': 'guobiao/transparent'}, ('guobiao', 'guobiao/standard', '1/4'), ('guobiao', 'guobiao/transparent')),
     ({'sub_rule': 'hongque/v1.6'}, ('guobiao', 'guobiao/standard', '1/4'), ('hongque', 'hongque/v1.6')),
     ({'rule': 'hongkong', 'sub_rule': 'hongkong/new13', 'detailed_config': {'new13_version': 'lianhuise'}}, ('hongkong', 'hongkong/standard', '1/4'), ('hongkong', 'hongkong/new13_lianhuise')),
-    ({'rule': 'jiandan', 'sub_rule': 'jiandan/standard'}, ('guobiao', 'guobiao/standard', '1/4'), ('zhongyong', 'zhongyong/nanque')),
+    ({'rule': 'zhongyong', 'sub_rule': 'zhongyong/nanque'}, ('guobiao', 'guobiao/standard', '1/4'), ('zhongyong', 'zhongyong/nanque')),
     ({'rule': 'guobiao', 'sub_rule': 'guobiao/unknown'}, ('guobiao', 'guobiao/standard', '1/4'), ('guobiao', 'guobiao/unknown')),
     ({'rule': 'riichi', 'match_type': '1/3'}, ('guobiao', 'guobiao/standard', '1/4'), ('riichi', 'riichi/sanma')),
     ({'rule': 'riichi', 'match_type': '1/3'}, ('riichi', 'riichi/standard', '1/4'), ('riichi', 'riichi/sanma')),

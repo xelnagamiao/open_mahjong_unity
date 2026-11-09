@@ -39,7 +39,7 @@ export function applyRouteHead(route, locale, translate) {
   setMeta('property', 'og:title', title)
   setMeta('property', 'og:description', description)
   setMeta('property', 'og:url', canonicalUrl)
-  const ogLocales = { en: 'en_US', fr: 'fr_FR', ja: 'ja_JP', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', 'zh-HK': 'zh_HK' }
+  const ogLocales = { en: 'en_US', fr: 'fr_FR', de: 'de_DE', ru: 'ru_RU', ja: 'ja_JP', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', 'zh-HK': 'zh_HK' }
   setMeta('property', 'og:locale', page?.ogLocale || ogLocales[locale] || 'en_US')
 
   document.head.querySelectorAll('[data-mcr-seo]').forEach((element) => element.remove())

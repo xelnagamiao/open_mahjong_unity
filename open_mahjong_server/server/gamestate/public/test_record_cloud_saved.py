@@ -16,10 +16,12 @@ from server.response import Game_end_info, Response
 def _state():
     return SimpleNamespace(
         game_record={
-            "game_title": {"rule": "guobiao", "end_time": "2026-09-24 12:00:00"},
+            "game_title": {"rule": "guobiao", "sub_rule": "guobiao/standard", "room_type": "custom",
+                           "end_time": "2026-09-24 12:00:00", **{f"p{i}_uid":10001+i for i in range(4)}},
             "game_round": {},
         },
-        player_list=[],
+        player_list=[SimpleNamespace(user_id=10001+i,username=f"player{i}",score=0,
+                         original_player_index=i,record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)],
         max_round=1,
     )
 

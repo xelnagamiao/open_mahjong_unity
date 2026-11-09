@@ -138,6 +138,7 @@ public class GameRound {
 public class GameRecord {
     public Dictionary<string, object> gameTitle;
     public GameRound gameRound;
+    public RecordMatchResult matchResult;
 
     public GameRecord() {
         gameRound = new GameRound();

@@ -19,6 +19,7 @@ public readonly struct MessageAction {
 
 public class MessagePrefab : MonoBehaviour {
     public int RequiredReleaseVersion { get; set; }
+    public int RequiredBaseVersion { get; set; }
     [SerializeField] private PanelPopupTransition popupTransition;
     [SerializeField] private TMP_Text HeaderText;
     [SerializeField] private TMP_Text ContentText;
@@ -44,12 +45,68 @@ public class MessagePrefab : MonoBehaviour {
     [SerializeField] private Scrollbar bodyScrollbar;
     private Vector2 lastAvailableSize;
     private bool hasMessage;
+    private bool languageLayoutDirty;
     private TextAlignmentOptions bodyAlignment = TextAlignmentOptions.Center;
     private bool selectFirstButton;
 
     private GameObject modalOwner;
     private bool closing;
     private bool abandonConfirmOpen;
+    private RectTransform updateProgress;
+    private readonly RectTransform[] updateFills = new RectTransform[2];
+    private readonly TMP_Text[] updateLabels = new TMP_Text[2];
+
+    public void SetUpdateProgress(float download, float install) {
+        bool needsLayout = updateProgress == null || !updateProgress.gameObject.activeSelf;
+        if (updateProgress == null) {
+            var root = new GameObject("UpdateProgress", typeof(RectTransform));
+            root.layer = gameObject.layer;
+            updateProgress = (RectTransform)root.transform;
+            updateProgress.SetParent(transform, false);
+            PlaceMessageRect(updateProgress, new Vector2(0, 0), new Vector2(1, 0),
+                new Vector2(.5f, 0), new Vector2(0, 88), new Vector2(-96, 104));
+            for (int i = 0; i < 2; i++) {
+                var label = new GameObject("StageLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+                label.layer = gameObject.layer;
+                label.transform.SetParent(updateProgress, false);
+                updateLabels[i] = label.GetComponent<TMP_Text>();
+                updateLabels[i].font = ContentText.font;
+                updateLabels[i].fontSize = 20;
+                updateLabels[i].fontStyle = FontStyles.Normal;
+                updateLabels[i].color = ContentText.color;
+                updateLabels[i].alignment = TextAlignmentOptions.MidlineLeft;
+                updateLabels[i].raycastTarget = false;
+                PlaceMessageRect(updateLabels[i].rectTransform, new Vector2(0, 0), new Vector2(1, 0),
+                    new Vector2(.5f, 0), new Vector2(0, 24 + (1 - i) * 52), new Vector2(0, 28));
+                var rail = new GameObject("ProgressTrack", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                rail.layer = gameObject.layer;
+                rail.transform.SetParent(updateProgress, false);
+                rail.GetComponent<UnityEngine.UI.Image>().color = new Color(.72f, .78f, .82f);
+                rail.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+                PlaceMessageRect((RectTransform)rail.transform, new Vector2(0, 0), new Vector2(1, 0),
+                    new Vector2(.5f, 0), new Vector2(0, 8 + (1 - i) * 52), new Vector2(0, 12));
+                var fill = new GameObject("ProgressFill", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                fill.layer = gameObject.layer;
+                fill.transform.SetParent(rail.transform, false);
+                fill.GetComponent<UnityEngine.UI.Image>().color = new Color(.12f, .57f, .76f);
+                fill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+                updateFills[i] = (RectTransform)fill.transform;
+                updateFills[i].anchorMin = Vector2.zero;
+                updateFills[i].offsetMin = updateFills[i].offsetMax = Vector2.zero;
+            }
+        }
+        updateProgress.gameObject.SetActive(true);
+        SetProgressStage(0, "下载", download);
+        SetProgressStage(1, "安装", install);
+        if (needsLayout) LayoutMessage();
+    }
+
+    private void SetProgressStage(int index, string name, float value) {
+        value = Mathf.Clamp01(value);
+        updateFills[index].anchorMax = new Vector2(value, 1);
+        string text = name + "  " + (value * 100).ToString("F1") + "%";
+        SetLocalizedText(updateLabels[index], text);
+    }
 
     private readonly struct ButtonSlot {
         public readonly Button Button;
@@ -67,6 +124,10 @@ public class MessagePrefab : MonoBehaviour {
         }
     }
 
+    private void OnEnable() { ConfigManager.OnLanguageChanged += OnLanguageChanged; }
+    private void OnDisable() { ConfigManager.OnLanguageChanged -= OnLanguageChanged; }
+    private void OnLanguageChanged() { languageLayoutDirty = true; }
+
     public void ShowMessage(string header, string content, string type = "") {
         Show(header, content, BuildActions(type));
     }
@@ -82,10 +143,11 @@ public class MessagePrefab : MonoBehaviour {
     }
 
     public void Show(string header, string content, IReadOnlyList<MessageAction> actions, bool selectFirst = false) {
+        if (updateProgress != null) updateProgress.gameObject.SetActive(false);
         closing = false;
         selectFirstButton = selectFirst;
-        HeaderText.text = header;
-        ContentText.text = content;
+        SetLocalizedText(HeaderText, header);
+        SetLocalizedText(ContentText, content);
         hasMessage = true;
         BindActions(actions);
         LayoutMessage();
@@ -116,7 +178,10 @@ public class MessagePrefab : MonoBehaviour {
         }
         if (type == "error_version") {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            return AndroidVersionActions(() => AndroidAppUpdater.Open(RequiredReleaseVersion));
+            if (RequiredReleaseVersion > 0 && RequiredReleaseVersion < ConfigManager.releaseVersion && RequiredBaseVersion == 0)
+                return new[] { new MessageAction("好的") };
+            return AndroidVersionActions(() => AndroidAppUpdater.Open(RequiredReleaseVersion),
+                RequiredBaseVersion > 0 && RequiredBaseVersion != ConfigManager.base_version);
 #else
             return new[] { new MessageAction("好的") };
 #endif
@@ -142,11 +207,13 @@ public class MessagePrefab : MonoBehaviour {
         return new[] { new MessageAction("好的") };
     }
 
-    internal static MessageAction[] AndroidVersionActions(Action update) => new[] {
-        new MessageAction("应用内更新", update),
-        new MessageAction("去下载", () => Application.OpenURL(ConfigManager.mobileDownloadUrl)),
-        new MessageAction("关闭"),
-    };
+    internal static MessageAction[] AndroidVersionActions(Action install, bool frameworkRequired = false) {
+        var actions = new List<MessageAction>();
+        if (!frameworkRequired) actions.Add(new MessageAction("应用内更新", AndroidAppUpdater.OpenContent, false));
+        actions.Add(new MessageAction("下载安装包", install, false));
+        actions.Add(new MessageAction("去官网下载", () => Application.OpenURL(ConfigManager.mobileDownloadUrl), false));
+        return actions.ToArray();
+    }
 
     private void BindActions(IReadOnlyList<MessageAction> actions) {
         int count = actions != null ? actions.Count : 0;
@@ -165,7 +232,7 @@ public class MessagePrefab : MonoBehaviour {
             int index = i;
             ButtonSlot slot = activeSlots[i];
             if (slot.Text != null) {
-                slot.Text.text = currentActions[i].Label;
+                SetLocalizedText(slot.Text, currentActions[i].Label);
             }
             slot.Button.onClick.RemoveAllListeners();
             slot.Button.onClick.AddListener(() => HandleButton(index));
@@ -269,14 +336,15 @@ public class MessagePrefab : MonoBehaviour {
         ContentText.margin = Vector4.zero;
         ContentText.lineSpacing = 6;
         ContentText.overflowMode = TextOverflowModes.Overflow;
-        float maximumBodyHeight = Mathf.Max(32, lastAvailableSize.y - ScreenMargin * 2 - BodyTop - BodyBottom);
+        float bottom = BodyBottom + (updateProgress != null && updateProgress.gameObject.activeSelf ? 112 : 0);
+        float maximumBodyHeight = Mathf.Max(32, lastAvailableSize.y - ScreenMargin * 2 - BodyTop - bottom);
         float preferredHeight = ContentText.GetPreferredValues(ContentText.text, bodyWidth, Mathf.Infinity).y + 8;
         float bodyHeight = Mathf.Min(Mathf.Max(MinimumBodyHeight, preferredHeight), maximumBodyHeight);
         bool overflow = preferredHeight > bodyHeight + .5f;
         if (overflow) preferredHeight = ContentText.GetPreferredValues(ContentText.text, Mathf.Max(1, bodyWidth - 20), Mathf.Infinity).y + 8;
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
         rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = new Vector2(width, bodyHeight + BodyTop + BodyBottom);
+        rect.sizeDelta = new Vector2(width, bodyHeight + BodyTop + bottom);
         PlaceMessageRect(HeaderText.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(0, -10), new Vector2(-horizontalPadding * 2, 44));
         PlaceMessageRect(bodyViewport, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(0, -BodyTop), new Vector2(-horizontalPadding * 2, bodyHeight));
         PlaceMessageRect(ContentText.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(.5f, 1), new Vector2(overflow ? -10 : 0, 0), new Vector2(overflow ? -20 : 0, overflow ? preferredHeight : bodyHeight));
@@ -318,7 +386,9 @@ public class MessagePrefab : MonoBehaviour {
         var canvas = GetComponentInParent<Canvas>();
         var parent = transform.parent as RectTransform;
         if (canvas != null && parent != null) {
-            var root = (RectTransform)canvas.rootCanvas.transform;
+            var layout = GetComponentInParent<CanvasReferenceLayout>();
+            var root = layout != null && layout.referenceArea != null
+                ? layout.referenceArea : (RectTransform)canvas.rootCanvas.transform;
             root.GetWorldCorners(canvasCorners);
             // Convert into the marker's units, independently of the dialog's popup animation scale.
             Vector3 min = parent.InverseTransformPoint(canvasCorners[0]);
@@ -333,8 +403,10 @@ public class MessagePrefab : MonoBehaviour {
     }
 
     private void LateUpdate() {
-        if (hasMessage && !closing && (AvailableCanvasSize() - lastAvailableSize).sqrMagnitude > 1)
+        if (hasMessage && !closing && (languageLayoutDirty || (AvailableCanvasSize() - lastAvailableSize).sqrMagnitude > 1)) {
+            languageLayoutDirty = false;
             LayoutMessage();
+        }
     }
 
 #if UNITY_EDITOR
@@ -459,8 +531,23 @@ public class MessagePrefab : MonoBehaviour {
     // Progress updates keep the existing buttons and popup animation intact.
     public void UpdateContent(string content) {
         if (closing || !hasMessage || ContentText.text == content) return;
-        ContentText.text = content;
+        var localized = ContentText.GetComponent<LocalizedPlatformLabel>();
+        if (localized && localized.Source == content) return;
+        SetLocalizedText(ContentText, content);
         LayoutMessage();
+    }
+
+    private static void SetLocalizedText(TMP_Text label, string source) {
+        if (!label) return;
+        var localized = label.GetComponent<LocalizedPlatformLabel>();
+        if (!localized) {
+            float size = label.fontSize;
+            bool autoSize = label.enableAutoSizing;
+            localized = label.gameObject.AddComponent<LocalizedPlatformLabel>();
+            localized.authoredSize = size;
+            localized.authoredAutoSize = autoSize;
+        }
+        if (localized.Source != source) localized.SetSource(source);
     }
 
     public void SetActionInteractable(int index, bool interactable) {

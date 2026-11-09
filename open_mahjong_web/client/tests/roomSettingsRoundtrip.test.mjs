@@ -8,8 +8,8 @@ import { supportsDuplicateKey } from '../src/utils/sichuanDuplicate.js'
 const require = createRequire(import.meta.url)
 const { readRoomSettings, applyRoomSettingsChange, resolveRoomSelection } = require('../../server/utils/eventRoomSettings.js')
 const profiles = {
-  guobiao: ['standard', 'xiaolin', 'kshen', 'lanshi', 'transparent', 'transparent_realtime', 'huahun', 'four_jokers', 'sixteen'],
-  riichi: ['standard'], qingque: ['standard'], classical: ['standard'], taiwan: ['standard'],
+  guobiao: ['standard', 'blood_battle', 'sanma', 'xiaolin', 'kshen', 'lanshi', 'transparent', 'transparent_realtime', 'huahun', 'four_jokers', 'sixteen'],
+  riichi: ['standard', 'langyong', 'washizu', 'washizu_realtime'], qingque: ['standard'], classical: ['standard'], taiwan: ['standard'],
   sichuan: ['standard', 'xueliu', 'xueliu_exchange', 'doubles', 'xueliu_doubles'],
   changsha: ['classic_double_bird', 'exchange_six'],
   hongkong: ['qingzhang', 'new13', 'new13_gametower', 'new13_lianhuise', 'qingzhang_lianhuise', 'new16'],
@@ -78,7 +78,9 @@ for (const [room_rule, subRules] of Object.entries(profiles)) {
       roundtrip(form)
       const initial = JSON.stringify(buildEventRoomSettings(form))
       for (const key of Object.keys(form).filter(key => typeof form[key] === 'boolean')) {
+        if (key === 'jinluo_mode' && sub_rule !== 'guobiao/standard') continue
         const edited = { ...form, [key]: !form[key] }
+        if (key === 'scene_reproduction') edited.random_seed = 'abcdef0123456789'.repeat(4)
         if (room_rule === 'guobiao') updateGuobiaoRoomConfig(edited, key, !form[key])
         if (JSON.stringify(buildEventRoomSettings(edited)) !== initial) roundtrip(edited)
       }

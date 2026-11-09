@@ -43,7 +43,7 @@ public sealed class WashizuReadingSurface : MonoBehaviour {
             sharedQuad = new Mesh { name = "Washizu tabletop face" };
             sharedQuad.vertices = new[] { new Vector3(-e.x,-e.y,0), new Vector3(e.x,-e.y,0),
                 new Vector3(e.x,e.y,0), new Vector3(-e.x,e.y,0) };
-            sharedQuad.uv = new[] { new Vector2(0,1),new Vector2(0,0),new Vector2(1,0),new Vector2(1,1) };
+            sharedQuad.uv = new[] { new Vector2(1,1),new Vector2(0,1),new Vector2(0,0),new Vector2(1,0) };
             sharedQuad.normals = new[] { Vector3.back,Vector3.back,Vector3.back,Vector3.back };
             sharedQuad.colors = new[] { Color.red,Color.red,Color.red,Color.red };
             sharedQuad.triangles = new[] { 0,2,1,0,3,2 };

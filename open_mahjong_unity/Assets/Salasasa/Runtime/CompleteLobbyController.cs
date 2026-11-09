@@ -25,6 +25,7 @@ namespace Salasasa.Home
         public GameObject classroom;
         public DeveloperOptionsPanel developerOptions;
         public InventoryPanel inventory;
+        public ShopPanel shop;
         public TMP_Text[] matchCounts;
         public MailPanel mail;
         public FourSideHeader headerNavigation;
@@ -60,6 +61,7 @@ namespace Salasasa.Home
                 if(interfacePlans!=null && interfacePlans.HandleEscape())return;
                 if(mail && mail.IsOpen) {mail.Close();SelectedRoute=CurrentPageRoute();return;}
                 if(leaderboard!=null && leaderboard.HandleEscape())return;
+                if(shop && shop.IsOpen) {shop.Close();SelectedRoute=CurrentPageRoute();return;}
                 if(inventory && inventory.IsOpen) {inventory.Close();SelectedRoute=CurrentPageRoute();return;}
                 if(ProfileOnClick.PendingUserId>=10 || (PlayerInfoPanel.Instance && PlayerInfoPanel.Instance.IsOpen)) {ClosePlayerData();SelectedRoute=CurrentPageRoute();return;}
                 if(headerNavigation!=null && headerNavigation.HandleEscape())return;
@@ -95,13 +97,15 @@ namespace Salasasa.Home
                 if (justLoggedIn) RoomListOpen=true;
                 ClosePlayerData();
                 if(inventory)inventory.Close();
+                if(shop)shop.Close();
                 if(current!="menu") {RoomListOpen=false; CloseChat();}
                 if(!logged) {headerNavigation.CloseUtility();CloseTutorial();if(mail)mail.Close();}
                 SelectedRoute=mail && mail.IsOpen?"mail":current=="menu" && statistics!=null && statistics.IsOpen?"statistics":current=="menu" && RoomListOpen?"room":ToRoute(current);
             }
             bool home=current=="menu" && !RoomListOpen && (statistics==null || !statistics.IsOpen) && (!mail || !mail.IsOpen);
             if(SelectedRoute=="mail" && mail && !mail.IsOpen) SelectedRoute=CurrentPageRoute();
-            if((SelectedRoute=="inventory" && (!inventory || !inventory.IsOpen)) ||
+            if((SelectedRoute=="shop" && (!shop || !shop.IsOpen)) ||
+                (SelectedRoute=="inventory" && (!inventory || !inventory.IsOpen)) ||
                 (SelectedRoute=="chat" && !ChatOpen) ||
                 (SelectedRoute=="tutorial" && (!MeunPanel.Instance || !MeunPanel.Instance.IsFanTableOpen)) ||
                 (SelectedRoute=="profile" && ProfileOnClick.PendingUserId<10 && (!PlayerInfoPanel.Instance || !PlayerInfoPanel.Instance.IsOpen)))
@@ -152,6 +156,7 @@ namespace Salasasa.Home
             headerNavigation.CloseUtility();
             if(route=="mail" && mail && mail.IsOpen) {mail.Close();SelectedRoute=CurrentPageRoute();return;}
             if(route=="chat" && ChatOpen) {CloseChat();SelectedRoute=CurrentPageRoute();return;}
+            if(route=="shop" && shop && shop.IsOpen) {shop.Close();SelectedRoute=CurrentPageRoute();return;}
             if(route=="inventory" && inventory && inventory.IsOpen) {inventory.Close();SelectedRoute=CurrentPageRoute();return;}
             if(route=="profile" && ((ProfileOnClick.PendingUserId>=10 && ProfileOnClick.PendingUserId==UserDataManager.Instance.UserId) ||
                 (PlayerInfoPanel.Instance && PlayerInfoPanel.Instance.IsOpen && PlayerInfoPanel.Instance.CurrentUserId==UserDataManager.Instance.UserId)))
@@ -168,6 +173,7 @@ namespace Salasasa.Home
             if(statistics!=null && route!="statistics")statistics.Close();
             if(leaderboard!=null && route!="leaderboard")leaderboard.Close();
             if(inventory && route!="inventory")inventory.Close();
+            if(shop && route!="shop")shop.Close();
             if(mail && route!="mail")mail.Close();
             artwork.overlay.Close();
             CloseTutorial();
@@ -182,6 +188,7 @@ namespace Salasasa.Home
                 WindowsManager.Instance.SwitchWindow("menu");RoomListOpen=true;SelectedRoute="room";return;
             }
             if(route=="inventory") {inventory.Open();SelectedRoute="inventory";return;}
+            if(route=="shop") {if(shop){shop.Open();SelectedRoute="shop";}return;}
             if(route=="developer") {developerOptions.Show();return;}
             if(route=="classroom") {if(classroom){OpenHome();classroom.SetActive(true);SelectedRoute="classroom";}return;}
             if(route=="tutorial" || route=="help" || route=="rules") {OpenRules();return;}
@@ -220,6 +227,7 @@ namespace Salasasa.Home
         {
             ClosePlayerData();
             if(inventory)inventory.Close();
+            if(shop)shop.Close();
             if(mail)mail.Close();
             if(statistics!=null)statistics.Close();
             if(leaderboard!=null)leaderboard.Close();

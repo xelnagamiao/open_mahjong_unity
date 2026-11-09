@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 /// <summary>可整行展开的局制条目，明细使用两列名称/数值布局并复用已有单元格。</summary>
 public sealed class PlayerInfoEntry : MonoBehaviour {
-    public const float HeaderHeight = 56;
+    public const float HeaderHeight = 64;
     private const float DetailRowHeight = 44;
     [SerializeField] private TMP_Text modeText;
     [SerializeField] private Button expandButton;
@@ -27,9 +27,9 @@ public sealed class PlayerInfoEntry : MonoBehaviour {
     public float PreferredHeight => layout != null ? layout.preferredHeight : HeaderHeight;
     public event Action<PlayerInfoEntry> ExpansionChanged;
 
-    public void Bind(string caption, IList<KeyValuePair<string, string>> fields, bool keepExpanded = false) {
+    public void Bind(string caption, IList<KeyValuePair<string, string>> fields, bool keepExpanded = false, string ruleContext = null) {
         Initialize();
-        modeText.text = caption;
+        TableText.Set(modeText, caption, ruleContext ?? string.Empty);
         detailCount = fields.Count;
         for (int i = 0; i < fields.Count; i++) {
             if (i == cells.Count) {
@@ -38,7 +38,7 @@ public sealed class PlayerInfoEntry : MonoBehaviour {
                 cells.Add(cell);
             }
             cells[i].gameObject.SetActive(true);
-            cells[i].Bind(fields[i].Key, fields[i].Value);
+            cells[i].Bind(fields[i].Key, fields[i].Value, ruleContext);
             if (palette != null) cells[i].ApplyAppearance(palette);
         }
         for (int i = fields.Count; i < cells.Count; i++) cells[i].gameObject.SetActive(false);

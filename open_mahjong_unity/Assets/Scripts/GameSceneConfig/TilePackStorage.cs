@@ -26,6 +26,9 @@ public static class TilePackStorage {
 #else
         WritePngMap(HandDirectory, imported.HandPngs);
         WritePngMap(TableDirectory, imported.TablePngs);
+        string cfg = Path.Combine(HandDirectory, "tiles.cfg");
+        if (imported.ConfigText != null) File.WriteAllText(cfg, imported.ConfigText, new System.Text.UTF8Encoding(false));
+        else if (File.Exists(cfg)) File.Delete(cfg);
 #endif
     }
 

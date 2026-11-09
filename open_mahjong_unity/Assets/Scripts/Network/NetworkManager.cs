@@ -132,6 +132,17 @@ public partial class NetworkManager : MonoBehaviour {
     private void BindWebSocketEvents(WebSocket ws) {
         ws.OnMessage += bytes => {
             if (ws != websocket) return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Record version rejection before OnClose, even if UI dispatch is queued.
+            string versionMessage = System.Text.Encoding.UTF8.GetString(bytes);
+            if (versionMessage.Contains("error_version")) {
+                try {
+                    var control = Newtonsoft.Json.Linq.JObject.Parse(versionMessage);
+                    if ((string)control["type"] == "message" && (string)control["message"] == "error_version")
+                        suppressConnectionFailureUi = true;
+                } catch (Newtonsoft.Json.JsonException) { }
+            }
+#endif
             // Revocation must precede reconnect decisions, even when normal
             // response processing is backlogged behind other game messages.
             if (IsLoginKickoutMessage(bytes)) {
@@ -165,6 +176,9 @@ public partial class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+                if (suppressConnectionFailureUi) return;
+#endif
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ShowConnectionError(errorMsg);
                 }
@@ -183,7 +197,11 @@ public partial class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi || sessionRevoked) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+                if (suppressConnectionFailureUi) return;
+#endif
                 GameSceneUIManager.ResetRealtimeSpectatorUi();
+                PartyNetworkManager.Instance?.ResetState();
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ShowConnectionError("连接已关闭");
@@ -623,7 +641,9 @@ public partial class NetworkManager : MonoBehaviour {
             FriendNetworkManager.Instance?.ListFriendRequests();
             StartCoroutine(LoadNoticeBadgeIndex());
             // 完全重新登录也要恢复服务端保留的房间；自动重连有自己的同步阶段。
+            SharedRoomInvite.OnLoginSucceeded();
             if (!AutoReconnect.IsActive) RoomNetworkManager.Instance?.SyncMyRoom();
+            ConfigManager.Instance?.OfferEnglishTileLabels();
         }
     }
 
@@ -676,8 +696,17 @@ public partial class NetworkManager : MonoBehaviour {
                 HandleInventoryResponse(response);
                 return;
             }
+            if (response.type != null && (response.type.StartsWith("shop/") || response.type.StartsWith("wallet/"))) {
+                HandleCommerceResponse(response);
+                return;
+            }
             if (response.type != null && response.type.StartsWith("title/")) {
                 HandleTitleResponse(response);
+                return;
+            }
+
+            if (response.type != null && response.type.StartsWith("party/")) {
+                PartyNetworkManager.Instance?.Handle(response);
                 return;
             }
 
@@ -695,6 +724,7 @@ public partial class NetworkManager : MonoBehaviour {
 
             // 对局消息统一交由 GameStateNetworkManager 按 gamestate/{rule}/{suffix} 路由
             if (response.type != null && response.type.StartsWith("gamestate/")) {
+                if (response.game_end_info != null) RefreshWallet();
                 GameStateNetworkManager.Instance.HandleGameStateMessage(response);
                 return;
             }
@@ -719,6 +749,10 @@ public partial class NetworkManager : MonoBehaviour {
                     ErrorResponse.Invoke(response.success, response.message);
                     NotificationManager.Instance.ShowTip("error_message",false,response.message);
                     break;
+                case "room/resolve_invite":
+                case "room/join_invite":
+                    SharedRoomInvite.Instance?.Receive(response);
+                    break;
                 // 房间相关消息交由 RoomNetworkManager 处理
                 case "room/create_room_done":
                 case "room/get_room_list":
@@ -733,11 +767,11 @@ public partial class NetworkManager : MonoBehaviour {
                 case "data/get_record_by_id":
                 case "data/update_record_favorite":
                 case "data/get_guobiao_stats":
+                case "data/get_player_info_by_name":
                 case "data/get_player_recent_records":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
-                case "data/get_jiandan_stats":
                 case "data/get_rule_stats":
                 case "data/get_leaderboard":
                 case "data/get_ranked_stats":
@@ -803,6 +837,12 @@ public partial class NetworkManager : MonoBehaviour {
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
                     if (response.message == "error_version") {
                         _disconnectDialogState = DisconnectDialogState.NoMatch;
+#if UNITY_ANDROID && !UNITY_EDITOR
+                        // The server closes a rejected version's socket deliberately.
+                        // It must not turn this update choice into a network error.
+                        suppressConnectionFailureUi = true;
+                        LoginPanel.Instance?.ShowVersionMismatch();
+#endif
                     } else if (response.message == "login_kickout") {
                         AutoReconnect.CancelForSessionReset();
                         ChatManager.Instance?.EndSession(false);
@@ -815,6 +855,11 @@ public partial class NetworkManager : MonoBehaviour {
                     );
                     if (response.message == "error_version" && serverMessage != null) {
                         serverMessage.RequiredReleaseVersion = response.message_info.required_release_version;
+                        serverMessage.RequiredBaseVersion = response.message_info.required_base_version;
+#if UNITY_ANDROID && !UNITY_EDITOR
+                        // Build the choices after assigning the server's version requirements.
+                        serverMessage.ShowMessage(response.message_info.title, response.message_info.content, "error_version");
+#endif
                     }
 
                     LoginPanel.Instance.ResetLoginButton();
@@ -1006,6 +1051,9 @@ public partial class NetworkManager : MonoBehaviour {
             var request = new SendReleaseVersionRequest {
                 type = "send_release_version",
                 release_version = ConfigManager.releaseVersion,
+#if UNITY_ANDROID && !UNITY_EDITOR
+                base_version = ConfigManager.base_version,
+#endif
                 version_declaration = ConfigManager.versionDeclaration
             };
             Debug.Log($"发送发布版本号: {request.release_version}, 发行版声明: {request.version_declaration}");

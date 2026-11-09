@@ -21,7 +21,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "use_flowers", "tian_di_ren_he", "joker_multi_wait", "no_joker_bonus", "black_flower_progressive", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+            "tips", "use_flowers", "tian_di_ren_he", "jinluo_mode", "jinluo_weather", "joker_multi_wait", "no_joker_bonus", "black_flower_progressive", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
         } },
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -57,7 +57,7 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
-        { "jiandan", new List<string> {
+        { "zhongyong", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
         } },
@@ -100,7 +100,7 @@ public class RoomConfigContainer : MonoBehaviour {
         ClearRoomConfig(container);
         foreach (var field in BuildDisplayFields(roomInfo)) {
             ConfigItem item = Instantiate(configItemPrefab, container);
-            item.SetConfig(field.Key, field.Value);
+            item.SetConfig(field.Key, field.Value, roomInfo.room_rule);
         }
     }
 
@@ -184,6 +184,7 @@ public class RoomConfigContainer : MonoBehaviour {
         }
         if (roomInfo.room_rule == "hongkong") definition = HongKong_Create_RoomConfig.Definition(roomInfo.sub_rule,values);
         foreach (DetailedConfigOption option in definition.Options) {
+            if (option.Key == WashizuDoubles.VisibleTeammateHandKey && !WashizuDoubles.IsEnabled(roomInfo.sub_rule)) continue;
             if (WashizuDoubles.IsEnabled(roomInfo.sub_rule) && option.Key == "end_deposits") continue;
             if (roomInfo.room_rule == "hongkong" && !HongKong_Create_RoomConfig.OptionVisible(option.Key,roomInfo.sub_rule,values)) continue;
             object raw = option.DefaultValue;
@@ -320,6 +321,12 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayName = "天地人和";
                 displayValue = roomInfo.tian_di_ren_he ? "开（各8番）" : "关";
                 return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(roomInfo.sub_rule);
+            case "jinluo_mode":
+                displayName = "金锣赛"; displayValue = roomInfo.jinluo_mode ? "开" : "关";
+                return roomInfo.sub_rule == "guobiao/standard";
+            case "jinluo_weather":
+                displayName = "七对天气"; displayValue = JinluoRules.WeatherLabel(roomInfo.jinluo_weather);
+                return roomInfo.sub_rule == "guobiao/standard" && roomInfo.jinluo_mode;
             case "blood_battle":
                 displayName = "血战到底";
                 displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";

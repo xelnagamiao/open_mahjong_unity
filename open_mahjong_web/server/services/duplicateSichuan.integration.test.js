@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 const { ensureDuplicateTables } = require('../utils/duplicateTables');
 const { createDuplicateWallService, fullWall } = require('./duplicateWalls');
 
-test('Sichuan keys use real authenticated routes and PostgreSQL for both venues and all three types', {
+test('Sichuan keys use authenticated routes and PostgreSQL for personal, event and base scopes', {
   skip: !process.env.DUPLICATE_TEST_DATABASE_URL,
 }, async (t) => {
   const connectionString = process.env.DUPLICATE_TEST_DATABASE_URL;
@@ -44,13 +44,16 @@ test('Sichuan keys use real authenticated routes and PostgreSQL for both venues 
     const post = (body, auth = token) => fetch(base, { method: 'POST', headers: {
       'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${auth}` } : {}),
     }, body: JSON.stringify(body) });
-    for (const event_id of ['test-event', 'test-base']) {
+    for (const event_id of [null, 'test-event', 'test-base']) {
       for (const rule of ['sichuan/sbr', 'sichuan/xueliu']) {
+        const scope = event_id ? 'event' : 'personal';
+        const auth = !event_id && rule === 'sichuan/xueliu'
+          ? signToken({ user_id: 201, aud: config.playerAuth.audience }, config.playerAuth.jwtSecret, 3600) : token;
         for (const wall_type of ['manual', 'seed', 'key']) {
           await t.test(`${event_id} / ${rule} / ${wall_type}`, async () => {
-            const body = { scope: 'event', event_id, rule, wall_type, round_count: 4,
+            const body = { scope, event_id, rule, wall_type, round_count: 4,
               use_flowers: false, seed: 'same-series', round_tiles: Array.from({ length: 4 }, () => fullWall(rule)) };
-            const response = await post(body);
+            const response = await post(body, auth);
             assert.equal(response.status, 201);
             const wall = (await response.json()).data.wall;
             assert.equal(wall.wall_layout, rule === 'sichuan/sbr' ? 'sbr' : 'xueliu');
@@ -58,11 +61,13 @@ test('Sichuan keys use real authenticated routes and PostgreSQL for both venues 
             assert.equal(wall.use_flowers, false);
             assert.equal(wall.round_count, 4);
             assert.equal(wall.is_unlocked, false);
+            assert.equal(wall.scope, scope);
+            assert.equal(wall.event_id, event_id);
             if (wall_type === 'key') assert.ok(!('tiles' in wall) && !('seed' in wall) && !('round_tiles' in wall));
             const stored = (await pool.query('SELECT * FROM duplicate_walls WHERE id=$1', [wall.id])).rows[0];
             for (const tiles of stored.round_tiles) assert.deepEqual([...tiles].sort((a,b)=>a-b), fullWall(rule));
             if (wall_type === 'manual') assert.deepEqual(stored.round_tiles, body.round_tiles);
-            const listed = await fetch(`${base}/mine?scope=event&event_id=${event_id}`, { headers: { Authorization: `Bearer ${token}` } });
+            const listed = await fetch(`${base}/mine?scope=${scope}${event_id ? '&event_id=' + event_id : ''}`, { headers: { Authorization: `Bearer ${auth}` } });
             assert.equal(listed.status, 200);
             const readback = (await listed.json()).data.items.find(item => item.id === wall.id);
             assert.equal(readback.rule, rule);
@@ -82,16 +87,13 @@ test('Sichuan keys use real authenticated routes and PostgreSQL for both venues 
           assert.equal((await post({ ...body, rule, tiles })).status, 400);
         }
         assert.equal((await post({ ...body, rule, wall_type: 'key', use_flowers: true })).status, 400);
-        for (const wall_type of ['manual', 'seed', 'key']) {
-          assert.equal((await post({ ...body, scope: 'personal', rule, wall_type, seed: 'test' })).status, 400);
-        }
       }
       for (const rule of [['sichuan/sbr'], { rule: 'sichuan/sbr' }, 0, false]) {
         assert.equal((await post({ ...body, rule, wall_type: 'key' })).status, 400);
       }
       assert.equal((await post(body, '')).status, 401);
       assert.equal((await post({ ...body, event_id: 'not-owned' })).status, 403);
-      assert.equal((await post({ ...body, scope: 'personal' })).status, 400);
+      assert.equal((await post({ ...body, scope: 'personal' }, '')).status, 401);
       assert.equal(Number((await pool.query('SELECT count(*) FROM duplicate_walls')).rows[0].count), before);
     });
   } finally {

@@ -61,8 +61,8 @@ public sealed class PlatformFontBinding : MonoBehaviour
             material = outline ? profile.outlineMaterial : shadow ? profile.shadowMaterial : profile.faceMaterial;
             if (!material) material = source.material;
         }
-        bool chinese = PlatformTypography.HasChinese(label.text);
-        appliedFont = preserveAuthoredChineseFace && chinese && !profile ? source
+        bool chinese = PlatformTypography.HasCjk(label.text);
+        appliedFont = preserveAuthoredChineseFace && chinese && !profile && !PlatformTypography.UseJapaneseFont(label.text) ? source
             : preserveAuthoredTypeface && !profile ? PlatformTypography.ResolvePreserved(source, label.text, label.richText)
             : PlatformTypography.Resolve(source, label.text, label.richText);
         appliedMaterial = PlatformTypography.ResolveMaterial(material, appliedFont);

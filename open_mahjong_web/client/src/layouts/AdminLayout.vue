@@ -67,6 +67,7 @@ const menuItems = [
   { index: '/admin/users', label: '用户' },
   { index: '/admin/titles', label: '头衔' },
   { index: '/admin/inventory', label: '物品' },
+  { index: '/admin/shop', label: '商店' },
   { index: '/admin/redemption', label: '兑换码' },
   { index: '/admin/events', label: '赛事', badge: 'event' },
   { index: '/admin/bases', label: '基地', badge: 'base' },
@@ -81,6 +82,7 @@ const menuItems = [
   { index: '/admin/classic-records', label: '经典牌谱' },
   { index: '/admin/platform-content', label: '鸣谢与社群' },
   { index: '/admin/send-email', label: '发送邮件' },
+  { index: '/admin/mailbox', label: '邮箱' },
   { index: '/admin/ip-bans', label: 'IP 封禁' },
   { index: '/admin/stats', label: '全站统计' },
 ]

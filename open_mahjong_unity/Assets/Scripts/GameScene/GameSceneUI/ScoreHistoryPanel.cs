@@ -262,7 +262,8 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         var mgr = NormalGameStateManager.Instance;
         bool fromRecord = recordRoundIndices != null;
         if (string.IsNullOrEmpty(subRuleFallback) && !fromRecord) subRuleFallback = mgr?.subRule;
-        bool isSanma = MahjongPlayerCount.ForSubRule(ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback)) == 3;
+        string resolvedSubRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback);
+        bool isSanma = MahjongPlayerCount.ForSubRule(resolvedSubRule) == 3;
         int playerCount = isSanma ? 3 : 4;
         var sorted = SelectScoreboardPlayers(player_to_info, isSanma);
         if (sorted.Count < playerCount) return;
@@ -303,7 +304,8 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             roundSettlements,
             totalRounds,
             subRuleFallback,
-            recordRoundIndices);
+            recordRoundIndices,
+            SichuanLobby.IsTeamMode(resolvedSubRule) ? ResolveSichuanScoreboardTeams(player_to_info, fromRecord) : null);
     }
 
     internal static List<PlayerInfoClass> SelectScoreboardPlayers(IReadOnlyDictionary<string, PlayerInfoClass> players, bool isSanma) {
@@ -375,8 +377,10 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
         int totalRounds = 0,
         string subRuleFallback = null,
-        IReadOnlyList<int> recordRoundIndices = null)
+        IReadOnlyList<int> recordRoundIndices = null,
+        IReadOnlyList<int> teamByOriginal = null)
     {
+        RestoreSichuanTeamColumns();
         EnsureMainFanColumnSetup();
         isRecordScoreboard = recordRoundIndices != null;
         roundSelections.Clear();
@@ -555,6 +559,11 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
                 AddEmptyCell(player.gameScoreContainer);
             }
         }
+        ApplySichuanTeamColumns(subRule, teamByOriginal,
+            new[] { originIndex0, originIndex1, originIndex2, originIndex3 },
+            new[] { absoluteScore0, absoluteScore1, absoluteScore2, absoluteScore3 },
+            new[] { scoreHistory0, scoreHistory1, scoreHistory2, scoreHistory3 },
+            roundCount, predictedRoundNumbers.Count);
         RefreshSelections();
     }
 

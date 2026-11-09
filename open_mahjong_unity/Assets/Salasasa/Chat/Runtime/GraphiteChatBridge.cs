@@ -42,6 +42,7 @@ namespace Salasasa.Chat
             public string author, text, time, type, sourceContent, conversationKey;
             public int room, senderUserId;
             public bool mine;
+            public bool HasPlayerSender => type == "Chat" || type == "Sercet" || type == "Conversation" && senderUserId > 0;
         }
         readonly List<Message> history = new List<Message>();
         readonly Dictionary<string,string> drafts = new Dictionary<string,string>(StringComparer.Ordinal);
@@ -84,7 +85,11 @@ namespace Salasasa.Chat
             foreach(var row in view.messages){var r=row;r.button.onClick.AddListener(()=>ShowMessage(r));r.avatarButton.onClick.AddListener(()=>ShowProfile(r));r.nameButton.onClick.AddListener(()=>ShowProfile(r));}
             popupDismiss.onClick.AddListener(HidePopup);popupClose.onClick.AddListener(HidePopup);
             copyButton.onClick.AddListener(()=>{if(popupMessage!=null)GUIUtility.systemCopyBuffer=popupMessage.text;HidePopup();});
-            profileButton.onClick.AddListener(()=>{if(ProfileUserId>0){ProfileOnClick.OpenPlayerInfo(ProfileUserId);HidePopup();}});
+            profileButton.onClick.AddListener(()=>{
+                if(ProfileUserId>0)ProfileOnClick.OpenPlayerInfo(ProfileUserId);
+                else if(popupMessage?.HasPlayerSender==true)ProfileOnClick.OpenPlayerInfoByName(popupMessage.author);
+                HidePopup();
+            });
             HidePopup();Refresh();
         }
         void OnDestroy()
@@ -144,7 +149,11 @@ namespace Salasasa.Chat
             var button=LobbyButton;
             Vector3 buttonPosition=button?button.position:Vector3.zero;
             if(!previousVisible||layoutAtTable!=AtTable||layoutSize!=canvasRect.rect.size||layoutSide!=side||layoutButtonPosition!=buttonPosition){layoutAtTable=AtTable;layoutSize=canvasRect.rect.size;layoutSide=side;layoutButtonPosition=buttonPosition;Layout();Canvas.ForceUpdateCanvases();UpdatePresencePosition();RenderMessages(false);HidePopup();}
-            if(!previousVisible){Refresh();MarkSelectedRead();view.composer.ActivateInputField();}
+            if(!previousVisible){
+                Refresh();MarkSelectedRead();
+                // On mobile, opening chat should not summon the keyboard; wait for a tap on the composer.
+                if(!Application.isMobilePlatform)view.composer.ActivateInputField();
+            }
             if(Mathf.Abs(view.messageContent.rect.width-messageWidth)>.5f)RenderMessages(false);
             UpdateComposer();previousVisible=true;
         }
@@ -288,11 +297,12 @@ namespace Salasasa.Chat
         void ShowProfile(ChatMessageRow row)
         {
             if(row.boundIndex<0||row.boundIndex>=shown.Count)return;
+            if(!shown[row.boundIndex].HasPlayerSender)return;
             popupMessage=shown[row.boundIndex];ProfileUserId=popupMessage.senderUserId>0?popupMessage.senderUserId:popupMessage.mine?UserDataManager.Instance.UserId:0;
             PopupKind="profile";popup.SetActive(true);popupTitle.gameObject.SetActive(true);popupDetail.gameObject.SetActive(true);popupClose.gameObject.SetActive(true);
             popupTitle.text=popupMessage.author;popupDetail.text=ProfileUserId>0?"UID: "+ProfileUserId:"";
-            profileButton.gameObject.SetActive(ProfileUserId>0);copyButton.gameObject.SetActive(false);
-            popupCard.sizeDelta=new Vector2(320,ProfileUserId>0?150:82);PlacePopup(row.author.rectTransform);
+            profileButton.gameObject.SetActive(true);copyButton.gameObject.SetActive(false);
+            popupCard.sizeDelta=new Vector2(320,150);PlacePopup(row.author.rectTransform);
         }
         void PlacePopup(RectTransform anchor)
         {
@@ -314,6 +324,8 @@ namespace Salasasa.Chat
             for(int i=0;i<v.messages.Length;i++){
                 var r=v.messages[i];int n=i+start;r.gameObject.SetActive(n<messages.Count);if(n>=messages.Count)continue;
                 var m=messages[n];r.boundIndex=n;r.author.gameObject.SetActive(true);r.button.interactable=true;r.author.text=m.author;r.time.gameObject.SetActive(true);r.body.text=m.text;r.body.richText=false;r.body.alignment=TextAlignmentOptions.TopLeft;
+                r.avatarButton.enabled=r.nameButton.enabled=m.HasPlayerSender;
+                r.portrait.raycastTarget=r.author.raycastTarget=m.HasPlayerSender;
                 if(m.type=="LoginTime"||m.type=="RoomJoined"||m.type=="RoomLeft"){
                     var line=(RectTransform)r.transform;line.anchoredPosition=new Vector2(0,-y);line.sizeDelta=new Vector2(0,v.messageLineHeight);
                     r.author.gameObject.SetActive(false);r.time.gameObject.SetActive(false);r.portrait.gameObject.SetActive(false);r.button.interactable=false;
@@ -323,7 +335,7 @@ namespace Salasasa.Chat
                     r.body.text="────────  "+m.text+"  ────────";y+=v.messageLineHeight+v.messageGap;continue;
                 }
                 r.portrait.gameObject.SetActive(!PlainText);avatarInitials[i].text=m.author.Length>0?m.author.Substring(0,1):"";
-                r.nameButton.enabled=true;r.author.raycastTarget=true;r.author.richText=false;r.author.overflowMode=TextOverflowModes.Ellipsis;
+                r.author.richText=false;r.author.overflowMode=TextOverflowModes.Ellipsis;
                 r.author.font=v.senderFont;r.author.fontSize=PlainText?v.senderFontSize:13;r.author.fontStyle=FontStyles.Normal;r.author.fontWeight=FontWeight.Regular;r.author.textWrappingMode=TextWrappingModes.NoWrap;
                 r.author.color=m.author=="系统"?style.secondary:SenderColor(m.author,m.mine);
                 r.body.color=m.type=="False"||m.type=="RoomSendFailed"?new Color32(236,166,166,255):m.type=="serverMessage"?new Color32(235,143,211,255):v.text;r.body.fontSize=v.messageFontSize;r.body.fontStyle=FontStyles.Normal;r.body.fontWeight=FontWeight.Regular;

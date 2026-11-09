@@ -32,6 +32,8 @@ namespace Salasasa.Home
                 case "HandSortRiichiDragonRow": return config.HandSortRiichiDragonOrderMode;
                 case "ConfigWhiteType": return config.WhiteDragonFaceMode;
                 case "ActionButtonColorRow": return config.ActionButtonColorEnabled ? 1 : 0;
+                case "TileCornerLabelsRow": return config.TileCornerLabelsEnabled ? 1 : 0;
+                case "DoraHintsRow": return config.DoraHintsEnabled ? 1 : 0;
                 case "VsyncRow": return config.VsyncEnabled ? 1 : 0;
                 case "TileOutlineStyleRow": return 0;
                 case "MeldSpacingRow": return RuleRegistry.Current?.MeldSpacingEnabled == true || config.MeldSpacingEnabled ? 1 : 0;
@@ -66,6 +68,8 @@ namespace Salasasa.Home
                 case "HandSortRiichiDragonRow": config.SetHandSortRiichiDragonOrderMode(value); break;
                 case "ConfigWhiteType": config.SetWhiteDragonFaceMode(value); break;
                 case "ActionButtonColorRow": config.SetActionButtonColorEnabled(value == 1); break;
+                case "TileCornerLabelsRow": config.SetTileCornerLabelsEnabled(value == 1); break;
+                case "DoraHintsRow": config.SetDoraHintsEnabled(value == 1); break;
                 case "VsyncRow": config.SetVsyncEnabled(value == 1); break;
                 case "MeldSpacingRow": config.SetMeldSpacingEnabled(value == 1); break;
                 case "LanguageRow": config.SetLanguageMode(value); break;

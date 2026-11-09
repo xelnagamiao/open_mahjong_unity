@@ -19,97 +19,10 @@ def _generate_game_id(length: int = GAME_ID_LENGTH) -> str:
 
 
 def store_riichi_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str) -> Optional[str]:
-    if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-        logger.info("立直对局包含机器人，跳过牌谱与对局记录保存")
-        return None
-
-    conn = None
-    try:
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-
-        game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
-        max_retries = 5
-        game_id = None
-        for _ in range(max_retries):
-            candidate_id = _generate_game_id()
-            try:
-                cursor.execute(
-                    "INSERT INTO game_records (game_id, record) VALUES (%s, %s)",
-                    (candidate_id, game_record_json),
-                )
-                game_id = candidate_id
-                break
-            except Error:
-                conn.rollback()
-                continue
-        if game_id is None:
-            logger.error("立直牌谱多次生成 game_id 均失败")
-            return None
-
-        game_title = game_record.get("game_title") or {}
-        rule = game_title["rule"]
-        sub_rule = game_title["sub_rule"]
-        match_tier = game_title.get("match_tier")
-        event_id = game_title.get("event_id")
-        from ..scene_stats import normalize_scene_fields
-        room_type, match_tier, event_id = normalize_scene_fields(room_type, match_tier, event_id)
-        saved_count = 0
-        for player in player_list:
-            rank = player.record_counter.rank_result
-            try:
-                cursor.execute("""
-                    INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id,
-                        title_used, character_used, profile_used, voice_used, avatar_frame_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    game_id,
-                    player.user_id,
-                    player.username,
-                    player.score,
-                    rank,
-                    player.original_player_index,
-                    rule,
-                    sub_rule,
-                    match_type,
-                    room_type,
-                    match_tier,
-                    event_id,
-                    getattr(player, "title_used", None),
-                    getattr(player, "character_used", None),
-                    getattr(player, "profile_used", None),
-                    getattr(player, "voice_used", None),
-                    getattr(player, "avatar_frame_used", 0),
-                ))
-                saved_count += 1
-            except Exception as e:
-                logger.warning(f"跳过立直玩家对局记录: user_id={player.user_id}, error={e}")
-                raise
-
-        from ..player_recent_records import update_player_recent_records
-        from .record_stats import write_stats
-        for player in player_list:
-            write_stats(cursor, game_id, player.user_id, game_record,
-                        player.original_player_index, player.score, player.record_counter.rank_result)
-        update_player_recent_records(cursor, game_id, game_record)
-        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
-        from ..scene_stats import record_game_metrics
-        record_game_metrics(db_manager, game_id, game_record, player_list, {
-            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
-            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
-        }, cursor=cursor)
-        conn.commit()
-        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
-        return game_id
-    except Exception as e:
-        logger.error(f"立直牌谱存储失败: {e}", exc_info=True)
-        if conn:
-            conn.rollback()
-        return None
-    finally:
-        if conn:
-            db_manager._put_connection(conn)
+    """Publish replay, metrics and currency through the shared atomic path."""
+    from ..record_persistence import persist_game_record
+    return persist_game_record(db_manager, game_record, player_list, room_type, match_type,
+                               _generate_game_id)
 
 
 def store_riichi_game_stats(db_manager, game_id: str, player_list: list, room_type: str, max_round: int, total_rounds: int) -> None:

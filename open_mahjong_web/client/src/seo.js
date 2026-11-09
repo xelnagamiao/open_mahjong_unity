@@ -206,7 +206,6 @@ export const LIBRARY_RULE_PATHS = [
   'sichuan',
   'changsha',
   'taiwan',
-  'jiandan',
   'zhongyong',
   'shiyangjin',
   'guobiao-kobayashi',

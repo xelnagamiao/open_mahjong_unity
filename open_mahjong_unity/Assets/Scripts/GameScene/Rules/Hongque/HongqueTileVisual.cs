@@ -10,6 +10,8 @@ public static class HongqueTileVisual {
     public const int BaseId = 1000;
     public const int ColourCount = 15;
     public const int NumberCount = 9;
+    // The original 3D mapping crops the table texture vertically around its center.
+    public const float TableVerticalScale = 1.1f;
 
     private static readonly string[] ColourCodes = {
         "AX", "AY", "BX", "BY", "CX", "CY", "DX",

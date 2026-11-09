@@ -37,7 +37,7 @@ internal static class WuhanRuleBootstrap {
             SettlementTotal = query => new SettlementTotalDisplay {
                 FanText = "逐家6番起和", ScoreText = query.WinnerPointDelta.HasValue ? $"{query.WinnerPointDelta.Value}点" : "" },
             ScoreboardFanText = query => $"最低{query.HuScore}番",
-            ActionCaption = word => word == "buhua" ? "杠" : null,
+            ActionCaption = word => word == "angang" ? "杠补牌" : word == "buhua" ? "杠" : null,
             ActionVoice = word => word == "buhua" ? "gang" : word == "hu_self" ? "hu" : null,
             RoundName = round => $"第{round}副", RoundStatusText = info => $"第{info.current_round}副", MaxRoundText = rounds => $"{rounds * 4}副",
             RoundSupplementText = info => "6番起和",

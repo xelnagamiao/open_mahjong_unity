@@ -41,7 +41,15 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     /// <summary>设置提示内容并显示。</summary>
     public void ShowMessage(string type, bool success, string message) {
+        ShowMessage(type, success, message, null);
+    }
+
+    public void ShowMessage(string type, bool success, string message, string ruleContext) {
         var localized = messageText.GetComponent<LocalizedPlatformLabel>();
+        if (ruleContext != null) {
+            if (localized == null) localized = messageText.gameObject.AddComponent<LocalizedPlatformLabel>();
+            localized.context = ruleContext;
+        }
         if (localized != null) { localized.fitTranslation = false; localized.SetSource(message); }
         else messageText.text = message;
         messageText.fontSize = 22;

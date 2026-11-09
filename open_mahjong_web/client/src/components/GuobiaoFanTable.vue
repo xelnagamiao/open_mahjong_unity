@@ -23,19 +23,19 @@
                 :class="{ 'is-selected': currentPage === page.id }" @click="selectPage(page.id)">{{ tr(page.title) }}</button>
             </nav>
             <div id="fan-table-fans" v-show="currentPage === 'fans'" class="fan-table__content">
-          <div class="fan-table__tabs" role="tablist" :aria-label="tr('番数')" @keydown="onTabKeydown">
+          <div class="fan-table__tabs" role="tablist" :aria-label="translateRuleText('番数', locale, selectedRule)" @keydown="onTabKeydown">
             <button v-for="fan in fanValues" :id="'fan-table-tab-' + fan" :key="fan" type="button" role="tab"
               :aria-selected="currentFan === fan" aria-controls="fan-table-entries" :tabindex="currentFan === fan ? 0 : -1"
               :class="{ 'is-selected': currentFan === fan }" @click="selectFan(fan)">
-              {{ formatFanCount(fan) }}
+              {{ formatFanCount(fan, locale, selectedRule) }}
             </button>
           </div>
           <div id="fan-table-entries" ref="list" class="fan-table__list" role="tabpanel"
             :aria-labelledby="'fan-table-tab-' + currentFan" tabindex="0">
             <article v-for="entry in visibleEntries" :key="entry.number" class="fan-table__entry">
               <div class="fan-table__name">
-                <h3>{{ translateFanName(entry.name) }}</h3>
-                <span>{{ formatFanCount(entry.fan) }}</span>
+                <h3>{{ translateFanName(entry.name, locale, selectedRule) }}</h3>
+                <span>{{ formatFanCount(entry.fan, locale, selectedRule) }}</span>
               </div>
               <div class="fan-table__body">
                 <p class="fan-table__description">{{ tr(entry.description) }}</p>
@@ -72,7 +72,7 @@ import catalog from '@/constants/guobiaoFanTable.json'
 import guide from '@/constants/guobiaoRuleGuide.json'
 import { fanExampleFaceDown, parseFanExample } from '@/utils/guobiaoFanExample'
 import { locale, tr } from '@/i18n'
-import { formatFanCount, translateFanName } from '@/i18n/fanNames'
+import { formatFanCount, translateFanName, translateRuleText } from '@/i18n/fanNames'
 
 defineProps({ interfaceTheme: { type: String, default: 'light' } })
 

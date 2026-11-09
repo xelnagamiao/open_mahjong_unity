@@ -1,7 +1,7 @@
 from ..game_calculation.team_rules import is_team_sub_rule
 from ..database.duplicate_walls import apply_duplicate_room_config, load_duplicate_wall
 from typing import Dict, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator, ShanghaiRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, ZhongyongRoomValidator, TaiwanRoomValidator, FreeRoomValidator, ShanghaiRoomValidator
 from .filipino_room import FilipinoRoomValidator, create_filipino_room
 from .vietnamese_room import VietnameseRoomValidator, create_vietnamese_room
 from .hongkong_room import HongKongRoomValidator, create_hongkong_room
@@ -56,8 +56,8 @@ class RoomManager:
         self.room_validators = {
             "guobiao": GBRoomValidator,
             "changsha": ChangshaRoomValidator,
-            "jiandan": JiandanRoomValidator,
-            "hongque": JiandanRoomValidator,
+            "zhongyong": ZhongyongRoomValidator,
+            "hongque": ZhongyongRoomValidator,
             "free": FreeRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
@@ -113,6 +113,9 @@ class RoomManager:
         return None
 
     def _reject_room_entry_conflicts(self, user_id: int, action: str = "进入或创建房间") -> Optional[Response]:
+        party_manager = getattr(self.game_server, 'party_manager', None)
+        if party_manager and party_manager.multi(user_id):
+            return Response(type='tips', success=False, message='请先离开队伍，再进入或创建自定义房间')
         if user_id in getattr(self, "event_seating_users", ()):
             return Response(type="tips", success=False, message="正在为您组桌，请稍候")
         blocked = self._reject_if_in_active_game(user_id, action)
@@ -133,6 +136,10 @@ class RoomManager:
         return None
 
     def find_player_room(self, user_id: int):
+        from .sichuan_lobby import find_member
+        lobby = find_member(self, user_id)
+        if lobby is not None:
+            return lobby
         return next((room for room in self.rooms.values() if user_id in room.get("player_list", [])), None)
 
     def is_room_member_online(self, user_id: int) -> bool:
@@ -269,7 +276,13 @@ class RoomManager:
                         continue
                 elif is_event_room:
                     continue
-                room_list.append(room_data)
+                if room_data.get("duplicate_lobby_room_id"):
+                    if room_data["room_id"] != room_data["duplicate_lobby_room_id"]:
+                        continue
+                    from .sichuan_lobby import public_lobby
+                    room_list.append(public_lobby(self, room_data))
+                else:
+                    room_list.append(room_data)
             return Response(
                 type="room/get_room_list",
                 success=True,
@@ -285,7 +298,7 @@ class RoomManager:
             )
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id: Optional[str] = None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False, joker_multi_wait: bool = False, no_joker_bonus: str = "add8", black_flower_progressive: bool = True) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id: Optional[str] = None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False, joker_multi_wait: bool = False, no_joker_bonus: str = "add8", black_flower_progressive: bool = True, jinluo_mode: bool = False, jinluo_weather: str = "dragon_pairs") -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -353,6 +366,8 @@ class RoomManager:
                 "cuohe_type": cuohe_type, # 错和形式
                 "tactical_call": tactical_call, # 战术鸣牌
                 "claim_protection": claim_protection, # 鸣牌保护
+                "jinluo_mode": jinluo_mode,
+                "jinluo_weather": jinluo_weather,
                 "use_flowers": False if sub_rule == "guobiao/lanshi" else True if sub_rule == "guobiao/huahun" else use_flowers,
                 "no_joker_bonus": no_joker_bonus,
                 "black_flower_progressive": black_flower_progressive,
@@ -364,6 +379,11 @@ class RoomManager:
             try:
                 validator_class = self.room_validators["guobiao"]
                 validated_config = validator_class(**room_config) # 解包room_config 调用验证器方法
+                from ..game_calculation.guobiao_jinluo import validate_room_config
+                validate_room_config(sub_rule, validated_config.jinluo_mode, validated_config.jinluo_weather)
+                if validated_config.jinluo_mode:
+                    validated_config.open_cuohe, hepai_limit = True, 8
+                    tips = False
             except ValueError as e:
                 return Response(
                     type="tips",
@@ -712,7 +732,7 @@ class RoomManager:
         except Exception as e:
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
-    async def create_Jiandan_room(
+    async def create_Zhongyong_room(
         self,
         player_id: str,
         room_name: str,
@@ -722,7 +742,7 @@ class RoomManager:
         stepTimerValue: int,
         tips: bool,
         random_seed: int = 0,
-        sub_rule: str = "jiandan/standard",
+        sub_rule: str = "zhongyong/standard",
         tourist_limit: bool = False,
         allow_spectator: bool = True,
         tactical_call: bool = False,
@@ -733,9 +753,6 @@ class RoomManager:
     ) -> Response:
         """Create a standard Zhongyong or Nanque room; the subrule fixes hand flow."""
         try:
-            # The old creation endpoint is only an alias; every new record uses the current family.
-            if sub_rule == "jiandan/standard":
-                sub_rule = "zhongyong/nanque"
             if sub_rule not in {"zhongyong/standard", "zhongyong/nanque"}:
                 return Response(type="tips", success=False, message="不支持的中庸子规则")
             if player_id not in self.game_server.players:
@@ -767,7 +784,7 @@ class RoomManager:
                 "claim_protection": claim_protection,
             }
             try:
-                validated_config = self.room_validators["jiandan"](**room_config)
+                validated_config = self.room_validators["zhongyong"](**room_config)
             except ValueError as e:
                 return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
 
@@ -1190,11 +1207,10 @@ class RoomManager:
                                   password: str, roundTimerValue: int, stepTimerValue: int,
                                   tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard",
                                   tourist_limit: bool = False, allow_spectator: bool = True,
-                                  tactical_call: bool = True, blood_battle: bool = True, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
+                                  tactical_call: bool = True, blood_battle: bool = True, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0,
+                                  duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False) -> Response:
         """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
-        from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule, ADMIN_ONLY_MESSAGE
-        if is_duplicate_sub_rule(sub_rule):
-            return Response(type="tips", success=False, message=ADMIN_ONLY_MESSAGE)
+        from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
         try:
             if player_id not in self.game_server.players:
                 return Response(type="tips", success=False, message="请先登录")
@@ -1211,6 +1227,33 @@ class RoomManager:
             if event_blocked:
                 return event_blocked
             host_name = player.username
+
+            if is_duplicate_sub_rule(sub_rule):
+                if tourist_limit and getattr(player, "is_tourist", False):
+                    return Response(type="tips", success=False, message="游客不能创建限制游客加入的复式房间")
+                if event_id and not self.game_server.db_manager.get_event_admin_role(event_id, host_user_id):
+                    return Response(type="tips", success=False, message="赛事或基地复式须由该场馆管理员创建")
+                from .sichuan_duplicate import create_pair
+                config = dict(room_name=room_name, sub_rule=sub_rule, round_timer=roundTimerValue,
+                              step_timer=stepTimerValue, random_seed=random_seed, tips=tips,
+                              count_tips=count_tips, pointer_tips=pointer_tips, tourist_limit=tourist_limit,
+                              tactical_call=tactical_call, claim_protection=claim_protection,
+                              allow_spectator=allow_spectator,
+                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode)
+                if duplicate_round_count is not None:
+                    config["duplicate_round_count"] = duplicate_round_count
+                response = await create_pair(self, event_id, sub_rule, config, password, host_user_id)
+                if not response.success:
+                    return response
+                from .sichuan_lobby import join, public_lobby
+                root = self.rooms[response.room_info["room_id"]]
+                joined = await join(self, player_id, root, password)
+                if not joined.success:
+                    return joined
+                return Response(type="room/create_room_done", success=True, message="八人复式房间已创建",
+                                room_info=public_lobby(self, root))
+            if duplicate_key:
+                return Response(type="tips", success=False, message="川麻复式密钥仅支持双打复式子规则")
 
             host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
             if not host_settings:
@@ -1568,8 +1611,14 @@ class RoomManager:
         except Exception as e:
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
-    async def join_room(self, player_id: str, room_id: str, password: str) -> Response:
+    async def join_room(self, player_id: str, room_id: str, password: str, *, expected_instance_id: Optional[str] = None) -> Response:
         try:
+            # Invitation identity is checked in the same synchronous section as seating,
+            # before even restoring an existing member. Never fall back to the short ID.
+            if expected_instance_id is not None:
+                from .room_invites import matching_room, EXPIRED_MESSAGE
+                if matching_room(self, room_id, expected_instance_id) is None:
+                    return Response(type="error_message", success=False, message=EXPIRED_MESSAGE)
             # 检查房间是否存在
             if room_id not in self.rooms:
                 return Response(
@@ -1579,6 +1628,9 @@ class RoomManager:
                 )
 
             room_data = self.rooms[room_id]
+            if room_data.get("duplicate_lobby_room_id"):
+                from .sichuan_lobby import join
+                return await join(self, player_id, room_data, password)
             if room_data.get("duplicate_match_id") and room_data.get("duplicate_status") in ("completed", "cancelled"):
                 return Response(type="error_message", success=False, message="该组复式比赛已结束，请加入新的比赛房间")
             player = self.game_server.players[player_id]
@@ -1721,6 +1773,13 @@ class RoomManager:
                 )
 
             room_data = self.rooms[room_id]
+            if room_data.get("duplicate_lobby_room_id"):
+                from .sichuan_lobby import leave
+                response = await leave(self, Connect_id, room_data)
+                if response.success and not room_data.get("event_id") and room_data.get("room_type") == "custom":
+                    from .sichuan_duplicate import delete_pair
+                    await delete_pair(self, room_data, only_if_empty=True)
+                return response
             player = self.game_server.players[Connect_id]
             if is_team_sub_rule(room_data.get("sub_rule")) and room_data.get("is_game_running"):
                 return Response(type="error_message", success=False, message="双打对局中阵容已锁定，请通过对局离开或重连")
@@ -1842,9 +1901,17 @@ class RoomManager:
         blocked = self._validate_event_for_room(event_id, None)
         if blocked:
             return blocked
+        if room.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import action, pair_for
+            pair = pair_for(self, room)
+            result = await action(self, None, room_id, dict(action="add_bot", seat_index=seat_index,
+                bot_kind=bot_user_id, roster_revision=pair.data["lobby"]["revision"]), admin_bot=True)
+            return result or Response(type="tips", success=True, message="机器人已添加到房间")
         return await self._seat_room_bot(room_id, room, bot_user_id, seat_index)
 
     async def _seat_room_bot(self, room_id, room, bot_user_id, seat_index):
+        if room.get("duplicate_lobby_room_id"):
+            return Response(type="tips", success=False, message="请通过八人房间的座位添加机器人")
         if type(bot_user_id) is not int or bot_user_id not in (0, 2, 3):
             return Response(type="error_message", success=False, message="机器人类型无效")
         if room.get("admin_closing") or room.get("event_seating_pending"):
@@ -1889,6 +1956,11 @@ class RoomManager:
                 )
 
             room_data = self.rooms[room_id]
+            if room_data.get("duplicate_lobby_room_id"):
+                from .sichuan_lobby import action, pair_for
+                pair = pair_for(self, room_data)
+                return await action(self, Connect_id, room_id, dict(action="remove", seat_index=seat_index,
+                    user_id=target_user_id, roster_revision=pair.data["lobby"]["revision"]))
 
             # 检查请求者是否为房主
             self._sync_room_host(room_data)
@@ -1988,6 +2060,10 @@ class RoomManager:
             )
 
     async def set_bot_speed(self, Connect_id: str, room_id: str, speed) -> Optional[Response]:
+        room = self.rooms.get(room_id)
+        if room and room.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import setting
+            return await setting(self, Connect_id, room, "bot_speed", speed)
         from ..gamestate.public.ai.pacing import BOT_SPEEDS
 
         room = self.rooms.get(room_id)
@@ -2010,6 +2086,10 @@ class RoomManager:
         return None
 
     async def set_claim_protection(self, Connect_id: str, room_id: str, enabled) -> Optional[Response]:
+        room = self.rooms.get(room_id)
+        if room and room.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import setting
+            return await setting(self, Connect_id, room, "claim_protection", enabled)
         from ..gamestate.public.claim_protection import supports_claim_protection
         room = self.rooms.get(room_id)
         player = self.game_server.players.get(Connect_id)
@@ -2047,6 +2127,10 @@ class RoomManager:
     async def move_duplicate_seat(self, Connect_id, room_id, *, revision, seat_index, target_seat):
         from .room_seats import move_duplicate_seat
         room = self.rooms.get(room_id)
+        if room and room.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import action
+            return await action(self, Connect_id, room_id, dict(action="seat", source_seat=seat_index,
+                seat_index=target_seat, roster_revision=revision))
         player = self.game_server.players.get(Connect_id)
         if room is None or player is None or player.user_id not in room.get("player_list", []):
             return Response(type="error_message", success=False, message="玩家不在房间中")
@@ -2059,6 +2143,10 @@ class RoomManager:
         return None
 
     async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool, roster_revision=None) -> Optional[Response]:
+        room = self.rooms.get(room_id)
+        if room and room.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import ready as set_lobby_ready
+            return await set_lobby_ready(self, Connect_id, room, ready, roster_revision)
         """设置玩家准备状态。房主无需准备；机器人默认视为已准备，不进入 ready_list。
         成功时返回 None（状态通过 refresh_room_info 广播刷新），失败时返回错误 Response。"""
         try:
@@ -2105,8 +2193,13 @@ class RoomManager:
         player_list = room_data.get("player_list", [])
         ready_list = room_data.get("ready_list", [])
         self._sync_room_host(room_data)
+        owner = room_data.get("host_user_id")
+        if room_data.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import pair_for, tables, host
+            pair = pair_for(self, room_data)
+            owner = host(pair, tables(self, pair))
         for user_id in player_list:
-            if user_id == room_data.get("host_user_id"):
+            if user_id == owner:
                 continue  # 房主无需准备
             if user_id <= 10:
                 continue  # 机器人默认已准备
@@ -2205,6 +2298,15 @@ class RoomManager:
             return Response(type="tips", success=False, message="请先登录")
 
         user_id = player.user_id
+        from .sichuan_lobby import find_member, public_lobby, pair_for, tables, location
+        lobby_room = find_member(self, user_id)
+        if lobby_room is not None:
+            pair = pair_for(self, lobby_room)
+            rooms = tables(self, pair)
+            seated = location(rooms, user_id)
+            player.current_room_id = rooms[seated[0]]["room_id"] if seated else lobby_room["room_id"]
+            return Response(type="room/refresh_room_info", success=True, message="房间信息更新",
+                            room_info=public_lobby(self, lobby_room))
         for room_id, room_data in self.rooms.items():
             if user_id in room_data.get("player_list", []):
                 from .tuidao_room import enforce_tuidao_tactical_room
@@ -2233,6 +2335,9 @@ class RoomManager:
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""
         room_data = self.rooms[room_id]
+        if room_data.get("duplicate_lobby_room_id"):
+            from .sichuan_lobby import broadcast
+            return await broadcast(self, room_data)
         from .changchun_room import enforce_changchun_tactical_room
         enforce_changchun_tactical_room(room_data)
         enforce_hangzhou_tactical_room(room_data)
@@ -2280,6 +2385,9 @@ class RoomManager:
             return event_blocked
 
         rule = (room_rule or "").strip()
+        for key in ("tips", "tourist_limit", "allow_spectator", "count_tips", "pointer_tips", "claim_protection", "tactical_call", "blood_battle", "open_cuohe", "use_flowers"):
+            if key in room_config and type(room_config[key]) is not bool:
+                return Response(type="tips", success=False, message=f"{key}必须为布尔值")
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
         if is_duplicate_sub_rule(room_config.get("sub_rule")) and not _paired_internal:
             if rule != "sichuan":
@@ -2337,7 +2445,7 @@ class RoomManager:
                 "game_round": int(room_config.get("game_round", 4)),
                 "round_timer": int(room_config.get("round_timer", 20)),
                 "step_timer": int(room_config.get("step_timer", 5)),
-                "random_seed": room_config.get("random_seed", 0) if rule == "guangdong" else int(room_config.get("random_seed", 0) or 0),
+                "random_seed": room_config.get("random_seed", 0) or 0,
             }
         except (TypeError, ValueError) as error:
             return Response(type="tips", success=False, message=f"房间配置无效: {error}")
@@ -2352,6 +2460,8 @@ class RoomManager:
             elif rule == "guobiao":
                 validated = self.room_validators["guobiao"](
                     **base_config,
+                    jinluo_mode=room_config.get("jinluo_mode", False),
+                    jinluo_weather=room_config.get("jinluo_weather", "dragon_pairs"),
                     use_flowers=False if sub_rule == "guobiao/lanshi" else room_config.get("use_flowers", True),
                     tian_di_ren_he=room_config.get("tian_di_ren_he", False) if sub_rule in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle", "guobiao/transparent", "guobiao/transparent_realtime", "guobiao/four_jokers", "guobiao/huahun", "guobiao/sixteen") else False,
                     no_joker_bonus=room_config.get("no_joker_bonus", "add8"),
@@ -2363,6 +2473,14 @@ class RoomManager:
                     claim_protection=room_config.get("claim_protection", True),
                 )
                 hepai_limit = 5 if sub_rule == "guobiao/lanshi" else max(1, min(64, int(room_config.get("hepai_limit", 8))))
+                if sub_rule == "guobiao/blood_battle":
+                    validated.open_cuohe, validated.tactical_call, hepai_limit = False, False, 8
+                    validated.cuohe_type = 0
+                from ..game_calculation.guobiao_jinluo import validate_room_config
+                validate_room_config(sub_rule, validated.jinluo_mode, validated.jinluo_weather)
+                if validated.jinluo_mode:
+                    validated.open_cuohe, hepai_limit = True, 8
+                    tips = False
             elif rule == "qingque":
                 validated = self.room_validators["guobiao"](
                     **base_config,
@@ -2512,6 +2630,11 @@ class RoomManager:
             room_data["hepai_limit"] = hepai_limit
         self._apply_event_fields(room_data, event_id)
         room_data.update(validated.dict())
+        for key, default in (("count_tips", False), ("pointer_tips", True)):
+            value = room_config.get(key, default)
+            if type(value) is not bool:
+                return Response(type="tips", success=False, message=f"{key}必须为布尔值")
+            room_data[key] = value
         if rule == "hongque":
             room_data.update(hongque_config)
             room_data["game_round"] = validated.game_round * 4
@@ -2542,7 +2665,13 @@ class RoomManager:
         items = []
         for room_data in self.rooms.values():
             if room_data.get("event_id") == event_id:
-                items.append(public_room_data(room_data))
+                if room_data.get("duplicate_lobby_room_id"):
+                    if room_data["room_id"] != room_data["duplicate_lobby_room_id"]:
+                        continue
+                    from .sichuan_lobby import public_lobby
+                    items.append(public_lobby(self, room_data))
+                else:
+                    items.append(public_room_data(room_data))
         return items
 
     async def admin_destroy_event_room(self, room_id: str, event_id: Optional[str] = None) -> Response:
@@ -2623,6 +2752,9 @@ class RoomManager:
         return self._event_auto_player_allowed(event, user_id, conn)
 
     def _event_auto_player_allowed(self, event, user_id, conn) -> bool:
+        parties = getattr(self.game_server, 'party_manager', None)
+        if parties and parties.multi(user_id):
+            return False
         db = self.game_server.db_manager
         cfg = db.parse_entry_config(event.get("entry_config"))
         from ..event.auto_match import event_auto_match_config

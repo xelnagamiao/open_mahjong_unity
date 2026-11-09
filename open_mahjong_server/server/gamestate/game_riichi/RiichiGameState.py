@@ -359,8 +359,8 @@ class RiichiGameState:
                     from ...response import Response, GameInfo
                     from .boardcast import _build_base_game_info, _build_player_info
                     conn = self.game_server.user_id_to_connection[user_id]
-                    base = _build_base_game_info(self)
                     viewer_pi = next((pp.player_index for pp in self.player_list if pp.user_id == user_id), 0)
+                    base = _build_base_game_info(self, viewer_pi)
                     infos = [_build_player_info(pp, user_id, viewer_pi) for pp in self.player_list]
                     from .realtime_hand import layouts_for_viewer
                     game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
@@ -571,6 +571,9 @@ class RiichiGameState:
             # 结算
             await self._settle_round()
 
+            from .dealer_choice import run as run_dealer_choice, clear as clear_dealer_choice
+            dealer_chose = await run_dealer_choice(self)
+
             record_fulu_rounds_for_players(self.player_list)
 
             self._append_round_score_history()
@@ -579,7 +582,9 @@ class RiichiGameState:
 
             # —— 局终：连庄推进 / ready / 下一局 ——
             # next_status 已在 _settle_round 广播前写好
-            if self._cuohe_triggered:
+            if dealer_chose and self.next_status == 'match_end':
+                pass  # Ending does not consume another honba, seat or round id.
+            elif self._cuohe_triggered:
                 # 错和：亲家不变、本场不增
                 self.round_index += 1
             else:
@@ -598,7 +603,9 @@ class RiichiGameState:
                     self._rotate_seats()
 
             # ready（多响已在 sequence 内 ready 过；整场终场跳过）
-            if self._multi_ron_ready_done:
+            if dealer_chose:
+                clear_dealer_choice(self)
+            elif self._multi_ron_ready_done:
                 self._multi_ron_ready_done = False
             elif self.next_status != "match_end":
                 if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
@@ -1125,6 +1132,10 @@ class RiichiGameState:
             scored_points=result.get("score", 0),
         )
 
+        from .dealer_choice import prepare as prepare_dealer_choice
+        if is_last_settle:
+            prepare_dealer_choice(self, winner_index, len(yaku))
+
         await broadcast_result(
             self,
             hepai_player_index=winner_index,
@@ -1405,7 +1416,7 @@ class RiichiGameState:
         await drain_viewer(self, view_player_index)
         viewer = self.player_list[view_player_index]
         conn = self.game_server.user_id_to_connection[spectator_user_id]
-        base = _build_base_game_info(self)
+        base = _build_base_game_info(self, view_player_index)
         infos = [_build_player_info(p, viewer.user_id, view_player_index) for p in self.player_list]
         from .realtime_hand import layouts_for_viewer
         game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index,

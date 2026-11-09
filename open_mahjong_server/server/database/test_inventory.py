@@ -16,7 +16,6 @@ from server.database.inventory_router import handle_inventory_message, _sync, at
 from server.database.titles import ensure_title_tables
 from server.database.inventory_assets import DEFAULT_AVATAR_FRAME_ID, A1_AVATAR_FRAME_ID, B1_AVATAR_FRAME_ID
 from server.database.db_manager import DatabaseManager
-from scripts.migrate_rename_cards import migrate_database
 
 
 @unittest.skipUnless(os.environ.get('INVENTORY_TEST_DATABASE_URL'), 'requires PostgreSQL test connection')
@@ -234,69 +233,6 @@ class InventoryDatabaseTests(unittest.TestCase):
         with self.assertRaisesRegex(InventoryError,'网页账号中心'): self.call('use',created['item_id'])
         self.assertEqual(get_inventory(self.db,101)['rename_card_count'],1)
 
-    def migrate(self,**kwargs):
-        conn=self.pool.getconn()
-        try: return migrate_database(conn,**kwargs)
-        finally:
-            conn.set_session(readonly=False,isolation_level='READ COMMITTED')
-            self.pool.putconn(conn)
-
-    def test_migration_preview_is_read_only_and_apply_preserves_all_balances(self):
-        self.call('grant',3001,2)
-        self.call('grant',3001,1,uid=102)
-        self.call('grant',3001,7,uid=103)
-        self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 3 WHEN 102 THEN 2 ELSE 0 END')
-        before=self.sql('SELECT user_id,rename_count FROM users ORDER BY user_id')
-        preview=self.migrate()
-        self.assertEqual((preview['affected_users'],preview['cards_to_add'],preview['tourist_users']),(2,5,1))
-        self.assertFalse(preview['applied'])
-        self.assertEqual(self.sql('SELECT user_id,rename_count FROM users ORDER BY user_id'),before)
-        self.assertEqual(self.qty(3001),2)
-        self.assertEqual(len(get_ledger(self.db,101)),1)
-        result=self.migrate(apply=True,expected_fingerprint=preview['fingerprint'])
-        self.assertEqual(result['status'],'complete')
-        self.assertEqual([self.qty(3001,uid) for uid in (101,102,103)],[5,3,7])
-        self.assertEqual(self.sql('SELECT SUM(rename_count) FROM users'),[(0,)])
-        self.assertEqual([(r['delta'],r['quantity_after']) for r in get_ledger(self.db,101)],[(3,5),(2,2)])
-        self.assertEqual(self.migrate(apply=True)['status'],'already_complete')
-        self.assertEqual(self.qty(3001),5)
-        self.sql('UPDATE users SET rename_count=1 WHERE user_id=101')
-        with self.assertRaisesRegex(ValueError,'又出现'): self.migrate(apply=True)
-        self.assertEqual(self.qty(3001),5)
-
-    def test_migration_overflow_or_invalid_credit_aborts_entire_batch(self):
-        for invalid in (1000001,-1):
-            self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 2 WHEN 102 THEN %s ELSE 0 END',(invalid,))
-            with self.assertRaises(ValueError): self.migrate(apply=True)
-            self.assertEqual(self.qty(3001),0)
-            self.assertEqual(get_ledger(self.db,101),[])
-            self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(2,)])
-
-    def test_migration_adds_to_disabled_card_without_enabling_or_clipping(self):
-        self.call('grant',3001,999999)
-        self.sql('UPDATE users SET rename_count=1 WHERE user_id=101')
-        self.sql('UPDATE item_definitions SET use_enabled=FALSE,grant_enabled=FALSE WHERE item_id=3001')
-        self.migrate(apply=True)
-        state=get_inventory(self.db,101)
-        self.assertEqual(state['rename_card_count'],1000000)
-        self.assertEqual(state['rename_card_usable_count'],0)
-
-    def test_migration_ledger_failure_rolls_back_previous_users_and_completion_marker(self):
-        self.sql('UPDATE users SET rename_count=CASE user_id WHEN 101 THEN 1 WHEN 102 THEN 2 ELSE 0 END')
-        self.sql('ALTER TABLE inventory_ledger ADD CONSTRAINT reject_migration CHECK (delta<>2)')
-        with self.assertRaises(psycopg2.IntegrityError): self.migrate(apply=True)
-        self.assertEqual(self.qty(3001),0)
-        self.assertEqual(self.sql('SELECT SUM(rename_count) FROM users'),[(3,)])
-        self.assertEqual(self.sql('SELECT COUNT(*) FROM inventory_operations'),[(0,)])
-        self.assertEqual(self.sql('SELECT COUNT(*) FROM admin_audit_log'),[(0,)])
-
-    def test_migration_preview_fingerprint_rejects_drift(self):
-        self.sql('UPDATE users SET rename_count=2 WHERE user_id=101')
-        preview=self.migrate()
-        self.call('grant',3001)
-        with self.assertRaisesRegex(ValueError,'指纹'): self.migrate(apply=True,expected_fingerprint=preview['fingerprint'])
-        self.assertEqual(self.qty(3001),1)
-        self.assertEqual(self.sql('SELECT rename_count FROM users WHERE user_id=101'),[(2,)])
 
     def test_audit_failure_rolls_grant_back(self):
         self.sql("ALTER TABLE admin_audit_log ADD CONSTRAINT fail_audit CHECK (reason <> 'fail')")
@@ -305,25 +241,37 @@ class InventoryDatabaseTests(unittest.TestCase):
         self.assertEqual(get_ledger(self.db,101),[])
 
     def test_every_persisted_rule_keeps_the_equipped_frame_snapshot(self):
-        self.sql('''CREATE TABLE game_player_records (game_id text,user_id bigint,username text,score int,rank int,
+        from importlib import import_module
+        from server.database.player_recent_records import ensure_schema
+        from server.database.commerce import get_wallet
+        from server.database.statistics_catalog import BY_SUB_RULE
+        self.sql("""CREATE TABLE game_records(game_id varchar(16) PRIMARY KEY,record jsonb,created_at timestamp DEFAULT NOW());
+            CREATE TABLE game_player_records(game_id varchar(16),user_id bigint,username text,score int,rank int,
             original_player_index int,rule text,sub_rule text,match_type text,room_type text,match_tier text,event_id text,
-                title_used int,character_used int,profile_used int,voice_used int,avatar_frame_used int,pt_change numeric(12,2))''')
-        checked=[]
-        for path in Path(__file__).parent.rglob('store*.py'):
-            tree=ast.parse(path.read_text(encoding='utf-8-sig'))
-            for call in ast.walk(tree):
-                if not isinstance(call,ast.Call) or len(call.args)!=2 or not isinstance(call.args[0],ast.Constant): continue
-                sql=call.args[0].value
-                if not isinstance(sql,str) or 'INSERT INTO game_player_records' not in sql: continue
-                columns=[s.strip() for s in re.search(r'game_player_records\s*\((.*?)\)',sql,re.S)[1].split(',')]
-                self.assertIn('avatar_frame_used',columns,path.name)
-                self.assertEqual(len(columns),len(call.args[1].elts),path.name)
-                strings={'game_id','username','rule','sub_rule','match_type','room_type','match_tier','event_id'}
-                values=[path.stem if c in strings else 2102 if c=='avatar_frame_used' else 1 for c in columns]
-                self.sql(sql,values)
-                checked.append(path.name)
-        self.assertEqual(len(checked),9)
-        self.assertEqual(self.sql('SELECT DISTINCT avatar_frame_used FROM game_player_records'),[(2102,)])
+            title_used int,character_used int,profile_used int,voice_used int,avatar_frame_used int,pt_change numeric(12,2));
+            CREATE TABLE riichi_player_game_stats(game_id varchar(16),user_id bigint,version int,stats jsonb,PRIMARY KEY(game_id,user_id));
+            INSERT INTO users(user_id,is_tourist) VALUES(104,FALSE);""")
+        connection=self.pool.getconn()
+        try:
+            with connection.cursor() as cursor: ensure_schema(cursor)
+            connection.commit()
+        finally: self.pool.putconn(connection)
+        subrules={'guobiao':'guobiao/standard','riichi':'riichi/standard','qingque':'qingque/standard',
+                  'classical':'classical/standard','changsha':'changsha/classic_double_bird',
+                  'sichuan':'sichuan/standard','taiwan':'taiwan/standard','zhongyong':'zhongyong/standard','hongque':'hongque/v1.6'}
+        for family,sub in subrules.items():
+            record={'game_title':dict(rule=family,sub_rule=sub,room_type='custom',
+                       **{f'p{i}_uid':101+i for i in range(4)}),
+                    'game_round':{'round_index_1':{'seats':[0,1,2,3],'action_ticks':[['liuju'],['end']]}}}
+            participants=[SimpleNamespace(user_id=101+i,username=f'player{i}',score=0,
+                original_player_index=i,avatar_frame_used=A1_AVATAR_FRAME_ID,
+                record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
+            writer=getattr(import_module(f'server.database.{family}.store_{family}'),f'store_{family}_game_record')
+            game_id=writer(self.db,record,participants,'custom',BY_SUB_RULE[sub]['custom_modes'][0])
+            self.assertIsNotNone(game_id,family)
+            self.assertEqual(self.sql('SELECT avatar_frame_used FROM game_player_records WHERE game_id=%s ORDER BY user_id',(game_id,)),[(A1_AVATAR_FRAME_ID,)]*4)
+        self.assertEqual(get_wallet(self.db,101)['wallet_state']['balance_minor'],90)
+        self.assertEqual(get_wallet(self.db,102)['wallet_state']['balance_minor'],0)
 
 
 class Socket:

@@ -38,7 +38,7 @@ namespace Salasasa.Home
                 captions[i].enableAutoSizing = autoSize;
                 total += widths[i];
             }
-            float available = Mathf.Max(referenceWidth * referenceScale, parent.rect.width * .49f);
+            float available = Mathf.Max(1, parent.rect.width - Mathf.Abs(rect.anchoredPosition.x) - 24);
             float scale = Mathf.Min(referenceScale, available / total);
             rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, total);
             rect.localScale = Vector3.one * scale;

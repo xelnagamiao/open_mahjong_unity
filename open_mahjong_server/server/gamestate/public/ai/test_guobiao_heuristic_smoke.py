@@ -136,7 +136,7 @@ def _build_game_server(db_manager: MagicMock) -> SimpleNamespace:
         room_id_to_ClassicalGameState={},
         room_id_to_RiichiGameState={},
         room_id_to_SichuanGameState={},
-        room_id_to_JiandanGameState={},
+        room_id_to_NanqueGameState={},
         room_id_to_TaiwanGameState={},
         gamestate_id_to_game_state={},
         user_id_to_game_state={},

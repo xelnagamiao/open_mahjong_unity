@@ -274,6 +274,19 @@ public class CardEdgePanel : MonoBehaviour
         ApplyHex(sideHexInput, SetSideColor, "正面边缘颜色已应用");
     }
 
+    public Color GetPickerColor(bool back) => back ? backSidePreview.color : frontSidePreview.color;
+
+    public void ApplyPickerColor(bool back, Color color)
+    {
+        if (back) {
+            ConfigManager.Instance?.SetBackEdgeBrightness(0f);
+            SetBackEdgeColor(color);
+        } else {
+            ConfigManager.Instance?.SetFrontEdgeBrightness(0f);
+            SetFrontEdgeColor(color);
+        }
+    }
+
     private void SetBackEdgeColor(Color color)
     {
         color.a = 1f;

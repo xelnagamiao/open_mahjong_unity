@@ -421,7 +421,7 @@ class RecordSim:
         if self.is_taiwan():
             self._apply_taiwan_wall_action(action)
         if (self.flags.supports_robbed_added_kong_source or self.is_taiwan()
-                or self.is_xueliu() or self.flags.rule_id in {"zhongyong", "jiandan"}):
+                or self.is_xueliu() or self.flags.rule_id in {"zhongyong"}):
             self._restore_taiwan_robbed_jiagang(tick)
         acting = resolve_acting_player(tick, action, self.current_player_index)
         player = self.players[acting]

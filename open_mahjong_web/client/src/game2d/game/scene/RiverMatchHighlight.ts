@@ -1,19 +1,23 @@
 import type { River } from './River'
+import type { Hand } from './Hand'
 import type { Tile } from './Tile'
 
 /**
- * Unity Card3DHoverManager 的 2D 对应：悬停/选中手牌时，高亮四家牌河中的同类牌。
+ * Unity Card3DHoverManager 的 2D 对应：悬停手牌时，高亮四家牌河和副露中的同类牌。
  */
 export class RiverMatchHighlight {
   private rivers: readonly River[] = []
+  private hands: readonly Hand[] = []
   private currentTid = 0
 
-  bind(rivers: readonly River[]): void {
-    this.currentTid = 0
+  bind(rivers: readonly River[], hands: readonly Hand[] = []): void {
+    this.clear()
     this.rivers = rivers
+    this.hands = hands
     for (const river of rivers) {
       river.onTileRegistered = (tile) => this.syncTile(tile)
     }
+    this.apply()
   }
 
   highlight(tid: number): void {
@@ -43,6 +47,11 @@ export class RiverMatchHighlight {
   private apply(): void {
     for (const river of this.rivers) {
       for (const tile of river.tileList) {
+        this.syncTile(tile)
+      }
+    }
+    for (const hand of this.hands) {
+      for (const tile of [...hand.leftList, ...hand.publicKongTiles]) {
         this.syncTile(tile)
       }
     }

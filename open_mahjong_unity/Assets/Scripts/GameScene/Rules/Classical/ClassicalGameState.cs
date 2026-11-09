@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// 古典麻将。对应服务端 game_classical/ClassicalGameState。
-/// 与标准骨架的差别：和牌/流局后追加"数和尾"结算（show_shuhewei）；九老峰回流局。
+/// 与标准骨架的差别：和牌后追加"数和尾"结算（show_shuhewei）；流局不计数和尾。
 /// </summary>
 public class ClassicalGameState : TurnBasedGameState {
     public const string RuleId = "classical";
@@ -22,7 +22,7 @@ public class ClassicalGameState : TurnBasedGameState {
         return huClass == "jiuzhongjiupai" ? SpecialLiujuCaptions.JiuzhongjiupaiCaption(RuleId) : null;
     }
 
-    /// <summary>数和尾结算：先关和牌面板，再走 EndShuheWeiPanel；古典和牌仅 show_shuhewei → 计分板追加一行；流局先 show_result 再 shuhewei → 更新最后一行。</summary>
+    /// <summary>和牌数和尾结算；保留旧牌谱的流局数和尾消息兼容，更新已有行。</summary>
     private void ShowShuhewei(ShowShuheWeiInfo info) {
         EndResultPanel.Instance.ClearEndResultPanel();
         if (info.next_status == "match_end") {

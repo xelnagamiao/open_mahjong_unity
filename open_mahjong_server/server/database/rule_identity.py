@@ -1,9 +1,7 @@
-"""Canonical replay identities; legacy Jiandan names remain storage/API aliases only."""
+"""Canonical replay identities for current rules."""
 
 
 def canonical_rule_identity(rule, sub_rule):
-    if rule in ("jiandan", "nanque") or sub_rule in ("jiandan/standard", "nanque/standard"):
-        return "zhongyong", "zhongyong/nanque"
     if rule == "guangdong" and not sub_rule:
         # The Guangdong room entry point without a profile historically creates Tuidao.
         return "guangdong", "guangdong/tuidao_mil2024"

@@ -13,6 +13,7 @@ public sealed class PlayerInfoTrendChart : MaskableGraphic {
     [SerializeField] private TMP_Text[] rankLabels = Array.Empty<TMP_Text>();
     private int playerCount = 4;
     private float previousPixelScale;
+    private Vector2 previousPixelOrigin, previousSize;
     public int PointCount => placements.Length;
     private const int Capacity = 10;
 
@@ -40,34 +41,52 @@ public sealed class PlayerInfoTrendChart : MaskableGraphic {
         }
     }
 
-    private float GridWidth => Mathf.Max(1, 1.25f / PixelScale);
+    private float GridWidth => 1 / PixelScale;
 
-    private Rect PlotRect(float gridWidth) {
+    private Vector2 PixelOrigin {
+        get {
+            if (!canvas) return Vector2.zero;
+            var root = canvas.rootCanvas;
+            var camera = root.renderMode == RenderMode.ScreenSpaceOverlay ? null : root.worldCamera;
+            return RectTransformUtility.WorldToScreenPoint(camera, rectTransform.TransformPoint(Vector3.zero));
+        }
+    }
+
+    private Rect PlotRect() {
         var rect = rectTransform.rect;
-        float inset = Mathf.Min(gridWidth * .5f, rect.height * .5f);
-        rect.yMin += inset;
-        rect.yMax -= inset;
+        float scale = PixelScale, origin = PixelOrigin.y;
+        // Keep both boundary lines on pixel centers and wholly inside the plot.
+        rect.yMin = (Mathf.Ceil(origin + rect.yMin * scale) + .5f - origin) / scale;
+        rect.yMax = Mathf.Max(rect.yMin, (Mathf.Floor(origin + rect.yMax * scale) - .5f - origin) / scale);
         return rect;
+    }
+
+    private float RankY(int rank, Rect rect) {
+        float y = rect.yMax - (rank - 1) * rect.height / (playerCount - 1);
+        float scale = PixelScale, origin = PixelOrigin.y;
+        return Mathf.Clamp((Mathf.Floor(origin + y * scale) + .5f - origin) / scale, rect.yMin, rect.yMax);
     }
 
     private void LateUpdate() {
         float scale = PixelScale;
-        if (Mathf.Approximately(previousPixelScale, scale)) return;
+        var origin = PixelOrigin;
+        var size = rectTransform.rect.size;
+        if (Mathf.Approximately(previousPixelScale, scale) && previousPixelOrigin == origin && previousSize == size) return;
         previousPixelScale = scale;
+        previousPixelOrigin = origin; previousSize = size;
         UpdateRankLabels();
         SetVerticesDirty();
     }
 
     private void UpdateRankLabels() {
-        var rect = PlotRect(GridWidth);
+        var rect = PlotRect();
         for (int i = 0; i < rankLabels.Length; i++) {
             if (rankLabels[i] == null) continue;
             var label = rankLabels[i].rectTransform;
             label.gameObject.SetActive(i < playerCount);
             if (i < playerCount) {
                 var position = label.anchoredPosition;
-                position.y = rectTransform.anchoredPosition.y + rect.yMax
-                    - i * rect.height / (playerCount - 1) - label.rect.center.y;
+                position.y = rectTransform.anchoredPosition.y + RankY(i + 1, rect) - label.rect.center.y;
                 label.anchoredPosition = position;
             }
         }
@@ -76,17 +95,16 @@ public sealed class PlayerInfoTrendChart : MaskableGraphic {
     private Vector2 Point(int index, Rect rect) {
         // 固定十场横坐标；不足十场从最左侧开始，右侧保留空白。
         float x = index / (float)(Capacity - 1);
-        float y = (playerCount - Mathf.Clamp(placements[index], 1, playerCount)) / (float)(playerCount - 1);
-        return new Vector2(rect.xMin + x * rect.width, rect.yMin + y * rect.height);
+        return new Vector2(rect.xMin + x * rect.width, RankY(Mathf.Clamp(placements[index], 1, playerCount), rect));
     }
 
     protected override void OnPopulateMesh(VertexHelper vh) {
         vh.Clear();
-        // 资料弹窗会随视口缩小；网格至少保留 1.25 个屏幕像素，并将边界线完整画在图内。
+        // One physical pixel per gridline, including during popup scaling and viewport changes.
         float width = GridWidth;
-        var rect = PlotRect(width);
+        var rect = PlotRect();
         for (int i = 0; i < playerCount; i++) {
-            float y = rect.yMin + rect.height * i / (playerCount - 1);
+            float y = RankY(playerCount - i, rect);
             Line(vh, new Vector2(rect.xMin, y), new Vector2(rect.xMax, y), width, gridColor);
         }
         for (int i = 1; i < placements.Length; i++) Line(vh, Point(i - 1, rect), Point(i, rect), 2, lineColor);

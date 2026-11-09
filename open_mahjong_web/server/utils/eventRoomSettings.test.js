@@ -38,8 +38,10 @@ test('empty and invalid stored rows return fresh independent defaults matching t
   assert.deepEqual(first.manual.room_config, {
     room_name: '', sub_rule: 'guobiao/standard', game_round: 4, round_timer: 20,
     step_timer: 5, tips: false, tourist_limit: false, allow_spectator: true,
+    count_tips:false, pointer_tips:true,
     hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: true, claim_protection: true, use_flowers: true, tian_di_ren_he: false, joker_multi_wait: false,
     no_joker_bonus: 'add8', black_flower_progressive: true,
+    jinluo_mode: false, jinluo_weather: 'dragon_pairs',
   });
   assert.deepEqual(first.auto_match, { enabled: false, ...first.manual, updated_by: null });
   assert.deepEqual(readRoomSettings('not-json'), first);
@@ -47,6 +49,21 @@ test('empty and invalid stored rows return fresh independent defaults matching t
   first.manual.room_config.step_timer = 80;
   assert.equal(first.auto_match.room_config.step_timer, 5);
   assert.equal(readRoomSettings({}).manual.room_config.step_timer, 5);
+});
+
+test('Jinluo manual weather survives preset save and selection with fixed qualification settings', () => {
+  for (const weather of ['dragon_pairs', 'seat_round_winds', 'terminal_pairs', 'all_simples', 'missing_suit', 'consecutive_pairs', 'same_rank_pairs', 'four_of_a_kind']) {
+    const doc = createPreset(undefined, 'jinluo', { room_config: { jinluo_mode: true, jinluo_weather: weather, hepai_limit: 64, tips: true } }).settings;
+    const selected = resolveRoomSelection(doc, { revision: doc.revision, preset_id: 'jinluo' });
+    assert.equal(selected.room_config.jinluo_mode, true);
+    assert.equal(selected.room_config.jinluo_weather, weather);
+    assert.equal(selected.room_config.hepai_limit, 8);
+    assert.equal(selected.room_config.open_cuohe, true);
+    assert.equal(selected.room_config.tips, false);
+  }
+  assert.throws(() => createPreset(undefined, 'bad', { room_config: { jinluo_weather: 'auto' } }), errorStatus(400, /七对天气/));
+  assert.throws(() => createPreset(undefined, 'bad', { room_config: { sub_rule: 'guobiao/xiaolin', jinluo_mode: true } }), errorStatus(400, /标准国标/));
+  assert.throws(() => createPreset(undefined, 'bad', { room_config: { jinluo_mode: 'true' } }), errorStatus(400, /布尔/));
 });
 
 test('flower-mixed no-joker rewards survive preset save and selection for all three modes', () => {
@@ -201,7 +218,7 @@ test('all seven supported rules have the correct common defaults and rule change
     assert.equal(settings.manual.room_rule, room_rule);
     assert.equal(settings.manual.room_config.room_name, '测试桌');
     assert.equal(settings.manual.room_config.round_timer, 20);
-    if (!['guobiao', 'riichi'].includes(room_rule)) assert.equal('hepai_limit' in settings.manual.room_config, false);
+    if (!['guobiao', 'riichi', 'sichuan'].includes(room_rule)) assert.equal('hepai_limit' in settings.manual.room_config, false);
   }
   const riichi = change(doc, 'manual', { room_rule: 'riichi' }).settings;
   assert.equal(riichi.manual.room_config.sub_rule, 'riichi/standard');

@@ -29,8 +29,14 @@ public class RoomItem : MonoBehaviour {
     private void Awake() {
         if (joinButton != null) joinButton.onClick.AddListener(JoinClick);
     }
-    private void OnEnable() { StreamerModeHelper.OnChanged += RefreshDisplay; }
-    private void OnDisable() { StreamerModeHelper.OnChanged -= RefreshDisplay; }
+    private void OnEnable() {
+        StreamerModeHelper.OnChanged += RefreshDisplay;
+        ConfigManager.OnLanguageChanged += RefreshDisplay;
+    }
+    private void OnDisable() {
+        StreamerModeHelper.OnChanged -= RefreshDisplay;
+        ConfigManager.OnLanguageChanged -= RefreshDisplay;
+    }
     public void SetRoomInfo(RoomInfo roomData, int groupColorIndex = -1) {
         data = roomData;
         pairColorIndex = groupColorIndex;
@@ -43,7 +49,8 @@ public class RoomItem : MonoBehaviour {
         string title = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.room_name, "未命名房间");
         string host = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.host_name, "暂无房主");
         int count = data.player_list?.Length ?? 0;
-        int capacity = data.max_player > 0 ? Mathf.Min(data.max_player, 4) : MahjongPlayerCount.ForSubRule(data.sub_rule);
+        bool eightPlayerLobby = data.duplicate_lobby?.version == 1;
+        int capacity = eightPlayerLobby ? 8 : data.max_player > 0 ? Mathf.Min(data.max_player, 4) : MahjongPlayerCount.ForSubRule(data.sub_rule);
         bool isEvent = data.room_type == "events" || !string.IsNullOrEmpty(data.event_id);
         string rule = RuleNameDictionary.GetWholeName(Fallback(data.sub_rule, data.room_rule ?? ""));
         Set(roomName, title);
@@ -55,7 +62,7 @@ public class RoomItem : MonoBehaviour {
         else if (!string.IsNullOrEmpty(data.duplicate_match_id) && data.duplicate_status == "ready") status = "等待对室";
         Set(gameStatus, $"{status} · {count}/{capacity} · {(data.has_password ? "有密码" : "公开")}");
         if (gameStatus != null) gameStatus.color = data.is_game_running ? new Color(1f, .77f, .44f) : ReadyColor;
-        Set(configSummary, BuildSummary(data));
+        Set(configSummary, BuildSummary(data), data.room_rule ?? string.Empty);
         if (upperPartImage != null) upperPartImage.color = isEvent ? eventUpperColor : normalUpperColor;
         if (lowerPartImage != null) lowerPartImage.color = isEvent ? eventLowerColor : normalLowerColor;
         if (!string.IsNullOrEmpty(data.duplicate_match_id)) {
@@ -75,7 +82,8 @@ public class RoomItem : MonoBehaviour {
         var details = new StringBuilder();
         details.AppendLine(title).AppendLine("房主  " + host).AppendLine("房间  " + data.room_id);
         details.AppendLine().AppendLine("房间玩家");
-        for (int seat = 0; seat < 4; seat++) {
+        if (eightPlayerLobby) RefreshEightLobbyMembers(details, masked);
+        else for (int seat = 0; seat < 4; seat++) {
             bool available = seat < capacity;
             if (seat < playerNames.Length && playerNames[seat] != null)
                 playerNames[seat].transform.parent.gameObject.SetActive(available);
@@ -101,7 +109,9 @@ public class RoomItem : MonoBehaviour {
         }
         details.AppendLine().AppendLine("完整房间配置");
         foreach (var field in RoomConfigContainer.BuildDisplayFields(data)) {
-            details.AppendLine(field.Key + "  ·  " + field.Value);
+            // Translate configuration fields separately; the preceding lines contain literal player names.
+            details.AppendLine(PlatformText.GetContextual(field.Key, data.room_rule) + "  ·  "
+                + PlatformText.GetContextual(field.Value, data.room_rule));
         }
         if (detailsButton != null) {
             var tooltip = detailsButton.GetComponent<RoomInfoTooltip>() ?? detailsButton.gameObject.AddComponent<RoomInfoTooltip>();
@@ -109,7 +119,40 @@ public class RoomItem : MonoBehaviour {
         }
     }
 
+    private void RefreshEightLobbyMembers(StringBuilder details, bool masked) {
+        int[] seats = data.seat_list ?? Array.Empty<int>();
+        int[][] groups = { new[] { 0, 2 }, new[] { 1, 3 }, new[] { 4, 6 }, new[] { 5, 7 } };
+        string[] labels = { "闭室 · 红队", "闭室 · 蓝队", "开室 · 蓝队", "开室 · 红队" };
+        for (int row = 0; row < groups.Length; row++) {
+            int count = 0;
+            foreach (int index in groups[row]) if (index < seats.Length && seats[index] >= 0) count++;
+            if (row < playerNames.Length && playerNames[row]) {
+                playerNames[row].transform.parent.gameObject.SetActive(true);
+                Set(playerNames[row], labels[row]);
+            }
+            if (row < playerStates.Length) {
+                Set(playerStates[row], $"{count}/2");
+                if (playerStates[row]) playerStates[row].color = MutedColor;
+            }
+        }
+        for (int index = 0; index < 8; index++) {
+            int uid = index < seats.Length ? seats[index] : -1;
+            string name = uid < 0 ? "空位" : PlayerName(data, uid);
+            if (uid >= 0 && masked) name = StreamerModeHelper.FormatRoomPlayerName(name, uid);
+            details.AppendLine($"{(index < 4 ? "闭室" : "开室")} · {"东南西北"[index % 4]}  {name}");
+        }
+        if ((data.duplicate_lobby.waiting?.Length ?? 0) > 0) {
+            details.AppendLine().AppendLine("等候区");
+            foreach (int uid in data.duplicate_lobby.waiting) {
+                string name = PlayerName(data, uid);
+                details.AppendLine(masked ? StreamerModeHelper.FormatRoomPlayerName(name, uid) : name);
+            }
+        }
+    }
+
     public static string BuildSummary(RoomInfo room) {
+        if (room.duplicate_lobby != null)
+            return $"8 人复式 · {(room.duplicate_sync_mode == false ? "非同步" : "同步")} · {room.duplicate_round_count} 副 · {(room.duplicate_scoring == "imp" ? "IMP" : "分差累计")}";
         if (!string.IsNullOrEmpty(room.duplicate_match_id))
             return $"{(room.duplicate_table == "closed" ? "闭室" : "开室")} · {(room.duplicate_sync_mode == false ? "非同步" : "同步")} · 对室 #{room.duplicate_peer_room_id}  ·  {room.duplicate_round_count} 副  ·  {(room.duplicate_scoring == "imp" ? "IMP" : "分差累计")}";
         string switches = $"  ·  错和{(room.open_cuohe ? "开" : "关")}  ·  提示{(room.tips ? "开" : "关")}";
@@ -135,10 +178,11 @@ public class RoomItem : MonoBehaviour {
         return id < 10 ? "机器人 " + id : "玩家 " + id;
     }
     private static string Fallback(string value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
-    private static void Set(TMP_Text label, string value) {
+    private static void Set(TMP_Text label, string value, string ruleContext = null) {
         if (label == null) return;
         label.richText = false;
-        label.text = value ?? "";
+        if (ruleContext == null) label.text = value ?? "";
+        else TableText.Set(label, value, ruleContext);
     }
     private void JoinClick() {
         if (data == null || string.IsNullOrEmpty(data.room_id)) return;

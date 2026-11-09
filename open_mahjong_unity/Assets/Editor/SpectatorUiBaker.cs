@@ -146,7 +146,9 @@ public static class SpectatorUiBaker {
         }
         Stretch((RectTransform)scroll.transform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0, -68));
         scroll.horizontal = false; scroll.vertical = true;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.movementType = ScrollRect.MovementType.Elastic;
+        scroll.elasticity = .12f;
+        scroll.inertia = true;
         scroll.scrollSensitivity = 90;
         var layout = scroll.content.GetComponent<VerticalLayoutGroup>();
         layout.childControlHeight = true; layout.childControlWidth = true;

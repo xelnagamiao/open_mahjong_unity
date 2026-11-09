@@ -64,6 +64,19 @@ def test_three_winners_share_one_page_and_teammate_win_has_zero_transfer():
     assert sum(p['status']=='hu' for p in result['players'])==3
 
 
+def test_peng_and_same_tile_single_wait_stays_ready_in_board_summary():
+    state, messages = make_state()
+    player = state.player_list[3]
+    player.hand_tiles = [11, 12, 13, 17, 18, 19, 23]
+    player.combination_tiles = ['k23', 'k14']
+    player.combination_mask = [[0, 23] * 3, [0, 14] * 3]
+    assert state._evaluate_liuju_ting(player.hand_tiles, player.combination_tiles, 0, [])[0:2] == (True, {23})
+    result = finish(state, messages)
+    row = next(event for event in result['events'] if event['kind'] == 'chajiao' and event['seat'] == 3)
+    assert '有叫' in row['detail'] and '没叫' not in row['detail']
+    assert result['changes'].get('3', result['changes'].get(3)) == 0
+
+
 def test_no_ting_refund_is_visible_and_never_pays_then_refunds_again():
     state,messages=make_state()
     kong(state,'xiayu2')
@@ -71,7 +84,8 @@ def test_no_ting_refund_is_visible_and_never_pays_then_refunds_again():
     state.player_list[0].hand_tiles=[11,14,17,21,24,27,29,11,15,19]
     result=finish(state,messages)
     row=next(e for e in result['events'] if e['kind']=='kong')
-    assert '未听退税' in row['detail'] and not any(row['changes'].values())
+    assert '没叫退税' in row['detail'] and not any(row['changes'].values())
+    assert next(event for event in result['events'] if event['kind']=='chajiao' and event['seat']==0)['detail'].startswith('没叫')
     assert any(e['kind']=='chajiao' for e in result['events'])
     assert state.player_list[0].combination_mask==[[0,11]*4]
     assert row['melds']==[[0,11]*4]
@@ -182,7 +196,7 @@ def test_timeline_interleaves_kongs_and_wins_and_keeps_action_hands():
     assert played[-1]['win_tile']==25
     assert result['dealer_seat']==3 and result['version']==2
     assert result['presentation_ms']==sum(e['duration_ms'] for e in result['events'])
-    assert [e['duration_ms'] for e in played]==[2500,3000,2500,3000]
+    assert [e['duration_ms'] for e in played]==[2500,2500,2500,2500]
     state.player_list[0].hand_tiles.clear()
     assert played[0]['hand']==original
 
@@ -204,9 +218,65 @@ def test_ready_budget_includes_timeline_but_does_not_change_bloodflow():
     from .board_settlement import ready_seconds
     state,messages=make_state()
     result=finish(state,messages)
-    assert result['presentation_ms'] >= 2500 * len(result['events'])
-    assert ready_seconds(state)==8+result['presentation_ms']/1000
+    assert result['presentation_ms'] == 2500 * len(result['events'])
+    assert ready_seconds(state,clock=lambda:state._sbr_presentation_started_at)==pytest.approx(8.35+result['presentation_ms']/1000)
     state.is_xueliu=True
     assert ready_seconds(state)==8
     state._reset_round_state()
     assert state._sbr_event_order==0 and state._sbr_presentation_ms==0
+    assert state._sbr_presentation_started_at is None
+
+
+@pytest.mark.parametrize('elapsed,expected',[(0,18.35),(5,13.35),(10.35,8),(60,8)])
+def test_ready_after_delayed_duplicate_comparison_keeps_only_remaining_presentation(elapsed,expected):
+    from types import SimpleNamespace
+    from .board_settlement import ready_seconds
+    state=SimpleNamespace(is_doubles=True,is_xueliu=False,_sbr_presentation_ms=10000,
+                          _sbr_presentation_started_at=100)
+    assert ready_seconds(state,clock=lambda:100+elapsed)==pytest.approx(expected)
+
+
+@pytest.mark.parametrize('kind',['ron','zimo','kong','chajiao','penalty','refund'])
+def test_new_board_events_share_the_clients_two_point_five_seconds(kind):
+    from .board_settlement import BoardSettlement
+    state,_=make_state()
+    builder=BoardSettlement(state)
+    builder.add(kind,0,{i:0 for i in range(4)})
+    assert builder.events[0]['duration_ms']==2500
+
+
+def test_one_page_ready_routes_all_seats_and_retains_the_panel_until_all_acknowledge():
+    from .test_action_window import make_state as action_state,submit
+    from ..public.lifecycle import cancel_auxiliary_tasks
+    from ..public.outbound_pipe import drain_viewer
+    async def run():
+        state,messages=action_state('doubles')
+        task=None
+        try:
+            await state._settle_liuju()
+            # A synchronous table may finish its visible timeline while waiting for the other room.
+            state._sbr_presentation_started_at-=60
+            task=asyncio.create_task(state._ready_phase(liuju=True))
+            for _ in range(100):
+                if state.game_status=='waiting_ready':break
+                await asyncio.sleep(.001)
+            await asyncio.gather(*(drain_viewer(state,i) for i in range(4)))
+            ready=[m['message'] for m in messages if m['message'].get('ready_status_info')][-1]
+            sync=ready['settlement_sync']
+            assert 7900<sync['remaining_ms']<=8000
+            assert sync['phase']=='waiting_ready'
+            for seat in range(3):
+                await submit(state,seat,'ready',tick=0,settlement_id=sync['result_id'])
+                await asyncio.sleep(.01)
+            assert not task.done()
+            assert state.action_dict[3]==['ready']
+            await submit(state,3,'ready',tick=0,settlement_id=sync['result_id'])
+            await asyncio.wait_for(task,.5)
+            await asyncio.gather(*(drain_viewer(state,i) for i in range(4)))
+            final=[m['message']['ready_status_info']['player_to_ready'] for m in messages if m['message'].get('ready_status_info')][-1]
+            assert all(final.values())
+        finally:
+            if task is not None and not task.done():
+                task.cancel();await asyncio.gather(task,return_exceptions=True)
+            await cancel_auxiliary_tasks(state)
+    asyncio.run(run())

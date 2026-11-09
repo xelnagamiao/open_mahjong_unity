@@ -32,7 +32,7 @@
         <template v-else-if="mode === 'full'">
           <tr v-for="(row, i) in rows" :key="'f' + i">
             <td>
-              <span class="cell" :class="row.result.name.tone">{{ row.result.name.value }}</span>
+              <span class="cell" :class="row.result.name.tone">{{ guessFanName(row.result.name.value, row.result.rules.value) }}</span>
             </td>
             <td>
               <span class="cell" :class="row.result.rules.tone">{{ row.result.rules.value }}</span>
@@ -72,6 +72,7 @@
 </template>
 
 <script setup>
+import { guessFanName } from '@/i18n/guessFanNames.js'
 defineProps({
   label: { type: String, default: '' },
   used: { type: Number, default: 0 },

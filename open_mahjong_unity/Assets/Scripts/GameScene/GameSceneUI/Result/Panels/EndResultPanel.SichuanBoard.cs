@@ -10,6 +10,7 @@ public partial class EndResultPanel {
     public void PromoteSichuanBoardToMatchEnd() {
         if(!IsSichuanBoardVisible)return;
         matchEndMode=true;
+        sichuanBoardPanel.ClearReady();
         endButtonConfirmed=false;
         EndButton.interactable=true;
     }
@@ -40,6 +41,25 @@ public partial class EndResultPanel {
             ()=>record?"确认":matchEndMode?"确定":SettlementSync.SelfReady?"已准备":SettlementSync.RemainingSeconds is int seconds?$"确定（{seconds}）":"确定",
             ()=>EndButton.interactable, animate:!SettlementSync.IsRestoring,
             remaining:()=>!record&&!matchEndMode&&!SettlementSync.SelfReady?SettlementSync.RemainingSeconds:null);
+        if(!record && !matchEndMode && !GameSession.Current.IsRealtimeSpectator)
+            sichuanBoardPanel.ConfigureReady(EndButtonClick,
+                ()=>!matchEndMode && gameResultLifecycleActive && (SettlementSync.Current!=null
+                    ?SettlementSync.Current.phase=="waiting_ready":cachedReadyStatus.Count>0),
+                SichuanSelfReady,()=>cachedReadyStatus);
+    }
+
+    private bool SichuanSelfReady() {
+        if(SettlementSync.SelfReady)return true;
+        foreach(var seat in TableMirror.Current.IndexToPosition)
+            if(seat.Value=="self")return cachedReadyStatus.TryGetValue(seat.Key,out bool ready)&&ready;
+        return false;
+    }
+    public bool AllSichuanPlayersReady {
+        get {
+            if(!IsSichuanBoardVisible || !sichuanBoardPanel.IsReadyCountdownStarted || cachedReadyStatus.Count!=4)return false;
+            foreach(bool ready in cachedReadyStatus.Values)if(!ready)return false;
+            return true;
+        }
     }
 
     private void RestoreSichuanBoardChildren() {

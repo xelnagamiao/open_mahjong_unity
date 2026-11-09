@@ -65,6 +65,10 @@ def ensure_inventory_tables(cursor):
                 (description, iid, code, key, '使用后增加 1 次账号改名机会，可在网页账号中心改名。'))
 
 
+    from .commerce import ensure_commerce_tables
+    ensure_commerce_tables(cursor)
+
+
 def _public(row):
     value = {key: row[key] for key in ('item_id','code','name','description','category','asset_key','slot',
                                       'max_quantity','is_default','grant_enabled','use_enabled','sort_order','config')}
@@ -103,9 +107,11 @@ def _state(cursor, user_id):
     cards = sum(row['quantity'] for row in owned if row['item_id'] in rename_items)
     usable_cards = sum(row['quantity'] for row in owned
                        if row['item_id'] in rename_items and rename_items[row['item_id']]['use_enabled'])
+    from .commerce import wallet_state
     return {'user_id':user_id, 'catalog':catalog, 'owned':owned, 'equipment':equipment,
             'appearance':appearance, 'rename_card_count':cards, 'rename_card_usable_count':usable_cards,
-            'is_tourist':bool(user['is_tourist'])}
+            'is_tourist':bool(user['is_tourist']),
+            'wallet':wallet_state(cursor,user_id,registered=user['is_tourist'] is False)}
 
 
 def _read(db, work):

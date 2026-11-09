@@ -10,6 +10,10 @@ export function groupEventRoomCards(cards) {
   const groups = []
   const paired = new Map()
   for (const card of cards) {
+    if (card.room.duplicate_lobby?.version === 1) {
+      groups.push({ id: `room-${card.room.room_id}`, paired: false, cards: [card] })
+      continue
+    }
     const id = card.room.duplicate_match_id
     if (!id) {
       groups.push({ id: `room-${card.room.room_id}`, paired: false, cards: [card] })

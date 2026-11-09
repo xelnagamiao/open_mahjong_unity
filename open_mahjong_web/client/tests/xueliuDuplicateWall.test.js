@@ -92,13 +92,15 @@ test('only paired Sichuan room payloads accept keys; ordinary saved forms discar
   }
 })
 
-test('personal rule choices exclude both Sichuan layouts, and all three personal creation methods are rejected', () => {
-  assert.deepEqual(catalog().rules.filter(item => item.scopes.includes('personal')).map(item => item.rule), ['guobiao', 'guobiao/lanshi'])
+test('personal rule choices include both Sichuan layouts and all three creation methods', () => {
+  assert.deepEqual(catalog().rules.filter(item => item.scopes.includes('personal')).map(item => item.rule), ['guobiao', 'guobiao/lanshi', 'sichuan/xueliu', 'sichuan/sbr'])
   for (const rule of catalog().rules.filter(item => item.rule.startsWith('sichuan/'))) {
-    assert.deepEqual(rule.scopes, ['event'])
+    assert.deepEqual(rule.scopes, ['personal', 'event'])
     assert.match(rule.label, /双打复式/)
     for (const wall_type of ['manual', 'seed', 'key']) {
-      assert.throws(() => normalizeInput({ scope: 'personal', rule: rule.rule, wall_type, seed: 'test', tiles: fullWall(rule.rule) }), /赛事或基地/)
+      const draft = normalizeInput({ scope: 'personal', rule: rule.rule, wall_type, seed: 'test', tiles: fullWall(rule.rule) })
+      assert.equal(draft.scope, 'personal')
+      assert.equal(draft.round_tiles[0].length, 108)
     }
   }
 })

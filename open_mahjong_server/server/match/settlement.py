@@ -19,6 +19,10 @@ def settle_ranked_game(state):
     state.game_record['game_title']['rating_rule'] = spec.rating_rule
     state.game_record['game_title']['rating_game_id'] = str(state.gamestate_id)
     players = [dict(user_id=p.user_id,place=p.record_counter.rank_result) for p in state.player_list]
+    if spec.party_size > 1:
+        for player, payload in zip(state.player_list, players):
+            payload.update(team_id=player.team_id,
+                           team_match_points=state.team_result['match_points'][player.team_id])
     options = dict(ended_at=state.game_record['game_title'].get('end_time'))
     if spec.rule == 'riichi':
         from .sanma_rank_calculator import SANMA_PT_ALGORITHM
@@ -42,7 +46,7 @@ def settle_ranked_game(state):
         if spec.rule == 'guobiao':
             player.guobiao_rank,player.guobiao_score = player.rank_after,player.score_after
     state.game_record['game_title']['rating_result'] = result
-    if spec.rule in ('riichi', 'qingque'):
+    if spec.rule in ('riichi', 'qingque') or spec.party_size > 1:
         state.game_record['game_title']['rating_algorithm'] = next(iter(result.values())).get(
             'rating_algorithm', LEGACY_PT_ALGORITHM)
     return f'{"unlimited" if spec.unlimited_rounds else spec.rounds}/{spec.player_count}_rank'

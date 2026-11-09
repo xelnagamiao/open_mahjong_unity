@@ -124,6 +124,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// InitGameRound 入口必调，保证切到下一局时上一局结算面板不会残留。
     /// </summary>
     private void ClearRecordRoundEndPanels() {
+        HideRecordMatchResult();
         CancelRecordHuPresentation();
         ClearPendingRecordCuoheContinue();
         if (EndResultPanel.Instance != null) {
@@ -317,6 +318,7 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private List<Round> _roundsListForInspector;
 
     public void HideGameRecord() {
+        HideRecordMatchResult();
         StopRecordAutoPlay();
         InvalidateRecordDelayedAdvances();
         recordShareGameId = null;
@@ -342,6 +344,13 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         GameSceneUIManager.Instance.InitGameRecord();
         GameSceneMouseInputController.Instance?.SetState(GameSceneMouseInputController.StateRecord);
+
+        // Clear physical faces before replacing their rule context or refreshing the preset.
+        // A previous Duocai hand is not a valid set of faces under the next record's rule.
+        GameCanvas.Instance?.ClearHandCardQueue();
+        ClearTransformChildren(GameCanvas.Instance?.HandCardsContainer);
+        ClearAllTileListSectionContainers();
+        HideRecordMatchResult();
 
         // 新牌谱重新选择视角，默认本机玩家；本机不在牌谱中时使用原始东位。
         selfPlayerId = 0;
@@ -864,7 +873,7 @@ public partial class GameRecordManager : MonoBehaviour {
         tick = NormalizeExchangeSixTerminalTick(tick);
         string action = tick[0];
         int previousPlayerIndex = currentPlayerIndex;
-        int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
+        int actingPlayerIndex = ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex, lastDiscardPlayerIndex);
 
         string currentPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer currentRecordPlayer = recordPlayer_to_info[currentPlayerPosition];
@@ -1254,6 +1263,10 @@ public partial class GameRecordManager : MonoBehaviour {
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
+        // Rule presentation hooks can update dynamic reserves (e.g. Fuzhou).
+        // Resolve them before the wall, remaining count and draw forecast.
+        if (isRuleStateAction) RefreshRecordRulePlayerTags();
+        else RecordReplay.RefreshAfterAction?.Invoke();
         Game3DManager.Instance.RefreshWashizuRecordHands();
         // 与对局侧一致：仅在回合流转（下一家行动）时整理手牌，摸牌后同一家继续行动不排序
         if (!isRecordState && nextPlayerIndex != actingPlayerIndex) {
@@ -1264,20 +1277,19 @@ public partial class GameRecordManager : MonoBehaviour {
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
-        if (isRuleStateAction) RefreshRecordRulePlayerTags();
-        else RecordReplay.RefreshAfterAction?.Invoke();
     }
 
     /// <summary>
     /// 根据已摸走的头部/尾部张数，对牌山视图中的卡牌设置明度（已摸走的变灰）。
     /// </summary>
     private void UpdateTileListOpacity() {
+        RefreshWallSections();
         bool showChong = ShouldApplyRecordChongHint();
         bool showZimo = showChong && IsTileListViewVisible();
-        TryGetActiveRecordRuleContext(out string roomRule, out _);
+        var remaining = new HashSet<int>(currentOriginalIndices);
 
         for (int i = 0; i < tileListCards.Count; i++) {
-            bool isConsumed = i < consumedFromFront || consumedBackIndices.Contains(i);
+            bool isConsumed = !remaining.Contains(i);
             float brightness = isConsumed ? DimmedTileBrightness : 1f;
             bool isDanger = showChong
                 && i < originalTilesList.Count
@@ -1285,8 +1297,8 @@ public partial class GameRecordManager : MonoBehaviour {
             bool isZimo = showZimo
                 && currentZimoDrawOriginalIndices.Contains(i)
                 && !isConsumed
-                && !IsRiichiDeadWallBlockingZimoAt(i, roomRule);
-            tileListCards[i].ApplyWallVisual(brightness, isDanger, isZimo);
+                && IsOriginalWallIndexNormalDrawable(i);
+            tileListCards[i]?.ApplyWallVisual(brightness, isDanger, isZimo);
         }
         UpdateHandSectionDimming();
     }
@@ -2000,14 +2012,7 @@ public partial class GameRecordManager : MonoBehaviour {
             if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
                 GotoSelectRound(nextRound, false);
             } else {
-                // 观战相关模式：到末局时不循环回第一局
-                if (IsRecordAutoPlaying) {
-                    CompleteRecordAutoPlay();
-                } else if (!IsSpectatorSession) {
-                    GotoSelectRound(1, false);
-                } else {
-                    NotifyReachedLastAction();
-                }
+                FinishRecordMatch();
             }
         }
     }
@@ -2038,14 +2043,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
             GotoSelectRound(nextRound, false);
         } else {
-            // 观战牌谱模式：确认后到末局不循环
-            if (IsRecordAutoPlaying) {
-                CompleteRecordAutoPlay();
-            } else if (!IsSpectatorSession) {
-                GotoSelectRound(1, false);
-            } else {
-                NotifyReachedLastAction();
-            }
+            FinishRecordMatch();
         }
     }
 
@@ -2225,6 +2223,7 @@ public partial class GameRecordManager : MonoBehaviour {
         }
 
         int simulateCurrentPlayerIndex = roundData.startPlayerIndex;
+        int simulateLastDiscardPlayerIndex = -1;
         var huPlayers = new HashSet<int>();
         int xunmu = 0;
         int selectedIndex = selectedPlayerIndex;
@@ -2248,7 +2247,12 @@ public partial class GameRecordManager : MonoBehaviour {
                 continue;
             }
 
+            if (action == "d") {
+                simulateCurrentPlayerIndex = ResolveRecordActingPlayerIndex(tick, action,
+                    simulateCurrentPlayerIndex, simulateLastDiscardPlayerIndex);
+            }
             if (action == "c") {
+                simulateLastDiscardPlayerIndex = simulateCurrentPlayerIndex;
                 if (simulateCurrentPlayerIndex == selectedIndex && node > 0 && !ContinuesChangshaRecordDiscards(node - 1)) {
                     xunmu++;
                     xunmuToNode[xunmu] = node;

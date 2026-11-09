@@ -36,7 +36,7 @@ namespace Salasasa.Events
             {
                 if(string.IsNullOrEmpty(user.SavedLoginPassword)){complete(Failure("管理身份已失效，请重新登录后重试"));yield break;}
                 EventAdminResult login=null;
-                yield return Request(baseUrl+"/api/event-admin/auth/login","POST",new JObject{["username"]=user.Username,["password"]=user.SavedLoginPassword},false,r=>login=r);
+                yield return Request(baseUrl+ConfigManager.EventAdminLoginPath,"POST",new JObject{["username"]=user.Username,["password"]=user.SavedLoginPassword},false,r=>login=r);
                 if(!SameUser(account)){complete(Failure("账号已切换，请重新打开面板"));yield break;}
                 if(login==null||!login.Success){complete(login??Failure("管理身份验证失败"));yield break;}
                 if((int?)login.Data?["user_id"]!=account){token=null;complete(Failure("管理身份不匹配，请重新登录"));yield break;}
@@ -45,7 +45,7 @@ namespace Salasasa.Events
                 expires=DateTime.UtcNow.AddSeconds(Math.Max(30,(int?)login.Data?["expires_in"]??3600)-15);
             }
             EventAdminResult result=null;
-            yield return Request(baseUrl+"/api/event-admin"+path,method,body,true,r=>result=r);
+            yield return Request(baseUrl+ConfigManager.EventAdminPath+path,method,body,true,r=>result=r);
             if(!SameUser(account)){token=null;complete(Failure("账号已切换，请重新打开面板"));yield break;}
             if(result?.Status==401){token=null;result.Message="管理身份已过期，请刷新后重试";}
             complete(result??Failure("请求未完成，请刷新后核对结果"));

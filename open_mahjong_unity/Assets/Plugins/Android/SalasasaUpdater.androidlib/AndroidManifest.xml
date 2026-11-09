@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.salasasa.updater">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application>
+        <activity android:name="cn.salasasa.updater.RestartGameActivity"
+            android:process=":contentRestart" android:exported="false"
+            android:excludeFromRecents="true" android:screenOrientation="sensorLandscape"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <provider
             android:name="cn.salasasa.updater.ApkUpdateProvider"
             android:authorities="${applicationId}.updates"

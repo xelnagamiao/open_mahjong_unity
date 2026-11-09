@@ -91,6 +91,8 @@ class GameInfo(BaseModel):
     changchun: Optional[Dict[str, object]] = None  # 长春宝牌严格按接收者资格生成
     use_flowers: Optional[bool] = None  # 国标花牌开关；蓝十改固定关闭
     tian_di_ren_he: bool = False  # 标准国标/三人国标/血战：天地人和各加计 8 番
+    jinluo_mode: bool = False
+    jinluo_weather: str = "dragon_pairs"
     joker_multi_wait: bool = False
     no_joker_bonus: str = "add8"
     black_flower_progressive: bool = True
@@ -675,6 +677,7 @@ class MessageInfo(BaseModel):
     title: str  # 消息标题
     content: str  # 消息内容
     required_release_version: Optional[int] = None  # 安卓更新需匹配的游戏协议版本
+    required_base_version: Optional[int] = None  # 仅安卓热更新框架使用；旧客户端可忽略
 
 class Sticker_info(BaseModel):
     """对局表情包广播"""
@@ -717,6 +720,8 @@ class Player_recent_records_response(BaseModel):
 
 
 class Response(BaseModel):
+    party: Optional[dict] = None
+    party_invite: Optional[dict] = None
     settlement_sync: Optional[dict] = None
     settlement_restore: Optional[List[dict]] = None
     washizu_layouts: Optional[Dict[int, dict]] = None
@@ -724,6 +729,8 @@ class Response(BaseModel):
     duplicate_match_info: Optional[dict] = None
     rating_rule: Optional[str] = None
     data_request_id: Optional[str] = None
+    invite_request_id: Optional[str] = None
+    invite_info: Optional[dict] = None
     @field_validator('room_info', 'room_list', 'event_detail', 'event_list', mode='before')
     @classmethod
     def hide_duplicate_room_keys(cls, value):

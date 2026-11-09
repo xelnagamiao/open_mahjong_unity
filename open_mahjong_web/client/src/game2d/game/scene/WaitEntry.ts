@@ -2,7 +2,8 @@ import { Container, Text } from 'pixi.js'
 import { TILE_WIDTH, TILE_HEIGHT } from './constants'
 import { Tile } from './Tile'
 import { getGameFontFamily } from '../fontLoader'
-import { locale, tr } from '../../../i18n'
+import { locale } from '../../../i18n'
+import { translateRuleText } from '../../../i18n/fanNames'
 import { resolveFourJokersHint, type FourJokersHintRequest } from '../../calc/guobiao/fourJokers'
 
 /**
@@ -19,7 +20,7 @@ export class WaitEntry extends Container {
     selfDrawnF: number,
     remainingCount: number,
     unit = '番',
-    hint?: {label?: string; kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'; four_jokers_request?: FourJokersHintRequest},
+    hint?: {label?: string; rule?: string; kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'; four_jokers_request?: FourJokersHintRequest},
   ) {
     super()
     this.x = x
@@ -30,7 +31,9 @@ export class WaitEntry extends Container {
     const ronOnly = hint?.kind === 'ron_only'
     const singleMethod = selfDrawnOnly || ronOnly
     const notEnough = hint?.kind ? hint.kind === 'wuyi' : selfDrawnF <= 0 && baseF <= 0
-    const fanLabel = tr(hint?.label ?? (ronOnly ? '仅点和' : baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'))
+    // Live 2D tables use MCR; replays pass their own rule with each wait entry.
+    const rule = hint?.rule || 'guobiao'
+    const fanLabel = translateRuleText(hint?.label ?? (ronOnly ? '仅点和' : baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'), locale.value, rule)
     const fanText = new Text({
       text: fanLabel,
       style: {
@@ -41,7 +44,7 @@ export class WaitEntry extends Container {
       },
     })
     fanText.anchor.set(0.5)
-    if (locale.value === 'fr' && fanText.width > TILE_WIDTH * 1.15) {
+    if (['fr', 'de', 'ru'].includes(locale.value) && fanText.width > TILE_WIDTH * 1.15) {
       fanText.scale.set(TILE_WIDTH * 1.15 / fanText.width)
     }
     fanText.y = TILE_HEIGHT / 2 + 150
@@ -69,7 +72,7 @@ export class WaitEntry extends Container {
       fanText.style.fill = 0x777777
       void resolveFourJokersHint(hint.four_jokers_request).then(result => {
         if (this.destroyed || fanText.destroyed) return
-        fanText.text = tr(result?.label ?? '提示暂不可用')
+        fanText.text = translateRuleText(result?.label ?? '提示暂不可用', locale.value, rule)
         fanText.style.fontSize = fanText.text.length > 3 ? 142 : 185
         fanText.style.fill = result?.kind === 'wuyi' ? 0x8b2f2f : result?.kind === 'dianhe' ? 0x000000 : 0x777777
         tile.alpha = remainingCount <= 0 || result?.kind === 'wuyi' ? 0.58 : result?.kind === 'zimo' || result?.kind === 'ron_only' ? 0.78 : 1

@@ -15,6 +15,17 @@ namespace Riichi {
 
         public RiichiHandResult Calculate(List<int> handList, List<string> tilesCombination,
                                           int winTile, RiichiHandContext context) {
+            return CalculateCore(handList, tilesCombination, winTile, context, false);
+        }
+
+        /// <summary>仅供听牌提示试算：允许加入已被自家副露用尽的第5张和牌张，不改变实际和牌校验。</summary>
+        public RiichiHandResult CalculateWaitHint(List<int> handList, List<string> tilesCombination,
+                                                 int winTile, RiichiHandContext context) {
+            return CalculateCore(handList, tilesCombination, winTile, context, true);
+        }
+
+        private RiichiHandResult CalculateCore(List<int> handList, List<string> tilesCombination,
+                                              int winTile, RiichiHandContext context, bool isWaitHint) {
             context = context ?? new RiichiHandContext();
             handList = handList ?? new List<int>();
             tilesCombination = tilesCombination ?? new List<string>();
@@ -25,14 +36,17 @@ namespace Riichi {
             var result = new RiichiHandResult();
             var allTiles = new List<int>(handList);
             foreach (var combo in tilesCombination) allTiles.AddRange(RiichiYakuDetector.TilesFromCombination(combo));
-            if ((context.IsSanma && allTiles.Any(t => (RiichiTileUtil.Normalize(t) >= 12 && RiichiTileUtil.Normalize(t) <= 18))) || handList.Count != 14 - 3 * tilesCombination.Count || allTiles.GroupBy(RiichiTileUtil.Normalize).Any(g => g.Count() > 4)) {
+            int winNorm = RiichiTileUtil.Normalize(winTile);
+            bool invalidCopies = allTiles.GroupBy(RiichiTileUtil.Normalize).Any(g => g.Count() > 4
+                && !(isWaitHint && g.Key == winNorm && g.Count() == 5
+                    && handList.Count(t => RiichiTileUtil.Normalize(t) == winNorm) <= 4));
+            if ((context.IsSanma && allTiles.Any(t => (RiichiTileUtil.Normalize(t) >= 12 && RiichiTileUtil.Normalize(t) <= 18))) || handList.Count != 14 - 3 * tilesCombination.Count || invalidCopies) {
                 result.Error = "手牌张数不合法"; return result;
             }
 
             // 归一化手牌（把赤 5 还原到普通 5 用于拆解）
             var normalizedHand = handList.Select(RiichiTileUtil.Normalize).ToList();
             normalizedHand.Sort();
-            int winNorm = RiichiTileUtil.Normalize(winTile);
 
             // 检查胜牌是否包含在手牌中（按归一化值比较，忽略赤 5 与普通 5 差异）
             bool winTileInHand = false;

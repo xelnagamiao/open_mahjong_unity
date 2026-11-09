@@ -12,6 +12,7 @@ public sealed class AndroidUpdateManifest {
     public string versionName;
     public long versionCode;
     public int releaseVersion;
+    public int baseVersion;
     public string packageName;
     public string file;
     public long sizeBytes;

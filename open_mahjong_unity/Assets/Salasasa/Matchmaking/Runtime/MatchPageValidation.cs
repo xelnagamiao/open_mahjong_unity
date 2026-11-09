@@ -29,7 +29,7 @@ namespace Salasasa.Matchmaking
             if(!layouts){Check("Baked layouts present",false);Finish();yield break;}
             owner.headerNavigation.SelectSide(0);owner.Open("ranked");yield return new WaitForSecondsRealtime(.8f);
             NetworkPollingManager.Existing?.StopMatchPanelQueuePolling();
-            var all=layouts.GetComponentsInChildren<MatchButton>(true);Check("Both layouts have the same 29 queue IDs",all.Length==58&&all.Select(x=>x.QueueType).Distinct().Count()==29);
+            var all=layouts.GetComponentsInChildren<MatchButton>(true);Check("Both layouts have the same 30 queue IDs",all.Length==60&&all.Select(x=>x.QueueType).Distinct().Count()==30);
             Check("No preview match session imported",layouts.GetComponentsInChildren<MonoBehaviour>(true).All(x=>x&&!x.GetType().Name.Contains("Preview")));
             Check("No missing CanvasRenderer",layouts.GetComponentsInChildren<Graphic>(true).All(x=>x.GetComponent<CanvasRenderer>()));
             for(int design=0;design<2;design++){

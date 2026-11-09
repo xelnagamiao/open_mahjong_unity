@@ -107,7 +107,6 @@ def build_game_server(
         room_id_to_ClassicalGameState={},
         room_id_to_RiichiGameState={},
         room_id_to_SichuanGameState={},
-        room_id_to_JiandanGameState={},
         room_id_to_TaiwanGameState={},
         gamestate_id_to_game_state={},
         user_id_to_game_state={},

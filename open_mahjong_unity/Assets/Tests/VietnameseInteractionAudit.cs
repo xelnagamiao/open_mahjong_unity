@@ -119,7 +119,7 @@ public sealed class VietnameseInteractionAudit : MonoBehaviour {
     void Check(bool value,string name){checks++;if(!value)throw new InvalidOperationException(name);}
     void Capture(string name) {
         var camera=Camera.main??Camera.allCameras.First();
-        var canvases=FindObjectsByType<Canvas>().Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
+        var canvases=FindObjectsByType<Canvas>(UnityEngine.FindObjectsSortMode.None).Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
         foreach(var canvas in canvases){canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;}
         Canvas.ForceUpdateCanvases();var target=new RenderTexture(1280,720,24);target.Create();
         UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera,new UnityEngine.Rendering.RenderPipeline.StandardRequest{destination=target});

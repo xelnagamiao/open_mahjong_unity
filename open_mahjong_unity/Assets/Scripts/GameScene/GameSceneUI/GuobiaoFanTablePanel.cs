@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>按规则和分类切换，复用场景模板；规则书入口直接显示当前规则番表。</summary>
-public sealed class GuobiaoFanTablePanel : MonoBehaviour {
+public sealed class GuobiaoFanTablePanel : MonoBehaviour, ICanvasRaycastFilter {
     private static readonly Color HeaderColor = new Color(.17f, .24f, .38f);
     [SerializeField] private PanelPopupTransition popup;
     [SerializeField] private Button closeButton;
@@ -27,6 +27,7 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
     private readonly float[] pageScroll = { 1f, 1f, 1f };
     private int fanRowCount;
     private bool initialized;
+    private bool mobileFrameLocked;
     private MahjongFanCatalog.Document catalog;
     private string entryRuleId;
     private string entryRulebookPath;
@@ -37,6 +38,13 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
     public int VisibleCount { get; private set; }
     public int CurrentPage { get; private set; }
     public bool IsOpen => popup ? popup.IsOpen : gameObject.activeInHierarchy;
+
+    // The full-screen modal must leave its entry button available for toggling.
+    public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera) {
+        return !returnButton || !returnButton.isActiveAndEnabled || !returnButton.IsInteractable()
+            || !RectTransformUtility.RectangleContainsScreenPoint(
+                (RectTransform)returnButton.transform, screenPoint, eventCamera);
+    }
 
     private void Awake() => Initialize();
 
@@ -97,7 +105,7 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
         for (int i = 0; i < fanButtons.Length; i++) {
             fanButtons[i].gameObject.SetActive(i < count);
             if (i >= count) continue;
-            fanButtons[i].GetComponentInChildren<TMP_Text>().text = catalog.categories[i].label;
+            TableText.Set(fanButtons[i].GetComponentInChildren<TMP_Text>(), catalog.categories[i].label, catalog.id);
             fanButtons[i].navigation = new Navigation {
                 mode = Navigation.Mode.Explicit,
                 selectOnLeft = fanButtons[(i + count - 1) % count],
@@ -129,7 +137,7 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
             if (visible == rows.Count) rows.Add(Instantiate(rowTemplate, scroll.content));
             var row = rows[visible++];
             row.gameObject.SetActive(true);
-            row.Bind(entry, HeaderColor);
+            row.Bind(entry, HeaderColor, catalog.id);
         }
         for (int i = visible; i < rows.Count; i++) rows[i].gameObject.SetActive(false);
         fanRowCount = VisibleCount = visible;
@@ -208,7 +216,31 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
     private void RefreshLayout() {
         if (!tabsLayout || !scroll || !fullRulebookButton || !pageNavigation) return;
         var tabs = (RectTransform)tabsLayout.transform;
-        float frameWidth = ((RectTransform)tabs.parent).rect.width;
+        var frame=(RectTransform)tabs.parent;
+        if (MobileViewportLayout.IsInstalled && !mobileFrameLocked && !GetComponent<Salasasa.Home.LobbyFanTablePlacement>()) {
+            // Keep the authored dialog size as the mobile viewport widens. Its
+            // contents still use the existing wrapping and scrolling layout.
+            var space=frame.GetComponentInParent<CanvasReferenceLayout>();
+            Vector2 reference=space && space.scaleSettings ? space.scaleSettings.referenceResolution : new Vector2(1920,1080);
+            Vector2 size=Vector2.Scale(reference,frame.anchorMax-frame.anchorMin)+frame.sizeDelta;
+            Vector2 anchor=frame.anchorMin+Vector2.Scale(frame.anchorMax-frame.anchorMin,frame.pivot);
+            mobileFrameLocked=true;
+            frame.anchorMin=frame.anchorMax=anchor;
+            frame.sizeDelta=size;
+            // Keep the authored frame on ordinary widths. Fit its visual
+            // rectangle proportionally when a narrow safe area cannot hold it;
+            // the modal backdrop and popup animation keep their own transforms.
+            var fitSpace=new GameObject("MobileRuleDialogFit",typeof(RectTransform)).GetComponent<RectTransform>();
+            fitSpace.gameObject.layer=frame.gameObject.layer;
+            fitSpace.SetParent(frame.parent,false);
+            fitSpace.anchorMin=fitSpace.anchorMax=Vector2.one*.5f;
+            fitSpace.pivot=Vector2.one*.5f;fitSpace.sizeDelta=Vector2.zero;
+            Vector2 position=frame.anchoredPosition;
+            frame.SetParent(fitSpace,false);frame.anchoredPosition=position;
+            var fit=fitSpace.gameObject.AddComponent<ViewportPanelFit>();
+            fit.panel=frame;fit.authoredPosition=Vector2.zero;fit.Apply();
+        }
+        float frameWidth = frame.rect.width;
         float sidebarWidth = frameWidth < 800 ? 108 : 132;
         pageNavigation.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, sidebarWidth);
         float contentLeft = 24 + sidebarWidth + 18;
@@ -236,5 +268,14 @@ public sealed class GuobiaoFanTablePanel : MonoBehaviour {
         area.offsetMax = new Vector2(area.offsetMax.x, -(tabsTop + (CurrentPage == 0 ? height + 14 : 0)));
     }
 
-    private void OnDisable() { if (scroll) scroll.StopMovement(); }
+    private void OnEnable() => ConfigManager.OnLanguageChanged += RefreshLanguage;
+    private void RefreshLanguage() {
+        foreach (var label in GetComponentsInChildren<LocalizedPlatformLabel>(true)) label.Refresh();
+        RefreshLayout();
+        if (scroll) LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+    }
+    private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
+        if (scroll) scroll.StopMovement();
+    }
 }

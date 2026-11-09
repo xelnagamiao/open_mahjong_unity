@@ -5,11 +5,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>Header presets + an ordered, multi-select rotation page over the existing design tabs.</summary>
+/// <summary>Header presets and an ordered rotation section in the card-design settings scroll.</summary>
 public sealed partial class Card3DPresetPanel : MonoBehaviour
 {
-    public const string AlternatingHint = "点击确定保存轮转快照，第一局使用第一副，第二局起交替轮转；编辑其他预设不影响已确认配置";
-    public const string RandomHint = "点击确定保存轮转快照，第一局使用第一副，随后随机轮转；选择的卡牌套数越多内存开销则会越大";
+    public const string NoneHint = "不启用卡牌轮转";
+    public const string AlternatingHint = "两副牌交替作为3D卡牌";
+    public const string RandomHint = "第一局默认使用第一副牌，随后每小局随机选择手牌，随机选择的手牌必定不与上一局重复，选择的卡牌预设越多，内存开销则越大";
     [SerializeField] private SceneConfigPanel owner;
     private Card3DPresetLibrary library;
     [SerializeField] private TMP_FontAsset font;
@@ -22,6 +23,25 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
     [SerializeField] private Toggle rowTemplate;
     [SerializeField] private EventTrigger rotationTrigger;
     private bool bound;
+    private bool rotationRequested;
+    [SerializeField] private Button openRotation;
+    [SerializeField] private GameObject[] designBody;
+    [SerializeField] private CardDesignSurfaceLayout inlineLayout;
+    [SerializeField] private RectTransform inlineList;
+    [SerializeField] private RectTransform presetSection, presetChoices;
+    [SerializeField] private Card3DPresetChoice presetChoiceTemplate;
+    private readonly Dictionary<string, Card3DPresetChoice> choiceButtons = new Dictionary<string, Card3DPresetChoice>();
+    public RectTransform PresetSection => presetSection;
+    public float PresetSectionHeight => 66 + CardFaceLayoutPresentation.ChoiceGridHeight(ids.Count, true);
+    public bool IsRotationOpen => inlineLayout == null && rotationRequested;
+    public RectTransform RotationSection => rotationPage;
+    private float hintHeight = 24;
+    private string layoutHint;
+    private TMP_FontAsset layoutHintFont;
+    private float layoutHintSize;
+    private float InlineListTop => 110 + hintHeight + 16;
+    public float InlineHeight => InlineListTop + Mathf.Max(60, listContent != null ? listContent.sizeDelta.y : 0) + 12;
+    [SerializeField] private RectTransform designRoot;
     private string catalogSignature;
     private readonly List<string> ids = new List<string>();
     private readonly Dictionary<string, Toggle> toggles = new Dictionary<string, Toggle>();
@@ -35,30 +55,30 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         presets.onValueChanged.AddListener(index => { if (library != null && index >= 0 && index < ids.Count) { string id = ids[index]; CancelRotation(); library.Select(id); } });
         rotation.onValueChanged.AddListener(index => {
             if (library == null) return;
-            library.SetRotation((Card3DRotationMode)index); ShowRotation(index != 0);
+            library.SetRotation((Card3DRotationMode)index);
+        });
+        if (openRotation != null) openRotation.onClick.AddListener(() => {
+            if (rotationRequested) CancelRotation(); else owner.ShowCardRotationPanel();
         });
         add.onClick.AddListener(ShowCreate);
         remove.onClick.AddListener(ConfirmDelete);
-        confirmRotation.onClick.AddListener(ConfirmRotation);
-        backRotation.onClick.AddListener(CancelRotation);
+        if (confirmRotation != null) confirmRotation.gameObject.SetActive(false);
+        backRotation.onClick.AddListener(() => { CancelRotation(); owner.ShowCardBackPanel(); });
         createCancel.onClick.AddListener(() => createModal.gameObject.SetActive(false));
         createSave.onClick.AddListener(SaveCreated);
         presetName.onSubmit.AddListener(_ => SaveCreated());
         rotationTrigger.triggers.Clear();
-        foreach (var type in new[] { EventTriggerType.PointerClick, EventTriggerType.Submit }) {
-            var entry = new EventTrigger.Entry { eventID = type };
-            entry.callback.AddListener(_ => { if (library != null && library.Data.rotation != Card3DRotationMode.None) ShowRotation(true); });
-            rotationTrigger.triggers.Add(entry);
-        }
         presets.interactable = rotation.interactable = add.interactable = remove.interactable = false;
         BindLibrary();
     }
-    public bool HasBakedUi => presets && rotation && add && remove && confirmRotation && backRotation && createCancel && createSave
+    public bool HasBakedUi => presets && rotation && add && remove && backRotation && createCancel && createSave
         && rotationPage && listContent && createModal && hint && presetName && rowTemplate && rotationTrigger;
     private void Update()
     {
         if (presets == null) return;
         BindLibrary();
+        if (inlineLayout != null && hint != null && (layoutHint != hint.text || layoutHintFont != hint.font || !Mathf.Approximately(layoutHintSize, hint.fontSize)))
+            inlineLayout.RefreshLayout();
     }
     private void OnEnable() { if (Application.isPlaying) Initialize(owner); BindLibrary(); library?.BeginEditing(); }
     private void OnDisable()
@@ -79,7 +99,7 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         if (library == null) return;
         library.BeginEditing();
         library.Changed += Refresh; library.AppearanceApplied += RefreshAppearance;
-        Refresh(); ShowRotation(library.Ready && library.Data.rotation != Card3DRotationMode.None);
+        Refresh();
     }
     private void Refresh()
     {
@@ -87,10 +107,8 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         presets.interactable = rotation.interactable = add.interactable = ready;
         remove.interactable = ready && !Card3DPresetData.IsBuiltin(library.Data.selectedId);
         if (!ready) return;
-        bool initialLoad = catalogSignature == null;
         RenderData(library.Data);
-        if (initialLoad) ShowRotation(library.Data.rotation != Card3DRotationMode.None);
-        if (library.Data.rotation == Card3DRotationMode.None) ShowRotation(false);
+        ApplyPageVisibility();
     }
     private void RefreshAppearance()
     {
@@ -106,23 +124,29 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         if (signature != catalogSignature) {
             presets.Hide(); ids.Clear(); presets.ClearOptions();
             ids.AddRange(all.Select(p => p.id)); presets.AddOptions(all.Select(p => p.name).ToList());
-            BuildRows(all); catalogSignature = signature;
+            BuildRows(all); BuildChoices(all); catalogSignature = signature;
         }
         presets.SetValueWithoutNotify(Mathf.Max(0, ids.IndexOf(data.selectedId)));
         remove.interactable = !Card3DPresetData.IsBuiltin(data.selectedId);
         rotation.SetValueWithoutNotify((int)data.rotation);
-        string activeMode = data.confirmedRotation == Card3DRotationMode.None ? "无轮转" : data.confirmedRotation == Card3DRotationMode.Alternating ? "两副轮转" : "随机轮转";
-        hint.text = (data.rotation == Card3DRotationMode.Random ? RandomHint : AlternatingHint)
-            + "\n" + (data.DraftMatchesConfirmed() ? "已确认：" : "有未确认修改，当前生效：") + activeMode;
+        string description = data.rotation == Card3DRotationMode.None ? NoneHint : data.rotation == Card3DRotationMode.Random ? RandomHint : AlternatingHint;
+        if (hint.TryGetComponent<LocalizedPlatformLabel>(out var localization)) localization.SetSource(description);
+        else hint.text = description;
         bool full = data.rotation == Card3DRotationMode.Alternating && data.rotationIds.Count >= 2;
         foreach (string id in ids) {
             int order = data.rotationIds.IndexOf(id);
-            toggles[id].SetIsOnWithoutNotify(order >= 0); toggles[id].interactable = !full || order >= 0;
-            badges[id].text = order < 0 ? "" : order == 0 ? "第一副" : order == 1 ? "第二副" : "第" + (order + 1) + "副";
+            toggles[id].SetIsOnWithoutNotify(data.rotation != Card3DRotationMode.None && order >= 0); toggles[id].interactable = data.rotation != Card3DRotationMode.None && (!full || order >= 0);
+            badges[id].text = data.rotation == Card3DRotationMode.None || order < 0 ? "" : "第" + ChineseNumber(order + 1) + "副";
         }
-        bool valid = data.rotation == Card3DRotationMode.Alternating ? data.rotationIds.Count == 2
-            : data.rotation == Card3DRotationMode.Random && data.rotationIds.Count > 0;
-        confirmRotation.interactable = valid;
+        foreach (var preset in all)
+        {
+            bool current = preset.id == data.selectedId;
+            if (choiceButtons.TryGetValue(preset.id, out var choice)) choice.Show(preset, current, current);
+            var row = toggles[preset.id];
+            var visual = row.GetComponent<Card3DPresetChoice>();
+            if (visual != null) visual.Show(preset, current, row.isOn, row.interactable, badges[preset.id].text);
+        }
+        if (inlineLayout != null) inlineLayout.RefreshLayout();
     }
     private void BuildRows(List<Card3DPreset> all)
     {
@@ -134,7 +158,12 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
             var toggle = Instantiate(rowTemplate, listContent, false);
             var row = (RectTransform)toggle.transform;
             row.name = "Preset_" + id;
-            row.anchoredPosition = new Vector2(0,-index++*70); row.sizeDelta = new Vector2(0,60);
+            if (presetChoiceTemplate != null)
+            {
+                CardFaceLayoutPresentation.Place(row, index % 3 * 206, index / 3 * 86, 198, 80);
+                index++;
+            }
+            else { row.anchoredPosition = new Vector2(0,-index++*70); row.sizeDelta = new Vector2(0,60); }
             row.Find("Name").GetComponent<TMP_Text>().text = preset.name;
             var badge = row.Find("Order").GetComponent<TMP_Text>();
             toggle.onValueChanged.AddListener(on => {
@@ -143,14 +172,83 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
             toggles[id] = toggle; badges[id] = badge;
             row.gameObject.SetActive(true);
         }
-        listContent.sizeDelta = new Vector2(0,Mathf.Max(0,all.Count*70-10));
+        listContent.sizeDelta = new Vector2(0, presetChoiceTemplate != null
+            ? CardFaceLayoutPresentation.ChoiceGridHeight(all.Count, false) : Mathf.Max(0,all.Count*70-10));
+    }
+    private void BuildChoices(List<Card3DPreset> all)
+    {
+        if (presetChoiceTemplate == null || presetChoices == null) return;
+        foreach (var previous in choiceButtons.Values) { previous.gameObject.SetActive(false); if (Application.isPlaying) Destroy(previous.gameObject); else DestroyImmediate(previous.gameObject); }
+        choiceButtons.Clear();
+        foreach (var preset in all)
+        {
+            string id = preset.id;
+            var choice = Instantiate(presetChoiceTemplate, presetChoices, false);
+            choice.name = "PresetChoice_" + id;
+            var button = choice.GetComponent<Button>(); button.onClick = new Button.ButtonClickedEvent();
+            button.onClick.AddListener(() => {
+                if (library == null || !library.Ready || library.Data.selectedId == id) return;
+                CancelRotation(); library.Select(id);
+            });
+            choice.gameObject.SetActive(true); choiceButtons.Add(id, choice);
+        }
+        LayoutPresetChoices();
+    }
+    public void LayoutPresetChoices()
+    {
+        if (presetSection == null || presetChoices == null) return;
+        for (int i = 0; i < ids.Count; i++)
+            if (choiceButtons.TryGetValue(ids[i], out var choice)) CardFaceLayoutPresentation.Place((RectTransform)choice.transform, i % 3 * 206, i / 3 * 86, 198, 80);
+        CardFaceLayoutPresentation.PlaceChoice((RectTransform)add.transform, ids.Count, true);
+        presetChoices.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PresetSectionHeight - 66);
     }
     private void ShowRotation(bool show)
     {
-        if (show) library?.BeginRotationEdit();
-        if (rotationPage != null) rotationPage.gameObject.SetActive(show);
+        rotationRequested = show;
+        ApplyPageVisibility();
     }
-    private void CancelRotation() { library?.CancelRotationEdit(); ShowRotation(false); }
+    private void ApplyPageVisibility()
+    {
+        if (inlineLayout != null)
+        {
+            if (rotationPage != null) rotationPage.gameObject.SetActive(true);
+            return;
+        }
+        if (rotationPage != null) rotationPage.gameObject.SetActive(rotationRequested);
+        if (designBody != null) foreach (var body in designBody) if (body != null) body.SetActive(!rotationRequested);
+        if (openRotation != null) SceneConfigUi.SetButtonSelected(openRotation, rotationRequested);
+    }
+    private void CancelRotation() => ShowRotation(false);
+
+    public void OpenRotationPage() {
+        Initialize(owner);
+        BindLibrary();
+        ShowRotation(true);
+        Refresh();
+        if (inlineLayout != null) inlineLayout.ScrollToRotation();
+    }
+
+    public void LayoutInlineContent()
+    {
+        if (inlineLayout == null || inlineList == null || listContent == null) return;
+        if (layoutHint != hint.text || layoutHintFont != hint.font || !Mathf.Approximately(layoutHintSize, hint.fontSize))
+        {
+            hintHeight = Mathf.Max(24, Mathf.Ceil(hint.GetPreferredValues(hint.text, 586, float.PositiveInfinity).y));
+            layoutHint = hint.text; layoutHintFont = hint.font; layoutHintSize = hint.fontSize;
+        }
+        CardFaceLayoutPresentation.Place(hint.rectTransform, 12, 110, 586, hintHeight);
+        float rowsHeight = Mathf.Max(60, listContent.sizeDelta.y);
+        CardFaceLayoutPresentation.Place(inlineList, 0, InlineListTop, 610, rowsHeight);
+    }
+
+    public void HidePages() {
+        CancelRotation();
+        presets?.Hide(); rotation?.Hide();
+        if (createModal != null) createModal.gameObject.SetActive(false);
+        library?.Flush();
+    }
+
+    public void RefreshRotationPage() => Refresh();
     private void ConfirmDelete()
     {
         if (library == null || !library.Ready || deleteConfirmation != null || NotificationManager.Instance == null) return;
@@ -161,12 +259,21 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
             "确定删除“" + preset.name + "”吗？\n该预设将退出轮转；两副轮转不足两副时会关闭轮转。\n已上传的图片会保留。",
             () => { if (this != null && isActiveAndEnabled) { CancelRotation(); library.Remove(id); } }, "删除", "返回");
     }
-    private void ConfirmRotation()
+    private static string ChineseNumber(int number, bool leading = true)
     {
-        if (library == null || !library.Ready || !confirmRotation.interactable) return;
-        if (!library.ConfirmRotation()) return;
-        ShowRotation(false);
-        SceneConfigUi.ShowTip("卡牌轮转设置已确认");
+        const string digits = "零一二三四五六七八九";
+        if (number < 10) return digits[number].ToString();
+        int[] units = { 100000000, 10000, 1000, 100, 10 };
+        string[] names = { "亿", "万", "千", "百", "十" };
+        for (int i = 0; i < units.Length; i++)
+        {
+            int unit = units[i];
+            if (number < unit) continue;
+            int remainder = number % unit;
+            string prefix = unit == 10 && number / unit == 1 && leading ? "" : ChineseNumber(number / unit);
+            return prefix + names[i] + (remainder == 0 ? "" : (remainder < unit / 10 ? "零" : "") + ChineseNumber(remainder, false));
+        }
+        return "";
     }
     private void ShowCreate()
     {

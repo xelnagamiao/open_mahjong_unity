@@ -53,10 +53,10 @@
             @update:model-value="patch('step_timer', $event)"
           />
         </el-form-item>
-        <el-form-item v-if="!isHuahun" :label="tr(isLanshi ? '起和分' : '起和番')">
+        <el-form-item v-if="!isHuahun && !isBloodBattle" :label="translateRuleText(isLanshi ? '起和分' : '起和番', locale, modelValue.sub_rule || 'guobiao')">
           <el-input-number
-            :model-value="isLanshi ? 5 : modelValue.hepai_limit"
-            :disabled="isLanshi"
+            :model-value="isJinluo ? 8 : isLanshi ? 5 : modelValue.hepai_limit"
+            :disabled="isLanshi || isJinluo"
             :min="1"
             :max="64"
             controls-position="right"
@@ -73,14 +73,14 @@
             @update:model-value="patch('password', $event)"
           />
         </el-form-item>
-        <el-form-item v-if="panelLayout" :label="tr('错和形式')" class="gb-room-cuohe-type">
+        <el-form-item v-if="panelLayout && !isBloodBattle" :label="tr('错和形式')" class="gb-room-cuohe-type">
           <el-select :model-value="isLanshi ? 1 : modelValue.cuohe_type" :disabled="isLanshi || !modelValue.open_cuohe" @update:model-value="patch('cuohe_type', $event)">
             <el-option :value="0" :label="tr('错和-30，其余各+10')" />
             <el-option :value="1" :label="tr('错和-40，其余不加分')" />
           </el-select>
         </el-form-item>
       </div>
-      <DuplicateRoomField v-else-if="section === 'duplicate' && showDuplicateField && !autoDuplicate && !['guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(modelValue.sub_rule)" :model-value="modelValue.duplicate_key || ''" @update:model-value="patch('duplicate_key', $event)" />
+      <DuplicateRoomField v-else-if="section === 'duplicate' && showDuplicateField && !autoDuplicate && ['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(modelValue.sub_rule || 'guobiao/standard')" :model-value="modelValue.duplicate_key || ''" @update:model-value="patch('duplicate_key', $event)" />
       <div v-else-if="section === 'options'" class="gb-room-config-options">
         <h4 v-if="panelLayout" class="gb-room-section-title">{{ tr('开关选项') }}</h4>
         <el-form-item :label="panelLayout ? undefined : tr('花牌')" class="gb-room-flowers">
@@ -88,7 +88,7 @@
           <template v-else><el-switch :model-value="isHuahun || (!isLanshi && modelValue.use_flowers !== false)" :disabled="isLanshi || isHuahun" :active-text="panelLayout ? tr('花牌') : ''" :aria-label="tr('花牌')" @update:model-value="patch('use_flowers', $event)" /><span v-if="modelValue.sub_rule === 'guobiao/lanshi'" class="flower-help">{{ tr('固定无花') }}</span></template>
         </el-form-item>
         <el-form-item :label="panelLayout ? undefined : tr('提示')">
-          <el-switch :model-value="!isLanshi && modelValue.tips" :disabled="isLanshi" :active-text="panelLayout ? tr('提示') : ''" :aria-label="tr('提示')" @update:model-value="patch('tips', $event)" />
+          <el-switch :model-value="!isLanshi && !isJinluo && modelValue.tips" :disabled="isLanshi || isJinluo" :active-text="panelLayout ? tr('提示') : ''" :aria-label="tr('提示')" @update:model-value="patch('tips', $event)" />
         </el-form-item>
         <el-form-item v-if="supportsOpeningWins" :label="panelLayout ? undefined : tr('天地人和')">
           <el-tooltip :content="tr('各加计8番：天和为庄家起手自摸；地和为闲家和庄家首张弃牌；人和为闲家首次摸牌自摸。全桌吃碰杠（含暗杠）打断，补花不打断。')">
@@ -113,10 +113,10 @@
           </el-tooltip>
         </el-form-item>
         <el-form-item v-if="isHuahun" label="起和门槛"><span>0/1癞子8番，2癞子16番，3癞子32番，4癞子64番</span></el-form-item>
-        <el-form-item :label="panelLayout ? undefined : tr('错和')">
-          <el-switch :model-value="isLanshi || modelValue.open_cuohe" :disabled="isLanshi" :active-text="panelLayout ? tr('错和') : ''" :aria-label="tr('错和')" @update:model-value="patch('open_cuohe', $event)" />
+        <el-form-item v-if="!isBloodBattle" :label="panelLayout ? undefined : tr('错和')">
+          <el-switch :model-value="isLanshi || isJinluo || modelValue.open_cuohe" :disabled="isLanshi || isJinluo" :active-text="panelLayout ? tr('错和') : ''" :aria-label="tr('错和')" @update:model-value="patch('open_cuohe', $event)" />
         </el-form-item>
-        <el-form-item v-if="!panelLayout && (isLanshi || modelValue.open_cuohe)" :label="tr('错和形式')" class="gb-room-cuohe-type">
+        <el-form-item v-if="!panelLayout && !isBloodBattle && (isLanshi || modelValue.open_cuohe)" :label="tr('错和形式')" class="gb-room-cuohe-type">
           <el-select :model-value="isLanshi ? 1 : modelValue.cuohe_type" :disabled="isLanshi" style="width: 220px" @update:model-value="patch('cuohe_type', $event)">
             <el-option :value="0" :label="tr('错和-30，其余各+10')" />
             <el-option :value="1" :label="tr('错和-40，其余不加分')" />
@@ -126,9 +126,9 @@
           <el-switch :model-value="modelValue.tourist_limit" :active-text="panelLayout ? tr('限制游客') : ''" :aria-label="tr('限制游客')" @update:model-value="patch('tourist_limit', $event)" />
         </el-form-item>
         <el-form-item :label="panelLayout ? undefined : tr('允许观战')">
-          <el-switch :model-value="autoDuplicate ? false : modelValue.allow_spectator" :disabled="autoDuplicate" :active-text="panelLayout ? tr('允许观战') : ''" :aria-label="tr('允许观战')" @update:model-value="patch('allow_spectator', $event)" />
+          <el-switch :model-value="duplicateMode ? false : modelValue.allow_spectator" :disabled="duplicateMode" :active-text="panelLayout ? tr('允许观战') : ''" :aria-label="tr('允许观战')" @update:model-value="patch('allow_spectator', $event)" />
         </el-form-item>
-        <el-form-item :label="panelLayout ? undefined : tr('战术鸣牌')">
+        <el-form-item v-if="!isBloodBattle" :label="panelLayout ? undefined : tr('战术鸣牌')">
           <el-switch :model-value="modelValue.tactical_call" :active-text="panelLayout ? tr('战术鸣牌') : ''" :aria-label="tr('战术鸣牌')" @update:model-value="patch('tactical_call', $event)" />
         </el-form-item>
         <el-form-item :label="panelLayout ? undefined : tr('鸣牌保护')">
@@ -144,7 +144,8 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { tr } from '@/i18n'
+import { locale, tr } from '@/i18n'
+import { translateRuleText } from '@/i18n/fanNames'
 import DuplicateRoomField from '@/components/DuplicateRoomField.vue'
 import { HUAHUN_DESCRIPTION, HUAHUN_RULE_TEXT } from '@/utils/guobiaoHuahun.js'
 import { supportsGuobiaoOpeningWins, updateGuobiaoRoomConfig } from '@/utils/guobiaoRoomConfig.js'
@@ -176,6 +177,8 @@ const roundTimerOptions = [
 ]
 
 const defaultSubRuleOptions = [
+  { value: 'guobiao/blood_battle', label: '国标麻将（血战到底）' },
+  { value: 'guobiao/sanma', label: '三人国标' },
   { value: 'guobiao/sixteen', label: '国标麻将（十六张）' },
   { value: 'guobiao/standard', label: '国标标准' },
   { value: 'guobiao/xiaolin', label: '小林' },
@@ -192,7 +195,10 @@ const resolvedSubRuleOptions = computed(() =>
 )
 
 const isHuahun = computed(() => props.modelValue.sub_rule === 'guobiao/huahun')
+const duplicateMode = computed(() => Boolean(props.autoDuplicate || props.modelValue.duplicate_enabled || props.modelValue.duplicate_key?.trim()))
 const isLanshi = computed(() => props.modelValue.sub_rule === 'guobiao/lanshi')
+const isBloodBattle = computed(() => props.modelValue.sub_rule === 'guobiao/blood_battle')
+const isJinluo = computed(() => props.modelValue.sub_rule === 'guobiao/standard' && props.modelValue.jinluo_mode)
 
 const supportsOpeningWins = computed(() => supportsGuobiaoOpeningWins(props.modelValue.sub_rule))
 

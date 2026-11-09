@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 public static class VietnameseTileVisual {
+    // Authored canvas. GPU compression may import it at a power-of-two size.
+    public const float ArtworkAspect = 256f / 350f;
     private static readonly Dictionary<int,Sprite> sprites=new Dictionary<int,Sprite>();
     private static readonly string[] Names={"总","筒","索","万","大花","喜","元","合"};
     public static bool IsExtra(int tile)=>(tile>=59 && tile<=66)||(tile>=71 && tile<=78);

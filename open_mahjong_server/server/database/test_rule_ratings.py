@@ -51,6 +51,24 @@ def db():
 def players(places=(1,2,3,4)):
     return [dict(user_id=u,place=p,match_points=points) for u,p,points in zip(USERS,places,(60,10,-20,-50))]
 
+
+def test_doubles_atomic_independent_pool_idempotent_settlement(db):
+    from ..match.rating_rules import DOUBLES_QUEUE, DOUBLES_RATING_RULE, DOUBLES_ALGORITHM
+    rows = [dict(user_id=u, place=1 if i % 2 == 0 else 2, team_id=i % 2,
+                 team_match_points=1 if i % 2 == 0 else 0) for i, u in enumerate(USERS)]
+    def settle():
+        return settle_rated_game(db, 'team-elo-game', DOUBLES_QUEUE, rows)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        a, b = list(executor.map(lambda _: settle(), range(2)))
+    assert a == b
+    assert [a[str(u)]['elo_delta'] for u in USERS] == [16, -16, 16, -16]
+    assert all(v['rating_algorithm'] == DOUBLES_ALGORITHM and v['rating_games'] == 1 for v in a.values())
+    assert db.sql('SELECT count(*) FROM rule_ratings WHERE rule=%s', (DOUBLES_RATING_RULE,)) == [(4,)]
+    assert db.sql("SELECT count(*) FROM rule_ratings WHERE rule='sichuan'") == [(0,)]
+    bad = [{**p, 'team_id': 1-p['team_id'], 'team_match_points': 1-p['team_match_points']} for p in rows]
+    with pytest.raises(ValueError):
+        settle_rated_game(db, 'team-elo-game', DOUBLES_QUEUE, bad)
+
 def test_additive_migration_preserves_national_data(db):
     data=get_rank_data(db,USERS[0]);assert data['guobiao_rank']=='四段' and data['guobiao_score']==812.34
     assert set(data['ratings'])==set(RULES)
@@ -81,6 +99,9 @@ def test_hongque_migration_accepts_new_pool_and_preserves_existing_ratings(db):
 @pytest.mark.parametrize('queue',list(QUEUES))
 def test_independent_atomic_settlement_and_retry(db,queue):
     spec=QUEUES[queue];inputs=players()[:spec.player_count]
+    if spec.party_size > 1:
+        for i, p in enumerate(inputs):
+            p.update(team_id=i % 2, team_match_points=1 if i % 2 == 0 else 0)
     if spec.unlimited_rounds:
         for p, score in zip(inputs, (800, 200, -200, -800)):
             p['net_points'] = score
@@ -191,7 +212,7 @@ def test_record_filter_before_limit_and_custom_exclusion(db):
             db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,%s,%s,%s,%s,%s,%s)',(gid,uid,str(uid),index+1,index,spec.rule,sub_rule,'1/4_sanma_rank' if spec.player_count==3 else '1/4_rank','match'))
     for rule in RULES:
         records=get_rank_record_list(db,limit=1,rule=rule)
-        game_rule='riichi' if rule=='riichi_sanma' else 'sichuan' if rule=='sichuan_xueliu_exchange' else rule
+        game_rule='riichi' if rule=='riichi_sanma' else 'sichuan' if rule in ('sichuan_xueliu_exchange','sichuan_doubles') else rule
         assert len(records)==1 and records[0]['rule']==game_rule and len(records[0]['players'])==(3 if rule=='riichi_sanma' else 4)
     db.sql("UPDATE game_player_records SET room_type='custom' WHERE rule='sichuan'")
     assert not get_rank_record_list(db,rule='sichuan')

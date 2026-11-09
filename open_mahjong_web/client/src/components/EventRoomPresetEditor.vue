@@ -74,6 +74,7 @@
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" />
       <RoomTimerFields v-else :form="form" />
+      <EventRoomSupplementFields :form="form" :show-password="false" />
       <div class="preset-form-actions">
         <el-button type="primary" :loading="busy" :disabled="!loaded || sourceMissing || (!dirty && selectedKey !== 'new')" @click="save">保存配置</el-button>
         <el-button :disabled="busy" @click="cancel">取消修改</el-button>
@@ -86,6 +87,7 @@
 
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
+import EventRoomSupplementFields from '@/components/EventRoomSupplementFields.vue'
 import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

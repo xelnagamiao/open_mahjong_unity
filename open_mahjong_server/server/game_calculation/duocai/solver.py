@@ -85,8 +85,14 @@ def meld_options(meld):
     kinds = ('sequence', 'triplet') if len(physical) == 3 else ('kong',)
     result = []
     for kind in kinds:
+        domains = [set(t.DOMAIN[tile]) for tile in physical]
+        if kind == 'sequence':
+            domains = [{face - offset for face in domain if face < 40
+                        for offset in range(3) if 1 <= face % 10 - offset <= 7}
+                       for domain in domains]
+        candidates = set.intersection(*domains)
         for value in t.FACES:
-            if kind == 'sequence' and (value >= 40 or value % 10 > 7):
+            if value not in candidates:
                 continue
             logical = (value, value + 1, value + 2) if kind == 'sequence' else (value,) * len(physical)
             if next(_matches(physical, (1 << len(physical)) - 1, logical, kind, external=True, declared=meld.declared), None) is not None:

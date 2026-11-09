@@ -89,10 +89,7 @@ public static class RuleModuleValidation {
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, scene);
             root.SetActive(false);
             var panel = root.GetComponent<CreatePanel>();
-            Call(panel, "BindFixedCreateControls");
-            foreach (string rule in new[] { "taiwan", "hongkong", "riichi" }) Call(panel, "BindDetailedConfigControls", rule);
-            Call(panel, "EnsureRuleDropdownOptions");
-            Call(panel, "InitializeRoomPresentation");
+            Call(panel, "EnsureInitialized");
             // Presets look up their ScrollRect through active parents. This is a
             // preview scene in Edit Mode, so activating it cannot start gameplay.
             root.SetActive(true);
@@ -106,12 +103,6 @@ public static class RuleModuleValidation {
                     name.text = "模块回归";
                     var request = panel.BuildRoomRequest();
                     string subRule = (string)Call(panel, "GetSelectedSubRule");
-                    if (SichuanLobby.IsDuplicate(subRule)) {
-                        if (request.IsValid || request.Error != SichuanLobby.DuplicateCreationMessage)
-                            throw new Exception(subRule + ": 普通创房面板必须明确限制复式创建入口");
-                        restricted++;
-                        continue;
-                    }
                     if (!request.IsValid) throw new Exception(catalog[ruleIndex].Rule + "/" + sub + ": " + request.Error);
                     var config = JObject.FromObject(request.Configuration);
                     if ((string)config["RoomName"] != "模块回归") throw new Exception("form snapshot lost name");

@@ -37,12 +37,12 @@ test('ranked scenes reflect grade and Elo queues', () => {
   assert.equal(homeDefaultScene('sichuan_xueliu'), 'custom');
 });
 
-test('legacy Nanque metadata cannot recreate a Simple Mahjong option', () => {
+test('retired Nanque metadata is not merged into current Nanque', () => {
   const rows = [{ rule: 'jiandan', sub_rule: 'jiandan/standard', room_type: 'custom', source: 'record_metrics', total_games: 2 },
     { rule: 'zhongyong', sub_rule: 'zhongyong/nanque', room_type: 'custom', source: 'record_metrics', total_games: 3 }];
   assert.equal(homeRuleOptions(rows).filter(rule => rule.label === '南雀').length, 1);
   assert.equal(homeRuleOptions(rows).some(rule => rule.value === 'jiandan'), false);
-  assert.equal(selectHomeStats(rows, 'nanque', 'custom').total_games, 5);
+  assert.equal(selectHomeStats(rows, 'nanque', 'custom').total_games, 3);
   assert.equal(selectHomeStats(rows, 'zhongyong', 'custom').total_games, 0);
 });
 

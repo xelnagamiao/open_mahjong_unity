@@ -22,7 +22,7 @@ try:
     from .sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check
     from .sichuan.xueliu_hepai_check import Xueliu_Hepai_Check, Xueliu_Tingpai_Check
     from .sichuan.xueliu_rules import xueliu_base_from_fan
-    from .jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check
+    from .nanque import HandContext as NanqueHandContext, score_hand as nanque_score_hand, tingpai_check as nanque_tingpai_check
     from .changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans
     from .changsha.changsha_tingpai_check import Changsha_Tingpai_Check
     from .taiwan.taiwan_hepai_check import Taiwan_Hepai_Check
@@ -42,7 +42,7 @@ except ImportError:
     from sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check  # type: ignore
     from sichuan.xueliu_hepai_check import Xueliu_Hepai_Check, Xueliu_Tingpai_Check  # type: ignore
     from sichuan.xueliu_rules import xueliu_base_from_fan  # type: ignore
-    from jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check  # type: ignore
+    from nanque import HandContext as NanqueHandContext, score_hand as nanque_score_hand, tingpai_check as nanque_tingpai_check  # type: ignore
     from changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans  # type: ignore
     from changsha.changsha_tingpai_check import Changsha_Tingpai_Check  # type: ignore
     from taiwan.taiwan_hepai_check import Taiwan_Hepai_Check  # type: ignore
@@ -234,17 +234,17 @@ class GameCalculationService:
             from .riichi.washizu_tiles import face
             return self._tingpai_check.tingpai_check([face(t) for t in hand_tile_list], combination_list)
 
-    def Jiandan_tingpai_check(
+    def Nanque_tingpai_check(
         self,
         hand_tile_list: List[int],
         combination_list: List[str],
         context: Dict[str, Any] = None,
     ) -> Set[int]:
-        """Return Jiandan waits for authoritative action and win validation."""
+        """Return Nanque waits for authoritative action and win validation."""
         with self._lock:
-            return jiandan_tingpai_check(hand_tile_list, combination_list, context)
+            return nanque_tingpai_check(hand_tile_list, combination_list, context)
 
-    def Jiandan_hepai_check(
+    def Nanque_hepai_check(
         self,
         hand_list: List[int],
         tiles_combination: List[str],
@@ -253,7 +253,7 @@ class GameCalculationService:
         context: Dict[str, Any] = None,
     ) -> Tuple[int, List[str]]:
         """Return capped fan points and fan names through the common service API."""
-        detail = self.Jiandan_hepai_detail(
+        detail = self.Nanque_hepai_detail(
             hand_list,
             tiles_combination,
             way_to_hepai,
@@ -262,7 +262,7 @@ class GameCalculationService:
         )
         return detail["points"], detail["fan_names"]
 
-    def Jiandan_hepai_detail(
+    def Nanque_hepai_detail(
         self,
         hand_list: List[int],
         tiles_combination: List[str],
@@ -270,14 +270,14 @@ class GameCalculationService:
         get_tile: int,
         context: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
-        """Return the complete server-authoritative Jiandan scoring result.
+        """Return the complete server-authoritative Nanque scoring result.
 
         `hand_list` is the winner's final concealed hand and therefore already
         contains `get_tile`. Melds use the established `s`/`k`/`g`/`G` codes.
         """
         context = context or {}
-        win_source = context.get("win_source") or self._jiandan_win_source(way_to_hepai)
-        jiandan_context = JiandanHandContext(
+        win_source = context.get("win_source") or self._nanque_win_source(way_to_hepai)
+        nanque_context = NanqueHandContext(
             hand_tiles=list(hand_list),
             meld_codes=list(tiles_combination),
             winning_tile=get_tile,
@@ -291,7 +291,7 @@ class GameCalculationService:
             chankan=bool(context.get("chankan") or "抢杠" in way_to_hepai),
         )
         with self._lock:
-            result = jiandan_score_hand(jiandan_context)
+            result = nanque_score_hand(nanque_context)
             return {
                 "is_win": result.is_win,
                 "points": result.points,
@@ -301,7 +301,7 @@ class GameCalculationService:
             }
 
     @staticmethod
-    def _jiandan_win_source(way_to_hepai: List[str]) -> str:
+    def _nanque_win_source(way_to_hepai: List[str]) -> str:
         if "抢杠" in way_to_hepai:
             return "rob_kong"
         if "点和" in way_to_hepai or "河底捞鱼" in way_to_hepai:

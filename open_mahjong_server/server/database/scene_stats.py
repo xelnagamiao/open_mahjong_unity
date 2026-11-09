@@ -71,10 +71,8 @@ def derive_game_type(match_type: Optional[str], rule: Optional[str] = None) -> O
 
 
 def _count_rounds(game_record: Dict[str, Any]) -> int:
-    game_round = game_record.get("game_round") or {}
-    if not isinstance(game_round, dict):
-        return 0
-    return sum(1 for k in game_round.keys() if isinstance(k, str) and k.startswith("round_index_"))
+    from .round_progress import completed_hand_count
+    return completed_hand_count(game_record)
 
 
 def record_game_metrics(db_manager, game_id, game_record, player_list, scene, *, cursor=None):

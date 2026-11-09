@@ -1,3 +1,5 @@
+import { extendedMessages } from '../i18n/extended-locales.js'
+
 /** Search and share metadata only; never used to render the visible page. */
 const COPY = {
   "zh-CN": {
@@ -21,7 +23,8 @@ const COPY = {
 }
 
 export function siteCopy(locale) {
-  return COPY[locale] || null
+  const translations = extendedMessages[locale]
+  return translations ? Object.fromEntries(Object.entries(COPY['zh-CN']).map(([key, source]) => [key, translations[source] ?? COPY[locale]?.[key] ?? source])) : COPY[locale] || null
 }
 
 export function localizedRouteCopy(path, locale) {

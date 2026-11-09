@@ -80,7 +80,7 @@ public static class ActivityStatus {
 /// </summary>
 public static class ActivityHttp {
     public const string IndexPath = "/activity-assets/index.json";
-    public const string PlatformListPath = "/api/platform/activities";
+    public const string PlatformListPath = ConfigManager.PlatformActivitiesPath;
 
     [Serializable]
     private class PlatformActivitiesResponse {

@@ -35,6 +35,8 @@ public partial class BoardCanvas : MonoBehaviour {
     };
 
     public static BoardCanvas Instance { get; private set; }
+    public bool HasDealerState { get; private set; }
+    public string DealerPosition { get; private set; }
     private Dictionary<TMP_Text, string> originalScores = new Dictionary<TMP_Text, string>(); // 运行时临时还原用（每次展示前由 baseline 复制）
 
     // 基准分数（永远保存“真实分数”，不允许被分差文本污染）
@@ -50,12 +52,59 @@ public partial class BoardCanvas : MonoBehaviour {
         Instance = this;
     }
 
+    private void OnEnable() {
+        ConfigManager.OnLanguageChanged += RefreshSeatWindLabels;
+        RefreshSeatWindLabels();
+    }
+
+    private void OnDisable() {
+        ConfigManager.OnLanguageChanged -= RefreshSeatWindLabels;
+    }
+
+    private void RefreshSeatWindLabels() {
+        RefreshSeatWindLabel(player_self_index);
+        RefreshSeatWindLabel(player_left_index);
+        RefreshSeatWindLabel(player_top_index);
+        RefreshSeatWindLabel(player_right_index);
+    }
+
+    private static void RefreshSeatWindLabel(TMP_Text label) {
+        if (!label) return;
+        var binding = label.GetComponent<LocalizedPlatformLabel>();
+        SetSeatWindLabel(label, binding && !string.IsNullOrEmpty(binding.Source) ? binding.Source : label.text);
+    }
+
+    private static void SetSeatWindLabel(TMP_Text label, string wind) {
+        if (!label) return;
+        string key = TableText.SeatWindKey(wind);
+        TableText.Set(label, key);
+        var binding = label.GetComponent<LocalizedPlatformLabel>();
+        // This presenter owns only the four compact badges. Keep their source keys for dealer detection.
+        binding.followSourceChanges = false;
+        binding.enabled = false;
+        int index = key == "table.wind.east" ? 0 : key == "table.wind.south" ? 1
+            : key == "table.wind.west" ? 2 : key == "table.wind.north" ? 3 : -1;
+        string initials = ConfigManager.CurrentLanguage == AppLanguage.French ? "ESON"
+            : ConfigManager.CurrentLanguage == AppLanguage.German ? "OSWN"
+            : ConfigManager.CurrentLanguage == AppLanguage.Russian ? "ВЮЗС" : null;
+        if (index >= 0 && initials != null) label.text = initials[index].ToString();
+    }
+
     private string SeatWindText(int playerIndex) {
         // 方位由服务器座位决定；川麻换庄不改变东南西北身份。
         return PositionToChineseCharacter.TryGetValue(playerIndex, out string text) ? text : "?";
     }
 
+    private void SetDealerSeat(int? dealerIndex, Dictionary<int, string> indexToPosition, string roomRule = null) {
+        HasDealerState = indexToPosition != null;
+        // 只有庄家固定为逻辑东位的旧国标/日麻快照可省略庄位；川麻等规则不得猜测。
+        if (!dealerIndex.HasValue && (roomRule == "guobiao" || roomRule == "riichi")) dealerIndex = 0;
+        DealerPosition = dealerIndex.HasValue && indexToPosition != null && indexToPosition.TryGetValue(dealerIndex.Value, out string position)
+            ? position : null;
+    }
+
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        SetDealerSeat(gameInfo.dealer_index, indexToPosition, gameInfo.room_rule);
         // 换位/新局会关掉黄条但不清缓存；同座首行动会因 shownCurrentPlayer 早退导致指示不亮
         CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         shownCurrentPlayer = null;
@@ -67,19 +116,19 @@ public partial class BoardCanvas : MonoBehaviour {
             string wind = SeatWindText(player.player_index);
             if (position == "self"){ // 通过player_index确定玩家位置
                 player_self_score.text = player.score.ToString(); // 设置玩家分数
-                TableText.Set(player_self_index, TableText.SeatWindKey(wind));
+                SetSeatWindLabel(player_self_index, wind);
                 player_self_current_image.gameObject.SetActive(false); // 设置玩家回合标记
             } else if (position == "left"){
                 player_left_score.text = player.score.ToString();
-                TableText.Set(player_left_index, TableText.SeatWindKey(wind));
+                SetSeatWindLabel(player_left_index, wind);
                 player_left_current_image.gameObject.SetActive(false);
             } else if (position == "top"){
                 player_top_score.text = player.score.ToString();
-                TableText.Set(player_top_index, TableText.SeatWindKey(wind));
+                SetSeatWindLabel(player_top_index, wind);
                 player_top_current_image.gameObject.SetActive(false);
             } else if (position == "right"){
                 player_right_score.text = player.score.ToString();
-                TableText.Set(player_right_index, TableText.SeatWindKey(wind));
+                SetSeatWindLabel(player_right_index, wind);
                 player_right_current_image.gameObject.SetActive(false);
             }
         }
@@ -106,6 +155,7 @@ public partial class BoardCanvas : MonoBehaviour {
         string subRule = null,
         int? dealerIndex = null
     ) {
+        SetDealerSeat(dealerIndex, indexToPosition, roomType);
         CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         shownCurrentPlayer = null;
 
@@ -122,19 +172,19 @@ public partial class BoardCanvas : MonoBehaviour {
 
             if (position == "self") {
                 player_self_score.text = score.ToString();
-                TableText.Set(player_self_index, TableText.SeatWindKey(playerIndexText));
+                SetSeatWindLabel(player_self_index, playerIndexText);
                 player_self_current_image.gameObject.SetActive(false);
             } else if (position == "left") {
                 player_left_score.text = score.ToString();
-                TableText.Set(player_left_index, TableText.SeatWindKey(playerIndexText));
+                SetSeatWindLabel(player_left_index, playerIndexText);
                 player_left_current_image.gameObject.SetActive(false);
             } else if (position == "top") {
                 player_top_score.text = score.ToString();
-                TableText.Set(player_top_index, TableText.SeatWindKey(playerIndexText));
+                SetSeatWindLabel(player_top_index, playerIndexText);
                 player_top_current_image.gameObject.SetActive(false);
             } else if (position == "right") {
                 player_right_score.text = score.ToString();
-                TableText.Set(player_right_index, TableText.SeatWindKey(playerIndexText));
+                SetSeatWindLabel(player_right_index, playerIndexText);
                 player_right_current_image.gameObject.SetActive(false);
             }
         }
@@ -292,6 +342,7 @@ public partial class BoardCanvas : MonoBehaviour {
     /// <summary>没有玩家的座位隐藏中心盘分数簇；indexToPosition 为 null 时全部显示（退出对局）。</summary>
     public void ApplyOccupiedSeatClusters(Dictionary<int, string> indexToPosition) {
         if (indexToPosition == null) {
+            SetDealerSeat(null, null);
             SetSeatClusterActive(player_self_score, true);
             SetSeatClusterActive(player_left_score, true);
             SetSeatClusterActive(player_top_score, true);

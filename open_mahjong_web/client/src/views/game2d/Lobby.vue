@@ -156,7 +156,7 @@
               class="leaderboard-table"
               @row-click="openPlayer"
             >
-              <el-table-column prop="rank_position" label="排名" width="56" align="center" />
+              <el-table-column prop="rank_position" label="排名" :width="['fr', 'de', 'ru'].includes(locale) ? 118 : 56" align="center" />
               <el-table-column prop="username" label="玩家" show-overflow-tooltip>
                 <template #default="{ row }"><span data-no-translate>{{ row.username }}</span></template>
               </el-table-column>
@@ -279,7 +279,7 @@ import { getPlayerToken } from '@/api/playerClient'
 import { leaderboardUrl, publicApiGet, queueStatusUrl } from '@/game2d/salasasa/api'
 import { salasasaClient } from '@/game2d/salasasa/client'
 import { getRankEntry, getPromotionProgress } from '@/constants/rankTable'
-import { tr } from '@/i18n'
+import { locale, tr } from '@/i18n'
 import CustomRoomPanel from './CustomRoomPanel.vue'
 import LobbyRecordPanel from './LobbyRecordPanel.vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'

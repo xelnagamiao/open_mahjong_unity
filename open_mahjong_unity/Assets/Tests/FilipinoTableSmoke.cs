@@ -88,7 +88,7 @@ public sealed class FilipinoTableSmoke : MonoBehaviour {
         // A hidden batch player's swapchain can be black; render the actual
         // scene/canvas to a private target instead of accepting a blank capture.
         var camera=Camera.main??Camera.allCameras.First();
-        var canvases=FindObjectsByType<Canvas>().Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
+        var canvases=FindObjectsByType<Canvas>(UnityEngine.FindObjectsSortMode.None).Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
         foreach(var canvas in canvases){canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;}
         Canvas.ForceUpdateCanvases();
         var target=new RenderTexture(1280,720,24);target.Create();

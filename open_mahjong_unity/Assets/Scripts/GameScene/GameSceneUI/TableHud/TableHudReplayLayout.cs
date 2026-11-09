@@ -20,6 +20,10 @@ public static class TableHudReplayLayout {
         var widths = new List<float> { 92, 212, 82, 130, 82, 82 };
         if (autoPlay) { ordered.Add(autoPlay); widths.Add(112); }
         ordered.Add(buttons[6]); widths.Add(82);
+        if (PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage))
+            for (int i = 0; i < ordered.Count; i++)
+                if (ordered[i] && ordered[i] != buttons[0] && ordered[i] != buttons[1] && ordered[i] != buttons[3])
+                    widths[i] = ordered[i] == autoPlay ? 144 : 112;
         var livePanel = panel.Find("SpectatingPanel") as RectTransform;
         var liveButton = livePanel ? livePanel.GetComponentInChildren<Button>(true) : null;
         bool showLive = livePanel && livePanel.gameObject.activeSelf && liveButton;
@@ -36,7 +40,9 @@ public static class TableHudReplayLayout {
             if (ordered[i]) {
                 var rect = showLive && ordered[i] == liveButton ? livePanel : (RectTransform)ordered[i].transform;
                 rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f,.5f);
-                rect.sizeDelta = new Vector2(widths[i],56);
+                bool translatedAction = PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage)
+                    && ordered[i] != buttons[0] && ordered[i] != buttons[1] && ordered[i] != buttons[3];
+                rect.sizeDelta = new Vector2(widths[i], translatedAction ? 70 : 56);
                 rect.anchoredPosition = new Vector2(x + widths[i] * .5f,0);
                 if (showLive && ordered[i] == liveButton) ArrangeLiveButton(livePanel,liveButton,palette);
                 else ArrangeButton(ordered[i],palette,theme ? theme.CurrentTurnBackground : TableHudTheme.TurnBackground.Glass);
@@ -72,6 +78,7 @@ public static class TableHudReplayLayout {
         }
     }
     private static void ArrangeButton(Button button,TableHudTheme.Palette p,TableHudTheme.TurnBackground background) {
+        bool translated = PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage);
         bool value = button.name == "TileList" || button.name == "GameRound" || button.name == "Xunmu";
         bool turn = button.name == "LaterXunmu" || button.name == "NextXunmu";
         bool light = turn && (background == TableHudTheme.TurnBackground.Ice || background == TableHudTheme.TurnBackground.Porcelain);
@@ -109,13 +116,13 @@ public static class TableHudReplayLayout {
         if (label) {
             label.color = value ? p.valueText : light ? new Color32(24,49,80,255) : p.text; label.fontSize = value ? 26 : 16;
             TableHudTypography.Apply(label,value);
-            label.fontSizeMax = label.fontSize; label.fontSizeMin = value ? 18 : 12;
-            label.enableAutoSizing = true; label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.fontSizeMax = label.fontSize; label.fontSizeMin = translated ? (value ? 14 : 10) : (value ? 18 : 12);
+            label.enableAutoSizing = true; label.textWrappingMode = translated && !value ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow; label.alignment = TextAlignmentOptions.Center;
             var r = label.rectTransform; r.anchorMin = r.anchorMax = r.pivot = new Vector2(.5f,.5f);
             float width = ((RectTransform)button.transform).rect.width;
-            r.sizeDelta = new Vector2(width - (value ? 16 : 6),value ? 44 : 24);
-            r.anchoredPosition = new Vector2(0,value ? 0 : -15);
+            r.sizeDelta = new Vector2(width - (value ? 16 : 6),value ? 44 : translated ? 32 : 24);
+            r.anchoredPosition = new Vector2(0,value ? 0 : translated ? -20 : -15);
         }
         for (int n = 0; n < 2; n++) {
             var arrow = button.transform.Find(n == 0 ? "SourceArrow" : "SourceArrowSecond") as RectTransform;
@@ -123,7 +130,7 @@ public static class TableHudReplayLayout {
             bool doubled = button.name == "LaterXunmu" || button.name == "NextXunmu";
             arrow.gameObject.SetActive(n == 0 || doubled);
             arrow.sizeDelta = new Vector2(doubled ? 20 : 28,28);
-            arrow.anchoredPosition = new Vector2(doubled ? (n == 0 ? -7 : 7) : 0,11);
+            arrow.anchoredPosition = new Vector2(doubled ? (n == 0 ? -7 : 7) : 0,translated ? 18 : 11);
             var image = arrow.GetComponent<Image>(); if (image) image.color = light ? new Color32(28,57,92,255) : Color.white;
         }
         var underline = button.transform.Find("ReadingMark"); if (underline) underline.gameObject.SetActive(false);

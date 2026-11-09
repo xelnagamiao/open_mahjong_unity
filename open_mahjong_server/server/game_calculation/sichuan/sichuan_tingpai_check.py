@@ -130,7 +130,8 @@ class Sichuan_Tingpai_Check:
         if not combination_list:
             result |= self._seven_pair_waits(hand_tile_list)
         result = {i for i in result if i not in {10, 20, 30, 40} and 11 <= i <= 39}
-        return exclude_fifth_copy_waits(hand_tile_list, combination_list, result)
+        # 川麻查叫只按手牌排除第五张；碰出的三张与手里单吊的一张不判未听。
+        return exclude_fifth_copy_waits(hand_tile_list, (), result)
 
 
 if __name__ == "__main__":

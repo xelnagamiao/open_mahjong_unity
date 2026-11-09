@@ -35,9 +35,21 @@ public sealed class MatchLobbyView : MonoBehaviour {
     private int renderedVersion=-1;
     private bool bound;
     private bool hasPresented;
+    private RectTransform fittedPage;
+    private float authoredPageWidth, authoredPageScale;
+    private readonly Vector3[] viewportCorners=new Vector3[4];
     public IReadOnlyList<MatchButton> Selections=>selected;
     public int ActiveRule=>activeRule;
     public int ActiveFamily=>RankedRules.FamilyIndex(activeRule);
+    public RectTransform ActiveCardAnchor {
+        get {
+            if(activeRule<0||activeRule>=rulePages.Length||!rulePages[activeRule])return null;
+            foreach(var entry in entries)
+                if(entry&&entry.IsAvailable&&entry.transform.IsChildOf(rulePages[activeRule].transform))return (RectTransform)entry.transform;
+            return null;
+        }
+    }
+    public event System.Action<int> RuleChanged;
     public void CopyNavigationFrom(MatchLobbyView other){
         System.Array.Copy(other.rememberedRules,rememberedRules,rememberedRules.Length);
         SelectRule(other.activeRule);
@@ -92,6 +104,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
         }
         RefreshVariantCounts();
         RefreshRank();
+        RuleChanged?.Invoke(activeRule);
     }
     private void RefreshVariantCounts(){
         var rules=RankedRules.FamilyRuleIndices[ActiveFamily];
@@ -101,6 +114,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
     public void ToggleSelection(MatchButton entry){
         var network=MatchNetworkManager.Instance;
         if(MatchStateManager.Instance.IsMatchFound||(network!=null&&network.IsMatchCommitted))return;
+        if(PartyNetworkManager.Instance&&PartyNetworkManager.Instance.MemberCount>1&&entry.QueueType!=PartyNetworkManager.Queue){Tip("组队期间无法进行单人匹配");return;}
         if(network!=null)foreach(string queue in network.CurrentQueues)if(queue==entry.QueueType){
             network.SendLeaveQueue(queue);RefreshState();return;
         }
@@ -130,6 +144,25 @@ public sealed class MatchLobbyView : MonoBehaviour {
             if(!visible&&!HasVisibleSlots()){queueGroup.SetActive(false);}
         }
         FitQueueSlots(true);
+    }
+    private void LateUpdate(){if(MobileViewportLayout.Enabled)ApplyViewportLayout();}
+    public void ApplyViewportLayout(){
+        if(!fittedPage){
+            fittedPage=(transform.Find("MatchLayout")??transform.Find("OriginalMatchPanel/MatchLayout")) as RectTransform;
+            if(!fittedPage)return;
+            authoredPageWidth=fittedPage.rect.width;
+            authoredPageScale=fittedPage.localScale.x;
+        }
+        if(!(fittedPage.parent is RectTransform parent)||authoredPageWidth<=0)return;
+        ((RectTransform)transform).GetWorldCorners(viewportCorners);
+        Vector2 bottomLeft=parent.InverseTransformPoint(viewportCorners[0]);
+        Vector2 topLeft=parent.InverseTransformPoint(viewportCorners[1]);
+        Vector2 topRight=parent.InverseTransformPoint(viewportCorners[2]);
+        float scale=Mathf.Min(authoredPageScale,Mathf.Max(1,topRight.x-topLeft.x-32)/authoredPageWidth);
+        fittedPage.anchorMin=fittedPage.anchorMax=fittedPage.pivot=new Vector2(.5f,1);
+        fittedPage.anchoredPosition=(topLeft+topRight)*.5f-new Vector2(parent.rect.center.x,parent.rect.yMax)+new Vector2(0,-16);
+        fittedPage.sizeDelta=new Vector2(authoredPageWidth,Mathf.Max(1,topLeft.y-bottomLeft.y-32)/scale);
+        fittedPage.localScale=new Vector3(scale,scale,1);
     }
     private bool HasVisibleSlots(){foreach(var slot in slots)if(slot.IsVisible)return true;return false;}
     private void FitQueueSlots(bool animate){

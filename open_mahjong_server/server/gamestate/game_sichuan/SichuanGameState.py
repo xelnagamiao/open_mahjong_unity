@@ -139,6 +139,8 @@ class SichuanGameState:
     is_doubles = False
     is_team_game = False
     is_xueliu_doubles = False
+    # 只锁定已经确认的和牌者；碰/杠申请仍可在再问中改选和牌。
+    tactical_commit_lock = True
 
     def _configure_rule(self):
         self.is_doubles = is_doubles(self.sub_rule)
@@ -276,6 +278,7 @@ class SichuanGameState:
         self.paofen_watch = None  # (gainer_index, gang_record) 用于杠上炮退税
         self.pending_win = None
         self.sichuan_hu_results: Dict[int, dict] = {}
+        self._tactical_hu_claimants: Set[int] = set()
         self.first_win_event = None  # {"winners":[idx...], "discarder": idx_or_None}
         self.hu_order_counter = 0
         self.deferred_hu_settlements: List[dict] = []  # 血战：终局再按和牌顺序结算
@@ -397,6 +400,12 @@ class SichuanGameState:
             idx = next_current_num(idx)
             d += 1
         return d
+
+    def tactical_action_rank(self, action_type, player_index):
+        """和牌同级时按出牌者起算的座次再问；碰与杠仍为相同优先级。"""
+        seat_rank = (-self._distance_from(self.current_player_index, player_index)
+                     if action_type == "hu" else 0)
+        return self.action_priority.get(action_type, -1), seat_rank
 
     async def game_loop_sichuan(self):
         if not self.Debug:
@@ -567,6 +576,8 @@ class SichuanGameState:
             self.team_scores_before = team_scores(self.player_list)
             self.doubles_end_reason = None
         for p in self.player_list:
+            # 双打跳过定缺，也必须在每副开始时恢复房间配置的局时。
+            p.remaining_time = self.round_time
             p.hand_tiles = []
             p.huapai_list = []
             p.discard_tiles = []
@@ -596,6 +607,7 @@ class SichuanGameState:
         self.deferred_hu_settlements = []
         self._sbr_event_order = 0
         self._sbr_presentation_ms = 0
+        self._sbr_presentation_started_at = None
         self.ended_by = None
         self._liuju_endgame_started = False
         for p in self.player_list:
@@ -1162,7 +1174,7 @@ class SichuanGameState:
                     if not self.is_doubles or record.get('void_reason') == 'no_ting':
                         panel_has_refund = True
             if board is not None:
-                labels = {'ting': '有叫', 'no_ting': '未听', 'hua_zhu_active': '主动花猪', 'hua_zhu_passive': '被动花猪'}
+                labels = {'ting': '有叫', 'no_ting': '没叫', 'hua_zhu_active': '主动花猪', 'hua_zhu_passive': '被动花猪'}
                 detail = labels[p_display] + (' · 退税' if panel_has_refund else '')
                 board.add('penalty' if p_display.startswith('hua_zhu') else 'chajiao', p_idx, panel_changes,
                           detail=detail, phase='check', fan=tenpai_max_fan.get(p_idx),

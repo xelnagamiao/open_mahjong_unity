@@ -40,6 +40,17 @@ public static class SichuanTipsValidation {
             string suffix = $"（定缺{excluded}）";
             var normal = Hand(11,12,13,14,15,16,17,18,19,21,22,23,25);
             Check("一般型牌例确实听牌" + suffix, Waiting(normal, null, 0).SetEquals(new[] { Tile(25) }));
+            var pengWait = Hand(11,12,13,17,18,19,23);
+            var pengMelds = new List<string> { $"k{Tile(23)}", $"k{Tile(14)}" };
+            foreach (string subRule in new[] { "sichuan/standard", "sichuan/doubles", "sichuan/doubles_duplicate" }) {
+                Check("自碰三张加单吊仍有叫 " + subRule + suffix,
+                    Waiting(pengWait, pengMelds, 0, subRule).SetEquals(new[] { Tile(23) }));
+                Check("手牌四张同牌不能听第五张 " + subRule + suffix,
+                    Waiting(Hand(11,11,11,11,13,14,15,17,17,17,19,19,19), null, 0, subRule).Count == 0);
+                Check("排除第五张保留其他听口 " + subRule + suffix,
+                    Waiting(Hand(11,11,11,11,13,14,15,16,17,18,19,19,19), null, 0, subRule)
+                        .SetEquals(new[] { Tile(12) }));
+            }
             Check("一般型仍持定缺牌保留基本听张" + suffix, Waiting(normal, null, excluded).SetEquals(new[] { Tile(25) }));
             Unsatisfied("一般型定缺未清显示未满足" + suffix, Hint(normal, null, Tile(25), excluded));
 

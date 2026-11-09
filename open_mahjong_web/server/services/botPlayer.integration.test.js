@@ -38,14 +38,12 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
     const metricFields = ['total_rounds','win_count','self_draw_count','deal_in_count','total_fan_score',
       'total_win_turn','total_fangchong_score','first_place_count','second_place_count','third_place_count',
       'fourth_place_count','fulu_round_count','cuohe_count','total_round_score'];
-    for (const rule of ['guobiao','riichi','qingque','classical','changsha','jiandan']) {
+    for (const rule of ['guobiao','riichi','qingque','classical','changsha']) {
       await pool.query(`CREATE TABLE ${rule}_history_stats(user_id bigint, rule text, mode text, total_games int DEFAULT 0,
         ${metricFields.map(field => `${field} int DEFAULT 0`).join(',')})`);
-      if (rule !== 'changsha') await pool.query(`CREATE TABLE ${rule}_fan_stats(user_id bigint, rule text, mode text, ${rule === 'jiandan' ? 'all_triplets' : 'fan'} int DEFAULT 0)`);
+      if (rule !== 'changsha') await pool.query(`CREATE TABLE ${rule}_fan_stats(user_id bigint, rule text, mode text, fan int DEFAULT 0)`);
     }
     await pool.query(`
-      INSERT INTO jiandan_history_stats(user_id,rule,mode,total_games,total_rounds,win_count) VALUES(10000101,'jiandan','4/4',2,8,3);
-      INSERT INTO jiandan_fan_stats VALUES(10000101,'jiandan','4/4',3);
       INSERT INTO riichi_history_stats(user_id,rule,mode,total_games) VALUES(10000101,'riichi','1/4',1),(10000101,'riichi','1/4_rank',2);
       INSERT INTO riichi_fan_stats VALUES(10000101,'riichi','1/4',1),(10000101,'riichi','1/4_rank',4);
       CREATE TABLE game_player_metrics(id bigserial PRIMARY KEY, game_id text,

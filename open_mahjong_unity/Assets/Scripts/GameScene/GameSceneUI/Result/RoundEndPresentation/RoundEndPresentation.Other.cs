@@ -7,6 +7,14 @@ public partial class RoundEndPresentation {
         GameSceneUIManager.Instance.ShowEndGame(master_seed, commitment, salt, player_final_data, sichuanMatch);
     }
 
+    /// <summary>Replay shares the existing end panel without executing live-session teardown.</summary>
+    public void PresentRecordedEndGame(RecordMatchResult result, Dictionary<string, object> gameTitle, System.Action onReturn) {
+        StopActiveSequence();
+        PreparePresentationRoot(false);
+        HideSelfGameplayControl(revealSelfHand: false);
+        EndGamePanel.Instance.ShowRecordedGameEndPanel(result, gameTitle, onReturn);
+    }
+
     public void PresentShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string[]> player_fan, Dictionary<int, string[]> player_fu_types, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info, int? hepaiPlayerIndex = null, int[] hepaiPlayerHand = null, int[][] hepaiPlayerCombinationMask = null, bool playPresentationEffects = true) {
         if (SettlementSync.IsRestoring) {
             StopActiveSequence();

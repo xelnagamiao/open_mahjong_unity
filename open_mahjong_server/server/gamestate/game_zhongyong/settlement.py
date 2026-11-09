@@ -1,11 +1,11 @@
 """Score calculation and payer responsibility; no mutation of the live hand."""
 from ...game_calculation.zhongyong import HandContext, score_hand
-from ..game_jiandan.settlement import JiandanSettlementPolicy
+from ..game_zhongyong.nanque_settlement import NanqueSettlementPolicy
 
 class ZhongyongSettlementPolicy:
     def build(self, state, winner_index, source, tile, *, payer_index=None):
         if state.is_nanque:
-            return JiandanSettlementPolicy().build(state, winner_index, source, tile, payer_index=payer_index)
+            return NanqueSettlementPolicy().build(state, winner_index, source, tile, payer_index=payer_index)
         player = state.player_list[winner_index]
         hand = list(player.hand_tiles) + ([] if source == "self_draw" else [tile])
         context = state._settlement_context(winner_index, source, hand, tile)

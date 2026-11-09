@@ -21,6 +21,7 @@
         <el-button @click="$router.push('/admin/activities')">活动设计</el-button>
         <el-button @click="$router.push('/admin/classic-records')">经典牌谱</el-button>
         <el-button @click="$router.push('/admin/send-email')">发送邮件</el-button>
+        <el-button @click="$router.push('/admin/mailbox')">邮箱</el-button>
         <el-button @click="$router.push('/admin/ip-bans')">IP 封禁</el-button>
       </el-space>
     </el-card>

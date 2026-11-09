@@ -12,10 +12,13 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
     static readonly Color Blue = new Color32(45,93,167,255), Red = new Color32(171,46,66,255);
     static readonly Color BlueCell = new Color32(31,52,80,255), RedCell = new Color32(66,37,45,255);
     static readonly Color Muted = new Color32(168,192,220,255);
+    static readonly Color DealerTint = new Color32(255,222,143,255);
     static readonly Color Gain = new Color32(137,240,169,255), Loss = new Color32(255,166,175,255);
     TMP_Text template, heading, metadata, confirmText, detailText, hideText, tableText;
     RectTransform body, tableArea, footer, rows, total, headers;
     UnityEngine.UI.Button confirm;
+    UnityEngine.UI.Button returnToTable;
+    Action returnToTableAction;
     GameObject cardPrefab, splitPrefab;
     Action closeAction;
     Func<string> confirmCaption;
@@ -61,28 +64,38 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         var hide=Button(footer,"Visibility","隐藏面板",()=> {hidden=!hidden;body.gameObject.SetActive(!hidden);hideText.text=hidden?"显示面板":"隐藏面板";});
         hideText=hide.GetComponentInChildren<TMP_Text>();
         Stretch((RectTransform)hide.transform,new Vector2(1,0),Vector2.one,new Vector2(-366,0),new Vector2(-218,0));
-        confirm=Button(footer,"Confirm","确定",()=> {if(HasUnrevealedEvents)CompleteTimeline();else closeAction?.Invoke();},true);
+        confirm=Button(footer,"Confirm","确定",()=>ConfirmBoard(),true);
         confirmText=confirm.GetComponentInChildren<TMP_Text>();
         confirmText.enableAutoSizing=true;confirmText.fontSizeMin=18;confirmText.fontSizeMax=23;
         BuildTimelineControls();
         Stretch((RectTransform)confirm.transform,new Vector2(1,0),Vector2.one,new Vector2(-192,0),Vector2.zero);
+        returnToTable=Button(footer,"ReturnToTable","返回牌桌",()=>returnToTableAction?.Invoke());
+        Stretch((RectTransform)returnToTable.transform,new Vector2(1,0),Vector2.one,new Vector2(-568,0),new Vector2(-386,0));
+        returnToTable.gameObject.SetActive(false);
     }
 
     public void ShowBoard(SichuanBoardSettlementInfo info, Action onConfirm, Func<string> caption=null, Func<bool> enabled=null, bool animate=true, Func<int?> remaining=null) {
+        returnToTableAction=null;
+        returnToTable.gameObject.SetActive(false);
+        ClearReady();
         board=info;match=null;details=false;hidden=false;boardDetail=false;
         ResetTimeline(animate);
         closeAction=onConfirm;confirmCaption=caption;confirmEnabled=enabled;confirmRemaining=remaining;
         gameObject.SetActive(true);body.gameObject.SetActive(true);Render();
     }
-    public void ShowMatch(SichuanMatchSettlementInfo info, Action onConfirm) {
+    public void ShowMatch(SichuanMatchSettlementInfo info, Action onConfirm, string returnCaption="返回主菜单", Action onReturnToTable=null) {
+        returnToTableAction=onReturnToTable;
+        returnToTable.gameObject.SetActive(onReturnToTable!=null);
+        ClearReady();
         match=info;board=null;details=false;hidden=false;boardDetail=false;selectedTable=info.duplicate?"open":"single";selectedRound=0;
-        closeAction=onConfirm;confirmCaption=()=>"返回主菜单";confirmEnabled=null;confirmRemaining=null;
+        closeAction=onConfirm;confirmCaption=()=>returnCaption;confirmEnabled=null;confirmRemaining=null;
         ResetTimeline(false);
         gameObject.SetActive(true);body.gameObject.SetActive(true);Render();
     }
     void Update() {
         if(confirm==null)return;
-        TickTimeline();
+        TickTimeline();TickReady();
+        if(UpdateReadyButton())return;
         int? remaining=confirmRemaining?.Invoke();
         confirmText.text=HasUnrevealedEvents?(remaining.HasValue?$"显示全部（{remaining.Value}）":"显示全部"):confirmCaption?.Invoke()??"确定";
         confirm.interactable=HasUnrevealedEvents||(confirmEnabled?.Invoke()??true);
@@ -112,40 +125,31 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
     string PlayerName(int seat)=>board?.players?.FirstOrDefault(p=>p.seat==seat) is SichuanSettlementPlayer p?Name(p):"全桌";
     static string Status(SichuanSettlementPlayer p) {
         switch(p.status){case "zimo":return "自摸";case "hu":return "和牌";case "ting":return p.max_fan<0?"有叫":$"有叫 · {p.max_fan} 番";
-            case "hua_zhu_active":return "主动花猪";case "hua_zhu_passive":return "被动花猪";case "unfinished":return "未和";default:return "未听";}
+            case "hua_zhu_active":return "主动花猪";case "hua_zhu_passive":return "被动花猪";case "unfinished":return "未和";default:return "没叫";}
     }
+    static string ResultDetail(string detail)=>detail?.Replace("未听","没叫");
     void Teams(IEnumerable<SichuanSettlementPlayer> people,int[] scores,Func<int,string> subtitle, bool signed=true) {
-        var teams=Rect("Teams",body);Stretch(teams,new Vector2(0,1),Vector2.one,new Vector2(64,(UsesTimelineLayout?-366:-244)+(IsBoardView?62:0)),new Vector2(-64,(UsesTimelineLayout?-218:-96)+(IsBoardView?62:0)));
+        if(IsBoardView){BuildBoardScorebar();return;}
+        var teams=Rect("Teams",body);Stretch(teams,new Vector2(0,1),Vector2.one,new Vector2(64,-244),new Vector2(-64,-96));
         for(int t=0;t<2;t++){
             var card=Rect(t==0?"BlueTeam":"RedTeam",teams);
             Stretch(card,new Vector2(t*.5f,0),new Vector2((t+1)*.5f,1),new Vector2(t==0?0:10,0),new Vector2(t==0?-10:0,0));
             ColorBox(card,t==0?Blue:Red);
             var title=Text(card,"Team",30,Color.white,TextAlignmentOptions.MidlineLeft);Box(title.rectTransform,24,8,160,54);title.text=t==0?"蓝队":"红队";
             title.textWrappingMode=TextWrappingModes.NoWrap;title.enableAutoSizing=true;title.fontSizeMin=26;title.fontSizeMax=30;
-            if(match!=null&&!boardDetail){
-                var outcome=Text(card,"Outcome",23,Color.white,TextAlignmentOptions.Center);Box(outcome.rectTransform,120,22,70,34);
-                outcome.text=match.match_points[t]==.5f?"平":match.match_points[t]>0?"胜":"负";
-            }
-            if(board!=null&&(match==null||boardDetail)) BuildPlayerBadges(card,people.Where(p=>p.team_id==t).OrderBy(p=>p.original_seat));
-            else {
-                var members=Text(card,"Members",22,Color.white,TextAlignmentOptions.MidlineLeft);
-                Stretch(members.rectTransform,new Vector2(0,0),new Vector2(.70f,0),new Vector2(24,27),new Vector2(-6,70));
-                members.text=string.Join(" · ",people.Where(p=>p.team_id==t).Select(Name));
-                members.enableAutoSizing=true;members.fontSizeMin=16;members.fontSizeMax=22;
-            }
-            var value=Text(card,"Score",IsBoardView?26:52,Color.white,TextAlignmentOptions.MidlineRight);
-            if(IsBoardView){
-                teamValues[t]=value;
-                Stretch(value.rectTransform,new Vector2(.22f,1),Vector2.one,new Vector2(0,-62),new Vector2(-24,-8));
-                value.richText=true;value.text=BoardTeamScore(t,scores[t]);value.textWrappingMode=TextWrappingModes.NoWrap;
-                value.enableAutoSizing=true;value.fontSizeMin=20;value.fontSizeMax=26;
-            } else {
-                Stretch(value.rectTransform,new Vector2(.65f,.42f),Vector2.one,new Vector2(0,0),new Vector2(-24,-10));
-                value.text=scores==null?"—":signed?Signed(scores[t]):scores[t].ToString();
-                if(scores!=null)value.color=ScoreColor(scores[t]);
-                var sub=Text(card,"Subtitle",19,Color.white,TextAlignmentOptions.MidlineRight);
-                Stretch(sub.rectTransform,new Vector2(.50f,0),new Vector2(1,.36f),new Vector2(0,10),new Vector2(-24,0));sub.text=subtitle(t);
-            }
+            var outcome=Text(card,"Outcome",23,Color.white,TextAlignmentOptions.Center);Box(outcome.rectTransform,120,22,70,34);
+            outcome.text=match.match_points[t]==.5f?"平":match.match_points[t]>0?"胜":"负";
+            var members=Text(card,"Members",22,Color.white,TextAlignmentOptions.MidlineLeft);
+            Stretch(members.rectTransform,new Vector2(0,0),new Vector2(.70f,0),new Vector2(24,27),new Vector2(-6,70));
+            members.text=string.Join(" · ",people.Where(v=>v.team_id==t).Select(Name));
+            members.enableAutoSizing=true;members.fontSizeMin=16;members.fontSizeMax=22;
+            members.textWrappingMode=TextWrappingModes.NoWrap;AlignPlayerBaseline(members,22);
+            var value=Text(card,"Score",52,Color.white,TextAlignmentOptions.MidlineRight);
+            Stretch(value.rectTransform,new Vector2(.65f,.42f),Vector2.one,Vector2.zero,new Vector2(-24,-10));
+            value.text=scores==null?"—":signed?Signed(scores[t]):scores[t].ToString();
+            if(scores!=null)value.color=ScoreColor(scores[t]);
+            var sub=Text(card,"Subtitle",19,Color.white,TextAlignmentOptions.MidlineRight);
+            Stretch(sub.rectTransform,new Vector2(.50f,0),new Vector2(1,.36f),new Vector2(0,10),new Vector2(-24,0));sub.text=subtitle(t);
         }
     }
     void RenderBoard(SichuanBoardSettlementInfo info) {
@@ -165,7 +169,7 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
     void Table(string[] labels,float[] fractions,int[] teams,int count,int reserve=0) {
         widths=fractions;colors=teams;
         bool perBoard=match==null||boardDetail;
-        int headerHeight=52;
+        int headerHeight=UsesTimelineLayout?84:52;
         rowHeight=Mathf.Clamp((tableArea.rect.height-reserve-headerHeight-55)/Math.Max(1,count)-1,40,perBoard?82:58);
         headers=Rect("Headers",tableArea);Stretch(headers,new Vector2(0,1),Vector2.one,new Vector2(0,-72),Vector2.zero);
         headers.offsetMin=new Vector2(0,-headerHeight);Cells(headers,labels,headerHeight,true);
@@ -190,7 +194,8 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         for(int i=0;i<widths.Length;i++){
             var cell=Rect("Cell_"+i,row);Stretch(cell,new Vector2(x,0),new Vector2(x+widths[i],1),Vector2.zero,new Vector2(-1,-1));x+=widths[i];
             ColorBox(cell,colors[i]==0?(header?Blue:BlueCell):colors[i]==1?(header?Red:RedCell):header?Neutral:Background);
-            var label=Text(cell,"Text",header?24:22,labels[i]=="0"?Muted:Color.white,i==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.Center);
+            float fontSize=(UsesTimelineLayout||match?.duplicate==true)?(header?26:24):(header?24:22);
+            var label=Text(cell,"Text",fontSize,labels[i]=="0"?Muted:Color.white,i==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.Center);
             Stretch(label.rectTransform,Vector2.zero,Vector2.one,new Vector2(18,4),new Vector2(-12,-4));label.text=labels[i];
             if(row!=headers&&(IsBoardView?i>=3:colors[i]>=0)&&int.TryParse(labels[i],out int score))label.color=ScoreColor(score);
             if(header&&labels[i].Contains("\n")){
@@ -199,7 +204,7 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
                 var state=Text(cell,"Status",17,Muted,TextAlignmentOptions.Center);state.text=lines[1];
                 Stretch(state.rectTransform,Vector2.zero,new Vector2(1,.42f),new Vector2(8,4),new Vector2(-8,0));
             }
-            label.enableAutoSizing=true;label.fontSizeMin=16;label.fontSizeMax=header?24:22;
+            label.enableAutoSizing=true;label.fontSizeMin=16;label.fontSizeMax=fontSize;
         }
     }
     void Hands(SichuanSettlementPlayer[] players) {
@@ -218,7 +223,9 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
             return;
         }
         heading.text=match.duplicate?"复式结算":"本盘结算";
-        metadata.text="血战双打"+(match.duplicate?"复式":"")+" · "+(match.reason=="last_positive_board"?"追平队胜":match.reason=="draw"?"平局":"已结束");
+        bool isDraw=match.reason=="draw" || (match.match_points!=null && match.match_points.Any(points=>points==.5f));
+        metadata.text=isDraw?"平局：各0.5盘分":match.reason=="last_positive_board"?"追平：同分追平队胜":"";
+        metadata.gameObject.SetActive(!string.IsNullOrEmpty(metadata.text));
         Teams(match.players,match.scores,t=>match.duplicate?"总 IMP":$"总副分  |  盘分 {match.match_points[t]:0.#}",!match.duplicate);
         detailText.text="逐副详情";
         if(match.duplicate)DuplicateRows(); else SingleRows();
@@ -239,7 +246,7 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
     }
     void DuplicateRows() {
         Table(new[]{"副号","蓝 · 开室","蓝 · 闭室","蓝副差","本副 IMP","红副差","红 · 开室","红 · 闭室"},
-            new[]{.08f,.13f,.13f,.12f,.16f,.12f,.13f,.13f},new[]{-1,0,0,0,-1,1,1,1},match.duplicate_info?.boards?.Count??0,116);
+            new[]{.08f,.13f,.13f,.12f,.16f,.12f,.13f,.13f},new[]{-1,0,0,0,-1,1,1,1},match.duplicate_info?.boards?.Count??0,128);
         foreach(var b in match.duplicate_info?.boards??new List<DuplicateBoardResult>()){
             int index=b.number-1;
             int[] open=b.tables["open"].delta, closed=b.tables["closed"].delta;
@@ -249,19 +256,27 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         Totals(new[]{"总 IMP","","","",$"{match.scores[0]} : {match.scores[1]}","","",""});
         for(int team=0;team<2;team++){
             var strip=Rect(team==0?"BluePlayers":"RedPlayers",tableArea);
-            Stretch(strip,new Vector2(team*.5f,0),new Vector2((team+1)*.5f,0),new Vector2(team==0?0:10,0),new Vector2(team==0?-10:0,100));
+            Stretch(strip,new Vector2(team*.5f,0),new Vector2((team+1)*.5f,0),new Vector2(team==0?0:10,0),new Vector2(team==0?-10:0,112));
             ColorBox(strip,team==0?BlueCell:RedCell);
             for(int n=0;n<2;n++){
-                string room=n==0?"open":"closed";
+                string room=(team==0?n==0:n!=0)?"open":"closed";
                 var ps=match.players.Where(p=>p.table==room&&p.team_id==team).OrderBy(p=>p.original_seat).ToArray();
                 var row=Rect(room,strip);Stretch(row,new Vector2(0,(1-n)*.5f),new Vector2(1,(2-n)*.5f),Vector2.zero,Vector2.zero);
-                var caption=Text(row,"Room",19,Muted,TextAlignmentOptions.Center);Stretch(caption.rectTransform,Vector2.zero,new Vector2(.13f,1),Vector2.zero,Vector2.zero);caption.text=n==0?"开室":"闭室";
+                var caption=Text(row,"Room",21,Muted,TextAlignmentOptions.Center);Stretch(caption.rectTransform,Vector2.zero,new Vector2(.10f,1),Vector2.zero,Vector2.zero);caption.text=room=="open"?"开室":"闭室";AlignPlayerBaseline(caption,24);
                 for(int k=0;k<ps.Length;k++){
-                    var name=Text(row,"Player"+k,22,Color.white,TextAlignmentOptions.MidlineLeft);Stretch(name.rectTransform,new Vector2(.15f+k*.43f,0),new Vector2(.42f+k*.43f,1),Vector2.zero,new Vector2(-4,0));name.text=Name(ps[k]);name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=22;
-                    var value=Text(row,"Score"+k,24,Color.white,TextAlignmentOptions.MidlineRight);Stretch(value.rectTransform,new Vector2(.41f+k*.43f,0),new Vector2(.55f+k*.43f,1),Vector2.zero,new Vector2(-10,0));value.text=Signed(ps[k].score);value.color=ScoreColor(ps[k].score);
+                    var name=Text(row,"Player"+k,24,Color.white,TextAlignmentOptions.MidlineLeft);Stretch(name.rectTransform,new Vector2(.12f+k*.44f,0),new Vector2(.42f+k*.44f,1),Vector2.zero,new Vector2(-4,0));name.text=Name(ps[k]);name.textWrappingMode=TextWrappingModes.NoWrap;name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=24;AlignPlayerBaseline(name,24);
+                    var value=Text(row,"Score"+k,26,Color.white,TextAlignmentOptions.MidlineRight);Stretch(value.rectTransform,new Vector2(.42f+k*.44f,0),new Vector2(.56f+k*.44f,1),new Vector2(4,0),new Vector2(-12,0));value.text=Signed(ps[k].score);value.color=ScoreColor(ps[k].score);
+                    value.textWrappingMode=TextWrappingModes.NoWrap;value.enableAutoSizing=true;value.fontSizeMin=16;value.fontSizeMax=26;AlignPlayerBaseline(value,24);
                 }
             }
         }
+    }
+    static void AlignPlayerBaseline(TMP_Text label,float referenceSize) {
+        var face=label.font.faceInfo;
+        label.verticalAlignment=VerticalAlignmentOptions.Baseline;
+        // Use one row baseline even when a mixed-script ID is auto-sized.
+        float offset=referenceSize/face.pointSize*face.scale*(face.ascentLine+face.descentLine)*.5f;
+        label.rectTransform.anchoredPosition+=Vector2.down*offset;
     }
     TMP_Text Text(Transform parent,string name,float size,Color color,TextAlignmentOptions align) {
         var r=Rect(name,parent);var t=r.gameObject.AddComponent<TextMeshProUGUI>();t.font=template.font;t.fontSharedMaterial=template.fontSharedMaterial;

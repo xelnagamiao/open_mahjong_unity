@@ -95,6 +95,7 @@ internal static class GuobiaoTips {
         // Include every input used by both ron and self-draw checks, including table-dependent fans.
         return q.SubRule + "|" + HandKey(q.HandWithWin, q.Melds) + "|"
             + q.HepaiTile + "|" + q.HuapaiCount + "|" + q.HepaiLimit + "|"
+            + q.JinluoMode + "|" + q.JinluoWeather + "|" + q.SelfIndex + "|" + q.CurrentRound + "|"
             + string.Join(",", q.MergedWay) + "|" + string.Join(",", q.WayToHepai) + "|"
             + string.Join(",", q.SingleTileWay);
     }
@@ -113,10 +114,18 @@ internal static class GuobiaoTips {
         if (q.SubRule == GuobiaoGameState.SanmaSubRule && q.HepaiTile >= 12 && q.HepaiTile <= 18) return WaitTileHint.None("不在牌组内");
         // The calculators append derived wind conditions. Keep the caller's query and cache key stable.
         var ronWay = new List<string>(q.MergedWay);
-        Tuple<int, List<string>> ron = Check(q.SubRule, q.HandWithWin, q.Melds, ronWay, q.HepaiTile);
-        Tuple<int, List<string>> zimo = Check(q.SubRule, q.HandWithWin, q.Melds, q.BuildZimoWay(), q.HepaiTile);
-        bool canZimo = zimo.Item1 - q.HuapaiCount >= q.HepaiLimit;
-        if (ron.Item1 - q.HuapaiCount >= q.HepaiLimit) {
+        bool jinluo = q.SubRule == "guobiao/standard" && q.JinluoMode;
+        int seatWind = 41 + q.SelfIndex, roundWind = 41 + (Math.Max(1, q.CurrentRound) - 1) / 4;
+        Tuple<int, List<string>> CheckWay(List<string> way) => jinluo
+            ? JinluoRules.Check(q.HandWithWin, q.Melds ?? NoMelds, way, q.HepaiTile, q.JinluoWeather, seatWind, roundWind)
+            : Check(q.SubRule, q.HandWithWin, q.Melds, way, q.HepaiTile);
+        bool Allowed(Tuple<int, List<string>> result) => jinluo
+            ? JinluoRules.IsAllowed(result, q.HandWithWin, q.Melds ?? NoMelds, q.JinluoWeather, seatWind, roundWind)
+            : result.Item1 - q.HuapaiCount >= q.HepaiLimit;
+        var ron = CheckWay(ronWay);
+        var zimo = CheckWay(q.BuildZimoWay());
+        bool canZimo = Allowed(zimo);
+        if (Allowed(ron)) {
             return canZimo ? WaitTileHint.Ron($"{ron.Item1}番") : WaitTileHint.RonOnly();
         }
         return canZimo

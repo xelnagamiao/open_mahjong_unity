@@ -1,4 +1,5 @@
 import { fr, frTextPatterns } from './fr.js'
+import { extendedMessages, extendedPatterns } from './extended-locales.js'
 import { auditEnglish, auditShared } from './audit-messages.js'
 import { libraryAuditMessages } from './library-audit.js'
 import { game2dMessages, game2dTextPatterns } from './game2d-messages.js'
@@ -1818,10 +1819,13 @@ for (const [language, target] of Object.entries({ en, fr, ja })) {
   }
   Object.assign(target, renameCardMessages[language])
 }
-export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr }
+Object.assign(fr, extendedMessages.fr)
+export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr, de: extendedMessages.de, ru: extendedMessages.ru }
 
 export const textPatterns = {
-  fr: [...renameCardTextPatterns('fr'), ...frTextPatterns, ...game2dTextPatterns('fr'), ...calculatorTextPatterns('fr', fr)],
+  de: extendedPatterns.de,
+  ru: extendedPatterns.ru,
+  fr: [...extendedPatterns.fr, ...renameCardTextPatterns('fr'), ...frTextPatterns, ...game2dTextPatterns('fr'), ...calculatorTextPatterns('fr', fr)],
   en: [
     ...renameCardTextPatterns('en'),
     ...calculatorTextPatterns('en', en),

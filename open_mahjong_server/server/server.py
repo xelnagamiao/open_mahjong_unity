@@ -14,6 +14,7 @@ from .gamestate.gamestate_router import handle_gamestate_message
 from .database.data_router import handle_data_message
 from .database.title_router import handle_title_message
 from .database.inventory_router import handle_inventory_message, register_inventory_routes
+from .database.commerce_router import register_commerce_routes
 from .database.redemption_router import handle_redemption_message, register_redemption_routes
 from .database.mail_router import handle_mail_message, register_mail_routes
 from .match.match_router import handle_match_message
@@ -212,6 +213,12 @@ async def lifespan(app: FastAPI):
 # 创建游戏服务器实例
 app = FastAPI(lifespan=lifespan)
 
+@app.get("/client-version")
+async def get_client_version():
+    from .android_version import client_version
+    from fastapi.responses import JSONResponse
+    return JSONResponse(client_version(Config), headers={"Cache-Control": "no-store"})
+
 # HTTP 计算接口默认仅供 Node 端通过 localhost 代理调用；CORS 放开以便本地开发或日后直连测试
 app.add_middleware(
     CORSMiddleware,
@@ -251,6 +258,8 @@ class GameServer:
         self.chat_server = chat_server
         # 匹配管理器
         self.match_manager = MatchManager(self)
+        from .match.party_manager import PartyManager
+        self.party_manager = PartyManager(self)
         # 好友 / 实时观战 管理器
         self.friend_manager = FriendManager(self)
         self.event_auto_matcher = EventAutoMatcher(self)
@@ -362,8 +371,8 @@ class GameServer:
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False, joker_multi_wait: bool = False, no_joker_bonus: str = "add8", black_flower_progressive: bool = True) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he, joker_multi_wait=joker_multi_wait, no_joker_bonus=no_joker_bonus, black_flower_progressive=black_flower_progressive)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False, joker_multi_wait: bool = False, no_joker_bonus: str = "add8", black_flower_progressive: bool = True, jinluo_mode: bool = False, jinluo_weather: str = "dragon_pairs") -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he, joker_multi_wait=joker_multi_wait, no_joker_bonus=no_joker_bonus, black_flower_progressive=black_flower_progressive, jinluo_mode=jinluo_mode, jinluo_weather=jinluo_weather)
 
     # 创建青雀房间
     async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, unlimited_rounds: bool = False) -> Response:
@@ -373,9 +382,9 @@ class GameServer:
     async def create_Changsha_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "changsha/classic_double_bird", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, open_kong_replacement_count: int = 2, initial_hu_si_xi: bool = True, initial_hu_ban_ban_hu: bool = True, initial_hu_que_yi_se: bool = True, initial_hu_liu_liu_shun: bool = True, initial_hu_san_tong: bool = True, bird_count: int = 2, dealer_bird: bool = True, base_score_no_dealer: bool = False, small_hu_score: int = 2, big_hu_score: int = 8, event_id=None, count_tips: bool = False, pointer_tips: bool = True, small_hu_self_draw_only: bool = False, score_cap_type: str = "none", score_cap_value: int = 0, exchange_selection_seconds: int = 30) -> Response:
         return await self.room_manager.create_Changsha_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, open_kong_replacement_count, initial_hu_si_xi, initial_hu_ban_ban_hu, initial_hu_que_yi_se, initial_hu_liu_liu_shun, initial_hu_san_tong, bird_count, dealer_bird, base_score_no_dealer, small_hu_score, big_hu_score, event_id, count_tips=count_tips, pointer_tips=pointer_tips, small_hu_self_draw_only=small_hu_self_draw_only, score_cap_type=score_cap_type, score_cap_value=score_cap_value, exchange_selection_seconds=exchange_selection_seconds)
 
-    # Jiandan is a fixed first-win rule; room creation intentionally exposes no hand-flow option.
-    async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
-        return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
+    # Nanque is a fixed first-win rule; room creation intentionally exposes no hand-flow option.
+    async def create_Zhongyong_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "zhongyong/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Zhongyong_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
     async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron", count_tips: bool = False, pointer_tips: bool = True, hongque_colourless: bool = True, hongque_min_fan: int = 0, hongque_min_points: int = 0) -> Response:
         return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way, count_tips=count_tips, pointer_tips=pointer_tips, hongque_colourless=hongque_colourless, hongque_min_fan=hongque_min_fan, hongque_min_points=hongque_min_points)
@@ -394,8 +403,8 @@ class GameServer:
     async def create_Shanghai_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "shanghai/qiaoma", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, detailed_config: dict = None) -> Response:
         return await self.room_manager.create_Shanghai_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, detailed_config=detailed_config)
 
-    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
-        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit)
+    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False) -> Response:
+        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, duplicate_key=duplicate_key, duplicate_round_count=duplicate_round_count, duplicate_sync_mode=duplicate_sync_mode)
 
     # 创建台湾麻将房间
     async def create_Taiwan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "taiwan/standard", tourist_limit: bool = False, allow_spectator: bool = True, open_cuohe: bool = False, cuohe_type: int = 0, detailed_config: dict = None, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
@@ -498,6 +507,7 @@ register_calc_routes(app, game_server)
 register_admin_message_routes(app, game_server)
 register_admin_user_routes(app, game_server)
 register_inventory_routes(app, game_server)
+register_commerce_routes(app, game_server)
 register_mail_routes(app, game_server)
 register_redemption_routes(app, game_server)
 register_admin_game_routes(app, game_server)
@@ -518,7 +528,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             # 心跳消息频繁发送，跳过日志以避免刷屏
             if message.get("type") != "ping":
                 log_message = message
-                if message.get("type") in ("login", "register", "reward/redeem"):
+                if message.get("type") in ("login", "register", "reward/redeem", "room/join_invite"):
                     log_message = {
                         key: "[REDACTED]" if key in ("token", "password", "confirm_password", "email", "code") else value
                         for key, value in message.items()
@@ -534,7 +544,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     declaration.strip() or "unknown" if isinstance(declaration, str) else "unknown"
                 )
                 # 声明用于区分发行版，不作为真实性认证或额外的兼容性限制。
-                if release_version != Config.release_version:
+                from .android_version import framework_mismatch
+                base_mismatch = framework_mismatch(message, Config)
+                if release_version != Config.release_version or base_mismatch:
                     from .response import MessageInfo
                     response = Response(
                         type="message",
@@ -543,6 +555,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         message_info=MessageInfo(
                             title="版本检查失败",
                             required_release_version=Config.release_version,
+                            required_base_version=getattr(Config, "base_version", 1) if base_mismatch else None,
                             content=(
                                 "您的客户端版本高于服务器版本，请等待服务器更新完毕后再试。"
                                 if release_version > Config.release_version
@@ -630,10 +643,14 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     await handle_title_message(game_server, Connect_id, {"type": "title/get"}, websocket)
                     await handle_inventory_message(game_server, Connect_id, {"type": "inventory/get"}, websocket)
                     await game_server.check_player_reconnect(Connect_id, user_id)
+                    await game_server.party_manager.reconnected(user_id)
                     continue
                 
                 await websocket.send_json(response.dict(exclude_none=True))
 
+            elif message.get("type", "").startswith("party/"):
+                response = await game_server.party_manager.handle(Connect_id, message)
+                await websocket.send_json(response.dict(exclude_none=True))
             elif message.get("type", "").startswith("chat/"):
                 await handle_conversation_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("reward/"):
@@ -642,6 +659,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 await handle_mail_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("inventory/"):
                 await handle_inventory_message(game_server, Connect_id, message, websocket)
+            elif message.get("type", "").startswith(("shop/", "wallet/")):
+                from .database.commerce_router import handle_commerce_message
+                await handle_commerce_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("title/"):
                 await handle_title_message(game_server, Connect_id, message, websocket)
 

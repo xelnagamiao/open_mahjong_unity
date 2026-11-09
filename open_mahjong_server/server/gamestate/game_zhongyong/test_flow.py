@@ -109,12 +109,12 @@ def test_nanque_self_draw_broadcasts_next_draw_and_keeps_scores_secret():
 
 
 def test_nanque_self_draw_distribution_after_retirement():
-    from ..game_jiandan.settlement import JiandanSettlementPolicy
+    from ..game_zhongyong.nanque_settlement import NanqueSettlementPolicy
     s=state(NanqueGameState)
     s.player_list[0].is_hu=True
-    assert JiandanSettlementPolicy.score_changes(s,1,"self_draw",3)==[0,18,-9,-9]
+    assert NanqueSettlementPolicy.score_changes(s,1,"self_draw",3)==[0,18,-9,-9]
     s.player_list[2].is_hu=True
-    assert JiandanSettlementPolicy.score_changes(s,1,"self_draw",3)==[0,18,0,-18]
+    assert NanqueSettlementPolicy.score_changes(s,1,"self_draw",3)==[0,18,0,-18]
 
 
 def test_standard_earth_blessing_is_dealer_first_discard():

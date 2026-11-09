@@ -3,8 +3,8 @@
   "sim_client_version": 5,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
-      "sha256": "949c77605339e32ec6e286ad84d1a847a418f66f0afac6e2d4d0aeb6d810c204",
-      "size": 56121
+      "sha256": "a1275e4b5bde6188150cfdb20453ec40d3c22e9ee8542cf3ef6e061d070b2583",
+      "size": 56570
     },
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
       "sha256": "1062c85b5c59af3868603d5920763bd438d440671c8ffd62ddc6583035809d33",

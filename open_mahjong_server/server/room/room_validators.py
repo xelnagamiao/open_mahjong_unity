@@ -12,6 +12,16 @@ from ..game_calculation.shanghai.qiaoma import normalize_room_config as normaliz
 from ..game_calculation.shanghai import lajihe
 
 class GBRoomValidator(BaseModel):
+    jinluo_mode: StrictBool = False
+    jinluo_weather: str = "dragon_pairs"
+
+    @validator("jinluo_weather", pre=True)
+    def validate_jinluo_weather(cls, value):
+        from ..game_calculation.guobiao_jinluo import WEATHERS
+        if not isinstance(value, str) or value not in WEATHERS:
+            raise ValueError("请选择有效的金锣赛七对天气")
+        return value
+
     joker_multi_wait: StrictBool = False
     black_flower_progressive: StrictBool = True
     no_joker_bonus: str = "add8"
@@ -359,8 +369,8 @@ class ChangshaRoomValidator(BaseModel):
         return v
 
 
-class JiandanRoomValidator(BaseModel):
-    """Validate only options used by the first-win Jiandan room."""
+class ZhongyongRoomValidator(BaseModel):
+    """Validate only options used by the first-win Nanque room."""
 
     room_name: str
     game_round: int

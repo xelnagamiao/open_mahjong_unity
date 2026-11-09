@@ -25,8 +25,6 @@ def resolve_statistics_identity(rule, sub_rule=None, title=None, match_type=None
     title = title or {}
     rule = rule or title.get("rule")
     sub_rule = sub_rule or title.get("sub_rule")
-    if rule in ("jiandan", "nanque") or sub_rule in ("jiandan/standard", "nanque/standard"):
-        return "zhongyong", "zhongyong/nanque"
     if sub_rule == "hongkong/new13":
         detail = title.get("detailed_config") or {}
         sub_rule = "hongkong/new13_" + ("lianhuise" if detail.get("new13_version") == "lianhuise" else "gametower")

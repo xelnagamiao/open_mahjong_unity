@@ -22,6 +22,10 @@ public sealed partial class HongqueRuntimeValidation {
         record.LoadRecord(fixture["record"].ToString(), players);
         GameHost.Current.SwitchWindow("recordscene");
         record.SwitchRecordPerspectiveToOriginalPlayerIndex(seat);
+        if ((bool?)fixture["wallAudit"] == true) {
+            yield return RunReplayWallPreview(record, fixture);
+            yield break;
+        }
         record.JumpToSharePosition(round, beforeWin);
         yield return Idle();
         yield return new WaitForSecondsRealtime(1);

@@ -1,5 +1,6 @@
 const { normalizeHongqueRoomConfig } = require('./hongqueRoomSettings');
 const washizuCaptain = require('../../shared/washizuDoubles.json');
+const { normalizeSceneSeed, normalizeTaiwanDetails, normalizeShangraoRoomConfig } = require('./eventRoomExtensions');
 const { normalizeWuhanRoomConfig } = require('./wuhanRoomSettings');
 const { randomUUID, createHash } = require('node:crypto');
 const { normalizeGuizhouRoomConfig } = require('./guizhouRoomSettings');
@@ -52,10 +53,12 @@ const DEFAULT_SUB_RULES = Object.freeze({
   jiujiang: 'jiujiang/standard',
   changchun: 'changchun/mil2024',
   shanxi: 'shanxi/mil2023',
+  shangrao: 'shangrao/standard',
 });
 const GUOBIAO_SUB_RULES = new Set([
   'guobiao/sixteen', 'guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi',
   'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/transparent', 'guobiao/transparent_realtime',
+  'guobiao/blood_battle', 'guobiao/sanma',
 ]);
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -75,6 +78,7 @@ const changshaOptions = require('../../shared/changshaRoomOptions.json');
 const exchangeOptions = require('../../shared/changshaExchangeSixOptions.json');
 
 function defaultConfig(rule = 'guobiao') {
+  if (rule === 'shangrao') return normalizeShangraoRoomConfig({}, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig({}, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig({}, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig({}, SettingsError);
@@ -101,14 +105,18 @@ function defaultConfig(rule = 'guobiao') {
     tips: false,
     tourist_limit: false,
     allow_spectator: true,
+    count_tips: false,
+    pointer_tips: true,
   };
   if (rule === 'hongkong') return { ...common, detailed_config: { flowers: false, new13_full_shoot: true } };
   if (rule === 'guangdong') return { ...common, tactical_call: true, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
   if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
   if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1,
     red_dora: true, allow_kuikae: false, open_xiru: true, open_tobi: true,
-    hepai_way: 'multi_ron', open_cuohe: false, detailed_config: {} };
-  if (rule === 'sichuan') return { ...common, tactical_call: true };
+    hepai_way: 'multi_ron', open_cuohe: false, claim_protection:false, detailed_config: {} };
+  if (rule === 'sichuan') return { ...common, tactical_call:true, claim_protection:true, blood_battle:true, hepai_limit:0 };
+  if (rule === 'qingque') return { ...common, tactical_call:true, claim_protection:true };
+  if (rule === 'taiwan') return { ...common, open_cuohe:false, cuohe_type:0, detailed_config:{} };
   if (rule === 'changsha') return { ...common, ...Object.fromEntries(Object.entries(changshaOptions).map(([key, option]) => [key, option.default])) };
   if (rule !== 'guobiao') return common;
   return {
@@ -120,6 +128,8 @@ function defaultConfig(rule = 'guobiao') {
     claim_protection: true,
     use_flowers: true,
     tian_di_ren_he: false,
+    jinluo_mode: false,
+    jinluo_weather: 'dragon_pairs',
     joker_multi_wait: false,
     no_joker_bonus: "add8", black_flower_progressive: true,
   };
@@ -141,6 +151,18 @@ function integerField(config, key, min, max, label) {
 
 /** Persist only settings understood by the current room editor and game server. */
 function normalizeRoomConfig(rule, raw) {
+  if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
+  const { random_seed, ...ordinary } = raw;
+  const seed = normalizeSceneSeed(random_seed, SettingsError);
+  if (seed && ordinary.duplicate_key) throw new SettingsError(400, '场景复现与复式密钥不能同时使用');
+  const config = normalizeBaseRoomConfig(rule, ordinary);
+  if (config.duplicate_key) config.allow_spectator = false;
+  if (seed) config.random_seed = seed;
+  return config;
+}
+
+function normalizeBaseRoomConfig(rule, raw) {
+  if (rule === 'shangrao') return normalizeShangraoRoomConfig(raw, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig(raw, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig(raw, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig(raw, SettingsError);
@@ -187,11 +209,19 @@ function normalizeRoomConfig(rule, raw) {
   const validSubRule = rule === 'guobiao'
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
     : rule === 'changsha' ? ['changsha/classic_double_bird', 'changsha/exchange_six'].includes(config.sub_rule)
-    : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', washizuCaptain.sub_rule].includes(config.sub_rule)
+    : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime', washizuCaptain.sub_rule].includes(config.sub_rule)
     : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
+  if (rule === 'taiwan') {
+    config.detailed_config = normalizeTaiwanDetails(config.detailed_config, SettingsError);
+    integerField(config, 'cuohe_type', 0, 1, '错和形式');
+  }
+  if (rule === 'sichuan') {
+    integerField(config, 'hepai_limit', 0, 64, '起和番');
+    if (config.sub_rule.includes('doubles')) { config.hepai_limit = 0; config.blood_battle = !config.sub_rule.includes('xueliu'); }
+  }
   if (rule === 'shanxi') {
     const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
     if (!isObject(detail) || Object.keys(detail).some(key => key !== 'rule_version')
@@ -242,6 +272,7 @@ function normalizeRoomConfig(rule, raw) {
   const booleanKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
   if (rule === 'riichi') {
     if (!has(raw, 'starting_score') && config.sub_rule === 'riichi/sanma') config.starting_score = 35000;
+    if (!has(raw, 'starting_score') && config.sub_rule === 'riichi/langyong') config.starting_score = 50000;
     integerField(config, 'starting_score', 1000, 1000000, '起始点数');
     if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');
     integerField(config, 'hepai_limit', 1, 64, '起和番（不含宝牌）');
@@ -263,6 +294,8 @@ function normalizeRoomConfig(rule, raw) {
       Object.assign(config, washizuCaptain.room);
       Object.assign(config.detailed_config, washizuCaptain.detailed_config);
     }
+    if (config.sub_rule.startsWith('riichi/washizu')) { config.red_dora=false; config.open_xiru=false; config.hepai_way='head_bump'; }
+    if (config.sub_rule === 'riichi/langyong') config.allow_kuikae=true;
   }
   if (rule === 'guobiao') {
     integerField(config, 'hepai_limit', 1, 64, '起和番');
@@ -273,7 +306,15 @@ function normalizeRoomConfig(rule, raw) {
   }
   if (rule === 'guobiao' && config.sub_rule === 'guobiao/lanshi') config.use_flowers = false;
   if (rule === 'guobiao') {
+    if (config.sub_rule === 'guobiao/blood_battle') Object.assign(config, { hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: false });
     if (!['add8', 'double', 'none'].includes(config.no_joker_bonus)) throw new SettingsError(400, '无癞子奖励必须为+8分、翻倍或不额外加分');
+    if (!['dragon_pairs', 'seat_round_winds', 'terminal_pairs', 'all_simples', 'missing_suit', 'consecutive_pairs', 'same_rank_pairs', 'four_of_a_kind'].includes(config.jinluo_weather)) {
+      throw new SettingsError(400, '请选择有效的金锣赛七对天气');
+    }
+    if (config.jinluo_mode) {
+      if (config.sub_rule !== 'guobiao/standard') throw new SettingsError(400, '金锣赛仅适用于标准国标');
+      config.hepai_limit = 8; config.open_cuohe = true; config.tips = false;
+    }
     if (config.sub_rule === 'guobiao/sixteen' && config.duplicate_key) throw new SettingsError(400, '国标十六张不能使用普通复式牌墙');
     if (config.sub_rule === 'guobiao/huahun') {
       config.hepai_limit = 8; config.use_flowers = true;

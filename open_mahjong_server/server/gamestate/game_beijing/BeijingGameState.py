@@ -2,6 +2,7 @@ import random
 from collections import Counter
 
 from ..game_zhongyong.ZhongyongGameState import ZhongyongGameState
+from ..public.random_seed_manager import derive_round_seed
 from ...game_calculation.beijing import rules as book
 from .actions import ActionPolicy, legal_cuts
 from .flow import HandFlow
@@ -55,6 +56,10 @@ class BeijingGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhongy
         return dict(room_id="beijing-test", room_rule="beijing", sub_rule=book.SUB_RULE,
                     player_list=[101, 102, 103, 104], player_settings={}, game_round=1, round_timer=0,
                     step_timer=0, room_type="custom", tips=False, random_seed=1)
+
+    def _derive_round_seed(self):
+        # Dealer repeats keep current_round, but every played hand needs a new wall.
+        return derive_round_seed(self.master_seed, self.round_index)
 
     def initialize_round(self, *, wall=None, dice=None):
         if self.machine.phase != P.START:

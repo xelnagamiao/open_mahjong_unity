@@ -20,8 +20,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     [SerializeField] private Image faceBackground; // 标准手牌的牌体底图
     [SerializeField] private Button tileButton;  // 按钮组件
 
-    // The full-size hit surface follows both hover and armed lift, independent of artwork scaling.
-    public Transform BadgeAnchor => tileButton != null ? tileButton.transform : transform;
+    public Image BadgeBody => faceBackground != null && faceBackground.enabled ? faceBackground : tileImage;
+    public Image FaceArtwork => tileImage;
+    public Transform BadgeAnchor => TileFaceOverlay.Get(transform);
 
     // 将私有字段改为公共属性
     public int tileId;   // 牌的ID（如"11"表示一万）
@@ -312,6 +313,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         GuangdongMilTileVisual.Refresh(transform, tileId);
         RuleTileBadge.Apply(this, tileId);
         WenzhouJokerBadge.Refresh(this);
+        TileCornerLabel.Apply(transform, tileId);
+        DoraTileSheen.Apply(transform, tileId);
     }
 
     /// OntileClick 是出牌方法 如果牌属性currentGetTile为flase则为手切，如果为true则为摸切

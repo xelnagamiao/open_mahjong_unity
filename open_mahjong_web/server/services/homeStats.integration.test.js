@@ -71,7 +71,6 @@ test('home rule statistics keep personal denominators, subrules and every scene 
     await seed('guangdong-legacy-default', { rule: 'guangdong', subRule: null, metrics: true, wins: [0,1,0,0] });
     await seed('zhongyong-standard', { rule: 'zhongyong', subRule: 'zhongyong/standard', metrics: true });
     await seed('nanque-new', { rule: 'zhongyong', subRule: 'zhongyong/nanque', metrics: true });
-    await seed('nanque-legacy', { rule: 'jiandan', subRule: 'jiandan/standard', metrics: true });
     await seed('guobiao-three', { rule: 'guobiao', subRule: 'guobiao/sanma', count: 3, metrics: true });
     await seed('qingque-real', { rule: 'qingque', subRule: 'qingque/standard', room: 'match',
       mode: '4/4_rank', tier: 'beginner', metrics: true });
@@ -173,7 +172,7 @@ test('home rule statistics keep personal denominators, subrules and every scene 
       assert.equal(selectHomeStats(rows, 'guangdong_tuidao', 'custom').win_count, 4);
       assert.equal(selectHomeStats(rows, 'guangdong_tuidao', 'custom').total_games, 2);
       assert.equal(selectHomeStats(rows, 'zhongyong', 'custom').total_games, 1);
-      assert.equal(selectHomeStats(rows, 'nanque', 'custom').total_games, 2);
+      assert.equal(selectHomeStats(rows, 'nanque', 'custom').total_games, 1);
       assert.equal(rows.some(row => row.rule === 'jiandan'), false);
       const three = selectHomeStats(rows, 'guobiao_sanma', 'custom');
       assert.equal(three.total_games, 1);

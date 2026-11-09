@@ -293,6 +293,29 @@ public static class CardBackManager
     }
 
     /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 IndexedDB）。</summary>
+    public static bool SelectSurfaceImage(string path, bool back)
+    {
+        if (ConfigManager.Instance == null) return false;
+        bool hasImage = !string.IsNullOrEmpty(path);
+        Texture2D texture = null;
+        if (hasImage) {
+            if (!Card3DPresetTextureCache.TryGet(path, out texture)) texture = CardDesignImageLibrary.LoadTexture(path);
+            if (texture == null) return false;
+        }
+        if (back) {
+            var previous = CurrentTexture;
+            ConfigManager.Instance.SetSelectedCardBackImage(path ?? "", hasImage);
+            Apply(ConfigManager.Instance.CardBackColor, texture);
+            if (previous != null && previous != texture && !Card3DPresetTextureCache.Owns(previous)) UnityEngine.Object.Destroy(previous);
+        } else {
+            ConfigManager.Instance.SetSelectedTableBackground(path ?? "", hasImage);
+            ReplaceTableBackground(texture); ApplyTableBackgroundAspect(texture);
+            if (hasImage) SetTableFaceBackgroundEnabled(true); else SetTableFaceSolidColorEnabled(true);
+            TileFaceResolver.NotifyTableBackgroundChanged();
+        }
+        return true;
+    }
+
     public static Texture2D LoadSavedTexture()
     {
         if (ConfigManager.Instance == null) return null;

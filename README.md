@@ -137,7 +137,7 @@ open_mahjong_unity/
 
 ### 游戏客户端 (open_mahjong_unity)
 
-- **引擎**: Unity 6.4 (6000.4.7f1)
+- **引擎**: Unity 6.4 (6000.3.28f1)
 - **语言**: C#
 - **网络**: WebSocket (Nativewebsocket)
 - **平台**: PC/Web/Android/iOS

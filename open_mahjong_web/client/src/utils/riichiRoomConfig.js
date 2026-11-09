@@ -6,12 +6,18 @@ import captain from '../../../shared/washizuDoubles.json' with { type: 'json' }
 export const riichiModes = [
   { value: 'riichi/standard', label: '四人立直' },
   { value: 'riichi/sanma', label: '三人立直' },
+  { value: 'riichi/langyong', label: '浪涌麻将' },
+  { value: 'riichi/washizu', label: '鹫巢麻将' },
+  { value: 'riichi/washizu_realtime', label: '鹫巢麻将（实时手牌）' },
   { value: captain.sub_rule, label: captain.label },
 ]
 export const isWashizuCaptain = form => form.sub_rule === captain.sub_rule
+export const isWashizu = form => form.sub_rule?.startsWith('riichi/washizu')
 export const captainFixedKeys = Object.keys(captain.detailed_config)
 
 export function enforceCaptainRules(form) {
+  if (isWashizu(form)) Object.assign(form, { red_dora: false, open_xiru: false, hepai_way:'head_bump' })
+  if (form.sub_rule === 'riichi/langyong') form.allow_kuikae = true
   if (!isWashizuCaptain(form)) return
   Object.assign(form, captain.room)
   Object.assign(form.riichi_detailed_config, captain.detailed_config)
@@ -21,6 +27,7 @@ export function changeRiichiMode(form, subRule) {
   form.sub_rule = subRule
   Object.assign(form, riichiRoomDefaults)
   if (subRule === 'riichi/sanma') form.starting_score = 35000
+  if (subRule === 'riichi/langyong') form.starting_score = 50000
   form.riichi_detailed_config = defaults(subRule)
   form.minimum_win_score = form.riichi_detailed_config.minimum_win_score
   enforceCaptainRules(form)
@@ -42,7 +49,7 @@ function defaults(subRule) {
 export function loadRiichiForm(form, config = {}) {
   form.sub_rule = config.sub_rule || 'riichi/standard'
   for (const [key, value] of Object.entries({ ...commonDefaults, ...riichiRoomDefaults })) {
-    form[key] = config[key] ?? (key === 'starting_score' && form.sub_rule === 'riichi/sanma' ? 35000 : value)
+    form[key] = config[key] ?? (key === 'starting_score' && form.sub_rule === 'riichi/sanma' ? 35000 : key === 'starting_score' && form.sub_rule === 'riichi/langyong' ? 50000 : value)
   }
   form.riichi_hepai_limit = config.hepai_limit ?? 1
   form.riichi_detailed_config = { ...defaults(form.sub_rule), ...config.detailed_config }
@@ -68,6 +75,8 @@ export function selectedRiichiPreset(form) {
 }
 
 export function buildRiichiRoomPayload(form) {
+  form = { ...form, riichi_detailed_config: { ...form.riichi_detailed_config } }
+  enforceCaptainRules(form)
   if (form.tips && form.open_cuohe) throw new Error('提示与错和不能同时开启')
   const score = form.starting_score
   if (!Number.isInteger(score) || score < 1000 || score > 1000000 || score % 100 !== 0) {

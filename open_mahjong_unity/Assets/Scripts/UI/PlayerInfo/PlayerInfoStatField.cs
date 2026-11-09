@@ -16,7 +16,7 @@ public sealed class PlayerInfoStatField : MonoBehaviour {
         if (separator) separator.color = palette[PlayerInfoAppearance.Role.Divider];
     }
 
-    public void Bind(string name, string text) {
+    public void Bind(string name, string text, string ruleContext = null) {
         // 文字与明细行底色之间留白，名称和值分别向内收。
         var labelMargin = label.margin;
         labelMargin.x = 10;
@@ -24,8 +24,8 @@ public sealed class PlayerInfoStatField : MonoBehaviour {
         var valueMargin = value.margin;
         valueMargin.z = 10;
         value.margin = valueMargin;
-        label.text = name;
-        value.text = text;
+        TableText.Set(label, name, ruleContext ?? string.Empty);
+        TableText.Set(value, text, ruleContext ?? string.Empty);
         value.gameObject.SetActive(!string.IsNullOrEmpty(text));
     }
 }

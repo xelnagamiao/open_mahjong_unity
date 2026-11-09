@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// 标准麻将自定义牌面包允许的牌面 ID，以及设置页全量预览列表。
 /// 牌号与 Python 服务端一致：11–19 万，21–29 饼，31–39 条，41–47 字，51–58 花；
 /// 赤宝 105 / 205 / 305 = 赤 5 万 / 赤 5 饼 / 赤 5 条。
-/// 预装资源目录用 hand/、table/，上传 zip 仍同时接受「手牌牌面」「3D牌面」。
+/// 上传 zip 可包含一套 PNG，也兼容原有 hand/、table/ 两个目录。
 /// </summary>
 public static class TilePackIds {
     public const string PackOfficial = "official";
@@ -75,6 +75,10 @@ public static class TilePackIds {
 
     public static string BuiltinTableResource(string packId, int tileId) {
         return ResourcesPackRoot + "/" + packId + "/" + TableDirEn + "/" + tileId;
+    }
+
+    public static string BuiltinSharedResource(string packId, int tileId) {
+        return ResourcesPackRoot + "/" + packId + "/shared/" + tileId;
     }
 
     public static string NormalizePackId(string packId) {

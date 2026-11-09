@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>Updates table UI through the existing source-preserving localization binding.</summary>
 public static class TableText {
-    public static void Set(TMP_Text label, string source) {
+    public static void Set(TMP_Text label, string source, string context = null) {
         if (!label) return;
         var binding = label.GetComponent<LocalizedPlatformLabel>();
         if (!binding) {
@@ -18,11 +18,12 @@ public static class TableText {
             label.fontSize = size; label.fontSizeMin = minimum; label.fontSizeMax = maximum;
             label.enableAutoSizing = autoSize;
         }
+        binding.context = context ?? RuleRegistry.Current?.RuleId;
         binding.SetSource(source ?? string.Empty);
     }
 
     public static string SupplementalSource(string source) {
-        if (ConfigManager.CurrentLanguage != AppLanguage.English || string.IsNullOrEmpty(source)) return source;
+        if ((ConfigManager.CurrentLanguage != AppLanguage.English && !PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage)) || string.IsNullOrEmpty(source)) return source;
         string key = source.StartsWith("癞：") ? "table.round.joker"
             : source.StartsWith("皮：") ? "table.round.skin" : null;
         if (key == null) return source;
@@ -37,12 +38,18 @@ public static class TableText {
     }
 
     private static string ShortTileName(string value) {
+        if (ConfigManager.CurrentLanguage == AppLanguage.Japanese) return PlatformText.Get(value);
         if (value.Length == 2 && value[0] >= '1' && value[0] <= '9') {
             switch (value[1]) {
                 case '万': return value[0] + "m";
                 case '筒': return value[0] + "p";
                 case '条': return value[0] + "s";
             }
+        }
+        if (PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage)) {
+            string wind = SeatWindKey(value);
+            if (wind != value) return PlatformText.Get(wind);
+            if (value == "中" || value == "白" || value == "发") return PlatformText.Get(value);
         }
         switch (value) {
             case "东": return "E";
@@ -57,10 +64,10 @@ public static class TableText {
     }
 
     public static string FuValue(string source) {
-        if (ConfigManager.CurrentLanguage == AppLanguage.English && !string.IsNullOrEmpty(source)
+        if ((ConfigManager.CurrentLanguage == AppLanguage.English || PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage)) && !string.IsNullOrEmpty(source)
             && source.EndsWith("副") && int.TryParse(source.Substring(0, source.Length - 1),
                 NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
-            return value.ToString(CultureInfo.InvariantCulture) + " fu";
+            return PlatformText.GetContextual(value.ToString(CultureInfo.InvariantCulture) + "符", RuleRegistry.Current?.RuleId);
         return PlatformText.Get(source);
     }
 
@@ -72,6 +79,13 @@ public static class TableText {
             case "北": return "table.wind.north";
             default: return wind;
         }
+    }
+
+    public static bool IsEastWind(TMP_Text label) {
+        if (!label) return false;
+        var binding = label.GetComponent<LocalizedPlatformLabel>();
+        string source = binding ? binding.Source : label.text;
+        return source == "table.wind.east" || source == "东" || source == "東" || source == "E";
     }
 
     public static string CompactActionKey(string source) {

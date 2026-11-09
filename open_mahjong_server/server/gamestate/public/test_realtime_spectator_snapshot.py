@@ -19,7 +19,7 @@ from server.gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from server.gamestate.game_guobiao.boardcast import (
     _build_game_start_payload_for_viewer as _guobiao_payload,
 )
-from server.gamestate.game_jiandan.JiandanGameState import JiandanGameState
+from server.gamestate.game_zhongyong.NanqueGameState import NanqueGameState
 from server.gamestate.game_mmcr.QingqueGameState import QingqueGameState
 from server.gamestate.game_sichuan.SichuanGameState import SichuanGameState
 
@@ -204,7 +204,7 @@ class RealtimeSpectatorSnapshotTest(unittest.TestCase):
             ClassicalGameState: "server.gamestate.game_classical.boardcast",
             QingqueGameState: "server.gamestate.game_mmcr.boardcast",
             SichuanGameState: "server.gamestate.game_sichuan.boardcast",
-            JiandanGameState: "server.gamestate.game_zhongyong.ZhongyongGameState",
+            NanqueGameState: "server.gamestate.game_zhongyong.ZhongyongGameState",
         }
         for cls, module in expected.items():
             self.assertEqual(

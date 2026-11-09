@@ -12,6 +12,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject gamePanel; // 游戏窗口
     [SerializeField] private GameObject tableOverlays;
     [SerializeField] private GameObject recordOverlays;
+    [SerializeField] private CanvasGroup[] tableUtilityControls;
     [SerializeField] private RectTransform pageRoot;
 
     [Header("一级窗口")]
@@ -190,8 +191,21 @@ public class WindowsManager : MonoBehaviour {
         off(gamePanel);
         off(tableOverlays);
         off(recordOverlays);
+        SetTableUtilityVisible(false);
         if(pageRoot!=null)pageRoot.gameObject.SetActive(false);
         loginPanel.SetActive(true);
+    }
+
+    // The table session keeps running behind lobby pages. Only its visible controls
+    // are hidden, preserving ExitButtonManager state and latency subscriptions.
+    private void SetTableUtilityVisible(bool visible) {
+        if (tableUtilityControls == null) return;
+        foreach (var group in tableUtilityControls) {
+            if (!group) continue;
+            group.alpha = visible ? 1f : 0f;
+            group.interactable = visible;
+            group.blocksRaycasts = visible;
+        }
     }
 
     // 切换窗口
@@ -390,11 +404,14 @@ public class WindowsManager : MonoBehaviour {
         foreach (var page in wasActive)
             if (page != null && !willActive.Contains(page)) page.GetComponent<PageOwnedOverlays>()?.Close();
         NotificationManager.Instance?.ClearHoverTooltips();
+        bool viewingTable = targetWindow == "game" || targetWindow == "recordscene";
+        SetTableUtilityVisible(viewingTable);
+        if (!viewingTable && (currentWindow == "game" || currentWindow == "recordscene"))
+            gamePanel?.GetComponent<PageOwnedOverlays>()?.Close();
         if(recordOverlays!=null)recordOverlays.SetActive(targetWindow=="recordscene");
         if (tableOverlays != null) {
-            bool table=targetWindow == "game" || targetWindow == "recordscene";
-            if(!table&&tableOverlays.activeSelf)tableOverlays.GetComponent<PageOwnedOverlays>()?.Close();
-            tableOverlays.SetActive(table);
+            if(!viewingTable&&tableOverlays.activeSelf)tableOverlays.GetComponent<PageOwnedOverlays>()?.Close();
+            tableOverlays.SetActive(viewingTable);
         }
         if(pageRoot != null)
             foreach(var page in willActive)

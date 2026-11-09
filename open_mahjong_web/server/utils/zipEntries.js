@@ -70,7 +70,7 @@ function readZip(buffer, { maxUncompressed = 20 * 1024 * 1024, maxEntries = 400 
     throw httpError('不是有效的 zip 文件');
   }
   if (buffer.length > maxUncompressed) {
-    throw httpError('压缩包过大（超过 20MB）');
+    throw httpError(`压缩包过大（超过 ${maxUncompressed / 1024 / 1024}MB）`);
   }
 
   const eocd = findEocd(buffer);
@@ -114,7 +114,7 @@ function readZip(buffer, { maxUncompressed = 20 * 1024 * 1024, maxEntries = 400 
     if (!name || name.endsWith('/')) continue;
     uncompressed += usize;
     if (uncompressed > maxUncompressed) {
-      throw httpError('解压后超过 20MB');
+      throw httpError(`解压后超过 ${maxUncompressed / 1024 / 1024}MB`);
     }
     listings.push({ name, method, crc, csize, usize, localOffset });
   }

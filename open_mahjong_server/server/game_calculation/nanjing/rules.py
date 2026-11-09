@@ -2,7 +2,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 
-from ..jiandan.decompose import Meld, find_standard_decompositions
+from ..nanque.decompose import Meld, find_standard_decompositions
 
 RULE = "nanjing"
 SUB_RULE = "nanjing/mil2024"

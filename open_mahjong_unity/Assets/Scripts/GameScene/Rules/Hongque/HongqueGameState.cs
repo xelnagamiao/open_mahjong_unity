@@ -899,6 +899,7 @@ public sealed class HongqueGameState : GameStateBase {
                 ["score"] = score,
                 ["rank"] = i + 1,
                 ["pt"] = 0f,
+                ["currency_delta_minor"] = 0L,
                 ["original_player_index"] = player.index,
             };
         }

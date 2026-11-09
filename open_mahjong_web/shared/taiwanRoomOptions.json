@@ -1,0 +1,1328 @@
+{
+  "options": [
+    {
+      "section": "基本设置",
+      "key": "dealer_streak_limit",
+      "label": "连庄上限",
+      "choices": [
+        "不限",
+        "最多连9",
+        "最多连10"
+      ],
+      "values": [
+        null,
+        9,
+        10
+      ],
+      "default": null
+    },
+    {
+      "section": "基本设置",
+      "key": "negative_score_ends_match",
+      "label": "负分终止",
+      "choices": [
+        "不终止",
+        "该手后终止"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "基本设置",
+      "key": "dead_wall_mode",
+      "label": "尾牌模型",
+      "choices": [
+        "固定尾16",
+        "每杠加一张",
+        "补牌墙16"
+      ],
+      "values": [
+        "fixed_tail_16",
+        "kong_expands_tail",
+        "fixed_replacement_wall_16"
+      ],
+      "default": "fixed_tail_16"
+    },
+    {
+      "section": "基本设置",
+      "key": "multi_win_mode",
+      "label": "多响模式",
+      "choices": [
+        "双响头跳/三响全胡",
+        "多响",
+        "头跳"
+      ],
+      "values": [
+        "double_head_bump_triple_all",
+        "multiple_winners",
+        "head_bump"
+      ],
+      "default": "double_head_bump_triple_all"
+    },
+    {
+      "section": "基本设置",
+      "key": "minimum_tai",
+      "label": "最低起胡",
+      "choices": [
+        "0台",
+        "1台",
+        "2台",
+        "3台"
+      ],
+      "values": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "default": 0
+    },
+    {
+      "section": "基本设置",
+      "key": "tai_cap",
+      "label": "手牌封顶",
+      "choices": [
+        "不封顶",
+        "16台",
+        "24台"
+      ],
+      "values": [
+        null,
+        16,
+        24
+      ],
+      "default": null
+    },
+    {
+      "section": "基本设置",
+      "key": "scoring_preset",
+      "label": "基础台表",
+      "choices": [
+        "SML竞技",
+        "CML竞技",
+        "明星三缺一",
+        "神来也"
+      ],
+      "values": [
+        "sml",
+        "cml",
+        "star31",
+        "shenlaiye"
+      ],
+      "default": "sml"
+    },
+    {
+      "section": "听牌",
+      "key": "ready_qualification_mode",
+      "label": "天地听资格",
+      "choices": [
+        "关闭",
+        "标准（含庄家首打天听）",
+        "标准（庄家无天听）",
+        "全桌前8打",
+        "各家首打"
+      ],
+      "values": [
+        "disabled",
+        "standard_with_dealer_heavenly_ready",
+        "standard_without_dealer_heavenly_ready",
+        "first_eight_table_discards",
+        "each_player_first_discard"
+      ],
+      "default": "standard_with_dealer_heavenly_ready"
+    },
+    {
+      "section": "听牌",
+      "key": "public_ready_enabled",
+      "label": "公开报听",
+      "choices": [
+        "关闭（天地听秘密登记）",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "听牌",
+      "key": "declared_ready_win_policy",
+      "label": "报听后拒胡",
+      "choices": [
+        "允许拒胡进入过水",
+        "禁止拒胡强制胡牌"
+      ],
+      "values": [
+        "allow_pass",
+        "force_win"
+      ],
+      "default": "allow_pass"
+    },
+    {
+      "section": "听牌",
+      "key": "qualified_ready_win_policy",
+      "label": "天地听拒胡",
+      "choices": [
+        "跟随报听规则（秘密登记拒胡失效）",
+        "允许拒胡但地听失效",
+        "禁止拒胡强制胡牌"
+      ],
+      "values": [
+        "follow_declared_ready_policy",
+        "lose_earthly_on_pass",
+        "force_win"
+      ],
+      "default": "follow_declared_ready_policy"
+    },
+    {
+      "section": "听牌",
+      "key": "declared_ready_auto_added_kong",
+      "label": "报听后摸牌加杠",
+      "choices": [
+        "不自动加杠",
+        "自动加杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "流局",
+      "key": "draw_continues_dealer",
+      "label": "流局是否续庄",
+      "choices": [
+        "流局续庄",
+        "流局不续庄"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "流局",
+      "key": "draw_increments_streak",
+      "label": "流局时连庄数",
+      "choices": [
+        "增加",
+        "不增加"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "流局",
+      "key": "four_winds_abort",
+      "label": "四风连打",
+      "choices": [
+        "继续行牌",
+        "途中流局"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "流局",
+      "key": "four_kongs_abort",
+      "label": "四杠散了",
+      "choices": [
+        "继续行牌",
+        "途中流局"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "过水",
+      "key": "missed_win_blocks_self_draw",
+      "label": "过水范围",
+      "choices": [
+        "点胡/抢杠/自摸",
+        "点胡/抢杠"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "过水",
+      "key": "missed_win_released_by_kong",
+      "label": "解除动作",
+      "choices": [
+        "弃非胡牌或暗/加杠",
+        "仅有弃非胡牌"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "过水",
+      "key": "missed_win_blocks_claims",
+      "label": "过水期间副露",
+      "choices": [
+        "禁止",
+        "允许"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "平胡",
+      "key": "all_chows_wait_mode",
+      "label": "听牌解释",
+      "choices": [
+        "应能解释为两面听",
+        "仅能解释为两面听",
+        "无要求"
+      ],
+      "values": [
+        "any_two_sided",
+        "only_two_sided",
+        "unrestricted"
+      ],
+      "default": "any_two_sided"
+    },
+    {
+      "section": "平胡",
+      "key": "all_chows_concealed_allowed",
+      "label": "门清可计",
+      "choices": [
+        "不允许",
+        "允许"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "平胡",
+      "key": "all_chows_self_draw_allowed",
+      "label": "自摸可计",
+      "choices": [
+        "不允许",
+        "允许"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "平胡",
+      "key": "all_chows_honors_and_flowers_allowed",
+      "label": "花牌字牌可计",
+      "choices": [
+        "不允许",
+        "允许"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": true
+    },
+    {
+      "section": "食替",
+      "key": "chow_discard_restriction_mode",
+      "label": "吃后食替",
+      "choices": [
+        "严格食替",
+        "只禁同牌",
+        "无限制"
+      ],
+      "values": [
+        "strict",
+        "same_tile",
+        "none"
+      ],
+      "default": "strict"
+    },
+    {
+      "section": "食替",
+      "key": "pung_same_tile_discard_forbidden",
+      "label": "碰后食替",
+      "choices": [
+        "禁弃同牌",
+        "无限制"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "杠牌",
+      "key": "allow_rob_added_kong",
+      "label": "抢杠",
+      "choices": [
+        "可抢加杠",
+        "关闭"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "杠牌",
+      "key": "allow_kong_from_upper_discard",
+      "label": "上家弃牌碰杠",
+      "choices": [
+        "仅允许碰",
+        "允许碰杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "杠牌",
+      "key": "direct_kong_replacement_win_allowed",
+      "label": "碰杠补牌自摸",
+      "choices": [
+        "禁止（含连续补花）",
+        "允许"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "杠牌",
+      "key": "melded_kong_enabled",
+      "label": "明杠计台",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "杠牌",
+      "key": "concealed_kong_enabled",
+      "label": "暗杠计台",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花牌字牌",
+      "key": "opening_flower_replacement_order",
+      "label": "开局补花顺序",
+      "choices": [
+        "本家补完再轮下家",
+        "分轮补花（新花下一轮）"
+      ],
+      "values": [
+        "player_complete",
+        "round_robin"
+      ],
+      "default": "player_complete"
+    },
+    {
+      "section": "花牌字牌",
+      "key": "flower_kong_excludes_seat_flower",
+      "label": "花杠覆盖正花",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花牌字牌",
+      "key": "all_flower_tiles_enabled",
+      "label": "见花见台",
+      "choices": [
+        "只计正花、花杠",
+        "所有花牌均计台"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花牌字牌",
+      "key": "all_wind_pungs_enabled",
+      "label": "见风见台",
+      "choices": [
+        "只计门风刻、圈风刻",
+        "所有风刻均计台"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花牌字牌",
+      "key": "no_flowers_enabled",
+      "label": "无花",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花牌字牌",
+      "key": "no_flowers_or_honors_enabled",
+      "label": "无字无花",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "花胡",
+      "key": "eight_flowers_mode",
+      "label": "八仙过海",
+      "choices": [
+        "独立可放弃花胡",
+        "独立强制花胡",
+        "普通胡牌加计",
+        "花胡与牌形复合"
+      ],
+      "values": [
+        "optional_standalone",
+        "forced_standalone",
+        "additive",
+        "compound"
+      ],
+      "default": "optional_standalone"
+    },
+    {
+      "section": "花胡",
+      "key": "seven_flowers_steal_eighth_enabled",
+      "label": "七抢一",
+      "choices": [
+        "开启",
+        "关闭"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "花胡",
+      "key": "initial_flower_bonus_enabled",
+      "label": "配牌花胡",
+      "choices": [
+        "关闭",
+        "开启（天地和时机花胡加计）"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "liability_ron_split_enabled",
+      "label": "非包牌家放铳",
+      "choices": [
+        "包牌家全付",
+        "包牌家与铳家平分"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "big_four_winds_liability_enabled",
+      "label": "大四喜",
+      "choices": [
+        "关闭",
+        "喂出第4副风刻/杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "little_four_winds_liability_enabled",
+      "label": "小四喜",
+      "choices": [
+        "关闭",
+        "喂出第3副风刻/杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "big_three_dragons_liability_enabled",
+      "label": "大三元",
+      "choices": [
+        "关闭",
+        "喂出第3副三元刻/杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "little_three_dragons_liability_enabled",
+      "label": "小三元",
+      "choices": [
+        "关闭",
+        "喂出第2副三元刻/杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "all_honors_liability_enabled",
+      "label": "字一色",
+      "choices": [
+        "关闭",
+        "喂出第4副字牌副露"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "full_flush_liability_enabled",
+      "label": "清一色",
+      "choices": [
+        "关闭",
+        "喂出第4副同色副露"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "half_flush_liability_enabled",
+      "label": "混一色",
+      "choices": [
+        "关闭",
+        "喂出第4副同色/字牌副露"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "all_pungs_liability_enabled",
+      "label": "碰碰胡",
+      "choices": [
+        "关闭",
+        "喂出第4副明刻/明杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "five_kongs_liability_enabled",
+      "label": "五杠子",
+      "choices": [
+        "关闭",
+        "喂出第5副明杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "包牌",
+      "key": "four_kongs_liability_enabled",
+      "label": "四杠子",
+      "choices": [
+        "关闭",
+        "喂出第4副明杠"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "扩展台种",
+      "key": "last_tile_claim_enabled",
+      "label": "河底捞鱼",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "扩展台种",
+      "key": "eight_and_a_half_pairs_enabled",
+      "label": "八对半",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "扩展台种",
+      "key": "half_begging_enabled",
+      "label": "半求人",
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "扩展台种",
+      "key": "four_kongs_enabled",
+      "label": "四杠子",
+      "choices": [
+        "关闭",
+        "开启（8台）"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "扩展台种",
+      "key": "five_kongs_enabled",
+      "label": "五杠子",
+      "choices": [
+        "关闭",
+        "开启（16台）"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "little_four_winds_add_wind_pungs",
+      "label": "小四喜复合风牌",
+      "choices": [
+        "不加计门风/圈风",
+        "加计门风/圈风"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "all_honors_add_all_pungs",
+      "label": "字一色复合碰碰胡",
+      "choices": [
+        "加计碰碰胡",
+        "不加计碰碰胡"
+      ],
+      "values": [
+        true,
+        false
+      ],
+      "default": true
+    },
+    {
+      "section": "特殊规则",
+      "key": "prefer_triplet_decomposition_on_discard_win",
+      "label": "非自摸拆分优先",
+      "choices": [
+        "选择最高台解释",
+        "点胡/抢杠时刻子优先"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "earthly_ready_excludes_concealed_and_declared_ready",
+      "label": "地听复合门清/报听",
+      "choices": [
+        "可加计门清与报听",
+        "不加计门清与报听"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "earthly_win_allows_open_calls",
+      "label": "地胡受副露影响",
+      "choices": [
+        "吃碰杠后失效",
+        "明面吃碰杠后仍有效"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "human_win_definition",
+      "label": "人胡定义",
+      "choices": [
+        "闲家首次摸牌前",
+        "放铳者第一打",
+        "关闭"
+      ],
+      "values": [
+        "before_first_draw",
+        "discarder_first_discard",
+        "disabled"
+      ],
+      "default": "before_first_draw"
+    },
+    {
+      "section": "特殊规则",
+      "key": "claim_wall_reserve",
+      "label": "副露保留牌墙",
+      "choices": [
+        "不额外限制",
+        "至少保留4张可摸牌"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    },
+    {
+      "section": "特殊规则",
+      "key": "same_turn_claim_forbidden",
+      "label": "同巡吃碰限制",
+      "choices": [
+        "不额外限制",
+        "禁止吃碰回关联弃牌"
+      ],
+      "values": [
+        false,
+        true
+      ],
+      "default": false
+    }
+  ],
+  "fans": [
+    {
+      "key": "concealed_hand",
+      "label": "门清",
+      "default": 1
+    },
+    {
+      "key": "fully_concealed_hand",
+      "label": "不求人",
+      "default": 1
+    },
+    {
+      "key": "self_draw",
+      "label": "自摸",
+      "default": 1
+    },
+    {
+      "key": "seat_wind_pung",
+      "label": "门风刻",
+      "default": 1
+    },
+    {
+      "key": "prevalent_wind_pung",
+      "label": "圈风刻",
+      "default": 1
+    },
+    {
+      "key": "wind_pung",
+      "label": "风刻",
+      "default": 1
+    },
+    {
+      "key": "flower_tile",
+      "label": "正花",
+      "default": 1
+    },
+    {
+      "key": "dragon_pung",
+      "label": "三元牌",
+      "default": 1
+    },
+    {
+      "key": "single_wait",
+      "label": "独听",
+      "default": 1
+    },
+    {
+      "key": "robbing_kong",
+      "label": "抢杠",
+      "default": 1
+    },
+    {
+      "key": "out_with_replacement_tile",
+      "label": "杠上开花",
+      "default": 1
+    },
+    {
+      "key": "last_tile_draw",
+      "label": "海底捞月",
+      "default": 1
+    },
+    {
+      "key": "flower_kong",
+      "label": "花杠",
+      "default": 1
+    },
+    {
+      "key": "no_flowers",
+      "label": "无花",
+      "default": 1
+    },
+    {
+      "key": "declared_ready",
+      "label": "报听",
+      "default": 1
+    },
+    {
+      "key": "half_begging",
+      "label": "半求人",
+      "default": 1
+    },
+    {
+      "key": "last_tile_claim",
+      "label": "河底捞鱼",
+      "default": 1
+    },
+    {
+      "key": "melded_kong",
+      "label": "明杠",
+      "default": 1
+    },
+    {
+      "key": "all_chows",
+      "label": "平胡",
+      "default": 2
+    },
+    {
+      "key": "three_concealed_pungs",
+      "label": "三暗刻",
+      "default": 2
+    },
+    {
+      "key": "all_begging",
+      "label": "全求人",
+      "default": 2
+    },
+    {
+      "key": "no_flowers_or_honors",
+      "label": "无字无花",
+      "default": 2
+    },
+    {
+      "key": "concealed_kong",
+      "label": "暗杠",
+      "default": 2
+    },
+    {
+      "key": "all_pungs",
+      "label": "碰碰胡",
+      "default": 4
+    },
+    {
+      "key": "little_three_dragons",
+      "label": "小三元",
+      "default": 4
+    },
+    {
+      "key": "half_flush",
+      "label": "混一色",
+      "default": 4
+    },
+    {
+      "key": "initial_flower_bonus",
+      "label": "配牌花胡",
+      "default": 4
+    },
+    {
+      "key": "four_concealed_pungs",
+      "label": "四暗刻",
+      "default": 5
+    },
+    {
+      "key": "earthly_ready",
+      "label": "地听",
+      "default": 8
+    },
+    {
+      "key": "five_concealed_pungs",
+      "label": "五暗刻",
+      "default": 8
+    },
+    {
+      "key": "big_three_dragons",
+      "label": "大三元",
+      "default": 8
+    },
+    {
+      "key": "little_four_winds",
+      "label": "小四喜",
+      "default": 8
+    },
+    {
+      "key": "full_flush",
+      "label": "清一色",
+      "default": 8
+    },
+    {
+      "key": "eight_flowers_and_seasons",
+      "label": "八仙过海",
+      "default": 8
+    },
+    {
+      "key": "seven_flowers_steal_eighth",
+      "label": "七抢一",
+      "default": 8
+    },
+    {
+      "key": "eight_and_a_half_pairs",
+      "label": "八对半",
+      "default": 8
+    },
+    {
+      "key": "heavenly_ready",
+      "label": "天听",
+      "default": 16
+    },
+    {
+      "key": "earthly_win",
+      "label": "地胡",
+      "default": 16
+    },
+    {
+      "key": "human_win",
+      "label": "人胡",
+      "default": 16
+    },
+    {
+      "key": "all_honors",
+      "label": "字一色",
+      "default": 16
+    },
+    {
+      "key": "big_four_winds",
+      "label": "大四喜",
+      "default": 16
+    },
+    {
+      "key": "heavenly_win",
+      "label": "天胡",
+      "default": 24
+    },
+    {
+      "key": "four_kongs",
+      "label": "四杠子",
+      "default": 8
+    },
+    {
+      "key": "five_kongs",
+      "label": "五杠子",
+      "default": 16
+    }
+  ],
+  "fanPresets": {
+    "sml": {
+      "concealed_hand": 1,
+      "fully_concealed_hand": 1,
+      "self_draw": 1,
+      "seat_wind_pung": 1,
+      "prevalent_wind_pung": 1,
+      "wind_pung": 1,
+      "flower_tile": 1,
+      "dragon_pung": 1,
+      "single_wait": 1,
+      "robbing_kong": 1,
+      "out_with_replacement_tile": 1,
+      "last_tile_draw": 1,
+      "flower_kong": 1,
+      "no_flowers": 1,
+      "declared_ready": 1,
+      "half_begging": 1,
+      "last_tile_claim": 1,
+      "melded_kong": 1,
+      "all_chows": 2,
+      "three_concealed_pungs": 2,
+      "all_begging": 2,
+      "no_flowers_or_honors": 2,
+      "concealed_kong": 2,
+      "all_pungs": 4,
+      "little_three_dragons": 4,
+      "half_flush": 4,
+      "initial_flower_bonus": 4,
+      "four_concealed_pungs": 5,
+      "earthly_ready": 8,
+      "five_concealed_pungs": 8,
+      "big_three_dragons": 8,
+      "little_four_winds": 8,
+      "full_flush": 8,
+      "eight_flowers_and_seasons": 8,
+      "seven_flowers_steal_eighth": 8,
+      "eight_and_a_half_pairs": 8,
+      "heavenly_ready": 16,
+      "earthly_win": 16,
+      "human_win": 16,
+      "all_honors": 16,
+      "big_four_winds": 16,
+      "heavenly_win": 24,
+      "four_kongs": 8,
+      "five_kongs": 16
+    },
+    "cml": {
+      "concealed_hand": 1,
+      "fully_concealed_hand": 1,
+      "self_draw": 1,
+      "seat_wind_pung": 1,
+      "prevalent_wind_pung": 1,
+      "wind_pung": 1,
+      "flower_tile": 1,
+      "dragon_pung": 1,
+      "single_wait": 1,
+      "robbing_kong": 1,
+      "out_with_replacement_tile": 1,
+      "last_tile_draw": 1,
+      "flower_kong": 1,
+      "no_flowers": 1,
+      "declared_ready": 1,
+      "half_begging": 1,
+      "last_tile_claim": 1,
+      "melded_kong": 1,
+      "all_chows": 2,
+      "three_concealed_pungs": 2,
+      "all_begging": 2,
+      "no_flowers_or_honors": 2,
+      "concealed_kong": 2,
+      "all_pungs": 4,
+      "little_three_dragons": 4,
+      "half_flush": 4,
+      "initial_flower_bonus": 4,
+      "four_concealed_pungs": 5,
+      "earthly_ready": 8,
+      "five_concealed_pungs": 8,
+      "big_three_dragons": 8,
+      "little_four_winds": 8,
+      "full_flush": 8,
+      "eight_flowers_and_seasons": 8,
+      "seven_flowers_steal_eighth": 8,
+      "eight_and_a_half_pairs": 8,
+      "heavenly_ready": 16,
+      "earthly_win": 16,
+      "human_win": 16,
+      "all_honors": 16,
+      "big_four_winds": 16,
+      "heavenly_win": 24,
+      "four_kongs": 8,
+      "five_kongs": 16
+    },
+    "star31": {
+      "concealed_hand": 1,
+      "fully_concealed_hand": 1,
+      "self_draw": 1,
+      "seat_wind_pung": 1,
+      "prevalent_wind_pung": 1,
+      "wind_pung": 1,
+      "flower_tile": 1,
+      "dragon_pung": 1,
+      "single_wait": 1,
+      "robbing_kong": 1,
+      "out_with_replacement_tile": 1,
+      "last_tile_draw": 1,
+      "flower_kong": 2,
+      "no_flowers": 1,
+      "declared_ready": 1,
+      "half_begging": 1,
+      "last_tile_claim": 1,
+      "melded_kong": 1,
+      "all_chows": 2,
+      "three_concealed_pungs": 2,
+      "all_begging": 2,
+      "no_flowers_or_honors": 2,
+      "concealed_kong": 2,
+      "all_pungs": 4,
+      "little_three_dragons": 4,
+      "half_flush": 4,
+      "initial_flower_bonus": 4,
+      "four_concealed_pungs": 5,
+      "earthly_ready": 4,
+      "five_concealed_pungs": 8,
+      "big_three_dragons": 8,
+      "little_four_winds": 8,
+      "full_flush": 8,
+      "eight_flowers_and_seasons": 8,
+      "seven_flowers_steal_eighth": 8,
+      "eight_and_a_half_pairs": 8,
+      "heavenly_ready": 8,
+      "earthly_win": 16,
+      "human_win": 16,
+      "all_honors": 8,
+      "big_four_winds": 16,
+      "heavenly_win": 24,
+      "four_kongs": 8,
+      "five_kongs": 16
+    },
+    "shenlaiye": {
+      "concealed_hand": 1,
+      "fully_concealed_hand": 1,
+      "self_draw": 1,
+      "seat_wind_pung": 1,
+      "prevalent_wind_pung": 1,
+      "wind_pung": 1,
+      "flower_tile": 1,
+      "dragon_pung": 1,
+      "single_wait": 1,
+      "robbing_kong": 1,
+      "out_with_replacement_tile": 1,
+      "last_tile_draw": 1,
+      "flower_kong": 2,
+      "no_flowers": 1,
+      "declared_ready": 1,
+      "half_begging": 1,
+      "last_tile_claim": 1,
+      "melded_kong": 1,
+      "all_chows": 2,
+      "three_concealed_pungs": 2,
+      "all_begging": 2,
+      "no_flowers_or_honors": 2,
+      "concealed_kong": 2,
+      "all_pungs": 4,
+      "little_three_dragons": 4,
+      "half_flush": 4,
+      "initial_flower_bonus": 4,
+      "four_concealed_pungs": 5,
+      "earthly_ready": 4,
+      "five_concealed_pungs": 8,
+      "big_three_dragons": 8,
+      "little_four_winds": 8,
+      "full_flush": 8,
+      "eight_flowers_and_seasons": 8,
+      "seven_flowers_steal_eighth": 8,
+      "eight_and_a_half_pairs": 8,
+      "heavenly_ready": 16,
+      "earthly_win": 16,
+      "human_win": 8,
+      "all_honors": 8,
+      "big_four_winds": 16,
+      "heavenly_win": 24,
+      "four_kongs": 8,
+      "five_kongs": 16
+    }
+  }
+}

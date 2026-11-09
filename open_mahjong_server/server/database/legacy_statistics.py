@@ -3,7 +3,7 @@ from psycopg2 import sql
 from .riichi.record_stats import BASE_KEYS
 
 FAMILIES = {"guobiao": "guobiao", "riichi": "riichi", "qingque": "qingque",
-            "classical": "classical", "changsha": "changsha", "jiandan": "zhongyong"}
+            "classical": "classical", "changsha": "changsha"}
 
 
 def _refresh_legacy_statistics(cursor, family, game_id):

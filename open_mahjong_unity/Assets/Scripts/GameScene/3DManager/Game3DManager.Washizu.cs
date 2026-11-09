@@ -47,13 +47,15 @@ public partial class Game3DManager {
         for (int i=0; i<cards.Length; i++) {
             GameObject obj=panel.cardsPosition.GetChild(i).gameObject;
             Card3DHoverManager.Instance?.ResetAndUnregisterCard(obj);
-            MahjongObjectPool.Instance.SetPresentationFace(obj, cards[i]);
+            // Teammate opaque faces belong only to the flat reading aid.
+            int standingTile = WashizuTile.IsTransparent(cards[i]) ? cards[i] : 0;
+            MahjongObjectPool.Instance.SetPresentationFace(obj, standingTile);
             Tile3D state = MahjongObjectPool.GetTile3D(obj);
             // Concealed standing tiles have the opposite face-up axis to river
             // tiles. Rotate only their artwork, before the atlas mapping.
             state?.SetFrontFaceHalfTurn(WashizuTile.IsTransparent(cards[i]));
             state?.SetHoverPeekAllowed(false);
-            if (cards[i] != 0) Card3DHoverManager.Instance?.RegisterCard(obj, cards[i]);
+            if (standingTile != 0) Card3DHoverManager.Instance?.RegisterCard(obj, standingTile);
         }
     }
 
@@ -69,7 +71,7 @@ public partial class Game3DManager {
         float readingInset = tileBodyBounds.extents.z * Mathf.Abs(tileWorldScale.z) + cardHeight * .58f;
         Vector3 start=HandRowOrigin(panel.cardsPosition,direction) + inward.normalized * readingInset;
         for (int i=0;i<cards.Length;i++) {
-            if (!WashizuTile.IsTransparent(cards[i])) continue;
+            if (cards[i] == 0) continue;
             // Printed public information sits on the cloth, without a second tile body.
             GetTileSurface(out Vector3 surfacePoint, out Vector3 surfaceNormal);
             Vector3 position = start + direction.normalized * handStep * i;
@@ -141,12 +143,14 @@ public partial class Game3DManager {
                 washizuPublicHands.Remove(seat);washizuDirtySeats.Remove(seat);continue;
             }
             if (!record.recordPlayer_to_info.TryGetValue(seat,out var player)) continue;
-            var publicTiles=new List<int>();int opaque=0;
+            bool revealTeammate = record.CanSeeWashizuTeammateHand(seat);
+            var publicTiles=new List<int>();var opaqueTiles=new List<int>();
             foreach (int tile in player.tileList) {
-                if (WashizuTile.IsTransparent(tile)) publicTiles.Add(tile);else opaque++;
+                if (WashizuTile.IsTransparent(tile)) publicTiles.Add(tile);else opaqueTiles.Add(tile);
             }
             publicTiles.Sort((a,b)=>WashizuTile.Face(a).CompareTo(WashizuTile.Face(b)));
-            for(int i=0;i<opaque;i++) publicTiles.Add(0);
+            opaqueTiles.Sort((a,b)=>WashizuTile.Face(a).CompareTo(WashizuTile.Face(b)));
+            publicTiles.AddRange(revealTeammate ? opaqueTiles : opaqueTiles.Select(_ => 0));
             washizuPublicHands[seat]=publicTiles.ToArray();washizuDirtySeats.Add(seat);
         }
         RefreshWashizuPresentation();

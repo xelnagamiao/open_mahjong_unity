@@ -1,0 +1,204 @@
+{
+  "supplementFields": {
+    "singapore": [],
+    "jiujiang": [],
+    "guobiao": [
+      "count_tips",
+      "jinluo_mode",
+      "jinluo_weather",
+      "pointer_tips"
+    ],
+    "riichi": [
+      "claim_protection",
+      "count_tips",
+      "password",
+      "pointer_tips"
+    ],
+    "qingque": [
+      "allow_spectator",
+      "claim_protection",
+      "count_tips",
+      "game_round",
+      "password",
+      "pointer_tips",
+      "tactical_call",
+      "tips",
+      "tourist_limit"
+    ],
+    "classical": [
+      "allow_spectator",
+      "count_tips",
+      "game_round",
+      "password",
+      "pointer_tips",
+      "tips",
+      "tourist_limit"
+    ],
+    "sichuan": [
+      "allow_spectator",
+      "blood_battle",
+      "claim_protection",
+      "count_tips",
+      "hepai_limit",
+      "password",
+      "pointer_tips",
+      "tips",
+      "tourist_limit"
+    ],
+    "changsha": [],
+    "taiwan": [
+      "allow_spectator",
+      "count_tips",
+      "cuohe_type",
+      "game_round",
+      "open_cuohe",
+      "password",
+      "pointer_tips",
+      "tips",
+      "tourist_limit"
+    ],
+    "hongkong": [
+      "count_tips",
+      "password",
+      "pointer_tips"
+    ],
+    "guangdong": [
+      "count_tips",
+      "pointer_tips"
+    ],
+    "guizhou": [],
+    "yixing": [],
+    "malaysia": [],
+    "shenyang": [],
+    "nanjing": [],
+    "fuzhou": [],
+    "wuhan": [],
+    "nanchang": [],
+    "shangrao": [],
+    "hongque": [],
+    "beijing": [],
+    "duocai": [],
+    "shanxi": [
+      "count_tips",
+      "pointer_tips"
+    ],
+    "wenzhou": [],
+    "hangzhou": [],
+    "hongzhong": [],
+    "changchun": []
+  },
+  "rules": [
+    {
+      "value": "singapore",
+      "label": "新加坡麻将"
+    },
+    {
+      "value": "jiujiang",
+      "label": "九江麻将"
+    },
+    {
+      "value": "guobiao",
+      "label": "国标"
+    },
+    {
+      "value": "riichi",
+      "label": "立直"
+    },
+    {
+      "value": "qingque",
+      "label": "青雀"
+    },
+    {
+      "value": "classical",
+      "label": "古典"
+    },
+    {
+      "value": "sichuan",
+      "label": "四川"
+    },
+    {
+      "value": "changsha",
+      "label": "长沙麻将"
+    },
+    {
+      "value": "taiwan",
+      "label": "台湾麻将"
+    },
+    {
+      "value": "hongkong",
+      "label": "香港麻将"
+    },
+    {
+      "value": "guangdong",
+      "label": "广东麻将"
+    },
+    {
+      "value": "guizhou",
+      "label": "贵州麻将"
+    },
+    {
+      "value": "yixing",
+      "label": "宜兴麻将"
+    },
+    {
+      "value": "malaysia",
+      "label": "马来西亚三人麻将"
+    },
+    {
+      "value": "shenyang",
+      "label": "沈阳麻将"
+    },
+    {
+      "value": "nanjing",
+      "label": "南京麻将"
+    },
+    {
+      "value": "fuzhou",
+      "label": "福州麻将"
+    },
+    {
+      "value": "wuhan",
+      "label": "武汉麻将"
+    },
+    {
+      "value": "nanchang",
+      "label": "南昌麻将"
+    },
+    {
+      "value": "shangrao",
+      "label": "上饶麻将"
+    },
+    {
+      "value": "hongque",
+      "label": "虹雀"
+    },
+    {
+      "value": "beijing",
+      "label": "北京麻将（吃碰提）"
+    },
+    {
+      "value": "duocai",
+      "label": "夺彩麻将"
+    },
+    {
+      "value": "shanxi",
+      "label": "山西麻将"
+    },
+    {
+      "value": "wenzhou",
+      "label": "温州麻将"
+    },
+    {
+      "value": "hangzhou",
+      "label": "杭州麻将"
+    },
+    {
+      "value": "hongzhong",
+      "label": "红中麻将"
+    },
+    {
+      "value": "changchun",
+      "label": "长春麻将"
+    }
+  ]
+}

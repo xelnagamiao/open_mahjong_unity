@@ -11,7 +11,7 @@ from ..gamestate.game_riichi.boardcast import _build_base_game_info
 
 class HintOptionsTests(unittest.IsolatedAsyncioTestCase):
     async def test_all_rules_preserve_each_hint_combination(self):
-        rules = ("GB", "Qingque", "Changsha", "Jiandan", "Hongque",
+        rules = ("GB", "Qingque", "Changsha", "Zhongyong", "Hongque",
                  "Classical", "Sichuan", "Taiwan", "Riichi")
         for rule in rules:
             for fan, count in ((False, False), (True, False), (False, True), (True, True)):

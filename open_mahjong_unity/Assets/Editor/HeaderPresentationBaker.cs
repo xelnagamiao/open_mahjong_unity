@@ -21,7 +21,7 @@ public static class HeaderPresentationBaker
         if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode before baking the header.");
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         if (scene.name != "MainScene") throw new InvalidOperationException("Open MainScene before applying the header profile.");
-        var navigation = UnityEngine.Object.FindObjectsByType<FourSideHeader>(FindObjectsInactive.Include).Single(x => x.gameObject.scene == scene);
+        var navigation = UnityEngine.Object.FindObjectsByType<FourSideHeader>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single(x => x.gameObject.scene == scene);
         System.IO.Directory.CreateDirectory(DirectoryPath);
         AssetDatabase.Refresh();
         var profile = AssetDatabase.LoadAssetAtPath<HeaderPresentationProfile>(ProfilePath);

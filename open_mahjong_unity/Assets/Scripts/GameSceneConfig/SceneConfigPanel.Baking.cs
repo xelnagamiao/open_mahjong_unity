@@ -27,7 +27,7 @@ public partial class SceneConfigPanel
 
     public void BakeFixedUi()
     {
-        if (HasBakedFixedUi) return;
+        if (HasBakedFixedUi) { BakeCardDesignUsability(); return; }
         BuildSurfaceFooter(tableClothPanel, tableClothPanel.contentParent, "UpdateButton", RestoreTablecloth);
         BuildSurfaceFooter(tableEdgePanel, tableEdgePanel.contentParent, "UploadButton", RestoreTableFrame);
         if (centerDisplayPanel != null)
@@ -57,6 +57,7 @@ public partial class SceneConfigPanel
         newCloth = tableClothPanel.transform.Find("NewSurfaceColorButton").GetComponent<Button>();
         newFrame = tableEdgePanel.transform.Find("NewSurfaceColorButton").GetComponent<Button>();
         fixedUiVersion = 1;
+        BakeCardDesignUsability();
     }
 
     private void BuildSurfaceFooter(Component panel, Transform content, string uploadName, UnityAction restore)

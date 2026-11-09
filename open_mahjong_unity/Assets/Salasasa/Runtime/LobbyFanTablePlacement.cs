@@ -24,8 +24,12 @@ namespace Salasasa.Home
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(inset.x, bottom + 16);
             rect.offsetMax = new Vector2(-inset.z, -inset.y - 16);
-            dialog.anchorMin = new Vector2(.13f, 0); dialog.anchorMax = new Vector2(.87f, 1);
-            dialog.offsetMin = dialog.offsetMax = Vector2.zero;
+            // Retain the original 1920-reference width; wider windows add surrounding space.
+            // On narrow viewports only the available width constrains the existing content layout.
+            float width = Mathf.Min(1420.8f, Mathf.Max(0, rect.rect.width - 32));
+            dialog.anchorMin = new Vector2(.5f, 0); dialog.anchorMax = new Vector2(.5f, 1);
+            dialog.offsetMin = new Vector2(-width * .5f, 0);
+            dialog.offsetMax = new Vector2(width * .5f, 0);
         }
     }
 }

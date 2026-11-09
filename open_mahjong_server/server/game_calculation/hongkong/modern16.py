@@ -161,7 +161,8 @@ def _score_shape(ctx, rules, shape, waits):
     suits = {t//10 for t in all_tiles if t in NUMBERS}
     honors = any(t in HONORS for t in all_tiles)
     groups = _groups(ctx,shape)
-    closed = all(c[0] in "gG" for c in ctx.melds)
+    # HKMA permits direct/concealed kongs, but a prior pung still breaks menqing.
+    closed = not ctx.called_chow_or_pung and all(c[0] in "gG" for c in ctx.melds)
     add("base", "底", 5)
     add("dealer", "庄家", 1, ctx.dealer)
     add("dealer_streak", "拉庄", 2*ctx.dealer_streak, ctx.dealer and ctx.dealer_streak > 0)

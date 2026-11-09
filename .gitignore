@@ -58,7 +58,6 @@
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py
 !/open_mahjong_server/scripts/sync_rule_display_catalog.py
-!/open_mahjong_server/scripts/migrate_rename_cards.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
 !/open_mahjong_server/scripts/validate_singapore_clients.py
 /open_mahjong_server/server/error_log/
@@ -142,6 +141,7 @@ secret_key.txt
 !/open_mahjong_web/data/platform-content/.gitkeep
 /open_mahjong_web/data/record-convert-shares/
 /open_mahjong_web/data/geoip/
+/open_mahjong_web/data/rank-pt/
 
 # other 提交共享素材、配表、规则资料及说明，以及明确交付的 UnityBatchBuild 工具。
 # 生成器、一次性工具、构建和验收过程文件放 .om_workspace/。
@@ -165,3 +165,4 @@ secret_key.txt
 !/other/UnityBatchBuild/Android.lnk
 !/other/UnityBatchBuild/WebGL.lnk
 !/other/UnityBatchBuild/Windows.lnk
+!/other/UnityBatchBuild/prepare-android-content.ps1

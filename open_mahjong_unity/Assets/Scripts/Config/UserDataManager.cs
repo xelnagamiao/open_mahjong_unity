@@ -17,6 +17,15 @@ public class UserDataManager : MonoBehaviour {
     public int TitleId { get; private set; }
     public TitleState Titles { get; private set; }
     public event Action OnTitlesChanged;
+    public WalletState Wallet { get; private set; }
+    public event Action OnWalletChanged;
+    public void ApplyWalletState(WalletState state) {
+        if (state == null || state.user_id != UserId || state.currency != "game_yuan" || state.scale != 100
+            || state.balance_minor < 0 || state.earned_minor < 0 || state.spent_minor < 0 || state.version < 0) return;
+        if (Wallet != null && state.version < Wallet.version) return;
+        Wallet = state;
+        OnWalletChanged?.Invoke();
+    }
     public InventoryState Inventory { get; private set; }
     public int AvatarFrameId { get; private set; }
     public event Action OnInventoryChanged;
@@ -24,6 +33,7 @@ public class UserDataManager : MonoBehaviour {
     public void ApplyInventoryState(InventoryState state) {
         if (state == null || state.user_id != UserId) return;
         Inventory = state;
+        ApplyWalletState(state.wallet);
         if (state.appearance != null) {
             CharacterId = state.appearance.character_id;
             VoiceId = state.appearance.voice_id;
@@ -101,6 +111,8 @@ public class UserDataManager : MonoBehaviour {
         IsTourist = isTourist;
         if (accountChanged) {
             Inventory = null;
+            Wallet = null;
+            OnWalletChanged?.Invoke();
             AvatarFrameId = 0;
             OnInventoryChanged?.Invoke();
             Titles = null;
@@ -177,6 +189,7 @@ public class UserDataManager : MonoBehaviour {
     /// 断线/登出时清空在线会话，保留本地保存的账号密码输入。
     /// </summary>
     public void ClearSessionState() {
+        PartyNetworkManager.Instance?.ResetState();
         ChatManager.Instance?.EndSession();
         ratings.Clear();GuobiaoRank="10级";GuobiaoScore=0;
         RankDataChanged?.Invoke();
@@ -184,6 +197,8 @@ public class UserDataManager : MonoBehaviour {
         Userkey = null;
         UserId = 0;
         Inventory = null;
+        Wallet = null;
+        OnWalletChanged?.Invoke();
         AvatarFrameId = 0;
         OnInventoryChanged?.Invoke();
         Titles = null;

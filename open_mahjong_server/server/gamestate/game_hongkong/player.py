@@ -33,6 +33,12 @@ class HongKongPlayer(ZhongyongPlayer):
     initial_seven_pending: bool = False
     pending_ready_marker: bool = False
 
+    @property
+    def called_chow_or_pung(self):
+        # Mask kind 3 is the added tile of a kong upgraded from a called pung.
+        return (any(c[0] in "sk" for c in self.combination_tiles)
+                or any(3 in mask[::2] for mask in self.combination_mask))
+
     def reset_for_round(self, round_time):
         super().reset_for_round(round_time)
         self.huapai_list = []

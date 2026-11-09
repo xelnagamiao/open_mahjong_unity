@@ -301,7 +301,7 @@ def test_full_half_match_conserves_tiles_scores_roles_and_replays(seed, caplog):
              patch('server.gamestate.game_riichi.RiichiGameState.vote_checkpoint', new=AsyncMock()):
             await asyncio.wait_for(g.game_loop_riichi(), 90)
         assert actions['cut'] > 30 and g.team_result is not None
-        assert g.game_record['game_title']['washizu_doubles_profile']['version'] == 'washizu-captain-v1'
+        assert g.game_record['game_title']['washizu_doubles_profile']['version'] == 'washizu-captain-v2'
         assert g.game_record['doubles_result'] == g.team_result
         assert len(g.game_record['doubles_rounds']) == len(g.game_record['game_round'])
         assert g.team_result['reason'] == 'captain_bust' or g.current_round == 9

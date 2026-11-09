@@ -70,9 +70,9 @@ public class MahjongObjectPool : MonoBehaviour {
 
         foreach (int id in allIds) {
             string spriteName = id.ToString();
-            Sprite sprite = atlas.GetSprite(spriteName);
-            if (sprite == null) {
-                sprite = atlas.GetSprite(spriteName + "(Clone)");
+            Sprite sprite = BuiltinTileSprites.Shared(TilePackIds.PackOfficial, id);
+            if (sprite == null && atlas != null) {
+                sprite = atlas.GetSprite(spriteName) ?? atlas.GetSprite(spriteName + "(Clone)");
             }
             if (sprite != null) {
                 spriteCache[id] = sprite;

@@ -18,8 +18,8 @@ def replay(rule="zhongyong", sub_rule="zhongyong/nanque", ticks=None, seats=None
                     ["blood","settle_hu","hu_self",0,8,["平和"],[24,-8,-8,-8]], ["end"]]}}}
 
 
-def test_legacy_alias_is_canonicalized_without_mutating_source_and_guangdong_profiles_stay_distinct():
-    source = replay("jiandan", "jiandan/standard")
+def test_current_nanque_identity_is_preserved_and_guangdong_profiles_stay_distinct():
+    source = replay("zhongyong", "zhongyong/nanque")
     before = deepcopy(source)
     fixed = canonical_game_record(source)
     assert source == before

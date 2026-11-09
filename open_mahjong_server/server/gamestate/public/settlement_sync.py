@@ -66,7 +66,7 @@ def _waiting_ready(state):
 
 def _ended(state):
     return (_waiting_ready(state)
-            or str(getattr(state, "game_status", "")).upper() in ("END", "FINISHED", "ROUND_END")
+            or str(getattr(state, "game_status", "")).upper() in ("END", "FINISHED", "ROUND_END", "WAITING_DEALER_CHOICE")
             or getattr(state, "phase", None) == "round_end")
 
 
@@ -165,13 +165,23 @@ def snapshot(state, *, record=None, restoring=False):
         info = sample.get("show_result_info") or sample.get("show_shuhewei_info") or {}
         if info.get("next_status") == "match_end":
             phase = "match_end"
-    return dict(gamestate_id=str(getattr(state, "gamestate_id", "")),
+    dealer_choice = None
+    if getattr(state, '_dealer_choice', None):
+        from ..game_riichi.dealer_choice import snapshot as dealer_choice_snapshot
+        dealer_choice = dealer_choice_snapshot(state)
+        if dealer_choice['selected'] is None:
+            phase = 'waiting_dealer_choice'
+            remaining = dealer_choice['remaining_ms'] / 1000
+    metadata = dict(gamestate_id=str(getattr(state, "gamestate_id", "")),
                 round_id=store["round_id"], result_id=record["id"] if record else "",
                 sequence=record["sequence"] if record else getattr(state, "_settlement_sequence", 0),
                 revision=store["revision"], phase=phase, restore=restoring,
                 player_to_ready=ready, server_time_ms=now,
                 remaining_ms=None if remaining is None else max(0, math.ceil(remaining * 1000)),
                 deadline_ms=None if remaining is None else now + remaining * 1000)
+    if dealer_choice is not None:
+        metadata['dealer_choice'] = dealer_choice
+    return metadata
 
 
 def restore_result(state, viewer_index):
@@ -238,6 +248,9 @@ def prepare_packet(state, payload, viewer_index=None):
 async def send_game_packet(state, websocket, payload, viewer_index=None):
     """Bind every game message to its originating table before delivery."""
     packet = _packet(payload)
+    if packet.get('game_end_info'):
+        from ...database.game_rewards import attach_currency_to_end_packet
+        packet = attach_currency_to_end_packet(state, packet)
     gid = getattr(state, "gamestate_id", None)
     if gid and (packet.get("type", "").startswith("gamestate/")
                 or packet.get("type") in ("switch_seat", "refresh_player_tag_list")):

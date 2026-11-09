@@ -7,7 +7,7 @@ import {
 import type { WaitDisplay } from './WaitDisplay'
 import { getGameFontFamily } from '../fontLoader'
 import { locale, roundLabelKey, tr } from '../../../i18n'
-import { translateFanName } from '../../../i18n/fanNames'
+import { translateFanName, translateRuleText } from '../../../i18n/fanNames'
 import type { RoundLabelFormat } from '../../lib/sceneAppearance'
 
 // ── MyText ────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ export class Display extends Container {
   handleWin(
     selfDrawn: boolean, winName: string, shootName: string,
     eachLoss: number, shooterLoss: number,
-    fan: number, fans: string[],
+    fan: number, fans: string[], rule = 'guobiao',
   ): void {
     const sc = TILE_WIDTH * 3
 
@@ -250,7 +250,7 @@ export class Display extends Container {
     let finalY: number
     if (fans.length <= 4) {
       for (let i = 0; i < fans.length; i += 1) {
-        this.addText(`fan${i}`, translateFanName(fans[i]), 0,
+        this.addText(`fan${i}`, translateFanName(fans[i], locale.value, rule), 0,
           -0.58 + 0.22 * (i + 0.5 + (fans.length === 1 ? 0.25 : 0)),
           0, 190, false, 0x000000, true)
       }
@@ -260,10 +260,10 @@ export class Display extends Container {
       const lineSpace = fans.length > 8 ? 0.18 : 0.22
       for (let i = 0; i < fans.length; i += 1) {
         const left = i * 2 < fans.length
-        this.addText(`fan${i}`, translateFanName(fans[i]),
+        this.addText(`fan${i}`, translateFanName(fans[i], locale.value, rule),
           left ? -0.4 : 0.4,
           -0.58 + lineSpace * (left ? i + 0.5 : i - Math.ceil(fans.length / 2) + 0.5),
-          0, textSize, false, 0x000000, true, locale.value === 'fr' ? 2.2 : 5.1)
+          0, textSize, false, 0x000000, true, ['fr', 'de', 'ru'].includes(locale.value) ? 2.2 : 5.1)
       }
       finalY = -0.54 + lineSpace * Math.ceil(fans.length / 2)
     }
@@ -280,7 +280,7 @@ export class Display extends Container {
     const endText = selfDrawn
       ? `共 ${fanStr} 番 (各 ${eachLoss}')`
       : `共 ${fanStr} 番 (${shooterLoss}')`
-    this.addText('summary', tr(endText), 0, finalY + 0.15, 0, 170)
+    this.addText('summary', translateRuleText(endText, locale.value, rule), 0, finalY + 0.15, 0, 170)
   }
 
   // ── Volume ───────────────────────────────────────────────────────
@@ -437,7 +437,7 @@ export class TempLabel extends Container {
       style: { fontFamily: getGameFontFamily(), fontSize: 270, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
-    if (locale.value === 'fr' && label.width > TILE_HEIGHT * 0.84) {
+    if (['fr', 'de', 'ru'].includes(locale.value) && label.width > TILE_HEIGHT * 0.84) {
       label.scale.set(TILE_HEIGHT * 0.84 / label.width)
     }
     this.addChild(label)

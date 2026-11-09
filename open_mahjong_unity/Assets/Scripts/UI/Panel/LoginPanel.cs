@@ -372,6 +372,16 @@ public class LoginPanel : MonoBehaviour {
     }
 
     // 连接失败时调用
+    public void ShowVersionMismatch() {
+        SetAuthButtons(false);
+        if (serverConnectCoroutine != null) {
+            StopCoroutine(serverConnectCoroutine);
+            serverConnectCoroutine = null;
+        }
+        connectStatusText.text = "客户端版本与服务器不匹配";
+    }
+
+    // 连接失败时调用
     public void ShowConnectionError(string text) {
         SetAuthButtons(false);
         // 终止协程

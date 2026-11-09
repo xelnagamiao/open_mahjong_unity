@@ -5,19 +5,22 @@ using System.IO.Compression;
 using System.Text;
 using UnityEngine;
 
-/// <summary>解析标准麻将自定义牌面 zip（可选 manifest.json）。</summary>
+/// <summary>解析标准麻将自定义牌面 zip（一套 PNG + .cfg，兼容旧双目录）。</summary>
 public static class TilePackImporter {
-    public const int MaxImageEdge = 1024;
-    public const int MaxPngBytes = 500 * 1024;
-    public const int MaxUncompressedBytes = 20 * 1024 * 1024;
+    public const int MaxImageEdge = 4096;
+    public const int MaxPngBytes = 4 * 1024 * 1024;
+    public const int MaxUncompressedBytes = 128 * 1024 * 1024;
     public const string ExpectedFormat = "om-tilepack";
     public const string ExpectedFamily = "standard";
 
     public sealed class Result {
         public readonly Dictionary<int, byte[]> HandPngs = new Dictionary<int, byte[]>();
         public readonly Dictionary<int, byte[]> TablePngs = new Dictionary<int, byte[]>();
+        public readonly Dictionary<int, byte[]> SharedPngs = new Dictionary<int, byte[]>();
         public readonly List<string> Warnings = new List<string>();
         public string Error;
+        public string ConfigText;
+        public TilePackLayoutConfig LayoutConfig;
         public bool Success => string.IsNullOrEmpty(Error) && HandPngs.Count > 0 && TablePngs.Count > 0;
     }
 
@@ -35,7 +38,7 @@ public static class TilePackImporter {
             return result;
         }
         if (zipBytes.Length > MaxUncompressedBytes) {
-            result.Error = "压缩包过大（超过 20MB）";
+            result.Error = "压缩包过大（超过 128MB）";
             return result;
         }
 
@@ -51,7 +54,7 @@ public static class TilePackImporter {
                     }
                     uncompressed += entry.Length;
                     if (uncompressed > MaxUncompressedBytes) {
-                        result.Error = "解压后超过 20MB";
+                        result.Error = "解压后超过 128MB";
                         return result;
                     }
                 }
@@ -88,8 +91,18 @@ public static class TilePackImporter {
             }
         }
 
-        if (result.HandPngs.Count == 0 || result.TablePngs.Count == 0) {
-            result.Error = "压缩包必须同时包含 hand/ 和 table/ 两个文件夹（也可用「手牌牌面」「3D牌面」）";
+        // A single set is shared by both displays. Legacy hand/table packages still retain
+        // their explicitly supplied variants, and missing counterparts use the available PNG.
+        foreach (var pair in result.SharedPngs) {
+            if (!result.HandPngs.ContainsKey(pair.Key)) result.HandPngs[pair.Key] = pair.Value;
+            if (!result.TablePngs.ContainsKey(pair.Key)) result.TablePngs[pair.Key] = pair.Value;
+        }
+        var handIds = new List<int>(result.HandPngs.Keys);
+        var tableIds = new List<int>(result.TablePngs.Keys);
+        foreach (int id in handIds) if (!result.TablePngs.ContainsKey(id)) result.TablePngs[id] = result.HandPngs[id];
+        foreach (int id in tableIds) if (!result.HandPngs.ContainsKey(id)) result.HandPngs[id] = result.TablePngs[id];
+        if (result.HandPngs.Count == 0) {
+            result.Error = "压缩包内没有可识别的 PNG 牌面";
         }
         else {
             int missing = 0;
@@ -118,6 +131,16 @@ public static class TilePackImporter {
             || fileName.Equals("preview.png", StringComparison.OrdinalIgnoreCase)) {
             return;
         }
+        if (fileName.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase)) {
+            if (result.ConfigText != null) { result.Error = "牌面包只能包含一个 .cfg 文件"; return; }
+            if (entry.Length > TilePackLayoutConfig.MaxBytes) { result.Error = "牌面配置超过 64KB"; return; }
+            try {
+                using (var reader = new StreamReader(entry.Open(), new UTF8Encoding(false, true), true))
+                    result.ConfigText = reader.ReadToEnd();
+                result.LayoutConfig = TilePackLayoutConfig.Parse(result.ConfigText);
+            } catch (Exception e) { result.Error = e.Message; }
+            return;
+        }
         if (!fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) {
             if (!fileName.StartsWith(".")) {
                 result.Warnings.Add("已忽略非 PNG: " + fileName);
@@ -125,12 +148,12 @@ public static class TilePackImporter {
             return;
         }
         if (entry.Length > MaxPngBytes) {
-            result.Warnings.Add("单张超过 500KB，已跳过: " + fileName);
+            result.Warnings.Add("单张超过 4MB，已跳过: " + fileName);
             return;
         }
 
         string idPart = Path.GetFileNameWithoutExtension(fileName);
-        if (!int.TryParse(idPart, out int tileId) || !TilePackIds.IsStandardFaceId(tileId)) {
+        if (!int.TryParse(idPart, out int tileId) || tileId.ToString(System.Globalization.CultureInfo.InvariantCulture) != idPart || !TilePackIds.IsStandardFaceId(tileId)) {
             result.Warnings.Add("无法识别的牌面文件名: " + fileName);
             return;
         }
@@ -148,22 +171,19 @@ public static class TilePackImporter {
         if (!TryReadPngSize(png, out int width, out int height)
             || width <= 0 || height <= 0
             || width > MaxImageEdge || height > MaxImageEdge) {
-            result.Warnings.Add("尺寸不合法（需 ≤1024）: " + fileName);
+            result.Warnings.Add("尺寸不合法（需 ≤4096）: " + fileName);
             return;
         }
 
         bool isTable = TilePackIds.IsTableFolder(full);
         bool isHand = TilePackIds.IsHandFolder(full);
-        if (!isTable && !isHand) {
-            result.Warnings.Add("牌面 PNG 必须放在 hand/ 或 table/（也可用 手牌牌面/、3D牌面/）: " + full);
-            return;
-        }
         if (!CanDecodePng(png, width, height, ref decodeProbe)) {
             result.Warnings.Add("PNG 数据损坏，已跳过: " + fileName);
             return;
         }
         // 保留原文件，避免重复导入时重采样、拉伸、裁切或把透明区域烘成底色。
-        Dictionary<int, byte[]> target = isTable ? result.TablePngs : result.HandPngs;
+        Dictionary<int, byte[]> target = isTable ? result.TablePngs : isHand ? result.HandPngs : result.SharedPngs;
+        if (target.ContainsKey(tileId)) { result.Error = "牌面代号重复: " + full; return; }
         target[tileId] = png;
     }
 

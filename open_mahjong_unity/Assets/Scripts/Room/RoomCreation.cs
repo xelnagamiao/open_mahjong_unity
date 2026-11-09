@@ -7,6 +7,10 @@ public sealed class RoomCreationInput {
     public bool BlackFlowerProgressive = true;
     public string Rule, SubRule, RoomName, Password, RandomSeed, EventId, DuplicateKey;
     public bool UnlimitedRounds;
+    public int DuplicateRoundCount = 8;
+    public bool DuplicateSyncMode;
+    public bool JinluoMode;
+    public string JinluoWeather = JinluoRules.DefaultWeather;
     public int GameRound, RoundTimer, StepTimer, CuoheType, HepaiWayIndex;
     public string HepaiLimitText, StartingScoreText;
     public bool PasswordEnabled, RandomSeedEnabled, HepaiLimitEnabled, HepaiLimitVisible, DuplicateEnabled;

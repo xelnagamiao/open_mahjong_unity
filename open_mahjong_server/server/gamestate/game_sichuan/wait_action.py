@@ -39,6 +39,7 @@ from ..public.tactical_claim import (
     apply_tactical_claim_if_needed,
     is_decline_action,
     tactical_mark_player_force_passed,
+    tactical_mark_player_committed,
 )
 from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
@@ -129,6 +130,7 @@ async def wait_action(self):
         if not is_xueliu_required_hu(self, index):
             continue
         submitted_actions[index] = "hu"
+        tactical_mark_player_committed(self, index)
         self.action_dict[index] = []
         self.waiting_players_list.remove(index)
         if action_type is None:
@@ -179,6 +181,8 @@ async def wait_action(self):
                             self.action_events[temp_player_index].clear()
                         continue
                 submitted_actions[temp_player_index] = temp_action_type
+                if temp_action_type == "hu":
+                    tactical_mark_player_committed(self, temp_player_index)
                 if temp_action_type == "force_pass":
                     tactical_mark_player_force_passed(self, temp_player_index)
                 temp_action_data = dict(temp_action_data)
@@ -218,9 +222,17 @@ async def wait_action(self):
     for i in self.waiting_players_list:
         if self.action_dict.get(i) == ["hu"]:
             submitted_actions[i] = "hu"
+            tactical_mark_player_committed(self, i)
             if action_type != "hu":
                 action_type, player_index, action_data = "hu", i, {"action_type": "hu"}
             self.action_dict[i] = []
+
+    if multi_ron_window and self.tactical_call and action_type == "hu":
+        # 一炮多响以最远的已报和者触发再问；较近者已经报和，也不应截掉
+        # 中间座位在更远者报和后重新选择的机会。结果仍保留全部已确认者。
+        player_index = max((i for i, action in submitted_actions.items() if action == "hu"),
+                           key=lambda i: self._distance_from(self.current_player_index, i))
+        action_data = {"action_type": "hu"}
 
     action_type, player_index, action_data, _ = await apply_tactical_claim_if_needed(
         self,

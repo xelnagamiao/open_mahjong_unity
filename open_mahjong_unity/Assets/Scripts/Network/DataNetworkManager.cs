@@ -56,6 +56,11 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_guobiao_stats":
                 HandleGetGuobiaoStatsResponse(response);
                 break;
+            case "data/get_player_info_by_name":
+                if (!ProfileOnClick.CompletePlayerInfoLookup(response.data_request_id, response.player_info?.user_id ?? 0)) break;
+                if (response.success && response.player_info != null) HandleGetGuobiaoStatsResponse(response);
+                else NotificationManager.Instance?.ShowTip("获取数据", false, response.message ?? "获取玩家资料失败");
+                break;
             case "data/get_player_recent_records":
                 PlayerInfoPanel.Instance?.OnRecentRecordsReceived(response.success, response.message, response.player_recent_records);
                 break;
@@ -67,9 +72,6 @@ public class DataNetworkManager : MonoBehaviour {
                 break;
             case "data/get_classical_stats":
                 HandleGetClassicalStatsResponse(response);
-                break;
-            case "data/get_jiandan_stats":
-                HandleGetJiandanStatsResponse(response);
                 break;
             case "data/get_leaderboard":
                 HandleGetLeaderboardResponse(response);
@@ -176,16 +178,7 @@ public class DataNetworkManager : MonoBehaviour {
     /// <summary>
     /// 处理获取南雀旧兼容统计数据响应
     /// </summary>
-    private void HandleGetJiandanStatsResponse(Response response) {
-        if (PlayerInfoPanel.Instance == null) return;
 
-        if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowRequestedPlayerInfo(response.player_info, "jiandan", response.success ? response.rule_stats : null);
-            return;
-        }
-
-        PlayerInfoPanel.Instance.OnJiandanStatsReceived(response.success, response.message, response.rule_stats);
-    }
 
     private void HandleGetLeaderboardResponse(Response response) {
         Debug.Log($"收到排行榜: {response.message}");
@@ -272,6 +265,20 @@ public class DataNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 根据旧版聊天消息中的用户名获取玩家资料。
+    /// </summary>
+    public async void GetPlayerInfoByName(string username, string requestId) {
+        try {
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(new {
+                type = "data/get_player_info_by_name", username, data_request_id = requestId
+            }));
+        } catch (Exception) {
+            if (ProfileOnClick.CompletePlayerInfoLookup(requestId, 0))
+                NotificationManager.Instance?.ShowTip("获取数据", false, "获取玩家资料失败，请稍后重试");
+        }
+    }
+
+    /// <summary>
     /// 获取国标统计数据
     /// </summary>
     public async void GetGuobiaoStats(string userid, bool need_player_info = false) {
@@ -342,19 +349,7 @@ public class DataNetworkManager : MonoBehaviour {
     /// <summary>
     /// 获取南雀旧兼容统计数据
     /// </summary>
-    public async void GetJiandanStats(string userid, bool need_player_info = false) {
-        try {
-            var request = new GetJiandanStatsRequest {
-                type = "data/get_jiandan_stats",
-                userid = userid,
-                need_player_info = need_player_info
-            };
-            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            Debug.LogError($"获取南雀统计数据失败: {e.Message}");
-            PlayerInfoPanel.Instance?.OnJiandanStatsReceived(false, e.Message, null);
-        }
-    }
+
 
     public async void GetRuleStats(string userid, string rule, string requestId) {
         try {

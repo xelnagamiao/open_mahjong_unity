@@ -26,6 +26,8 @@ internal static class GuobiaoLobby {
             { CreateRoomKeys.CountTips, false },
             { CreateRoomKeys.UseFlowers, true },
             { CreateRoomKeys.TianDiRenHe, false },
+            { CreateRoomKeys.JinluoMode, false },
+            { CreateRoomKeys.JinluoWeather, JinluoRules.DefaultWeather },
             { CreateRoomKeys.JokerMultiWait, false },
             { CreateRoomKeys.NoJokerBonus, "add8" },
             { CreateRoomKeys.BlackFlowerProgressive, true },

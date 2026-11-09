@@ -28,7 +28,7 @@ test('both Sichuan paired subrules create pairs for events and bases without gen
     for (const duplicate_round_count of [1,4,8,12,16]) {
       const { service, calls, batches } = fixture();
       const result = await service.create({ ...event, kind },10,{room_rule:'sichuan',room_count:3,room_config:{sub_rule,duplicate_round_count}});
-      assert.equal(result.created_pair_count,3); assert.equal(result.created_room_count,6);
+      assert.equal(result.created_pair_count,3); assert.equal(result.created_room_count,3); assert.equal(result.created_table_count,6);
       assert.equal(result.paired,true); assert.equal(batches.length,0);
       assert.ok(calls.every(call => call.body.room_config.duplicate_round_count === duplicate_round_count));
     }
@@ -67,7 +67,8 @@ test(`${sub_rule} binds one existing wall to one pair without generating another
     const { service, calls, batches } = fixture();
     const result = await service.create({ ...event, kind }, 10, body);
     assert.equal(result.created_pair_count, 1);
-    assert.equal(result.created_room_count, 2);
+    assert.equal(result.created_room_count, 1);
+    assert.equal(result.created_table_count, 2);
     assert.equal(calls[0].body.room_config.duplicate_key, 'dup_saved');
     assert.equal(batches.length, 0);
   }

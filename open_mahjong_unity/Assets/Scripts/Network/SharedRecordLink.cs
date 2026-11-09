@@ -72,6 +72,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
     private IEnumerator Start() {
         yield return null;
 
+        if (RoomInvitation.HasInviteParameters(Application.absoluteURL)) yield break;
         if (TryExtractGameId(Application.absoluteURL, out _)) {
             Open(Application.absoluteURL);
             yield break;
@@ -163,6 +164,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
     }
 
     public static bool Open(string value) {
+        if (RoomInvitation.HasInviteParameters(value)) return false;
         if (!TryExtractGameId(value, out string gameId)) return false;
         CapturePosition(value);
         if (_instance == null) Bootstrap();
@@ -195,7 +197,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
         string apiRoot = string.IsNullOrEmpty(ConfigManager.webApiUrl)
             ? ""
             : ConfigManager.webApiUrl.TrimEnd('/');
-        string endpoint = $"{apiRoot}/api/platform/unity-record/{UnityWebRequest.EscapeURL(gameId)}";
+        string endpoint = $"{apiRoot}{ConfigManager.PlatformUnityRecordPath}{UnityWebRequest.EscapeURL(gameId)}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint)) {
             request.timeout = 20;

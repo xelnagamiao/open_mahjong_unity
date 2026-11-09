@@ -8,17 +8,24 @@ public static class BuiltinTileSprites {
     private static readonly Dictionary<string, SpriteAtlas> Atlases = new Dictionary<string, SpriteAtlas>();
     private static readonly Dictionary<string, Sprite> Sprites = new Dictionary<string, Sprite>();
 
+    /// <summary>2D 与 3D 共用压缩图集；完整透明源 PNG 保留在 Art 目录。</summary>
+    public static Sprite Shared(string packId, int faceId) {
+        return Load(TilePackIds.ResourcesPackRoot + "/" + packId + "/SharedAtlas", faceId.ToString(),
+            SourceRoot + packId + "/shared/" + faceId + ".png");
+    }
+
     public static Sprite Hand(string packId, int faceId) => Hand(packId, faceId.ToString());
 
     public static Sprite Hand(string packId, string faceName) {
         if (string.IsNullOrEmpty(faceName)) return null;
+        if (TilePackIds.IsBuiltinPack(packId) && int.TryParse(faceName, out int id))
+            return Shared(packId, id) ?? Shared(TilePackIds.PackOfficial, id);
         return Load(TilePackIds.ResourcesPackRoot + "/" + packId + "/HandAtlas", faceName,
             SourceRoot + packId + "/hand/" + faceName + ".png");
     }
 
     public static Sprite OfficialTable(int faceId) {
-        return Load(TilePackIds.OfficialAtlasResource, faceId.ToString(),
-            SourceRoot + "official/table/" + faceId + ".png");
+        return Shared(TilePackIds.PackOfficial, faceId);
     }
 
     private static Sprite Load(string atlasPath, string faceName, string editorSourcePath) {

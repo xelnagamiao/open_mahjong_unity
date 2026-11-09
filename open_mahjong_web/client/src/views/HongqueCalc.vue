@@ -1096,37 +1096,37 @@ const resetAll = () => {
   flex-wrap: wrap;
 }
 
-.hongque-calc:lang(fr) .row-line {
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .row-line {
   flex-wrap: wrap;
 }
 
-.hongque-calc:lang(fr) .row-line .row-label {
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .row-line .row-label {
   flex: 1 1 auto;
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.hongque-calc:lang(fr) .row-line :deep(.el-tag),
-.hongque-calc:lang(fr) .decomp-fans :deep(.el-tag) {
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .row-line :deep(.el-tag),
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .decomp-fans :deep(.el-tag) {
   max-width: 100%;
   height: auto;
   min-height: 20px;
 }
 
-.hongque-calc:lang(fr) .row-line :deep(.el-tag__content),
-.hongque-calc:lang(fr) .decomp-fans :deep(.el-tag__content) {
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .row-line :deep(.el-tag__content),
+.hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .decomp-fans :deep(.el-tag__content) {
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.4;
 }
 
 @media (max-width: 640px) {
-  .hongque-calc:lang(fr) .notation-row {
+  .hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .notation-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .hongque-calc:lang(fr) .notation-row .row-label {
+  .hongque-calc:is(:lang(fr), :lang(de), :lang(ru)) .notation-row .row-label {
     grid-column: 1 / -1;
   }
 }

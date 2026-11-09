@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .action_check import ZhongyongActionPolicy
-from ..game_jiandan.init_tiles import init_jiandan_tiles
+from ..game_zhongyong.init_tiles import init_zhongyong_tiles
 from .settlement import ZhongyongSettlementPolicy
 from ..public.hand_slot_utils import has_draw_slot, pick_timeout_discard_tile
 from ..public.logic_common import back_current_num
@@ -249,10 +249,10 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             self.finalize_game_recording()
             await self.complete_game_lifecycle()
         except asyncio.CancelledError:
-            logger.info("Jiandan game loop cancelled, room_id=%s", self.room_id)
+            logger.info("Nanque game loop cancelled, room_id=%s", self.room_id)
             raise
         except Exception as exc:
-            logger.error("Jiandan game loop failed, room_id=%s: %s", self.room_id, exc, exc_info=True)
+            logger.error("Nanque game loop failed, room_id=%s: %s", self.room_id, exc, exc_info=True)
             raise
 
     async def cleanup_game_state(self) -> None:
@@ -269,9 +269,9 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             try:
                 await self.game_task
             except asyncio.CancelledError:
-                logger.info("Jiandan game loop cancelled during cleanup, room_id=%s", self.room_id)
+                logger.info("Nanque game loop cancelled during cleanup, room_id=%s", self.room_id)
             except Exception as exc:
-                logger.error("Error while cancelling jiandan game loop, room_id=%s: %s", self.room_id, exc)
+                logger.error("Error while cancelling nanque game loop, room_id=%s: %s", self.room_id, exc)
         for task in list(self.bot_tasks):
             if not task.done():
                 task.cancel()
@@ -589,7 +589,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         return hu_result_ready_wait_seconds(count, pre_panel_delay_sec=0 if self.is_nanque else None)
 
     def schedule_bot_actions(self) -> None:
-        from ..game_jiandan.bot import jiandan_bot_action
+        from ..game_zhongyong.bot import nanque_bot_action
 
         if self.game_status == "END":
             return
@@ -600,7 +600,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             if self.bot_action_ticks.get(player_index) == self.server_action_tick:
                 continue
             task = asyncio.create_task(
-                jiandan_bot_action(
+                nanque_bot_action(
                     self,
                     player_index,
                     list(actions),
@@ -777,7 +777,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             if player_index is None:
                 continue
             ask_info = payload.get("ask_hand_action_info") or payload.get("ask_other_action_info")
-            if ask_info is not None and self.room_rule in ("zhongyong", "nanque", "jiandan"):
+            if ask_info is not None and self.room_rule in ("zhongyong", "nanque", "nanque"):
                 # Enqueue each seat immediately in its own FIFO. A slow viewer
                 # must not hold back another player's actionable prompt. Derived
                 # regional engines retain their own delivery/clock contracts.
@@ -1075,7 +1075,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
     @staticmethod
     def _default_room_data() -> Dict[str, Any]:
         return {
-            "room_id": "jiandan-test-room",
+            "room_id": "nanque-test-room",
             "player_list": [101, 102, 103, 104],
             "player_settings": {},
             "round_timer": 0,
@@ -1133,7 +1133,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
     def initialize_round(self) -> None:
         self.reset_round_state()
-        init_jiandan_tiles(self)
+        init_zhongyong_tiles(self)
         self.current_player_index = self.dealer_index
         self.game_status = "waiting_hand_action"
 

@@ -71,6 +71,8 @@
     "claim_protection": true,
     "use_flowers": true,
     "tian_di_ren_he": false,
+    "jinluo_mode": false,
+    "jinluo_weather": "dragon_pairs",
     "joker_multi_wait": false,
     "no_joker_bonus": "add8",
     "black_flower_progressive": true

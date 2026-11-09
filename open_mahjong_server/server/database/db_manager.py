@@ -534,9 +534,6 @@ class DatabaseManager:
                 );
             """)
 
-            # Jiandan owns its fan-ID schema in the rule-local database module.
-            from .jiandan.store_jiandan import create_jiandan_stats_tables
-            create_jiandan_stats_tables(cursor)
 
             # 创建表 changsha_history_stats（长沙麻将基础统计）
             cursor.execute("""
@@ -3434,16 +3431,12 @@ DatabaseManager.store_shangrao_game_record = store_taiwan_game_record
 DatabaseManager.store_beijing_game_record = store_taiwan_game_record
 DatabaseManager.store_duocai_game_record = store_taiwan_game_record
 
-# Jiandan keeps replay and statistics adapters in the rule-local database module.
-from .jiandan.store_jiandan import (
-    store_jiandan_fan_stats,
-    store_jiandan_game_record,
-    store_jiandan_game_stats,
+# Nanque keeps replay and statistics adapters in the rule-local database module.
+from .zhongyong.store_zhongyong import (
+    store_zhongyong_game_record,
 )
 
-DatabaseManager.store_jiandan_game_record = store_jiandan_game_record
-DatabaseManager.store_jiandan_game_stats = store_jiandan_game_stats
-DatabaseManager.store_jiandan_fan_stats = store_jiandan_fan_stats
+DatabaseManager.store_zhongyong_game_record = store_zhongyong_game_record
 
 from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats, store_riichi_fan_stats
 from .riichi.get_riichi_stats import get_riichi_stats

@@ -21,6 +21,7 @@ using System;
     public InventoryBalance[] owned;
     public InventoryEquipment[] equipment;
     public InventoryAppearance appearance;
+    public WalletState wallet;
 }
 [Serializable] public class InventoryCommand {
     public string type, request_id, slot;

@@ -32,6 +32,8 @@ public class CreateGBRoomRequest {
     public string no_joker_bonus = "add8";
     public bool black_flower_progressive = true;
     public bool tian_di_ren_he; // 标准国标/三人国标/血战：天地人和各 8 番
+    public bool jinluo_mode;
+    public string jinluo_weather = "dragon_pairs";
     public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
     public int cuohe_type; // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0（仅国标）
@@ -76,6 +78,9 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
 }
 
 public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
+    public string duplicate_key;
+    public int? duplicate_round_count;
+    public bool duplicate_sync_mode;
     public bool claim_protection = true;
     public string type;
     public string rule;
@@ -161,10 +166,12 @@ public class GetRoomListRequest { // 获取房间列表请求
 
 public class SyncMyRoomRequest { // 同步当前玩家房间状态（重连后拉取权威房间信息）
     public string type;
+    public int duplicate_lobby_version = 1;
 }
 
 public class JoinRoomRequest { // 加入房间请求
     public string type;
+    public int duplicate_lobby_version = 1;
     public string room_id;
     public string password;
 }
@@ -250,15 +257,12 @@ public class GetQingqueStatsRequest { // 获取青雀统计数据请求
     public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
 }
 
-public class GetJiandanStatsRequest { // 获取南雀旧兼容统计数据请求
-    public string type;
-    public string userid;
-    public bool need_player_info;
-}
+
 
 public class SendReleaseVersionRequest { // 发送发布版本号与发行版声明请求
     public string type;
     public int release_version;
+    public int base_version; // 非安卓端发送 0，不参与框架版本判断
     public string version_declaration;
 }
 

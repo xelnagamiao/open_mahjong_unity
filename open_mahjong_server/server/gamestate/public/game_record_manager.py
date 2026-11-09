@@ -58,6 +58,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
     SpectatorManager 中单独维护，不入落库牌谱。
     """
     title: Dict[str, Any] = {
+        "player_count": len(gs.player_list),
         # rule: 游戏规则 guobiao | qingque | classical | riichi
         "rule": gs.room_rule,
         # room_type: 房间类型 custom | match
@@ -68,7 +69,8 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         "commitment_hex": format(gs.commitment, '064x'),
         # salt: 盐字符串（128 位 hex）
         "salt": gs.salt,
-        # max_round: 风圈数（1=东风、2=半庄、4=全庄）
+        # Legacy limit: wind circles for most rules, actual hands for Hongque.
+        # round_progress provides the normalized planned/completed hand counts.
         "max_round": gs.max_round,
         "unlimited_rounds": getattr(gs, "unlimited_rounds", False),
         # open_cuohe: 是否开启错和
@@ -138,6 +140,8 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title["player_count"] = len(gs.player_list)
         title["use_flowers"] = getattr(gs, "use_flowers", getattr(gs, "sub_rule", None) != "guobiao/lanshi")
         title["tian_di_ren_he"] = getattr(gs, "tian_di_ren_he", False)
+        title["jinluo_mode"] = getattr(gs, "jinluo_mode", False)
+        title["jinluo_weather"] = getattr(gs, "jinluo_weather", "dragon_pairs")
         title["joker_multi_wait"] = getattr(gs, "joker_multi_wait", False)
         title["no_joker_bonus"] = getattr(gs, "no_joker_bonus", "add8")
         title["black_flower_progressive"] = getattr(gs, "black_flower_progressive", True)
@@ -148,6 +152,9 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title["duplicate_rules_version"] = 2
     if getattr(gs, "_duplicate_game_id", None):
         title["duplicate_game_id"] = gs._duplicate_game_id
+    game_instance_id = getattr(gs, 'gamestate_id', None)
+    if game_instance_id is not None:
+        title['game_instance_id'] = str(game_instance_id)
     return title
 
 
@@ -182,6 +189,8 @@ def apply_game_title_end_fields(gs, title: Dict[str, Any]) -> None:
 
 def end_game_record(self):
     apply_game_title_end_fields(self, self.game_record["game_title"])
+    from ...database.round_progress import apply_round_progress
+    apply_round_progress(self.game_record)
 
 def build_round_header_data(gs) -> Dict[str, Any]:
     """构建局头快照（与牌谱 JSON 格式一致，供 init_game_round / 观战 record_round_start 共用）。"""
@@ -628,6 +637,8 @@ def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Opt
     record = getattr(gs, "game_record", None)
     if not record:
         return None
+    from .match_result import attach_match_result
+    attach_match_result(record, gs.player_list)
     cloud_saved = bool(game_id)
     if not game_id:
         game_id = generate_local_only_game_id()

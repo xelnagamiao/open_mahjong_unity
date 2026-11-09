@@ -23,7 +23,7 @@ namespace Salasasa.Home
             DesignOption.Navigation, DesignOption.Home, DesignOption.EntrancePalette,
             DesignOption.Inventory, DesignOption.RankingPalette, DesignOption.History,
             DesignOption.Settings, DesignOption.SettingsHint, DesignOption.EventDesign,
-            DesignOption.HomeCurtain
+            DesignOption.HomeCurtain, DesignOption.ProfilePalette, DesignOption.SalaCoin
         };
 
         public int DefaultDesignValue(DesignOption option)
@@ -41,6 +41,8 @@ namespace Salasasa.Home
                 case DesignOption.History:
                 case DesignOption.SettingsHint:
                 case DesignOption.EventDesign: return 0;
+                case DesignOption.SalaCoin: return SalaCoinAppearance.DefaultStyle;
+                case DesignOption.ProfilePalette: return 0;
                 default: throw new ArgumentOutOfRangeException(nameof(option), option, "Not an interface design preset.");
             }
         }
@@ -71,9 +73,11 @@ namespace Salasasa.Home
 
                 venue.SetVariant(0);
                 inventory.SelectVariant(0);
+                if (profile) profile.SelectPalette(DefaultDesignValue(DesignOption.ProfilePalette));
                 statistics.SetCardStyle(0);
                 settings.SelectHintStyle(0);
                 iconWorkbench.RestoreDefaults();
+                SalaCoinAppearance.Select(SalaCoinAppearance.DefaultStyle);
                 PlatformTypography.Refresh();
                 if (owner.mail) owner.mail.SelectPalette(owner.mail.defaultPalette);
 

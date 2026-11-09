@@ -11,7 +11,7 @@ internal sealed partial class HongKongLocal {
     }
     private Value Sixteen(List<int> hand,S s,int win,bool self,int[] waits){
         var f=new Dictionary<string,int>();void Add(string key,int value,bool condition=true){if(condition)f[key]=value;}void Remove(params string[] keys){foreach(string key in keys)f.Remove(key);}
-        var all=hand.Concat(codes.SelectMany(LocalJokerHand.MeldTiles)).ToArray();int suits=all.Where(t=>t<40).Select(t=>t/10).Distinct().Count();bool honors=all.Any(t=>t>=41),closed=codes.All(m=>"gG".Contains(m[0]));var groups=Groups(hand,s);
+        var all=hand.Concat(codes.SelectMany(LocalJokerHand.MeldTiles)).ToArray();int suits=all.Where(t=>t<40).Select(t=>t/10).Distinct().Count();bool honors=all.Any(t=>t>=41),closed=!((bool?)c["called_chow_or_pung"]??false)&&codes.All(m=>"gG".Contains(m[0]));var groups=Groups(hand,s);
         Add("base",5);Add("dealer",1,seat==0);Add("dealer_streak",2*streak,seat==0&&streak>0);Add("self_draw",1,self);Add("concealed",5,closed);if(closed&&self){Add("concealed_self_draw",5);Remove("self_draw");}
         if(ready.Length>0){if(new[]{"heaven","earth","human"}.Contains(ready)){Add("ready_"+ready,ready=="heaven"?40:ready=="earth"?30:20);if(ready!="human")Remove("concealed");}else if(closed){Add("closed_ready",15);Remove("concealed");}else Add("ready",5);}
         Add("no_honors",1,!honors);Add("no_flowers",1,flowers.Length==0);if(!honors&&flowers.Length==0){Add("no_honors_flowers",5);Remove("no_honors","no_flowers");}

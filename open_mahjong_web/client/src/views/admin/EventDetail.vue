@@ -301,6 +301,7 @@
 </template>
 
 <script setup>
+import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -320,7 +321,6 @@ const RULE_LABELS = {
   classical: '古典',
   sichuan: '四川',
   changsha: '长沙',
-  jiandan: '南雀',
   zhongyong: '中庸麻将',
   guizhou: '贵州麻将',
   yixing: '宜兴麻将',
@@ -371,26 +371,7 @@ const rooms = ref([])
 const loadingRooms = ref(false)
 const creatingRoom = ref(false)
 const roomDialogVisible = ref(false)
-const roomRuleOptions = [
-  { value: 'guizhou', label: '贵州麻将' },
-  { value: 'yixing', label: '宜兴麻将' },
-  { value: 'malaysia', label: '马来西亚三人麻将' },
-  { value: 'shenyang', label: '沈阳麻将' },
-  { value: 'nanjing', label: '南京麻将' },
-  { value: 'fuzhou', label: '福州麻将' },
-  { value: 'wuhan', label: '武汉麻将' },
-  { value: 'nanchang', label: '南昌麻将' },
-  { value: 'shangrao', label: '上饶麻将' },
-  { value: 'hongque', label: '虹雀' },
-  { value: 'beijing', label: '北京麻将（吃碰提）' },
-  { value: 'duocai', label: '夺彩麻将' },
-  { value: 'guobiao', label: '国标' },
-  { value: 'riichi', label: '立直' },
-  { value: 'qingque', label: '青雀' },
-  { value: 'classical', label: '古典' },
-  { value: 'sichuan', label: '四川' },
-  { value: 'changsha', label: '长沙麻将' },
-]
+const roomRuleOptions = eventRoomRuleOptions
 const roomForm = reactive({
   room_rule: 'guobiao',
   reason: '',
@@ -566,7 +547,7 @@ async function createRoom() {
     roomForm.room_count = 1
     roomForm.auto_duplicate = false
     roomDialogVisible.value = false
-    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 组开闭室，共 ${created * 2} 间房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
+    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 个八人复式房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
     await loadRooms()
   } catch (e) {
     ElMessage.error({ message: eventRoomCreationError(e), duration: 8000 })

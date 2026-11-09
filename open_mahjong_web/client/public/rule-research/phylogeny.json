@@ -272,7 +272,7 @@
     "zibo": "形成时间待证",
     "jining": "形成时间待证",
     "xinjiang": "形成时间待证",
-    "jiandan": "当前具名版本；形成时间另核",
+    "nanque": "当前具名版本；形成时间另核",
     "mauger-1915": "1915（会议／卷年）",
     "babcock-new-method-1923": "1923（第二版）",
     "special-peng-1924": "1924（亲见版本）",
@@ -641,7 +641,7 @@
           "nodes": [
             "qingque",
             "hongque",
-            "jiandan",
+            "nanque",
             "shiyangjin"
           ]
         },
@@ -1461,7 +1461,7 @@
     },
     {
       "from": "zungjung",
-      "to": "jiandan",
+      "to": "nanque",
       "type": "constructed",
       "status": "attested",
       "note": "项目原有具名改编关系；仍按作者当前文本与版本维护，不用目标模式替代现行模式。",

@@ -594,8 +594,10 @@
         "3/4",
         "4/4"
       ],
-      "ranked_modes": [],
-      "matchmaking": false,
+      "ranked_modes": [
+        "2/4_rank"
+      ],
+      "matchmaking": true,
       "win_stat_unit": "fan",
       "deal_in_stat_unit": "fan"
     },

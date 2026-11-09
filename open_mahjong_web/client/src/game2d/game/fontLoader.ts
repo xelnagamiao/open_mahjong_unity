@@ -1,10 +1,12 @@
 import notoSerifScUrl from '../fonts/noto-serif-sc.woff2'
 import notoSerifLatinUrl from '../fonts/noto-serif-latin.woff2'
 import notoSansLatinUrl from '../fonts/noto-sans-latin.woff2'
+import notoSansCyrillicUrl from '../fonts/noto-sans-cyrillic.woff2'
 import latinModernUrl from '../fonts/latinmodern-math.woff2'
 import arphicKaitiUrl from '../fonts/gkai00mp.ttf'
 import notoSerifLicenseUrl from '../fonts/OFL-Noto-Serif-SC.txt?url'
 import notoSansLicenseUrl from '../fonts/OFL-Noto-Sans-CJK-SC.txt?url'
+import notoSansCyrillicLicenseUrl from '../fonts/OFL-Noto-Sans.txt?url'
 import latinModernLicenseUrl from '../fonts/GUST-FONT-LICENSE-Latin-Modern.txt?url'
 import arphicLicenseUrl from '../fonts/ARPHIC-PUBLIC-LICENSE.txt?url'
 
@@ -20,6 +22,8 @@ type FontAsset = {
   format: 'woff2' | 'truetype'
   weight: string
   testWeight: number
+  unicodeRange?: string
+  testText?: string
 }
 
 const DEFAULT_GAME_FONT_THEME: GameFontTheme = 'arphic-ukai'
@@ -29,6 +33,7 @@ const FONT_FAMILIES = {
   notoSerifCjk: 'Game2D Noto Serif SC',
   notoSerifLatin: 'Game2D Noto Serif Latin',
   notoSansLatin: 'Game2D Noto Sans Latin',
+  notoSansCyrillic: 'Game2D Noto Sans Cyrillic',
   latinModern: 'Game2D Latin Modern Math',
   arphicKaiti: 'Game2D AR PL KaitiM GB',
 } as const
@@ -56,6 +61,15 @@ const FONT_ASSETS: FontAsset[] = [
     testWeight: 400,
   },
   {
+    family: FONT_FAMILIES.notoSansCyrillic,
+    url: notoSansCyrillicUrl,
+    format: 'woff2',
+    weight: '400',
+    testWeight: 400,
+    unicodeRange: 'U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116',
+    testText: 'Восток Цветы Ёё',
+  },
+  {
     family: FONT_FAMILIES.latinModern,
     url: latinModernUrl,
     format: 'woff2',
@@ -74,6 +88,7 @@ const FONT_ASSETS: FontAsset[] = [
 export const GAME_FONT_LICENSE_URLS = [
   notoSerifLicenseUrl,
   notoSansLicenseUrl,
+  notoSansCyrillicLicenseUrl,
   latinModernLicenseUrl,
   arphicLicenseUrl,
 ] as const
@@ -141,7 +156,8 @@ export function getGameFontFamily(
   theme: GameFontTheme = activeTheme,
   latinTheme: GameLatinFontTheme = activeLatinTheme,
 ): string {
-  return `${getLatinFontFamily(normalizeGameLatinFontTheme(latinTheme))}, ${getChineseFontFamily(normalizeGameFontTheme(theme))}`
+  // Cyrillic must resolve before Chinese faces whose Cyrillic glyphs are full-width.
+  return `${getLatinFontFamily(normalizeGameLatinFontTheme(latinTheme))}, "${FONT_FAMILIES.notoSansCyrillic}", ${getChineseFontFamily(normalizeGameFontTheme(theme))}`
 }
 
 export function setGameFontTheme(theme: GameFontTheme): void {
@@ -165,6 +181,7 @@ export function loadGameFontFaces(): void {
   font-weight: ${font.weight};
   font-style: normal;
   font-display: block;
+  ${font.unicodeRange ? `unicode-range: ${font.unicodeRange};` : ''}
 }`).join('\n')
   document.head.appendChild(styleTag)
   fontsInjected = true
@@ -172,7 +189,7 @@ export function loadGameFontFaces(): void {
 
 async function preloadFontAsset(font: FontAsset): Promise<void> {
   const descriptor = `${font.testWeight} 300px "${font.family}"`
-  const loadedFaces = await document.fonts.load(descriptor)
+  const loadedFaces = await document.fonts.load(descriptor, font.testText)
   if (loadedFaces.length === 0 || loadedFaces.some((face) => face.status !== 'loaded')) {
     throw new Error(`字体资源加载失败：${font.family}`)
   }

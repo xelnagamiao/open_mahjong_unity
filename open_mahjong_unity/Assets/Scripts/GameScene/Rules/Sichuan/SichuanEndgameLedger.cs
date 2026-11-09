@@ -43,7 +43,38 @@ public sealed class SichuanEndgameLedger {
         hadChajiao = true;
     }
 
-    /// <summary>终局末步：把累积分差写成一行计分板（主番仅 三家和/查叫/流局）。未开始累计时返回 false。</summary>
+    /// <summary>新版副末快照校准结果摘要；已有分数行只更新摘要，不重复记分。</summary>
+    public static void ApplyBoardSummaryToHistory(string subRule, SichuanBoardSettlementInfo board,
+        List<RoundSettlementSnapshot> history) {
+        if (SettlementSync.IsRestoring || board == null || history == null || SichuanLobby.IsXueliu(subRule)
+            || board.round != TableMirror.Current.CurrentRound) return;
+        int row = -2, historyRows = -1;
+        foreach (var player in TableMirror.Current.PlayerToInfo.Values) {
+            if (player == null) return;
+            int count = player.score_history?.Count ?? 0;
+            int found = -1;
+            for (int i = 0; i < count && i < (player.round_number_history?.Count ?? 0); i++)
+                if (player.round_number_history[i] == board.round) found = i;
+            if ((row != -2 && row != found) || (historyRows != -1 && historyRows != count)) return;
+            row = found; historyRows = count;
+        }
+        if (row == -2) return;
+        string label = ScoreHistorySettlementHelper.ResolveSichuanBoardRoundLabel(subRule, board);
+        var snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label);
+        if (row >= 0) {
+            while (history.Count <= row) history.Add(null);
+            history[row] = snapshot;
+            return;
+        }
+        if (board.changes?.Count != 4 || board.scores_after?.Count != 4) return;
+        for (int i = 0; i < 4; i++)
+            if (!board.changes.ContainsKey(i) || !board.scores_after.ContainsKey(i)) return;
+        while (history.Count <= historyRows) history.Add(null);
+        history[historyRows] = snapshot;
+        SettlementPresenter.Current.ApplyLocalScoreHistory(snapshot, board.changes, board.scores_after);
+    }
+
+    /// <summary>终局末步：把累积分差写成一行计分板。未开始累计时返回 false。</summary>
     public bool TryFlushToHistory(string subRule, List<RoundSettlementSnapshot> history, Dictionary<int, int> scoresAfter = null) {
         if (SettlementSync.IsRestoring) { Reset(); return false; }
         if (accum == null) return false;

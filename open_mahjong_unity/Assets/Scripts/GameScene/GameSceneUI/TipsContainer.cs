@@ -225,10 +225,7 @@ public partial class TipsContainer : MonoBehaviour
     public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
         visibleHintSubRule = HongqueWTips.IsActive ? HongqueWScoring.SubRule : "hongque";
         CancelPendingFanHints();
-        List<Transform> toDestroy = new List<Transform>();
-        foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
-        foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
-        foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
+        ClearHintRows();
 
         HongqueScoreHintInfo[] hints = winHint != null
             ? new[] { winHint }
@@ -260,10 +257,7 @@ public partial class TipsContainer : MonoBehaviour
         visibleHintSubRule = HongqueWTips.IsActive ? HongqueWScoring.SubRule : "hongque";
         CancelPendingFanHints();
         _pendingCutTileId = pendingCutTileId;
-        List<Transform> toDestroy = new List<Transform>();
-        foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
-        foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
-        foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
+        ClearHintRows();
 
         HashSet<int> unavailableTiles = CollectHongqueUnavailableTiles();
         unavailableTiles.Add(pendingCutTileId);
@@ -326,18 +320,9 @@ public partial class TipsContainer : MonoBehaviour
             return;
         }
 
-        List<Transform> toDestroy = new List<Transform>();
-        foreach (Transform child in TileContainer.transform){
-            toDestroy.Add(child);
-        }
-        foreach (Transform child in FanContainer.transform){
-            toDestroy.Add(child);
-        }
-        foreach (Transform child in toDestroy){
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
+        waitingTiles.Sort();
+        PrepareHintRows(gameManager.subRule, waitingTiles);
         BuildVisibleTileCounts(gameManager, handTiles);
 
         // 构建和牌条件
@@ -369,8 +354,6 @@ public partial class TipsContainer : MonoBehaviour
         if (waitingTiles.Count == 1) {
             wayToHepai.Add("和单张");
         }
-        // 排序
-        waitingTiles.Sort();
         var (allDiscards, allCombinations) = CollectTableFromLiveGame(gameManager);
         // 遍历每一张和牌张
         foreach (int hepaiTile in waitingTiles) {
@@ -399,6 +382,7 @@ public partial class TipsContainer : MonoBehaviour
                 HuapaiCount = selfInfo.huapai_list?.Count ?? 0,
                 SubRule = gameManager.subRule,
                 HepaiLimit = gameManager.hepaiLimit,
+                JinluoMode = GameSession.Current.JinluoMode, JinluoWeather = GameSession.Current.JinluoWeather,
                 JokerMultiWait = GameSession.Current.JokerMultiWait,
                 NoJokerBonus = GameSession.Current.NoJokerBonus, BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
                 SelfIndex = gameManager.selfIndex,
@@ -446,16 +430,7 @@ public partial class TipsContainer : MonoBehaviour
         _recordTipsContext = ctx;
         _pendingCutTileId = pendingCutTileId;
 
-        List<Transform> toDestroy = new List<Transform>();
-        foreach (Transform child in TileContainer.transform) {
-            toDestroy.Add(child);
-        }
-        foreach (Transform child in FanContainer.transform) {
-            toDestroy.Add(child);
-        }
-        foreach (Transform child in toDestroy) {
-            Destroyer.Instance.AddToDestroyer(child);
-        }
+        PrepareHintRows(ctx.SubRule, waitingTiles.OrderBy(tile => tile).ToArray());
 
         BuildVisibleTileCountsFromRecord(ctx, handTiles);
 
@@ -592,15 +567,19 @@ public partial class TipsContainer : MonoBehaviour
     }
 
     private void InstantiateTipsTile(int hepaiTile) {
-        GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
+        GameObject tileObject = reuseHintRows ? TileContainer.transform.GetChild(nextHintTile).gameObject
+            : Instantiate(TilePrefab.gameObject, TileContainer.transform);
+        nextHintTile++;
         // Fit the artwork at its final width immediately, including refreshes of an already visible panel.
         ((RectTransform)tileObject.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, HintWidth);
         StaticCard card = tileObject.GetComponent<StaticCard>();
-        card.SetTileOnlyImage(hepaiTile);
+        if (!reuseHintRows) card.SetTileOnlyImage(hepaiTile);
     }
 
     private GameObject InstantiateTipsFan() {
-        GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+        GameObject fanObject = reuseHintRows ? FanContainer.transform.GetChild(nextHintFan).gameObject
+            : Instantiate(FanPrefab, FanContainer.transform);
+        nextHintFan++;
         ((RectTransform)fanObject.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, HintWidth);
         return fanObject;
     }

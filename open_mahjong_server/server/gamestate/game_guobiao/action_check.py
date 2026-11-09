@@ -4,6 +4,7 @@ from . import blood_battle, transparent
 from ...game_calculation import guobiao_sixteen as sixteen
 from ...game_calculation import guobiao_four_jokers as four_jokers
 from ...game_calculation import guobiao_huahun as huahun
+from ...game_calculation import guobiao_jinluo as jinluo
 from .duplicate_rules import duplicate_rules_for
 from .sanma import filter_tiles, round_wind, ron_action
 from ..public.logic_common import get_index_relative_position, next_current_num
@@ -323,7 +324,9 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             way_to_hepai.remove("和绝张")
 
     # 使用计算服务类检查和牌（根据子规则选择检查方法）
-    if sixteen.enabled(self):
+    if jinluo.enabled(self):
+        result = jinluo.hepai_check(self, tiles_list, combination_tiles, way_to_hepai, hepai_tile, player_index)
+    elif sixteen.enabled(self):
         result = sixteen.hepai_check(tiles_list, combination_tiles, way_to_hepai, hepai_tile, not is_first_action)
     elif huahun.enabled(self):
         result = huahun.hepai_check(tiles_list, combination_tiles, way_to_hepai, hepai_tile,
@@ -355,6 +358,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     huapai_count = way_to_hepai.count("花牌")
     enough = (huahun.qualifying_fan(result) >= huahun.minimum(tiles_list, combination_tiles)
               if huahun.enabled(self) else result[0] - huapai_count >= hepai_limit)
+    if jinluo.enabled(self):
+        enough = jinluo.allows_state_win(self, result, tiles_list, combination_tiles, player_index)
     if enough or self.open_cuohe:
         action = ron_action(player_index, self.current_player_index, len(self.player_list))
         temp_action_dict[player_index].append(action)

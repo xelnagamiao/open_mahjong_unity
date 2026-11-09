@@ -39,7 +39,7 @@
               @keydown.enter="selectable && !row.predicted && $emit('select-row', row.sourceIndex)"
             >
               <th>{{ row.roundLabel }}</th>
-              <td>{{ row.predicted ? '' : translateFanName(row.mainFan || '—') }}</td>
+              <td>{{ row.predicted ? '' : translateFanName(row.mainFan || '—', locale, rule) }}</td>
               <template v-for="cell in row.players" :key="`${row.key}-${cell.seat}`">
                 <td :class="scoreClass(cell.deltaValue)">{{ cell.delta }}</td>
                 <td>{{ cell.total }}</td>
@@ -63,6 +63,7 @@ import { translateFanName } from '@/i18n/fanNames'
 const props = defineProps({
   players: { type: Array, default: () => [] },
   settlements: { type: Array, default: () => [] },
+  rule: { type: String, default: 'guobiao' },
   selectable: { type: Boolean, default: false },
   roundLabelFormat: { type: String, default: 'wind-seat' },
   roundLabeler: { type: Function, default: null },
@@ -273,11 +274,11 @@ const rows = computed(() => {
 }
 .scoreboard-table__empty { height: 88px !important; color: #444; }
 
-.scoreboard-panel:lang(fr) { max-height: min(100%, 660px); }
-.scoreboard-table:lang(fr) { min-width: 920px; }
-.scoreboard-table:lang(fr) .scoreboard-table__fan { width: 210px; }
-.scoreboard-table:lang(fr) th,
-.scoreboard-table:lang(fr) td {
+.scoreboard-panel:is(:lang(fr), :lang(de), :lang(ru)) { max-height: min(100%, 660px); }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) { min-width: 920px; }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) .scoreboard-table__fan { width: 210px; }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) th,
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) td {
   padding: 5px 6px;
   line-height: 1.35;
   white-space: normal;
@@ -285,6 +286,6 @@ const rows = computed(() => {
 }
 
 @media (max-width: 860px) {
-  .scoreboard-layer:lang(fr) { position: fixed; }
+  .scoreboard-layer:is(:lang(fr), :lang(de), :lang(ru)) { position: fixed; }
 }
 </style>

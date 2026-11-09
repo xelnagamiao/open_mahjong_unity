@@ -36,7 +36,7 @@ public static class InterfacePlansPolishBaker
         var pageOptions=plans.pages[1].transform;
         PlaceRow(pageOptions,"Settings",0,60);
         PlaceRow(pageOptions,"EventDesign",60,60);
-        plans.pageHeights[1]=252;
+        PlayerInfoAppearanceBaker.BakePaletteControls(scene);
         for (int i = 0; i < plans.home.plates.Length; i++)
         {
             if (!plans.home.plates[i]) continue;

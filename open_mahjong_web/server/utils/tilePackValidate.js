@@ -1,9 +1,10 @@
 const path = require('path');
 const { readZip } = require('./zipEntries');
+const { MAX_CFG_BYTES, parseTilePackConfig } = require('./tilePackConfig');
 
-const MAX_IMAGE_EDGE = 1024;
-const MAX_PNG_BYTES = 500 * 1024;
-const MAX_UNCOMPRESSED = 20 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 4096;
+const MAX_PNG_BYTES = 4 * 1024 * 1024;
+const MAX_UNCOMPRESSED = 128 * 1024 * 1024;
 const MAX_BG_PNG_BYTES = 8 * 1024 * 1024;
 const EXPECTED_FORMAT = 'om-tilepack';
 const EXPECTED_FAMILY = 'standard';
@@ -11,7 +12,7 @@ const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PREVIEW_FACE_IDS = [11, 15, 19, 21, 25, 29, 31, 35, 39, 41, 45, 46, 47, 51, 105];
 
 function isStandardFaceId(tileId) {
-  if (tileId === 2 || tileId === 105 || tileId === 205 || tileId === 305) return true;
+  if (tileId === 59 || tileId === 2 || tileId === 105 || tileId === 205 || tileId === 305) return true;
   const suit = Math.floor(tileId / 10);
   const rank = tileId % 10;
   if (suit >= 1 && suit <= 3 && rank >= 1 && rank <= 9) return true;
@@ -120,9 +121,19 @@ function validateTileFace(zipBuffer) {
   const entries = readZip(zipBuffer, { maxUncompressed: MAX_UNCOMPRESSED });
   const hand = new Map();
   const table = new Map();
+  const shared = new Map();
   const warnings = [];
   const previews = [];
-
+  const configs = entries.filter((e) => /\.cfg$/i.test(fileName(e.name)));
+  if (configs.length > 1) return { error: '牌面包只能包含一个 .cfg 文件' };
+  let config = null;
+  if (configs.length) {
+    if (configs[0].data.length > MAX_CFG_BYTES) return { error: '牌面配置超过 64KB' };
+    try {
+      const text = new TextDecoder('utf-8', { fatal: true }).decode(configs[0].data);
+      config = parseTilePackConfig(text, isStandardFaceId);
+    } catch (err) { return { error: err.message }; }
+  }
   const manifest = entries.find((e) => fileName(e.name).toLowerCase() === 'manifest.json');
   if (manifest) {
     const manifestError = validateManifest(manifest.data.toString('utf8'));
@@ -132,73 +143,58 @@ function validateTileFace(zipBuffer) {
   for (const entry of entries) {
     const full = entry.name.replace(/\\/g, '/').replace(/^\/+/, '');
     const name = fileName(full);
-    if (name.toLowerCase() === 'manifest.json') continue;
-    if (name.toLowerCase() === 'preview.png') {
-      if (isPng(entry.data)) {
-        previews.push({ name: 'preview.png', label: 'preview.png', data: entry.data });
-      }
-      continue;
-    }
+    if (/\.cfg$/i.test(name) || name.toLowerCase() === 'manifest.json') continue;
+    if (name.toLowerCase() === 'preview.png') continue; // Accepted in legacy packages, never required.
     if (!name.toLowerCase().endsWith('.png')) {
       if (!name.startsWith('.')) pushWarning(warnings, `已忽略非 PNG: ${name}`);
       continue;
     }
     if (entry.data.length > MAX_PNG_BYTES) {
-      pushWarning(warnings, `单张超过 500KB，已跳过: ${name}`);
+      pushWarning(warnings, `单张超过 4MB，已跳过: ${name}`);
       continue;
     }
     const idPart = name.replace(/\.png$/i, '');
-    const tileId = Number.parseInt(idPart, 10);
-    if (!Number.isInteger(tileId) || !isStandardFaceId(tileId)) {
+    const tileId = Number(idPart);
+    if (!/^[0-9]+$/.test(idPart) || String(tileId) !== idPart || !isStandardFaceId(tileId)) {
       pushWarning(warnings, `无法识别的牌面文件名: ${name}`);
-      continue;
-    }
-    if (!isPng(entry.data)) {
-      pushWarning(warnings, `不是 PNG: ${name}`);
       continue;
     }
     const size = readPngSize(entry.data);
     if (!size || size.width > MAX_IMAGE_EDGE || size.height > MAX_IMAGE_EDGE) {
-      pushWarning(warnings, `尺寸不合法（需 ≤1024）: ${name}`);
+      pushWarning(warnings, `尺寸不合法（需 ≤4096）: ${name}`);
       continue;
     }
-    const isTable = isTableFolder(full);
-    const isHand = isHandFolder(full);
-    if (!isTable && !isHand) {
-      pushWarning(warnings, `牌面 PNG 必须放在 hand/ 或 table/（也可用 手牌牌面/、3D牌面/）: ${full}`);
-      continue;
-    }
-    const target = isTable ? table : hand;
+    const target = isTableFolder(full) ? table : isHandFolder(full) ? hand : shared;
+    if (target.has(tileId)) return { error: `牌面代号重复: ${full}` };
     target.set(tileId, entry.data);
   }
-
-  if (hand.size === 0 || table.size === 0) {
-    return {
-      error: '压缩包必须同时包含 hand/ 和 table/ 两个文件夹（也可用「手牌牌面」「3D牌面」）',
-    };
+  const legacy = hand.size > 0 || table.size > 0;
+  // Preserve explicitly supplied legacy variants. A shared image supplies both renderers.
+  for (const [id, data] of shared) {
+    if (!hand.has(id)) hand.set(id, data);
+    if (!table.has(id)) table.set(id, data);
   }
-
-  let missing = 0;
-  for (const id of standardFaceIds()) {
-    if (!hand.has(id) && !table.has(id)) missing += 1;
-  }
-  if (missing > 0) {
-    pushWarning(warnings, `缺 ${missing} 张，对局中将回退官方牌面`);
-  }
-
+  for (const [id, data] of hand) if (!table.has(id)) table.set(id, data);
+  for (const [id, data] of table) if (!hand.has(id)) hand.set(id, data);
+  if (!hand.size) return { error: '压缩包内没有可识别的 PNG 牌面' };
+  const missing = standardFaceIds().filter((id) => !hand.has(id)).length;
+  if (missing) pushWarning(warnings, `缺 ${missing} 张，对局中将回退官方牌面`);
   for (const id of PREVIEW_FACE_IDS) {
-    if (hand.has(id)) {
-      previews.push({ name: previewName(`hand/${id}.png`), label: `hand/${id}.png`, data: hand.get(id) });
-    }
-    if (table.has(id)) {
-      previews.push({ name: previewName(`table/${id}.png`), label: `table/${id}.png`, data: table.get(id) });
+    if (!legacy && shared.has(id)) {
+      previews.push({ name: `${id}.png`, label: `${id}.png`, data: shared.get(id) });
+    } else {
+      if (hand.has(id)) previews.push({ name: previewName(`hand/${id}.png`), label: `hand/${id}.png`, data: hand.get(id) });
+      if (table.has(id)) previews.push({ name: previewName(`table/${id}.png`), label: `table/${id}.png`, data: table.get(id) });
     }
   }
-
   return {
     meta: {
+      format_version: legacy ? 1 : 2,
+      shared_count: shared.size,
       hand_count: hand.size,
       table_count: table.size,
+      config_file: configs[0] ? fileName(configs[0].name) : null,
+      layout: config,
       warnings,
       previews: previews.map((p) => ({ name: p.name, label: p.label })),
     },
@@ -213,12 +209,12 @@ function standardFaceIds() {
   }
   for (let rank = 1; rank <= 7; rank += 1) ids.push(40 + rank);
   for (let rank = 1; rank <= 8; rank += 1) ids.push(50 + rank);
-  ids.push(105, 205, 305, 2);
+  ids.push(59, 105, 205, 305, 2);
   return ids;
 }
 
 function validateTileBackground(zipBuffer) {
-  const entries = readZip(zipBuffer, { maxUncompressed: MAX_UNCOMPRESSED });
+  const entries = readZip(zipBuffer, { maxUncompressed: 20 * 1024 * 1024 });
   let handBg = null;
   let handBack = null;
   let tableBg = null;

@@ -26,7 +26,6 @@ ROOM_VARIANTS = [
     ("sichuan", "sichuan/standard", "SichuanGameState"),
     ("sichuan", "sichuan/xueliu", "XueliuGameState"),
     ("sichuan", "sichuan/xueliu_exchange", "XueliuGameState"),
-    ("jiandan", "jiandan/standard", "JiandanGameState"),
     ("zhongyong", "zhongyong/standard", "ZhongyongGameState"),
     ("zhongyong", "zhongyong/nanque", "NanqueGameState"),
     ("taiwan", "taiwan/standard", "TaiwanGameState"),
@@ -118,8 +117,8 @@ for sub_rule in ("sichuan/xueliu", "sichuan/xueliu_exchange"):
     BOT_ROUTES.append(("sichuan", sub_rule, "xueliu", 2))
 for sub_rule in ("shanghai/qiaoma", "shanghai/qinghunpeng"):
     BOT_ROUTES.append(("shanghai", sub_rule, "shanghai", 2))
-for rule, sub_rule in (("jiandan", ""), ("zhongyong", "zhongyong/standard"), ("zhongyong", "zhongyong/nanque")):
-    BOT_ROUTES += [(rule, sub_rule, "jiandan", uid) for uid in (0, 2)]
+for rule, sub_rule in (("zhongyong", "zhongyong/standard"), ("zhongyong", "zhongyong/nanque")):
+    BOT_ROUTES += [(rule, sub_rule, "nanque", uid) for uid in (0, 2)]
 for sub_rule in ("hongkong/qingzhang", "hongkong/new13", "hongkong/new16"):
     BOT_ROUTES += [("hongkong", sub_rule, "hongkong", uid) for uid in (0, 2)]
 
@@ -130,7 +129,7 @@ ENTRY_POINTS = {
     "riichi": ("public.ai.riichi_smart_bot_ai", "riichi_smart_bot_action"),
     "xueliu": ("game_sichuan.xueliu_bot", "xueliu_smart_bot_action"),
     "shanghai": ("game_shanghai.bot", "shanghai_smart_bot_action"),
-    "jiandan": ("game_jiandan.bot", "jiandan_bot_action"),
+    "nanque": ("game_zhongyong.bot", "nanque_bot_action"),
     "hongkong": ("game_hongkong.bot", "play_bot"),
 }
 
@@ -154,6 +153,7 @@ def test_every_bot_entry_uses_room_speed_and_includes_calculation_time(monkeypat
         state = NS(room_rule=rule, sub_rule=sub_rule, bot_speed=speed, claim_protection=protection,
                    game_status=phase, server_action_tick=1, waiting_players_list=[0],
                    current_player_index=0, player_list=[player], action_dict={0: ["cut"]},
+                   tiles_list=[11]*20, dead_wall_count=14,
                    is_xueliu=True, xueliu_exchange=sub_rule.endswith("exchange"), xueliu_meld_count=4)
         sent = []
         async def send(*args, **kwargs):
@@ -179,19 +179,19 @@ def test_every_bot_entry_uses_room_speed_and_includes_calculation_time(monkeypat
             return "cut", 11
         if hasattr(module, "run_room_bot_cpu"):
             monkeypatch.setattr(module, "run_room_bot_cpu", calculate)
-        if kind == "jiandan" and uid == 2:
+        if kind == "nanque" and uid == 2:
             def pick(*args, **kwargs):
                 clock.calculate()
                 return 11, 0
             monkeypatch.setattr(module, "find_best_cut", pick)
-        if kind == "auto" or (kind == "jiandan" and uid == 0):
+        if kind == "auto" or (kind == "nanque" and uid == 0):
             original_pick = module._pick_auto_cut_tile
             def pick(*args):
                 clock.calculate()
                 return original_pick(*args)
             monkeypatch.setattr(module, "_pick_auto_cut_tile", pick)
         args = [state, 0, ["cut"], phase]
-        if kind in ("jiandan", "hongkong"):
+        if kind in ("nanque", "hongkong"):
             args.append(1)
         await getattr(module, name)(*args)
         assert len(sent) == 1

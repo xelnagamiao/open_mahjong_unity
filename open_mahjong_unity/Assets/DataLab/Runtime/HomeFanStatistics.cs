@@ -90,7 +90,7 @@ namespace Salasasa.DataLab
         }
         IEnumerator Fetch(string key,int ticket,string rule,bool events)
         {
-            var url=owner.apiBase.TrimEnd('/')+"/api/platform/stats?rule="+UnityWebRequest.EscapeURL(rule)+(events?"&event_id=all":"");
+            var url=owner.apiBase.TrimEnd('/')+ConfigManager.PlatformFanStatsPath+"?rule="+UnityWebRequest.EscapeURL(rule)+(events?"&event_id=all":"");
             var pending=UnityWebRequest.Get(url);request=pending;pending.timeout=12;
             yield return pending.SendWebRequest();
             if(ticket!=generation)yield break;

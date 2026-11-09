@@ -12,13 +12,13 @@ public sealed class GuobiaoFanRow : MonoBehaviour {
     [SerializeField] private PlayerInfoHandView handView;
     [SerializeField] private Image headerBackground;
 
-    public void Bind(GuobiaoFanCatalog.Entry entry, Color headerColor) {
+    public void Bind(GuobiaoFanCatalog.Entry entry, Color headerColor, string ruleId = "guobiao") {
         headerBackground.color = headerColor;
-        nameText.text = entry.name;
-        valueText.text = string.IsNullOrEmpty(entry.valueText) ? entry.fan + " 番" : entry.valueText;
-        descriptionText.text = entry.description;
+        TableText.Set(nameText, entry.name, ruleId);
+        TableText.Set(valueText, string.IsNullOrEmpty(entry.valueText) ? entry.fan + " 番" : entry.valueText, ruleId);
+        TableText.Set(descriptionText, entry.description, ruleId);
         contextText.gameObject.SetActive(false);
-        noteText.text = entry.note;
+        TableText.Set(noteText, entry.note, ruleId);
         noteText.gameObject.SetActive(!string.IsNullOrEmpty(entry.note));
         var groups = entry.ExampleGroups();
         handView.gameObject.SetActive(groups.Length > 0);

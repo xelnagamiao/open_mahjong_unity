@@ -64,8 +64,7 @@ public sealed partial class CenterBoardSkin
         var corners = Vector4.zero;
         for (int i = 0; i < winds.Length; i++)
         {
-            string wind = winds[i].text;
-            corners[i] = wind.Contains("东") || wind.Contains("東") ? 1 : 0;
+            corners[i] = IsDealerSlot(i) ? 1 : 0;
         }
         graphiteEastMaterial.SetVector(EastCorners, corners);
     }

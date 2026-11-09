@@ -302,6 +302,7 @@ export class Hand extends Container {
     this.leftListLength += rotated ? TILE_HEIGHT : TILE_WIDTH
     tile.posy = rotated ? TILE_HEIGHT / 2 - TILE_WIDTH / 2 : 0
     this.leftList.push(tile)
+    this.matchHighlight?.syncTile(tile)
   }
 
   addKongOn(tile: Tile, idx: number): void {
@@ -312,6 +313,7 @@ export class Hand extends Container {
     tile.posy = base.posy - TILE_WIDTH
     tile.rotation = base.rotation
     this.leftList.push(tile)
+    this.matchHighlight?.syncTile(tile)
   }
 
   private bindWaitHover(tile: Tile): void {
@@ -352,6 +354,7 @@ export class Hand extends Container {
     for (let index = 0; index < tiles.length; index++) {
       const tile = this.createVisibleTile(tiles[index])
       this.publicKongTiles.push(tile)
+      this.matchHighlight?.syncTile(tile)
       this.applyTileStyle(tile)
       tile.scale.set(this.handScale)
       tile.generalMove(this, (index - (tiles.length - 1) / 2) * (TILE_WIDTH + TILE_SEP) * this.handScale,
@@ -735,6 +738,7 @@ export class Hand extends Container {
       tile.rotation = anchor.rotation
       tile.meldStackRotation = anchor.rotation
       this.leftList.push(tile)
+      this.matchHighlight?.syncTile(tile)
     }
   }
 

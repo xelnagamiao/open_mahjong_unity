@@ -49,6 +49,8 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
     CenterSkinGraphic readoutRule;
     readonly RectTransform[] seatArt = new RectTransform[4];
     readonly string[] previousWind = new string[4];
+    readonly bool[] previousDealer = new bool[4];
+    static readonly string[] CenterSeatPositions = { "self", "right", "top", "left" };
     readonly List<AnchorState> pointAnchors = new List<AnchorState>();
     readonly CenterTurnMesh[] turnMeshes = new CenterTurnMesh[4];
     ConfigManager subscribedConfig;
@@ -303,13 +305,18 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             string value = winds[i].text;
-            if (!force && previousWind[i] == value) continue;
+            bool dealer = IsDealerSlot(i);
+            if (!force && previousWind[i] == value && previousDealer[i] == dealer) continue;
             previousWind[i] = value;
-            bool east = value == "东" || value == "東";
-            badges[i].color = C(IsStudio ? StudioColors[paletteIndex][east ? 5 : 4] : east ? p[10] : p[9]);
-            winds[i].color = C(IsStudio ? StudioColors[paletteIndex][east ? 6 : 3] : !IsTrial && paletteIndex == 2 && !east ? "#35465C" : "#FFFCF1");
+            previousDealer[i] = dealer;
+            badges[i].color = C(IsStudio ? StudioColors[paletteIndex][dealer ? 5 : 4] : dealer ? p[10] : p[9]);
+            winds[i].color = C(IsStudio ? StudioColors[paletteIndex][dealer ? 6 : 3] : !IsTrial && paletteIndex == 2 && !dealer ? "#35465C" : "#FFFCF1");
         }
     }
+
+    bool IsDealerSlot(int index) => board && board.HasDealerState
+        ? board.DealerPosition == CenterSeatPositions[index]
+        : TableText.IsEastWind(winds[index]);
 
     void TryInitializePointAnchors()
     {

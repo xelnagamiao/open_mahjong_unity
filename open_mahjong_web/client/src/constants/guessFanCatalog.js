@@ -280,7 +280,7 @@ export function hasSingleFanAtLeast(fanNames, cutoff, rule = 'guobiao') {
  * @param {FanRule[]} rules
  * @param {number} [limit]
  */
-export function suggestFans(query, rules, limit = 12) {
+export function suggestFans(query, rules, limit = 12, translatedNames = null) {
   const q = String(query || '').trim().toLowerCase().replace(/\s+/g, '')
   const pool = filterCatalogByRules(rules)
   // 空输入不展示默认列表，避免下拉常驻干扰
@@ -296,6 +296,16 @@ export function suggestFans(query, rules, limit = 12) {
       else if (normalizedName.startsWith(q) || fullPinyin.startsWith(q)) score = Math.max(score, 80)
       else if (initials.startsWith(q)) score = Math.max(score, 70)
       else if (normalizedName.includes(q) || fullPinyin.includes(q)) score = Math.max(score, 50)
+    }
+    if (translatedNames) {
+      const fold = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '')
+      const needle = fold(q)
+      for (const translated of translatedNames(f)) {
+        const name = fold(translated)
+        if (name === needle) score = Math.max(score, 100)
+        else if (name.startsWith(needle)) score = Math.max(score, 80)
+        else if (name.includes(needle)) score = Math.max(score, 50)
+      }
     }
     if (score > 0) scored.push({ f, score })
   }

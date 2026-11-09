@@ -391,6 +391,10 @@ public class SichuanGameState : TurnBasedGameState {
 
         if (env.SichuanSettlement != null) {
             Presenter.ApplyScores(env.ScoresAfter);
+            if (!xueliu) {
+                SichuanEndgameLedger.ApplyBoardSummaryToHistory(Session.SubRule, env.SichuanSettlement, Mirror.RoundSettlementHistory);
+                GameSceneUIManager.Instance.UpdateScoreRecord();
+            }
             RoundEndPresentation.Instance.PresentSichuanBoard(env.SichuanSettlement, env.NextStatus);
             if (env.IsMatchEnd) Manager.MarkAwaitingMatchEnd();
             return;
@@ -569,6 +573,7 @@ public class SichuanGameState : TurnBasedGameState {
         foreach (PlayerInfo player in info.players_info) {
             if (player != null) seats[player.original_player_index] = Mirror.SeatOf(player.player_index);
         }
-        Game3DManager.Instance?.ShowSichuanWall(info.sichuan_wall_masks, seats);
+        Game3DManager.Instance?.ShowSichuanWall(info.sichuan_wall_masks, seats,
+            singleRow: Session.SubRule == SichuanLobby.DoublesDuplicateSubRule);
     }
 }

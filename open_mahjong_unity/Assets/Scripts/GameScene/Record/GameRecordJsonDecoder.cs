@@ -30,9 +30,9 @@ public static class GameRecordJsonDecoder {
 
             string recordRule = root["game_title"]?["rule"]?.ToString()?.Trim().ToLowerInvariant();
             string recordSubRule = root["game_title"]?["sub_rule"]?.ToString()?.Trim().ToLowerInvariant();
-            if (recordRule == "jiandan" || (recordRule?.StartsWith("jiandan/", StringComparison.Ordinal) ?? false)
-                || (recordSubRule?.StartsWith("jiandan/", StringComparison.Ordinal) ?? false)) {
-                throw new NotSupportedException("旧版南雀牌谱已停止支持，请使用中庸麻将下的新南雀牌谱。");
+            if (root["match_result"] is JObject result) {
+                gameRecord.matchResult = result.ToObject<RecordMatchResult>();
+                gameRecord.matchResult.Validate();
             }
 
             JObject gameRoundObj = root["game_round"] as JObject;

@@ -53,7 +53,7 @@ test('grade pools hide legacy Elo while Elo pools expose their stored rating', a
 });
 
 test('Nanque dictionary follows the authoritative fan IDs and Chinese names', () => {
-  const source=fs.readFileSync(path.join(__dirname,'../../../open_mahjong_server/server/game_calculation/jiandan/fan_definitions.py'),'utf8');
+  const source=fs.readFileSync(path.join(__dirname,'../../../open_mahjong_server/server/game_calculation/nanque/fan_definitions.py'),'utf8');
   const fans=Object.fromEntries([...source.matchAll(/_fan\("([^"]+)",\s*"([^"]+)"/g)].map(match=>[match[1],match[2]]));
   assert.ok(Object.keys(fans).length>0);
   assert.deepEqual(require('../constants/nanqueFanDict'),fans);

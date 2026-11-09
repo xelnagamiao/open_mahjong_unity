@@ -1,4 +1,4 @@
-// Stable fan IDs shared with server/game_calculation/jiandan/fan_definitions.py.
+// Stable fan IDs shared with server/game_calculation/nanque/fan_definitions.py.
 module.exports = {
   two_wind_triplets: '二风刻', small_three_winds: '小三风', big_three_winds: '大三风',
   small_four_winds: '小四喜', big_four_winds: '大四喜',

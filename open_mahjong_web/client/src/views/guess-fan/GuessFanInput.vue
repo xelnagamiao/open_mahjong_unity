@@ -23,7 +23,7 @@
           :class="{ on: i === sugIndex }"
           @mousedown.prevent="pick(f)"
         >
-          <span>{{ f.names[0] }}</span>
+          <span>{{ translateFanName(f.names[0], locale, f.rules[0]) }}</span>
           <small>{{ f.rules.map((r) => ruleLabel(r)).join('/') }}</small>
         </li>
       </ul>
@@ -35,6 +35,8 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RULE_LABEL, suggestFans } from '@/constants/guessFanCatalog'
+import { locale } from '@/i18n'
+import { translateFanName } from '@/i18n/fanNames.js'
 
 const props = defineProps({
   disabled: { type: Boolean, default: false },
@@ -50,7 +52,8 @@ const inputEl = ref(null)
 
 const suggestions = computed(() => {
   if (!query.value.trim()) return []
-  return suggestFans(query.value, props.rules, 20)
+  return suggestFans(query.value, props.rules, 20, ['fr', 'de', 'ru'].includes(locale.value)
+    ? fan => fan.names.map(name => translateFanName(name, locale.value, fan.rules[0])) : null)
 })
 const showSug = computed(
   () => focused.value && !props.disabled && suggestions.value.length > 0,

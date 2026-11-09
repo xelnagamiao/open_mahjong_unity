@@ -125,7 +125,7 @@ class RoundRecording:
         if self.db_manager is None or not self.game_record:
             return None
         try:
-            game_id = self.db_manager.store_jiandan_game_record(
+            game_id = self.db_manager.store_zhongyong_game_record(
                 self.game_record,
                 self.player_list,
                 self.room_type,
@@ -133,28 +133,13 @@ class RoundRecording:
             )
             has_ai_player = any(player.user_id <= 10 for player in self.player_list)
             if self.room_type == "events":
-                logger.info("Jiandan event game skips player statistics: game_id=%s", game_id)
-            elif game_id and not has_ai_player and self.is_nanque:
-                total_rounds = len(self.game_record.get("game_round", {}))
-                self.db_manager.store_jiandan_game_stats(
-                    game_id,
-                    self.player_list,
-                    self.room_type,
-                    self.max_round,
-                    total_rounds,
-                )
-                self.db_manager.store_jiandan_fan_stats(
-                    game_id,
-                    self.player_list,
-                    self.room_type,
-                    self.max_round,
-                )
+                logger.info("Nanque event game skips player statistics: game_id=%s", game_id)
             elif has_ai_player:
-                logger.info("Jiandan game contains an AI player; statistics skipped")
+                logger.info("Nanque game contains an AI player; statistics skipped")
             return game_id
         except Exception as exc:
             logger.warning(
-                "Jiandan replay persistence failed, room_id=%s: %s",
+                "Nanque replay persistence failed, room_id=%s: %s",
                 self.room_id,
                 exc,
                 exc_info=True,

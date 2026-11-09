@@ -590,6 +590,10 @@ public partial class EndResultPanel : MonoBehaviour {
 
     /// <summary>确定按钮倒计时：始终显示数字；仅 allowConfirmClick 时可点击。</summary>
     private IEnumerator CoPlayEndButtonCountdown(float confirmCountdownSeconds, bool allowConfirmClick) {
+        if (IsLiveDealerChoice) {
+            yield return PlayDealerChoice();
+            yield break;
+        }
         if (allowConfirmClick && SettlementSync.Current != null) {
             EndButton.gameObject.SetActive(true);
             while (gameResultLifecycleActive) {
@@ -1191,6 +1195,7 @@ public partial class EndResultPanel : MonoBehaviour {
     public bool IsRestoringPresentation => restoringResult;
 
     public void BeginGameResultLifecycle() {
+        ResetDealerChoiceControls();
         restoringResult = SettlementSync.IsRestoring;
         gameResultLifecycleActive = true;
         readyStatusVisible = true;
@@ -1317,6 +1322,7 @@ public partial class EndResultPanel : MonoBehaviour {
     }
 
     public void ClearEndResultPanel(){
+        ResetDealerChoiceControls();
         RestoreSichuanBoardChildren();
         ClearGuizhouSettlement();
         if (showResultCoroutine != null) {

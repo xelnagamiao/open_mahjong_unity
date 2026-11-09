@@ -20,11 +20,27 @@ public partial class ConfigManager : MonoBehaviour {
     public static string chatUrl;
     public static string clientVersion;
     public static int releaseVersion;
+    public static int base_version;
     // 发行版声明：官方使用 offcial，修改版请填写自己的标识（如 modified/my-fork）。
     public static string versionDeclaration = "offcial";
     public static string githubUrl;
     public static string documentUrl;
     public static string mobileDownloadUrl;
+
+    // 部署地址由下方 Debug/正式环境分支统一配置；请求参数和鉴权仍由各业务模块处理。
+    public static string dataStationUrl => (string.IsNullOrWhiteSpace(webUrl) ? "https://salasasa.cn" : webUrl.TrimEnd('/')) + "/player-data/platform";
+    public const string PlatformHomeStatsPath = "/api/platform/home-stats";
+    public const string PlatformFanStatsPath = "/api/platform/stats";
+    public const string PlatformRecentRecordsPath = "/api/platform/recent-records";
+    public const string PlatformUnityRecordPath = "/api/platform/unity-record/";
+    public const string PlatformContentPath = "/api/platform/content";
+    public const string PlatformActivitiesPath = "/api/platform/activities";
+    public const string PlayerLeaderboardPath = "/api/player/leaderboard";
+    public const string PlayerLoginPath = "/api/player/auth/login";
+    public const string PlayerEventApplicationsPath = "/api/player/event-applications";
+    public const string EventAdminPath = "/api/event-admin";
+    public const string EventAdminLoginPath = EventAdminPath + "/auth/login";
+    public const string AndroidUpdatePath = "/api/client-updates/android";
 
     static ConfigManager() {
         if (Debug) {
@@ -32,16 +48,18 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 32; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 33; // 发行版号(验证客户端-服务器版本是否一致)
+            base_version = 1; // 安卓框架基准版本(决定是否需要安装新 APK)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 32;
+            releaseVersion = 33;
+            base_version = 1;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.5.87.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.5.88.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -216,7 +234,7 @@ public partial class ConfigManager : MonoBehaviour {
     public int VoiceVolume { get; private set; }
     public AppLanguage LanguageMode => _languageMode;
 
-    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English" };
+    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English", "Français", "Deutsch", "Русский", "日本語" };
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
     private const int DefaultTargetFrameRate = 60;
 
@@ -253,7 +271,10 @@ public partial class ConfigManager : MonoBehaviour {
         HandSortDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_DRAGON_ORDER, 0), 0, TileIdOrder.DragonOrderOptions.Length - 1);
         HandSortRiichiDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, 2), 0, TileIdOrder.RiichiDragonOrderOptions.Length - 1);
         _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.HasKey(KEY_LANGUAGE)
-            ? PlayerPrefs.GetInt(KEY_LANGUAGE) : (int)SystemAppLanguage.Detect(), 0, 2);
+            ? PlayerPrefs.GetInt(KEY_LANGUAGE) : (int)SystemAppLanguage.Detect(), 0, LanguageOptionLabels.Length - 1);
+        PlatformTypography.Refresh();
+        TileCornerLabelsEnabled = PlayerPrefs.GetInt(TileCornerLabelsKey, 0) == 1;
+        DoraHintsEnabled = PlayerPrefs.GetInt(DoraHintsKey, 0) == 1;
         ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
         GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
@@ -877,11 +898,12 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public void SetLanguageMode(int mode) {
-        var language = (AppLanguage)Mathf.Clamp(mode, 0, 2);
+        var language = (AppLanguage)Mathf.Clamp(mode, 0, LanguageOptionLabels.Length - 1);
         PlayerPrefs.SetInt(KEY_LANGUAGE, (int)language);
         PlayerPrefs.Save();
         if (_languageMode == language) return;
         _languageMode = language;
+        PlatformTypography.Refresh();
         OnLanguageChanged?.Invoke();
     }
 

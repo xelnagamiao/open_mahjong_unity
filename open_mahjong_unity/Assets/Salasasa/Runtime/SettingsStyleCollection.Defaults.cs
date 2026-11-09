@@ -33,6 +33,8 @@ namespace Salasasa.Home
                     config.SetHandSortRiichiDragonOrderMode(2);
                     config.SetWhiteDragonFaceMode(1);
                     config.SetActionButtonColorEnabled(false);
+                    config.SetTileCornerLabelsEnabled(false);
+                    config.SetDoraHintsEnabled(false);
                     config.ApplyTileOutlineStyle();
                     // The rule can still force spacing on; this only restores the user preference.
                     config.SetMeldSpacingEnabled(false);

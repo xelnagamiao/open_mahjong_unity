@@ -7,6 +7,7 @@ public sealed class CanvasReferenceLayout : MonoBehaviour {
     public RectTransform referenceArea;
     public CanvasScaler scaleSettings;
     public bool includeTopInset;
+    [System.NonSerialized] public bool keepMobilePopupSize;
     RectTransform rect;
     Vector2 previousSize, previousCenter;
     float previousScale;
@@ -17,7 +18,8 @@ public sealed class CanvasReferenceLayout : MonoBehaviour {
     public void Apply(bool force = false) {
         if (!referenceArea || !scaleSettings || !(transform.parent is RectTransform parent)) return;
         if (!rect) rect = (RectTransform)transform;
-        float pixels = DesiredPixels(scaleSettings);
+        float pixels = MobileViewportLayout.Enabled && keepMobilePopupSize
+            ? Screen.height / Mathf.Max(1,scaleSettings.referenceResolution.y) : DesiredPixels(scaleSettings);
         float parentPixels = PixelsPerUnit(parent);
         if (pixels <= 0 || parentPixels <= 0) return;
         float scale = pixels / parentPixels;

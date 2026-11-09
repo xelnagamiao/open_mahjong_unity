@@ -13,7 +13,7 @@ CASES = {
     "guobiao": factory.GuobiaoGameState, "qingque": factory.QingqueGameState,
     "changsha": factory.ChangshaGameState, "classical": factory.ClassicalGameState,
     "riichi": factory.RiichiGameState, "sichuan": factory.SichuanGameState,
-    "jiandan": factory.JiandanGameState, "zhongyong": factory.ZhongyongGameState,
+    "zhongyong": factory.ZhongyongGameState,
     "taiwan": factory.TaiwanGameState, "shanghai": factory.ShanghaiGameState,
     "hongque": factory.HongqueGameState, "hongkong": factory.HongKongGameState,
     "filipino": factory.FilipinoGameState, "vietnamese": factory.VietnameseGameState,

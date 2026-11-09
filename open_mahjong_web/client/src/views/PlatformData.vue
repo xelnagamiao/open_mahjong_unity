@@ -61,7 +61,7 @@
       <div v-loading="loading">
             <div v-if="activeTierTotals" class="stats-grid">
               <div v-for="row in buildPlatformStatsRows(activeTierTotals, { rule: activeRule })" :key="row.label" class="stats-cell">
-                <span class="stats-label">{{ row.label }}</span>
+                <span class="stats-label">{{ translateRuleText(row.label, locale, activeRuleDef?.rule || activeRule) }}</span>
                 <span class="stats-value">{{ row.value }}</span>
               </div>
             </div>
@@ -243,6 +243,8 @@
 </template>
 
 <script setup>
+import { locale } from '@/i18n'
+import { translateRuleText } from '@/i18n/fanNames'
 import { statisticsSelection } from '@/utils/statisticsCatalog'
 import { PLATFORM_RULE_GROUPS, platformSubRuleOptions } from '@/utils/platformRuleFilters'
 import {

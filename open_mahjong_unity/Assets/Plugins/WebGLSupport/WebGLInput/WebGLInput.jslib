@@ -91,6 +91,11 @@ var WebGLInput = {
         var input = instances[id];
         // for enter key
         input.addEventListener('keydown', function(e) {
+            // Let the IME confirm its candidate without submitting or losing focus.
+            // Some browsers end composition before keydown but still report 229.
+            if (e.isComposing || e.keyCode === 229 || e.which === 229) {
+                return;
+            }
             if ((e.which && e.which === 13) || (e.keyCode && e.keyCode === 13)) {
                 if(falg)
                 {

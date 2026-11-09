@@ -25,7 +25,7 @@ def test_create_quota_transaction_and_connection_release(monkeypatch,today,store
         assert data['wall_id']==7 and data['key'].startswith('dup_')
         conn.commit.assert_called_once();conn.rollback.assert_not_called()
         insert=next(c for c in cursor.execute.call_args_list if 'INSERT INTO duplicate_walls' in c.args[0])
-        assert len(insert.args[1][4])==80
+        assert len(insert.args[1][5])==80
         assert len(json.loads(insert.args[1][-1])[0])==108
     else:
         with pytest.raises(ValueError,match='限额'):store.create(data,event_id='evt_test',owner_id=101,name='test')
@@ -73,4 +73,23 @@ def test_attach_saved_wall_locks_and_binds_once_without_using_another_quota(monk
         with pytest.raises(ValueError): store.create(data,event_id='evt_test',owner_id=101,name='manual')
         conn.rollback.assert_called_once()
         conn.commit.assert_not_called()
+    db._put_connection.assert_called_once_with(conn)
+
+
+@pytest.mark.parametrize('today,stored,ok', [(4,24,True),(5,0,False),(0,25,False)])
+def test_personal_pair_uses_existing_personal_quota_and_shared_lock(monkeypatch,today,stored,ok):
+    db,conn,cursor,data,store=fixture(monkeypatch)
+    cursor.fetchone.side_effect=[(today,stored),(7,)]
+    if ok:
+        store.create(data,event_id=None,owner_id=101,name='personal')
+        assert data['scope']=='personal' and data['event_id'] is None
+        conn.commit.assert_called_once()
+        lock=cursor.execute.call_args_list[0]
+        assert lock.args[1]==('duplicate:personal:101',)
+        insert=next(c for c in cursor.execute.call_args_list if 'INSERT INTO duplicate_walls' in c.args[0])
+        assert insert.args[1][1:4]==(101,None,'personal')
+    else:
+        with pytest.raises(ValueError,match='限额'):
+            store.create(data,event_id=None,owner_id=101,name='personal')
+        conn.rollback.assert_called_once()
     db._put_connection.assert_called_once_with(conn)

@@ -117,7 +117,7 @@ public partial class CreatePanel : MonoBehaviour {
     private bool SupportsDuplicateWall => _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
         && !GuobiaoGameState.IsTransparentSubRule(GetSelectedSubRule())
         && !GuobiaoGameState.UsesAsyncLocalTips(GetSelectedSubRule());
-    private string SelectedDuplicateKey => SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn
+    private string SelectedDuplicateKey => IsSichuanDuplicate || (SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn)
         ? DuplicateKeyInput?.text.Trim() ?? "" : "";
 
     [Header("按钮")]
@@ -345,6 +345,12 @@ public partial class CreatePanel : MonoBehaviour {
             case CreateRoomKeys.UseFlowers:
                 if (GuobiaoFlowersToggle != null) GuobiaoFlowersToggle.SetIsOnWithoutNotify((bool)value);
                 break;
+            case CreateRoomKeys.JinluoMode:
+                if (JinluoModeToggle) JinluoModeToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.JinluoWeather:
+                if (JinluoWeatherDropdown) JinluoWeatherDropdown.SetValueWithoutNotify(Math.Max(0, Array.IndexOf(JinluoRules.WeatherKeys, (string)value)));
+                break;
             case CreateRoomKeys.NoJokerBonus:
                 if (HuahunBonusDropdown) HuahunBonusDropdown.SetValueWithoutNotify(HuahunRules.BonusIndex((string)value));
                 break;
@@ -419,7 +425,7 @@ public partial class CreatePanel : MonoBehaviour {
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
-        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi && !isBloodBattle && !isSichuanDoubles
+        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !IsJinluoEnabled && !isLanshi && !isBloodBattle && !isSichuanDoubles
             && (_ruleState != "shanghai" || IsShanghaiQiaoma);
         RefreshHepaiLimitCaption();
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
@@ -451,6 +457,7 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshShanghaiControls();
         RefreshFuzhouControls();
         SetCommonCreateControlsVisible(visible);
+        RefreshJinluoControls();
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
         RefreshDetailedConfigEntry();
@@ -471,7 +478,7 @@ public partial class CreatePanel : MonoBehaviour {
         CreateRoomSubRuleTextConfig subRule = CreateRoomRuleTextConfigCatalog
             .GetRule(_ruleState)
             .GetSubRule(SubRuleDropdown.value);
-        createButton.interactable = !SichuanLobby.IsDuplicate(GetSelectedSubRule());
+        createButton.interactable = true;
         SubRuleDescriptionText.text = subRule != null ? subRule.Description : "";
         if (_ruleState == "hongkong") SubRuleDescriptionText.text = HongKong_Create_RoomConfig.SourceDescription(GetSelectedSubRule(),BuildDetailedConfigValues("hongkong"));
         SubRuleDescriptionText.ForceMeshUpdate();
@@ -569,7 +576,7 @@ public partial class CreatePanel : MonoBehaviour {
         if (DuplicateWallToggle != null) {
             bool supported = SupportsDuplicateWall;
             DuplicateWallToggle.gameObject.SetActive(supported);
-            if (!supported) {
+            if (!supported && !IsSichuanDuplicate) {
                 DuplicateWallToggle.isOn = false;
                 if (DuplicateKeyInput != null) DuplicateKeyInput.text = "";
                 if (DuplicateWallPanel != null) DuplicateWallPanel.SetActive(false);
@@ -596,7 +603,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void RefreshDuplicateWallOptions() {
-        bool enabled = SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn;
+        bool enabled = IsSichuanDuplicate || (SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn);
         if (AllowSpectatorToggle != null) {
             if (enabled && !_duplicateWasEnabled) _spectatorBeforeDuplicate = AllowSpectatorToggle.isOn;
             if (!enabled && _duplicateWasEnabled && SupportsDuplicateWall) AllowSpectatorToggle.isOn = _spectatorBeforeDuplicate;
@@ -775,7 +782,7 @@ public partial class CreatePanel : MonoBehaviour {
         RoomCreationRequest request = BuildRoomRequest();
         if (!request.IsValid) {
             if (request.FocusHepaiLimit) HepaiLimitInput.ActivateInputField();
-            NotificationManager.Instance.ShowTip("create_room", false, request.Error);
+            NotificationManager.Instance.ShowTip("create_room", false, request.Error, -1f, _ruleState);
             return;
         }
         if (TrySubmitEventPreset(request)) return;
@@ -783,8 +790,6 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     internal RoomCreationRequest BuildRoomRequest() {
-        if (SichuanLobby.IsDuplicate(GetSelectedSubRule()))
-            return RoomCreationRequest.Invalid(SichuanLobby.DuplicateCreationMessage);
         RuleManifest manifest = RuleRegistry.Resolve(_ruleState);
         return manifest?.BuildRoom == null
             ? RoomCreationRequest.Invalid("该规则尚未注册建房模块")
@@ -794,6 +799,7 @@ public partial class CreatePanel : MonoBehaviour {
     private static string GetDefaultRoomName() {
         string name = UserDataManager.Instance ? UserDataManager.Instance.Username : null;
         if (string.IsNullOrEmpty(name)) name = PlatformText.Get("未知用户");
+        if (PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage)) return PlatformText.Format("{0}的游戏", name);
         return ConfigManager.CurrentLanguage == AppLanguage.English ? name + "'s game"
             : name + (ConfigManager.CurrentLanguage == AppLanguage.TraditionalChinese ? "的遊戲" : "的游戏");
     }

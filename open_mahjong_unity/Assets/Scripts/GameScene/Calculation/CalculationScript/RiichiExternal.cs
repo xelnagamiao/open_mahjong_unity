@@ -32,6 +32,15 @@ public static class RiichiExternal {
         return new RiichiHandCalculator().Calculate(handList, tilesCombination, winTile, context);
     }
 
+    /// <summary>听牌提示专用试算；牌张是否剩余由提示栏的枚数和底色表达。</summary>
+    public static RiichiHandResult WaitHintHepaiCheck(
+        List<int> handList,
+        List<string> tilesCombination,
+        int winTile,
+        RiichiHandContext context) {
+        return new RiichiHandCalculator().CalculateWaitHint(handList, tilesCombination, winTile, context);
+    }
+
     public static HashSet<int> TingpaiCheck(
         List<int> handTileList,
         List<string> combinationList,

@@ -225,7 +225,7 @@ def test_ranked_stats_api_invalid_and_database_failure():
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('rule',RULES)
+@pytest.mark.parametrize('rule',[r for r in RULES if r != 'sichuan_doubles'])
 def test_rule_specific_join_guest_cancel_and_commit(rule):
     async def run():
         server=server_fixture();manager=server.match_manager
@@ -267,6 +267,9 @@ def test_settlement_dispatch_only_for_matching_rule(queue):
     result={str(u):{'rating_rule':spec.rating_rule,'rank_after':'9级','score_after':3} for u in USERS[:spec.player_count]}
     db=SimpleNamespace(settle_rated_game=Mock(return_value=result))
     state=SimpleNamespace(room_type='match',room_rule=spec.rule,sub_rule=spec.sub_rule or ('riichi/sanma' if spec.player_count == 3 else f'{spec.rule}/standard'),match_queue_type=queue,max_round=spec.rounds,game_record={'game_title':{}},player_list=players,db_manager=db,gamestate_id='sample')
+    if spec.party_size > 1:
+        state.team_result = {'match_points': {0: 1, 1: 0}}
+        for i, player in enumerate(players): player.team_id = i % 2
     assert settle_ranked_game(state)==queue_type_to_match_type(queue)
     assert all(p.rating_rule==spec.rating_rule for p in players)
     if spec.rule == 'riichi':

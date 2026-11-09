@@ -28,6 +28,13 @@ public partial class RoundEndPresentation : MonoBehaviour {
         if (presentationCanvasGroup == null) {
             presentationCanvasGroup = GetComponent<CanvasGroup>();
         }
+        // Table controls use their own canvas at order 10. All round/match result
+        // views must draw and receive clicks above those controls as one group.
+        var resultCanvas = GetComponent<Canvas>();
+        if (resultCanvas == null) resultCanvas = gameObject.AddComponent<Canvas>();
+        UiCanvasLayers.Apply(resultCanvas, UiCanvasLayers.Board, UiCanvasLayers.SettlementOrder);
+        if (GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
+            gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
     }
 
     /// <summary>隐藏 2D 操作区；仅自家和牌时 revealSelfHand 为 true，会生成 3D 明牌。</summary>

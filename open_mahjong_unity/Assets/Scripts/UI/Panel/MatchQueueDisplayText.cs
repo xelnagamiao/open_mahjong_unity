@@ -8,6 +8,7 @@ public static class MatchQueueDisplayText {
     /// 与 <see cref="MatchButton"/> 的 QueueType 一致，例如 beginner_banzhuang。在此写死即可单独覆盖展示，不写则走默认拼接。
     /// </summary>
     public static readonly Dictionary<string, string> ExplicitTitles = new Dictionary<string, string> {
+        { PartyNetworkManager.Queue, "川麻血战·2V2-Elo 匹配-半庄战（8副）" },
         { "qingque_elo_quanzhuang", "青雀-Elo 匹配-全庄战（16局）" },
         { "qingque_elo_unlimited", "青雀-Elo 匹配-无固定时限" },
         // Keep the transport ID while showing the current eight-hand length.

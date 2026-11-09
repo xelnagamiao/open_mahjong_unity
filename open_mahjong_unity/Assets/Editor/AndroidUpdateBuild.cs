@@ -31,6 +31,7 @@ public sealed class AndroidUpdateBuild : IPostprocessBuildWithReport {
             schemaVersion = 1, versionName = versionName, versionCode = versionCode,
             releaseVersion = releaseVersion, packageName = packageName, file = Path.GetFileName(apk),
             sizeBytes = new FileInfo(apk).Length, sha256 = digest, notes = "",
+            baseVersion = ConfigManager.base_version,
         };
         string destination = Path.Combine(Path.GetDirectoryName(apk), "android-update.json");
         string temporary = destination + ".tmp";

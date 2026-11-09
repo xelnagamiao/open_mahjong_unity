@@ -686,16 +686,16 @@ onMounted(() => {
   margin-top: 0;
 }
 
-.home:lang(fr) .panel-actions {
+.home:is(:lang(fr), :lang(de), :lang(ru)) .panel-actions {
   flex-wrap: wrap;
 }
 
-.home:lang(fr) .grid > * {
+.home:is(:lang(fr), :lang(de), :lang(ru)) .grid > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.home:lang(fr) .ad-slot {
+.home:is(:lang(fr), :lang(de), :lang(ru)) .ad-slot {
   padding: 16px;
   text-align: center;
 }
@@ -905,13 +905,13 @@ onMounted(() => {
 }
 
 @media (max-width: 560px) {
-  .home:lang(fr) .g3,
-  .home:lang(fr) .g4,
-  .home:lang(fr) .g2 {
+  .home:is(:lang(fr), :lang(de), :lang(ru)) .g3,
+  .home:is(:lang(fr), :lang(de), :lang(ru)) .g4,
+  .home:is(:lang(fr), :lang(de), :lang(ru)) .g2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .home:lang(fr) .ad-slot {
+  .home:is(:lang(fr), :lang(de), :lang(ru)) .ad-slot {
     grid-column: auto;
   }
 

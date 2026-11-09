@@ -110,7 +110,6 @@ def test_late_single_ready_keeps_other_humans_pending(monkeypatch, adapter):
 DRIVER_RULES = [
     ("game_zhongyong", "ZhongyongGameState"),
     ("game_zhongyong", "NanqueGameState"),
-    ("game_jiandan", "JiandanGameState"),
     ("game_guizhou", "GuizhouGameState"),
     ("game_hangzhou", "HangzhouGameState"),
     ("game_fuzhou", "FuzhouGameState"),

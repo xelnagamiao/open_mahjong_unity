@@ -216,6 +216,8 @@ public partial class NormalGameStateManager {
         }
         roomId = gameInfo.room_id; // 存储房间ID
         roomType = gameInfo.room_type;
+        Session.MatchTier = gameInfo.match_tier;
+        Session.MatchQueueType = gameInfo.match_queue_type;
         roomRule = gameInfo.room_rule;
         subRule = gameInfo.sub_rule;
         // 规则清单/族 GameState 与 roomRule 同步：核心其余部分通过 RuleRegistry.Current / ActiveGameState 取规则差异

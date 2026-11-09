@@ -13,6 +13,7 @@ from psycopg2.pool import ThreadedConnectionPool
 from server.database.inventory import InventoryError, ensure_inventory_tables, get_inventory
 from server.database.mail import ensure_mail_tables, list_mail, read_mail, claim_mail, send_mail
 from server.database.mail_router import handle_mail_message
+from server.database.mail_router import register_mail_routes
 
 
 @unittest.skipUnless(os.environ.get('INVENTORY_TEST_DATABASE_URL'), 'requires PostgreSQL test connection')
@@ -139,8 +140,53 @@ class MailDatabaseTests(unittest.TestCase):
             self.send(request_id=key, title='另一封邮件')
         self.assertEqual(self.sql('SELECT COUNT(*) FROM player_mail'), [(1,)])
 
+    def test_eight_rewards_limit_and_audit_channel(self):
+        self.sql('''INSERT INTO item_definitions
+            (item_id,code,name,category,asset_key,slot,max_quantity,is_default,grant_enabled,use_enabled)
+            SELECT n,'mail_test_'||n,'测试附件 '||n,'item','item.grass_tile','',1000000,FALSE,TRUE,TRUE
+            FROM generate_series(9001,9009) n''')
+        rewards = [dict(item_id=i, quantity=2) for i in range(9001, 9009)]
+        mail = self.send(rewards=rewards)
+        self.assertEqual(len(mail['rewards']), 8)
+        claimed = claim_mail(self.db, 101, mail['mail_id'])
+        self.assertTrue(claimed['mail']['claimed'])
+        self.assertEqual(self.sql('SELECT COUNT(*) FROM inventory_ledger'), [(8,)])
+        self.assertEqual(self.sql('SELECT action FROM admin_audit_log'), [('mail.send',)])
+        for bad in (rewards + [dict(item_id=9009,quantity=1)],
+                    [dict(item_id=9001,quantity=1),dict(item_id=9001,quantity=2)]):
+            with self.assertRaises(InventoryError):
+                self.send(rewards=bad)
+
+    def test_plain_notification_is_readable_without_inventory_mutation(self):
+        mail = self.send(rewards=[])
+        self.assertEqual(read_mail(self.db, 101, mail['mail_id'])['mail']['rewards'], [])
+        with self.assertRaisesRegex(InventoryError, '没有可领取'):
+            claim_mail(self.db, 101, mail['mail_id'])
+        self.assertEqual(self.sql('SELECT COUNT(*) FROM inventory_operations'), [(0,)])
+
 
 class MailTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_admin_delivery_notifies_online_player_once(self):
+        from fastapi import FastAPI
+        import httpx
+        sent = []
+        async def send_json(value): sent.append(value)
+        server = SimpleNamespace(db_manager=object(), user_id_to_connection={
+            101: SimpleNamespace(websocket=SimpleNamespace(send_json=send_json))})
+        app = FastAPI()
+        register_mail_routes(app, server)
+        with patch('server.database.mail_router._verify_admin', return_value=999), \
+                patch('server.database.mail_router.send_mail', side_effect=[
+                    dict(mail=dict(mail_id=1), duplicate=False),
+                    dict(mail=dict(mail_id=1), duplicate=True)]):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                self.assertEqual((await client.post('/admin/mail', json={})).status_code, 401)
+                first = await client.post('/admin/mail', headers={'Authorization':'Bearer test'}, json={'user_id':101})
+                again = await client.post('/admin/mail', headers={'Authorization':'Bearer test'}, json={'user_id':101})
+        self.assertTrue(first.json()['synced_online'])
+        self.assertFalse(again.json()['synced_online'])
+        self.assertEqual(sent, [dict(type='mail/changed', success=True)])
+
     async def test_requires_login_and_ignores_forged_recipient(self):
         sent = []
         async def send_json(value): sent.append(value)

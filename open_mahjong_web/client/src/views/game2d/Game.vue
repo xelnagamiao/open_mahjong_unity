@@ -225,12 +225,12 @@
 
                     <div
                       class="end-result-total"
-                      aria-label="总番数"
+                      :aria-label="translateRuleText('总番数', locale, resultRule)"
                       :class="{ 'is-visible': showResultTotal }"
                     >
                       <div class="end-result-total__line">
                         <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                        <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span>
+                        <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>{{ formatFanUnit(roundResult.hu_score ?? 0, locale, resultRule) }}</span>
                       </div>
                     </div>
 
@@ -483,7 +483,7 @@ import {
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
-import { formatFanCount, translateFanName } from '@/i18n/fanNames'
+import { formatFanCount, formatFanUnit, translateFanName, translateRuleText } from '@/i18n/fanNames'
 import { locale, tr } from '@/i18n'
 import {
   buildSettlementMeldGroups,
@@ -788,17 +788,18 @@ function scrollSettlementHand(event) {
   hand.scrollLeft = nextScrollLeft
 }
 
+const resultRule = computed(() => roundResult.value?.rule || adapter?.gameInfo?.sub_rule || 'guobiao')
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
-  if (adapter?.gameInfo?.sub_rule === "guobiao/huahun" && huahunFanPoints(name) != null) return {name, value: `${huahunFanPoints(name)}番`}
+  if (adapter?.gameInfo?.sub_rule === "guobiao/huahun" && huahunFanPoints(name) != null) return { name: translateFanName(name, locale.value, resultRule.value), value: formatFanCount(huahunFanPoints(name), locale.value, resultRule.value) }
   if (adapter?.gameInfo?.sub_rule === 'guobiao/lanshi') {
     const points = lanshiFanPoints(name)
-    return { name: translateFanName(name), value: points == null ? '' : `${points}分` }
+    return { name: translateFanName(name, locale.value, resultRule.value), value: points == null ? '' : translateRuleText(`${points}分`, locale.value, resultRule.value) }
   }
   const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
   return {
-    name: translateFanName(name),
+    name: translateFanName(name, locale.value, resultRule.value),
     value: definition
-      ? formatFanCount(totalValue ?? formatFanField(definition.fan))
+      ? formatFanCount(totalValue ?? formatFanField(definition.fan), locale.value, resultRule.value)
       : '',
   }
 }))
@@ -857,7 +858,7 @@ function updateSidebarPlayers() {
 }
 
 function pickScoreboardMainFan(fans) {
-  if (fans.includes('错和')) return translateFanName('错和')
+  if (fans.includes('错和')) return '错和'
   const fan = [...fans]
     .filter((fan) => !String(fan).startsWith('花牌'))
     .sort((left, right) => {
@@ -865,7 +866,7 @@ function pickScoreboardMainFan(fans) {
       const rightValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(right) ?? 0 : (adapter?.gameInfo?.sub_rule === 'guobiao/huahun' ? huahunFanPoints(right) : null) ?? resolveFanLabel(right, ['guobiao']).totalValue ?? 0
       return rightValue - leftValue
     })[0]
-  return fan ? translateFanName(fan) : '—'
+  return fan || '—'
 }
 
 function appendScoreboardResult(result) {

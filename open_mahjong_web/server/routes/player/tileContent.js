@@ -102,7 +102,7 @@ function catalogRow(row) {
 function sendMulter(req, res, next) {
   upload.single('file')(req, res, (err) => {
     if (!err) return next();
-    const message = err.code === 'LIMIT_FILE_SIZE' ? '压缩包过大（超过 20MB）' : err.message || '上传失败';
+    const message = err.code === 'LIMIT_FILE_SIZE' ? `压缩包过大（超过 ${MAX_UNCOMPRESSED / 1024 / 1024}MB）` : err.message || '上传失败';
     return res.status(400).json({ success: false, message });
   });
 }

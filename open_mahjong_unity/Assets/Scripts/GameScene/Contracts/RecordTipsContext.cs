@@ -7,6 +7,8 @@ public class RecordTipsContext {
     public string RoomRule;
     public string SubRule;
     public int HepaiLimit;
+    public bool JinluoMode;
+    public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";
     public bool BlackFlowerProgressive = true;

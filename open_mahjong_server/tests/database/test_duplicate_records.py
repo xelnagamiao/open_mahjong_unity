@@ -135,7 +135,7 @@ def test_store_links_same_reserved_game_and_rechecks_record_lock(duplicate_db, w
         DatabaseManager.get_record_by_id(db, game_id)
 
 
-@pytest.mark.parametrize("rule", ["qingque", "classical", "changsha", "sichuan", "riichi", "jiandan", "taiwan"])
+@pytest.mark.parametrize("rule", ["qingque", "classical", "changsha", "sichuan", "riichi", "nanque", "taiwan"])
 def test_historical_non_guobiao_records_keep_locks_but_cannot_start_new_games(duplicate_db, rule):
     db = duplicate_db
     wall_id = insert_wall(db, rule)

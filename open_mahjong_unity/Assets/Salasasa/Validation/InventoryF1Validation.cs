@@ -103,8 +103,8 @@ namespace Salasasa.Home {
             Check(Get<TMP_Text>(panel,"detailCount").text.Contains("10"),"use response refreshes owned quantity");
             yield return Snap("consumable");
             Hit(Get<UnityEngine.UI.Button>(panel,"renameButton"));yield return Settle();
-            Check(FindObjectsByType<TMP_Text>().Any(text=>text.text.Contains("需要在浏览器中打开个人账户面板")),"rename confirmation opens before navigation");
-            var cancel=FindObjectsByType<UnityEngine.UI.Button>().First(button=>button.GetComponentInChildren<TMP_Text>()?.text=="取消");
+            Check(FindObjectsByType<TMP_Text>(UnityEngine.FindObjectsSortMode.None).Any(text=>text.text.Contains("需要在浏览器中打开个人账户面板")),"rename confirmation opens before navigation");
+            var cancel=FindObjectsByType<UnityEngine.UI.Button>(UnityEngine.FindObjectsSortMode.None).First(button=>button.GetComponentInChildren<TMP_Text>()?.text=="取消");
             var confirmation=cancel.GetComponentInParent<MessagePrefab>();Hit(cancel);
             yield return Until(()=>!confirmation,3,"rename cancellation completes its exit transition");yield return Settle();
             Hit(categories[2]);yield return Settle();Check(Get<TMP_Text>(panel,"emptyText").gameObject.activeSelf,"character empty state preserved");Check(!equip.gameObject.activeSelf,"empty category hides action");yield return Snap("empty-character");

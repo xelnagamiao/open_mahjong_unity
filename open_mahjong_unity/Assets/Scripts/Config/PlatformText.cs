@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 
 /// <summary>Presentation-only translations. Never use translated strings as protocol or option values.</summary>
-public static class PlatformText
+public static partial class PlatformText
 {
     [Serializable] public sealed class Entry { public string key, zh, tw, en; }
     [Serializable] sealed class Catalog { public Entry[] entries; public string traditionalCharacters; }
@@ -42,14 +42,16 @@ public static class PlatformText
         }
         string pairs=catalog?.traditionalCharacters??"";
         for(int i=0;i+1<pairs.Length;i+=2)traditional[pairs[i]]=pairs[i+1];
-        foreach(var entry in entries.Values.OrderByDescending(e=>e.key.Length)){
+        // Literal wording determines specificity; placeholder names must not make
+        // "{count}巡" take precedence over "第{0}巡".
+        foreach(var entry in entries.Values.OrderByDescending(e=>Placeholders.Replace(e.key, "").Length).ThenByDescending(e=>e.key.Length)){
             var matches=Placeholders.Matches(entry.key);
             if(matches.Count==0||!HasChinese(entry.key))continue;
             var pattern=new StringBuilder("^");int offset=0;
             var tokens=new string[matches.Count];
             for(int i=0;i<matches.Count;i++){
                 var m=matches[i];pattern.Append(Regex.Escape(entry.key.Substring(offset,m.Index-offset)));
-                bool numericSuffix=matches.Count==1&&Regex.IsMatch(entry.key,@"^\{[^}]+\}\s*[位名级段人场局副番符点分张件秒页条圈]$");
+                bool numericSuffix=matches.Count==1&&Regex.IsMatch(entry.key,@"^\{[^}]+\}\s*[位名级段人场局副番符点分张件秒页条圈巡]$");
                 pattern.Append("(?<v").Append(i).Append(numericSuffix?">[+−\\-]?[\\d,.]+)":">.+?)");tokens[i]=m.Value;offset=m.Index+m.Length;
             }
             pattern.Append(Regex.Escape(entry.key.Substring(offset))).Append('$');
@@ -63,6 +65,7 @@ public static class PlatformText
     public static string Get(string key,AppLanguage language)
     {
         if(string.IsNullOrEmpty(key))return key??"";
+        if(HasLocaleCatalog(language))return GetLocale(key,language);
         Load();
         if(entries.TryGetValue(key,out var entry)||normalized.TryGetValue(Normalize(key),out entry))
             return language==AppLanguage.English?entry.en:language==AppLanguage.TraditionalChinese?entry.tw:entry.zh;

@@ -176,8 +176,8 @@
 .replay-viewpoints small { color: #b8bdbe; font-size: 10px; }
 .replay-viewpoints button.is-active small { color: rgba(255, 255, 255, 0.8); }
 .replay-winners button { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
-.replay-page:lang(fr) .replay-viewpoints button { grid-template-columns: 50px minmax(0, 1fr); column-gap: 6px; }
-.replay-page:lang(fr) .replay-primary-button { white-space: normal; line-height: 1.2; padding: 6px 8px; }
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-viewpoints button { grid-template-columns: 50px minmax(0, 1fr); column-gap: 6px; }
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-primary-button { white-space: normal; line-height: 1.2; padding: 6px 8px; }
 .replay-meta {
   display: flex;
   min-height: 92px;
@@ -304,7 +304,7 @@
   background: rgba(42, 91, 148, 0.92);
 }
 
-.replay-page:lang(fr) .replay-board-tools {
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board-tools {
   position: static;
   flex: 0 0 auto;
   display: grid;
@@ -312,20 +312,20 @@
   margin: 8px;
 }
 
-.replay-page:lang(fr) .replay-board-tools button {
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board-tools button {
   min-width: 0;
   padding: 6px 10px;
   white-space: normal;
 }
 
 @media (min-width: 861px) {
-  .replay-page:lang(fr) .replay-board {
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board {
     container: replay-board / size;
   }
 }
 
 @container replay-board (min-width: 800px) and (min-height: 440px) and (min-aspect-ratio: 1.22 / 1) {
-  .replay-page:lang(fr) .replay-board-tools {
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board-tools {
     position: absolute;
     display: flex;
     width: clamp(100px, calc((100cqw - 100cqh) / 2 + 30px), 180px);
@@ -333,8 +333,9 @@
   }
 }
 
-.replay-page:lang(fr) .replay-controls__row { flex-wrap: wrap; }
-.replay-page:lang(fr) .replay-controls__status { white-space: normal; }
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-controls__row { flex-wrap: wrap; }
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-controls button.is-play { width: auto; min-width: 72px; padding: 0 9px; flex: 0 0 auto; }
+.replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-controls__status { white-space: normal; }
 
 .replay-wall-layer {
   position: absolute;
@@ -528,7 +529,7 @@
 .replay-state__card button { min-height: 34px; padding: 0 16px; border-radius: 5px; }
 
 @media (max-width: 860px) {
-  .replay-page:lang(fr) .replay-board > .game-stage {
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board > .game-stage {
     flex: 0 0 auto;
     height: calc(100vw - 18px);
   }
@@ -542,12 +543,12 @@
 }
 
 @media (max-width: 560px) {
-  .replay-page:lang(fr) .replay-board-tools {
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-board-tools {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .replay-page:lang(fr) .replay-settings-layer { position: fixed; padding: 12px; }
-  .replay-page:lang(fr) .replay-settings-panel { width: 100%; padding: 18px 16px; }
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-settings-layer { position: fixed; padding: 12px; }
+  .replay-page:is(:lang(fr), :lang(de), :lang(ru)) .replay-settings-panel { width: 100%; padding: 18px 16px; }
 
   .replay-controls { margin: 0 5px 5px; }
   .replay-controls__status { font-size: 10px; }

@@ -1,12 +1,16 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 客户端显示语言；平台主页文案由 PlatformText 提供三语翻译。
+/// 客户端显示语言；平台主页文案由 PlatformText 提供本地化翻译。
 /// </summary>
 public enum AppLanguage {
     SimplifiedChinese = 0,
     TraditionalChinese = 1,
     English = 2,
+    French = 3,
+    German = 4,
+    Russian = 5,
+    Japanese = 6,
 }
 
 /// <summary>

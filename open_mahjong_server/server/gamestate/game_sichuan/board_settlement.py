@@ -1,5 +1,8 @@
 """Authoritative, board-end-only presentation data for SBR doubles."""
 from copy import deepcopy
+import time
+
+from ..public.round_end_timing import ROUND_END_PRESENTATION_FADE_SEC
 
 
 def event_snapshot(state, seat, *, win_tile=0, hu_order=0):
@@ -10,9 +13,13 @@ def event_snapshot(state, seat, *, win_tile=0, hu_order=0):
                 melds=deepcopy(player.combination_mask), win_tile=win_tile, hu_order=hu_order)
 
 
-def ready_seconds(state):
-    return 8 + (getattr(state, '_sbr_presentation_ms', 0) / 1000
-                if state.is_doubles and not getattr(state, 'is_xueliu', False) else 0)
+def ready_seconds(state, *, clock=None):
+    if not state.is_doubles or getattr(state, 'is_xueliu', False):
+        return 8
+    duration = ROUND_END_PRESENTATION_FADE_SEC + getattr(state, '_sbr_presentation_ms', 0) / 1000
+    started = getattr(state, '_sbr_presentation_started_at', None)
+    elapsed = 0 if started is None else max(0, (clock or time.monotonic)() - started)
+    return 8 + max(0, duration - elapsed)
 
 
 class BoardSettlement:
@@ -24,14 +31,14 @@ class BoardSettlement:
             detail='', presentation=None, phase='play'):
         self.events.append(dict(kind=kind, seat=seat, source=source, fans=list(fans or []),
                                 fan=fan, points=points, per_payer=per_payer, detail=detail,
-                                phase=phase, duration_ms=3000 if kind in ('ron', 'zimo') else 2500,
+                                phase=phase, duration_ms=2500,
                                 **deepcopy(presentation or {}),
                                 changes={i: changes.get(i, 0) for i in range(4)}))
 
     def kongs(self, state):
         names = {'guafeng': '明杠', 'xiayu1': '加杠', 'xiayu2': '暗杠', 'non_timely': '加杠'}
         reasons = {'non_timely': '非及时', 'no_payer': '不计分', 'gang_shang_pao': '杠上炮退税',
-                   'no_ting': '未听退税', 'robbed_kong': '被抢杠'}
+                   'no_ting': '没叫退税', 'robbed_kong': '被抢杠'}
         for player in state.player_list:
             for rec in player.gang_score_records:
                 if not rec.get('deferred'):
@@ -98,6 +105,7 @@ async def publish_board(state, builder, statuses, max_fans, skip_chajiao):
 
     summary = builder.finish(state, statuses, max_fans, skip_chajiao)
     state._sbr_presentation_ms = summary['presentation_ms']
+    state._sbr_presentation_started_at = time.monotonic()
     state._sichuan_grouped_endgame = False
     state._liuju_final_panel_shown = True
     state.next_status = 'match_end' if state.current_round >= summary['max_rounds'] else 'round_end_by_ready'

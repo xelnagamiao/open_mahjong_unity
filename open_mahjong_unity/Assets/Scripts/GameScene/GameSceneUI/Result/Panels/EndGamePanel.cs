@@ -14,11 +14,14 @@ public partial class EndGamePanel : MonoBehaviour {
         public TextMeshProUGUI score;
         public TextMeshProUGUI rank;
         public TextMeshProUGUI pt;
+        public TextMeshProUGUI currency;
+        public Image currencyIcon;
     }
 
     [SerializeField] private TextMeshProUGUI gameRandomSeed;
     [SerializeField] private Button goHomeButton;
     [SerializeField] private Button copyMasterSeedButton;
+    [SerializeField] private Button returnToTableButton;
 
     public static EndGamePanel Instance { get; private set; }
 
@@ -53,10 +56,17 @@ public partial class EndGamePanel : MonoBehaviour {
         string commitment,
         string salt,
         Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch = null) {
+        SetRecordReturnAction(null);
+        ShowGameEndPanelContent(master_seed, commitment, salt, player_final_data, sichuanMatch);
+    }
+
+    private void ShowGameEndPanelContent(string master_seed, string commitment, string salt,
+        Dictionary<string, Dictionary<string, object>> player_final_data, SichuanMatchSettlementInfo sichuanMatch) {
         RestoreSichuanMatchChildren();
         gameObject.SetActive(true);
-        AutoAction.Instance?.DismissTimeoutReturnIfAny();
+        if (!IsRecordResult) AutoAction.Instance?.DismissTimeoutReturnIfAny();
         fadeInEffect?.PlayFadeIn();
+
 
         var sorted = player_final_data
             .Select(kv => kv.Value)
@@ -78,6 +88,7 @@ public partial class EndGamePanel : MonoBehaviour {
                 display.score.text = "";
                 display.rank.text = "";
                 display.pt.text = "";
+                if (display.currency) display.currency.text = "";
             }
         }
 
@@ -89,13 +100,13 @@ public partial class EndGamePanel : MonoBehaviour {
                 ? System.Convert.ToInt32(playerData["user_id"])
                 : 0;
             display.username.text = StreamerModeHelper.FormatGamestatePlayerName(username, null, userId);
-            display.score.text = playerData["score"].ToString();
+            display.score.text = FinalScoreText(playerData["score"]);
             display.rank.text = playerData["rank"].ToString();
-            display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F2}";
-            if (playerData.TryGetValue("rating_rule",out object pointRule) && pointRule?.ToString()=="qingque"
-                && playerData.TryGetValue("rating_completed_hands",out object pointHands) && pointHands!=null
-                && playerData.TryGetValue("elo_delta",out object pointDelta) && pointDelta!=null)
-                display.pt.text=$"{System.Convert.ToDouble(pointDelta):+0.00;-0.00;0.00} Elo";
+            display.pt.text = RatingPointMarkup(FinalRatingText(playerData));
+            if (display.currency) {
+                bool saved = playerData.TryGetValue("currency_delta_minor", out object amount) && amount != null;
+                display.currency.text = saved ? "+" + ShopPanel.Money(System.Convert.ToInt64(amount)) : "—";
+            }
             if (playerData.TryGetValue("competition_points", out object competitionPoints) && competitionPoints != null)
                 display.pt.text = $"{System.Convert.ToSingle(competitionPoints):0.#}盘分";
             if (playerData.TryGetValue("team_id", out object teamId) && teamId != null) {
@@ -107,36 +118,38 @@ public partial class EndGamePanel : MonoBehaviour {
                 bool captain = role == "captain" || role == "assistant";
                 display.username.text = (captain ? WashizuDoubles.RoleLabel(System.Convert.ToInt32(teamId), role) : teamName) + " · " + display.username.text;
                 display.rank.text = points == .5f ? "平" : points == 1 ? "胜" : "负";
-                display.score.text = "个人 " + playerData["score"];
+                display.score.text = FinalScoreText(playerData["score"]);
                 string scoreUnit = scoring == "imp" ? "IMP" : scoring == "raw_difference" ? "副差分" : "队分";
                 display.pt.text = paired
-                    ? $"<line-height=20><size=20>全队 {playerData["team_score"]} {scoreUnit}\n两室合计</size></line-height>"
-                    : $"<line-height=20><size=20>队分 {playerData["team_score"]}\n{points:0.#}盘分</size></line-height>";
-                if (captain) display.pt.text = $"<line-height=20><size=20>主将 {playerData["team_score"]}点\n{points:0.#}比赛分</size></line-height>";
+                    ? $"全队 {playerData["team_score"]} {scoreUnit} · 两室合计"
+                    : $"队分 {playerData["team_score"]} · {points:0.#}盘分";
+                if (captain) display.pt.text = $"主将 {playerData["team_score"]}点 · {points:0.#}比赛分";
                 if (paired && playerData.TryGetValue("team_small_score", out object smallScore) && smallScore != null
                     && playerData.TryGetValue("team_imp_score", out object impScore) && impScore != null)
-                    display.pt.text = $"<line-height=20><size=20>全队 {smallScore} 副分\n{impScore} IMP</size></line-height>";
+                    display.pt.text = $"全队 {smallScore} 副分 · {impScore} IMP";
             }
         }
         normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
-        gameRandomSeed.text = "主种子: " + normalizedMasterSeed
-            + "\n承诺: " + CommitmentSaltDisplay.NormalizeCommitment(commitment)
-            + "\n盐: " + (string.IsNullOrEmpty(salt) ? "-" : salt);
+        SetVerificationText(normalizedMasterSeed, commitment, salt);
         var teamResult = sorted.FirstOrDefault(v => v.ContainsKey("team_result_reason"));
+        string resultNotice = null;
         if (teamResult != null) {
             string reason = teamResult["team_result_reason"]?.ToString();
-            bool captain = teamResult.TryGetValue("team_role", out object roleValue) && roleValue != null;
-            string reasonLabel = captain ? WashizuDoubles.ResultReason(reason) : reason == "last_positive_board" ? "同分，追平队胜"
-                : reason == "draw" ? "平局，各0.5盘分" : "按团队累计副分";
-            gameRandomSeed.text = "<size=24>双打判定：" + reasonLabel + "\n" + gameRandomSeed.text + "</size>";
+            bool isDraw = reason == "draw" || (teamResult.TryGetValue("team_match_points", out object teamMatchPoints)
+                && teamMatchPoints != null && System.Convert.ToSingle(teamMatchPoints) == .5f);
+            resultNotice = isDraw ? "平局：各0.5盘分"
+                : reason == "last_positive_board" ? "追平：同分追平队胜" : null;
         }
-        if (GameSession.Current.IsDuplicate) {
+        if (!IsRecordResult && GameSession.Current.IsDuplicate) {
             string scoring = teamResult?["team_result_reason"]?.ToString();
             string title = scoring == "imp" ? "血战双打复式\n按 IMP 判定" : scoring == "raw_difference" ? "血流双打复式\n按副分判定" : "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType);
             gameRandomSeed.text = title
                 + "\n牌谱须在密钥解除锁定后到数据站查看，不保存本地牌谱。";
         }
-        if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(!GameSession.Current.IsDuplicate);
+        if (!string.IsNullOrEmpty(resultNotice)) {
+            gameRandomSeed.text = resultNotice + "\n\n" + gameRandomSeed.text;
+        }
+        if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(IsRecordResult ? normalizedMasterSeed != "-" : !GameSession.Current.IsDuplicate);
 
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
@@ -147,7 +160,7 @@ public partial class EndGamePanel : MonoBehaviour {
         ratingGameMultiplier=ratingTierMultiplier=1;
         ratingRankCost=0;
         string myUsername = PlayerSession.Current.Username;
-        foreach (var d in player_final_data.Values) {
+        if (!IsRecordResult) foreach (var d in player_final_data.Values) {
             bool samePlayer=d.TryGetValue("user_id",out var uid)&&uid!=null
                 ? System.Convert.ToInt32(uid)==PlayerSession.Current.UserId : d["username"].ToString()==myUsername;
             if (!samePlayer) {
@@ -188,18 +201,27 @@ public partial class EndGamePanel : MonoBehaviour {
         // 设置按钮点击事件
         goHomeButton.onClick.RemoveAllListeners();
         goHomeButton.onClick.AddListener(OnGoHomeButtonClick);
+        if (returnToTableButton) {
+            returnToTableButton.onClick.RemoveAllListeners();
+            returnToTableButton.onClick.AddListener(() => recordReturnAction?.Invoke());
+            returnToTableButton.gameObject.SetActive(IsRecordResult && sichuanMatch == null);
+        }
         if (copyMasterSeedButton != null) {
             copyMasterSeedButton.onClick.RemoveAllListeners();
-            copyMasterSeedButton.onClick.AddListener(OnCopyMasterSeedClick);
+            copyMasterSeedButton.onClick.AddListener(OnCopyVerificationClick);
         }
     }
 
-    private void OnCopyMasterSeedClick() {
-        ClipboardUtility.Copy(normalizedMasterSeed);
-        GameHost.Current.ShowTip("主种子", true, "已复制随机主种子");
+    private void OnCopyVerificationClick() {
+        ClipboardUtility.Copy(gameRandomSeed.text);
+        GameHost.Current.ShowTip("牌局校验", true, "已复制校验码");
     }
 
     private void OnGoHomeButtonClick() {
+        if (IsRecordResult) {
+            PostGameNavigator.ExitToLobby(forceTeardown: true);
+            return;
+        }
         gameObject.SetActive(false);
         if (isRankedMatch) {
             if(ratingRule!=null)RankChangePanel.Instance.ShowRatedChange(ratingRule,ratingSystem,rankBefore,scoreBefore,rankAfter,scoreAfter,ptChange,eloBefore,eloAfter,
@@ -212,6 +234,7 @@ public partial class EndGamePanel : MonoBehaviour {
 
     public void ClearEndGamePanel() {
         RestoreSichuanMatchChildren();
+        SetRecordReturnAction(null);
         gameObject.SetActive(false);
     }
 }

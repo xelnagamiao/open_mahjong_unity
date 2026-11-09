@@ -8,7 +8,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 
-from ..jiandan.decompose import Meld, find_standard_decompositions
+from ..nanque.decompose import Meld, find_standard_decompositions
 
 RULE_VERSION = "yixing-user-20261002-om2"
 SUB_RULE = "yixing/standard"

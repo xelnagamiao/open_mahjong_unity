@@ -325,16 +325,7 @@ export const LIBRARY_RULES = [
         filename: '中庸麻将与南雀规则说明.html',
       }],
   },
-  {
-    key: 'jiandan',
-    label: '南雀',
-    short: '南雀',
-    categories: [],
-    description:
-      '南雀规则由南瓜饼编写，现为中庸麻将的子规则。无起和限制，默认血战到底，和牌者退场，三家和牌或牌墙耗尽后统一结算。',
-    accent: '#64748b',
-    resources: [],
-  },
+
   {
     key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'], accent: '#b7791f',
     description: milRulebooks.shanxi[0].desc,

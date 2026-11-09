@@ -3,11 +3,11 @@ using UnityEngine;
 internal static class ZhongyongRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
-        var defaults = JiandanLobby.Defaults();
+        var defaults = ZhongyongLobby.Defaults();
         defaults[CreateRoomKeys.SubRule] = 0;
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateZhongyongReplayModule(),
-            BuildRoom = JiandanRoomBuilder.Build,
+            BuildRoom = ZhongyongRoomBuilder.Build,
             RuleId = ZhongyongGameState.RuleId,
             DefaultSubRule = "zhongyong/standard",
             DisplayName = "中庸麻将", LobbyName = "中庸麻将", LobbyOrder = 8,
@@ -19,9 +19,9 @@ internal static class ZhongyongRuleBootstrap {
             GameStateFactory = () => new ZhongyongGameState(),
             SubRuleGameStateFactory = rule => ZhongyongFanText.IsNanque(rule) ? (IGameState)new NanqueGameState() : new ZhongyongGameState(),
             OutboundChannel = "zhongyong",
-            Tingpai = q => ZhongyongFanText.IsNanque(q.SubRule) ? JiandanTips.Tingpai(q)
-                : new Jiandan.JiandanTingpaiCheck().TingpaiCheck(q.Hand, q.Melds, allowQuadSplit: true),
-            DescribeWaitingTile = q => ZhongyongFanText.IsNanque(q.SubRule) ? JiandanTips.Describe(q) : ZhongyongTips.Describe(q),
+            Tingpai = q => ZhongyongFanText.IsNanque(q.SubRule) ? NanqueTips.Tingpai(q)
+                : new Nanque.NanqueTingpaiCheck().TingpaiCheck(q.Hand, q.Melds, allowQuadSplit: true),
+            DescribeWaitingTile = q => ZhongyongFanText.IsNanque(q.SubRule) ? NanqueTips.Describe(q) : ZhongyongTips.Describe(q),
             FanNameText = ZhongyongFanText.Name,
             FanValueText = ZhongyongFanText.Value,
             RoundName = RoundTextDictionary.WindNumberRoundName,

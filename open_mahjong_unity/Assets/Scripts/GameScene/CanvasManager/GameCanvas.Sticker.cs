@@ -42,7 +42,7 @@ public partial class GameCanvas {
         TableText.Set(stickerLabel, "table.sticker.open");
         var binding = stickerLabel.GetComponent<LocalizedPlatformLabel>();
         if (binding) binding.fitTranslation = false;
-        bool english = ConfigManager.CurrentLanguage == AppLanguage.English;
+        bool english = ConfigManager.CurrentLanguage == AppLanguage.English || PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage);
         if (english) {
             rect.anchorMin = new Vector2(1, stickerAnchorMin.y);
             rect.anchorMax = new Vector2(1, stickerAnchorMax.y);

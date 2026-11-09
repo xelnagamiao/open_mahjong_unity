@@ -24,12 +24,16 @@ public sealed class GameSession {
     public string GamestateId;
     /// <summary>房间类型（custom / match 等）。</summary>
     public string RoomType;
+    public string MatchTier;
+    public string MatchQueueType;
     /// <summary>服务端 room_rule（guobiao / riichi / hongque …）。</summary>
     public string RoomRule;
     /// <summary>子规则（guobiao/standard、riichi/langyong …）。</summary>
     public string SubRule;
     /// <summary>起和番限制。</summary>
     public int HepaiLimit = 8;
+    public bool JinluoMode;
+    public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";
     public bool BlackFlowerProgressive = true;
@@ -50,6 +54,9 @@ public sealed class GameSession {
     public bool ShowMoqieHint;
     public bool IsSetRandomSeed;
     public bool IsDuplicate;
+
+    /// <summary>本副川麻队伍，按当前 player_index；随开局和重连快照一起更新。</summary>
+    public IReadOnlyList<int> SichuanTeamsByPlayerIndex { get; private set; }
 
     public string DuplicateWallType;
 
@@ -78,12 +85,16 @@ public sealed class GameSession {
         SelfIndex = selfIndex;
         RoomId = gameInfo.room_id;
         RoomType = gameInfo.room_type;
+        MatchTier = gameInfo.match_tier;
+        MatchQueueType = gameInfo.match_queue_type;
         RoomRule = gameInfo.room_rule;
         SubRule = gameInfo.sub_rule;
         DetailedConfig = gameInfo.detailed_config != null
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
         HepaiLimit = gameInfo.hepai_limit ?? 8;
+        JinluoMode = gameInfo.jinluo_mode;
+        JinluoWeather = gameInfo.jinluo_weather ?? JinluoRules.DefaultWeather;
         JokerMultiWait = gameInfo.joker_multi_wait;
         NoJokerBonus = gameInfo.no_joker_bonus ?? "add8";
         BlackFlowerProgressive = gameInfo.black_flower_progressive;
@@ -96,6 +107,8 @@ public sealed class GameSession {
         ShowMoqieHint = gameInfo.show_moqie_hint;
         IsSetRandomSeed = gameInfo.isPlayerSetRandomSeed;
         IsDuplicate = gameInfo.is_duplicate;
+        SichuanTeamsByPlayerIndex = gameInfo.sichuan_teams?.team_by_player_index is int[] teams
+            ? System.Array.AsReadOnly((int[])teams.Clone()) : null;
 
         DuplicateWallType = gameInfo.duplicate_wall_type;
     }
@@ -103,14 +116,18 @@ public sealed class GameSession {
     /// <summary>退出对局/牌谱/观战：清掉与本局绑定的规则与标志，保留 Host 与观战标志（由观战入口自行管理）。</summary>
     public void ResetForExit() {
         IsGameActive = false;
+        MatchTier = MatchQueueType = null;
         PointerTips = true;
         IsDuplicate = false;
+        SichuanTeamsByPlayerIndex = null;
 
         DuplicateWallType = null;
         RoomRule = null;
         SubRule = null;
         DetailedConfig.Clear();
         JokerMultiWait = false;
+        JinluoMode = false;
+        JinluoWeather = JinluoRules.DefaultWeather;
         NoJokerBonus = "add8"; BlackFlowerProgressive = true;
     }
 }

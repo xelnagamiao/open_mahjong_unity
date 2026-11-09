@@ -6280,7 +6280,7 @@
       "parent_status": null
     },
     {
-      "slug": "jiandan",
+      "slug": "nanque",
       "name_zh": "南雀",
       "names": [
         "南雀"
@@ -6310,7 +6310,7 @@
         "constructed"
       ],
       "parent": "zungjung",
-      "library_key": "jiandan",
+      "library_key": "zhongyong",
       "archive": null,
       "features": {
         "hand_size": 13,

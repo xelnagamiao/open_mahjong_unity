@@ -36,6 +36,7 @@ public partial class GameRecordManager {
         recordDeadWallCount = module.ReservedWallTiles;
         recordDeadWallMode = "";
         module.Reset?.Invoke();
+        initialRecordReservedWallCount = System.Math.Max(0, currentTilesList.Count - GetRecordRemainTiles());
     }
 
     private List<string> NormalizeRecordRuleTick(List<string> tick) =>
@@ -50,6 +51,11 @@ public partial class GameRecordManager {
         if (RecordRuleManifest?.PublicReadyStateReplay != true || tick[0] != "state") return false;
         ApplyTaiwanRecordStateTick(tick);
         return true;
+    }
+
+    private int ResolveRecordActingPlayerIndex(List<string> tick, string action, int fallback, int lastDiscard) {
+        int actor = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, fallback);
+        return RecordReplay.ActingPlayer?.Invoke(tick, actor, lastDiscard) ?? actor;
     }
 
     private int ResolveRecordRuleNextPlayer(IReadOnlyList<string> tick, int fallback) =>
@@ -76,8 +82,8 @@ public partial class GameRecordManager {
     internal bool IsOriginalWallIndexNormalDrawable(int originalIndex) {
         if (IsShangraoRecord()) return originalIndex != recordShangraoIndicatorSlot && currentOriginalIndices.Contains(originalIndex);
         if (IsDuplicateReplay) return currentOriginalIndices.Contains(originalIndex);
-        if (recordDeadWallCount == 0) return true;
         int currentPosition = currentOriginalIndices != null ? currentOriginalIndices.IndexOf(originalIndex) : -1;
-        return currentPosition >= 0 && currentPosition < GetRecordRemainTiles();
+        int normalDrawCount = RecordReplay.ForecastDrawCount?.Invoke() ?? GetRecordRemainTiles();
+        return currentPosition >= 0 && currentPosition < normalDrawCount;
     }
 }

@@ -615,6 +615,8 @@ public partial class CreatePanel {
                 var row = state.Content.Find("DetailedConfig_" + key);
                 if (row) row.gameObject.SetActive(!captain);
             }
+            var teammateRow = state.Content.Find("DetailedConfig_" + WashizuDoubles.VisibleTeammateHandKey);
+            if (teammateRow) teammateRow.gameObject.SetActive(captain);
             if (state.PresetDropdown) state.PresetDropdown.transform.parent.gameObject.SetActive(!captain);
             if (captain && state.PresetDescription) state.PresetDescription.text = WashizuDoubles.Description;
             else RefreshDetailedConfigPresetSelection(state);

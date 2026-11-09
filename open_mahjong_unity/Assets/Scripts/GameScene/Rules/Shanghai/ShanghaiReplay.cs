@@ -4,6 +4,10 @@ using System.Collections.Generic;
 public partial class GameRecordManager {
     internal RuleReplayModule CreateShanghaiReplayModule() => new RuleReplayModule("lajihe_eight_flowers") {
         ApplyBeforeMutation = ApplyLajiheRecordAction,
+        // Opening flowers can belong to any opponent after the first discard.
+        // Their supplement draws leave the ordinary turn with the discarder’s next seat.
+        ActingPlayer = (tick, actor, lastDiscard) => tick.Count > 0 && tick[0] == "d" && lastDiscard >= 0
+            ? NextRecordPlayerIndex(lastDiscard) : actor,
         AnnounceBeforeAction = (tick, position, voice) => PlayShanghaiRecordAnnouncement(tick),
         AfterSilentMutation = tick => SyncRecordBoardScores(),
     };

@@ -6,8 +6,8 @@ Only shared tile/decomposition primitives are reused from the Nanque calculator.
 """
 from collections import Counter
 from dataclasses import dataclass, field
-from ..jiandan.decompose import find_standard_decompositions, parse_melds, is_seven_pairs, is_thirteen_orphans
-from ..jiandan.tiles import ALL_TILES, validate_tiles, is_suited, is_terminal, is_honor, is_simple
+from ..nanque.decompose import find_standard_decompositions, parse_melds, is_seven_pairs, is_thirteen_orphans
+from ..nanque.tiles import ALL_TILES, validate_tiles, is_suited, is_terminal, is_honor, is_simple
 
 # id: (display name, points, series). The value-honor series alone is repeatable.
 FANS = {

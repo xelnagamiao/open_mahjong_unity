@@ -518,20 +518,6 @@ class ClassicalGameState:
             else:
                 if self.hu_class != "jiuzhongjiupai":
                     self.hu_class = "liuju"
-                liuju_score_changes = build_score_changes_dict(self.player_list, scores_before)
-                await broadcast_result(self,
-                                       hepai_player_index=None,
-                                       player_to_score=None,
-                                       hu_score=hu_score,
-                                       hu_fan=None,
-                                       hu_class=self.hu_class,
-                                       hepai_player_hand=None,
-                                       hepai_player_huapai=None,
-                                       hepai_player_combination_mask=None,
-                                       base_fu=None,
-                                       fu_fan_list=None,
-                                       score_changes=liuju_score_changes,
-                                       )
 
             shuhewei_extra_wait = 0.0
             is_dealer_win = (
@@ -544,7 +530,7 @@ class ClassicalGameState:
                 if (self.current_round >= self.max_round * 4) and not is_dealer_win
                 else "round_end_by_ready"
             )
-            if self.hu_class != "jiuzhongjiupai":
+            if hepai_player_index is not None:
                 shuhewei_extra_wait = await self._settle_shuhewei(
                     hepai_player_index=hepai_player_index,
                     hepai_total_fu=hu_score,
@@ -552,6 +538,14 @@ class ClassicalGameState:
                     hepai_fu_types=hu_fu_fan_list,
                     hu_class=self.hu_class,
                     next_status=self.next_status,
+                )
+            else:
+                # A draw has no winner: no hand-value comparison or shuhewei packet.
+                await broadcast_result(
+                    self,
+                    hu_class=self.hu_class,
+                    player_to_score={p.player_index: p.score for p in self.player_list},
+                    score_changes=build_score_changes_dict(self.player_list, scores_before),
                 )
 
             record_fulu_rounds_for_players(self.player_list)
@@ -585,10 +579,8 @@ class ClassicalGameState:
                 if self.hu_class == "jiuzhongjiupai":
                     await asyncio.sleep(liuju_ready_wait_seconds())
                 else:
-                    wait_time = shuhewei_ready_wait_seconds(
-                        shuhewei_extra_wait,
-                        self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"],
-                    )
+                    wait_time = (shuhewei_ready_wait_seconds(shuhewei_extra_wait, True)
+                                 if hepai_player_index is not None else liuju_ready_wait_seconds())
 
                     await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
@@ -777,12 +769,8 @@ class ClassicalGameState:
                 transfer = hepai_total_fu * _dealer_multiplier(hepai_player_index, payer)
                 _apply_transfer(hepai_player_index, payer, transfer)
 
-        # 二、其余玩家两两比对副差（有和牌时排除和牌家；流局时四家互比）
-        compare_indices = (
-            [i for i in indices if i != hepai_player_index]
-            if hepai_player_index is not None
-            else indices
-        )
+        # 二、和牌后的其余三家两两比对副差；流局不进入数和尾结算。
+        compare_indices = [i for i in indices if i != hepai_player_index]
         for receiver in compare_indices:
             receiver_fu = player_fu[receiver]
             for payer in compare_indices:

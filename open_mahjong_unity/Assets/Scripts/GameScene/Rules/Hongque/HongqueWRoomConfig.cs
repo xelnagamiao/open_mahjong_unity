@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public sealed class HongqueWRoomConfig : Jiandan_Create_RoomConfig {
+public sealed class HongqueWRoomConfig : Zhongyong_Create_RoomConfig {
     public bool Colourless = true;
     public int MinimumFan;
     public int MinimumPoints;

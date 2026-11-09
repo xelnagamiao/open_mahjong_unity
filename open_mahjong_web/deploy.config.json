@@ -1,5 +1,5 @@
 {
-  "staticRoot": "/www/wwwroot/salasasa.cn/dist",
+  "staticRoot": "/www/wwwroot/salasasa.cn/dist/web",
   "webRoot": "/home/admin/open_mahjong_unity/open_mahjong_web",
   "dataRoot": "/var/open-mahjong/data",
   "manualGamePackages": [

@@ -51,7 +51,9 @@ def record_profile(game):
         return
     title = game.game_record['game_title']
     players = sorted(game.player_list, key=lambda p: p.original_player_index)
-    title.update(washizu_doubles_profile=deepcopy(PROFILE),
+    profile = deepcopy(PROFILE)
+    profile['teammate_hidden_hands'] = game.detailed_config.get('show_teammate_hand', False)
+    title.update(washizu_doubles_profile=profile,
                  team_by_player_index=[p.team_id for p in players],
                  team_role_by_player_index=[p.team_role for p in players])
 

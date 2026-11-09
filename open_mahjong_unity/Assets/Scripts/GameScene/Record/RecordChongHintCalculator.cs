@@ -135,87 +135,11 @@ public static class RecordChongHintCalculator {
     return null;
   }
 
-  private const int MoqieZimoDrawInterval = 4;
-  private const int MoqieZimoDrawPredictionCount = 6;
-
-  /// <summary>
-  /// 摸切假设下的自摸预测：从牌山头部下一张起算，间隔 4 张标蓝（不模拟补花/鸣牌）。
-  /// 锚点为当前操作玩家；出牌后 current 已切到下家，此时仍按出牌者计（lastDiscard）。
-  /// 例：下家摸牌/出牌时 offset=3，标 2、6、10、14、18、22（相对 front 的下一张）。
-  /// </summary>
-  public static void ComputeMoqieZimoDrawOriginalIndices(
-    GameRecordManager mgr,
-    ICollection<int> outIndices) {
+  /// <summary>摸切预测使用当前规则的有效座位、实际剩余牌序及保留牌尾；不预演未来鸣牌或补花。</summary>
+  public static void ComputeMoqieZimoDrawOriginalIndices(GameRecordManager mgr, ICollection<int> outIndices) {
     outIndices?.Clear();
     if (mgr == null || outIndices == null) return;
-    if (mgr.TryGetDuplicateDrawIndices(outIndices, MoqieZimoDrawPredictionCount)) return;
-
-    int wallCount = mgr.OriginalWallTileCountForChongHint;
-    if (wallCount <= 0) return;
-
-    int selfIndex = mgr.selectedPlayerIndex;
-    int anchorIndex = mgr.currentPlayerIndex;
-    if (mgr.IsWaitingForDrawAfterCutForChongHint && mgr.LastDiscardPlayerIndexForChongHint >= 0) {
-      anchorIndex = mgr.LastDiscardPlayerIndexForChongHint;
-    }
-    int offset = (selfIndex - anchorIndex + MoqieZimoDrawInterval) % MoqieZimoDrawInterval;
-
-    int front = mgr.ConsumedFromFrontForChongHint;
-    for (int n = 0; n < MoqieZimoDrawPredictionCount; n++) {
-      int originalIndex = front + offset + n * MoqieZimoDrawInterval - 1;
-      if (originalIndex < 0) continue;
-      if (originalIndex >= wallCount) break;
-      if (originalIndex < front) continue;
-      if (mgr.IsOriginalWallIndexBackConsumed(originalIndex)) continue;
-      if (!mgr.IsOriginalWallIndexNormalDrawable(originalIndex)) break;
-      outIndices.Add(originalIndex);
-    }
-  }
-
-  public static bool IsRiichiDeadWallBlockingZimo(
-    string roomRule,
-    int originalIndex,
-    int wallTileCount,
-    IReadOnlyCollection<int> consumedBackIndices,
-    int revealedKanDoraCount,
-    int rinshanCount) {
-    if (RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField != true || wallTileCount <= 0) return false;
-    return BuildRiichiDeadWallBlockingIndices(
-      wallTileCount, consumedBackIndices, revealedKanDoraCount, rinshanCount).Contains(originalIndex);
-  }
-
-  /// <summary>
-  /// 日麻王牌区：从牌山末尾向前取 14 张，跳过已翻开的杠宝牌指示牌位（与服务端 _reveal_kan_dora 布局一致）。
-  /// </summary>
-  public static HashSet<int> BuildRiichiDeadWallBlockingIndices(
-    int wallTileCount,
-    IReadOnlyCollection<int> consumedBackIndices,
-    int revealedKanDoraCount,
-    int rinshanCount) {
-    var blocking = new HashSet<int>();
-    if (wallTileCount <= 0) return blocking;
-
-    int need = 14;
-    for (int i = wallTileCount - 1; i >= 0 && need > 0; i--) {
-      if (IsRevealedKanDoraIndicatorIndex(i, wallTileCount, revealedKanDoraCount, rinshanCount)) {
-        continue;
-      }
-      blocking.Add(i);
-      need--;
-    }
-    return blocking;
-  }
-
-  private static bool IsRevealedKanDoraIndicatorIndex(
-    int originalIndex,
-    int wallTileCount,
-    int revealedKanDoraCount,
-    int rinshanCount) {
-    for (int k = 1; k <= revealedKanDoraCount; k++) {
-      int kanIdx = wallTileCount - (6 + 2 * k) + rinshanCount;
-      if (kanIdx == originalIndex) return true;
-    }
-    return false;
+    mgr.ComputeRecordDrawForecast(outIndices, 6);
   }
 
   public static void TryInferRecordDingqueSuit(GameRecordManager.RecordPlayer player) {

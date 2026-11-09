@@ -71,7 +71,7 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
 
     int GetSignature() {
         unchecked {
-            int hash = Screen.width * 397 ^ Screen.height ^ Screen.safeArea.GetHashCode();
+            int hash = Screen.width * 397 ^ Screen.height ^ MobileViewportLayout.SafeArea.GetHashCode();
             var canvas = GetComponentInParent<Canvas>();
             if (canvas != null) hash = hash * 397 ^ ((RectTransform)canvas.rootCanvas.transform).rect.GetHashCode();
             Transform source = tileRow != null ? tileRow : transform;
@@ -120,17 +120,10 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         // The former centred single row defines the bottom. Extra rows grow upward.
         float bottom = Mathf.Max(bounds.yMin, origin.y - firstHeight * originalPivot.y);
         float availableHeight = Mathf.Max(1f, bounds.yMax - bottom - Padding * 2);
-        Row row = null;
         foreach (var item in items) {
             item.Scale = Mathf.Min(1f, maxWidth / Mathf.Max(1f, item.Size.x), Mathf.Max(1f, availableHeight - NavigationHeight) / Mathf.Max(1f, item.Size.y));
-            Vector2 size = item.Size * item.Scale;
-            if (row == null || row.Items.Count > 0 && row.Width + Gap + size.x > maxWidth + .01f) {
-                row = new Row(); rows.Add(row);
-            }
-            row.Width += (row.Items.Count > 0 ? Gap : 0) + size.x;
-            row.Height = Mathf.Max(row.Height, size.y);
-            row.Items.Add(item);
         }
+        BuildBalancedRows(maxWidth);
         float totalHeight = -Gap;
         foreach (var r in rows) totalHeight += r.Height + Gap;
         bool paged = totalHeight > availableHeight;
@@ -173,6 +166,40 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         signature = GetSignature();
     }
 
+    void BuildBalancedRows(float maxWidth) {
+        // Preserve order and the minimum row count, then minimize squared unused
+        // width, including the last row. Choices and tile/hint pairs stay intact.
+        int count = items.Count;
+        var rowCounts = new int[count + 1];
+        var costs = new double[count + 1];
+        var breaks = new int[count];
+        for (int start = count - 1; start >= 0; start--) {
+            rowCounts[start] = int.MaxValue;
+            costs[start] = double.PositiveInfinity;
+            float width = 0;
+            for (int end = start; end < count; end++) {
+                width += (end > start ? Gap : 0) + items[end].Size.x * items[end].Scale;
+                if (width > maxWidth + .01f) break;
+                int candidateRows = 1 + rowCounts[end + 1];
+                double slack = maxWidth - width;
+                double cost = slack * slack + costs[end + 1];
+                // Equal costs prefer the longer first row.
+                if (candidateRows < rowCounts[start] || candidateRows == rowCounts[start] && cost <= costs[start]) {
+                    rowCounts[start] = candidateRows; costs[start] = cost; breaks[start] = end + 1;
+                }
+            }
+        }
+        for (int start = 0; start < count; start = breaks[start]) {
+            var row = new Row(); rows.Add(row);
+            for (int i = start; i < breaks[start]; i++) {
+                var item = items[i];
+                row.Width += (row.Items.Count > 0 ? Gap : 0) + item.Size.x * item.Scale;
+                row.Height = Mathf.Max(row.Height, item.Size.y * item.Scale);
+                row.Items.Add(item);
+            }
+        }
+    }
+
     static void Stretch(RectTransform row) {
         row.anchorMin = Vector2.zero; row.anchorMax = Vector2.one;
         row.offsetMin = row.offsetMax = Vector2.zero;
@@ -191,7 +218,7 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
         Rect pixels = canvas.pixelRect;
         // A canvas rendered into a texture has its own viewport, independent of the display safe area.
-        Rect safe = camera != null && camera.targetTexture != null ? pixels : Screen.safeArea;
+        Rect safe = camera != null && camera.targetTexture != null ? pixels : MobileViewportLayout.SafeArea;
         Vector2 min = Vector2.Max(safe.min, pixels.min), max = Vector2.Min(safe.max, pixels.max);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, min, camera, out var low);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, max, camera, out var high);

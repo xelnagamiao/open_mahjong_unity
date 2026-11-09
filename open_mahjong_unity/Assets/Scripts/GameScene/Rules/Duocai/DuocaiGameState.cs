@@ -21,6 +21,9 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     private Game3DManager settlementHost;
     private bool transitionHeld;
     private readonly Queue<(string suffix,Response response)> transitionMessages=new Queue<(string,Response)>();
+    private UnityEngine.Coroutine claimPresentation;
+    private Game3DManager claimPresentationHost;
+    private int claimPresentationVersion;
 
     public override bool HandleMessage(string suffix,Response response) {
         if(transitionMessages.Count>0||(transitionHeld&&(suffix=="game_start"||suffix=="game_end"))) {
@@ -37,6 +40,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         DuocaiTableIndicators.Refresh(Info, info.players_info);
     }
     protected override void OnRoundStarted(GameInfo info) {
+        CancelClaimPresentation();
         if (clockHand != info.duocai_info?.hand_number || clockGame != Session.GamestateId) {
             askClock.Reset(); clockHand = info.duocai_info?.hand_number ?? 0; clockGame = Session.GamestateId;
         }
@@ -49,6 +53,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
             TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
     protected override void OnAskHandAction(Response response) {
+        CancelClaimPresentation();
         Accept(response.game_info);
         var info = response.ask_hand_action_info;
         if (info == null || askClock.IsClosed(info.action_tick)) return;
@@ -59,9 +64,33 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         PresentClock(response, info.action_tick, info.remaining_time, info.step_remaining ?? Session.RoomStepTime);
     }
     protected override void OnAskClaim(Response response) {
+        CancelClaimPresentation();
         Accept(response.game_info);
         var info = response.ask_other_action_info;
         if (info == null || askClock.IsClosed(info.action_tick)) return;
+        var table=Game3DManager.Instance;
+        string seat=latestAction!=null?Mirror.SeatOf(latestAction.action_player):Mirror.LastDiscardPlayerPosition;
+        if(table!=null&&seat!=null&&table.HasPendingRecordStepAnimations(seat)) {
+            Clock.Clear("duocaiClaimPresentation");
+            claimPresentationHost=table;
+            claimPresentation=table.StartCoroutine(WaitForClaimPresentation(response,seat,claimPresentationVersion));
+        } else PresentClaim(response);
+    }
+    private IEnumerator WaitForClaimPresentation(Response response,string seat,int expected) {
+        var table=claimPresentationHost;
+        do {yield return null;}
+        while(Active==this&&expected==claimPresentationVersion&&table!=null&&table.HasPendingRecordStepAnimations(seat));
+        if(Active!=this||expected!=claimPresentationVersion)yield break;
+        claimPresentation=null;claimPresentationHost=null;
+        if(!askClock.IsClosed(response.ask_other_action_info.action_tick))PresentClaim(response);
+    }
+    private void CancelClaimPresentation() {
+        claimPresentationVersion++;
+        if(claimPresentation!=null&&claimPresentationHost!=null)claimPresentationHost.StopCoroutine(claimPresentation);
+        claimPresentation=null;claimPresentationHost=null;
+    }
+    private void PresentClaim(Response response) {
+        var info=response.ask_other_action_info;
         Clock.PendingAskFromJiagang = false;
         choices = info.duocai_choices ?? Array.Empty<DuocaiChoice>();
         info.action_list = ChoiceWords(info.action_list);
@@ -77,15 +106,14 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         GameCanvas.Instance?.LoadingRemianTime(remaining, stepLeft);
     }
     public override void OnAskWindowClosed(AskCloseReason reason) {
-        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) askClock.Close();
+        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) {askClock.Close();CancelClaimPresentation();}
         RiichiCutSelectionController.Instance?.ExitRiichiCutMode();
         base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
+        CancelClaimPresentation();
         latestAction=response.do_action_info;
         Accept(response.game_info); base.OnDoAction(response);
-        if(Session.Tips&&Mirror.Self!=null&&Mirror.SelfHandTiles.Count%3==1)
-            TipsBlock.Instance?.ShowTipsBlock(Mirror.SelfHandTiles,Mirror.Self.combination_tiles??new List<string>());
     }
     private static string[] ChoiceWords(string[] words) => (words ?? Array.Empty<string>()).Select(w=>new[]{"chi_left","peng","gang","angang","jiagang"}.Contains(w)?"duocai_group:"+w:w).Distinct().ToArray();
     public IReadOnlyList<ActionCandidate> Candidates(string group) => choices.Where(c=>c.action==group.Substring("duocai_group:".Length))
@@ -140,6 +168,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     public WaitTileHint DescribeWaiting(WaitHintQuery q) => Hints.Describe(q);
     protected override void OnShowResult(Response response) {
+        CancelClaimPresentation();
         if (settlementAccepted || response.show_result_info == null) return;
         settlementAccepted = true; Accept(response.game_info);
         Info = response.show_result_info.duocai_info ?? Info;
@@ -240,6 +269,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         pendingReady = null;transitionHeld=false;transitionMessages.Clear();RoundEndPresentation.Instance?.StopActiveSequence();
     }
     public override void OnSessionReset() {
+        CancelClaimPresentation();
         ResetSettlement(); askClock.Reset(); clockHand = 0; clockGame = null;
         Info = null; latestInfo=null; latestAction=null; choices=Array.Empty<DuocaiChoice>(); riichiSeats.Clear(); endHands = null; Hints.Reset(); DuocaiTableIndicators.Refresh(null);
     }

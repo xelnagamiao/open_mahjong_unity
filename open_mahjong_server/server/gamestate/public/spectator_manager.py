@@ -317,6 +317,11 @@ class SpectatorManager:
             for entry in self.round_ticks.get(ri, []):
                 round_data["action_ticks"].append(entry["tick"])
             record["game_round"][f"round_index_{ri}"] = round_data
+        final_record = getattr(self.gamestate, "game_record", None) or {}
+        if final_record.get("match_result") is not None:
+            from copy import deepcopy
+            record["game_title"] = deepcopy(final_record["game_title"])
+            record["match_result"] = deepcopy(final_record["match_result"])
         complete = getattr(self.gamestate, "complete_spectator_record", None)
         return complete(record) if callable(complete) else record
 

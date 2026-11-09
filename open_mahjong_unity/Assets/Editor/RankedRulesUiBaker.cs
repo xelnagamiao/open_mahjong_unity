@@ -131,13 +131,13 @@ public static class RankedRulesUiBaker {
     static void BakeProfile(){
         var panel=Find<PlayerInfoPanel>();var rules=Ref<RectTransform>(panel,"rulesSection");
         AuthorTrendLabels(panel);
-        rules.anchoredPosition=new Vector2(24,-212);Ref<RectTransform>(panel,"recentSection").anchoredPosition=new Vector2(24,-276);
         var statistics=Ref<PlayerInfoStatistics>(panel,"statistics");var statContent=Ref<RectTransform>(statistics,"content");if(!statContent.GetComponent<LayoutElement>())statContent.gameObject.AddComponent<LayoutElement>();
         BakeProfileRulePicker(panel,rules);
         var hand=Ref<PlayerInfoHandView>(panel,"handView");var empty=Text(hand.transform,"NoRecentWin","无最近大和",24,new Color(.76f,.8f,.88f));Stretch(empty.rectTransform);empty.alignment=TextAlignmentOptions.MidlineLeft;Set(panel,"emptyWinText",empty);empty.gameObject.SetActive(false);
         var caption=Ref<TMP_Text>(panel,"winLabel");caption.rectTransform.anchorMin=new Vector2(0,1);caption.rectTransform.anchorMax=new Vector2(1,1);caption.rectTransform.pivot=new Vector2(.5f,1);caption.rectTransform.anchoredPosition=new Vector2(76,0);caption.rectTransform.sizeDelta=new Vector2(-152,32);caption.textWrappingMode=TextWrappingModes.NoWrap;caption.enableAutoSizing=true;caption.fontSizeMin=14;caption.fontSizeMax=24;
         var rank=Ref<TMP_Text>(panel,"rankText");rank.text="国标 · 10级";rank.fontSize=28;rank.enableAutoSizing=true;rank.fontSizeMin=22;rank.fontSizeMax=28;rank.textWrappingMode=TextWrappingModes.NoWrap;rank.overflowMode=TextOverflowModes.Ellipsis;
         var score=Ref<TMP_Text>(panel,"rankScoreText");score.text="0 / 20 PT";score.font=font;score.fontSharedMaterial=font.material;score.fontSize=24;score.enableAutoSizing=true;score.fontSizeMin=18;score.fontSizeMax=24;score.textWrappingMode=TextWrappingModes.NoWrap;score.overflowMode=TextOverflowModes.Ellipsis;
+        PlayerInfoAppearanceBaker.BakeLayout(panel);
     }
 
     static void BakeProfileRulePicker(PlayerInfoPanel panel,RectTransform rules){
@@ -222,6 +222,7 @@ public static class RankedRulesUiBaker {
         var qingque=EloPage("Qingque",MatchButton.MatchRule.Qingque);var sichuan=EloPage("Sichuan",MatchButton.MatchRule.Sichuan);
         var exchange=EloPage("SichuanXueliuExchange",MatchButton.MatchRule.SichuanXueliuExchange);
         var hongque=EloPage("Hongque",MatchButton.MatchRule.Hongque);
+        var doubles=EloPage("SichuanDoubles",MatchButton.MatchRule.SichuanDoubles);
         var sanma=pages.Find("RiichiSanma")?.gameObject;
         if(!sanma){sanma=Object.Instantiate(riichi,pages,false);sanma.name="RiichiSanma";}
         foreach(var card in sanma.GetComponentsInChildren<MatchButton>(true)){
@@ -231,8 +232,8 @@ public static class RankedRulesUiBaker {
         }
         sanma.SetActive(false);
         national.SetActive(true);riichi.SetActive(false);
-        Array(lobby,"rulePages",new Object[]{national,riichi,qingque,sichuan,sanma,exchange,hongque});Array(lobby,"ruleButtons",buttons);Array(lobby,"selectedTabs",selected);
-        var entries=new[]{national,riichi,qingque,sichuan,sanma,exchange,hongque}.SelectMany(p=>p.GetComponentsInChildren<MatchButton>(true)).Where(c=>c.IsAvailable).ToArray();Array(lobby,"entries",entries);Array(lobby.GetComponent<MatchPanel>(),"matchButtons",entries);
+        Array(lobby,"rulePages",new Object[]{national,riichi,qingque,sichuan,sanma,exchange,hongque,doubles});Array(lobby,"ruleButtons",buttons);Array(lobby,"selectedTabs",selected);
+        var entries=new[]{national,riichi,qingque,sichuan,sanma,exchange,hongque,doubles}.SelectMany(p=>p.GetComponentsInChildren<MatchButton>(true)).Where(c=>c.IsAvailable).ToArray();Array(lobby,"entries",entries);Array(lobby.GetComponent<MatchPanel>(),"matchButtons",entries);
         foreach(var card in entries)Set(card,"policyPanel",policy);
         Ref<TMP_Text>(lobby,"rankText").text="国标麻将 · 10级";Ref<TMP_Text>(lobby,"pointsText").text="0 / 20 PT";
         BakeMatchNavigation();
@@ -319,7 +320,7 @@ public static class RankedRulesUiBaker {
         var group=bar.GetComponent<HorizontalLayoutGroup>()??bar.gameObject.AddComponent<HorizontalLayoutGroup>();
         group.spacing=8;group.padding=new RectOffset(0,0,2,2);group.childAlignment=TextAnchor.MiddleLeft;
         group.childControlWidth=group.childControlHeight=true;group.childForceExpandWidth=false;group.childForceExpandHeight=true;
-        var variants=new Button[2];var variantSelected=new GameObject[2];var labels=new TMP_Text[2];var variantCounts=new TMP_Text[2];
+        var variants=new Button[3];var variantSelected=new GameObject[3];var labels=new TMP_Text[3];var variantCounts=new TMP_Text[3];
         for(int i=0;i<variants.Length;i++){
             var button=bar.Find("Variant_"+i)?.GetComponent<Button>();
             if(!button){button=Object.Instantiate(buttons[0],bar,false);button.name="Variant_"+i;}
@@ -354,7 +355,7 @@ public static class RankedRulesUiBaker {
         var types=rule==MatchButton.MatchRule.Hongque
             ?new[]{MatchButton.MatchGameType.Banzhuang,MatchButton.MatchGameType.Quanzhuang}
             :rule==MatchButton.MatchRule.Qingque?new[]{MatchButton.MatchGameType.Quanzhuang,MatchButton.MatchGameType.Unlimited}
-            :new[]{rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang};
+            :new[]{rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange||rule==MatchButton.MatchRule.SichuanDoubles?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang};
         foreach(var existing in cards)existing.gameObject.SetActive(false);
         foreach(var gameType in types){
             var card=cards.FirstOrDefault(c=>new SerializedObject(c).FindProperty("gameType").intValue==(int)gameType);
@@ -453,18 +454,18 @@ public static class RankedRulesUiBaker {
         if(!Ref<Button>(Find<UserContainer>(),"rankSwitchButton")||!Ref<TMP_Text>(Find<UserContainer>(),"eloScoreText")||!Ref<TMP_Text>(Find<PlayerInfoPanel>(),"emptyWinText"))throw new Exception("玩家面板引用缺失");
         var lobby=Find<MatchLobbyView>();var so=new SerializedObject(lobby);if(so.FindProperty("rulePages").arraySize!=RankedRules.Ids.Length)throw new Exception("匹配规则页未烘焙");
         var cards=lobby.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();
-        if(cards.Length!=29||cards.Select(c=>c.QueueType).Distinct().Count()!=29)throw new Exception("匹配卡片队列必须是 29 个唯一入口");
+        if(cards.Length!=30||cards.Select(c=>c.QueueType).Distinct().Count()!=30)throw new Exception("匹配卡片队列必须是 30 个唯一入口");
         if(cards.Count(c=>c.RuleId==RiichiSanmaRankConfig.Rule)!=6)throw new Exception("三人立直匹配入口缺失");
         foreach(string field in new[]{"ruleButtons","selectedTabs","rulePlayerCounts"})
             if(so.FindProperty(field).arraySize!=RankedRules.FamilyNames.Length)throw new Exception("匹配页必须有五个规则入口："+field);
         foreach(string field in new[]{"variantButtons","selectedVariants","variantLabels","variantPlayerCounts"}){
             var items=so.FindProperty(field);
-            if(items.arraySize!=2||Enumerable.Range(0,2).Any(i=>!items.GetArrayElementAtIndex(i).objectReferenceValue))throw new Exception("匹配页内部切换引用缺失："+field);
+            if(items.arraySize!=3||Enumerable.Range(0,3).Any(i=>!items.GetArrayElementAtIndex(i).objectReferenceValue))throw new Exception("匹配页内部切换引用缺失："+field);
         }
         if(!Ref<GameObject>(lobby,"variantBar")||!Ref<TMP_Text>(lobby,"variantHint"))throw new Exception("匹配页玩法切换行缺失");
-        foreach(string rule in new[]{"qingque","sichuan",RankedRules.XueliuExchangeRule,"hongque"}){
+        foreach(string rule in new[]{"qingque","sichuan",RankedRules.XueliuExchangeRule,"hongque",RankedRules.DoublesRule}){
             var eloCards=cards.Where(c=>c.RuleId==rule).ToArray();
-            var expectedTypes=rule=="hongque"?new[]{1,2}:new[]{rule=="sichuan"||rule==RankedRules.XueliuExchangeRule?1:2};
+            var expectedTypes=rule=="hongque"?new[]{1,2}:new[]{rule=="sichuan"||rule==RankedRules.XueliuExchangeRule||rule==RankedRules.DoublesRule?1:2};
             if(!eloCards.Select(c=>new SerializedObject(c).FindProperty("gameType").intValue).OrderBy(x=>x).SequenceEqual(expectedTypes)
                 ||eloCards.Any(c=>!c.gameObject.activeSelf))throw new Exception(rule+" 匹配局制不正确");
             foreach(var title in eloCards.SelectMany(c=>c.GetComponentsInChildren<TMP_Text>(true)).Where(t=>t.name=="Level"))

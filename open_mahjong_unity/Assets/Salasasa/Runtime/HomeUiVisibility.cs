@@ -48,7 +48,7 @@ namespace Salasasa.Home
 
         void CaptureAndHide()
         {
-            foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsInactive.Include))
+            foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None))
             {
                 if (!canvas.gameObject.scene.IsValid() || ContainsArtwork(canvas.transform)) continue;
                 if (!canvases.ContainsKey(canvas)) canvases.Add(canvas, canvas.enabled);
@@ -61,7 +61,7 @@ namespace Salasasa.Home
                 if (!graphics.ContainsKey(graphic)) graphics.Add(graphic, graphic.enabled);
                 graphic.enabled = false;
             }
-            foreach (var raycaster in FindObjectsByType<GraphicRaycaster>(FindObjectsInactive.Include))
+            foreach (var raycaster in FindObjectsByType<GraphicRaycaster>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None))
             {
                 if (!raycaster.gameObject.scene.IsValid()) continue;
                 if (!raycasters.ContainsKey(raycaster)) raycasters.Add(raycaster, raycaster.enabled);

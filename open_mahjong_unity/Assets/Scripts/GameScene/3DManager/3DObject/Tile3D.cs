@@ -11,6 +11,8 @@ public class Tile3D : MonoBehaviour
     internal void InvalidatePoolLease() { unchecked { PoolLeaseVersion++; } ruleBackColor = null; }
 
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
+    private static readonly int ArtworkLayoutId = Shader.PropertyToID("_ArtworkLayout");
+    private static readonly int ArtworkBaselineId = Shader.PropertyToID("_ArtworkBaseline");
     private static readonly int BackRotationId = Shader.PropertyToID("_BackRotation");
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
     private static readonly int BackColorId = Shader.PropertyToID("_BackColor");
@@ -50,6 +52,8 @@ public class Tile3D : MonoBehaviour
     private float instanceGrayScale;
     private float instanceTableImageScale;
     private bool frontFaceHalfTurn;
+    private bool usesUnifiedArtwork;
+    private Vector2 atlasArtworkFit = Vector2.one;
     private bool materialDefaultsCached;
 
     /// <summary>立直横置标记：用于河中后续牌偏移计算与重连/牌谱重建。
@@ -115,7 +119,11 @@ public class Tile3D : MonoBehaviour
         }
     }
 
-    public void RefreshRuleBadge() => RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
+    public void RefreshRuleBadge() {
+        bool visible = !IsConcealedFaceDown || isPeekFaceUp;
+        RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, visible, frontFaceHalfTurn);
+        DoraTileSheen.Apply3D(cardRenderer, currentVisibleFaceTileId, visible, frontFaceHalfTurn);
+    }
 
     public void SetPeekFaceUp(bool peek) {
         if (peek && !CanPeekOnHover) return;
@@ -124,7 +132,7 @@ public class Tile3D : MonoBehaviour
         isPeekFaceUp = peek;
         Transform mesh = GetFaceMeshTransform();
         mesh.localRotation = peek ? faceUpLocalRotation : faceDownLocalRotation;
-        RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
+        RefreshRuleBadge();
     }
 
     /// <summary>单张暗牌的查看权限；已知牌值不代表当前视角有权翻开。</summary>
@@ -246,6 +254,11 @@ public class Tile3D : MonoBehaviour
         propBlock.Clear();
         // MPB 中只放 Shader 声明为 instanced 的属性，否则 Unity 会拆散 GPU Instancing。
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
+        var art = TableFaceLayoutSettings.ForTile(currentVisibleFaceTileId);
+        propBlock.SetVector(ArtworkLayoutId, new Vector4(art.x, art.y, art.scale, 0));
+        var baseline = usesUnifiedArtwork ? LegacyFacePlacement.Table(currentVisibleFaceTileId) : LegacyFacePlacement.Placement.Identity;
+        baseline.scale = Vector2.Scale(baseline.scale, atlasArtworkFit);
+        propBlock.SetVector(ArtworkBaselineId, new Vector4(baseline.offset.x, baseline.offset.y, baseline.scale.x, baseline.scale.y));
         propBlock.SetFloat(BackRotationId, backRotation);
         propBlock.SetColor(FrontColorId, instanceFrontColor);
         propBlock.SetColor(BackColorId, ruleBackColor ?? instanceBackColor);
@@ -258,13 +271,14 @@ public class Tile3D : MonoBehaviour
             new Vector4(instanceGrayScale, instanceTableImageScale, frontFaceHalfTurn ? 1f : 0f, ruleBackColor.HasValue ? 1f : 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
         if (glassInkRenderer != null && glassInkRenderer.enabled) glassInkRenderer.SetPropertyBlock(propBlock);
-        RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
+        RefreshRuleBadge();
     }
+
+    public void RefreshArtworkLayout() => ApplyPropertyBlock();
 
     /// <summary>
     /// 设置牌面纹理（使用缓存的Sprite）
-    /// 额外做 90° 逆时针旋转补偿（向左旋转 90°）
-    /// 内置图集已经使用 1:1.33 画布，直接采样完整 Sprite，不叠加制版补偿。
+    /// 模型导入时已统一牌面 UV，图集直接使用 Sprite 矩形。
     /// </summary>
     public void SetCardSprite(int tileId, Sprite sprite) {
         InitializeComponents();
@@ -273,6 +287,8 @@ public class Tile3D : MonoBehaviour
         currentTileId = tileId;
         currentPoolTileId = tileId;
         currentVisibleFaceTileId = tileId;
+        usesUnifiedArtwork = false;
+        atlasArtworkFit = Vector2.one;
         Texture2D atlasTexture = sprite.texture;
         Texture currentAtlas = sharedTileMaterial.GetTexture(FrontTexId);
         if (currentAtlas == null) {
@@ -292,7 +308,7 @@ public class Tile3D : MonoBehaviour
         ApplyPropertyBlock();
     }
 
-    /// <summary>完整官方画布的图集偏移与旋转补偿，由正式牌和模型预览共用。</summary>
+    /// <summary>完整官方画布的图集区域，由正式牌和模型预览共用。</summary>
     public static Vector4 ComputeSpriteTiling(Sprite sprite) {
         Rect uvRect = sprite.textureRect;
         Texture2D atlasTexture = sprite.texture;
@@ -302,12 +318,12 @@ public class Tile3D : MonoBehaviour
         float offsetX = uvRect.x / atlasTexture.width;
         float offsetY = uvRect.y / atlasTexture.height;
 
-        float newTilingX = tilingY;
-        float newTilingY = tilingX;
-        float newOffsetX = 1f - (offsetY + tilingY);
-        float newOffsetY = offsetX;
+        return new Vector4(tilingX, tilingY, offsetX, offsetY);
+    }
 
-        return new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY);
+    public static Vector2 ComputeSpriteCanvasFit(Sprite sprite) {
+        Vector2 uv = TileTextureLayout.ContainUvScale(sprite.rect.width / sprite.rect.height);
+        return new Vector2(1f / uv.x, 1f / uv.y);
     }
 
     /// <summary>
@@ -315,8 +331,9 @@ public class Tile3D : MonoBehaviour
     /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
     /// </summary>
     public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false,
-        float imageScale = TileTextureLayout.TableImageScale) {
-        SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain), contain, imageScale);
+        float imageScale = 1f) {
+        float authoredAspect = VietnameseTileVisual.IsCurrentRuleTile(tileId) ? VietnameseTileVisual.ArtworkAspect : 0f;
+        SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain, authoredAspect), contain, imageScale);
     }
 
     private void SetStandaloneCardMapping(int tileId, Texture2D texture, Material faceMaterial, Vector4 tiling, bool contain,
@@ -334,19 +351,25 @@ public class Tile3D : MonoBehaviour
         currentTileId = tileId;
         currentPoolTileId = tileId;
         currentVisibleFaceTileId = tileId;
-        frontTilingOffset = tiling;
+        var sharedFace = TileFaceResolver.LoadSharedTableSprite(tileId);
+        usesUnifiedArtwork = sharedFace != null && sharedFace.texture == texture;
+        atlasArtworkFit = usesUnifiedArtwork ? ComputeSpriteCanvasFit(sharedFace) : Vector2.one;
+        frontTilingOffset = usesUnifiedArtwork ? ComputeSpriteTiling(sharedFace) : tiling;
+        // Contain the sprite before sampling its atlas region, so neighboring tiles never enter its margins.
+        if (usesUnifiedArtwork) faceMaterial.SetFloat("_FrontTexContain", 0f);
         ApplyPropertyBlock();
     }
 
-    public static Vector4 ComputeStandaloneTiling(Texture2D texture, bool contain) {
+    public static Vector4 ComputeStandaloneTiling(Texture2D texture, bool contain, float authoredAspect = 0f) {
         return contain
-            ? TileTextureLayout.FrontContainTiling(texture)
-            : new Vector4(1f / 1.1f, 1f, (1f - 1f / 1.1f) * 0.5f, 0f);
+            ? TileTextureLayout.FrontContainTiling(texture, authoredAspect)
+            : new Vector4(1f, 1f / HongqueTileVisual.TableVerticalScale, 0f,
+                (1f - 1f / HongqueTileVisual.TableVerticalScale) * 0.5f);
     }
 
     /// <summary>独立标准牌面保留原图比例完整居中；Shader 用牌底填补越界 UV。</summary>
     public void SetStandaloneCardTextureContain(int tileId, Texture2D texture, Material faceMaterial,
-        float imageScale = TileTextureLayout.TableImageScale) {
+        float imageScale = 1f) {
         SetStandaloneCardTexture(tileId, texture, faceMaterial, true, imageScale);
     }
 

@@ -5,7 +5,7 @@
     </div>
     <el-empty v-if="!rooms.length" description="暂无房间" :image-size="72" />
     <div v-else class="room-grid">
-      <section v-for="group in groups" :key="group.id" class="room-group" :class="{ 'room-pair': group.paired }" :aria-label="group.paired ? '复式开闭室配对' : undefined">
+      <section v-for="group in groups" :key="group.id" class="room-group" :class="{ 'room-pair': group.paired, 'eight-room': group.cards[0]?.room.duplicate_lobby }" :aria-label="group.paired ? '复式开闭室配对' : undefined">
         <header v-if="group.paired" class="room-pair-head">
           <strong>{{ sichuanDuplicateLabel(group.cards[0].room.sub_rule) }}</strong>
           <span>开室 ⇄ 闭室 · {{ group.cards[0].room.duplicate_round_count }} 副</span>
@@ -30,9 +30,9 @@
           <span class="room-rule" :title="card.rule">{{ card.rule }}</span>
           <span>{{ card.playerCount }} / {{ card.seats.length }} 人</span>
         </div>
-        <ul class="room-players" aria-label="座位玩家">
-          <li v-for="(seat, index) in card.seats" :key="index" class="room-player" :class="{ 'is-empty': seat.empty, 'team-blue': card.room.duplicate_match_id && card.room.team_by_seat?.[index] === 0, 'team-red': card.room.duplicate_match_id && card.room.team_by_seat?.[index] === 1 }">
-            <span class="room-seat" :aria-label="card.room.duplicate_match_id ? `${'东南西北'[index]}家 · ${card.room.team_by_seat?.[index] === 0 ? '蓝队' : '红队'}` : `座位 ${index + 1}`">{{ card.room.duplicate_match_id ? '东南西北'[index] : index + 1 }}</span>
+        <ul class="room-players" :class="{ 'eight-seats': card.room.duplicate_lobby }" aria-label="座位玩家">
+          <li v-for="(seat, index) in card.seats" :key="index" class="room-player" :style="card.room.duplicate_lobby ? { gridColumn: index < 4 ? 1 : 2, gridRow: index % 4 + 1 } : undefined" :class="{ 'is-empty': seat.empty, 'team-blue': card.room.duplicate_match_id && card.room.team_by_seat?.[index] === 0, 'team-red': card.room.duplicate_match_id && card.room.team_by_seat?.[index] === 1 }">
+            <span class="room-seat" :aria-label="seatLabel(card.room, index)">{{ seatLabel(card.room, index) }}</span>
             <span v-if="seat.empty" class="room-player-name">等待入座</span>
             <router-link
               v-else-if="!seat.isBot"
@@ -62,8 +62,11 @@
             </el-dropdown>
           </li>
         </ul>
+        <div v-if="card.waiters.length" class="room-waiters">
+          <span>等候区</span><span v-for="waiter in card.waiters" :key="waiter.id" data-no-translate>{{ waiter.name }}</span>
+        </div>
         <footer class="room-card-actions">
-          <el-button v-if="allowRestart && card.room.duplicate_status === 'interrupted' && card.room.duplicate_table === 'open'" size="small" type="warning" plain :disabled="group.cards.some(c => c.room.is_game_running)" @click="$emit('restart-pair', card.room)">重开未完成副</el-button>
+          <el-button v-if="allowRestart && card.room.duplicate_status === 'interrupted' && (card.room.duplicate_table === 'open' || card.room.duplicate_lobby)" size="small" type="warning" plain :disabled="group.cards.some(c => c.room.is_game_running)" @click="$emit('restart-pair', card.room)">重开未完成副</el-button>
           <el-button size="small" type="primary" plain @click="selectedRoomId = card.room.room_id">
             <el-icon><Setting /></el-icon><span>查看配置</span>
           </el-button>
@@ -121,6 +124,11 @@ function supportsHeuristic(room) {
     ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/four_jokers', 'guobiao/huahun', 'guobiao/sixteen'].includes(room.sub_rule))
 }
 
+function seatLabel(room, index) {
+  if (room.duplicate_lobby) return `${index < 4 ? '闭室' : '开室'} · ${'东南西北'[index % 4]}`
+  return room.duplicate_match_id ? '东南西北'[index] : String(index + 1)
+}
+
 const selectedRoomId = ref(null)
 const runningCount = computed(() => props.rooms.filter(room => room.is_game_running).length)
 const cards = computed(() => props.rooms.map(room => {
@@ -145,7 +153,8 @@ const cards = computed(() => props.rooms.map(room => {
     seats,
     name: room.room_name || `房间 ${room.room_id}`,
     rule: props.ruleLabels[room.room_rule] || room.room_rule || '未指定规则',
-    playerCount: seats.filter(seat => !seat.empty).length,
+    playerCount: room.duplicate_lobby ? (room.player_list || []).length : seats.filter(seat => !seat.empty).length,
+    waiters: (room.duplicate_lobby?.waiting || []).map(id => ({ id, name: room.player_settings?.[id]?.username || `玩家 ${id}` })),
   }
 }))
 const selectedCard = computed(() => cards.value.find(card => card.room.room_id === selectedRoomId.value))
@@ -193,6 +202,11 @@ const selectedSettings = computed(() => {
 .room-card-meta > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .room-rule { overflow: hidden; color: #606266; text-overflow: ellipsis; white-space: nowrap; }
 .room-players { flex: 1; margin: 0; padding: 0 12px 10px; list-style: none; }
+.eight-room { grid-column: 1 / -1; }
+.eight-room > .room-card { grid-column: 1 / -1; }
+.eight-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+.eight-seats .room-seat { flex-basis: 74px; font-weight: 400; }
+.room-waiters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-top: 2px solid #75a884; font-size: 13px; }
 .room-player { display: flex; align-items: center; gap: 7px; min-height: 39px; border-top: 1px solid #f0f2f5; font-size: 12px; }
 .room-seat { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 21px; height: 21px; border-radius: 5px; background: #ecf5ff; color: #409eff; font-size: 11px; font-weight: 600; }
 .room-player-name { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

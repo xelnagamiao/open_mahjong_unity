@@ -24,7 +24,7 @@ class CloseRoomBody(BaseModel):
 class EventRoomBotBody(BaseModel):
     event_id: str = Field(min_length=1, max_length=100)
     instance_id: str = Field(min_length=1, max_length=100)
-    seat_index: StrictInt = Field(ge=0, le=3)
+    seat_index: StrictInt = Field(ge=0, le=7)
     bot_type: Literal["auto", "smart", "heuristic"]
 
 
@@ -52,6 +52,9 @@ def register_admin_room_routes(app: FastAPI, game_server, *, proxy_secret: str):
 
     @app.post("/admin/rooms/{room_id}/bots", dependencies=[Depends(require_local_proxy)])
     async def add_event_bot(room_id: str, body: EventRoomBotBody):
+        room = game_server.room_manager.rooms.get(room_id)
+        if room is not None and body.seat_index >= (8 if room.get("duplicate_lobby_room_id") else room.get("max_player", 4)):
+            raise HTTPException(status_code=422, detail="座位编号无效")
         response = await game_server.room_manager.admin_add_event_bot(
             room_id, body.event_id, body.instance_id,
             {"auto": 0, "smart": 2, "heuristic": 3}[body.bot_type], body.seat_index)

@@ -30,7 +30,7 @@ public static class ActionButtonOrderValidation {
         { "taiwan", new[] { "hu_first", "peng", "gang", "chi_left", "pass" } },
         { "zhongyong", new[] { "hu_self", "angang", "jiagang", "cut" } },
         { "nanque", new[] { "hu_self", "angang", "jiagang", "cut" } },
-        { "jiandan", new[] { "hu_self", "angang", "jiagang", "cut" } },
+        { "nanque", new[] { "hu_self", "angang", "jiagang", "cut" } },
         { "hongzhong", new[] { "hu_self", "angang", "jiagang", "cut" } },
         { "guangdong", new[] { "hu_first", "gang", "peng", "chi_left", "pass" } },
         { "changchun", new[] { "hu_first", "gang", "peng", "chi_right", "pass" } },

@@ -51,7 +51,7 @@ public sealed class HeaderPresentationValidation : MonoBehaviour
         float deadline = Time.realtimeSinceStartup + 90;
         while ((!WindowsManager.Instance || WindowsManager.Instance.GetCurrentWindow() != "menu") && Time.realtimeSinceStartup < deadline) yield return null;
         Check(WindowsManager.Instance && WindowsManager.Instance.GetCurrentWindow() == "menu", "real MainScene guest login");
-        presentation = FindObjectsByType<HeaderPresentation>(FindObjectsInactive.Include).Single();
+        presentation = FindObjectsByType<HeaderPresentation>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single();
         var nav = presentation.navigation; var config = ConfigManager.Instance;
         oldSide = nav.Side; oldLanguage = ConfigManager.CurrentLanguage;
         Check(presentation.buttons.Length == nav.tabs.Length + 2, "all visible navigation entries have independent presentation");

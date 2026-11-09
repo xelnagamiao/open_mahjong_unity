@@ -22,10 +22,8 @@ _METRIC_INSERT_SQL = """
 
 
 def _count_rounds(record: Dict[str, Any]) -> int:
-    game_round = record.get("game_round") or {}
-    if not isinstance(game_round, dict):
-        return 0
-    return sum(1 for k in game_round.keys() if isinstance(k, str) and k.startswith("round_index_"))
+    from .round_progress import completed_hand_count
+    return completed_hand_count(record)
 
 
 def _rank_place_counts(rank: int) -> tuple:
@@ -53,6 +51,8 @@ def _build_metrics_row(
     original_player_index: Optional[int],
     created_at,
 ) -> tuple:
+    from .round_progress import ended_rounds
+    record = {**record, "game_round": {f"round_index_{index}": rd for index, rd in ended_rounds(record)}}
     game_type = derive_game_type(match_type, rule)
     total_rounds = _count_rounds(record)
     first, second, third, fourth = _rank_place_counts(rank)
@@ -61,7 +61,7 @@ def _build_metrics_row(
     total_fan_score = total_win_turn = total_fangchong_score = 0
     fulu_round_count = cuohe_count = total_round_score = 0
 
-    if rule == "guobiao" and sub_rule not in ("guobiao/sanma", "guobiao/blood_battle") and original_player_index is not None:
+    if rule == "guobiao" and sub_rule not in ("guobiao/sanma", "guobiao/blood_battle") and original_player_index is not None and total_rounds:
         cnt = analyze_record_for_player(record, original_player_index)
         if cnt:
             self_draw = cnt["zimo"]

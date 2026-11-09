@@ -28,9 +28,10 @@ public sealed class HandFaceLayoutEditor : MonoBehaviour
         editor.title.text = "牌面位置 · " + name;
         editor.draft = HandSurfaceLibrary.GetFaceLayout(path);
         editor.initialized = true;
+        FaceScaleSlider.Configure(editor.scaleSlider);
         editor.xSlider.onValueChanged.AddListener(value => { editor.draft.x = value / 100f; editor.UpdateDraft(); });
         editor.ySlider.onValueChanged.AddListener(value => { editor.draft.y = value / 100f; editor.UpdateDraft(); });
-        editor.scaleSlider.onValueChanged.AddListener(value => { editor.draft.scale = value / 100f; editor.UpdateDraft(); });
+        editor.scaleSlider.onValueChanged.AddListener(value => { editor.draft.scale = FaceScaleSlider.ToScale(value); editor.UpdateDraft(); });
         editor.cancel.onClick.AddListener(editor.Cancel);
         editor.confirm.onClick.AddListener(editor.Confirm);
         editor.reset.onClick.AddListener(() => { editor.draft = HandSurfaceLibrary.DefaultFaceLayout(editor.backgroundPath); editor.SyncControls(); editor.UpdateDraft(); });
@@ -41,7 +42,7 @@ public sealed class HandFaceLayoutEditor : MonoBehaviour
     void SyncControls()
     {
         xSlider.SetValueWithoutNotify(draft.x * 100f); ySlider.SetValueWithoutNotify(draft.y * 100f);
-        scaleSlider.SetValueWithoutNotify(draft.scale * 100f); RefreshValues();
+        scaleSlider.SetValueWithoutNotify(FaceScaleSlider.ToPosition(draft.scale)); RefreshValues();
     }
     void RefreshValues()
     {

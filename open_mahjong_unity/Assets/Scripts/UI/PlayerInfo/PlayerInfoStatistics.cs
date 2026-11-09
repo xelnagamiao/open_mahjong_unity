@@ -66,7 +66,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
             row.ExpansionChanged -= OnExpansionChanged;
             row.ExpansionChanged += OnExpansionChanged;
             row.gameObject.SetActive(true);
-            row.Bind(caption, fields, keepExpanded);
+            row.Bind(caption, fields, keepExpanded, PlayerInfoRuleCatalog.SourceRule(currentRule));
             if (palette != null) row.ApplyAppearance(palette);
         }
         foreach (string mode in modes) {

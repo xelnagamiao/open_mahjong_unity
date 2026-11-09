@@ -2,14 +2,14 @@
 SUB_RULE = 'riichi/washizu_doubles'
 ROLE_LABELS = ('A队主将', 'A队助手', 'B队主将', 'B队助手')
 PROFILE = {
-    'version': 'washizu-captain-v1', 'format': 'captain_assistant_2v2',
+    'version': 'washizu-captain-v2', 'format': 'captain_assistant_2v2',
     'seat_order': [0, 1, 2, 3], 'captain_only_tobi': True,
     'teammate_payments': True, 'teammate_hidden_hands': False,
-    'end_deposits': 'refund_contributors', 'tie': 'draw',
+    'end_deposits': 'refund_contributors', 'tie': 'draw', 'dealer_agari_yame': 'choice',
 }
 FIXED_OPTIONS = {'pao': False, 'pao_suukantsu': False, 'rank_points': 'none',
                  'return_score': 0, 'end_deposits': 'discard', 'chombo_penalty': 'fixed_9000',
-                 'tenpai_renchan': True, 'agari_yame': False, 'tenpai_yame': False,
+                 'tenpai_renchan': True, 'agari_yame': True, 'tenpai_yame': False,
                  'target_score': 0, 'extension_rounds': 0, 'tie_break': 'shared'}
 # end_deposits is overridden by PROFILE, not ordinary individual-rank settlement.
 

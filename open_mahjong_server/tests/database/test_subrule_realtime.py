@@ -68,7 +68,7 @@ def test_changsha_initial_hu_is_counted_without_bird_or_dice_labels():
 def writer(definition):
     family = definition['rule']
     if definition['sub_rule'] == 'zhongyong/nanque':
-        family = 'jiandan'
+        family = 'zhongyong'
     elif family not in {'guobiao', 'riichi', 'qingque', 'classical', 'sichuan', 'changsha', 'hongque'}:
         family = 'taiwan'
     return getattr(import_module(f'server.database.{family}.store_{family}'), f'store_{family}_game_record')

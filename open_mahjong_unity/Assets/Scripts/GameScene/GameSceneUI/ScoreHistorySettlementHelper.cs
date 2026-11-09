@@ -32,10 +32,47 @@ public static class ScoreHistorySettlementHelper {
 
     /// <summary>四川血战终局：根据和牌家数与是否查叫，确定计分板主番类型。</summary>
     public static string ResolveSichuanEndgameRoundLabel(int huCount, bool hadChajiaoStep, string subRule = null) {
+        bool bloodBattle = string.IsNullOrEmpty(subRule) || subRule == "sichuan"
+            || (subRule.StartsWith("sichuan/", StringComparison.Ordinal) && !SichuanLobby.IsXueliu(subRule));
+        if (bloodBattle) {
+            if (huCount >= 3) return SichuanRoundLabel.ThreeHu;
+            if (huCount == 2) return !hadChajiaoStep && SichuanLobby.IsDoubles(subRule)
+                ? SichuanRoundLabel.TeamFirstTwo : SichuanRoundLabel.TwoHu;
+            if (huCount == 1) return SichuanRoundLabel.OneHu;
+        }
         if (hadChajiaoStep) return SichuanRoundLabel.Chajiao;
         if (huCount >= 3) return SichuanRoundLabel.ThreeHu;
         if (huCount == 2 && SichuanLobby.IsDoubles(subRule)) return SichuanRoundLabel.TeamFirstTwo;
         return SichuanRoundLabel.Liuju;
+    }
+
+    /// <summary>副末快照优先使用实际和牌者；查叫是结算步骤，不覆盖已经发生的和牌。</summary>
+    public static string ResolveSichuanBoardRoundLabel(string subRule, SichuanBoardSettlementInfo board,
+        int fallbackHuCount = 0, bool hadChajiaoStep = false) {
+        if (board == null) return ResolveSichuanEndgameRoundLabel(fallbackHuCount, hadChajiaoStep, subRule);
+        var winners = new HashSet<int>();
+        var describedSeats = new HashSet<int>();
+        if (board.players != null) {
+            foreach (var player in board.players) {
+                if (player == null || player.seat < 0 || player.seat >= 4 || string.IsNullOrEmpty(player.status)) continue;
+                describedSeats.Add(player.seat);
+                if (player.status == "hu" || player.status == "zimo") winners.Add(player.seat);
+            }
+        }
+        if (board.events != null) {
+            foreach (var entry in board.events) {
+                if (entry == null) continue;
+                if ((entry.kind == "ron" || entry.kind == "zimo") && entry.seat >= 0 && entry.seat < 4) {
+                    winners.Add(entry.seat);
+                }
+                if (entry.kind == "chajiao" || entry.kind == "huazhu" || entry.kind == "not_ready") hadChajiaoStep = true;
+            }
+        }
+        if (board.reason == "wall_exhausted") hadChajiaoStep = true;
+        // 同队先和不查叫，避免旧步骤或缺失步骤把两家和误判成同队结束。
+        if (board.reason == "team_finished" || board.reason == "team_first_two") hadChajiaoStep = false;
+        int huCount = describedSeats.Count == 4 ? winners.Count : Math.Max(winners.Count, fallbackHuCount);
+        return ResolveSichuanEndgameRoundLabel(huCount, hadChajiaoStep, subRule);
     }
 
     public static RoundSettlementSnapshot CreateSichuanScoreboardSnapshot(string subRule, string roundLabel) {
@@ -219,12 +256,15 @@ public static class ScoreHistorySettlementHelper {
         }
 
         if (snapshot.huFan != null) {
+            bool showFanValues = ManifestOf(subRule)?.ScoreboardShowsFanValues != false;
             for (int i = 0; i < snapshot.huFan.Length; i++) {
                 string fanKey = snapshot.huFan[i];
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append(PlatformText.Get(FanTextDictionary.GetFanNameDisplayText(subRule, fanKey)));
-                sb.Append(' ');
-                sb.Append(PlatformText.Get(FanTextDictionary.GetFanDisplayText(subRule, fanKey)));
+                sb.Append(PlatformText.GetContextual(FanTextDictionary.GetFanNameDisplayText(subRule, fanKey), subRule));
+                if (showFanValues) {
+                    sb.Append(' ');
+                    sb.Append(PlatformText.GetContextual(FanTextDictionary.GetFanDisplayText(subRule, fanKey), subRule));
+                }
             }
         }
 
@@ -249,7 +289,7 @@ public static class ScoreHistorySettlementHelper {
 
         int delta = snapshot.winnerScoreDelta;
         string scorePart = delta > 0 ? $"+{delta}分" : delta < 0 ? $"{delta}分" : "0分";
-        return $"{PlatformText.Get(fanPart)} {PlatformText.Get(scorePart)}";
+        return $"{PlatformText.GetContextual(fanPart, subRule)} {PlatformText.Get(scorePart)}";
     }
 
     public static RoundSettlementSnapshot CreateFromShowResult(

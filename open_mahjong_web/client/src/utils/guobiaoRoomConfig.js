@@ -1,7 +1,7 @@
-export const supportsGuobiaoOpeningWins = subRule => ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(subRule || 'guobiao/standard')
+export const supportsGuobiaoOpeningWins = subRule => ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/sanma', 'guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(subRule || 'guobiao/standard')
 
 const defaultHepai = {
-  'guobiao/standard': 8, 'guobiao/sixteen': 8, 'guobiao/xiaolin': 1,
+  'guobiao/standard': 8, 'guobiao/blood_battle': 8, 'guobiao/sanma': 8, 'guobiao/sixteen': 8, 'guobiao/xiaolin': 1,
   'guobiao/kshen': 8, 'guobiao/lanshi': 5, 'guobiao/transparent': 8,
   'guobiao/transparent_realtime': 8, 'guobiao/huahun': 8, 'guobiao/four_jokers': 8,
 }
@@ -18,10 +18,16 @@ export function updateGuobiaoRoomConfig(form, key, value) {
     else form.cuohe_type = 0
   }
   if (key === 'sub_rule' && defaultHepai[value] != null) {
-    if (['guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(value)) form.duplicate_key = ''
+    if (value !== 'guobiao/standard') form.jinluo_mode = false
+    if (!['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(value)) form.duplicate_key = ''
     if (!['guobiao/huahun', 'guobiao/four_jokers'].includes(value)) form.joker_multi_wait = false
     if (!supportsGuobiaoOpeningWins(value)) form.tian_di_ren_he = false
     form.hepai_limit = defaultHepai[value]
+    if (value === 'guobiao/blood_battle') {
+      form.open_cuohe = false
+      form.cuohe_type = 0
+      form.tactical_call = false
+    }
     if (value === 'guobiao/huahun') form.use_flowers = true
     if (value === 'guobiao/lanshi') {
       form.use_flowers = false
@@ -59,8 +65,8 @@ export function createDefaultGuobiaoRoomConfig() {
 
 /** 组装提交给服务端的 room_config + password */
 export function buildGuobiaoRoomPayload(form) {
-  if (['guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(form.sub_rule) && String(form.duplicate_key || '').trim()) {
-    throw new Error(`${['guobiao/transparent', 'guobiao/transparent_realtime'].includes(form.sub_rule) ? '透明国标' : form.sub_rule === 'guobiao/sixteen' ? '国标十六张' : '四癞子'}不能使用普通复式牌墙，可用随机种子复现牌局`)
+  if (!['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(form.sub_rule || 'guobiao/standard') && String(form.duplicate_key || '').trim()) {
+    throw new Error('当前子规则不能使用复式牌墙，可在普通房间填写随机种子复现牌局')
   }
   const password = String(form.password || '').trim()
   const room_config = {
@@ -86,5 +92,6 @@ export function buildGuobiaoRoomPayload(form) {
     claim_protection: form.claim_protection !== false,
   }
   if (!room_config.room_name) delete room_config.room_name
+  if (form.sub_rule === 'guobiao/blood_battle') Object.assign(room_config, { hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: false })
   return { room_config, password }
 }

@@ -49,8 +49,8 @@ internal static class ZhongyongFanText {
         { "chicken_hand", ("鸡和", 1) },
     };
     public static bool IsNanque(string subRule) => subRule == "zhongyong/nanque";
-    public static string Name(string rule, string fan) => IsNanque(rule) ? JiandanFanText.FanName(rule, fan)
+    public static string Name(string rule, string fan) => IsNanque(rule) ? NanqueFanText.FanName(rule, fan)
         : Fans.TryGetValue(fan, out var item) ? item.name : fan;
-    public static string Value(string rule, string fan) => IsNanque(rule) ? JiandanFanText.FanValue(rule, fan)
+    public static string Value(string rule, string fan) => IsNanque(rule) ? NanqueFanText.FanValue(rule, fan)
         : Fans.TryGetValue(fan, out var item) ? $"{item.value}分" : "";
 }

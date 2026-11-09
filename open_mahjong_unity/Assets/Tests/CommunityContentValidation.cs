@@ -44,7 +44,7 @@ public sealed class CommunityContentValidation : MonoBehaviour {
     void Log(string message,string trace,LogType type){if(type==LogType.Error||type==LogType.Exception||type==LogType.Assert)errors.Add(message+"\n"+trace);}
     IEnumerator Validate(bool capture){
         yield return Until(()=>WindowsManager.Instance&&WindowsManager.Instance.GetCurrentWindow()=="menu",60,"guest reaches MainScene home");
-        owner=FindObjectsByType<CompleteLobbyController>(FindObjectsInactive.Include).Single();panel=FindObjectsByType<CommunityPanel>(FindObjectsInactive.Include).Single();client=panel.contentClient;
+        owner=FindObjectsByType<CompleteLobbyController>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single();panel=FindObjectsByType<CommunityPanel>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single();client=panel.contentClient;
         oldSide=owner.headerNavigation.Side;
         owner.headerNavigation.SelectSide(0);yield return Settle();
         yield return Click(owner.headerNavigation.ButtonFor("community").button);
@@ -52,7 +52,7 @@ public sealed class CommunityContentValidation : MonoBehaviour {
         if(!capture)yield break;
         Check(client.LastRequestSucceeded,"formal public content endpoint loads");Check(panel.Cards.Count==client.Document.communities.Length&&panel.Cards.Any(x=>x.Entry.id=="sichuan_players"),"published cards include Sichuan player community");
         Check(panel.transform.parent==owner.pageRoot,"community page belongs to PageRoot");Check(panel.qrDialog.GetComponentInParent<Canvas>().name=="OverlayCanvas","QR modal belongs to OverlayCanvas");
-        Check(FindObjectsByType<AboutUsPanel>(FindObjectsInactive.Include).Single().contentClient==client,"thanks and community share one source");
+        Check(FindObjectsByType<AboutUsPanel>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single().contentClient==client,"thanks and community share one source");
         foreach(var card in panel.Cards){Check(!card.title.richText&&!card.description.richText,"plain text: "+card.Entry.id);Check(card.Entry.id==client.Document.communities.First(x=>x.id==card.Entry.id).id,"published identity: "+card.Entry.id);}
         var icon=owner.headerNavigation.ButtonFor("community").GetComponent<HeaderButtonPresentation>();Check(icon&&icon.icon is HeaderCommunityGraphic&&icon.caption&&icon.Entry!=null,"community icon and label have independent presentation controls");
         Check(panel.appearance.Current.id=="graphite","fixed black-and-white palette");
@@ -76,7 +76,7 @@ public sealed class CommunityContentValidation : MonoBehaviour {
         yield return Until(()=>panel.qrDialog.group.alpha>.99f,2,"QR fade finishes");Check(!panel.qrDialog.title.isTextOverflowing,"long QR title fits modal");Check(!panel.qrDialog.caption.gameObject.activeSelf&&string.IsNullOrEmpty(panel.qrDialog.caption.text),"QR caption is omitted without reserving footer space");Check(Inside((RectTransform)panel.qrDialog.title.transform.parent),"long QR modal stays on screen");yield return Snap("qr-long-caption");
         yield return Click(panel.qrDialog.close);Check(!panel.qrDialog.gameObject.activeSelf,"QR closes without hiding community page");
         yield return Click(panel.Cards.Single(x=>x.Entry.kind=="telegram").action);yield return Snap("external-confirmation");
-        var cancel=FindObjectsByType<Button>(FindObjectsInactive.Exclude).First(b=>b.GetComponentsInChildren<TMP_Text>().Any(t=>t.text=="取消"));yield return Click(cancel);
+        var cancel=FindObjectsByType<Button>(FindObjectsInactive.Exclude, UnityEngine.FindObjectsSortMode.None).First(b=>b.GetComponentsInChildren<TMP_Text>().Any(t=>t.text=="取消"));yield return Click(cancel);
         for(int side=0;side<4;side++){
             owner.headerNavigation.SelectSide(side);yield return Settle();
             Check(Inside(owner.headerNavigation.ButtonFor("community").transform as RectTransform),"header icon visible direction "+side);
@@ -89,7 +89,7 @@ public sealed class CommunityContentValidation : MonoBehaviour {
             yield return Click(owner.headerNavigation.ButtonFor(route).button);Check(owner.CurrentPageRoute()!= "community","switch to "+route);
             yield return Click(owner.headerNavigation.ButtonFor("community").button);Check(owner.CurrentPageRoute()=="community","return from "+route);yield return Until(()=>!client.Busy,10,"refresh from "+route);
         }
-        var plans=FindObjectsByType<InterfacePlansController>(FindObjectsInactive.Include).Single();
+        var plans=FindObjectsByType<InterfacePlansController>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single();
         Check(!plans.pages.Any(x=>x.name=="Community")&&!plans.choices.Any(x=>(int)x.option==18||(int)x.option==19),"retired community design controls removed");
         owner.Open("about");yield return Settle();yield return Until(()=>!client.Busy,10,"thanks refresh");var about=FindAnyObjectByType<AboutUsPanel>();var credits=about.transform.Find("ContentPanel/Scroll View/Viewport/Content/ThanksContent/Text (TMP)").GetComponent<TMP_Text>();Check(credits.text==client.Document.CreditsText,"thanks renders exact public credit groups");
         var nav=about.GetComponentInChildren<NavigationbarPanel>(true);var navItems=(List<NavigationItem>)typeof(NavigationbarPanel).GetField("navigationItems",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(nav);yield return Click(navItems.Single(x=>x.contentElement.name=="ThanksTitle").navigationButton);yield return Snap("thanks");

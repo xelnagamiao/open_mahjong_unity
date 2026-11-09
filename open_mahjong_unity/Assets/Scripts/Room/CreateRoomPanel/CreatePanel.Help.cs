@@ -24,9 +24,7 @@ public partial class CreatePanel {
         if (_ruleState == "riichi" && source && (source.gameObject == InputHepaiLimitToggle.gameObject
             || source.transform.IsChildOf(InputHepaiLimitPlane.transform)))
             message = "起和番：输入1–64的整数，只计算实际役的番数，不含宝牌、赤宝牌、里宝牌和拔北宝牌。满足起和番后，还须达到高级设置中的起和线；起和线包含宝牌，统一按闲家荣和等值计算。";
-        var localized = roomHelpText.GetComponent<LocalizedPlatformLabel>();
-        if (localized) localized.SetSource(message);
-        else roomHelpText.text = PlatformText.Get(message);
+        TableText.Set(roomHelpText, message, _ruleState);
         if (roomHelpPanel) roomHelpPanel.gameObject.SetActive(!string.IsNullOrEmpty(message));
         ReflowRoomHelp();
         if (!string.IsNullOrEmpty(message) && roomHelpLifetime) roomHelpLifetime.MarkShown();
@@ -68,6 +66,8 @@ public partial class CreatePanel {
     }
 
     private void ResetRoomDefaults() {
+        if (SichuanDuplicateRounds) SichuanDuplicateRounds.SetValueWithoutNotify(2);
+        if (SichuanDuplicateSyncToggle) SichuanDuplicateSyncToggle.SetIsOnWithoutNotify(false);
         if (exchangeSixSelectionTime) exchangeSixSelectionTime.SetValueWithoutNotify(20);
         int subRule = SubRuleDropdown.value;
         CancelDetailedConfigChanges();

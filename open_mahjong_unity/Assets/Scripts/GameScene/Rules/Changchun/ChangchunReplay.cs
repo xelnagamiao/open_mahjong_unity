@@ -11,6 +11,8 @@ public partial class GameRecordManager {
         NextPlayer = ResolveChangchunRecordNextPlayer,
         ConsumeWallTile = ConsumeChangchunRecordWall,
         RemainingTiles = ChangchunRecordRemaining,
+        ForecastDrawCount = () => recordCcTailRemaining
+            ?? (currentTilesList.Count >= 16 ? Math.Max(0, currentTilesList.Count - 19) + 4 : 0),
         StateActions = { "cc" },
         AnnounceBeforeAction = (tick, position, voice) => PlayChangchunRecordAnnouncement(tick),
         AfterVisibleMutation = RefreshChangchunRecordEvent,

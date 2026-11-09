@@ -71,6 +71,7 @@ public static class PlatformCanvasLayerBaker {
         SetPath(overlay, "MailPanel", UiCanvasLayers.MailOrder);
         SetPath(overlay, "Mahjong Classroom", UiCanvasLayers.OverlayOrder + 280);
         SetPath(overlay, "DeveloperOptionsPanel", UiCanvasLayers.OverlayOrder + 290);
+        SetPath(overlay, "ShopPanel", UiCanvasLayers.OverlayOrder + 320);
         SetPath(overlay, "RankPolicyPanel", UiCanvasLayers.OverlayOrder + 620);
         SetPath(overlay, "NotificationPanel/DescribePos/DescribePanel", UiCanvasLayers.OverlayOrder + 620);
         SetPath(overlay, "NotificationPanel/PlayerPanelPos", UiCanvasLayers.PlayerInfoOrder);
@@ -95,6 +96,7 @@ public static class PlatformCanvasLayerBaker {
         }
         Undo.RecordObject(fit, "Fit player data to the available viewport");
         fit.panel = (RectTransform)player.transform; fit.navigation = header;
+        fit.allowTopNavigationOverlap = true;
         EditorUtility.SetDirty(fit);
 
         var feedback = overlay.transform.Find("FeedbackOverlay");

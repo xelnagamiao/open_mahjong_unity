@@ -439,7 +439,10 @@ def test_hongque_bots_still_get_local_record_and_skip_store():
     asyncio.run(state._start_round())
     persist_and_remember(state)
     assert state._local_record_detail is not None
-    bots = [SimpleNamespace(user_id=uid, username=f"bot{uid}") for uid in (2, 3, 4, 5)]
+    bots = state.player_list
+    result = state._local_record_detail.record["match_result"]
+    assert len(result["players"]) == 4
+    assert all(p["rating_pt"] == 0 for p in result["players"])
     assert store_hongque_game_record(None, state.game_record, bots, "custom", "1/4") is None
 
 
@@ -462,7 +465,7 @@ def test_all_rule_stores_skip_bots():
     from server.database.changsha.store_changsha import store_changsha_game_record
     from server.database.taiwan.store_taiwan import store_taiwan_game_record
     from server.database.sichuan.store_sichuan import store_sichuan_game_record
-    from server.database.jiandan.store_jiandan import store_jiandan_game_record
+    from server.database.zhongyong.store_zhongyong import store_zhongyong_game_record
     from server.database.hongque.store_hongque import store_hongque_game_record
 
     for store in (
@@ -473,7 +476,7 @@ def test_all_rule_stores_skip_bots():
         store_changsha_game_record,
         store_taiwan_game_record,
         store_sichuan_game_record,
-        store_jiandan_game_record,
+        store_zhongyong_game_record,
         store_hongque_game_record,
     ):
         assert store(None, dummy, bots, "custom", "1/4") is None

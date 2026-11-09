@@ -6,6 +6,7 @@ import pytest
 
 from .SichuanGameState import SichuanGameState
 from .XueliuGameState import XueliuGameState
+from .XueliuDoublesGameState import XueliuDoublesGameState
 from . import boardcast
 from .wait_action import wait_action
 from ..gamestate_router import handle_gamestate_message
@@ -25,8 +26,13 @@ def make_state(mode, **options):
     server = build_game_server(db, messages=messages)
     room = build_room_data(seed=20261004, room_id="action-window", hepai_limit=0)
     room.update(room_rule="sichuan", sub_rule=f"sichuan/{mode}", step_timer=1, round_timer=2, **options)
-    cls = SichuanGameState if mode == "standard" else XueliuGameState
+    if mode in ("doubles", "xueliu_doubles"):
+        room["team_by_seat"] = [0, 1, 0, 1]
+    cls = (SichuanGameState if mode in ("standard", "doubles") else
+           XueliuDoublesGameState if mode == "xueliu_doubles" else XueliuGameState)
     state = cls(server, room, server.calculation_service, db, "action-window")
+    if mode in ("doubles", "xueliu_doubles"):
+        state._reset_round_state()
     for i, player in enumerate(state.player_list):
         player.player_index = player.original_player_index = i
         player.hand_tiles = [15, 15, 11, 12, 13, 21, 22, 23, 24, 25, 26, 27, 28]

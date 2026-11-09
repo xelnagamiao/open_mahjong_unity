@@ -61,7 +61,6 @@ namespace Salasasa.Home
 #if UNITY_EDITOR
             if (CompleteLobbyEnvironment.IsDevelopment) DevelopmentArtworkCatalog.LoadInto(this);
 #endif
-            Application.targetFrameRate = 60;
             BindActions(gameObject);
             foreach (var page in pages) BindActions(page);
             BindActions(previewControls);

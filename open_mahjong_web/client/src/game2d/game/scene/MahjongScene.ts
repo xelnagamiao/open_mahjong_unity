@@ -108,6 +108,7 @@ function readResultSourceSeat(
  * exposes methods the React page calls when backend messages arrive.
  */
 export class MahjongScene {
+  localizationRule = 'guobiao'
   // ── Pixi ──────────────────────────────────────────────────────────
   private app: Application | null = null
   private readonly backgroundLayer = new Container()
@@ -1456,14 +1457,13 @@ export class MahjongScene {
       this.createRiver(2, c),
       this.createRiver(3, c),
     ]
-    this.riverMatchHighlight.bind(this.rivers)
-
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
       this.createHand(1, c, this.rivers[1], null),
       this.createHand(2, c, this.rivers[2], null),
       this.createHand(3, c, this.rivers[3], null),
     ]
+    this.riverMatchHighlight.bind(this.rivers, this.hands)
 
     this.stateDisplay = new Display(c)
     this.stateDisplay.setPanelClickHandler(this.showScoreDifferences)
@@ -1586,13 +1586,13 @@ export class MahjongScene {
       this.createRiver(2, c),
       this.createRiver(3, c),
     ]
-    this.riverMatchHighlight.bind(this.rivers)
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
       this.createHand(1, c, this.rivers[1], null),
       this.createHand(2, c, this.rivers[2], null),
       this.createHand(3, c, this.rivers[3], null),
     ]
+    this.riverMatchHighlight.bind(this.rivers, this.hands)
 
     this.updateDirectionLabels()
     this.countdown.stop()
@@ -1862,13 +1862,13 @@ export class MahjongScene {
             this.createRiver(2, c),
             this.createRiver(3, c),
           ]
-          this.riverMatchHighlight.bind(this.rivers)
           this.hands = [
             this.createHand(0, c, this.rivers[0], this.waitDisplay),
             this.createHand(1, c, this.rivers[1], null),
             this.createHand(2, c, this.rivers[2], null),
             this.createHand(3, c, this.rivers[3], null),
           ]
+          this.riverMatchHighlight.bind(this.rivers, this.hands)
 
           // Viewer seat_index already reflects the new seat after shuffle/rotation
           this.selfDir = viewer.seat_index
@@ -2173,7 +2173,7 @@ export class MahjongScene {
       // In self-drawn: each loser pays bp; in discard win: shooter pays bp*3
       const eachLoss = selfDrawn ? bp : 0
       const shooterLoss = selfDrawn ? 0 : bp * 3
-      this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans)
+      this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans, this.localizationRule)
       this.tempDisplay.visible = true
       if (shouldPlayResultGong(fans, fan)) {
         setTimeout(() => this.playSound('01-start'), 50)
@@ -2473,7 +2473,7 @@ export class MahjongScene {
     const bp: number = win.win_base_point ?? 0
     const eachLoss = selfDrawn ? bp : 0
     const shooterLoss = selfDrawn ? 0 : bp * 3
-    this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans)
+    this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans, this.localizationRule)
     this.tempDisplay.visible = true
   }
 

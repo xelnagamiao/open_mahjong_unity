@@ -33,7 +33,7 @@ _NO_RESET = {
     "sichuan": "game_sichuan/SichuanGameState.py",
     "changsha": "game_changsha/ChangshaGameState.py",
     "taiwan": "game_taiwan/TaiwanGameState.py",
-    "jiandan": "game_zhongyong/ZhongyongGameState.py",
+    "nanque": "game_zhongyong/ZhongyongGameState.py",
     "hongque": "game_hongque/record.py",
 }
 _POINTER_BEFORE_HEADER = {
@@ -43,7 +43,7 @@ _POINTER_BEFORE_HEADER = {
     "sichuan": "game_sichuan/SichuanGameState.py",
     "changsha": "game_changsha/ChangshaGameState.py",
     "taiwan": "game_taiwan/TaiwanGameState.py",
-    "jiandan": "game_zhongyong/ZhongyongGameState.py",
+    "nanque": "game_zhongyong/ZhongyongGameState.py",
     "zhongyong": "game_zhongyong/ZhongyongGameState.py",
     "hongque": "game_hongque/init_tiles.py",
     "guobiao": "game_guobiao/GuobiaoGameState.py",
@@ -196,7 +196,7 @@ def test_rules_set_pointer_before_round_header():
             header_at = text.find("snapshot_round_header(game_state)")
             assert 0 <= assign_at < header_at
             continue
-        if rule in {"jiandan", "zhongyong"}:
+        if rule in {"nanque", "zhongyong"}:
             assert "self.current_player_index = self.dealer_index" in text
             recording = (_STATE_ROOT / "game_zhongyong/recording.py").read_text(encoding="utf-8")
             assert "init_game_round(self)" in recording

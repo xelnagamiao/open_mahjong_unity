@@ -2,25 +2,12 @@
 import pytest
 
 from . import NanqueGameState
-from ..game_jiandan.JiandanGameState import JiandanGameState
 from ..verifier.record_sim import RecordSim, resolve_record_flags
 
 
-@pytest.mark.parametrize("title", [
-    {"rule": "jiandan"},
-    {"sub_rule": "jiandan/standard"},
-    {"rule": "zhongyong", "sub_rule": "jiandan/standard"},
-    {"rule": "jiandan", "sub_rule": "zhongyong/nanque", "blood_battle": True},
-])
-def test_old_nanque_records_are_rejected(title):
-    with pytest.raises(ValueError, match="旧版南雀牌谱已停止支持"):
-        RecordSim({"game_title": title, "game_round": {}})
-
-
-@pytest.mark.parametrize("cls", [NanqueGameState, JiandanGameState])
-def test_nanque_entry_points_only_emit_current_records_and_draw_from_tail(cls):
+def test_nanque_entry_points_only_emit_current_records_and_draw_from_tail():
+    cls = NanqueGameState
     room = cls._default_room_data()
-    room.update(room_rule="jiandan", sub_rule="jiandan/standard")
     state = cls(room_data=room)
     state.initialize_round()
     state.start_game_recording()

@@ -13,6 +13,18 @@ MonoBehaviour:
   m_Name: PlatformTypography
   m_EditorClassIdentifier: Assembly-CSharp::PlatformTypography
   mixedFonts:
+  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+    chinese: {fileID: 11400000, guid: d37bcd4a46a48cc4dac7459c02949faf, type: 2}
+    font: {fileID: 11400000, guid: 1a6850948c9123d46881f8be0f9d0669, type: 2}
+  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+    chinese: {fileID: 11400000, guid: a8f0ac2471363684aba32f0526d2b13d, type: 2}
+    font: {fileID: 11400000, guid: 9edd61597725c304b898aa5aab65bebb, type: 2}
+  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
+    chinese: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+    font: {fileID: 11400000, guid: 70d09122dd9bacf45a45a744ba4730f8, type: 2}
+  - latin: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
+    chinese: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
+    font: {fileID: 11400000, guid: 743da841a30eabe4c8a925aeb032ae59, type: 2}
   - latin: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
     chinese: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
     font: {fileID: 11400000, guid: a8ac897ed019dfb47aa879cf68d58a8b, type: 2}
@@ -23,20 +35,8 @@ MonoBehaviour:
     chinese: {fileID: 11400000, guid: b7b07577b7045f6439c99791c092932d, type: 2}
     font: {fileID: 11400000, guid: 134ff4de9dc7a2b4db299dc992d72bc0, type: 2}
   - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
-    chinese: {fileID: 11400000, guid: d37bcd4a46a48cc4dac7459c02949faf, type: 2}
-    font: {fileID: 11400000, guid: 1a6850948c9123d46881f8be0f9d0669, type: 2}
-  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
     chinese: {fileID: 11400000, guid: 82df1da2d8820f8408fe146e1f950235, type: 2}
     font: {fileID: 11400000, guid: 62b038badbd98094a861576bfe0ad9a5, type: 2}
-  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
-    chinese: {fileID: 11400000, guid: a8f0ac2471363684aba32f0526d2b13d, type: 2}
-    font: {fileID: 11400000, guid: 9edd61597725c304b898aa5aab65bebb, type: 2}
-  - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
-    chinese: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
-    font: {fileID: 11400000, guid: 70d09122dd9bacf45a45a744ba4730f8, type: 2}
-  - latin: {fileID: 11400000, guid: 8be43620eba3d4b4687c348e11ab89bc, type: 2}
-    chinese: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
-    font: {fileID: 11400000, guid: 743da841a30eabe4c8a925aeb032ae59, type: 2}
   - latin: {fileID: 11400000, guid: 90b86549f12140144873d1f32dd8342b, type: 2}
     chinese: {fileID: 11400000, guid: 38e7879a9fd23684a87c70352d2c9280, type: 2}
     font: {fileID: 11400000, guid: deface0f670751e40b9f742f13f973e1, type: 2}

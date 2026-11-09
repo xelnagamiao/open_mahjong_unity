@@ -48,7 +48,14 @@ public class DuplicateBoardResult {
     public int[] imp_scores;
 }
 
+public class SichuanDuplicateLobbyInfo {
+    public int version;
+    public int[] waiting;
+    public bool can_edit;
+}
+
 public class RoomInfo {
+    public SichuanDuplicateLobbyInfo duplicate_lobby;
     public bool unlimited_rounds;
     public string duplicate_match_id;
     public string duplicate_table;
@@ -64,6 +71,8 @@ public class RoomInfo {
     public string no_joker_bonus = "add8";
     public bool black_flower_progressive = true;
     public bool tian_di_ren_he;
+    public bool jinluo_mode;
+    public string jinluo_weather = "dragon_pairs";
     public bool is_duplicate;
     public int duplicate_round_count;
     public string duplicate_wall_type;
@@ -621,6 +630,8 @@ public class GameInfo {
     public string no_joker_bonus = "add8";
     public bool black_flower_progressive = true;
     public bool tian_di_ren_he;
+    public bool jinluo_mode;
+    public string jinluo_weather = "dragon_pairs";
     public bool is_duplicate;
     public int duplicate_round_count;
     public string duplicate_wall_type;
@@ -877,6 +888,7 @@ public class MessageInfo { // 消息信息
     public string title;    // 消息标题
     public string content;  // 消息内容
     public int required_release_version; // 旧服务器未提供时为 0
+    public int required_base_version;
 }
 
 public class ServerStatsInfo { // 服务器统计信息
@@ -1165,7 +1177,15 @@ public class PlayerRecentRecordsResponse {
 }
 
 [System.Serializable]
+public sealed class DealerChoiceInfo {
+    public int dealer_index;
+    public string selected;
+    public double available_in_ms, remaining_ms;
+}
+
+[System.Serializable]
 public sealed class SettlementSyncInfo {
+    public DealerChoiceInfo dealer_choice;
     public string gamestate_id, round_id, result_id, phase;
     public int sequence, revision;
     public bool restore;
@@ -1174,7 +1194,9 @@ public sealed class SettlementSyncInfo {
     public Dictionary<int, bool> player_to_ready;
 }
 
-public class Response { // 所有后端的返回数据都由Response类接收
+public class Response {
+    public LobbyParty party;
+    public LobbyFriendInvite party_invite; // 所有后端的返回数据都由Response类接收
     public SettlementSyncInfo settlement_sync;
     public Response[] settlement_restore;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
@@ -1183,6 +1205,8 @@ public class Response { // 所有后端的返回数据都由Response类接收
     [Newtonsoft.Json.JsonIgnore]
     public double? received_monotonic; // 本机收件时间，禁止从网络字段赋值
     public string rating_rule, data_request_id;
+    public string invite_request_id;
+    public RoomInviteInfo invite_info;
     // 消息头
     public string type; // 消息类型
     public bool success; // 消息是否成功
@@ -1220,6 +1244,13 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public RewardReceipt reward_receipt;
     public bool reward_retryable;
     public InventoryState inventory_state;
+    public WalletState wallet_state;
+    public ShopOffer[] shop_offers;
+    public WalletEntry[] wallet_entries;
+    public bool commerce_retryable;
+    public int commerce_status;
+    public string order_id;
+    public long total_minor;
     public InventoryItem[] inventory_catalog;
     public InventoryAppearance[] inventory_appearances;
     public bool inventory_retryable;

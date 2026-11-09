@@ -21,7 +21,7 @@
     "end_deposits": "discard",
     "chombo_penalty": "fixed_9000",
     "tenpai_renchan": true,
-    "agari_yame": false,
+    "agari_yame": true,
     "tenpai_yame": false,
     "target_score": 0,
     "extension_rounds": 0,

@@ -28,7 +28,8 @@ public partial class EndGamePanel {
             sichuanOriginalChildren[child.gameObject]=child.gameObject.activeSelf;
             child.gameObject.SetActive(false);
         }
-        sichuanMatchPanel.ShowMatch(data,OnGoHomeButtonClick);
+        sichuanMatchPanel.ShowMatch(data,OnGoHomeButtonClick,IsRecordResult ? "退出" : "返回主菜单",
+            IsRecordResult ? () => recordReturnAction?.Invoke() : null);
         sichuanMatchPanel.transform.SetAsLastSibling();
     }
 }

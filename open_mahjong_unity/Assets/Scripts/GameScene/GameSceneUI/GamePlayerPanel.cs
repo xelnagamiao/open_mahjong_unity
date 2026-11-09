@@ -43,18 +43,66 @@ public partial class GamePlayerPanel : MonoBehaviour {
     public RecordPlayerWaits RecordWaits => recordWaits;
     private PlayerInfo titlePlayerInfo;
     private string titleDisplayState;
+    private bool titleTypographyCaptured, originalTitleAutoSize;
+    private float originalTitleSize, originalTitleMinimum, originalTitleMaximum, originalTitleWidth;
+    private Vector2 originalTitleSizeDelta;
+    private Vector4 originalTitleMargin;
+    private TextWrappingModes originalTitleWrapping;
 
     private void OnEnable() {
         GameSettings.TitleChanged += RefreshTitle;
         GameSettings.AppearanceChanged += RefreshAppearance;
+        ConfigManager.OnLanguageChanged += RefreshLocalizedTitle;
         RefreshTitle(0, 1);
     }
+
+    private void RefreshLocalizedTitle() => RefreshTitle(-1, 0);
 
     private void RefreshTitle(int userId, int titleId) {
         if (titlePlayerInfo == null || playerTitleText == null) return;
         if (userId == titlePlayerInfo.user_id && titleDisplayState == "gamestate") titlePlayerInfo.title_used = titleId;
         playerTitleText.richText = false;
         playerTitleText.text = GameSettings.Current.GetTitleText(titlePlayerInfo.title_used);
+        ApplyTitleTypography();
+    }
+
+    private void CaptureTitleTypography() {
+        if (titleTypographyCaptured || !playerTitleText) return;
+        originalTitleSize = playerTitleText.fontSize;
+        originalTitleMinimum = playerTitleText.fontSizeMin;
+        originalTitleMaximum = playerTitleText.fontSizeMax;
+        originalTitleAutoSize = playerTitleText.enableAutoSizing;
+        originalTitleSizeDelta = playerTitleText.rectTransform.sizeDelta;
+        originalTitleWidth = playerTitleText.rectTransform.rect.width;
+        originalTitleMargin = playerTitleText.margin;
+        originalTitleWrapping = playerTitleText.textWrappingMode;
+        titleTypographyCaptured = true;
+    }
+
+    private void ApplyTitleTypography() {
+        CaptureTitleTypography();
+        if (!titleTypographyCaptured) return;
+        bool additional = PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage);
+        if (additional) {
+            // Keep the caption below the avatar, clear of the adjacent replay controls.
+            playerTitleText.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+                originalTitleWidth > 0 ? Mathf.Min(originalTitleWidth, 110) : 110);
+            playerTitleText.margin = new Vector4(originalTitleMargin.x + 3, originalTitleMargin.y,
+                originalTitleMargin.z + 3, originalTitleMargin.w);
+            playerTitleText.fontSizeMax = Mathf.Min(originalTitleSize, 18);
+            playerTitleText.fontSizeMin = Mathf.Min(playerTitleText.fontSizeMax, 12);
+            playerTitleText.fontSize = playerTitleText.fontSizeMax;
+            playerTitleText.enableAutoSizing = true;
+            playerTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+        } else {
+            playerTitleText.rectTransform.sizeDelta = originalTitleSizeDelta;
+            playerTitleText.margin = originalTitleMargin;
+            playerTitleText.fontSize = originalTitleSize;
+            playerTitleText.fontSizeMin = originalTitleMinimum;
+            playerTitleText.fontSizeMax = originalTitleMaximum;
+            playerTitleText.enableAutoSizing = originalTitleAutoSize;
+            playerTitleText.textWrappingMode = originalTitleWrapping;
+        }
     }
 
     private void RefreshAppearance(InventoryAppearance appearance) {
@@ -96,6 +144,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
     };
 
     private void Awake() {
+        CaptureTitleTypography();
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
         ResetPlayerVariables();
@@ -114,6 +163,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
         recordWaits?.Hide();
         GameSettings.TitleChanged -= RefreshTitle;
         GameSettings.AppearanceChanged -= RefreshAppearance;
+        ConfigManager.OnLanguageChanged -= RefreshLocalizedTitle;
         ClearSticker();
         HideActionMenu();
     }

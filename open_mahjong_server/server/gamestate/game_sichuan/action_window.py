@@ -7,6 +7,7 @@ from ..public.lifecycle import start_owned_task
 from ..public.tactical_claim import (
     is_decline_action, tactical_force_pass_is_live,
     tactical_mark_player_force_passed, tactical_mark_player_passed_in_grace,
+    tactical_mark_player_committed,
 )
 
 
@@ -29,7 +30,7 @@ def validate_tactical_queued_action(state, seat, data):
 
 
 async def collect_tactical_recheck(state, current_priority, submitted_actions):
-    """碰杠再询问中逐家确认点和，保留所有报和者而非只取首个抢断者。
+    """碰杠及较后座位和牌的再问中逐家确认，保留所有报和者。
 
     沿用战术窗口的独立时限，不扣普通局时；所有响应仍经动作与轮次校验。
     """
@@ -56,7 +57,11 @@ async def collect_tactical_recheck(state, current_priority, submitted_actions):
                     tactical_mark_player_passed_in_grace(state, seat)
                 else:
                     priority = state.action_priority[action]
-                    if priority > current_priority and (best is None or priority > best[0]):
+                    if action == "hu":
+                        tactical_mark_player_committed(state, seat)
+                    # action_dict 已按完整优先级筛选；同级和牌可通过座次提升。
+                    if (best is None or state.tactical_action_rank(action, seat)
+                            > state.tactical_action_rank(best[1], best[2])):
                         best = (priority, action, seat, dict(data))
                 break
         state.waiting_players_list = sorted(waiting)

@@ -25,6 +25,37 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
 
     public string State { get; private set; }
 
+    private static bool contentBusy;
+    public static async void OpenContent() {
+        if (contentBusy) return;
+        var panel = NotificationManager.Instance.ShowModal("游戏内容更新", "正在检查更新…", new MessageAction("更新中…", null, false));
+        if (panel == null) return;
+        panel.SetActionInteractable(0, false);
+        panel.SetUpdateProgress(0, 0);
+        contentBusy = true;
+        try {
+            var boot = OmUpdate.ContentBoot.Active;
+            if (boot == null) throw new InvalidOperationException("当前安装包不支持内容更新，请下载安装包。");
+            await boot.DownloadUpdate(text => { if (panel) panel.UpdateContent(text); },
+                (download, install) => { if (panel) panel.SetUpdateProgress(download, install); });
+            if (panel) panel.UpdateContent("更新完成，重新启动游戏");
+            // Show the completed bars before Android switches to a fresh game process.
+            await Task.Delay(500);
+#if UNITY_ANDROID && !UNITY_EDITOR
+            using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (var bridge = new AndroidJavaClass("cn.salasasa.updater.AndroidUpdateBridge"))
+                bridge.CallStatic("restartGame", activity);
+#else
+            throw new InvalidOperationException("自动进入新版仅在安卓客户端中使用。");
+#endif
+        } catch (Exception error) {
+            if (panel) panel.Show("更新失败", error.GetBaseException().Message, new[] {
+                new MessageAction("关闭"), new MessageAction("重试", OpenContent),
+            });
+        } finally { contentBusy = false; }
+    }
+
     public static void Open(int requiredReleaseVersion) {
         if (active != null) return;
         var updater = new GameObject("AndroidAppUpdater").AddComponent<AndroidAppUpdater>();
@@ -43,7 +74,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
             return;
         }
         try {
-            endpoint = new Uri(apiBase.TrimEnd('/') + "/api/client-updates/android");
+            endpoint = new Uri(apiBase.TrimEnd('/') + ConfigManager.AndroidUpdatePath);
             if (endpoint.Scheme != Uri.UriSchemeHttps && !(endpoint.Scheme == Uri.UriSchemeHttp && (Application.isEditor || ConfigManager.Debug))) {
                 throw new InvalidOperationException("Update endpoint must use HTTPS");
             }
@@ -59,6 +90,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
     }
 
     private void Show(string state, string content, string actionLabel, Action action) {
+        if (stopping || !panel) return;
         State = state;
         panel.Show("安卓客户端更新", content, new[] {
             new MessageAction("关闭", Cancel),
@@ -68,6 +100,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
     }
 
     private void ShowFailure(string content, bool retry = true) {
+        if (stopping || !panel) return;
         State = "error";
         if (retry) Show("error", content, "重试", Retry);
         else panel.Show("安卓客户端更新", content, new[] { new MessageAction("关闭", Cancel) });
@@ -108,6 +141,23 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
             yield break;
         }
 
+        // Only on explicit update requests, never at game startup. A verified
+        // APK survives closing the dialog or returning from Android settings.
+        if (File.Exists(apkPath)) {
+            Show("verifying", "正在检查已下载的安装包…", "校验中…", null);
+            var cachedManifest = manifest;
+            var cachedToken = cancellation.Token;
+            var cached = Task.Run(() => AndroidUpdateValidation.VerifyFile(apkPath,
+                cachedManifest.sizeBytes, cachedManifest.sha256, cachedToken));
+            while (!cached.IsCompleted) yield return null;
+            if (stopping) yield break;
+            if (!cached.IsFaulted && !cached.IsCanceled && cached.Result == null) {
+                operation = null;
+                ShowReady();
+                yield break;
+            }
+        }
+
         string fileError = null;
         try {
             DeletePartial();
@@ -126,6 +176,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
         ulong lastBytes = 0;
         bool timedOut = false;
         while (!download.isDone) {
+            if (stopping) yield break;
             float now = Time.realtimeSinceStartup;
             ulong bytes = request.downloadedBytes;
             if (bytes != lastBytes) { lastProgress = now; lastBytes = bytes; }
@@ -137,6 +188,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
             if (now - lastUi >= .25f) { panel.UpdateContent(DownloadText(bytes)); lastUi = now; }
             yield return null;
         }
+        if (stopping) yield break;
         bool succeeded = !timedOut && request.result == UnityWebRequest.Result.Success;
         request.Dispose();
         request = null;
@@ -150,6 +202,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
         CancellationToken token = cancellation.Token;
         var verification = Task.Run(() => AndroidUpdateValidation.VerifyFile(partialPath, manifest.sizeBytes, manifest.sha256, token));
         while (!verification.IsCompleted) yield return null;
+        if (stopping) yield break;
         string checksumError = verification.IsFaulted ? "安装包校验失败，请重新下载。" : verification.Result;
         if (checksumError != null) {
             DeletePartial();
@@ -164,6 +217,12 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
         }
         operation = null;
         if (fileError != null) { ShowFailure(fileError); yield break; }
+        ShowReady();
+    }
+
+    private void ShowReady() {
+        waitingForPermission = false;
+        leftForPermission = false;
         Show("ready", $"版本 {manifest.versionName} 已下载并通过校验。\n点击安装后，请按系统提示完成更新。", "安装", Install);
     }
 
@@ -173,6 +232,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
     }
 
     private void FailOperation(string message) {
+        if (stopping) return;
         operation = null;
         request?.Dispose();
         request = null;
@@ -182,14 +242,18 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
     private void Install() {
         try {
             if (!installer.CanInstall) {
-                Show("permission", "请在系统设置中允许本应用安装更新，完成后返回游戏。", "去授权", OpenPermission);
+                State = "permission";
+                panel.Show("安卓客户端更新", "请在系统设置中允许本应用安装更新，完成后返回游戏。\n安装包已保存，无需重新下载。", new[] {
+                    new MessageAction("关闭", ShowReady, false),
+                    new MessageAction("去授权", OpenPermission, false),
+                });
                 return;
             }
             waitingForPermission = false;
             installer.Install(manifest.versionCode);
             Show("installing", "已打开系统安装界面。\n如果已取消安装，可以点击重新安装。", "重新安装", Install);
         } catch (Exception) {
-            ShowFailure("无法打开安装程序或安装包与当前应用不匹配，请重新下载后重试。");
+            Show("ready", "无法打开安装程序，请重试安装或去官网下载。\n安装包已保存，无需重新下载。", "重新安装", Install);
         }
     }
 
@@ -200,7 +264,7 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
             installer.OpenPermissionSettings();
         } catch (Exception) {
             waitingForPermission = false;
-            ShowFailure("无法打开安装授权设置，请稍后重试。");
+            Show("ready", "无法打开安装授权设置，请稍后重试。\n安装包已保存，无需重新下载。", "安装", Install);
         }
     }
 
@@ -211,7 +275,9 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
         if (!focused) { leftForPermission = true; return; }
         if (!leftForPermission) return;
         waitingForPermission = false;
-        Install();
+        // Denying permission returns to the install choice, not the download flow.
+        if (installer.CanInstall) Install();
+        else ShowReady();
     }
 
     private void Update() {
@@ -227,8 +293,13 @@ public sealed class AndroidAppUpdater : MonoBehaviour {
     private void Cancel() {
         if (stopping) return;
         stopping = true;
+        // Stop the consumer before Abort can complete its yielded request and
+        // report a user cancellation as a network failure.
+        if (operation != null) { StopCoroutine(operation); operation = null; }
         cancellation?.Cancel();
         request?.Abort();
+        request?.Dispose();
+        request = null;
         if (panel != null) panel.CloseMessage();
         Destroy(gameObject);
     }

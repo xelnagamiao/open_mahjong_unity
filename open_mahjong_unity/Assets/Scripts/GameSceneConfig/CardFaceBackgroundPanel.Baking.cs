@@ -42,7 +42,7 @@ public partial class CardFaceBackgroundPanel
         EnsureHandSurfacePicker(ref handBgStyles, handBgPreview);
         EnsureHandSurfacePicker(ref handBackStyles, cardBackPreview);
         BakeHandHeaderButton(ref handLayoutButton, handBgPreview, "HandFaceLayoutButton", "牌面位置");
-        BakeHandHeaderButton(ref handBackFollowButton, cardBackPreview, "HandBackFollowButton", "自动跟随");
+        BakeHandHeaderButton(ref handBackFollowButton, cardBackPreview, "HandBackFollowButton", "自动同步手牌背景");
         SceneConfigUi.SetButtonSelected(handBackFollowButton, true);
         var followLabel = handBackFollowButton.GetComponentInChildren<TMP_Text>(true);
         followLabel.color = Color.white;

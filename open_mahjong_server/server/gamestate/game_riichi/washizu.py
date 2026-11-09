@@ -6,18 +6,33 @@ from ...game_calculation.riichi.washizu_tiles import SUB_RULES, REALTIME_SUB_RUL
 def enabled(game):
     return getattr(game, 'sub_rule', None) in SUB_RULES
 
-def public_hand(tiles):
-    visible = sorted((t for t in tiles if is_transparent(t)), key=normalize)
-    return visible + [0] * (len(tiles) - len(visible))
+def can_see_teammate_hand(game, subject, viewer_index):
+    from ...game_calculation.riichi.washizu_doubles import enabled as doubles_enabled
+    if not doubles_enabled(getattr(game, 'sub_rule', None)):
+        return False
+    if (getattr(game, 'detailed_config', None) or {}).get('show_teammate_hand') is not True:
+        return False
+    viewer = next((p for p in game.player_list if p.player_index == viewer_index), None)
+    return (viewer is not None and viewer is not subject
+            and getattr(viewer, 'team_id', None) in (0, 1)
+            and viewer.team_id == getattr(subject, 'team_id', None))
 
-def public_hands(game):
+
+def public_hand(tiles, reveal_opaque=False):
+    visible = sorted((t for t in tiles if is_transparent(t)), key=normalize)
+    opaque = sorted((t for t in tiles if not is_transparent(t)), key=normalize)
+    return visible + (opaque if reveal_opaque else [0] * len(opaque))
+
+
+def public_hands(game, viewer_index=None):
     if not enabled(game):
         return None
     if getattr(game, 'sub_rule', None) == REALTIME_SUB_RULE:
         from .realtime_hand import layout_for_viewer
         return {p.player_index: layout_for_viewer(game, p, -1)['tiles'] for p in game.player_list}
     # Sort the public projection independently of the owner's private hand order.
-    return {p.player_index: public_hand(p.hand_tiles) for p in game.player_list}
+    return {p.player_index: public_hand(p.hand_tiles, can_see_teammate_hand(game, p, viewer_index))
+            for p in game.player_list}
 
 def call_candidates(hand, called, count=2):
     matching = [t for t in hand if normalize(t) == normalize(called)]

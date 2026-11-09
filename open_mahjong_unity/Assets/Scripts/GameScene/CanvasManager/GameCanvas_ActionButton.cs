@@ -133,6 +133,9 @@ public partial class GameCanvas : MonoBehaviour {
 
     private static void ConfigureActionButtonText(TMP_Text text) {
         if (text == null) return;
+        var localization = text.GetComponent<LocalizedPlatformLabel>();
+        if (!localization) { TableText.Set(text, text.text); localization = text.GetComponent<LocalizedPlatformLabel>(); }
+        localization.context = RuleRegistry.Current?.RuleId;
         text.enableAutoSizing = true;
         text.fontSizeMax = Mathf.Max(text.fontSize, 36f);
         text.fontSizeMin = 18f;

@@ -4,26 +4,7 @@ using UnityEngine;
 public partial class GameRecordManager {
     private readonly HashSet<int> currentDangerTileIds = new HashSet<int>();
     private readonly HashSet<int> currentZimoDrawOriginalIndices = new HashSet<int>();
-    internal int ConsumedFromFrontForChongHint => consumedFromFront;
-    internal int OriginalWallTileCountForChongHint => originalTilesList?.Count ?? 0;
     internal bool IsWaitingForDrawAfterCutForChongHint => waitingForDrawAfterCut;
-    internal int LastDiscardPlayerIndexForChongHint => lastDiscardPlayerIndex;
-    internal bool IsOriginalWallIndexBackConsumed(int originalIndex) {
-        return consumedBackIndices != null && consumedBackIndices.Contains(originalIndex);
-    }
-
-    internal int GetRevealedKanDoraCount() => System.Math.Max(0, recordRiichiDoraIndicators.Count - 1);
-    internal int GetRinshanCount() => consumedBackIndices.Count;
-    internal bool IsRiichiDeadWallBlockingZimoAt(int originalIndex, string roomRule) {
-        if (IsDuplicateReplay) return false;
-        return RecordChongHintCalculator.IsRiichiDeadWallBlockingZimo(
-            roomRule,
-            originalIndex,
-            originalTilesList.Count,
-            consumedBackIndices,
-            GetRevealedKanDoraCount(),
-            GetRinshanCount());
-    }
     public static bool ShouldApplyRecordChongHint() {
         var mgr = Instance;
         if (mgr == null || !mgr.gameObject.activeSelf || mgr.gameRecord == null) return false;

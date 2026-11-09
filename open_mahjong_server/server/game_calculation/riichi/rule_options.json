@@ -31,6 +31,21 @@
       "help": "先满足起和番（只计实际役，不含宝牌），再检查包含宝牌、赤宝牌、里宝牌及拔北宝牌的牌值。统一按闲家荣和等值计算，不含本场、立直棒及浪涌倍率；庄闲、荣和、自摸和三麻使用同一门槛。满贯及以上按实际计分档位判断，遵循切上满贯与累计役满设置。"
     },
     {
+      "section": "和牌门槛",
+      "key": "show_teammate_hand",
+      "label": "可视队友暗牌",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "仅适用于鹫巢双打。开启后，在桌面显示队友不透明手牌的牌面；3D牌体保持不透明，敌方暗牌仍隐藏。"
+    },
+    {
       "section": "役种与宝牌",
       "key": "open_tanyao",
       "label": "食断",
@@ -428,7 +443,7 @@
         "关",
         "开"
       ],
-      "help": "预定末局或延长局庄家第一且达到终局目标分时，庄家和牌自动结束。"
+      "help": "普通日麻：预定末局或延长局庄家第一且达到终局目标分时，庄家和牌自动结束。鹫巢双打：末局庄家和牌后全场单独第一时，由庄家选择结束或继续连庄，不要求目标分。"
     },
     {
       "section": "终局与顺位",
@@ -752,7 +767,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "concealed"
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false
       }
     },
     {
@@ -812,7 +828,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "concealed"
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false
       }
     },
     {
@@ -872,7 +889,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "concealed"
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false
       }
     },
     {
@@ -932,7 +950,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "all"
+        "tenpai_owned_tiles": "all",
+        "show_teammate_hand": false
       }
     },
     {
@@ -992,7 +1011,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "concealed"
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1053,7 +1073,8 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "minimum_win_score": 0,
-        "tenpai_owned_tiles": "concealed"
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1114,7 +1135,8 @@
         "chombo_penalty": "fixed_9000",
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
-        "nuki_rinshan": true
+        "nuki_rinshan": true,
+        "show_teammate_hand": false
       }
     }
   ]

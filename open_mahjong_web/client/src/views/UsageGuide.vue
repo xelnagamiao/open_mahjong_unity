@@ -543,7 +543,7 @@ const seedCodeLabels = {
 }
 
 const seedExampleCode = computed(() => {
-  const labels = seedCodeLabels[locale.value] || seedCodeLabels['zh-CN']
+  const labels = seedCodeLabels[locale.value] || Object.fromEntries(Object.entries(seedCodeLabels['zh-CN']).map(([key, source]) => [key, tr(source)]))
   return `import hashlib
 import random
 

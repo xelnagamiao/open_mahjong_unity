@@ -116,14 +116,14 @@ for (const event_id of ['evt_A', 'base_A']) for (const wall_type of ['manual', '
   });
 }
 
-test('both Sichuan key layouts require venue scope and reject other rule tile sets', () => {
+test('both Sichuan key layouts support personal and venue scope and reject other tile sets', () => {
   for (const rule of ['sichuan/sbr', 'sichuan/xueliu']) {
     for (const wall_type of ['manual', 'seed', 'key']) {
-      assert.throws(() => normalizeInput(input({ rule, wall_type, seed: 'test', tiles: fullWall(rule) })), /赛事或基地/);
+      assert.equal(normalizeInput(input({ rule, wall_type, seed: 'test', tiles: fullWall(rule) })).scope, 'personal');
     }
     assert.throws(() => normalizeInput({scope: 'event', event_id: 'evt_A', rule, wall_type: 'manual', tiles: fullWall('guobiao')}), /108/);
     const spec = catalog().rules.find(item => item.rule === rule);
-    assert.deepEqual(spec.scopes, ['event']);
+    assert.deepEqual(spec.scopes, ['personal', 'event']);
     assert.match(spec.label, /双打复式/);
   }
   assert.deepEqual(wallDto({rule:'sichuan/doubles_duplicate'}).wall_layout, 'sbr');

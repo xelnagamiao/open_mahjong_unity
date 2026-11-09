@@ -13,7 +13,7 @@ _RULES = (
     "qingque",
     "changsha",
     "taiwan",
-    "jiandan",
+    "nanque",
     "hongque",
 )
 

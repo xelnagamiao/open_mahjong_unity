@@ -8,7 +8,7 @@ using Salasasa.Leaderboards;
 
 namespace Salasasa.Home
 {
-    public enum DesignOption { Navigation = 1, Home = 2, EntrancePalette = 4, Inventory = 7, History = 9, Settings = 10, EventDesign = 15, SettingsHint = 17, MailPalette = 23, HomeCurtain = 24, RankingPalette = 27 }
+    public enum DesignOption { Navigation = 1, Home = 2, EntrancePalette = 4, Inventory = 7, History = 9, Settings = 10, EventDesign = 15, SettingsHint = 17, MailPalette = 23, HomeCurtain = 24, RankingPalette = 27, ProfilePalette = 28, SalaCoin = 29 }
     [Serializable] public sealed class DesignChoiceGroup { public DesignOption option; public Button[] buttons; public int[] values; }
 
     [DisallowMultipleComponent]
@@ -19,6 +19,7 @@ namespace Salasasa.Home
         public HomeHeaderPalette homePalette;
         public EntranceMainBridge entrances;
         public InventoryLayoutVariants inventory;
+        public PlayerInfoAppearance profile;
         public Salasasa.Venues.VenueContainerLayout venue;
         public SettingsStyleCollection settings;
         public Salasasa.DataLab.HomeDataPanel statistics;
@@ -58,11 +59,13 @@ namespace Salasasa.Home
         public void SelectHomeCurtain(int value) => Apply(DesignOption.HomeCurtain, value);
         public void SelectEntrancePalette(int value) => Apply(DesignOption.EntrancePalette, value);
         public void SelectInventory(int value) => Apply(DesignOption.Inventory, value);
+        public void SelectProfilePalette(int value) => Apply(DesignOption.ProfilePalette, value);
         public void SelectRankingPalette(int value) => Apply(DesignOption.RankingPalette, value);
         public void SelectHistory(int value) => Apply(DesignOption.History, value);
         public void SelectSettings(int value) => Apply(DesignOption.Settings, value);
         public void SelectSettingsHint(int value) => Apply(DesignOption.SettingsHint, value);
         public void SelectEventDesign(int value) => Apply(DesignOption.EventDesign, value);
+        public void SelectSalaCoin(int value) => Apply(DesignOption.SalaCoin, value);
         public void SelectMailPalette(int value) => Apply(DesignOption.MailPalette, value);
         void Preview(string route)
         {
@@ -89,11 +92,13 @@ namespace Salasasa.Home
         {
             switch (option)
             {
+                case DesignOption.SalaCoin: SalaCoinAppearance.Select(value); break;
                 case DesignOption.Navigation: owner.headerNavigation.SelectSide(value); break;
                 case DesignOption.Home: Preview("home"); home.SelectVariant(value); break;
                 case DesignOption.HomeCurtain: Preview("home"); owner.headerNavigation.SelectHomeCurtain(value); break;
                 case DesignOption.EntrancePalette: Preview("home"); entrances.SelectPalette(value); break;
                 case DesignOption.Inventory: Preview("inventory"); inventory.SelectVariant(value); break;
+                case DesignOption.ProfilePalette: profile.SelectPalette(value); break;
                 case DesignOption.RankingPalette: Preview("leaderboard"); ranking.paletteEditor.SelectPreset(value); break;
                 case DesignOption.History: Preview("statistics"); statistics.SetCardStyle(value); break;
                 case DesignOption.Settings: Preview("settings"); settings.SelectVariant(value); break;
@@ -107,11 +112,13 @@ namespace Salasasa.Home
         {
             switch (option)
             {
+                case DesignOption.SalaCoin: return SalaCoinAppearance.Selected;
                 case DesignOption.Navigation: return owner.headerNavigation.Side;
                 case DesignOption.Home: return home.Variant;
                 case DesignOption.HomeCurtain: return owner.headerNavigation.HomeCurtainEnabled ? 1 : 0;
                 case DesignOption.EntrancePalette: return entrances.SelectedPalette;
                 case DesignOption.Inventory: return inventory.Variant;
+                case DesignOption.ProfilePalette: return profile ? profile.SelectedPalette : 0;
                 case DesignOption.RankingPalette: return ranking.paletteEditor.SelectedPreset;
                 case DesignOption.History: return statistics.cardStyleIndex;
                 case DesignOption.Settings: return settings.Variant;

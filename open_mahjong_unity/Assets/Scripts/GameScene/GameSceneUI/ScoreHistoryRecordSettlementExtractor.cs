@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 /// <summary>
@@ -86,6 +87,20 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         for (int i = 0; i < playerCount; i++) last.scoreChangesByOriginal[i] += finalScores[i] - totals[i];
     }
 
+    internal static bool TryGetSichuanBoardSummary(Round round, out SichuanBoardSettlementInfo board) {
+        board = null;
+        if (round?.actionTicks == null) return false;
+        for (int i = round.actionTicks.Count - 1; i >= 0; i--) {
+            var tick = round.actionTicks[i];
+            if (tick == null || tick.Count < 3 || tick[0] != "liuju" || tick[1] != "board_summary") continue;
+            try {
+                board = JsonConvert.DeserializeObject<SichuanBoardSettlementInfo>(tick[2]);
+                if (board != null) return true;
+            } catch (JsonException) { }
+        }
+        return false;
+    }
+
     private static void ExtractRoundRows(
         Round round,
         string subRule,
@@ -103,20 +118,25 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         int roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex;
         int firstRoundRow = output.Count;
 
-        if (SichuanLobby.IsXueliu(subRule) || SichuanLobby.IsDoubles(subRule)) {
+        bool hasSichuanSummary = subRule.StartsWith("sichuan/", StringComparison.Ordinal)
+            && TryGetSichuanBoardSummary(round, out _);
+        if (SichuanLobby.IsXueliu(subRule) || SichuanLobby.IsDoubles(subRule) || hasSichuanSummary) {
             // 血流及血战双打统一按副记账；board_summary 是展示快照，不能另添零分行。
             // 复用逐帧分数解码，避免另一套杠分/换位算法漏算或重复计算。
             var totals = new Round { seats = round.seats };
             string label = null;
-            int huCount = 0;
+            var winners = new HashSet<int>();
             foreach (List<string> tick in round.actionTicks) {
                 GameRecordJsonDecoder.AccumulateScoreChangesFromTick(totals, tick);
                 if (tick != null && tick.Count >= 2 && tick[0] == "liuju" && tick[1] == "chajiao")
                     label = SichuanRoundLabel.Chajiao;
-                if (tick != null && tick.Count >= 2 && tick[0] == "liuju" && tick[1] == "settle_hu") huCount++;
+                if (tick != null && tick.Count >= 3 && (tick[0] == "liuju" || tick[0] == "blood")
+                    && tick[1] == "settle_hu" && int.TryParse(tick[2], out int winner) && winner >= 0 && winner < 4) winners.Add(winner);
             }
-            if (SichuanLobby.IsDoubles(subRule))
-                label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, label != null, subRule);
+            if (!SichuanLobby.IsXueliu(subRule)) {
+                TryGetSichuanBoardSummary(round, out var board);
+                label = ScoreHistorySettlementHelper.ResolveSichuanBoardRoundLabel(subRule, board, winners.Count, label != null);
+            }
             output.Add(new RecordScoreRow {
                 snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
                 scoreChangesByOriginal = totals.scoreChanges?.ToArray() ?? new int[4],

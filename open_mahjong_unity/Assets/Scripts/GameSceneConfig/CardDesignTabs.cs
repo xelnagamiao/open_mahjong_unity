@@ -15,6 +15,8 @@ public sealed class CardDesignTabs : MonoBehaviour
     [SerializeField] private GameObject handImagesPage;
     [SerializeField] private GameObject tableFacePage;
     [SerializeField] private GameObject cardModelPreview;
+    [SerializeField] private CardFaceScrollLayout scrollLayout;
+    [SerializeField] private CardDesignScrollLayout cardScrollLayout;
 
     private int faceTab;
     private int cardTab;
@@ -44,6 +46,19 @@ public sealed class CardDesignTabs : MonoBehaviour
 
     private void ShowFace(int tab, bool preserveSelection)
     {
+        if (scrollLayout != null) {
+            PageChanged?.Invoke();
+            faceTab = 0;
+            cardDesignRoot.SetActive(false);
+            tableFacePage.SetActive(false);
+            handImagesPage.SetActive(false);
+            faceDesignRoot.SetActive(true);
+            facePanel.ShowPanel();
+            backgroundPanel.ShowPanel();
+            scrollLayout.Show(preserveSelection);
+            PanelShown?.Invoke(true);
+            return;
+        }
         // Keep existing direct callers of the former third face tab working.
         if (tab == 2) { ShowTableBackground(); return; }
         PageChanged?.Invoke();
@@ -66,6 +81,23 @@ public sealed class CardDesignTabs : MonoBehaviour
     public void ShowCard(int tab)
     {
         PageChanged?.Invoke();
+        if (cardScrollLayout != null) {
+            cardTab = 0;
+            faceDesignRoot.SetActive(false);
+            handImagesPage.SetActive(false);
+            cardDesignRoot.SetActive(true);
+            tableFacePage.SetActive(true);
+            backgroundPanel.ShowPanel();
+            backgroundPanel.RefreshSolidColorUi();
+            backPanel.ShowPanel();
+            backPanel.ReloadSaved();
+            edgePanel.gameObject.SetActive(true);
+            edgePanel.ReloadSaved();
+            cardModelPreview.SetActive(true);
+            cardScrollLayout.Show();
+            PanelShown?.Invoke(false);
+            return;
+        }
         cardTab = Mathf.Clamp(tab, 0, cardTabs.Length - 1);
         faceDesignRoot.SetActive(false);
         backgroundPanel.HidePanel();

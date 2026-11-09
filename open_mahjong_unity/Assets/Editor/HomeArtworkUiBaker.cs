@@ -37,7 +37,7 @@ public static class HomeArtworkUiBaker
         var bridge = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<EntranceMainBridge>(true)).Single();
         var align = bridge.entrances.GetComponent<EntranceDockAlignment>() ?? bridge.entrances.gameObject.AddComponent<EntranceDockAlignment>();
         align.artwork = owner.artwork;
-        align.firstButtons = owner.artwork.pages.Select(p => (RectTransform)p.transform.Find("MetroBottomNavigation/CityDockinventory")).ToArray();
+        align.firstButtons = owner.artwork.pages.Select(p => (RectTransform)p.transform.Find(p.transform.Find("MetroBottomNavigation/ShopButton") ? "MetroBottomNavigation/ShopButton" : "MetroBottomNavigation/CityDockinventory")).ToArray();
         align.lastButtons = owner.artwork.pages.Select(p => (RectTransform)p.transform.Find("MetroBottomNavigation/CityDockleaderboard")).ToArray();
         var entries = (RectTransform)align.transform;
         entries.anchorMin = entries.anchorMax = entries.pivot = new Vector2(1, .5f);

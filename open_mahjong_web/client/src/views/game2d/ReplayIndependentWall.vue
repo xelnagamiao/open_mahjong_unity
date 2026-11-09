@@ -2,7 +2,7 @@
   <div
     ref="layerElement"
     class="replay-independent-wall"
-    :class="{ 'is-compact': compact }"
+    :class="{ 'is-compact': compact, 'has-translated-header': translatedHeader }"
     @click.stop
     @contextmenu.stop
     @wheel.stop
@@ -114,6 +114,7 @@ const toggleElement = ref<HTMLButtonElement | null>(null)
 const handleElement = ref<HTMLButtonElement | null>(null)
 const PANEL_TOP = 38
 const PANEL_CHROME = 44 // 30px header, 12px content padding, 2px border
+const translatedHeader = computed(() => ['fr', 'de', 'ru'].includes(locale.value))
 const MIN_TILE_WIDTH = 16
 let observer: ResizeObserver | null = null
 let drag: { pointerId: number, x: number, y: number, startX: number, startY: number } | null = null
@@ -164,7 +165,7 @@ async function updateLayout() {
   }
   let best = { tileWidth: 0, columns: 1, rowCount: groupCount, region: regions[0] }
   for (const region of regions) {
-    const contentHeight = Math.max(0, region.height - PANEL_CHROME - 2)
+    const contentHeight = Math.max(0, region.height - PANEL_CHROME - (translatedHeader.value ? 18 : 0) - 2)
     // On phones, spread groups across the available width to keep the floating panel shallow.
     const columnOptions = nextCompact
       ? [Math.max(1, Math.min(groupCount, Math.floor((region.width - 14 + 6) / (4 * MIN_TILE_WIDTH + 3 + 6))))]
@@ -328,6 +329,8 @@ onBeforeUnmount(() => {
 .replay-independent-wall .replay-independent-wall__handle:active { cursor: grabbing; }
 .replay-independent-wall .replay-wall__legend { flex: 0 0 auto; gap: 3px; margin-left: 0; }
 .replay-independent-wall .replay-wall__legend i { padding: 1px 3px; font-size: 10px; }
+.replay-independent-wall.has-translated-header .replay-independent-wall__header { height: 48px; flex-wrap: wrap; gap: 1px; }
+.replay-independent-wall.has-translated-header .replay-independent-wall__handle { flex: 1 0 100%; min-height: 18px; }
 .replay-independent-wall__scroll {
   min-width: 0;
   min-height: 0;

@@ -1,0 +1,28 @@
+Default player avatars
+
+2301 / 默认头像: existing project avatar, Resources/image/Profiles/1.png, unchanged.
+
+2302 / 博丽灵梦 (Hakurei Reimu)
+2303 / 琪露诺 (Cirno)
+Artist: afensorm. Originally commissioned for Taisei Project.
+License: Creative Commons Attribution 4.0 International (CC BY 4.0).
+Independent license and exact scope: LICENSE.txt (2302.png and 2303.png only; default 1.png is not covered).
+Artist: https://afens.surge.sh / https://pixiv.me/afens
+Taisei Project: https://github.com/taisei-project/taisei
+Source revision: https://github.com/taisei-project/taisei-rawmedia/tree/d3dd520f3f1a18ee958cd60d4bf2c88ea93530c6/gfx/dialog/afens
+Sources: reimu.kra and cirno.kra; original exported PNGs retained in Assets/Salasasa/PreviewArt/TaiseiCharacters.
+Permission statement: Licenses/Taisei-COPYING.txt
+License text: Licenses/CC-BY-4.0.txt
+License URL: https://creativecommons.org/licenses/by/4.0/
+
+Changes: square head-and-shoulders crops, proportionally downsampled to 512 x 512 with high-quality bicubic filtering. Original artwork, colors and transparency retained; no repainting or generated elements. The crop composition matches the previous full-portrait Sprite rectangles.
+Original-image coordinates (bottom-left origin):
+Reimu, 1912 x 3072: Rect(180, 1910, 1120, 1120).
+Cirno, 2168 x 3072: Rect(430, 1940, 1050, 1050).
+Each shipped PNG is now 512 x 512, with a full-image Sprite rectangle.
+Reserve versions for all 11 current characters are stored outside the Unity project in other/AvatarPortraits/Taisei and are not included in the player build.
+
+Reimu and Cirno are Touhou Project characters by ZUN / Team Shanghai Alice. This use is an unofficial fan work and does not imply endorsement. The art license does not transfer the underlying character rights.
+Touhou fan-work guidelines: https://touhou-project.news/guideline/
+
+When redistributing, retain the artist, source and license attribution above and describe further modifications.

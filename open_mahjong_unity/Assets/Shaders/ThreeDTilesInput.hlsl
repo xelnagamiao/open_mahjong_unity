@@ -11,7 +11,6 @@ CBUFFER_START(UnityPerMaterial)
     half _BackTexBlend;
     half _BackTexExtendEdge;
     half _FrontTexExtendEdge;
-    half _FrontRotation;
     half _FrontBgBlend;
     half4 _FrontBgColor;
     half _FrontBgTexAspect;

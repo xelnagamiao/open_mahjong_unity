@@ -35,7 +35,7 @@ namespace Salasasa.Home
         {
             if (language == AppLanguage.English && !string.IsNullOrEmpty(english)) return english;
             if (language == AppLanguage.TraditionalChinese && !string.IsNullOrEmpty(traditionalChinese)) return traditionalChinese;
-            return simplifiedChinese ?? "";
+            return PlatformText.HasLocaleCatalog(language) ? PlatformText.Get(simplifiedChinese ?? "", language) : simplifiedChinese ?? "";
         }
     }
 

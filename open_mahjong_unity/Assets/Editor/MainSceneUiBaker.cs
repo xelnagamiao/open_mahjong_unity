@@ -52,6 +52,9 @@ public static class MainSceneUiBaker {
         CommunityUiBaker.ApplyFixed(scene);
         MailUiBaker.Bake(scene);
         RewardUiBaker.Bake(scene);
+        ShopUiBaker.Bake(scene);
+        GameEndRewardsUiBaker.Bake(scene);
+        SalaCoinShopUiBaker.Bake(scene);
         MailBatchLayoutBaker.Bake(scene);
         GameNavigationUiBaker.Bake(scene);
         PlatformNavigationBaker.Bake(scene);
@@ -119,6 +122,9 @@ public static class MainSceneUiBaker {
         }
         ChatUiBaker.Validate(scene);
         RewardUiBaker.Validate(scene);
+        ShopUiBaker.Validate(scene);
+        GameEndRewardsUiBaker.Validate(scene);
+        SalaCoinShopUiBaker.Validate(scene);
         foreach (var player in Find<GamePlayerPanel>(scene))
             GamePlayerPanelUiBaker.Validate(player);
         foreach (var tips in Find<TipsContainer>(scene))
@@ -143,7 +149,7 @@ public sealed class MainSceneUiBuildCheck : IProcessSceneWithReport {
     public int callbackOrder => 1;
     public void OnProcessScene(Scene scene, BuildReport report) {
         // Play Mode has already initialized the UI; authored inactive-state checks apply to player builds.
-        if (report == null) return;
+        if (report == null || scene.path == "Assets/AndroidUpdate/AndroidBootstrap.unity") return;
         try { RuleSupportTableBaker.Bake(scene); MainSceneUiBaker.Validate(scene); }
         catch (Exception error) { throw new BuildFailedException(error.Message); }
     }

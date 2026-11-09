@@ -6,6 +6,7 @@ public partial class RoundPanel {
     private readonly Dictionary<TMP_Text, TableLabelLayout> languageLayouts = new();
     private TMP_Text[] statusLabels;
     private TMP_Text simpleSeedHint, riichiSeedHint, riichiDuplicateSeedHint;
+    private float riichiSeedHeight;
     private bool languageLayoutCaptured, englishLayoutApplied;
 
     private void OnEnable() {
@@ -19,12 +20,13 @@ public partial class RoundPanel {
                 FindLabel("SimpleRoundPanel/Content/Cuohe"), FindLabel("SimpleRoundPanel/Content/Fushi") };
             simpleSeedHint = FindLabel("SimpleRoundPanel/Content/RandomorFushi");
             riichiSeedHint = FindLabel("RiichiRoundPanel/Content/RandomSeed");
+            if (riichiSeedHint) riichiSeedHeight = riichiSeedHint.rectTransform.rect.height;
             riichiDuplicateSeedHint = FindLabel("RiichiRoundPanel/RandomorFushi");
             foreach (var label in statusLabels) Capture(label);
             Capture(simpleSeedHint); Capture(riichiSeedHint); Capture(riichiDuplicateSeedHint);
             languageLayoutCaptured = true;
         }
-        bool english = ConfigManager.CurrentLanguage == AppLanguage.English;
+        bool english = ConfigManager.CurrentLanguage == AppLanguage.English || PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage);
         if (!english) {
             if (englishLayoutApplied) foreach (var item in languageLayouts)
                 item.Value.Restore(System.Array.IndexOf(statusLabels, item.Key) >= 0);
@@ -58,6 +60,8 @@ public partial class RoundPanel {
         }
         if (riichiSeedHint) {
             TableText.Set(riichiSeedHint, "table.round.seed_short");
+            riichiSeedHint.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage) ? 22 : riichiSeedHeight);
             Constrain(riichiSeedHint, 12, 11, TextAlignmentOptions.MidlineLeft);
         }
         if (riichiDuplicateSeedHint) riichiDuplicateSeedHint.enabled = false;

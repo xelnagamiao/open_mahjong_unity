@@ -14,6 +14,7 @@ public partial class CreatePanel {
         DuplicateWallToggle.isOn = false;
         GuobiaoFlowersToggle.SetIsOnWithoutNotify(true);
         if (TianDiRenHeToggle) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
+        if (JinluoModeToggle) JinluoModeToggle.SetIsOnWithoutNotify(false);
         if (JokerMultiWaitToggle) JokerMultiWaitToggle.SetIsOnWithoutNotify(false);
         InputHepaiLimitToggle.SetIsOnWithoutNotify(false); HepaiLimitInput.text = "8";
         tipsToggle.SetIsOnWithoutNotify(tier == 0);
@@ -73,6 +74,7 @@ public partial class CreatePanel {
             bool selected = _ruleState == "guobiao" && SubRuleDropdown.value == 0
                 && !DuplicateWallToggle.isOn && GuobiaoFlowersToggle.isOn && !InputHepaiLimitToggle.isOn
                 && (!TianDiRenHeToggle || !TianDiRenHeToggle.isOn)
+                && !IsJinluoEnabled
                 && tipsToggle.isOn == (i == 0) && !countTipsToggle.isOn && pointerTipsToggle.isOn == (i != 3)
                 && CuoHeheToggle.isOn == (i != 0) && (i == 0 || CuoheTypeDropdown.value == 0)
                 && TacticalCallToggle.isOn && GetSelectedRoundTimer() == 20 && GetSelectedStepTimer() == (i == 1 ? 8 : 5);

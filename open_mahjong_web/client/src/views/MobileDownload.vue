@@ -19,6 +19,7 @@
           rel="noopener noreferrer"
         >加入QQ群</a>
       </div>
+      <p class="download-fallback">如果点击下载无反应，可以点此<a :href="downloadLink" @click.prevent="copyDownloadLink">复制下载链接</a>到其他页面下载</p>
       <p v-if="downloadError" class="download-error" role="alert">{{ downloadError }}</p>
     </section>
   </div>
@@ -36,6 +37,30 @@ const page = MOBILE_DOWNLOAD_PAGE
 const download = MOBILE_DOWNLOAD
 const downloading = ref(false)
 const downloadError = ref('')
+const downloadLink = new URL('/android-game/open_mahjong_unity.apk', window.location.origin).href
+
+async function copyDownloadLink() {
+  try {
+    await navigator.clipboard.writeText(downloadLink)
+  } catch {
+    const field = document.createElement('textarea')
+    const previousFocus = document.activeElement
+    field.value = downloadLink
+    field.readOnly = true
+    field.style.cssText = 'position:fixed;left:-9999px;font-size:16px'
+    document.body.appendChild(field)
+    try {
+      field.select()
+      field.setSelectionRange(0, downloadLink.length)
+      if (!document.execCommand('copy')) throw new Error('copy unavailable')
+    } catch {
+      downloadError.value = '复制失败，请长按“复制下载链接”进行复制。'
+    } finally {
+      field.remove()
+      previousFocus?.focus({ preventScroll: true })
+    }
+  }
+}
 
 async function handleDownload() {
   if (downloading.value) return
@@ -117,6 +142,19 @@ async function handleDownload() {
   color: #b42318;
   font-size: 13px;
   font-weight: 400;
+}
+
+.download-fallback {
+  margin: 14px 0 0;
+  color: #666;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.download-fallback a {
+  color: var(--accent-deep);
+  text-decoration: underline;
 }
 
 .qq-btn {

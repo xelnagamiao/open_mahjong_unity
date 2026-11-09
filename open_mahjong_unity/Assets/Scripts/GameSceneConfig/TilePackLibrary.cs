@@ -6,6 +6,7 @@ using UnityEngine;
 
 /// <summary>每次导入保留一个独立牌组；PlayerPrefs 只保存目录和名称，文件体保存在本地或 IndexedDB。</summary>
 public static class TilePackLibrary {
+    public static event Action Changed;
     const string CatalogKey = "CustomTilePackLibraryV1";
     static readonly HashSet<string> deleting = new HashSet<string>(StringComparer.Ordinal);
     [Serializable] public sealed class Entry {
@@ -44,7 +45,7 @@ public static class TilePackLibrary {
         var entries = GetEntries(); var entry = entries.Find(e => e.id == id);
         if (entry == null) { error = "自定义牌面不存在"; return false; }
         entry.name = name;
-        try { PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries })); PlayerPrefs.Save(); return true; }
+        try { PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries })); PlayerPrefs.Save(); Changed?.Invoke(); return true; }
         catch (Exception e) { error = "保存名称失败：" + e.Message; return false; }
     }
 
@@ -66,6 +67,7 @@ public static class TilePackLibrary {
                 PlayerPrefs.Save();
             } catch (Exception e) { fail("更新牌面目录失败：" + e.Message); return; }
             deleting.Remove(id);
+            Changed?.Invoke();
             onDeleted?.Invoke();
         };
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -95,7 +97,7 @@ public static class TilePackLibrary {
         Action complete = () => {
             var entries = GetEntries(); entries.Add(entry);
             PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries }));
-            PlayerPrefs.Save(); onSaved?.Invoke(entry);
+            PlayerPrefs.Save(); Changed?.Invoke(); onSaved?.Invoke(entry);
         };
 #if UNITY_WEBGL && !UNITY_EDITOR
         TilePackLibraryRequest.Save(entry.id, zip, complete, onError);
@@ -121,6 +123,11 @@ public static class TilePackLibrary {
 #else
             var legacy = new TilePackImporter.Result();
             TilePackStorage.LoadPngsFromDisk(legacy.HandPngs, legacy.TablePngs);
+            string cfg = Path.Combine(TilePackStorage.HandDirectory, "tiles.cfg");
+            if (File.Exists(cfg)) {
+                try { legacy.ConfigText = File.ReadAllText(cfg); legacy.LayoutConfig = TilePackLayoutConfig.Parse(legacy.ConfigText); }
+                catch (Exception e) { onError?.Invoke(e.Message); return; }
+            }
             if (legacy.Success) onLoaded?.Invoke(legacy); else onError?.Invoke("旧自定义牌组文件缺失");
 #endif
             return;

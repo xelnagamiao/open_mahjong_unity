@@ -457,7 +457,8 @@
         "4/4"
       ],
       "ranked_modes": [
-        "4/4_rank"
+        "4/4_rank",
+        "unlimited/4_rank"
       ],
       "matchmaking": true,
       "win_stat_unit": "fan",
@@ -593,8 +594,10 @@
         "3/4",
         "4/4"
       ],
-      "ranked_modes": [],
-      "matchmaking": false,
+      "ranked_modes": [
+        "2/4_rank"
+      ],
+      "matchmaking": true,
       "win_stat_unit": "fan",
       "deal_in_stat_unit": "fan"
     },
@@ -1277,7 +1280,7 @@
       "sub_rule": "hongque/v1.6",
       "family_name": "虹雀",
       "sub_rule_name": "v1.6（虹雀²）",
-      "stats_name": "虹雀²（v1.6）",
+      "stats_name": "虹雀²（v1.7）",
       "standard": false,
       "basic_stats": true,
       "fan_stats": true,
@@ -1298,6 +1301,32 @@
       "matchmaking": true,
       "win_stat_unit": "base_points",
       "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "hongque_w",
+      "rule": "hongque",
+      "sub_rule": "hongque/w-v1.0",
+      "family_name": "虹雀",
+      "sub_rule_name": "虹雀 W",
+      "stats_name": "虹雀 W",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "hongque_w",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "虹雀 W",
+      "custom_modes": [
+        "4/4",
+        "8/4",
+        "12/4",
+        "16/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points",
+      "historical_ranked_modes": []
     },
     {
       "key": "free",

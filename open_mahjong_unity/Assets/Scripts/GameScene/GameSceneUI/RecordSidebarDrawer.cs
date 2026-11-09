@@ -19,6 +19,9 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
     private bool originalAutoSize;
     private Vector4 originalMargin;
     private TMPro.TextWrappingModes originalWrapping;
+    private Vector2 originalLabelSize, originalLabelSizeDelta, originalLabelPosition, originalLabelPivot;
+    private Quaternion originalLabelRotation;
+    private bool languageLayoutPending;
 
     private void Awake() {
         handle.onClick.AddListener(Toggle);
@@ -31,6 +34,12 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
             originalAutoSize = binding ? binding.authoredAutoSize : handleLabel.enableAutoSizing;
             originalMargin = handleLabel.margin;
             originalWrapping = handleLabel.textWrappingMode;
+            var rect = handleLabel.rectTransform;
+            originalLabelSize = rect.rect.size;
+            originalLabelSizeDelta = rect.sizeDelta;
+            originalLabelPosition = rect.anchoredPosition;
+            originalLabelPivot = rect.pivot;
+            originalLabelRotation = rect.localRotation;
             if (binding) binding.fitTranslation = false;
         }
     }
@@ -54,14 +63,44 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
     }
 
     private void RefreshLanguage() {
+        ApplyLanguageLayout();
+        // Run once after localization callbacks have restored their own typography state.
+        languageLayoutPending = true;
+    }
+
+    private void LateUpdate() {
+        if (!languageLayoutPending) return;
+        languageLayoutPending = false;
+        ApplyLanguageLayout();
+    }
+
+    private void ApplyLanguageLayout() {
         if (!handleLabel) return;
-        bool english = ConfigManager.IsEnglish;
+        bool additional = PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage);
+        bool english = ConfigManager.IsEnglish || additional;
         handleLabel.fontSize = english ? 18 : originalSize;
         handleLabel.fontSizeMax = english ? 18 : originalMaximum;
-        handleLabel.fontSizeMin = english ? 14 : originalMinimum;
+        handleLabel.fontSizeMin = additional ? 12 : english ? 14 : originalMinimum;
         handleLabel.enableAutoSizing = english || originalAutoSize;
-        handleLabel.margin = english ? new Vector4(4, 0, 4, 0) : originalMargin;
+        handleLabel.margin = additional ? new Vector4(2, 0, 2, 0)
+            : english ? new Vector4(4, 0, 4, 0) : originalMargin;
         handleLabel.textWrappingMode = english ? TMPro.TextWrappingModes.NoWrap : originalWrapping;
+        var rect = handleLabel.rectTransform;
+        if (additional) {
+            // Rotate only the label within its original bounds; the handle's hit area stays unchanged.
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.anchoredPosition = originalLabelPosition + new Vector2(
+                (.5f - originalLabelPivot.x) * originalLabelSize.x,
+                (.5f - originalLabelPivot.y) * originalLabelSize.y);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, originalLabelSize.y);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, originalLabelSize.x);
+            rect.localRotation = originalLabelRotation * Quaternion.Euler(0, 0, 90);
+        } else {
+            rect.pivot = originalLabelPivot;
+            rect.anchoredPosition = originalLabelPosition;
+            rect.sizeDelta = originalLabelSizeDelta;
+            rect.localRotation = originalLabelRotation;
+        }
     }
 
     private float TargetX => IsExpanded ? 0f : -drawer.rect.width;

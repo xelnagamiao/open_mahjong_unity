@@ -18,7 +18,7 @@ namespace Salasasa.Leaderboards
         public TMP_Text sourceSwitchLabel;
         public LeaderboardPortrait[] portraits;
         public DataSource dataSource = DataSource.LocalWeb;
-        public string publicWebUrl => ConfigManager.webApiUrl.TrimEnd('/') + "/api/player/leaderboard?limit=20";
+        public string publicWebUrl => ConfigManager.webApiUrl.TrimEnd('/') + ConfigManager.PlayerLeaderboardPath + "?limit=20";
         public int selectedRule, authenticatedUserId;
         public bool openOnStart = true;
         public bool externalKeyboard;

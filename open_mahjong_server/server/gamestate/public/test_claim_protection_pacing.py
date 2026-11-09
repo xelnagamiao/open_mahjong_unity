@@ -106,7 +106,7 @@ def test_timer_reconnect_and_cleanup(monkeypatch,rule,module,bot):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('rule',['guobiao','qingque','changsha','sichuan','zhongyong','nanque','jiandan','riichi','taiwan','classical','hongque','hongkong','shanghai','free'])
+@pytest.mark.parametrize('rule',['guobiao','qingque','changsha','sichuan','zhongyong','nanque','nanque','riichi','taiwan','classical','hongque','hongkong','shanghai','free'])
 @pytest.mark.parametrize('enabled',[False,True])
 @pytest.mark.parametrize('uid',[0,2,3,100])
 def test_bot_gate_is_explicit_and_all_bot_types_share_it(rule,enabled,uid):

@@ -11,9 +11,9 @@ public class ConfigItem : MonoBehaviour
     /// </summary>
     /// <param name="title">配置项标题</param>
     /// <param name="value">配置项值</param>
-    public void SetConfig(string title, string value)
+    public void SetConfig(string title, string value, string ruleContext = null)
     {
-        configTitle.text = title;
-        configValue.text = value;
+        TableText.Set(configTitle, title, ruleContext ?? string.Empty);
+        TableText.Set(configValue, value, ruleContext ?? string.Empty);
     }
 }

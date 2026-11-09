@@ -22,7 +22,7 @@ def ensure_rating_schema(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rule_ratings (
             user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-            rule TEXT NOT NULL CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque')),
+            rule TEXT NOT NULL CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque','sichuan_doubles')),
             rank_name TEXT NOT NULL DEFAULT '10级', rank_score DOUBLE PRECISION NOT NULL DEFAULT 0,
             elo DOUBLE PRECISION DEFAULT 1500, games INTEGER NOT NULL DEFAULT 0,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -34,7 +34,7 @@ def ensure_rating_schema(cursor):
         ALTER TABLE rule_ratings ALTER COLUMN elo DROP NOT NULL;
         ALTER TABLE rule_ratings DROP CONSTRAINT IF EXISTS rule_ratings_rule_check;
         ALTER TABLE rule_ratings ADD CONSTRAINT rule_ratings_rule_check
-            CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque'));
+            CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque','sichuan_doubles'));
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS players JSONB;
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS qingque_rating_sessions (
@@ -66,6 +66,9 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
     if spec is None:
         raise ValueError('不支持的匹配队列')
     rating_rule = spec.rating_rule
+    if spec.party_size > 1:
+        from ..match.team_elo import team_elo_deltas
+        team_elo_deltas([1500.0] * len(players), players, k=spec.elo_k)
     from ..match.qingque_score_elo import ALGORITHM as POINTS_ALGORITHM, validate_scores, score_elo_details
     from ..match.rating_rules import ELO_ALGORITHM_VERSION
     if spec.rule == 'qingque':
@@ -97,6 +100,8 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
                     if (saved != sorted(players, key=lambda p: p['user_id'])
                             or any(p.get('rating_algorithm') != POINTS_ALGORITHM for p in existing[1].values())):
                         raise ValueError('重复结算的青雀成绩或算法不一致')
+                if spec.party_size > 1 and sorted(existing[2] or [], key=lambda p: p['user_id']) != sorted(players, key=lambda p: p['user_id']):
+                    raise ValueError('重复结算的双打队伍或成绩不一致')
                 conn.commit()
                 if spec.graded:
                     return {uid: {k: v for k, v in data.items() if not k.startswith('elo_')}
@@ -128,6 +133,8 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
             point_details = score_elo_details([before[p['user_id']][2] for p in players], players, completed_hands) if point_rated else None
             changes = [d['elo_delta'] for d in point_details] if point_rated else [0.0] * len(players) if spec.graded else elo_deltas(
                 [before[p['user_id']][2] for p in players], [p['place'] for p in players], k=spec.elo_k)
+            if spec.party_size > 1:
+                changes = team_elo_deltas([before[p['user_id']][2] for p in players], players, k=spec.elo_k)
             result = {}
             for index, (player, delta) in enumerate(zip(players, changes)):
                 uid = player['user_id']

@@ -13,7 +13,7 @@ class PointerTipsTests(unittest.IsolatedAsyncioTestCase):
     async def test_room_creation_and_game_state_roundtrip(self):
         rules = {
             "GB": ("guobiao", "Guobiao"), "Qingque": ("mmcr", "Qingque"),
-            "Changsha": ("changsha", "Changsha"), "Jiandan": ("jiandan", "Jiandan"),
+            "Changsha": ("changsha", "Changsha"), "Zhongyong": ("zhongyong", "Zhongyong"),
             "Hongque": ("hongque", "Hongque"), "Free": ("free", "Free"),
             "Classical": ("classical", "Classical"), "Sichuan": ("sichuan", "Sichuan"),
             "Taiwan": ("taiwan", "Taiwan"), "Riichi": ("riichi", "Riichi"),

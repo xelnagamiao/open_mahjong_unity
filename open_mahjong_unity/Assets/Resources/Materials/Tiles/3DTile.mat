@@ -70,7 +70,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FrontTex:
-        m_Texture: {fileID: 8711939763936270973, guid: 1e2396d3be1aa9f46a0065c7abebb859, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -129,7 +129,6 @@ Material:
     - _EnvironmentReflections: 0
     - _FrontBgBlend: 0
     - _FrontBgTexAspect: 0
-    - _FrontRotation: 270
     - _FrontTexContain: 0
     - _FrontTexExtendEdge: 0
     - _GlossMapScale: 1
@@ -151,7 +150,7 @@ Material:
     - _Surface: 0
     - _TableBgCoverFace: 0
     - _TableFaceAspect: 0.7518797
-    - _TableFaceBlend: 0
+    - _TableFaceBlend: 1
     - _TableFaceFallbackEnabled: 1
     - _TableFaceImageScale: 0.86
     - _TileLightDirectionBlend: 1
@@ -163,6 +162,8 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
+    - _ArtworkBaseline: {r: 0, g: 0, b: 1, a: 1}
+    - _ArtworkLayout: {r: 0, g: 0, b: 1, a: 0}
     - _BackColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
     - _BackEdgeColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
     - _BackTilingOffset: {r: 1, g: 1, b: 0, a: 0}
@@ -174,7 +175,7 @@ Material:
     - _FrontColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontEdgeColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontTilingOffset: {r: 1, g: 1, b: 0, a: 0}
-    - _SideColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SideColor: {r: 0.9019608, g: 0.9019608, b: 0.89411765, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
     - _TableFaceColor: {r: 0.9607843, g: 0.9647059, b: 0.96862745, a: 1}

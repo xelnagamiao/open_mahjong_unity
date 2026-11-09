@@ -67,7 +67,8 @@ test('switching to another rule only submits the fields it supports', () => {
   assert.equal(settings.room_config.starting_score, 25000)
   assert.equal(settings.room_config.hepai_limit, 1)
   assert.equal(settings.room_config.detailed_config.minimum_win_score, 0)
-  for (const key of ['use_flowers', 'cuohe_type', 'tactical_call', 'claim_protection', 'duplicate_key']) {
+  assert.equal(settings.room_config.claim_protection, false)
+  for (const key of ['use_flowers', 'cuohe_type', 'tactical_call', 'duplicate_key']) {
     assert.equal(key in settings.room_config, false, key)
   }
   assert.equal(settings.room_rule, 'riichi')

@@ -27,7 +27,11 @@
         <el-form-item label="领取规则"><div class="policy-description">{{ policy(form) }}<div v-if="form.purpose === 'ordinary'">例如同一玩家有三张改名卡兑换码，可以分别领取三次。</div></div></el-form-item>
         <el-form-item label="批次名称" required><el-input v-model="form.name" maxlength="100" placeholder="例如：改名卡、周年礼物" /></el-form-item>
         <el-form-item v-if="form.purpose === 'activity'" label="码形式"><el-radio-group v-model="form.kind" :disabled="!!editing"><el-radio value="shared">通用码</el-radio><el-radio value="unique">一次性码</el-radio></el-radio-group></el-form-item>
-        <el-form-item v-if="form.kind === 'shared' && !editing" label="兑换码" required><el-input v-model="form.code" maxlength="32" placeholder="8–32 位英文或数字，不区分大小写" /></el-form-item>
+        <el-form-item v-if="form.kind === 'shared' && !editing" label="兑换码" required>
+          <el-input v-model="form.code" maxlength="32" placeholder="8–32 位英文或数字，不区分大小写">
+            <template #append><el-button :disabled="saving || !!pending" @click="generateSharedCode">随机生成</el-button></template>
+          </el-input>
+        </el-form-item>
         <el-form-item v-if="form.kind === 'unique'" label="生成数量"><el-input-number v-model="form.code_count" :min="1" :max="10000" :disabled="!!editing" /><span class="hint">1 个即为单张兑换码，也可批量生成</span></el-form-item>
         <el-form-item label="总领取上限"><el-input-number v-model="form.max_claims" :min="1" :max="10000000" placeholder="不限" /><span class="hint">留空表示不限</span></el-form-item>
         <el-form-item label="开始时间"><el-date-picker v-model="form.starts_at" type="datetime" placeholder="启用后立即生效" /></el-form-item>
@@ -62,6 +66,12 @@ const date = (value, fallback = '') => value ? new Date(value).toLocaleString() 
 const rewardText = row => row.rewards.map(r => `${r.name} × ${r.quantity}`).join('、')
 const policy = row => row.purpose === 'ordinary' ? '每码仅可使用一次；同一玩家可领取本批次的多个不同码。' : '每个账号在本活动批次限领一次，更换兑换码也不能重复领取。'
 function purposeChanged() { form.kind = form.purpose === 'ordinary' ? 'unique' : 'shared' }
+function generateSharedCode() {
+  if (saving.value || pending.value) return
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  form.code = Array.from(bytes, value => alphabet[value % alphabet.length]).join('')
+}
 const limit = id => catalog.value.find(i => i.item_id === id)?.max_quantity || 1
 async function load() {
   loading.value = true; error.value = ''

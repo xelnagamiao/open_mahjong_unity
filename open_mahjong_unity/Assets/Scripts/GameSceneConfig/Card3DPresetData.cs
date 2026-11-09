@@ -36,7 +36,7 @@ public sealed class Card3DPresetData
     public Card3DRotationMode rotation;
     // This list is ordered by selection time, never catalog order.
     public List<string> rotationIds = new List<string>();
-    // Draft above; only explicit confirmation replaces these immutable appearance snapshots.
+    // Legacy field names retained for save compatibility; these follow valid selections immediately.
     public Card3DRotationMode confirmedRotation;
     public List<Card3DPreset> confirmedPresets = new List<Card3DPreset>();
     public int confirmedRevision;
@@ -110,7 +110,7 @@ public sealed class Card3DPresetData
     {
         if (record == null || ordinal < 0 || confirmedRotation == Card3DRotationMode.None || confirmedPresets.Count == 0) return null;
         var activeIds = confirmedPresets.ConvertAll(p => p.id);
-        string signature = confirmedRevision + ":" + confirmedRotation + ":" + string.Join("|", activeIds);
+        string signature = confirmedRotation + ":" + string.Join("|", activeIds);
         if (!ReferenceEquals(replayRecord, record) || replaySignature != signature || replayDecks == null) {
             replayRecord = record; replaySignature = signature;
             replayDecks = new List<string> { activeIds[0] };
@@ -128,7 +128,11 @@ public sealed class Card3DPresetData
     }
     public string StartRound(string match, string round, System.Random random)
     {
-        if (confirmedRotation == Card3DRotationMode.None || confirmedPresets.Count == 0) return null;
+        if (confirmedRotation == Card3DRotationMode.None || confirmedPresets.Count == 0)
+        {
+            lastMatch = match; lastRound = round; lastRotationId = selectedId;
+            return null;
+        }
         var activeIds = confirmedPresets.ConvertAll(p => p.id);
         if (lastMatch == match && lastRound == round) return lastRotationId; // Reapply on reconnect, never advance.
         bool first = lastMatch != match || string.IsNullOrEmpty(lastRound);

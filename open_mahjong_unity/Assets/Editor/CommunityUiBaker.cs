@@ -22,7 +22,7 @@ public static class CommunityUiBaker {
     static Image Fill(string name,Transform parent,Color color){var r=Rect(name,parent);Stretch(r);var i=r.gameObject.AddComponent<Image>();i.color=color;i.raycastTarget=false;return i;}
     static TMP_Text Text(string name,Transform parent,string value,float size,Color color){var r=Rect(name,parent);Stretch(r);var t=r.gameObject.AddComponent<TextMeshProUGUI>();t.font=font;t.text=value;t.fontSize=size;t.color=color;t.raycastTarget=false;t.richText=false;t.textWrappingMode=TextWrappingModes.Normal;t.overflowMode=TextOverflowModes.Overflow;t.alignment=TextAlignmentOptions.MidlineLeft;return t;}
     static Button Button(string name,Transform parent,string label){var i=Fill(name,parent,C("#33738F"));i.raycastTarget=true;var b=i.gameObject.AddComponent<Button>();b.targetGraphic=i;var colors=b.colors;colors.highlightedColor=new Color(1.12f,1.12f,1.12f);colors.pressedColor=new Color(.8f,.8f,.8f);colors.disabledColor=new Color(.6f,.6f,.6f);b.colors=colors;var t=Text("Text",i.transform,label,20,Color.white);t.alignment=TextAlignmentOptions.Center;Stretch(t.rectTransform,8,2,8,2);return b;}
-    static T Find<T>() where T:UnityEngine.Object=>UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include).First();
+    static T Find<T>() where T:UnityEngine.Object=>UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).First();
     static void ClearEvents(Button b){while(b.onClick.GetPersistentEventCount()>0)UnityEventTools.RemovePersistentListener(b.onClick,0);}
 
     [MenuItem("Tools/Salasasa/Bake Community Page")]
@@ -66,7 +66,7 @@ public static class CommunityUiBaker {
             var go=(GameObject)PrefabUtility.InstantiatePrefab(asset,items);var card=go.GetComponent<CommunityCard>();go.name="CommunityItem_"+doc.communities[i].id;card.Bind(doc.communities[i],panel);card.Apply(appearance.Current);panel.bakedCards[i]=card;panel.Cards.Add(card);PrefabUtility.RecordPrefabInstancePropertyModifications(card);
         }
         panel.Layout();
-        var overlay=UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include).Single(x=>x.name=="OverlayCanvas");panel.qrDialog=CreateQr(overlay.transform);
+        var overlay=UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Single(x=>x.name=="OverlayCanvas");panel.qrDialog=CreateQr(overlay.transform);
         var about=Find<AboutUsPanel>();about.contentClient=client;EditorUtility.SetDirty(about);
         var wm=new SerializedObject(Find<WindowsManager>());wm.FindProperty("communityPanel").objectReferenceValue=root.gameObject;wm.ApplyModifiedProperties();
         AddHeader(owner.headerNavigation);ApplyFixed(scene);

@@ -26,14 +26,14 @@ namespace Salasasa.Venues
             if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri) || !(uri.Scheme == "https" || uri.Scheme == "http" && uri.IsLoopback))
             { complete(Failure("服务地址无效")); yield break; }
             VenueApplicationResult auth = null;
-            yield return Request(origin + "/api/player/auth/login", new JObject { ["username"] = user.Username, ["password"] = user.SavedLoginPassword }, null, r => auth = r);
+            yield return Request(origin + ConfigManager.PlayerLoginPath, new JObject { ["username"] = user.Username, ["password"] = user.SavedLoginPassword }, null, r => auth = r);
             if (!SameAccount(account)) { complete(Failure("账号已切换，请重新打开面板")); yield break; }
             if (auth == null || !auth.success) { complete(auth ?? Failure("身份验证失败")); yield break; }
             string token = (string)auth.data?["token"];
             if ((int?)auth.data?["user_id"] != account || string.IsNullOrEmpty(token))
             { complete(Failure("身份不匹配，请重新登录")); yield break; }
             VenueApplicationResult result = null;
-            yield return Request(origin + "/api/player/event-applications", JObject.FromObject(value), token, r => result = r);
+            yield return Request(origin + ConfigManager.PlayerEventApplicationsPath, JObject.FromObject(value), token, r => result = r);
             if (!SameAccount(account)) { complete(Failure("账号已切换，请到个人中心核对申请结果")); yield break; }
             complete(result ?? Failure("请求未确认，请到个人中心核对申请结果"));
         }

@@ -9,10 +9,10 @@ public sealed partial class SichuanSettlementPanel {
         public SichuanSettlementPlayer Player;
         public UnityEngine.UI.Image Background;
         public UnityEngine.UI.Outline Focus;
-        public TMP_Text Order, Score;
+        public TMP_Text Order;
     }
     readonly Dictionary<int,PlayerBadge> playerBadges=new Dictionary<int,PlayerBadge>();
-    readonly TMP_Text[] teamValues=new TMP_Text[2];
+    readonly TMP_Text[] teamValues=new TMP_Text[2], teamTotals=new TMP_Text[2];
     readonly List<RectTransform> eventRows=new List<RectTransform>();
     readonly List<GameObject> eventMarkers=new List<GameObject>();
     List<SichuanSettlementEvent> timeline=new List<SichuanSettlementEvent>();
@@ -51,40 +51,64 @@ public sealed partial class SichuanSettlementPanel {
         timelinePlaying=false;
         playerBadges.Clear();eventRows.Clear();eventMarkers.Clear();
         total=null;rows=null;headers=null;timelineScroll=null;
-        Array.Clear(teamValues,0,2);
+        Array.Clear(teamValues,0,2);Array.Clear(teamTotals,0,2);
         focusHand.gameObject.SetActive(false);playback.gameObject.SetActive(false);
         Stretch(tableArea,Vector2.zero,Vector2.one,new Vector2(64,101),new Vector2(-64,-266));
     }
     void ConfigureBoardLayout() {
         focusHand.gameObject.SetActive(!details);
-        Stretch(tableArea,Vector2.zero,Vector2.one,new Vector2(64,101),new Vector2(-64,details?-204:-322));
+        Stretch(tableArea,Vector2.zero,Vector2.one,new Vector2(64,101),new Vector2(-64,-252));
         playback.gameObject.SetActive(!details&&match==null);
         Canvas.ForceUpdateCanvases();
     }
-    void BuildPlayerBadges(RectTransform parent,IEnumerable<SichuanSettlementPlayer> people) {
-        int i=0;
-        foreach(var p in people){
-            var badge=Rect("Player_"+p.seat,parent);
-            Stretch(badge,new Vector2(i*.5f,0),new Vector2((i+1)*.5f,0),new Vector2(i==0?18:6,12),new Vector2(i==0?-6:-18,82));i++;
-            ColorBox(badge,p.team_id==0?BlueCell:RedCell);
-            var outline=badge.gameObject.AddComponent<UnityEngine.UI.Outline>();outline.effectColor=Color.white;outline.effectDistance=new Vector2(2,-2);outline.useGraphicAlpha=false;outline.enabled=false;
-            var order=Text(badge,"Order",30,Color.white,TextAlignmentOptions.Center);
-            Stretch(order.rectTransform,Vector2.zero,new Vector2(0,1),new Vector2(10,6),new Vector2(50,-6));
-            order.textWrappingMode=TextWrappingModes.NoWrap;order.enableAutoSizing=true;order.fontSizeMin=22;order.fontSizeMax=30;
-            var name=Text(badge,"Name",30,Color.white,TextAlignmentOptions.MidlineLeft);
-            Stretch(name.rectTransform,Vector2.zero,Vector2.one,new Vector2(60,6),new Vector2(-108,-6));
-            name.text="东南西北"[Mathf.Clamp(p.original_seat,0,3)]+" · "+Name(p);name.textWrappingMode=TextWrappingModes.NoWrap;
-            name.enableAutoSizing=true;name.fontSizeMin=18;name.fontSizeMax=30;
-            var dealer=Text(badge,"Dealer",18,new Color32(255,222,143,255),TextAlignmentOptions.Center);
-            Stretch(dealer.rectTransform,new Vector2(1,0),Vector2.one,new Vector2(-100,6),new Vector2(-68,-6));dealer.text="庄";dealer.gameObject.SetActive(board.dealer_seat==p.seat);
-            var score=Text(badge,"Score",26,Color.white,TextAlignmentOptions.MidlineRight);
-            score.enableAutoSizing=true;score.fontSizeMin=18;score.fontSizeMax=26;
-            Stretch(score.rectTransform,new Vector2(1,0),Vector2.one,new Vector2(-64,6),new Vector2(-12,-6));
-            playerBadges[p.seat]=new PlayerBadge {Player=p,Background=badge.GetComponent<UnityEngine.UI.Image>(),Focus=outline,Order=order,Score=score};
+    void BuildBoardScorebar() {
+        bool duplicate=GameSession.Current.IsDuplicate||match?.duplicate==true;
+        var teams=Rect("Teams",body);
+        Stretch(teams,new Vector2(0,1),Vector2.one,new Vector2(64,-236),new Vector2(-64,-156));
+        for(int t=0;t<2;t++){
+            var card=Rect(t==0?"BlueTeam":"RedTeam",teams);
+            float from=duplicate?t*.5f:t==0?0:.65f, to=duplicate?(t+1)*.5f:t==0?.35f:1;
+            Stretch(card,new Vector2(from,0),new Vector2(to,1),new Vector2(t==0?0:5,0),new Vector2(t==0?-5:0,0));
+            ColorBox(card,t==0?Blue:Red);
+            var title=Text(card,"Team",32,Color.white,t==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.MidlineRight);
+            Stretch(title.rectTransform,new Vector2(t==0?0:1,0),new Vector2(t==0?0:1,1),new Vector2(t==0?24:-120,0),new Vector2(t==0?120:-24,0));title.text=t==0?"蓝队":"红队";
+            var value=Text(card,"Score",29,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft);
+            Stretch(value.rectTransform,new Vector2(t==0?.26f:0,0),new Vector2(t==0?1:.74f,1),new Vector2(t==0?0:24,0),new Vector2(t==0?-24:0,0));
+            value.text=BoardTeamScore(t,board.team_changes[t]);value.richText=true;value.textWrappingMode=TextWrappingModes.NoWrap;
+            value.enableAutoSizing=true;value.fontSizeMin=20;value.fontSizeMax=29;teamValues[t]=value;
+        }
+        if(duplicate)return;
+        var cumulative=Rect("Cumulative",teams);ColorBox(cumulative,Neutral);
+        Stretch(cumulative,new Vector2(.36f,0),new Vector2(.64f,1),Vector2.zero,Vector2.zero);
+        var caption=Text(cumulative,"Caption",22,Muted,TextAlignmentOptions.Center);caption.text="累计比分";
+        Stretch(caption.rectTransform,new Vector2(0,.55f),Vector2.one,new Vector2(0,0),new Vector2(0,-3));
+        var separator=Text(cumulative,"Separator",32,Color.white,TextAlignmentOptions.Center);separator.text=":";
+        Stretch(separator.rectTransform,new Vector2(.45f,0),new Vector2(.55f,.6f),Vector2.zero,new Vector2(0,4));
+        for(int t=0;t<2;t++){
+            var value=Text(cumulative,t==0?"BlueTotal":"RedTotal",32,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft);
+            Stretch(value.rectTransform,new Vector2(t==0?0:.55f,0),new Vector2(t==0?.45f:1,.6f),new Vector2(14,0),new Vector2(-14,4));
+            value.richText=true;value.text=ColoredScore(board.team_totals[t]);value.textWrappingMode=TextWrappingModes.NoWrap;
+            value.enableAutoSizing=true;value.fontSizeMin=20;value.fontSizeMax=32;teamTotals[t]=value;
+        }
+    }
+    void BuildPlayerHeaders(SichuanSettlementPlayer[] players) {
+        for(int i=0;i<players.Length;i++){
+            var p=players[i];var cell=(RectTransform)headers.Find("Cell_"+(i+3));
+            var outline=cell.gameObject.AddComponent<UnityEngine.UI.Outline>();outline.effectColor=Color.white;outline.effectDistance=new Vector2(2,-2);outline.useGraphicAlpha=false;outline.enabled=false;
+            var order=Text(cell,"Order",28,Color.white,TextAlignmentOptions.Center);
+            Stretch(order.rectTransform,Vector2.zero,new Vector2(0,1),new Vector2(6,4),new Vector2(36,-4));
+            order.textWrappingMode=TextWrappingModes.NoWrap;order.enableAutoSizing=true;order.fontSizeMin=17;order.fontSizeMax=28;
+            var wind=Text(cell,"Wind",23,board.dealer_seat==p.seat?DealerTint:Color.white,TextAlignmentOptions.MidlineLeft);
+            Stretch(wind.rectTransform,new Vector2(0,1),new Vector2(0,1),new Vector2(44,-41),new Vector2(72,-3));
+            wind.text="东南西北"[Mathf.Clamp(p.original_seat,0,3)].ToString();
+            var name=cell.Find("Text").GetComponent<TMP_Text>();name.text=Name(p);name.alignment=TextAlignmentOptions.MidlineLeft;
+            Stretch(name.rectTransform,Vector2.zero,Vector2.one,new Vector2(44,5),new Vector2(-10,-34));
+            name.textWrappingMode=TextWrappingModes.NoWrap;name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=26;
+            playerBadges[p.seat]=new PlayerBadge {Player=p,Background=cell.GetComponent<UnityEngine.UI.Image>(),Focus=outline,Order=order};
         }
     }
     static string EventName(SichuanSettlementEvent e) {
-        switch(e.kind){case "kong":return e.detail?.Split('·')[0].Trim()??"杠牌";case "zimo":return "自摸";case "ron":return "点和";case "chajiao":return "查叫";case "penalty":return "查花猪";case "refund":return "退税";default:return e.detail??"结算";}
+        switch(e.kind){case "kong":return ResultDetail(e.detail)?.Split('·')[0].Trim()??"杠牌";case "zimo":return "自摸";case "ron":return "点和";case "chajiao":return "查叫";case "penalty":return "查花猪";case "refund":return "退税";default:return ResultDetail(e.detail)??"结算";}
     }
     List<SichuanSettlementEvent> BoardEvents(SichuanBoardSettlementInfo info,SichuanSettlementPlayer[] players) {
         var source=info.events??new List<SichuanSettlementEvent>();
@@ -103,11 +127,12 @@ public sealed partial class SichuanSettlementPanel {
     void RenderTimelineBoard(SichuanBoardSettlementInfo info,SichuanSettlementPlayer[] players) {
         timeline=BoardEvents(info,players);
         Table(new[]{"序","结算项目","番型 / 项目"}.Concat(players.Select(Name)).ToArray(),
-            new[]{.045f,.285f,.19f,.12f,.12f,.12f,.12f},new[]{-1,-1,-1,0,0,1,1},Math.Max(1,timeline.Count));
+            new[]{.04f,.25f,.19f,.13f,.13f,.13f,.13f},new[]{-1,-1,-1,0,0,1,1},Math.Max(1,timeline.Count));
         AlignTimelineLabels(headers);
+        BuildPlayerHeaders(players);
         foreach(var e in timeline){
             string title=PlayerName(e.seat)+" · "+EventName(e);
-            string description=string.IsNullOrEmpty(e.detail)?string.Join("、",e.fans??Array.Empty<string>()):e.detail;
+            string description=string.IsNullOrEmpty(e.detail)?string.Join("、",e.fans??Array.Empty<string>()):ResultDetail(e.detail);
             if(e.fan.HasValue)description+=(string.IsNullOrEmpty(description)?"":" · ")+e.fan+" 番";
             int index=eventRows.Count;
             var row=AddRow(new[]{(index+1).ToString(),title,description}
@@ -141,10 +166,7 @@ public sealed partial class SichuanSettlementPanel {
         var edge=Rect(name,parent);Stretch(edge,min,max,from,to);ColorBox(edge,Color.white);
         edge.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
     }
-    string BoardTeamScore(int team,int delta) {
-        bool duplicate=GameSession.Current.IsDuplicate||match?.duplicate==true;
-        return duplicate?$"本副得分 {ColoredScore(delta)}":$"本副得分 {ColoredScore(delta)}  |  累计 {ColoredScore(board.team_totals[team]-board.team_changes[team]+delta)}";
-    }
+    string BoardTeamScore(int team,int delta)=>$"本副得分 {ColoredScore(delta)}";
     void TickTimeline() {
         if(!timelinePlaying||hidden||details||!UsesTimelineLayout||(presentationGroup&&presentationGroup.alpha<1f))return;
         eventRemaining-=Time.unscaledDeltaTime;
@@ -152,7 +174,7 @@ public sealed partial class SichuanSettlementPanel {
         if(timelineIndex+1<timeline.Count)SelectTimelineEvent(timelineIndex+1,false);
         else CompleteTimeline();
     }
-    void OnDisable(){timelinePlaying=false;}
+    void OnDisable(){timelinePlaying=false;ClearReady();}
     public void SelectEvent(int index)=>SelectTimelineEvent(index,true);
     void SelectTimelineEvent(int index,bool manual) {
         if(index<0||index>=timeline.Count)return;
@@ -172,23 +194,18 @@ public sealed partial class SichuanSettlementPanel {
         var partial=board.players.ToDictionary(p=>p.seat,p=>0);
         var eventOrders=new Dictionary<int,int>();
         for(int n=0;n<timeline.Count;n++)eventOrders[timeline[n].seat]=n+1;
-        var completedWins=new HashSet<int>();var checkedSeats=new HashSet<int>();
         for(int n=0;n<revealedEvents;n++){
             var e=timeline[n];foreach(var p in board.players)partial[p.seat]+=Value(e.changes,p.seat);
-            if(e.kind=="ron"||e.kind=="zimo")completedWins.Add(e.seat);
-            if(e.phase=="check"||e.kind=="chajiao"||e.kind=="penalty")checkedSeats.Add(e.seat);
         }
         foreach(var pair in playerBadges){
             var badge=pair.Value;int seat=pair.Key;bool active=ActivePlayerSeat==seat;
-            badge.Focus.enabled=active;
-            var color=badge.Player.team_id==0?Blue:Red;var dark=badge.Player.team_id==0?BlueCell:RedCell;
-            badge.Background.color=active?Color.Lerp(color,Color.white,.2f):completedWins.Contains(seat)||checkedSeats.Contains(seat)?color:dark;
-            badge.Score.text=Signed(partial[seat]);badge.Score.color=ScoreColor(partial[seat]);
             badge.Order.text=active?(timelineIndex+1).ToString():eventOrders.TryGetValue(seat,out int order)?order.ToString():"";
         }
+        RefreshPlayerHeaderColors();
         for(int t=0;t<2;t++){
             int delta=board.players.Where(p=>p.team_id==t).Sum(p=>partial[p.seat]);
             if(teamValues[t])teamValues[t].text=BoardTeamScore(t,delta);
+            if(teamTotals[t])teamTotals[t].text=ColoredScore(board.team_totals[t]-board.team_changes[t]+delta);
         }
         for(int i=0;i<eventRows.Count;i++){eventRows[i].gameObject.SetActive(i<revealedEvents);eventMarkers[i].SetActive(i==timelineIndex);}
         if(total)total.gameObject.SetActive(timelineCompleted);

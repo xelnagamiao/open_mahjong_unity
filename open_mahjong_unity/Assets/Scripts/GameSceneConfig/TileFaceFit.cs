@@ -49,18 +49,64 @@ public static class TileFaceFit {
         face.preserveAspect = true;
         face.type = Image.Type.Simple;
         face.useSpriteMesh = false;
-        FitTableArtwork(body.rectTransform, face, texture, TileFaceResolver.TableImageScaleFor(tileId));
+        FitTableArtwork(body.rectTransform, face, texture, TileFaceResolver.TableImageScaleFor(tileId), tileId);
         return true;
     }
 
-    public static void FitTableArtwork(RectTransform body, Image face, Image texture, float imageScale) {
-        Vector2 size = TileTextureLayout.FitTableCanvas(body.rect.size);
-        CenterArtwork(face.rectTransform, size * imageScale, Vector2.zero);
-        face.rectTransform.localScale = Vector3.one;
+    public static void FitTableArtwork(RectTransform body, Image face, Image texture, float imageScale, int tileId = -1, string pack = null) {
+        TileArtworkSampling.Apply(face);
+        var bodyImage = body.GetComponent<Image>();
+        Rect bounds = bodyImage != null ? bodyImage.GetPixelAdjustedRect() : body.rect;
+        Vector2 size = TileTextureLayout.FitTableCanvas(bounds.size);
+        // Image.preserveAspect positions the fitted rectangle using its pivot.
+        // A top-aligned slot must not position the artwork at the unfitted slot's center.
+        Vector2 center = bounds.position + Vector2.Scale(bounds.size - size, body.pivot) + size * .5f;
+        var layout = TableFaceLayoutSettings.ForTile(tileId, pack);
+        var baseline = LegacyFacePlacement.Table(tileId, pack);
+        Vector2 offset = new Vector2(layout.x, layout.y) + baseline.offset * layout.scale;
+        Vector2 artworkSize = ArtworkCanvasSize(face, size * imageScale, tileId, pack, true);
+        PlaceTableLayer(body, face.rectTransform, artworkSize, center + Vector2.Scale(size, offset));
+        face.rectTransform.localScale = new Vector3(layout.scale * baseline.scale.x, layout.scale * baseline.scale.y, 1);
         if (texture != null) {
-            CenterArtwork(texture.rectTransform, size, Vector2.zero);
+            PlaceTableLayer(body, texture.rectTransform, size, center);
             texture.rectTransform.localScale = Vector3.one;
         }
+    }
+
+    static Vector2 ArtworkCanvasSize(Image artwork, Vector2 available, int tileId, string pack, bool table) {
+        bool authored = FixedFacePack.TryGetArtworkAspect(tileId, pack, table, out float aspect);
+        artwork.preserveAspect = !authored;
+        if (!authored) return available;
+        // Recover authored geometry from a GPU texture resized for block compression.
+        float width = Mathf.Min(available.x, available.y * aspect);
+        return new Vector2(width, width / aspect);
+    }
+
+    // 虹雀的原始手牌包含完整牌体；0% / 100% 保留原图在框内的默认位置与比例。
+    public static void ApplyStandaloneHand(Image artwork, RectTransform frame, int tileId, string pack = null) {
+        if (artwork == null || artwork.sprite == null) return;
+        TileArtworkSampling.Apply(artwork);
+        Rect bounds = frame.rect;
+        Vector2 pixels = artwork.sprite.rect.size;
+        float fit = Mathf.Min(bounds.width / pixels.x, bounds.height / pixels.y);
+        Vector2 size = pixels * fit;
+        Vector2 center = bounds.position + Vector2.Scale(bounds.size - size, frame.pivot) + size * .5f;
+        var adjustment = HandFaceAdjustmentSettings.ForTile(tileId, pack);
+        PlaceTableLayer(frame, artwork.rectTransform, size,
+            center + Vector2.Scale(size, new Vector2(adjustment.x, adjustment.y)));
+        artwork.rectTransform.localScale = Vector3.one * adjustment.scale;
+        artwork.preserveAspect = true;
+    }
+
+    static void PlaceTableLayer(RectTransform body, RectTransform layer, Vector2 size, Vector2 center) {
+        var parent = layer.parent as RectTransform;
+        if (parent == null) return;
+        Vector3 localCenter = parent.InverseTransformPoint(body.TransformPoint(center));
+        Vector3 axisX = parent.InverseTransformVector(body.TransformVector(Vector3.right));
+        Vector3 axisY = parent.InverseTransformVector(body.TransformVector(Vector3.up));
+        Vector2 parentSize = new Vector2(size.x * axisX.magnitude, size.y * axisY.magnitude);
+        CenterArtwork(layer, parentSize, (Vector2)localCenter - parent.rect.center);
+        layer.localRotation = Quaternion.Inverse(parent.rotation) * body.rotation;
     }
 
     // 香港麻将万子略收小花纹，保留牌体尺寸和原图的透明留白。
@@ -97,7 +143,9 @@ public static class TileFaceFit {
         ApplyFixedWidth(root, faceImage, fit);
         if (faceImage != null && faceImage.rectTransform != root) {
             if (showBackground) ApplyHandArtwork(faceImage, backgroundImage, tileId, HandSurfaceLibrary.CurrentFaceLayout);
-            else {
+            else if (HongqueTileVisual.IsHongqueId(tileId) && !DuocaiTileVisual.IsCurrent(tileId)) {
+                ApplyStandaloneHand(faceImage, root, tileId);
+            } else {
                 // 对象池从正面复用为牌背/虹雀时不能残留上一次的位移和缩放。
                 CenterArtwork(faceImage.rectTransform, root.rect.size, Vector2.zero);
                 faceImage.rectTransform.localScale = Vector3.one * HandArtworkScale(tileId);
@@ -107,8 +155,9 @@ public static class TileFaceFit {
     }
 
     public static void ApplyHandArtwork(UnityEngine.UI.Image artwork, UnityEngine.UI.Image background, int tileId,
-        HandSurfaceLibrary.FaceLayout layout) {
+        HandSurfaceLibrary.FaceLayout layout, string pack = null) {
         if (artwork == null || background == null || background.sprite == null || artwork == background) return;
+        TileArtworkSampling.Apply(artwork);
         var body = background.rectTransform;
         Vector2 pixels = background.sprite.rect.size;
         if (pixels.x <= 0 || pixels.y <= 0) return;
@@ -123,12 +172,21 @@ public static class TileFaceFit {
         Vector3 axisX = parent.InverseTransformVector(body.TransformVector(Vector3.right));
         Vector3 axisY = parent.InverseTransformVector(body.TransformVector(Vector3.up));
         layout = layout.Normalized;
-        Vector3 offset = axisX * (size.x * layout.x) + axisY * (size.y * layout.y);
+        Vector2 offsetFit = TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId)
+            ? TilePackLayoutConfig.ManzuHandCanvasFit(size) : Vector2.one;
+        var adjustment = HandFaceAdjustmentSettings.ForTile(tileId, pack, offsetFit);
+        var baseline = LegacyFacePlacement.Hand(tileId, size, pack);
+        float totalScale = layout.scale * adjustment.scale;
+        Vector2 relative = new Vector2(layout.x, layout.y)
+            + new Vector2(adjustment.x, adjustment.y) * layout.scale + baseline.offset * totalScale;
+        Vector3 offset = axisX * (size.x * relative.x) + axisY * (size.y * relative.y);
         Vector2 parentSize = new Vector2(size.x * axisX.magnitude, size.y * axisY.magnitude);
-        CenterArtwork(artwork.rectTransform, parentSize, (Vector2)(localCenter + offset) - parent.rect.center);
+        Vector2 artworkSize = ArtworkCanvasSize(artwork, parentSize, tileId, pack, false);
+        CenterArtwork(artwork.rectTransform, artworkSize, (Vector2)(localCenter + offset) - parent.rect.center);
         artwork.rectTransform.localRotation = Quaternion.Inverse(parent.rotation) * body.rotation;
-        artwork.rectTransform.localScale = Vector3.one * (layout.scale * HandArtworkScale(tileId));
-        artwork.preserveAspect = true;
+        float fallbackScale = baseline.hasLegacy ? 1f : HandArtworkScale(tileId);
+        artwork.rectTransform.localScale = new Vector3(totalScale * baseline.scale.x * fallbackScale,
+            totalScale * baseline.scale.y * fallbackScale, 1);
     }
 
     private static void CenterArtwork(RectTransform artwork, Vector2 size, Vector2 offset) {

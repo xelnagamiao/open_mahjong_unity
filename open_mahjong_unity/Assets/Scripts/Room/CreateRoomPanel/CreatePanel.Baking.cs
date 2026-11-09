@@ -34,6 +34,8 @@ public partial class CreatePanel {
         BakeTierPresetButtons();
         BakeClaimProtectionControl();
         EnsureHintToggles(); EnsureDuplicateWallControls(); EnsureGuobiaoFlowerControls(); EnsureTianDiRenHeControls(); EnsureJokerMultiWaitControls(); EnsureHuahunControls();
+        BakeSichuanDuplicateControls();
+        BakeJinluoControls();
         EnsureRiichiOptionToggles(); EnsureRiichiStartingScorePanel(); EnsureCuoheTypePanel();
         EnsureChangshaOptionControls(); EnsureWallOptionControls(); BakeRiichiDetailsPanel();
         BakeHongKongDetailsPanel();

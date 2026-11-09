@@ -79,7 +79,8 @@ namespace Salasasa.Home
             text.fontStyle = FontStyles.Normal;
             text.fontSize = entry.fontSize;
             text.fontSizeMax = entry.fontSize;
-            text.fontSizeMin = Mathf.Min(entry.minimumFontSize, entry.fontSize);
+            float minimum = PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage) ? Mathf.Min(12, entry.minimumFontSize) : entry.minimumFontSize;
+            text.fontSizeMin = Mathf.Min(minimum, entry.fontSize);
             text.enableAutoSizing = false;
             text.characterSpacing = entry.characterSpacing;
             text.textWrappingMode = TextWrappingModes.NoWrap;
@@ -91,7 +92,7 @@ namespace Salasasa.Home
             float available=text.rectTransform.rect.width;
             float required=text.GetPreferredValues(text.text).x;
             if(required>available && required>0)
-                text.fontSize=Mathf.Clamp(entry.fontSize*available/required,entry.minimumFontSize,entry.fontSize);
+                text.fontSize=Mathf.Clamp(entry.fontSize*available/required,minimum,entry.fontSize);
         }
 
         public void ApplyInk()

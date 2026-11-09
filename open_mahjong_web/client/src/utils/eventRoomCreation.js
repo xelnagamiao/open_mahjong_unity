@@ -16,7 +16,7 @@ export function buildEventRoomCreation(form) {
   if (!EVENT_ROOM_COUNTS.includes(form.room_count)) throw new Error('房间数量请选择 1、3、5、8、10 或 20 个')
   const settings = buildEventRoomSettings(form)
   if (form.room_rule === 'sichuan' && isSichuanDuplicate(form.sub_rule)) {
-    if (form.duplicate_key_source === 'auto') delete settings.room_config.duplicate_key
+    if (form.duplicate_key_source !== 'existing') delete settings.room_config.duplicate_key
     if (form.duplicate_key_source === 'existing' && !settings.room_config.duplicate_key) throw new Error('请输入复式密钥')
     if (settings.room_config.duplicate_key && form.room_count !== 1) throw new Error('一个已有牌山只能绑定一组开闭室')
     if (!DUPLICATE_ROUND_COUNTS.includes(form.duplicate_round_count)) throw new Error('请选择比赛副数')
@@ -48,6 +48,6 @@ export function eventRoomCreationError(error) {
   const data = error.response?.data?.data
   if (!data?.created_count && !data?.generated_key_count) return message
   const keys = data.generated_key_count ? `已生成 ${data.generated_key_count} 个密钥，可在赛事与基地复式密钥中查看并复用。` : ''
-  if (data.paired) return `已创建 ${data.created_count} / ${data.requested_count} 组开闭室，后续创建已停止。${message}。请核对房间列表后再创建。`
+  if (data.paired) return `已创建 ${data.created_count} / ${data.requested_count} 个八人复式房间，后续创建已停止。${message}。请核对房间列表后再创建。`
   return `已创建 ${data.created_count} / ${data.requested_count} 个房间，后续创建已停止。${keys}${message}。请核对房间列表后再创建。`
 }

@@ -9,6 +9,43 @@ public static class UpwardPopupLayoutValidation {
     public static object RunHints() => Run(true);
     public static object RunActions() => Run(false);
 
+    public static object RunBalancedRows() {
+        var checks = new List<string>();
+        var root = new GameObject("BalancedPopupValidation", typeof(RectTransform), typeof(Canvas));
+        var canvas = root.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        try {
+            foreach (float viewport in new[] { 720f, 960f, 1920f }) foreach (bool paired in new[] { true, false }) {
+                canvas.scaleFactor = Screen.width / viewport;
+                foreach (int count in new[] { 7, 13, 25, 35, 126 }) {
+                    var rect = Child(root.transform, "Popup", Vector2.zero);
+                    rect.anchoredPosition = new Vector2(0, -100);
+                    var layout = rect.gameObject.AddComponent<UpwardPopupLayout>();
+                    var tiles = paired ? Child(rect, "Tiles", Vector2.zero) : rect;
+                    var hints = paired ? Child(rect, "Hints", Vector2.zero) : null;
+                    for (int i = 0; i < count; i++) {
+                        var cell = Child(tiles, "Cell" + i, new Vector2(paired ? 84 : 180, 138));
+                        if (paired) Child(hints, "Hint" + i, new Vector2(84, 77));
+                        else cell.gameObject.AddComponent<ActionBlock>();
+                    }
+                    Canvas.ForceUpdateCanvases();
+                    if (paired) layout.SetHintRows(tiles, hints); else layout.Refresh();
+                    var rowCounts = new List<int>();
+                    for (int page = 0; page < layout.PageCount; page++) {
+                        layout.SetPage(page);
+                        rowCounts.AddRange(tiles.Cast<Transform>().OfType<RectTransform>()
+                            .Where(t => t.gameObject.activeSelf && (paired || t.GetComponent<ActionBlock>() != null))
+                            .GroupBy(t => t.anchoredPosition.y).Select(row => row.Count()));
+                    }
+                    if (rowCounts.Sum() != count || rowCounts.Max() - rowCounts.Min() > 1)
+                        throw new InvalidOperationException($"Unbalanced {paired}/{viewport}/{count}: {string.Join(",", rowCounts)}");
+                    checks.Add($"balanced {paired}/{viewport}/{count}: {string.Join(",", rowCounts)}");
+                    UnityEngine.Object.DestroyImmediate(rect.gameObject);
+                }
+            }
+            return new { count = checks.Count, checks };
+        } finally { UnityEngine.Object.DestroyImmediate(root); }
+    }
+
     static object Run(bool paired) {
         var checks = new List<string>();
         void Check(bool value, string label) {
@@ -34,12 +71,15 @@ public static class UpwardPopupLayoutValidation {
                 Canvas.ForceUpdateCanvases();
                 if (paired) layout.SetHintRows(tiles, hints); else layout.Refresh();
                 var seen = new HashSet<string>();
+                var rowWidths = new List<float>();
                 float baseline = rect.anchoredPosition.y;
                 for (int page = 0; page < layout.PageCount; page++) {
                     layout.SetPage(page); Canvas.ForceUpdateCanvases();
                     Check(Mathf.Abs(rect.anchoredPosition.y - baseline) < .1f, "paging preserves bottom " + count + "/" + page);
                     var visible = tiles.Cast<Transform>().OfType<RectTransform>()
                         .Where(t => t.gameObject.activeSelf && (paired || t.GetComponent<ActionBlock>() != null)).ToArray();
+                    rowWidths.AddRange(visible.GroupBy(t => t.anchoredPosition.y)
+                        .Select(group => group.Max(t => t.anchoredPosition.x + t.rect.width * t.localScale.x) - group.Min(t => t.anchoredPosition.x)));
                     foreach (var tile in visible) {
                         Check(seen.Add(tile.name), "candidate appears once " + count + "/" + tile.name);
                         var corners = new Vector3[4]; tile.GetWorldCorners(corners);
@@ -60,6 +100,8 @@ public static class UpwardPopupLayoutValidation {
                     }
                 }
                 Check(seen.Count == count, "every choice remains reachable " + count);
+                if (!paired && count == 4 && Screen.width >= 1280)
+                    Check(rowWidths.Max() - rowWidths.Min() <= 484, "unequal-width action cards do not leave an orphan row");
                 layout.SetPage(999); Check(layout.PageIndex <= Mathf.Max(0, layout.PageCount - 1), "page index clamped " + count);
                 UnityEngine.Object.DestroyImmediate(popup);
             }

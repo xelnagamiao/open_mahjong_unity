@@ -13,7 +13,7 @@ namespace Salasasa.DataLab
         public bool details;
         public static string[] SceneKeys(string rule)=>rule=="guobiao"?new[]{"beginner","intermediate","advanced","mcrpl","custom","events"}:
             rule=="riichi"||rule=="riichi_sanma"?new[]{"beginner","intermediate","advanced","custom","events"}:
-            new[]{"sichuan","sichuan_xueliu_exchange","hongque","qingque"}.Contains(rule)?new[]{"rank","custom","events"}:new[]{"custom","events"};
+            new[]{"sichuan","sichuan_xueliu_exchange","sichuan_doubles","hongque","qingque"}.Contains(rule)?new[]{"rank","custom","events"}:new[]{"custom","events"};
         public static string SceneLabel(string key)=>key=="beginner"?"初级":key=="intermediate"?"中级":key=="advanced"?"高级":key=="mcrpl"?"mcrpl":key=="rank"?"段位场":key=="events"?"比赛场":PlatformData.Label(key);
         public static string GameType(JToken row,DataRule rule)
         {

@@ -6,6 +6,7 @@ using UnityEngine;
 public sealed class LocalizedPlatformLabel : MonoBehaviour
 {
     [TextArea] public string key;
+    [HideInInspector] public string context;
     public bool followSourceChanges=true;
     public bool fitTranslation=true;
     public bool trimOuterWhitespace;
@@ -15,13 +16,15 @@ public sealed class LocalizedPlatformLabel : MonoBehaviour
     TMP_Text label;
     string rendered;
     bool applied;
+    bool extraSizingApplied, extraOriginalAuto;
+    float extraOriginalSize, extraOriginalMin, extraOriginalMax;
     void OnEnable(){ConfigManager.OnLanguageChanged+=Refresh;Refresh();}
     void OnDisable(){ConfigManager.OnLanguageChanged-=Refresh;}
     void LateUpdate()
     {
         if(!label)return;
         if(followSourceChanges&&label.text!=rendered){key=label.text;Refresh();}
-        else if(fitTranslation&&ConfigManager.CurrentLanguage!=AppLanguage.SimplifiedChinese&&!label.enableAutoSizing)ApplyTypography();
+        else if((fitTranslation||PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage))&&ConfigManager.CurrentLanguage!=AppLanguage.SimplifiedChinese&&!label.enableAutoSizing)ApplyTypography();
     }
     public void Refresh()
     {
@@ -33,6 +36,24 @@ public sealed class LocalizedPlatformLabel : MonoBehaviour
     }
     void ApplyTypography()
     {
+        if(!fitTranslation){
+            bool extra=PlatformText.IsAdditionalLanguage(ConfigManager.CurrentLanguage);
+            if(extra&&!extraSizingApplied){
+                extraOriginalAuto=label.enableAutoSizing;
+                extraOriginalSize=label.fontSize;extraOriginalMin=label.fontSizeMin;extraOriginalMax=label.fontSizeMax;
+                extraSizingApplied=true;
+            }
+            if(extra&&!label.enableAutoSizing){
+                label.fontSizeMax=label.fontSize;
+                label.fontSizeMin=Mathf.Min(label.fontSize,Mathf.Min(minimumSize,14));
+                label.enableAutoSizing=true;
+            }else if(!extra&&extraSizingApplied){
+                label.enableAutoSizing=extraOriginalAuto;
+                label.fontSize=extraOriginalSize;label.fontSizeMin=extraOriginalMin;label.fontSizeMax=extraOriginalMax;
+                extraSizingApplied=false;
+            }
+            return;
+        }
         if(fitTranslation){
             bool translated=ConfigManager.CurrentLanguage!=AppLanguage.SimplifiedChinese;
             label.enableAutoSizing=translated||authoredAutoSize;
@@ -50,5 +71,5 @@ public sealed class LocalizedPlatformLabel : MonoBehaviour
         ApplyTypography();
     }
     public string Source=>key;
-    string Translate() { var value=PlatformTypography.NormalizeChineseMarkup(PlatformText.Get(key)); return trimOuterWhitespace?value.Trim():value; }
+    string Translate() { var value=PlatformTypography.NormalizeChineseMarkup(PlatformText.GetContextual(key,context)); return trimOuterWhitespace?value.Trim():value; }
 }

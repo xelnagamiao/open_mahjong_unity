@@ -207,6 +207,7 @@ class HandContext:
     dealer: bool = False
     dealer_streak: int = 0
     flower_win: str = ""  # seven / eight / seven_steal
+    called_chow_or_pung: bool = False  # Includes a pung later upgraded to a kong.
 
     def __post_init__(self):
         object.__setattr__(self, "hand", tuple(self.hand))

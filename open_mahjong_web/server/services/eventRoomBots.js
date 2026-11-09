@@ -4,7 +4,7 @@ function createEventRoomBotService({ proxyToGameServer, writeAudit }) {
   async function add(event, userId, roomId, body = {}, { platformAdmin = false } = {}) {
     if (event.status !== 'active') fail(400, '赛事或基地未开启，不能添加机器人');
     if (!['auto', 'smart', 'heuristic'].includes(body.bot_type)) fail(400, '请选择机器人类型');
-    if (!Number.isInteger(body.seat_index) || body.seat_index < 0 || body.seat_index > 3) fail(400, '请选择有效空位');
+    if (!Number.isInteger(body.seat_index) || body.seat_index < 0 || body.seat_index > 7) fail(400, '请选择有效空位');
     if (typeof body.instance_id !== 'string' || !body.instance_id.trim()) fail(400, '请刷新房间列表后重试');
     const reason = String(body.reason || '').trim();
     if (platformAdmin && !reason) fail(400, '请填写操作原因');
