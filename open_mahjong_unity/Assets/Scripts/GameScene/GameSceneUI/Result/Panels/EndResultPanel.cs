@@ -406,7 +406,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null) {
+        int[] changshaBirdTiles = null, int actualWinningTile = 0) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -414,7 +414,7 @@ public partial class EndResultPanel : MonoBehaviour {
         DisplayRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
-            changshaBirdTiles);
+            changshaBirdTiles, actualWinningTile);
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -454,7 +454,9 @@ public partial class EndResultPanel : MonoBehaviour {
         ApplySeatVisuals();
 
         bool showHandInPanel = !suppressHandReveal
-            && hepai_player_hand != null && hepai_player_hand.Length > 0;
+            && ((hepai_player_hand != null && hepai_player_hand.Length > 0)
+                || (RuleRegistry.Resolve(roomRuleForFan, roomRuleForFan)?.RuleId == "hongque"
+                    && hepai_player_combination_mask != null && hepai_player_combination_mask.Length > 0));
 
         if (showHandInPanel) {
             if (tileLayout == EndResultTileLayout.HuWithWinTile && RuleRegistry.Resolve(roomRuleForFan,roomRuleForFan)?.SettlementHasNoWinTile?.Invoke(hu_fan)==true)
@@ -635,7 +637,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null) {
+        int[] changshaBirdTiles = null, int actualWinningTile = 0) {
         // InitGameRound 会 HidePresentationVisual，牌谱直出面板须先恢复父 CanvasGroup
         if (RoundEndPresentation.Instance != null) {
             RoundEndPresentation.Instance.gameObject.SetActive(true);
@@ -676,7 +678,9 @@ public partial class EndResultPanel : MonoBehaviour {
             hepai_player_hand,
             hepai_player_combination_mask,
             RuleRegistry.Resolve(roomType,roomType)?.SettlementHasNoWinTile?.Invoke(hu_fan)==true
-                ? EndResultTileLayout.ClosedHandWithMelds : EndResultTileLayout.HuWithWinTile);
+                || HepaiRevealDirector.HongqueDrawWasConsumed(roomType, hu_class, hepai_player_hand, actualWinningTile)
+                ? EndResultTileLayout.ClosedHandWithMelds : EndResultTileLayout.HuWithWinTile,
+            allowEmptyHongqueHand: RuleRegistry.Resolve(roomType, roomType)?.RuleId == "hongque");
 
         bool animateFanReveal = RecordSetting.Instance != null
             && RecordSetting.Instance.IsShowHepaiAnimation;
@@ -1123,7 +1127,7 @@ public partial class EndResultPanel : MonoBehaviour {
         RecordSettlementView recordView,
         int[] hand,
         int[][] combinationMask,
-        EndResultTileLayout tileLayout) {
+        EndResultTileLayout tileLayout, bool allowEmptyHongqueHand = false) {
         SetOccupiedSeats(recordView?.IndexToPosition?.Values);
         Dictionary<string, string> names = recordView?.PositionToUsername;
         SelfUserName.text = names != null && names.TryGetValue("self", out string selfName) ? selfName : "";
@@ -1131,7 +1135,8 @@ public partial class EndResultPanel : MonoBehaviour {
         TopUserName.text = names != null && names.TryGetValue("top", out string topName) ? topName : "";
         RightUserName.text = names != null && names.TryGetValue("right", out string rightName) ? rightName : "";
 
-        if (hand != null && hand.Length > 0) {
+        if ((hand != null && hand.Length > 0)
+            || (allowEmptyHongqueHand && combinationMask != null && combinationMask.Length > 0)) {
             PopulateEndTilesContainer(hand, combinationMask, tileLayout);
         }
 

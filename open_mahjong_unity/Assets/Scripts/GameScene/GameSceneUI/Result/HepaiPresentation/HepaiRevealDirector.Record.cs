@@ -21,6 +21,7 @@ public static partial class HepaiRevealDirector {
         request.IsRecordShowCardsExpanded = showCardsExpanded;
         request.RecordRule = recordRule;
         if (hepaiTile > 0) request.HepaiTile = hepaiTile;
+        ConfigureHongqueWinningTile(request, hepaiTile);
         ConfigureRuleSpecificRecordRequest(request, recordRule, huFan);
         if (ChangshaFanText.IsChangshaRule(recordRule)) {
             // 展开模式重建权威和牌快照，显示可胡补牌，并替换同一赢家上一张荣和牌。

@@ -292,6 +292,7 @@
         show-auto-duplicate
         allow-paired
         :load-duplicate-quota="loadDuplicateQuota"
+        :generate-duplicate-key="generateDuplicateKey"
         show-reason
         :room-rule-options="roomRuleOptions"
         @confirm="createRoom"
@@ -310,7 +311,7 @@ import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
 import { useAdminNotificationsStore } from '@/stores/adminNotifications'
 import EventRoomCards from '@/components/EventRoomCards.vue'
-import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
+import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
 import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
@@ -523,7 +524,7 @@ async function promptReason(title) {
   return value.trim()
 }
 
-async function createRoom() {
+async function createRoom(payload) {
   if (creatingRoom.value) return
   if (!roomForm.reason.trim()) {
     ElMessage.warning('请填写操作原因')
@@ -536,7 +537,7 @@ async function createRoom() {
   creatingRoom.value = true
   try {
     const res = await adminApi.post(`/events/${route.params.eventId}/rooms`, {
-      ...buildEventRoomCreation(roomForm),
+      ...payload,
       reason: roomForm.reason.trim(),
     }, { timeout: 120000 })
     const created = res.data.data?.created_count || 1
@@ -566,6 +567,11 @@ function openRoomDialog() {
   roomForm.duplicate_enabled = Boolean(roomForm.duplicate_key?.trim())
   roomForm.auto_duplicate = false
   roomDialogVisible.value = true
+}
+
+async function generateDuplicateKey(payload) {
+  const res = await adminApi.post(`/events/${encodeURIComponent(route.params.eventId)}/duplicate-walls`, { ...payload, reason: roomForm.reason.trim() })
+  return { ...res.data.data.wall, quota: res.data.data.quota }
 }
 
 async function loadDuplicateQuota() {

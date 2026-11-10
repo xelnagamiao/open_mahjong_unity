@@ -1,5 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { parse } from '@vue/compiler-sfc'
 import { resolveMobileDownload, openMobileDownload } from '../src/utils/mobileDownload.js'
 
 const release = (hash = 'a'.repeat(64), version = 31) => ({
@@ -8,6 +10,17 @@ const release = (hash = 'a'.repeat(64), version = 31) => ({
   downloadPath: `/api/client-updates/android/apk/${hash}`,
 })
 const response = body => ({ ok: true, json: async () => body })
+
+test('repaired APK page restores downloads and the copy link without the withdrawal notice', () => {
+  const source = readFileSync(new URL('../src/views/MobileDownload.vue', import.meta.url), 'utf8')
+  const { descriptor, errors } = parse(source)
+  assert.deepEqual(errors, [])
+  assert.ok(!descriptor.template.content.includes('2026.11.10:目前apk有一些问题，正在修复中。'))
+  assert.doesNotMatch(descriptor.template.content, /<el-button\b[^>]*\bdisabled/)
+  assert.match(descriptor.template.content, /@click="handleDownload"/)
+  assert.match(descriptor.template.content, /复制下载链接/)
+  assert.match(descriptor.scriptSetup.content, /await openMobileDownload\(\)/)
+})
 
 test('every click fetches fresh metadata and follows its hash, with no hard-coded release', async () => {
   const calls = []

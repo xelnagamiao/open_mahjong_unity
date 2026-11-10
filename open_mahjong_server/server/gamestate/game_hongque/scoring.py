@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 from typing import Iterable, Sequence
 
-from .rules import MeldShape, classify_meld, kong_win_candidates
+from .rules import MeldShape, classify_meld, kong_candidates
 from .tile import HongqueTile
 from .win_check import winning_decompositions
 
@@ -293,7 +293,7 @@ def score_partition(
     }
 
 
-def best_win_result(
+def all_win_results(
     hand: Iterable[str],
     open_melds: Sequence[dict],
     *,
@@ -301,39 +301,58 @@ def best_win_result(
     before_first_discard: bool,
     wall_empty: bool,
     allow_kong_win: bool = False,
-) -> dict | None:
-    results = [
-        score_partition(
-            decomposition["groups"],
-            open_melds,
-            pair=decomposition["pair"],
-            self_draw=self_draw,
-            before_first_discard=before_first_discard,
-            wall_empty=wall_empty,
-        )
-        for decomposition in winning_decompositions(hand, open_melds)
-    ]
-    if allow_kong_win:
-        # 杠和拆解：自摸的牌可并入明牌完成和牌。按“杠后虚拟状态”计分，
-        # 展示时仍保留真实手牌与明牌（由调用方决定 winning_hand/melds）。
-        hand_codes = [HongqueTile.parse(code).code for code in hand]
-        for candidate in kong_win_candidates(hand_codes, open_melds):
-            rest = list(hand_codes)
+) -> list[dict]:
+    """Enumerate every settlement shape reachable by legal single-tile kongs.
+
+    Winning an intermediate state does not end the search. Different operation
+    orders with the same final groups are one choice, but lower scores remain
+    available for an explicit player selection.
+    """
+    codes = [HongqueTile.parse(code).code for code in hand]
+    melds = [{**meld, "tiles": list(meld["tiles"])} for meld in open_melds]
+    all_codes = codes + [code for meld in melds for code in meld["tiles"]]
+    if len(set(all_codes)) != len(all_codes) or any(classify_meld(meld["tiles"]) is None for meld in melds):
+        return []
+    visited = set()
+    results = {}
+
+    def visit(remaining, current, steps):
+        key = tuple(tuple(sorted(meld["tiles"])) for meld in current)
+        if key in visited:
+            return
+        visited.add(key)
+        for decomposition in winning_decompositions(remaining, current):
+            score = score_partition(
+                decomposition["groups"], current, pair=decomposition["pair"],
+                self_draw=self_draw, before_first_discard=before_first_discard,
+                wall_empty=wall_empty,
+            )
+            shape = tuple(sorted(tuple(sorted(group)) for group in score["groups"]))
+            if shape not in results:
+                results[shape] = {**score, "kong_steps": list(steps)}
+        if not (allow_kong_win and self_draw and remaining):
+            return
+        for candidate in kong_candidates(remaining, current):
+            rest = list(remaining)
             for code in candidate["hand_tiles"]:
                 rest.remove(code)
-            melds_after = [dict(meld) for meld in open_melds]
-            melds_after[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
-            results.extend(
-                score_partition(
-                    decomposition["groups"],
-                    melds_after,
-                    pair=decomposition["pair"],
-                    self_draw=self_draw,
-                    before_first_discard=before_first_discard,
-                    wall_empty=wall_empty,
-                )
-                for decomposition in winning_decompositions(rest, melds_after)
-            )
-    if not results:
-        return None
-    return max(results, key=lambda result: (result["points"], result["fan_total"], result["base"]))
+            after = [{**meld, "tiles": list(meld["tiles"])} for meld in current]
+            after[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
+            visit(rest, after, [*steps, candidate])
+
+    visit(codes, melds, [])
+    return sorted(results.values(), key=lambda result: (
+        -result["points"], -result["fan_total"], -result["base"],
+        len(result["kong_steps"]),
+        tuple(sorted(tuple(sorted(group)) for group in result["groups"])),
+    ))
+
+
+def best_win_result(
+    hand: Iterable[str], open_melds: Sequence[dict], *, self_draw: bool,
+    before_first_discard: bool, wall_empty: bool, allow_kong_win: bool = False,
+) -> dict | None:
+    results = all_win_results(hand, open_melds, self_draw=self_draw,
+        before_first_discard=before_first_discard, wall_empty=wall_empty,
+        allow_kong_win=allow_kong_win)
+    return results[0] if results else None

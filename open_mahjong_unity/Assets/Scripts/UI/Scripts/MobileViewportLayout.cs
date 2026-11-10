@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-/// <summary>Provides a real safe-area parent for mobile edge-anchored UI without changing authored scaling or camera framing.</summary>
+/// <summary>Provides a safe-area parent while preserving authored UI scaling; Android uses symmetric horizontal insets.</summary>
 [DefaultExecutionOrder(-300), DisallowMultipleComponent]
 public sealed class MobileViewportLayout : MonoBehaviour {
     public static bool Enabled {
@@ -150,7 +150,17 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         }
 #endif
         var min=Vector2.Max(result.min,full.min);var max=Vector2.Min(result.max,full.max);
-        return max.x>min.x && max.y>min.y ? Rect.MinMaxRect(min.x,min.y,max.x,max.y) : full;
+        if (max.x<=min.x || max.y<=min.y) return full;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // A cutout on either landscape edge reserves the same space on both
+        // sides. The camera and black bars consume this same safe rectangle.
+        float horizontalInset=Mathf.Max(min.x-full.xMin,full.xMax-max.x);
+        if (horizontalInset*2f<full.width) {
+            min.x=full.xMin+horizontalInset;
+            max.x=full.xMax-horizontalInset;
+        } else return full;
+#endif
+        return Rect.MinMaxRect(min.x,min.y,max.x,max.y);
     }
     void OnDestroy() { if (instance==this)instance=null; }
 }

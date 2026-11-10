@@ -66,6 +66,7 @@ public partial class CreatePanel {
     }
 
     private void ResetRoomDefaults() {
+        ResetSichuanWallSource();
         if (SichuanDuplicateRounds) SichuanDuplicateRounds.SetValueWithoutNotify(2);
         if (SichuanDuplicateSyncToggle) SichuanDuplicateSyncToggle.SetIsOnWithoutNotify(false);
         if (exchangeSixSelectionTime) exchangeSixSelectionTime.SetValueWithoutNotify(20);

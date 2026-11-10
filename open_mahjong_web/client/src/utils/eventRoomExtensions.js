@@ -1,6 +1,7 @@
 import catalog from '../../../shared/eventRoomCatalog.json' with { type: 'json' }
 import taiwan from '../../../shared/taiwanRoomOptions.json' with { type: 'json' }
 import { isSichuanDuplicate, supportsDuplicateKey } from './sichuanDuplicate.js'
+import { isPairedRoom, isTrainingWall, loadSichuanWallSource, SICHUAN_WALL_SOURCES } from './sichuanWallSource.js'
 
 export const eventRoomRuleOptions = catalog.rules
 export const supplementFields = rule => catalog.supplementFields[rule] || []
@@ -43,6 +44,8 @@ export function loadEventRoomExtensions(form, config = {}) {
   }
   form.random_seed = config.random_seed ? String(config.random_seed) : ''
   form.scene_reproduction = Boolean(form.random_seed)
+  loadSichuanWallSource(form, config)
+  if (isPairedRoom(form) && form.wall_source) form.scene_reproduction = false
   if (form.room_rule === 'taiwan') {
     form.taiwan_details = { ...Object.fromEntries(taiwan.options.map(o => [o.key, o.default])), ...config.detailed_config }
     form.taiwan_fan_overrides = { ...config.detailed_config?.fan_tai_overrides }
@@ -59,12 +62,19 @@ export function extendEventRoomPayload(form, payload) {
     if (definition.min != null && (!Number.isSafeInteger(value) || value < definition.min || value > definition.max)) throw new Error(`${definition.label}须为 ${definition.min}–${definition.max} 的整数`)
     config[key] = value
   }
-  if (form.scene_reproduction) {
+  if (isPairedRoom(form) && form.wall_source && !SICHUAN_WALL_SOURCES.some(item => item.value === form.wall_source)) throw new Error('请选择有效的牌山来源')
+  if (isTrainingWall(form)) {
+    config.wall_source = 'training'
+    config.random_seed = normalizeSceneSeed(form.random_seed)
+    if (!config.random_seed) throw new Error('请输入训练牌山随机种子')
+    delete config.duplicate_key
+  } else if (form.scene_reproduction) {
     config.random_seed = normalizeSceneSeed(form.random_seed)
     if (!config.random_seed) throw new Error('请输入随机种子')
     if (duplicateRoomActive(form)) throw new Error('场景复现与复式不能同时使用，请在普通房间填写随机种子')
   }
-  if (duplicateRoomActive(form)) config.allow_spectator = false
+  if (isPairedRoom(form) && form.wall_source) config.wall_source = form.wall_source
+  if (duplicateRoomActive(form) && !isTrainingWall(form)) config.allow_spectator = false
   if (form.room_rule === 'sichuan' && form.sub_rule.includes('doubles')) {
     config.hepai_limit = 0
     config.blood_battle = !form.sub_rule.includes('xueliu')
@@ -93,8 +103,9 @@ export function eventExtensionRows(form) {
     const value = form[key]
     return { label:eventFieldDefinitions[key].label, value:typeof value === 'boolean' ? value ? '开启' : '关闭' : key === 'jinluo_weather' ? jinluoWeathers.find(w=>w.value===value)?.label || value : String(value) }
   })
-  rows.push({ label:'场景复现', value:form.scene_reproduction ? '开启' : '关闭' })
-  if (form.scene_reproduction) rows.push({ label:'随机种子', value:form.random_seed })
+  if (isPairedRoom(form)) rows.push({ label:'牌山来源', value:SICHUAN_WALL_SOURCES.find(item => item.value === form.wall_source)?.label || '已有复式牌山' })
+  else rows.push({ label:'场景复现', value:form.scene_reproduction ? '开启' : '关闭' })
+  if (form.scene_reproduction || isTrainingWall(form)) rows.push({ label:'随机种子', value:form.random_seed })
   if (form.room_rule === 'taiwan') {
     for (const option of taiwan.options) rows.push({ label:option.label, value:option.choices[option.values.indexOf(form.taiwan_details[option.key])] })
     for (const [key,value] of Object.entries(form.taiwan_fan_overrides)) rows.push({ label:`自定义台值 · ${taiwan.fans.find(f=>f.key===key)?.label || key}`, value:`${value}台` })

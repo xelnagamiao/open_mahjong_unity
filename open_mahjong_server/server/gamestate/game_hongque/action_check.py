@@ -6,16 +6,17 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from .rules import call_candidates, kong_candidates, kong_win_candidates
-from .win_check import is_winning_hand
 from .action_priority import HONGQUE_ACTION_PRIORITY, claim_action_type
-from .profile import rules_for, score_for_state
+from .profile import rules_for
 from .w_rules import is_w, PRIORITY
+from .scoring import all_win_results
+from .win_plans import can_supplement, self_draw_plans, win_plans_for_state
 
 
 def can_self_draw_win(hand: Sequence[str], melds: Sequence[dict]) -> bool:
     """手内成组，或自摸牌可并入既有副露形成虹雀杠和。"""
-    return is_winning_hand(hand, melds) or bool(kong_win_candidates(hand, melds))
+    return bool(all_win_results(hand, melds, self_draw=True,
+        before_first_discard=False, wall_empty=False, allow_kong_win=True))
 
 
 def check_action_hand_action(game_state, player) -> tuple[list[str], list[dict]]:
@@ -25,16 +26,17 @@ def check_action_hand_action(game_state, player) -> tuple[list[str], list[dict]]
         return check_only_cut(game_state, player)
     actions = ["discard"] if player.hand else []
     candidates: list[dict] = []
-    if (score_for_state(game_state, player) is not None if is_w(game_state)
-            else can_self_draw_win(player.hand, player.melds)):
+    wins = self_draw_plans(game_state, player)
+    if wins:
         actions.append("win")
-    # 摸牌后：最后一张手牌杠后直接形成杠和，只下发“和”。
-    if len(player.hand) != 1:
+        candidates.extend(wins)
+    # 最后一张只有在还能补牌时才可普通杠；否则应选择杠和。
+    if len(player.hand) != 1 or can_supplement(game_state, player):
         kong = rules_for(game_state).kong_candidates(player.hand, player.melds)
         if kong:
             actions.append("kong")
             candidates.extend(kong)
-    if player.supplements < 2 and game_state.wall:
+    if can_supplement(game_state, player):
         actions.append("supplement")
     return actions, candidates
 
@@ -44,23 +46,28 @@ def check_only_cut(game_state, player) -> tuple[list[str], list[dict]]:
 
     青雀在吃碰后允许切牌 / 暗杠 / 加杠。虹雀没有暗杠，杠是明牌单张增量，
     因此这里允许多一个加杠（含手上只剩一张的加杠），并允许补牌。
-    亮牌后未补牌前不得宣称摸和：必须补牌进入 ``waiting_hand_action`` 后才能和。
+    普通亮牌后须先补牌；无补牌机会的最后张杠和、空手和作为退出例外。
+    允许普通加杠耗尽手牌时，执行端切回 ``waiting_hand_action`` 供玩家和/补二选一。
     """
     if player.index != game_state.current_player_index:
         return [], []
     actions = ["discard"] if player.hand else []
     candidates: list[dict] = []
-    can_supplement = player.supplements < 2 and bool(game_state.wall)
+    supplement_available = can_supplement(game_state, player)
+    wins = self_draw_plans(game_state, player)
+    if wins:
+        actions.append("win")
+        candidates.extend(wins)
     # 亮牌后不能直接和；没有补牌机会时必须留牌可切，避免进入无动作的空转态。
     kong = rules_for(game_state).kong_candidates(player.hand, player.melds) if (
-        len(player.hand) > 1 or can_supplement
+        len(player.hand) > 1 or supplement_available
     ) else []
-    if not can_supplement:
+    if not supplement_available:
         kong = [item for item in kong if len(item["hand_tiles"]) < len(player.hand)]
     if kong:
         actions.append("kong")
         candidates.extend(kong)
-    if can_supplement:
+    if supplement_available:
         actions.append("supplement")
     return actions, candidates
 
@@ -84,17 +91,14 @@ def check_action_after_cut(game_state) -> dict[int, list[dict]]:
         if player.supplements >= 2 or not game_state.wall:
             options = [option for option in options
                        if len(option["hand_tiles"]) < len(player.hand)]
-        if (score_for_state(game_state, player, player.hand + [discarded], self_draw=False) is not None
-                if is_w(game_state) else is_winning_hand(player.hand + [discarded], player.melds)):
+        wins = win_plans_for_state(game_state, player, player.hand + [discarded], self_draw=False)
+        if wins:
             action_type = claim_action_type("win", player.index, discarder)
-            options.insert(0, {
-                "id": "ron",
-                "kind": "win",
+            options[0:0] = [{
+                **plan,
                 "action_type": action_type,
                 "priority": (PRIORITY if is_w(game_state) else HONGQUE_ACTION_PRIORITY)[action_type],
-                "tiles": [discarded],
-                "hand_tiles": [],
-            })
+            } for plan in wins]
         if options:
             result[player.index] = options
     return result

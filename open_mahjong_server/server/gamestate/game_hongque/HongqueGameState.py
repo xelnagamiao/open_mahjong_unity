@@ -527,6 +527,8 @@ class HongqueGameState:
             winner_results = []
             discarder = self.last_discard["player"] if reason == "ron" and not is_w(self) else None
             for winner, result in winners:
+                result.setdefault("winning_tile", winner.drawn_tile if reason == "self_draw"
+                                  else (self.last_discard or {}).get("tile"))
                 points = result["points"]
                 changes = win_score_changes(winner.index, points, discarder)
                 history_rows.append(changes)
@@ -537,6 +539,7 @@ class HongqueGameState:
                 winner_results.append({
                     "player": winner.index,
                     "hand": result["winning_hand"],
+                    "winning_tile": result["winning_tile"],
                     "partition": result["partition"],
                     "groups": result["groups"],
                     "pair": result.get("pair", []),
@@ -756,7 +759,7 @@ class HongqueGameState:
         """Send public scoring conditions; display-only scoring belongs to the client."""
         if self.phase == "turn" and "win" in actions:
             return {
-                "tile": viewer.drawn_tile or (viewer.hand[-1] if viewer.hand else None),
+                "tile": viewer.drawn_tile,
                 "self_draw": True,
                 "before_first_discard": heavenly(self, viewer),
                 "wall_empty": not self.wall,

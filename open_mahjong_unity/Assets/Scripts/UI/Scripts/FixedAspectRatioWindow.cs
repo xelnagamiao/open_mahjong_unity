@@ -232,10 +232,23 @@ public class FixedAspectRatio : MonoBehaviour {
         if (aspect < 1f) aspect = 1f / aspect;
 #endif
         Rect targetRect = shouldLetterbox ? GetTargetViewport(aspect) : new Rect(0f, 0f, 1f, 1f);
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (MobileViewportLayout.IsInstalled && Screen.width > 0 && Screen.height > 0) {
+            // Preserve mobile stretch adaptation within the usable display;
+            // the existing overlay bars cover both cutout margins in black.
+            Rect safe = MobileViewportLayout.SafeArea;
+            targetRect = new Rect(safe.x / Screen.width, safe.y / Screen.height,
+                safe.width / Screen.width, safe.height / Screen.height);
+        }
+#endif
 
         currentCameraRect = targetRect;
         Camera[] cameras = GetTargetCameras();
         for (int i = 0; i < cameras.Length; i++) {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Offscreen card/model previews own their RenderTexture viewport.
+            if (MobileViewportLayout.IsInstalled && cameras[i].targetTexture != null) continue;
+#endif
             cameras[i].rect = currentCameraRect;
         }
 

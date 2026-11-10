@@ -30,7 +30,10 @@ def rooms(monkeypatch):
     manager.room_list_update = AsyncMock()
     saved = []
     def create(_store, snapshot, **_):
-        snapshot.update(key='dup_'+'a'*32,wall_id=1,event_id='evt_pair')
+        if snapshot.get('wall_source') == 'training':
+            snapshot.update(wall_id=None,event_id='evt_pair')
+        else:
+            snapshot.update(key='dup_'+'a'*32,wall_id=1,event_id='evt_pair')
         saved.append(deepcopy(snapshot))
     monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.create',create)
     monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.save',lambda _s,d,r: saved.append(deepcopy(d)))
@@ -87,6 +90,27 @@ async def test_pair_uses_saved_wall_type_and_rule_layout(rooms,monkeypatch,kind,
     assert rooms.saved[0]['boards']==boards
     assert rooms.saved[0]['source_wall_id']==19 and rooms.saved[0]['wall_type']==kind
     assert all(room['duplicate_round_count']==4 for room in rooms.rooms.values())
+
+
+@pytest.mark.parametrize('sub_rule,layout', [(SBR_DUPLICATE,'standard'),(XUELIU_DUPLICATE,'xueliu')])
+@run_async
+async def test_reused_paired_key_creates_distinct_rooms_and_score_state(rooms,monkeypatch,sub_rule,layout):
+    from ..game_calculation.sichuan.duplicate_rules import make_board,flatten_board
+    board = make_board('same-source',1,layout=layout)
+    tiles = flatten_board(board)
+    wall = dict(id=1,key='dup_'+'a'*32,rule=sub_rule,wall_type='key',event_id='evt_pair',
+                use_flowers=False,round_count=1,round_tiles=[tiles],tiles=tiles,seed='same-source')
+    monkeypatch.setattr('server.database.duplicate_walls.load_duplicate_wall',lambda *_:deepcopy(wall))
+    for _ in range(3):
+        response = await rooms.create_empty_event_room('evt_pair','sichuan',{
+            'sub_rule':sub_rule,'wall_source':'key','duplicate_key':wall['key']},created_by=101)
+        assert response.success
+    assert len(rooms.rooms) == 6
+    pairs = list(rooms.game_server.gamestate_manager.sichuan_duplicate_matches.values())
+    assert len(pairs) == 3 and len({pair.data['id'] for pair in pairs}) == 3
+    assert all(pair.data['boards']==[board] and pair.data['wall_type']=='key' for pair in pairs)
+    pairs[0].data['scores'][0] = 10
+    assert pairs[1].data['scores'] == pairs[2].data['scores'] == [0,0]
 
 
 @pytest.mark.parametrize('actor,source,target',[(101,0,2),(101,1,3),(102,1,3),(101,0,0)])

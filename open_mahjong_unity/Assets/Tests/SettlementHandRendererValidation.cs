@@ -44,6 +44,25 @@ public static class SettlementHandRendererValidation {
             int[][] addedKong = { new[] {0,22,1,22,0,22,3,22} };
             SettlementHandRenderer.PopulateSnapshot(closed.gameObject, source.CardPrefab, source.HideSplitPrefab, new[] {19,11}, addedKong, 0);
             Check(Tiles(closed).SequenceEqual(new[] {11,19,22,22,22,22}), "无和牌张时不得拆出末牌，加杠第四张不得丢失。");
+            var kongHand = Row("HongqueConsumedDraw");
+            var emptyHand = Row("HongqueEmptyHand");
+            int[][] hongqueMelds = {
+                new[] {0,1041,0,1051,0,1061,0,1071,0,1081},
+                new[] {0,1007,0,1137,0,1127,0,1117,0,1107,0,1097,0,1087},
+            };
+            SettlementHandRenderer.Populate(emptyHand.gameObject, source.CardPrefab, source.HideSplitPrefab,
+                Array.Empty<int>(), hongqueMelds, EndResultPanel.EndResultTileLayout.HuWithWinTile);
+            Check(Tiles(emptyHand).Length == 12 && emptyHand.childCount == 12,
+                "虹雀空手和须显示全部副露且没有虚假的独立和牌张或分隔。");
+            int[] remainingHand = {1087,1097,1107};
+            int[][] lowerMelds = {hongqueMelds[0], new[] {0,1007,0,1137,0,1127,0,1117}};
+            bool consumedDraw = HepaiRevealDirector.HongqueDrawWasConsumed("hongque", "hu_self", remainingHand, 1081);
+            Check(consumedDraw, "摸入EX1已入副露时识别为无独立和牌张。");
+            SettlementHandRenderer.Populate(kongHand.gameObject, source.CardPrefab, source.HideSplitPrefab,
+                remainingHand, lowerMelds, consumedDraw ? EndResultPanel.EndResultTileLayout.ClosedHandWithMelds : EndResultPanel.EndResultTileLayout.HuWithWinTile);
+            Check(Tiles(kongHand).Length == 12 && kongHand.childCount == 13
+                && Tiles(kongHand).Take(3).OrderBy(id => id).SequenceEqual(remainingHand.OrderBy(id => id)),
+                "消耗摸入张的小和须完整展示三张余手，只有手牌与副露之间的分隔。");
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(snapshot);
             var corners = new Vector3[4];
             foreach (RectTransform child in snapshot) {

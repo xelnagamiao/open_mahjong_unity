@@ -130,6 +130,9 @@ public partial class EndGamePanel : MonoBehaviour {
             }
         }
         normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
+        if (!IsRecordResult && GameSession.Current.IsTrainingDuplicate
+            && System.Numerics.BigInteger.TryParse(master_seed, out var trainingSeed) && trainingSeed.Sign >= 0)
+            normalizedMasterSeed = trainingSeed.ToString("x").TrimStart('0').PadLeft(64, '0');
         SetVerificationText(normalizedMasterSeed, commitment, salt);
         var teamResult = sorted.FirstOrDefault(v => v.ContainsKey("team_result_reason"));
         string resultNotice = null;
@@ -140,7 +143,9 @@ public partial class EndGamePanel : MonoBehaviour {
             resultNotice = isDraw ? "平局：各0.5盘分"
                 : reason == "last_positive_board" ? "追平：同分追平队胜" : null;
         }
-        if (!IsRecordResult && GameSession.Current.IsDuplicate) {
+        if (!IsRecordResult && GameSession.Current.IsTrainingDuplicate) {
+            gameRandomSeed.text = "训练牌山\n随机种子: " + normalizedMasterSeed;
+        } else if (!IsRecordResult && GameSession.Current.IsDuplicate) {
             string scoring = teamResult?["team_result_reason"]?.ToString();
             string title = scoring == "imp" ? "血战双打复式\n按 IMP 判定" : scoring == "raw_difference" ? "血流双打复式\n按副分判定" : "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType);
             gameRandomSeed.text = title
@@ -149,7 +154,7 @@ public partial class EndGamePanel : MonoBehaviour {
         if (!string.IsNullOrEmpty(resultNotice)) {
             gameRandomSeed.text = resultNotice + "\n\n" + gameRandomSeed.text;
         }
-        if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(IsRecordResult ? normalizedMasterSeed != "-" : !GameSession.Current.IsDuplicate);
+        if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(IsRecordResult ? normalizedMasterSeed != "-" : !GameSession.Current.IsDuplicate || GameSession.Current.IsTrainingDuplicate);
 
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;

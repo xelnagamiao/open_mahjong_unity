@@ -23,6 +23,7 @@ public partial class Game3DManager {
         ChangshaOpenKongDiscard,
         ChangshaOpenKongRemoveHand,
         ChangshaOpenKongMeld,
+        HongqueKong,
     }
 
     private sealed class HandAnimOp {
@@ -233,6 +234,9 @@ public partial class Game3DManager {
                 break;
             case HandAnimOpKind.ChangshaOpenKongMeld:
                 StartMeldPresentation(op.ChangshaMeldAction, op.PlayerPosition, op.CombinationMask);
+                break;
+            case HandAnimOpKind.HongqueKong:
+                yield return HongqueKongFromQueue(panel, op);
                 break;
             case HandAnimOpKind.RemoveCards:
                 yield return RemoveHandCardsFromQueue(panel.cardsPosition, op);

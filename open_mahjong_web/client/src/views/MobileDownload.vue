@@ -92,7 +92,7 @@ async function handleDownload() {
 .page-banner h1 {
   margin: 0 0 6px;
   font-size: 1.45rem;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .page-banner p {
@@ -113,7 +113,7 @@ async function handleDownload() {
 .panel h2 {
   margin: 0 0 10px;
   font-size: 1.2rem;
-  font-weight: 700;
+  font-weight: 400;
   color: #222;
 }
 
@@ -168,7 +168,7 @@ async function handleDownload() {
   background: #12b7f5;
   color: #fff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
   line-height: 1;
 }

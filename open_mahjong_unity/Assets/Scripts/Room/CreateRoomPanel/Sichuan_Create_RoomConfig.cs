@@ -23,6 +23,7 @@ public class Sichuan_Create_RoomConfig {
     public int HepaiLimit { get; set; }
     public string EventId { get; set; }
     public string DuplicateKey { get; set; }
+    public string WallSource { get; set; }
     public int DuplicateRoundCount { get; set; }
     public bool DuplicateSyncMode { get; set; }
 

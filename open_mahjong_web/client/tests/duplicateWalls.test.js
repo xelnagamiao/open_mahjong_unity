@@ -1,11 +1,42 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DUPLICATE_ROUND_COUNTS, duplicateRoundSeats, duplicateRoundLabel, createDuplicateDraft, duplicateRuleWithFlowers, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, validateDuplicateDraft, duplicateRoomLabel, isDuplicateGameRecord, isDuplicateWallRule, splitDuplicateWall, tileCounts, validateDuplicateSeed, validateManualWall } from '../src/utils/duplicateWalls.js'
+import { DUPLICATE_ROUND_COUNTS, duplicateRoundSeats, duplicateRoundLabel, createDuplicateDraft, duplicateRuleWithFlowers, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, validateDuplicateDraft, duplicateRoomLabel, isDuplicateGameRecord, isDuplicateWallRule, splitDuplicateWall, tileCounts, validateDuplicateSeed, validateManualWall, duplicatePublicGroups } from '../src/utils/duplicateWalls.js'
 import { saveLocalGameRecord } from '../src/utils/localGameRecordStore.js'
 import { duplicateReplayWall } from '../src/utils/duplicateReplayWall.js'
 import { buildEventRoomSettings, changeEventRoomRule, clearUnsupportedDuplicateRoom, createEventRoomForm, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 
 const catalog = { tile_count: 8, tiles: [{ tile: 11, count: 4 }, { tile: 12, count: 4 }] }
+
+test('a reused public key keeps each match and its two records in its own group', () => {
+  const first = { match_id: 'match-first', name: '相同房名', scores: [8, 0], record_ids: { open: 'first-open', closed: 'first-closed' } }
+  const second = { match_id: 'match-second', name: '相同房名', scores: [0, 12], record_ids: { open: 'second-open', closed: 'second-closed' } }
+  const games = ['second-closed', 'first-open', 'second-open', 'first-closed', 'other-game'].map(game_id => ({ game_id }))
+  const detail = { paired_matches: [first, second], paired_match: first, games }
+  const before = JSON.stringify(detail)
+  const groups = duplicatePublicGroups(detail)
+  assert.deepEqual(groups.map(group => group.key), ['match-first', 'match-second', 'unmatched-games'])
+  assert.deepEqual(groups.map(group => group.games.map(game => game.game_id)), [
+    ['first-open', 'first-closed'], ['second-closed', 'second-open'], ['other-game'],
+  ])
+  assert.equal(groups[0].match, first)
+  assert.equal(groups[1].match, second)
+  assert.equal(JSON.stringify(detail), before)
+})
+
+test('public grouping honors explicit match ids and remains compatible with old single-match responses', () => {
+  const first = { match_id: 'first', record_ids: { open: 'old-record-id' } }
+  const second = { match_id: 'second', record_ids: {} }
+  const record = { game_id: 'old-record-id', match_id: 'second' }
+  assert.deepEqual(duplicatePublicGroups({ paired_matches: [first, second], games: [record] }).map(group => group.games), [[], [record]])
+  const legacy = { scores: [1, 0], record_ids: { open: 'legacy-open', closed: 'legacy-closed' } }
+  const games = [{ game_id: 'legacy-open' }, { game_id: 'legacy-closed' }]
+  const groups = duplicatePublicGroups({ paired_match: legacy, games })
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].match, legacy)
+  assert.deepEqual(groups[0].games, games)
+  assert.equal(duplicatePublicGroups({ paired_matches: [], paired_match: legacy, games })[0].match, null)
+  assert.deepEqual(duplicatePublicGroups(null), [{ key: 'unmatched-games', match: null, games: [] }])
+})
 
 test('series hand limits follow Guobiao dealer rotation and original player numbers', () => {
   assert.deepEqual(DUPLICATE_ROUND_COUNTS, [1, 4, 8, 12, 16])

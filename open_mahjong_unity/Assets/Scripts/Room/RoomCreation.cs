@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public sealed class RoomCreationInput {
     public string NoJokerBonus = "add8";
     public bool BlackFlowerProgressive = true;
-    public string Rule, SubRule, RoomName, Password, RandomSeed, EventId, DuplicateKey;
+    public string Rule, SubRule, RoomName, Password, RandomSeed, EventId, DuplicateKey, WallSource;
     public bool UnlimitedRounds;
     public int DuplicateRoundCount = 8;
     public bool DuplicateSyncMode;

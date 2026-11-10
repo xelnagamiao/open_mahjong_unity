@@ -85,11 +85,11 @@ public class GameSceneUIManager : MonoBehaviour
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null) {
+        int[] changshaBirdTiles = null, int actualWinningTile = 0) {
         EndResultPanel.Instance.StartRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
-            changshaBirdTiles);
+            changshaBirdTiles, actualWinningTile);
     }
 
     /// <summary>

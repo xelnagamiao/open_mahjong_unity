@@ -1,4 +1,6 @@
 const { ROUND_COUNTS } = require('./duplicateWalls');
+const { normalizeSceneSeed } = require('../utils/eventRoomExtensions');
+class RoomSourceError extends Error { constructor(status, message) { super(message); this.status = status; } }
 
 const ROOM_COUNTS = Object.freeze([1, 3, 5, 8, 10, 20]);
 const DUPLICATE_SUB_RULES = new Set(['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi']);
@@ -18,7 +20,9 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     if (body.duplicate_enabled !== undefined && typeof body.duplicate_enabled !== 'boolean') fail(400, '复式开关必须为布尔值');
     const roomConfig = { ...(body.room_config || {}) };
     const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(roomConfig.sub_rule);
-    if (paired || roomConfig.duplicate_key || body.auto_duplicate) roomConfig.allow_spectator = false;
+    const training = paired && roomConfig.wall_source === 'training';
+    if (!paired && roomConfig.wall_source !== undefined) fail(400, '牌山来源仅支持川麻双打复式');
+    if ((paired && !training) || roomConfig.duplicate_key || body.auto_duplicate) roomConfig.allow_spectator = false;
     if (rule === 'sichuan' && !paired && (roomConfig.duplicate_key || body.duplicate_enabled || body.auto_duplicate)) {
       fail(400, '川麻仅支持血战或血流双打复式，请选择对应的双打复式子规则');
     }
@@ -26,13 +30,22 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
       if (roomConfig.duplicate_sync_mode !== undefined && typeof roomConfig.duplicate_sync_mode !== 'boolean') fail(400, '复式同步模式必须为布尔值');
       roomConfig.duplicate_sync_mode ??= false;
       if (rule !== 'sichuan' || !['event', 'base'].includes(event.kind)) fail(400, '复式双打只能在赛事或基地中创建');
-      if (body.auto_duplicate || body.duplicate_enabled || roomConfig.random_seed) fail(400, '正式复式不能同时使用场景复现，请使用普通房间填写随机种子');
+      if (roomConfig.wall_source !== undefined && !['training', 'key', 'seed', 'manual'].includes(roomConfig.wall_source)) fail(400, '请选择有效的牌山来源');
+      if (body.auto_duplicate || body.duplicate_enabled) fail(400, '川麻双打复式请使用牌山来源设置');
+      if (training) {
+        if (roomConfig.duplicate_key) fail(400, '训练牌山不能同时使用复式密钥');
+        roomConfig.random_seed = normalizeSceneSeed(roomConfig.random_seed, RoomSourceError);
+        if (!roomConfig.random_seed) fail(400, '请输入训练牌山随机种子');
+        if (roomConfig.allow_spectator !== undefined && typeof roomConfig.allow_spectator !== 'boolean') fail(400, '允许观战必须为布尔值');
+        roomConfig.allow_spectator ??= true;
+        delete roomConfig.duplicate_key;
+      } else if (roomConfig.random_seed) fail(400, '正式复式不能同时使用场景复现，请选择训练牌山');
       if (roomConfig.duplicate_key !== undefined) {
         if (typeof roomConfig.duplicate_key !== 'string') fail(400, '复式密钥格式不正确');
         roomConfig.duplicate_key = roomConfig.duplicate_key.trim();
         if (roomConfig.duplicate_key && !/^[A-Za-z0-9_-]{8,40}$/.test(roomConfig.duplicate_key)) fail(400, '复式密钥格式不正确');
       }
-      if (roomConfig.duplicate_key && count !== 1) fail(400, '一个已有牌山只能绑定一组开闭室');
+      if (['seed', 'manual'].includes(roomConfig.wall_source) && !roomConfig.duplicate_key) fail(400, '请输入所选牌山来源的复式密钥');
       const rounds = roomConfig.duplicate_round_count;
       if (!ROUND_COUNTS.includes(rounds)) fail(400, '比赛副数请选择 1、4、8、12 或 16 副');
     }

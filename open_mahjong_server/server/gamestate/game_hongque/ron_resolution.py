@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from .profile import score_for_state
+from .win_plans import selected_win_plan, win_plans_for_state
 
 
 async def resolve_collected_rons(game_state, ron_claims) -> bool:
@@ -22,8 +22,10 @@ async def resolve_collected_rons(game_state, ron_claims) -> bool:
     winners = []
     for claim in ron_claims:
         winner = game_state.players[claim.player_index]
-        result = score_for_state(game_state, winner, winner.hand + [discarded], self_draw=False)
-        if result is not None:
+        plans = win_plans_for_state(game_state, winner, winner.hand + [discarded], self_draw=False)
+        if plans:
+            result = selected_win_plan(plans, claim.candidate.get("id"))
+            result["winning_tile"] = discarded
             result["winning_hand"] = list(winner.hand) + [discarded]
             winners.append((winner, result))
     if not winners:

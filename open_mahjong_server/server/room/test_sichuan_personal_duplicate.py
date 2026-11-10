@@ -1,6 +1,6 @@
 from copy import deepcopy
 from types import SimpleNamespace as NS
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 import asyncio
 
 import pytest
@@ -20,7 +20,7 @@ def login(rooms):
 
 async def create(rooms, sub=SBR_DUPLICATE, **options):
     return await rooms.create_Sichuan_room("host", "个人八人房", 1, "", 127, 17, True,
-        random_seed="0", sub_rule=sub, **options)
+        random_seed=options.pop('random_seed', '0'), sub_rule=sub, **options)
 
 
 @pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
@@ -122,8 +122,9 @@ async def test_socket_dispatch_preserves_duplicate_options(rooms, sub):
 
 @pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
 @pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("training", [False, True])
 @run_async
-async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_same_host(rooms, monkeypatch, sub, interrupted):
+async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_same_host(rooms, monkeypatch, sub, interrupted, training):
     from ..gamestate.test_room_lifecycle import make_server, parked_loop
     from ..gamestate.game_sichuan.DuplicateGameState import DuplicateMixin
     server = rooms.game_server
@@ -132,7 +133,8 @@ async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_
     human.Connect_id = "host"
     server.players["host"] = human
     server.user_id_to_connection[101] = human
-    result = await create(rooms, sub, duplicate_round_count=4)
+    options=dict(wall_source='training',random_seed='0123456789abcdef'*4) if training else {}
+    result = await create(rooms, sub, duplicate_round_count=4, **options)
     assert result.success, result.message
     root = rooms.rooms[result.room_info["room_id"]]
     pair = pair_for(rooms, root)
@@ -147,7 +149,8 @@ async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_
         rejected = await server.gamestate_manager.start_game("other", root["room_id"],
             roster_revision=pair.data["lobby"]["revision"])
         assert not rejected.success and pair.data["boards"] == original
-    monkeypatch.setattr("server.database.duplicate_walls.reserve_duplicate_game", lambda *_: "reserved-id")
+    reserve=Mock(return_value='reserved-id')
+    monkeypatch.setattr("server.database.duplicate_walls.reserve_duplicate_game", reserve)
     monkeypatch.setattr(DuplicateMixin, "run_game_loop", parked_loop)
     gm = server.gamestate_manager
     try:
@@ -158,8 +161,11 @@ async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_
         for state in pair.states.values():
             assert len(state.player_list) == 4 and state.round_time == 127 and state.step_time == 17
             assert state.room_type == "custom"
+        if training:
+            reserve.assert_not_called()
+            assert all(not state.duplicate_key and state.duplicate_wall_type=='training' for state in pair.states.values())
         if interrupted:
-            assert pair.data["boards"][0] != original[0]
+            assert (pair.data["boards"][0] == original[0]) is training
             assert pair.data["boards"][1:] == original[1:]
             assert pair.data["voided_boards"][0]["number"] == 1
     finally:

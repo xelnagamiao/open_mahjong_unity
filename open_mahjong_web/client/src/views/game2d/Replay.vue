@@ -792,7 +792,7 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (hasGameTitleField(title, 'is_player_set_random_seed')) {
     push('场景复现', enabledLabel(title.is_player_set_random_seed))
   }
-  if (hasGameTitleField(title, 'duplicate_wall_type')) push('复式', ({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' } as Record<string, string>)[String(title.duplicate_wall_type)] || title.duplicate_wall_type)
+  if (hasGameTitleField(title, 'duplicate_wall_type')) push('复式', ({ training: '训练牌山', manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' } as Record<string, string>)[String(title.duplicate_wall_type)] || title.duplicate_wall_type)
   if (hasGameTitleField(title, 'duplicate_key')) push('复式密钥', title.duplicate_key, true)
   if (hasGameTitleField(title, 'duplicate_round_count')) push('复式局数', tr('{count} 局', { count: title.duplicate_round_count }))
   if (hasGameTitleField(title, 'duplicate_seed')) push('复式种子', title.duplicate_seed, true)

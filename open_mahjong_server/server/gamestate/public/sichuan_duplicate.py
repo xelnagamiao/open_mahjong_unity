@@ -51,6 +51,8 @@ class PairedMatch:
         info = {key: deepcopy(self.data[key]) for key in
                 ("id", "status", "room_ids", "planned_boards", "completed_boards")}
         info.update(scoring=self.data["profile"]["scoring"], sync_mode=self.synchronous)
+        if self.data.get("wall_source"):
+            info["wall_source"] = self.data["wall_source"]
         info["ready_tables"] = sorted(self.ready)
         info["waiting_tables"] = sorted(self.data.get("pending", {})) if self.synchronous else []
         if table in ("open", "closed"):
@@ -192,7 +194,8 @@ class PairedMatch:
             candidate.setdefault("voided_boards", []).append({"number": n,
                 "board": candidate["boards"][n - 1], "pending": pending.get(str(n), {}),
                 "reason": candidate.get("interruption", "interrupted")})
-            candidate["boards"][n - 1] = make_board(secrets.token_hex(32), n, layout=candidate["profile"].get("wall_layout", "standard"))
+            if candidate.get("wall_source") != "training":
+                candidate["boards"][n - 1] = make_board(secrets.token_hex(32), n, layout=candidate["profile"].get("wall_layout", "standard"))
         candidate.update(status="waiting", pending={}, pending_checkpoints={}, pending_boards={},
                          table_completed_boards={t: candidate["completed_boards"] for t in ("open", "closed")},
                          table_checkpoints=deepcopy(candidate.get("checkpoints", {})))

@@ -66,6 +66,11 @@ namespace OmUpdate {
                     directory = store.DirectoryFor(id);
                     local = ReadIndex(directory);
                     if (local.releaseVersion < embedded.releaseVersion) throw new InvalidDataException("使用新安装包中的内容。");
+                    // An APK can repair its bundled content without changing the
+                    // game protocol version. Do not retain the old payload from
+                    // an earlier APK; newer downloaded releases remain intact.
+                    if (local.releaseVersion == embedded.releaseVersion && id != embedded.sha256)
+                        throw new InvalidDataException("使用修复安装包中的内容。");
                     await Task.Run(() => ContentStore.VerifyIndex(directory, local, false));
                     Debug.Log("[AndroidContent] local quick check (no file hashing)");
                     return;

@@ -156,5 +156,33 @@ foreach ($file in (Get-ChildItem -LiteralPath "$Project/Assets" -Filter '*.asmde
     }
 }
 # Preserve the HybridCLR reflection entry points and the independent input module.
+# This helper belongs to the hot game assembly, not the fixed APK framework.
+# Install the exact bundled TMP settings before any game initializer can access
+# the AOT package singleton. Its temporary shell settings contain no game fonts.
+$fontBootstrap = @'
+using System;
+using System.Reflection;
+using TMPro;
+using UnityEngine;
+internal static class OmAndroidContentFonts {
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void Install() {
+        var settings = OmUpdate.ContentResources.Load<TMP_Settings>("TMP Settings");
+        var field = typeof(TMP_Settings).GetField("s_Instance", BindingFlags.Static | BindingFlags.NonPublic);
+        if (settings == null || field == null) throw new InvalidOperationException("Bundled TMP settings are unavailable.");
+        field.SetValue(null, settings);
+    }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void InstallRenderPipeline() {
+        // Renderer features are hot game types. Load their asset only after
+        // the assemblies and content bundles exist, before MainScene loads.
+        var pipeline = OmUpdate.ContentResources.Load<UnityEngine.Rendering.RenderPipelineAsset>("OmUpdate/GameRenderPipeline");
+        if (pipeline == null) throw new InvalidOperationException("Bundled game render pipeline is unavailable.");
+        UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline = pipeline;
+        QualitySettings.renderPipeline = pipeline;
+    }
+}
+'@
+[IO.File]::WriteAllText("$Project/Assets/OmAndroidContentFonts.cs", $fontBootstrap, $utf8)
 $link = '<linker><assembly fullname="HybridCLR.Runtime" preserve="all"/><assembly fullname="OmUpdate.Core" preserve="all"/><assembly fullname="OmUpdate.Runtime" preserve="all"/><assembly fullname="Unity.InputSystem" preserve="all"/></linker>'
 [IO.File]::WriteAllText("$Project/Assets/AndroidUpdate/link.xml", $link, $utf8)

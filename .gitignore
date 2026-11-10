@@ -158,6 +158,9 @@ secret_key.txt
 /other/**/*.exe
 /other/tiles/face-build.json
 
+# Unity Pipeline 本机运行/调试配置。
+/open_mahjong_unity/ProjectSettings/Packages/com.unity.pipeline/RuntimePipelineConfig.json
+
 # 供开源用户使用的三端构建工具；缓存、日志和产物仍忽略。
 !/other/UnityBatchBuild/build-all.ps1
 !/other/UnityBatchBuild/validate-singapore.ps1

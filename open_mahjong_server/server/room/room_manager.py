@@ -1208,7 +1208,7 @@ class RoomManager:
                                   tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard",
                                   tourist_limit: bool = False, allow_spectator: bool = True,
                                   tactical_call: bool = True, blood_battle: bool = True, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0,
-                                  duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False) -> Response:
+                                  duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None) -> Response:
         """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
         try:
@@ -1239,7 +1239,7 @@ class RoomManager:
                               count_tips=count_tips, pointer_tips=pointer_tips, tourist_limit=tourist_limit,
                               tactical_call=tactical_call, claim_protection=claim_protection,
                               allow_spectator=allow_spectator,
-                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode)
+                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source)
                 if duplicate_round_count is not None:
                     config["duplicate_round_count"] = duplicate_round_count
                 response = await create_pair(self, event_id, sub_rule, config, password, host_user_id)
@@ -1254,6 +1254,8 @@ class RoomManager:
                                 room_info=public_lobby(self, root))
             if duplicate_key:
                 return Response(type="tips", success=False, message="川麻复式密钥仅支持双打复式子规则")
+            if wall_source is not None:
+                return Response(type="tips", success=False, message="牌山来源选项仅支持川麻双打复式")
 
             host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
             if not host_settings:
@@ -2389,6 +2391,8 @@ class RoomManager:
             if key in room_config and type(room_config[key]) is not bool:
                 return Response(type="tips", success=False, message=f"{key}必须为布尔值")
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
+        if room_config.get("wall_source") is not None and not is_duplicate_sub_rule(room_config.get("sub_rule")):
+            return Response(type="tips", success=False, message="牌山来源选项仅支持川麻双打复式")
         if is_duplicate_sub_rule(room_config.get("sub_rule")) and not _paired_internal:
             if rule != "sichuan":
                 return Response(type="tips", success=False, message="复式子规则与房间玩法不一致")

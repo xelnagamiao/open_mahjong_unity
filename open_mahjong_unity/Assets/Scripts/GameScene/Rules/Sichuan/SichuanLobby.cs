@@ -5,7 +5,7 @@ internal static class SichuanLobby {
     public const string XueliuDoublesSubRule = "sichuan/xueliu_doubles";
     public const string DoublesDuplicateSubRule = "sichuan/doubles_duplicate";
     public const string XueliuDuplicateSubRule = "sichuan/xueliu_doubles_duplicate";
-    public const string DuplicateCreationMessage = "八人房间，左闭室、右开室；选择座位后可添加机器人，满八席后由房主开始。密钥留空时自动生成，已有密钥的副数跟随密钥。";
+    public const string DuplicateCreationMessage = "八人房间，左闭室、右开室；选择座位后可添加机器人，满八席后由房主开始。训练牌山直接使用随机种子；其他牌山使用密钥，副数跟随已有密钥。";
     public static bool IsDuplicate(string subRule) => subRule == DoublesDuplicateSubRule || subRule == XueliuDuplicateSubRule;
     public static bool IsXueliuDoubles(string subRule) => subRule == XueliuDoublesSubRule || subRule == XueliuDuplicateSubRule;
     public static bool IsTeamMode(string subRule) => IsDoubles(subRule) || IsXueliuDoubles(subRule);

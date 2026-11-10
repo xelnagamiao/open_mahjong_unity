@@ -289,7 +289,7 @@ public class TurnBasedGameState : GameStateBase {
         }
         // 最后一张摸完会直接终局，必须从终局快照将该家余牌更新为 0。
         ApplyDuplicateRemainingTiles(info.duplicate_remaining_tiles);
-        if (!Session.IsRealtimeSpectator && !Session.IsDuplicate) {
+        if (!Session.IsRealtimeSpectator && (!Session.IsDuplicate || Session.IsTrainingDuplicate)) {
             LocalRecordStore.SavePushedDetail(info.record_detail);
         }
         Manager.GameEnd(info.master_seed, info.commitment, info.salt, info.player_final_data, info.sichuan_match);

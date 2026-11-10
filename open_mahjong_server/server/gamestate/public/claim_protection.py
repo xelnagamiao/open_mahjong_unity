@@ -262,7 +262,8 @@ async def flush_protected_cut(game_state, send_fn) -> bool:
 
     sent: set[int] = set()
     duplicate_flush_done = None
-    if getattr(game_state, "duplicate_key", None):
+    from .duplicate_wall import uses_duplicate_wall
+    if uses_duplicate_wall(game_state):
         # A duplicate terminal broadcast must wait for all viewers of this
         # flush, including viewers whose send has not entered their pipe yet.
         duplicate_flush_done = asyncio.get_running_loop().create_future()

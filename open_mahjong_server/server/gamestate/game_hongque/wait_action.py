@@ -20,7 +20,8 @@ from .action_check import check_action_after_cut, check_action_hand_action
 from .hongque_debug import get_debug_forced_discard, resolve_debug_scenario
 from .init_tiles import pop_supplement_tile
 from .ron_resolution import resolve_collected_rons
-from .profile import score_for_state, tile_code
+from .profile import tile_code
+from .win_plans import self_draw_plans, selected_win_plan
 from .state_machine import HongqueStatus
 from .tile import HongqueTile
 from .record import (
@@ -196,18 +197,15 @@ def validate_submitted_action(game_state, player, action: str,
                 raise ValueError("本局补牌次数已用尽或牌库已空")
             return
         if action == "kong":
-            if not after_claim and len(player.hand) == 1:
-                raise ValueError("手牌只剩一张时请使用和")
             _, candidates = check_action_hand_action(game_state, player)
-            if not any(item["id"] == candidate_id for item in candidates):
+            if not any(item["id"] == candidate_id and item["kind"] == "kong" for item in candidates):
                 raise ValueError("杠牌候选无效")
             return
         if action == "win":
-            if after_claim:
+            plans = self_draw_plans(game_state, player)
+            if after_claim and not plans:
                 raise ValueError("亮牌后须先补牌才能和牌")
-            result = score_for_state(game_state, player)
-            if result is None:
-                raise ValueError("当前手牌不能和牌")
+            selected_win_plan(plans, candidate_id)
             return
         raise ValueError("未知的回合操作")
     if status == HongqueStatus.WAITING_ACTION_AFTER_CUT:
@@ -341,12 +339,9 @@ async def _timeout_hand_action(game_state, player) -> None:
             and player.supplements < 2 and game_state.wall):
         await handle_hand_action(game_state, player, "supplement", None, None)
         return
-    if game_state.game_status == "onlycut_after_action":
-        return
-    result = score_for_state(game_state, player)
-    if result is not None:
-        result["winning_hand"] = list(player.hand)
-        await game_state._finish_round([(player, result)], "self_draw")
+    plans = self_draw_plans(game_state, player)
+    if plans:
+        await handle_hand_action(game_state, player, "win", None, plans[0]["id"])
 
 
 async def _wait_claim_action(game_state) -> None:
@@ -542,24 +537,31 @@ async def handle_hand_action(game_state, player, action: str,
         if after_claim:
             game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
     elif action == "kong":
-        if not after_claim and len(player.hand) == 1:
-            raise ValueError("手牌只剩一张时请使用和")
         _, candidates = check_action_hand_action(game_state, player)
-        candidate = next((item for item in candidates if item["id"] == candidate_id), None)
+        candidate = next((item for item in candidates if item["id"] == candidate_id and item["kind"] == "kong"), None)
         if candidate is None:
             raise ValueError("杠牌候选无效")
         game_state._consume_time_bank(player, game_state.turn_started_at)
         game_state.events = []
         record_kong(game_state, player, candidate)
         game_state._apply_kong(player, candidate)
+        if after_claim and not player.hand:
+            game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
         game_state.message = f"{player.username} 杠牌"
     elif action == "win":
-        if after_claim:
+        plans = self_draw_plans(game_state, player)
+        if after_claim and not plans:
             raise ValueError("亮牌后须先补牌才能和牌")
-        result = score_for_state(game_state, player)
-        if result is None:
-            raise ValueError("当前手牌不能和牌")
+        result = selected_win_plan(plans, candidate_id)
+        result["winning_tile"] = player.drawn_tile
         game_state._consume_time_bank(player, game_state.turn_started_at)
+        game_state.events = []
+        for step in result["kong_steps"]:
+            record_kong(game_state, player, step)
+            game_state._apply_kong(player, step)
+        if result["kong_steps"]:
+            # Finish clears the event batch: send every real kong in order first.
+            await game_state.broadcast_state()
         result["winning_hand"] = list(player.hand)
         await game_state._finish_round([(player, result)], "self_draw")
         return
@@ -657,7 +659,10 @@ async def broadcast_claim_application(game_state, player_index: int, candidate: 
         kind=candidate.get("kind"),
         base_kind=candidate.get("base_kind", candidate.get("kind")),
         tile=game_state.last_discard["tile"] if game_state.last_discard else None,
-        tiles=list(candidate.get("tiles", ())),
+        # Win choices include the private final shape. Claim application is
+        # public, so reveal only the discard until the result is settled.
+        tiles=([game_state.last_discard["tile"]] if candidate.get("kind") == "win" and game_state.last_discard
+               else list(candidate.get("tiles", ()))),
         hand_tiles=list(candidate.get("hand_tiles", ())),
     )
     await game_state.broadcast_state()

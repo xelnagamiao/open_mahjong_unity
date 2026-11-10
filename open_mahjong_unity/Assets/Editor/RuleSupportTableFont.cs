@@ -23,5 +23,8 @@ public static class RuleSupportTableFont
 public sealed class RuleSupportTableFontBuild : IPreprocessBuildWithReport
 {
     public int callbackOrder => -10;
-    public void OnPreprocessBuild(BuildReport report) => RuleSupportTableFont.Prepare(RuleSupportTableBaker.ReadWorkbook(), true);
+    public void OnPreprocessBuild(BuildReport report) {
+        if (!AndroidContentBuild.BuildingBootstrapPlayer)
+            RuleSupportTableFont.Prepare(RuleSupportTableBaker.ReadWorkbook(), true);
+    }
 }

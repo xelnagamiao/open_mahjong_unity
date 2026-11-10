@@ -20,7 +20,7 @@ public sealed class DevelopmentContentSceneBuild : IProcessSceneWithReport
 
     public void OnProcessScene(Scene scene, BuildReport report)
     {
-        if (report == null) return;
+        if (report == null && !AndroidContentBuild.BuildingContentBundles) return;
         foreach (var receiver in scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<CardBackEditorDragReceiver>(true)))
             UnityEngine.Object.DestroyImmediate(receiver);
         if (KeepDevelopmentContent(report))
@@ -103,6 +103,8 @@ public sealed class DevelopmentExpressionBuild : IPreprocessBuildWithReport, IPo
 {
     const string Source = "Assets/Salasasa/PreviewArt/TaiseiCharacters/Resources/TaiseiExpressions";
     const string Staged = "Assets/Salasasa/PreviewArt/TaiseiCharacters/BuildExcludedExpressions";
+    public static bool ExcludedFromRelease(string path)
+        => !ConfigManager.Debug && (path == Source || path.StartsWith(Source + "/", StringComparison.Ordinal));
     static string RecoveryFile => Path.GetFullPath(Path.Combine(Application.dataPath, "../..", ".om_workspace", "development-expression-build-recovery.json"));
     static bool recoveryFailed;
     public int callbackOrder => -10000;
@@ -116,6 +118,7 @@ public sealed class DevelopmentExpressionBuild : IPreprocessBuildWithReport, IPo
 
     public void OnPreprocessBuild(BuildReport report)
     {
+        if (AndroidContentBuild.BuildingBootstrapPlayer) return;
         RestoreStagedResources();
         if (DevelopmentContentSceneBuild.KeepDevelopmentContent(report)) return;
         if (!AssetDatabase.IsValidFolder(Source)) return; // Optional local artwork is absent in a fresh checkout.
@@ -136,11 +139,13 @@ public sealed class DevelopmentExpressionBuild : IPreprocessBuildWithReport, IPo
         }
     }
 
-    public void OnPostprocessBuild(BuildReport report) => RestoreStagedResources();
+    public void OnPostprocessBuild(BuildReport report) {
+        if (!AndroidContentBuild.BuildingBootstrapPlayer) RestoreStagedResources();
+    }
 
     static void RecoverWhenIdle()
     {
-        if (recoveryFailed || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(RecoveryFile)) return;
+        if (AndroidContentBuild.BuildingBootstrapPlayer || recoveryFailed || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(RecoveryFile)) return;
         try { RestoreStagedResources(); }
         catch (Exception error)
         {

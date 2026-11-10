@@ -34,8 +34,10 @@ def persist_game_record(db, record, players, room_type, match_type, id_factory, 
     conn = None
     try:
         title = record.get('game_title') or {}
+        from .duplicate_walls import is_training_duplicate_record
+        training = is_training_duplicate_record(title) and allow_duplicate
         duplicate = bool(title.get('duplicate_key')) and allow_duplicate
-        if any(getattr(player, 'user_id', 0) <= 10 for player in players) and not duplicate:
+        if any(getattr(player, 'user_id', 0) <= 10 for player in players) and not (duplicate or training):
             return None
         from .rule_identity import canonical_game_record
         record['game_title'] = canonical_game_record(record)['game_title']
@@ -75,6 +77,8 @@ def persist_game_record(db, record, players, room_type, match_type, id_factory, 
                 from .scene_stats import normalize_scene_fields, record_game_metrics
                 rule, sub_rule = title['rule'], title['sub_rule']
                 room_type, tier, event_id = normalize_scene_fields(room_type, title.get('match_tier'), title.get('event_id'))
+                if training:
+                    room_type, tier, event_id = 'custom', None, None
                 for player in players:
                     # Sichuan duplicate reference tables intentionally omit bot
                     # participant rows; the original four seats remain in title.
@@ -96,15 +100,16 @@ def persist_game_record(db, record, players, room_type, match_type, id_factory, 
                     for player in players:
                         write_stats(cursor, game_id, player.user_id, record, player.original_player_index,
                                     player.score, player.record_counter.rank_result)
-                if not duplicate:
+                if not (duplicate or training):
                     from .player_recent_records import update_player_recent_records
                     update_player_recent_records(cursor, game_id, record)
                 if duplicate:
                     from .duplicate_walls import link_duplicate_record
                     link_duplicate_record(cursor, game_id, record)
-                record_game_metrics(db, game_id, record, players,
-                    dict(rule=rule, sub_rule=sub_rule, room_type=room_type,
-                         match_tier=tier, event_id=event_id, match_type=match_type), cursor=cursor)
+                if not training:
+                    record_game_metrics(db, game_id, record, players,
+                        dict(rule=rule, sub_rule=sub_rule, room_type=room_type,
+                             match_tier=tier, event_id=event_id, match_type=match_type), cursor=cursor)
             from .commerce import settle_game_reward
             settle_game_reward(cursor, game_id, payload)
         conn.commit()

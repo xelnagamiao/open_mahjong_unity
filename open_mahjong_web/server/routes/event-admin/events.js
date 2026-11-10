@@ -14,11 +14,13 @@ const { createRoomSettingsService } = require('../../services/eventRoomSettings'
 const { createSeatHandler } = require('./roomSettings');
 const { createDuplicateWallService } = require('../../services/duplicateWalls');
 const { createEventRoomCreationService } = require('../../services/eventRoomCreation');
+const { createEventDuplicateWallService } = require('../../services/eventDuplicateWalls');
 const { createEventRoomBotService } = require('../../services/eventRoomBots');
 const { proxyToGameServer: proxyToRoomAdmin } = require('../../services/gameServerProxy');
 
 const duplicateWalls = createDuplicateWallService(pool);
 const roomCreation = createEventRoomCreationService({ duplicateWalls, proxyToGameServer, writeAudit });
+const eventDuplicateWalls = createEventDuplicateWallService({ duplicateWalls, writeAudit });
 const roomBots = createEventRoomBotService({ proxyToGameServer: proxyToRoomAdmin, writeAudit });
 const {
   fetchEventPlayerStats,
@@ -456,6 +458,16 @@ router.delete('/:eventId/admins/:userId', requireEventMembership, requireEventOw
   } catch (err) {
     console.error('event-admin remove admin:', err);
     res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.post('/:eventId/duplicate-walls', requireEventMembership, async (req, res) => {
+  try {
+    const data = await eventDuplicateWalls.create(req.event, req.eventAdmin.userId, req.body);
+    res.status(201).json({ success: true, data });
+  } catch (err) {
+    if (!err.status) console.error('event-admin create duplicate wall:', err);
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : '创建复式密钥失败，请稍后重试' });
   }
 });
 

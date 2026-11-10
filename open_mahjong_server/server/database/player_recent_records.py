@@ -74,7 +74,8 @@ def update_player_recent_records(cursor, game_id, record=None):
     players = cursor.fetchall()
     # 历史牌谱可能早于机器人保存限制：整场排除，与新保存入口一致。
     title = record.get("game_title") or {}
-    if title.get("duplicate_key") or title.get("sub_rule") == "guobiao/blood_battle":
+    from .duplicate_walls import is_training_duplicate_record
+    if title.get("duplicate_key") or is_training_duplicate_record(title) or title.get("sub_rule") == "guobiao/blood_battle":
         # A public best-win snapshot would bypass the duplicate record lock.
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
         return

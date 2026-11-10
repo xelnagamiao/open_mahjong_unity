@@ -215,8 +215,9 @@ def record_round_result(game_state, winners: list[tuple], reason: str, score_row
             hu_class = "hu_self"
         else:
             hu_class = claim_action_type("win", winner.index, discarder)
-        winning_hand = list(result.get("winning_hand") or winner.hand)
-        hepai_tile = code_to_id(winning_hand[-1]) if winning_hand else None
+        # A kong can consume the drawn tile before settlement. Never invent a
+        # new winning tile from the remaining hand, including an empty hand.
+        hepai_tile = code_to_id(result.get("winning_tile"))
         player_action_record_hu(
             game_state,
             hu_class=hu_class,

@@ -731,6 +731,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateSichuanRoomRequest {
+                wall_source = config.WallSource,
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,

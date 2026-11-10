@@ -141,6 +141,8 @@ public class ActionButton : MonoBehaviour {
                 GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
             }
             else if (GameCanvas.Instance.ActionBlockContainerState != "None"){
+                GameCanvas.Instance.ChoicePanel?.Hide();
+                ActionBlockContenter.GetComponent<UpwardPopupLayout>()?.ClearVirtualActions();
                 foreach (Transform child in ActionBlockContenter.Cast<Transform>().ToArray()){
                     Destroyer.Instance.AddToDestroyer(child);
                 }
@@ -207,7 +209,13 @@ public class ActionButton : MonoBehaviour {
 
     /// <summary>展开/收起规则模块给出的候选子按钮；再次点击同一组词时收起。</summary>
     private void ToggleModuleCandidates(string groupWord, IReadOnlyList<ActionCandidate> candidates) {
+        if (candidates.Count == 1 && candidates[0].TileGroups != null) {
+            GameCanvas.Instance.ChooseAction(candidates[0].ActionType, candidates[0].TargetTile);
+            return;
+        }
         bool close = GameCanvas.Instance.ActionBlockContainerState == groupWord;
+        GameCanvas.Instance.ChoicePanel?.Hide();
+        ActionBlockContenter.GetComponent<UpwardPopupLayout>()?.ClearVirtualActions();
         foreach (Transform child in ActionBlockContenter.Cast<Transform>().ToArray())
             Destroyer.Instance.AddToDestroyer(child);
         if (close) {
@@ -216,8 +224,8 @@ public class ActionButton : MonoBehaviour {
         }
         GameCanvas.Instance.ActionBlockContainerState = groupWord;
         if (candidates.Any(c => !string.IsNullOrEmpty(c.Caption))) {
-            ActionCandidatePager.Build(ActionBlockContenter, candidates, ActionBlockPrefab, StaticCardPrefab, textObject);
-            UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
+            bool usesPanel = ActionCandidatePager.Build(ActionBlockContenter, candidates, ActionBlockPrefab, StaticCardPrefab, textObject, (RectTransform)transform);
+            if (!usesPanel) UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
             return;
         }
         foreach (ActionCandidate candidate in candidates) {

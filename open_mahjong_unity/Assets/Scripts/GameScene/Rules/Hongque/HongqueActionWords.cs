@@ -11,6 +11,9 @@ using System.Linq;
 /// </summary>
 public static class HongqueActionWords {
     public const string Win = "hongque_win";
+    public const string WinPrefix = "hongque_win:";
+    public const string WinChoices = "hongque_win_choices";
+    public const string RonChoices = "hongque_group:win";
     public const string Supplement = "hongque_supplement";
     public const string Pass = "hongque_pass";
     public const string ForcePass = "hongque_force_pass";
@@ -27,6 +30,15 @@ public static class HongqueActionWords {
 
     public static void RegisterAll() {
         ActionWords.Register(new ActionWordSpec { Word = Win, Kind = ActionWordKind.Tsumo, Label = _ => "和" });
+        ActionWords.Register(new ActionWordSpec { Word = WinPrefix, Kind = ActionWordKind.Tsumo, Label = _ => "和" });
+        ActionWords.Register(new ActionWordSpec {
+            Word = WinChoices, Kind = ActionWordKind.Tsumo, Label = _ => "和", RequiresManualChoice = true,
+            Expand = _ => BuildWinChoices(HongqueGameState.Active?.GetCandidates("win"), true),
+        });
+        ActionWords.Register(new ActionWordSpec {
+            Word = RonChoices, Kind = ActionWordKind.Ron, Label = _ => "和", RequiresManualChoice = true,
+            Expand = _ => BuildWinChoices(HongqueGameState.Active?.GetCandidates("win"), false),
+        });
         ActionWords.Register(new ActionWordSpec { Word = Supplement, Kind = ActionWordKind.Persistent, Label = _ => "补牌" });
         ActionWords.Register(new ActionWordSpec { Word = Pass, Kind = ActionWordKind.Pass, Label = _ => "取消" });
         ActionWords.Register(new ActionWordSpec {
@@ -51,6 +63,30 @@ public static class HongqueActionWords {
     public static string EncodeCandidate(HongqueCandidateInfo candidate) {
         if (candidate == null || string.IsNullOrEmpty(candidate.id)) return null;
         return (candidate.kind == "kong" ? KongPrefix : ClaimPrefix) + candidate.id;
+    }
+
+    public static string WinAction(IReadOnlyList<HongqueCandidateInfo> candidates, bool selfDraw) {
+        if (candidates == null || candidates.Count == 0) return selfDraw ? Win : null;
+        if (candidates.Count > 1) return selfDraw ? WinChoices : RonChoices;
+        return (selfDraw ? WinPrefix : ClaimPrefix) + candidates[0].id;
+    }
+
+    public static IReadOnlyList<ActionCandidate> BuildWinChoices(IEnumerable<HongqueCandidateInfo> candidates, bool selfDraw) {
+        var result = new List<ActionCandidate>();
+        foreach (var candidate in candidates ?? Array.Empty<HongqueCandidateInfo>()) {
+            if (candidate == null || string.IsNullOrEmpty(candidate.id) || candidate.kind != "win") continue;
+            var groups = (candidate.groups ?? new[] { candidate.tiles ?? Array.Empty<string>() })
+                .Select(group => HongqueDisplayOrder.Meld((group ?? Array.Empty<string>())
+                    .Select(HongqueTileVisual.FromCode).Where(id => id != 0).ToArray()))
+                .Where(group => group.Length > 0).ToArray();
+            result.Add(new ActionCandidate((selfDraw ? WinPrefix : ClaimPrefix) + candidate.id,
+                groups.SelectMany(group => group).ToArray(),
+                caption: $"{candidate.fan_total}番  {candidate.points}分", tileGroups: groups,
+                details: string.Join(" · ", (candidate.fans ?? Array.Empty<HongqueFanInfo>())
+                    .Where(fan => fan != null).Select(fan => $"{fan.name}{(fan.count > 1 ? "×" + fan.count : "")}  {fan.total}番")),
+                textContext: "hongque"));
+        }
+        return result;
     }
 
     private static ActionWordKind KindOfCandidateKind(string kind) {

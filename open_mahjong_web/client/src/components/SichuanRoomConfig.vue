@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-form-item label="四川子规则">
+    <el-form-item label="四川子规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule" aria-label="四川子规则">
         <el-option label="四川麻将（血战到底）" value="sichuan/standard" />
         <el-option label="血流成河（丢三张）" value="sichuan/xueliu" />

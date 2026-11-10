@@ -40,6 +40,19 @@ CREATE TABLE IF NOT EXISTS duplicate_games (
   ended_at TIMESTAMPTZ NULL
 );
 CREATE INDEX IF NOT EXISTS idx_duplicate_games_wall ON duplicate_games(wall_id);
+-- Record visibility also verifies training against the authoritative paired match.
+-- Keep this schema compatible with the Python paired-match store, including when
+-- the Web service starts before the game service on an existing installation.
+CREATE TABLE IF NOT EXISTS sichuan_duplicate_matches (
+  id UUID PRIMARY KEY, wall_id BIGINT NULL REFERENCES duplicate_walls(id),
+  event_id VARCHAR(32) NULL, status VARCHAR(20) NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 0, data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sichuan_duplicate_event ON sichuan_duplicate_matches(event_id);
+CREATE INDEX IF NOT EXISTS idx_sichuan_duplicate_wall ON sichuan_duplicate_matches(wall_id);
+ALTER TABLE sichuan_duplicate_matches ALTER COLUMN event_id DROP NOT NULL;
+ALTER TABLE sichuan_duplicate_matches ALTER COLUMN wall_id DROP NOT NULL;
 `;
 
 async function ensureDuplicateTables(db = require('../config/database')) {

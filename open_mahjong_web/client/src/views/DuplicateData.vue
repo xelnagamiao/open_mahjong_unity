@@ -30,24 +30,37 @@
         <div class="detail-meta"><el-tag>{{ duplicateWallLabel(detail.wall.wall_type) }}</el-tag><span>{{ ruleLabel(detail.wall.rule) }}</span><span>最近对局结束时间：{{ duplicateDate(detail.wall.ended_at) }}</span><span>每场 {{ detail.wall.round_count || 1 }} 局</span><span>对局数：{{ detail.games.length }}</span></div>
         <p class="help">结束时间取该密钥最近一场已结束对局的时间。</p>
         <div class="detail-meta"><span>创建时间：{{ duplicateDate(detail.wall.created_at) }}</span><span>解锁时间：{{ duplicateDate(detail.wall.unlocked_at) }}</span><span>{{ detail.wall.is_deleted || detail.wall.deleted_at ? `已删除 · ${duplicateDate(detail.wall.deleted_at)}` : '未删除' }}</span><span>花牌：{{ detail.wall.use_flowers === false ? '无花' : '有花' }}</span></div>
-        <DuplicateMatchScores v-if="detail.paired_match" :match="detail.paired_match" />
-        <el-table :data="detail.games" empty-text="该密钥还没有对局记录">
+        <section v-for="(group, index) in matchGroups" :key="group.key" class="match-group" :aria-label="group.match ? `复式比赛组 ${index + 1}` : '其他关联对局'">
+          <template v-if="group.match">
+            <h2>{{ group.match.name || `第 ${index + 1} 组` }}</h2>
+            <div class="detail-meta match-meta">
+              <span v-if="group.match.match_id">比赛编号：<code>{{ group.match.match_id }}</code></span>
+              <span v-if="group.match.room_ids?.open">开室：{{ group.match.room_ids.open }}</span>
+              <span v-if="group.match.room_ids?.closed">闭室：{{ group.match.room_ids.closed }}</span>
+              <span v-if="typeof group.match.sync_mode === 'boolean'">{{ group.match.sync_mode ? '同步模式' : '非同步模式' }}</span>
+            </div>
+            <DuplicateMatchScores :match="group.match" />
+          </template>
+          <h2 v-else-if="matchGroups.some(item => item.match)">其他关联对局</h2>
+        <el-table :data="group.games" :empty-text="group.match ? '本组暂无公开牌谱记录' : '该密钥还没有对局记录'">
           <el-table-column prop="game_id" label="对局编号" min-width="140" />
+          <el-table-column v-if="group.match" label="房间" width="80"><template #default="{ row }">{{ group.match.record_ids?.open === row.game_id ? '开室' : group.match.record_ids?.closed === row.game_id ? '闭室' : '—' }}</template></el-table-column>
           <el-table-column label="所属赛事" min-width="150"><template #default="{ row }"><router-link v-if="row.event_id" :to="`/events/${encodeURIComponent(row.event_id)}`">{{ row.event_name || row.event_id }}</router-link><span v-else>个人对局</span></template></el-table-column>
           <el-table-column label="玩家" min-width="240"><template #default="{ row }">{{ playerNames(row) }}</template></el-table-column>
           <el-table-column label="结束时间" min-width="180"><template #default="{ row }">{{ duplicateDate(row.ended_at || row.end_time || row.created_at) }}</template></el-table-column>
           <el-table-column label="牌谱" width="110"><template #default="{ row }"><div class="record-links"><router-link v-if="String(row.rule).startsWith('guobiao')" :to="`/2d/record/${encodeURIComponent(row.game_id)}`">2D</router-link><router-link :to="{ path: '/game-unity', query: { recordId: row.game_id } }">3D</router-link></div></template></el-table-column>
         </el-table>
+        </section>
       </template>
     </el-card>
   </section>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { duplicateWallsApi } from '@/api/duplicateWalls'
-import { duplicateDate, duplicateWallLabel } from '@/utils/duplicateWalls'
+import { duplicateDate, duplicateWallLabel, duplicatePublicGroups } from '@/utils/duplicateWalls'
 import DuplicateMatchScores from '@/components/DuplicateMatchScores.vue'
 
 const route = useRoute()
@@ -56,6 +69,7 @@ const query = ref(String(route.query.key || ''))
 const items = ref([])
 const rules = ref([])
 const detail = ref(null)
+const matchGroups = computed(() => duplicatePublicGroups(detail.value))
 const selectedKey = ref('')
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -115,5 +129,9 @@ code { font-size: 12px; word-break: break-all; }
 .detail-heading { justify-content: space-between; }
 .record-links { display: flex; gap: 14px; }
 .detail-meta { font-size: 14px; }
+.match-group { margin-top: 24px; }
+.match-group + .match-group { padding-top: 20px; border-top: 1px solid var(--el-border-color-light); }
+.match-group h2 { margin: 0 0 12px; font-size: 17px; font-weight: 400; }
+.match-meta { gap: 8px 18px; color: var(--el-text-color-secondary); }
 @media (max-width: 640px) { .heading { flex-direction: column; gap: 12px; } }
 </style>

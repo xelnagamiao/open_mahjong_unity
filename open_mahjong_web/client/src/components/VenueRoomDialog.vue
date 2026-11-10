@@ -8,13 +8,14 @@
     destroy-on-close
     :close-on-click-modal="false"
     :close-on-press-escape="false"
-    :show-close="!loading"
+    :show-close="!busy"
     @close="$emit('update:modelValue', false)"
   >
-    <el-form label-position="top" class="room-form" :disabled="loading" @submit.prevent="confirm">
+    <el-form label-position="top" class="room-form" :disabled="busy" @submit.prevent="confirm">
       <slot name="before-settings" />
+      <EventRoomFieldsLayout>
       <div class="room-top">
-        <el-form-item label="规则">
+        <el-form-item label="规则" class="room-rule-field">
           <el-select v-model="form.room_rule" style="width: 100%" @change="changeEventRoomRule(form, $event)">
             <el-option
               v-for="opt in roomRuleOptions"
@@ -24,10 +25,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="房间名">
+        <el-form-item label="房间名" class="room-name-field">
           <el-input v-model="form.room_name" clearable placeholder="可选" />
         </el-form-item>
-        <el-form-item label="创建数量">
+        <el-form-item label="创建数量" class="room-count-field">
           <el-select v-model="form.room_count" aria-label="创建数量" style="width: 100%">
             <el-option v-for="count in EVENT_ROOM_COUNTS" :key="count" :label="paired ? `${count} 个八人房间` : `${count} 个房间`" :value="count" />
           </el-select>
@@ -36,63 +37,52 @@
           <el-input v-model="form.reason" clearable placeholder="审计必填" />
         </el-form-item>
       </div>
-      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="showPassword" :auto-duplicate="autoDuplicate" :show-duplicate-field="false" />
-      <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" :show-password="showPassword" />
+      <EventRoomFixedSubRuleField :form="form" />
+      <el-form-item v-if="showPassword" label="设置密码">
+        <el-switch v-model="form.password_enabled" aria-label="设置密码" />
+      </el-form-item>
+      <el-form-item v-if="showPassword && form.password_enabled" label="房间密码">
+        <el-input v-model="form.password" type="password" show-password clearable aria-label="房间密码" />
+      </el-form-item>
+      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" :auto-duplicate="autoDuplicate" :show-duplicate-field="false" />
+      <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" :show-password="false" />
       <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
       <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" :allow-paired="allowPaired" />
-      <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" :show-password="showPassword" />
-      <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="showPassword" />
-      <SingaporeRoomConfig v-else-if="form.room_rule === 'singapore'" :form="form" :show-password="showPassword" />
-      <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="showPassword" />
-      <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="showPassword" />
-      <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="showPassword" />
-      <ChangshaRoomConfig v-else-if="form.room_rule === 'changsha'" :form="form" :show-password="showPassword" />
-      <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="showPassword" />
-      <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="showPassword" />
-      <MalaysiaRoomConfig v-else-if="form.room_rule === 'malaysia'" :form="form" :show-password="showPassword" />
-      <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="showPassword" />
-      <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="showPassword" />
-      <FuzhouRoomConfig v-else-if="form.room_rule === 'fuzhou'" :form="form" :show-password="showPassword" />
-      <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="showPassword" />
-      <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="showPassword" />
-      <ShangraoRoomConfig v-else-if="form.room_rule === 'shangrao'" :form="form" :show-password="showPassword" />
-      <HongqueRoomConfig v-else-if="form.room_rule === 'hongque'" :form="form" :show-password="showPassword" />
-      <BeijingRoomConfig v-else-if="form.room_rule === 'beijing'" :form="form" :show-password="showPassword" />
-      <DuocaiRoomConfig v-else-if="form.room_rule === 'duocai'" :form="form" :show-password="showPassword" />
-      <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
+      <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" :show-password="false" />
+      <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="false" />
+      <SingaporeRoomConfig v-else-if="form.room_rule === 'singapore'" :form="form" :show-password="false" />
+      <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="false" />
+      <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="false" />
+      <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="false" />
+      <ChangshaRoomConfig v-else-if="form.room_rule === 'changsha'" :form="form" :show-password="false" />
+      <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="false" />
+      <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="false" />
+      <MalaysiaRoomConfig v-else-if="form.room_rule === 'malaysia'" :form="form" :show-password="false" />
+      <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="false" />
+      <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="false" />
+      <FuzhouRoomConfig v-else-if="form.room_rule === 'fuzhou'" :form="form" :show-password="false" />
+      <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="false" />
+      <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="false" />
+      <ShangraoRoomConfig v-else-if="form.room_rule === 'shangrao'" :form="form" :show-password="false" />
+      <HongqueRoomConfig v-else-if="form.room_rule === 'hongque'" :form="form" :show-password="false" />
+      <BeijingRoomConfig v-else-if="form.room_rule === 'beijing'" :form="form" :show-password="false" />
+      <DuocaiRoomConfig v-else-if="form.room_rule === 'duocai'" :form="form" :show-password="false" />
+      <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <RoomTimerFields v-else :form="form" />
-      <EventRoomSupplementFields :form="form" :show-password="showPassword" />
+      <EventRoomSupplementFields :form="form" :show-password="false" />
       <div v-if="paired" class="paired-settings">
-        <div class="paired-preview" aria-label="八人复式房间">
-          <div><span class="table-title">闭室</span><span>东西红队 · 南北蓝队</span></div>
-          <span class="paired-link" aria-hidden="true">⇄</span>
-          <div><span class="table-title">开室</span><span>东西蓝队 · 南北红队</span></div>
-        </div>
-        <el-form-item label="复式模式">
-          <el-radio-group v-model="form.duplicate_sync_mode" aria-label="复式模式">
+        <SichuanWallSourceFields :form="form" :generate-duplicate-key="generateDuplicateKey" @generating="generatingKey = $event" />
+        <el-form-item label="复式模式" class="paired-mode-selection">
+          <el-radio-group v-model="form.duplicate_sync_mode" aria-label="复式模式" class="room-segmented-options">
             <el-radio-button :label="false">非同步模式</el-radio-button>
             <el-radio-button :label="true">同步模式</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <p class="duplicate-help">{{ form.duplicate_sync_mode ? '同步模式：在两桌结束每一副牌时都显示IMP，方便复盘使用' : '非同步模式：先结束的一桌等待另一桌结束后显示成绩' }}</p>
-        <el-form-item label="密钥来源">
-          <el-radio-group v-model="pairedKeySource" aria-label="复式密钥来源">
-            <el-radio-button label="auto">自动生成</el-radio-button>
-            <el-radio-button label="existing">输入已有密钥</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="比赛副数">
-          <el-select v-if="pairedKeySource === 'auto'" v-model="form.duplicate_round_count" aria-label="比赛副数">
-            <el-option v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :label="`${count} 副`" :value="count" />
-          </el-select>
-          <span v-else class="duplicate-help">跟随已有密钥</span>
-        </el-form-item>
-        <template v-if="pairedKeySource === 'existing'">
-          <DuplicateRoomField v-model="form.duplicate_key" required sichuan :create-to="{ path: '/account', hash: '#sec-duplicate-event' }" />
-          <p class="duplicate-help">支持本赛事／基地的手动牌山、复现牌山、密钥牌山；规则须与房间一致。</p>
-        </template>
-        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，八人入座准备后由房主统一开始。' : '逐副分差以 80 分封顶累计，同时记录 JJ IMP；按副分判定，平分时两室同步加副。八人入座准备后由房主统一开始。' }}</p>
+        <div class="paired-help" aria-label="牌山与模式说明">
+          <p v-if="wallSourceHelp">{{ wallSourceHelp }}</p>
+          <p>{{ form.duplicate_sync_mode ? '同步模式：适合复盘的对局，两桌对局的过程中，每打完一副牌都对比IMP' : '非同步模式：正常对局，两桌打完后对比IMP' }}</p>
+        </div>
         <el-alert v-if="creationProblem" :title="creationProblem" type="warning" :closable="false" show-icon />
       </div>
       <div v-if="supportsDuplicateKey(form) && !paired" class="duplicate-settings">
@@ -118,17 +108,23 @@
           <el-alert v-if="creationProblem" :title="creationProblem" type="warning" :closable="false" show-icon />
         </template>
       </div>
+      </EventRoomFieldsLayout>
     </el-form>
     <template #footer>
-      <el-button :disabled="loading" @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="loading" :disabled="Boolean(creationProblem)" @click="confirm">{{ paired ? `创建 ${form.room_count} 个八人房间` : form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
+      <el-button :disabled="busy" @click="$emit('update:modelValue', false)">取消</el-button>
+      <el-button type="primary" :loading="loading" :disabled="busy || Boolean(creationProblem)" @click="confirm">{{ paired ? `创建 ${form.room_count} 个八人房间` : form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import EventRoomSupplementFields from '@/components/EventRoomSupplementFields.vue'
+import EventRoomFieldsLayout from '@/components/EventRoomFieldsLayout.vue'
+import EventRoomFixedSubRuleField from '@/components/EventRoomFixedSubRuleField.vue'
+import SichuanWallSourceFields from '@/components/SichuanWallSourceFields.vue'
+import { isTrainingWall, SICHUAN_WALL_SOURCES } from '@/utils/sichuanWallSource.js'
 import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
@@ -157,7 +153,7 @@ import ChangshaRoomConfig from '@/components/ChangshaRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
 import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
 import { changeEventRoomRule, clearUnsupportedDuplicateRoom } from '@/utils/eventRoomSettings'
-import { EVENT_ROOM_COUNTS } from '@/utils/eventRoomCreation'
+import { EVENT_ROOM_COUNTS, buildEventRoomCreation, sharedWallConfirmation } from '@/utils/eventRoomCreation'
 import { DUPLICATE_ROUND_COUNTS } from '@/utils/duplicateWalls'
 import { isSichuanDuplicate, supportsDuplicateKey } from '@/utils/sichuanDuplicate'
 
@@ -172,23 +168,23 @@ const props = defineProps({
   showAutoDuplicate: { type: Boolean, default: false },
   allowPaired: { type: Boolean, default: false },
   loadDuplicateQuota: { type: Function, default: null },
+  generateDuplicateKey: { type: Function, default: null },
   roomRuleOptions: { type: Array, required: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm'])
 const duplicateQuota = ref(null)
+const generatingKey = ref(false)
+const confirming = ref(false)
+const busy = computed(() => props.loading || generatingKey.value || confirming.value)
 const paired = computed(() => props.form.room_rule === 'sichuan' && isSichuanDuplicate(props.form.sub_rule))
-const pairedKeySource = computed({
-  get: () => props.form.duplicate_key_source || (props.form.duplicate_key?.trim() ? 'existing' : 'auto'),
-  set: value => {
-    props.form.duplicate_key_source = value
-    if (value !== 'existing') props.form.duplicate_key = ''
-  },
-})
+const wallSourceHelp = computed(() => SICHUAN_WALL_SOURCES.find(source => source.value === props.form.wall_source)?.description || '')
+const pairedExisting = computed(() => !isTrainingWall(props.form) && (['seed', 'manual'].includes(props.form.wall_source) || props.form.duplicate_key_source === 'existing'))
 watch(() => props.form.sub_rule, value => {
-  if (isSichuanDuplicate(value) && !props.form.duplicate_key?.trim() && !props.form.scene_reproduction) {
+  if (isSichuanDuplicate(value) && !props.form.duplicate_key?.trim()) {
     props.form.duplicate_round_count = value === 'sichuan/doubles_duplicate' ? 8 : 16
-    props.form.duplicate_key_source = 'auto'
+    props.form.wall_source ||= 'key'
+    props.form.duplicate_key_source = ['seed', 'manual'].includes(props.form.wall_source) ? 'existing' : 'auto'
     props.form.duplicate_key = ''
     props.form.scene_reproduction = false
   }
@@ -207,8 +203,8 @@ const quotaProblem = computed(() => {
 })
 const creationProblem = computed(() => {
   if (quotaProblem.value) return quotaProblem.value
-  if (paired.value && pairedKeySource.value === 'existing' && !props.form.duplicate_key?.trim()) return '请输入复式密钥'
-  if (paired.value && props.form.duplicate_key?.trim() && props.form.room_count !== 1) return '一个已有牌山只能绑定一组开闭室'
+  if (paired.value && isTrainingWall(props.form) && !props.form.random_seed?.trim()) return '请输入训练牌山随机种子或随机生成'
+  if (paired.value && pairedExisting.value && !props.form.duplicate_key?.trim()) return '请输入复式密钥'
   if (supportsDuplicateKey(props.form) && !paired.value && props.form.duplicate_enabled && !autoDuplicate.value && !props.form.duplicate_key?.trim()) {
     return props.showAutoDuplicate ? '请输入复式密钥或开启自动生成复式密钥' : '请输入复式密钥'
   }
@@ -253,19 +249,28 @@ watch(() => [props.modelValue, autoDuplicate.value, props.loadDuplicateQuota], a
   }
 }, { immediate: true })
 
-function confirm() {
-  if (!props.loading && !creationProblem.value) emit('confirm')
+async function confirm() {
+  if (busy.value || creationProblem.value) return
+  confirming.value = true
+  try {
+    const payload = buildEventRoomCreation(props.form)
+    const message = sharedWallConfirmation(payload)
+    if (message) await ElMessageBox.confirm(message, '确认使用相同牌山', {
+      confirmButtonText: '确认创建', cancelButtonText: '取消', type: 'warning', closeOnClickModal: false,
+    })
+    if (props.modelValue) emit('confirm', payload)
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(error.message || '创建失败')
+  } finally {
+    confirming.value = false
+  }
 }
 </script>
 
 <style scoped>
-.paired-settings { margin-top: 16px; padding: 16px; background: #f0f5fc; border: 1px solid #d9e5f5; border-radius: 12px; }
-.paired-preview { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; }
-.paired-preview > div { display: flex; flex-direction: column; gap: 6px; padding: 14px; background: #fff; border-radius: 8px; }
-.paired-preview .table-title { color: #344f73; font-size: 15px; font-weight: 400; }
-.paired-preview span { color: #657b98; font-size: 12px; }
-.paired-preview .paired-link { font-size: 23px; }
-@media (max-width: 440px) { .paired-preview { gap: 6px; } .paired-preview > div { padding: 10px; } }
+.paired-settings { display: contents; }
+.paired-help { grid-column: 1 / -1; order: 3; display: grid; gap: 4px; color: #737d88; font-size: 12px; font-weight: 400; line-height: 1.6; }
+.paired-help p { margin: 0; }
 .room-top {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -293,6 +298,9 @@ function confirm() {
 .duplicate-help { margin: 4px 0 8px; color: #737d88; font-size: 12px; line-height: 1.6; }
 .room-form :deep(.el-form-item) {
   margin-bottom: 12px;
+}
+.room-form :deep(.event-room-fields .el-form-item) {
+  margin-bottom: 0;
 }
 @media (max-width: 640px) {
   .room-top {

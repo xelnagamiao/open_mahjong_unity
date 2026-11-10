@@ -7,15 +7,17 @@ using UnityEngine.UI;
 public static class SettlementHandRenderer {
     public static void Populate(GameObject container, GameObject cardPrefab, GameObject splitPrefab,
         int[] hand, int[][] masks, EndResultPanel.EndResultTileLayout layout) {
-        if (hand == null || hand.Length == 0) return;
+        bool hasHand = hand != null && hand.Length > 0;
+        if (!hasHand && (masks == null || !Array.Exists(masks, HongqueDisplayOrder.IsMeldMask))) return;
+        hand = hand ?? Array.Empty<int>();
         SettlementTileRowLayout.Ensure(container);
-        bool winning = layout == EndResultPanel.EndResultTileLayout.HuWithWinTile;
+        bool winning = hasHand && layout == EndResultPanel.EndResultTileLayout.HuWithWinTile;
         int winTile = winning ? hand[hand.Length - 1] : 0;
         int[] closed = (int[])hand.Clone();
         if (winning) Array.Resize(ref closed, closed.Length - 1);
         closed = EndResultPanel.SortSettlementHand(closed);
         foreach (int tile in closed) Tile(container.transform, cardPrefab, tile);
-        Split(container.transform, splitPrefab);
+        if (hasHand) Split(container.transform, splitPrefab);
         foreach (var group in SettlementMeldLayoutBuilder.Build(masks)) {
             foreach (var tile in group) {
                 Tile(container.transform, cardPrefab, tile.FaceDown ? 0 : tile.TileId);

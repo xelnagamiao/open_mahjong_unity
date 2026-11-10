@@ -1,11 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
 import catalog from '../../shared/eventRoomCatalog.json' with { type:'json' }
 import taiwan from '../../shared/taiwanRoomOptions.json' with { type:'json' }
 import { createEventRoomForm, buildEventRoomSettings, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 import { createEventRoomCreationForm, buildEventRoomCreation } from '../src/utils/eventRoomCreation.js'
-import { eventFieldDefinitions } from '../src/utils/eventRoomExtensions.js'
+import { eventFieldDefinitions, eventRoomRuleOptions } from '../src/utils/eventRoomExtensions.js'
+import { riichiModes } from '../src/utils/riichiRoomConfig.js'
 import { updateGuobiaoRoomConfig } from '../src/utils/guobiaoRoomConfig.js'
 import { SHANGRAO_OPTIONS } from '../src/utils/shangraoRoomConfig.js'
 const require = createRequire(import.meta.url)
@@ -15,6 +17,31 @@ function save(payload) {
   const doc = readRoomSettings({})
   return applyRoomSettingsChange(doc, { kind:'manual', userId:101, eventStatus:'active', body:{revision:doc.revision,...payload} }).settings.manual
 }
+
+test('creation selectors follow Unity lobby order by rule id, retaining supported subsets', () => {
+  // RuleRegistry.Ordered uses LobbyOrder, then RuleId; labels may differ between clients.
+  assert.deepEqual(eventRoomRuleOptions.map(option => option.value), [
+    'guobiao', 'riichi', 'qingque', 'sichuan', 'changsha', 'taiwan', 'classical',
+    'hongkong', 'hongque', 'guizhou', 'yixing', 'shanxi', 'hangzhou', 'hongzhong',
+    'guangdong', 'changchun', 'jiujiang', 'nanjing', 'malaysia', 'shenyang',
+    'wenzhou', 'wuhan', 'nanchang', 'shangrao', 'duocai', 'beijing', 'fuzhou', 'singapore',
+  ])
+  assert.deepEqual(riichiModes.map(option => option.value), [
+    'riichi/standard', 'riichi/langyong', 'riichi/sanma', 'riichi/washizu',
+    'riichi/washizu_realtime', 'riichi/washizu_doubles',
+  ])
+  const guobiaoOrder = ['standard', 'xiaolin', 'kshen', 'lanshi', 'blood_battle', 'sanma',
+    'transparent', 'transparent_realtime', 'huahun', 'four_jokers', 'sixteen'].map(id => `guobiao/${id}`)
+  const readOptions = (path, variable) => {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8')
+    const body = source.match(new RegExp(`const ${variable} = \\[([\\s\\S]*?)\\n\\]`))?.[1]
+    assert.ok(body, `${variable} must remain connected to its selector`)
+    return [...body.matchAll(/value: '([^']+)'/g)].map(match => match[1])
+  }
+  assert.deepEqual(readOptions('../src/components/GuobiaoEmptyRoomConfig.vue', 'defaultSubRuleOptions'), guobiaoOrder)
+  assert.deepEqual(readOptions('../src/views/game2d/CustomRoomPanel.vue', 'SUPPORTED_SUB_RULES'),
+    guobiaoOrder.filter(id => ['standard', 'huahun', 'four_jokers', 'sixteen'].some(sub => id === `guobiao/${sub}`)))
+})
 
 test('all 28 event rules retain scene seeds through forms, stored presets and reload', () => {
   assert.equal(catalog.rules.length, 28)

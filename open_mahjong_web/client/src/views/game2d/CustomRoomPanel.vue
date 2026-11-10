@@ -166,10 +166,10 @@ const RULE_LABELS = {
 }
 
 const SUPPORTED_SUB_RULES = [
-  { value: 'guobiao/sixteen', label: '国标麻将（十六张）' },
   { value: 'guobiao/standard', label: '国标标准' },
   { value: 'guobiao/huahun', label: '国标（花混癞子）' },
   { value: 'guobiao/four_jokers', label: '国标麻将(四癞子)' },
+  { value: 'guobiao/sixteen', label: '国标麻将（十六张）' },
 ]
 const supportsSubRule = (subRule) => SUPPORTED_SUB_RULES.some((item) => item.value === (subRule || 'guobiao/standard'))
 

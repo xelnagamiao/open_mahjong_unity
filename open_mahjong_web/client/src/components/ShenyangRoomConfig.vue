@@ -1,7 +1,7 @@
 <template>
   <div class="shenyang-room-config">
     <div class="settings">
-      <el-form-item label="子规则"><el-select v-model="form.sub_rule"><el-option :value="SHENYANG_SUB_RULE" label="MIL 沈阳（2025）" /></el-select></el-form-item>
+      <el-form-item label="子规则" class="room-sub-rule-field"><el-select v-model="form.sub_rule"><el-option :value="SHENYANG_SUB_RULE" label="MIL 沈阳（2025）" /></el-select></el-form-item>
       <el-form-item label="局数"><el-select v-model="form.game_round"><el-option v-for="round in [1,2,3,4]" :key="round" :value="round" :label="`${round * 4}局`" /></el-select></el-form-item>
       <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>

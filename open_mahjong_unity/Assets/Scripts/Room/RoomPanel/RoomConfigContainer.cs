@@ -111,7 +111,7 @@ public class RoomConfigContainer : MonoBehaviour {
         if (SichuanLobby.IsDuplicate(roomInfo.sub_rule))
             result.Add(new KeyValuePair<string, string>("复式模式", roomInfo.duplicate_sync_mode == false ? "非同步模式" : "同步模式"));
         if (roomInfo.is_duplicate) {
-            result.Add(new KeyValuePair<string, string>("复式", DuplicateWallDisplay.TypeName(roomInfo.duplicate_wall_type)));
+            result.Add(new KeyValuePair<string, string>(SichuanLobby.IsDuplicate(roomInfo.sub_rule) ? "牌山来源" : "复式", DuplicateWallDisplay.TypeName(roomInfo.duplicate_wall_type)));
         }
         var fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule ?? "", out var ruleFields)
             ? ruleFields : DefaultDisplayFields;
@@ -281,6 +281,7 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayValue = FormatStepTimer(roomInfo.step_timer);
                 return true;
             case "random_seed":
+                if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) return false;
                 displayName = "场景复现";
                 displayValue = FormatRandomSeed(roomInfo);
                 return true;

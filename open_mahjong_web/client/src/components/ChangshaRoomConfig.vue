@@ -3,7 +3,7 @@
     <p v-if="form.sub_rule !== exchangeSixRule">开杠后按骰子位置公开补牌；卡摸仅限制小胡点和。封顶按每名和牌者、每名付款者计算，同批多次和牌累计计入封顶。</p>
     <p v-else>开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。</p>
     <div class="settings">
-      <el-form-item label="子规则"><el-select v-model="form.sub_rule"><el-option label="经典双鸟" value="changsha/classic_double_bird" /><el-option label="换六张" :value="exchangeSixRule" /></el-select></el-form-item>
+      <el-form-item label="子规则" class="room-sub-rule-field"><el-select v-model="form.sub_rule"><el-option label="经典双鸟" value="changsha/classic_double_bird" /><el-option label="换六张" :value="exchangeSixRule" /></el-select></el-form-item>
       <el-form-item v-if="form.sub_rule === exchangeSixRule" label="换牌时间（秒）"><el-input-number v-model="form.exchange_selection_seconds" :min="10" :max="60" :precision="0" /></el-form-item>
       <el-form-item label="局数"><el-select v-model="form.game_round"><el-option v-for="round in [1,2,4]" :key="round" :value="round" :label="`${round * 4}局`" /></el-select></el-form-item>
       <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>

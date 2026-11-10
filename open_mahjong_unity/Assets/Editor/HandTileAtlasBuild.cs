@@ -17,6 +17,10 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
 
     public void OnPreprocessBuild(BuildReport report)
     {
+        // The complete content bundles were packed before the bootstrap APK.
+        // Recreating these Resources here would duplicate their atlas textures
+        // and collide with the temporary shell resource isolation.
+        if (AndroidContentBuild.BuildingBootstrapPlayer) return;
         EnsurePack("official");
         EnsurePack("fluffy");
         EnsurePack("hkmahjong");

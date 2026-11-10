@@ -1,6 +1,6 @@
 <template>
   <div class="hk-settings">
-    <el-form-item label="香港麻将规则">
+    <el-form-item label="香港麻将规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule" @change="loadHongKongForm(form)">
         <el-option v-for="profile in hkProfiles" :key="profile.value" v-bind="profile" />
       </el-select>

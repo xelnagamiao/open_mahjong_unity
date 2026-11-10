@@ -28,6 +28,7 @@ public static partial class HepaiRevealDirector {
         }
         string discardPos = NormalGameStateManager.Instance.lastDiscardPlayerPosition;
         HepaiPresentationRequest request = BuildRequestCore(winnerPos, huClass, hepaiPlayerHand, huFan, ruleKey, discardPos);
+        ConfigureHongqueWinningTile(request, hepaiTile);
         ConfigureRuleSpecificRonRequest(request, ruleKey, isQianggang, ronDiscarderIndex, hepaiTile);
         ManifestOf(ruleKey)?.AdjustHepaiPresentation?.Invoke(request, isQianggang);
         ConfigureLiveHandHandoff(request);
@@ -54,6 +55,30 @@ public static partial class HepaiRevealDirector {
     private static void ConfigureLiveHandHandoff(HepaiPresentationRequest request) {
         if (request.WinnerPosition == "self") {
             request.OnHandReady = () => RoundEndPresentation.Instance?.HideSelfGameplayControl(false);
+        }
+    }
+
+    /// <summary>虹雀自摸张可以在宣和前入杠；剩余手牌没有该张时不能把其末张伪装成新摸入张。</summary>
+    internal static bool HongqueDrawWasConsumed(string rule, string huClass, int[] hand, int actualWinningTile) {
+        return actualWinningTile != 0 && huClass == "hu_self"
+            && string.Equals(ManifestOf(rule)?.RuleId, "hongque", System.StringComparison.OrdinalIgnoreCase)
+            && System.Array.IndexOf(hand ?? System.Array.Empty<int>(), actualWinningTile) < 0;
+    }
+
+    internal static void ConfigureHongqueWinningTile(HepaiPresentationRequest request, int actualWinningTile) {
+        if (request == null || request.HuClass != "hu_self" || actualWinningTile == 0
+            || !string.Equals(ManifestOf(request.RecordRule)?.RuleId, "hongque", System.StringComparison.OrdinalIgnoreCase)) return;
+        int index = System.Array.LastIndexOf(request.HepaiPlayerHand ?? System.Array.Empty<int>(), actualWinningTile);
+        request.HepaiTile = actualWinningTile;
+        if (HongqueDrawWasConsumed(request.RecordRule, request.HuClass, request.HepaiPlayerHand, actualWinningTile)) {
+            request.WinTileMode = HepaiWinTilePresentMode.WholeHandReveal;
+            return;
+        }
+        if (index != request.HepaiPlayerHand.Length - 1) {
+            var hand = new List<int>(request.HepaiPlayerHand);
+            hand.RemoveAt(index);
+            hand.Add(actualWinningTile);
+            request.HepaiPlayerHand = hand.ToArray();
         }
     }
 

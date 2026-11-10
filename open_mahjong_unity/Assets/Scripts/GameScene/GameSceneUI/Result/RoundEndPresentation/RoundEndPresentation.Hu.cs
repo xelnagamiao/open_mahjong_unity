@@ -18,7 +18,9 @@ public partial class RoundEndPresentation {
             PreparePresentationRoot(false);
             HideSelfGameplayControl(true);
             EndResultPanel.Instance.PrepareShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
-                hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, score_changes, suppressHandReveal);
+                hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, score_changes, suppressHandReveal,
+                HepaiRevealDirector.HongqueDrawWasConsumed(GameSession.Current.SubRule, hu_class, hepai_player_hand, hepaiTile)
+                    ? EndResultPanel.EndResultTileLayout.ClosedHandWithMelds : EndResultPanel.EndResultTileLayout.HuWithWinTile);
             EndResultPanel.Instance.PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras);
             return;
         }
@@ -99,6 +101,11 @@ public partial class RoundEndPresentation {
             yield return HepaiRevealDirector.PlayMany(simultaneousHuHands, hu_class, isQianggang);
         } else if (willRevealWinnerHand) {
             yield return HepaiRevealDirector.Play(hepai_player_index, hepai_player_hand, hu_class, hu_fan, isQianggang, ronDiscarderIndex, hepaiTile);
+        } else if (playPresentationEffects && !skipHandReveal && !isEndgameScoreOnly
+                && (hepai_player_hand == null || hepai_player_hand.Length == 0)
+                && RuleRegistry.Resolve(NormalGameStateManager.Instance.roomRule, GameSession.Current.SubRule)?.RuleId == "hongque") {
+            // 空手和没有倒牌可等待，保留宣言本身的节奏后再显示结算。
+            yield return new WaitForSeconds(HepaiRevealTiming.HongqueEmptyHandDeclarationHoldSeconds);
         }
 
         if (deferScoreSettlement && !endgameScoreOnly) {
@@ -112,7 +119,9 @@ public partial class RoundEndPresentation {
         EndResultPanel.Instance.PrepareShowResult(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            riichiExtras, score_changes, suppressHandReveal);
+            riichiExtras, score_changes, suppressHandReveal,
+            HepaiRevealDirector.HongqueDrawWasConsumed(GameSession.Current.SubRule, hu_class, hepai_player_hand, hepaiTile)
+                ? EndResultPanel.EndResultTileLayout.ClosedHandWithMelds : EndResultPanel.EndResultTileLayout.HuWithWinTile);
         if (finalPanel) {
             yield return PlayAfterFade(
                 () => EndResultPanel.Instance.PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras),

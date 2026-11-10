@@ -3,7 +3,7 @@
     <template v-for="section in sectionOrder" :key="section">
       <div v-if="section === 'header'" class="gb-room-config-header">
         <slot name="before-sub-rule" />
-        <el-form-item :label="tr('子规则')" class="gb-room-sub-rule">
+        <el-form-item :label="tr('子规则')" class="gb-room-sub-rule room-sub-rule-field">
           <el-select :model-value="modelValue.sub_rule" style="width: 160px" @update:model-value="patch('sub_rule', $event)">
             <el-option
               v-for="opt in resolvedSubRuleOptions"
@@ -177,17 +177,17 @@ const roundTimerOptions = [
 ]
 
 const defaultSubRuleOptions = [
-  { value: 'guobiao/blood_battle', label: '国标麻将（血战到底）' },
-  { value: 'guobiao/sanma', label: '三人国标' },
-  { value: 'guobiao/sixteen', label: '国标麻将（十六张）' },
   { value: 'guobiao/standard', label: '国标标准' },
   { value: 'guobiao/xiaolin', label: '小林' },
   { value: 'guobiao/kshen', label: 'K神' },
   { value: 'guobiao/lanshi', label: '蓝十' },
+  { value: 'guobiao/blood_battle', label: '国标麻将（血战到底）' },
+  { value: 'guobiao/sanma', label: '三人国标' },
   { value: 'guobiao/transparent', label: '透明国标' },
   { value: 'guobiao/transparent_realtime', label: '国标透明（实时手牌）' },
   { value: 'guobiao/huahun', label: '国标（花混癞子）' },
   { value: 'guobiao/four_jokers', label: '国标麻将(四癞子)' },
+  { value: 'guobiao/sixteen', label: '国标麻将（十六张）' },
 ]
 
 const resolvedSubRuleOptions = computed(() =>

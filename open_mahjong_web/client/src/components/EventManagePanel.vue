@@ -641,6 +641,7 @@
       show-auto-duplicate
       allow-paired
       :load-duplicate-quota="loadDuplicateQuota"
+      :generate-duplicate-key="generateDuplicateKey"
       :room-rule-options="roomRuleOptions"
       @confirm="createRoom"
     >
@@ -668,7 +669,7 @@ import VenueProfileEditor from '@/components/VenueProfileEditor.vue'
 import EventRoomPresetEditor from '@/components/EventRoomPresetEditor.vue'
 import EventRoomCards from '@/components/EventRoomCards.vue'
 import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '@/utils/eventRoomSettings'
-import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
+import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import {
   eventRoleLabel,
   eventStatusLabel,
@@ -1699,11 +1700,11 @@ async function removeAdmin(row) {
   }
 }
 
-async function createRoom() {
+async function createRoom(payload) {
   if (creatingRoom.value) return
   creatingRoom.value = true
   try {
-    const res = await eventAdminApi.post(`/events/${props.eventId}/rooms`, buildEventRoomCreation(roomForm), { timeout: 120000 })
+    const res = await eventAdminApi.post(`/events/${props.eventId}/rooms`, payload, { timeout: 120000 })
     const created = res.data.data?.created_count || 1
     const keys = res.data.data?.generated_key_count || 0
     roomForm.room_name = ''
@@ -1728,8 +1729,8 @@ async function createRoom() {
 function applyRoomPreset(choice) {
   const settings = settingsForChoice(choice)
   if (!settings) { ElMessage.warning('所选预设已删除，请重新选择'); return }
-  const { room_count, password } = roomForm
-  Object.assign(roomForm, createEventRoomCreationForm(settings), { room_count, password })
+  const { room_count, password, password_enabled } = roomForm
+  Object.assign(roomForm, createEventRoomCreationForm(settings), { room_count, password, password_enabled })
   roomPresetChoice.value = choice
 }
 
@@ -1745,6 +1746,11 @@ async function openRoomDialog() {
   } finally {
     if (eventId === props.eventId) openingRoomDialog.value = false
   }
+}
+
+async function generateDuplicateKey(payload) {
+  const res = await eventAdminApi.post(`/events/${encodeURIComponent(props.eventId)}/duplicate-walls`, payload)
+  return { ...res.data.data.wall, quota: res.data.data.quota }
 }
 
 async function loadDuplicateQuota() {

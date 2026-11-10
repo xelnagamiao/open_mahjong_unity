@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class SoundManager {
     private static readonly string[] VoiceSeats = { "self", "left", "top", "right" };
     private readonly Dictionary<string, AudioSource> seatVoiceSources = new Dictionary<string, AudioSource>(4);
+    private readonly Dictionary<string, double> seatVoiceEnds = new Dictionary<string, double>();
     private readonly string[] lastVoiceSeats = new string[4];
     private Object lastVoiceContext;
     private int lastVoiceRound;
@@ -42,13 +43,20 @@ public partial class SoundManager {
         UpdateSeatVoicePositions();
     }
 
-    private void PlaySeatVoice(string playerPosition, AudioClip clip, float volume) {
+    internal bool IsSeatVoicePlaying(string playerPosition, string voiceKey) {
+        return !string.IsNullOrEmpty(playerPosition)
+            && seatVoiceEnds.TryGetValue(playerPosition + "/" + voiceKey, out double endsAt) && AudioSettings.dspTime < endsAt
+            && seatVoiceSources.TryGetValue(playerPosition, out AudioSource source) && source != null && source.isPlaying;
+    }
+
+    private void PlaySeatVoice(string playerPosition, AudioClip clip, float volume, string voiceKey = null) {
         if (!isActiveAndEnabled || clip == null) return;
         EnsureSeatVoiceSources();
         // Synchronize before starting a new call as well as in LateUpdate: a perspective switch and
         // the next replay action can arrive in the same frame. Only the old calls should be stopped.
         SyncSeatVoicePerspective();
         if (string.IsNullOrEmpty(playerPosition) || !seatVoiceSources.TryGetValue(playerPosition, out AudioSource source)) {
+            playerPosition = "self";
             source = seatVoiceSources["self"];
         }
         ConfigureTableSource(source, true);
@@ -56,6 +64,12 @@ public partial class SoundManager {
         UpdateSeatVoicePositions();
         source.volume = OriginalSourceGain * volume;
         source.PlayOneShot(clip);
+        if (!string.IsNullOrEmpty(voiceKey)) {
+            // PlayOneShot 会叠加；后续和牌语音不能覆盖仍在播放的杠语音的完成信息。
+            string key = playerPosition + "/" + voiceKey;
+            double endsAt = AudioSettings.dspTime + clip.length / Mathf.Max(0.01f, Mathf.Abs(source.pitch));
+            seatVoiceEnds[key] = seatVoiceEnds.TryGetValue(key, out double previous) ? System.Math.Max(previous, endsAt) : endsAt;
+        }
     }
 
     private void UpdateSeatVoicePositions() {
@@ -135,5 +149,6 @@ public partial class SoundManager {
         foreach (AudioSource source in seatVoiceSources.Values) {
             if (source != null) source.Stop();
         }
+        seatVoiceEnds.Clear();
     }
 }

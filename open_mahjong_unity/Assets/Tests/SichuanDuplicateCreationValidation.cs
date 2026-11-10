@@ -69,6 +69,38 @@ public static class SichuanDuplicateCreationValidation {
                     key.text = "dup_" + new string('b', 32);
                     Check(((Sichuan_Create_RoomConfig)p.BuildRoomRequest().Configuration).DuplicateKey == key.text, "key forwarded");
                     Check(!Field<TMP_Dropdown>(p, "SichuanDuplicateRounds").interactable, "existing key owns board count");
+                    var sources = Field<UnityEngine.UI.Toggle[]>(p, "SichuanWallSourceToggles");
+                    Check(sources.Length == 4 && Field<GameObject>(p, "SichuanWallSourcePanel").activeSelf, "four explicit wall sources visible");
+                    sources[0].isOn = true;
+                    var seed = Field<TMP_InputField>(p, "SichuanTrainingSeedInput");
+                    var spectators = Field<UnityEngine.UI.Toggle>(p, "AllowSpectatorToggle");
+                    Check(spectators.isOn && spectators.interactable, "training defaults to optional spectators");
+                    Check(!Field<GameObject>(p, "DuplicateWallPanel").activeSelf && Field<GameObject>(p, "SichuanTrainingSeedPanel").activeSelf,
+                        "training has seed input and no key input");
+                    seed.text = "";
+                    Check(!p.BuildRoomRequest().IsValid, "training requires explicit seed");
+                    Field<UnityEngine.UI.Button>(p, "SichuanTrainingGenerateButton").onClick.Invoke();
+                    string generated = seed.text;
+                    Check(generated.Length == 64 && generated.All(c => "0123456789abcdef".Contains(c)) && generated.Any(c => c != '0'), "generate valid training seed");
+                    spectators.isOn = false;
+                    Call(p, "RefreshRoomPresentation", false);
+                    var training = (Sichuan_Create_RoomConfig)p.BuildRoomRequest().Configuration;
+                    Check(training.WallSource == "training" && training.RandomSeed == generated && string.IsNullOrEmpty(training.DuplicateKey)
+                        && !training.AllowSpectator && seed.text == generated, "training preserves seed and manual spectator choice; stale key omitted");
+                    seed.text = new string('0', 64);
+                    Check(!p.BuildRoomRequest().IsValid, "training rejects disabled all-zero seed");
+                    seed.text = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
+                    Check(p.BuildRoomRequest().IsValid, "training accepts pasted hexadecimal seed");
+                    foreach (int sourceIndex in new[] { 2, 3, 1 }) {
+                        sources[sourceIndex].isOn = true;
+                        Check(!spectators.isOn && !spectators.interactable, "key-backed wall disables spectators");
+                        key.text = "";
+                        Check(p.BuildRoomRequest().IsValid == (sourceIndex == 1), "only key source can auto-generate a key");
+                        key.text = "dup_" + new string('b', 32);
+                        var keyed = (Sichuan_Create_RoomConfig)p.BuildRoomRequest().Configuration;
+                        Check(keyed.WallSource == new[] { "training", "key", "seed", "manual" }[sourceIndex]
+                            && keyed.DuplicateKey == key.text && keyed.RandomSeed == "", "selected source serializes without stale training seed");
+                    }
                 }
             }
             key.text = "dup_" + new string('c', 32);

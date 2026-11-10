@@ -38,6 +38,8 @@ public sealed class HongqueGameState : GameStateBase {
     private int lastProcessedEventId;
     private bool gameEndShown;
     private Coroutine multiRonSequence;
+    private Coroutine pendingKongResultSequence;
+    private int resultLifecycleRound = -1;
     private string lastActionUiKey;
     private string lastTipsUiKey;
     private int lastDiscardTileId;
@@ -247,6 +249,9 @@ public sealed class HongqueGameState : GameStateBase {
             return false;
         }
         if (encodedAction == HongqueActionWords.Win) Send("win");
+        else if (encodedAction.StartsWith(HongqueActionWords.WinPrefix)) {
+            Send("win", null, encodedAction.Substring(HongqueActionWords.WinPrefix.Length));
+        }
         else if (encodedAction == HongqueActionWords.Supplement) Send("supplement");
         else if (encodedAction == HongqueActionWords.Pass) Send("pass");
         else if (encodedAction == HongqueActionWords.ForcePass) Send("force_pass");
@@ -299,15 +304,15 @@ public sealed class HongqueGameState : GameStateBase {
         List<string> actions = new List<string>();
         string[] legalActions = IsSpectating ? Array.Empty<string>() : state.legal_actions ?? Array.Empty<string>();
         if (legalActions.Contains("discard")) actions.Add("cut");
-        if (legalActions.Contains("win")) actions.Add(HongqueActionWords.Win);
+        if (legalActions.Contains("win")) actions.Add(HongqueActionWords.WinAction(GetCandidates("win"), true));
         if (legalActions.Contains("supplement")) actions.Add(HongqueActionWords.Supplement);
         if (state.candidates != null) {
             if (legalActions.Contains("kong") && state.candidates.Any(item => item?.kind == "kong")) {
                 actions.Add(HongqueActionWords.GroupPrefix + "kong");
             }
             if (legalActions.Contains("claim")) {
-                HongqueCandidateInfo ron = state.candidates.FirstOrDefault(item => item?.kind == "win");
-                if (ron != null) actions.Add(HongqueActionWords.ClaimPrefix + ron.id);
+                string ron = HongqueActionWords.WinAction(GetCandidates("win"), false);
+                if (ron != null) actions.Add(ron);
                 foreach (string kind in new[] { "double", "triplet", "rainbow", "sequence" }) {
                     if (state.candidates.Any(item => item?.kind == kind)) actions.Add(HongqueActionWords.GroupPrefix + kind);
                 }
@@ -608,26 +613,21 @@ public sealed class HongqueGameState : GameStateBase {
         playerInfo.combination_tiles[actionEvent.meld_index] = prefix + firstTile;
         playerInfo.combination_masks[actionEvent.meld_index] = ToVerticalMeldMask(mask.ToArray());
 
-        // 移出本次加入手牌的手牌：self 同步 2D/3D 手牌，其它家只减计数。
+        // 逻辑手牌立即消费；可见的删牌、移入副露与报声由同一家动画队列按步完成。
         for (int i = 0; i < addedCodes.Length; i++) {
             int tileId = HongqueTileVisual.FromCode(addedCodes[i]);
             if (position == "self") {
                 gsm.selfHandTiles.Remove(tileId);
-                GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", tileId, null, null);
             } else {
                 playerInfo.hand_tiles_count = Mathf.Max(0, playerInfo.hand_tiles_count - 1);
             }
-            // 虹雀杠不走通用“加杠后摸牌”流程，但桌面 3D 手牌仍须实减一张并收拢。
-            Game3DManager.Instance.RemoveHongqueKongHandTile(position, tileId);
         }
         if (position == "self") {
             playerInfo.hand_tiles_count = gsm.selfHandTiles.Count;
         }
 
-        // 声音/动作字样 + 按权威数据重建该家全部副露。
-        SoundManager.Instance.PlayActionSound(position, "gang");
-        GameCanvas.Instance.ShowActionDisplay(position, "gang", "hongque");
-        Game3DManager.Instance.RebuildPlayerMelds(position);
+        Game3DManager.Instance.PlayHongqueKong(position, ConvertTiles(addedCodes),
+            playerInfo.combination_masks, actionEvent.meld_index);
     }
 
     private static int[] ToVerticalMeldMask(int[] mask) {
@@ -672,6 +672,9 @@ public sealed class HongqueGameState : GameStateBase {
     }
 
     private void StopResultSequence() {
+        resultLifecycleRound = -1;
+        if (pendingKongResultSequence != null && Host != null) Host.StopCoroutine(pendingKongResultSequence);
+        pendingKongResultSequence = null;
         if (multiRonSequence != null && Host != null) Host.StopCoroutine(multiRonSequence);
         multiRonSequence = null;
         RoundEndPresentation.Instance?.StopActiveSequence();
@@ -679,6 +682,21 @@ public sealed class HongqueGameState : GameStateBase {
 
     private void ShowRoundResult(HongqueStateInfo previous, HongqueStateInfo current, bool restored) {
         if (current?.round_result == null || current.phase != "round_end") return;
+        if (resultLifecycleRound != current.round && current.round_result.winner_indices?.Length > 0
+                && current.round_result.winners?.Length > 0) {
+            // 接受结算即开始缓存 ready；杠字、语音和倒牌都属于本轮结算生命周期。
+            // 同轮重入只恢复演出，不得再次清空等待期间已收到的准备状态。
+            EndResultPanel.Instance?.BeginGameResultLifecycle();
+            resultLifecycleRound = current.round;
+        }
+        if (!restored && Game3DManager.Instance != null && Game3DManager.Instance.HasPendingHongqueWinAnnouncement) {
+            // 连续杠批次紧跟自摸结算时，包括空手和也必须先完成每张牌的落位。
+            // 在 SettlementSync 消费结果之前等待，避免 ready 更新重复启动或提前显示分数。
+            if (pendingKongResultSequence == null)
+                pendingKongResultSequence = Host.StartCoroutine(ShowResultAfterTableAnimations(previous, current));
+            return;
+        }
+        if (pendingKongResultSequence != null) return;
         if (!SettlementSync.Present(SettlementSync.Current, restored)) return;
         if (!restored && previous != null && previous.phase == "round_end"
                 && previous.round == current.round && previous.action_tick == current.action_tick) return;
@@ -704,9 +722,6 @@ public sealed class HongqueGameState : GameStateBase {
             return;
         }
         if (current.round_result.winners == null || current.round_result.winners.Length == 0) return;
-        // Ready status may arrive while hands are still being revealed.
-        EndResultPanel.Instance?.BeginGameResultLifecycle();
-
         if (restored) {
             HongqueWinnerResultInfo last = current.round_result.winners.LastOrDefault(item => item != null);
             if (last != null) PresentHuResult(last, scores, current, finalPanel: true);
@@ -726,6 +741,20 @@ public sealed class HongqueGameState : GameStateBase {
         if (result == null || result.player < 0 || result.player >= 4) return;
 
         PresentHuResult(result, scores, current, finalPanel: true);
+    }
+
+    private IEnumerator ShowResultAfterTableAnimations(HongqueStateInfo previous, HongqueStateInfo current) {
+        int generation = Game3DManager.Instance.RecordHandAnimationVersion;
+        while (Game3DManager.Instance != null && Game3DManager.Instance.HasPendingHongqueWinAnnouncement) {
+            yield return null;
+            if (Game3DManager.Instance == null || generation != Game3DManager.Instance.RecordHandAnimationVersion) {
+                pendingKongResultSequence = null;
+                yield break;
+            }
+        }
+        pendingKongResultSequence = null;
+        if (state != null && state.phase == "round_end" && state.round == current.round)
+            ShowRoundResult(previous, current, restored: false);
     }
 
     private static void RecordScoreboardSettlements(HongqueStateInfo current, bool restored) {
@@ -831,9 +860,16 @@ public sealed class HongqueGameState : GameStateBase {
             BuildResultMeldMasks(result.melds),
             result.@base, null, null, stageScoreChanges,
             isSilent: current.round_result.silent,
+            hepaiTile: ResolveWinningPresentationTile(result),
             finalPanel: finalPanel,
             simultaneousHuHands: simultaneousHuHands,
             skipHandReveal: skipHandReveal);
+    }
+
+    private static int ResolveWinningPresentationTile(HongqueWinnerResultInfo result) {
+        // 0 保留旧协议的默认行为；-1 表示新协议明确说明没有独立和牌张。
+        if (!result.HasWinningTile) return 0;
+        return string.IsNullOrEmpty(result.winning_tile) ? -1 : HongqueTileVisual.FromCode(result.winning_tile);
     }
 
     private void PresentHuResult(
@@ -850,6 +886,7 @@ public sealed class HongqueGameState : GameStateBase {
             BuildResultMeldMasks(result.melds),
             result.@base, null, null, current.round_result.score_changes,
             isSilent: current.round_result.silent,
+            hepaiTile: ResolveWinningPresentationTile(result),
             finalPanel: finalPanel);
     }
 

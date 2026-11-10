@@ -44,6 +44,22 @@ test('manual, automatic and dialog forms do not mutate their shared preset', () 
   assert.equal(buildEventRoomSettings(draft).room_config.game_round, 1)
 })
 
+test('password switch hides a retained draft from payloads and survives rule changes', () => {
+  assert.equal(createEventRoomForm().password_enabled, false)
+  const form = createEventRoomForm({ password: 'saved-password' })
+  assert.equal(form.password_enabled, true)
+  assert.equal(buildEventRoomSettings(form).password, 'saved-password')
+  form.password_enabled = false
+  for (const rule of ['sichuan', 'riichi', 'guizhou', 'guobiao']) {
+    changeEventRoomRule(form, rule)
+    assert.equal(form.password_enabled, false)
+    assert.equal(form.password, 'saved-password')
+    assert.equal(buildEventRoomSettings(form).password, '')
+  }
+  form.password_enabled = true
+  assert.equal(buildEventRoomSettings(form).password, 'saved-password')
+})
+
 test('zero timers and disabled booleans survive the persisted settings round trip', () => {
   const form = createEventRoomForm({
     room_rule: 'guobiao',

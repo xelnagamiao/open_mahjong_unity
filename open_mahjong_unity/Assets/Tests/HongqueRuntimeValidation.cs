@@ -19,6 +19,10 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     int completed;
     float deadline;
     readonly Dictionary<string,double> caseSeconds = new Dictionary<string,double>();
+    bool expectEmptyHandDeclarationHold;
+    bool awaitingEmptyHandPanel;
+    bool checkedEmptyHandDeclarationHold;
+    float emptyHandDeclarationAt;
     static readonly BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -52,12 +56,27 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
         if (!passed) failures.Add(currentCase + ": " + name);
     }
     void Log(string text, string stack, LogType type) {
+        if (text.StartsWith("播放音效: hu", StringComparison.Ordinal) && Game3DManager.Instance != null) {
+            Check(!Game3DManager.Instance.HasPendingHongqueWinAnnouncement,
+                "win declaration waits for kong landing pause, callout fade and voice completion");
+            if (expectEmptyHandDeclarationHold) {
+                emptyHandDeclarationAt = Time.time;
+                awaitingEmptyHandPanel = true;
+            }
+        }
         if (type == LogType.Error || type == LogType.Exception
             || text.StartsWith("牌池中已无可用对象") || text.StartsWith("规则未提供听牌计算")
             || text.StartsWith("SyncRecordLastDiscardForRon:") || text.StartsWith("TryTakeLastDiscardObjectForRon:"))
             failures.Add(currentCase + ": " + text + "\n" + stack);
     }
     void Update() {
+        if (awaitingEmptyHandPanel && EndResultPanel.Instance != null && EndResultPanel.Instance.gameObject.activeInHierarchy) {
+            awaitingEmptyHandPanel = false;
+            checkedEmptyHandDeclarationHold = true;
+            float elapsed = Time.time - emptyHandDeclarationAt;
+            Check(elapsed >= HepaiRevealTiming.HongqueEmptyHandDeclarationHoldSeconds - 0.02f,
+                "empty-hand declaration remains visible before settlement", new { seconds = elapsed });
+        }
         if (deadline > 0 && Time.realtimeSinceStartup > deadline) {
             failures.Add(currentCase + ": runtime deadline exceeded"); Save("failed"); deadline = 0; Application.Quit(2);
         }
@@ -234,6 +253,9 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     }
     IEnumerator RunCase(JObject fixture) {
         Time.timeScale = (float?)fixture["timeScale"] ?? 8;
+        expectEmptyHandDeclarationHold = false;
+        awaitingEmptyHandPanel = false;
+        checkedEmptyHandDeclarationHold = false;
         NormalGameStateManager.Instance.ResetForExit();
         // Cases are independent sessions, including the lobby-selected game
         // identity and result deduplication state outside the table manager.
@@ -243,6 +265,10 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
         var restore = fixture["restore"].ToObject<Response>();
         PlayerSession.Current.SetGamestateId(restore.gamestate_id);
         var state = restore.hongque_state;
+        expectEmptyHandDeclarationHold = fixture["livePackets"] is JArray
+            && state.round_result?.reason == "self_draw"
+            && state.round_result.winners?.Length == 1
+            && state.round_result.winners[0].hand?.Length == 0;
         UserDataManager.Instance.SetUserInfo("虹雀回归", "fixture-only", state.players[state.you].user_id, false);
         bool spectating = (bool?)fixture["spectator"] == true;
         GameSession.Current.IsRealtimeSpectator = spectating;
@@ -260,10 +286,15 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
         if (fixture["livePackets"] is JArray live) {
             for (int packetIndex = 0; packetIndex < live.Count; packetIndex++) {
                 var packet = live[packetIndex];
-                GameStateNetworkManager.Instance.HandleGameStateMessage(packet.ToObject<Response>());
+                var response = packet.ToObject<Response>();
+                var kongs = response.hongque_state?.events?.Where(item => item.type == "kong").ToArray();
+                bool inspectKongs = (bool?)fixture["checkKongAnimation"] == true && kongs != null && kongs.Length > 0;
+                var existingMelds = inspectKongs ? CaptureKongMeldObjects(kongs) : null;
+                GameStateNetworkManager.Instance.HandleGameStateMessage(response);
                 if ((bool?)fixture["duplicateEvents"] == true && (string)packet["type"] == "gamestate/hongque/update") {
                     GameStateNetworkManager.Instance.HandleGameStateMessage(packet.ToObject<Response>());
                 }
+                if (inspectKongs) yield return CheckKongMovement(kongs, existingMelds);
                 yield return Idle();
                 if (fixture["drawSnapshots"] is JArray snapshots) CheckDrawLayout(snapshots[packetIndex].ToObject<HongqueStateInfo>());
             }
@@ -308,13 +339,19 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
                     || !(bool)typeof(EndResultPanel).GetField("readyStatusVisible", Hidden).GetValue(EndResultPanel.Instance))
                     && Time.realtimeSinceStartup < until) yield return null;
                 Check(EndResultPanel.Instance.gameObject.activeInHierarchy, "settlement panel restored");
+                if (expectEmptyHandDeclarationHold)
+                    Check(checkedEmptyHandDeclarationHold, "empty-hand declaration and panel timing were observed");
                 Check((bool)typeof(EndResultPanel).GetField("readyStatusVisible", Hidden).GetValue(EndResultPanel.Instance),
                     "last winner reaches confirmation panel");
                 var result = state.round_result.multi_ron ? state.round_result.winners.Last()
                     : state.round_result.winners.FirstOrDefault(w => w.player == state.you) ?? state.round_result.winners.First();
                 int[] resultHand = result.hand.Select(HongqueTileVisual.FromCode).ToArray();
                 int[] resultMelds = result.melds.SelectMany(m => m.tiles).Select(HongqueTileVisual.FromCode).ToArray();
-                CheckWinningPanel(resultHand, resultMelds, "live/reconnect/spectator authoritative settlement");
+                int actualWinTile = !result.HasWinningTile ? 0
+                    : string.IsNullOrEmpty(result.winning_tile) ? -1 : HongqueTileVisual.FromCode(result.winning_tile);
+                CheckWinningPanel(resultHand, resultMelds, "live/reconnect/spectator authoritative settlement",
+                    expectSeparateWinningTile: !HepaiRevealDirector.HongqueDrawWasConsumed("hongque",
+                        state.round_result.reason == "self_draw" ? "hu_self" : "hu", resultHand, actualWinTile));
                 var ready = (Dictionary<int, bool>)typeof(EndResultPanel).GetField("cachedReadyStatus", Hidden).GetValue(EndResultPanel.Instance);
                 Check(ready.TryGetValue(state.you, out bool accepted) && accepted, "ready received during reveal is retained");
                 if (state.round_result.reason == "ron" && state.last_discard != null) {
@@ -347,10 +384,14 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
         var ticks = record.gameRecord.gameRound.rounds[1].actionTicks;
         foreach (var item in winners.Properties()) {
             int seat = int.Parse(item.Name);
-            if (!ticks.Take(record.currentNode).Any(t => t[0].StartsWith("hu_") && int.Parse(t[1]) == seat)) continue;
+            var winningTick = ticks.Take(record.currentNode)
+                .LastOrDefault(t => t[0].StartsWith("hu_") && int.Parse(t[1]) == seat);
+            if (winningTick == null) continue;
             var player = record.recordPlayer_to_info[record.indexToPosition[seat]];
-            Check(player.hasRonWinningTile && player.tileList.SequenceEqual(item.Value.ToObject<int[]>()),
-                "spectator/seek retains explicit winning tile for " + seat, player.tileList.ToArray());
+            bool requiresRonWinningTile = winningTick[0] != "hu_self";
+            Check((!requiresRonWinningTile || player.hasRonWinningTile)
+                && player.tileList.SequenceEqual(item.Value.ToObject<int[]>()),
+                "spectator/seek retains authoritative winning hand for " + seat, player.tileList.ToArray());
         }
     }
 
@@ -377,11 +418,88 @@ public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
         }
     }
 
-    void CheckWinningPanel(int[] hand, int[] melds, string label) {
+    void CheckWinningPanel(int[] hand, int[] melds, string label, bool expectSeparateWinningTile = true) {
         var row = (GameObject)typeof(EndResultPanel).GetField("EndTilescontainer", Hidden).GetValue(EndResultPanel.Instance);
         int[] actual = row.GetComponentsInChildren<StaticCard>().Select(card => card.TileId).ToArray();
         Check(actual.OrderBy(tile => tile).SequenceEqual(hand.Concat(melds).OrderBy(tile => tile)), label + " preserves every tile", actual);
-        Check(actual.Length > 0 && actual.Last() == hand.Last(), label + " keeps the actual winning tile separate", actual);
+        if (hand.Length > 0 && expectSeparateWinningTile)
+            Check(actual.Length > 0 && actual.Last() == hand.Last(), label + " keeps the actual winning tile separate", actual);
+        else if (hand.Length == 0)
+            Check(actual.Length == melds.Length, label + " empty-hand win contains only the completed melds", actual);
+        else
+            Check(row.transform.childCount == actual.Length + 1,
+                label + " consumed draw leaves only the hand-to-meld separator", row.transform.childCount);
+    }
+
+    Dictionary<Transform, Transform> CaptureKongMeldObjects(HongqueEventInfo[] events) {
+        var result = new Dictionary<Transform, Transform>();
+        foreach (int seat in events.Select(item => item.player).Distinct()) {
+            var panel = Game3DManager.Instance.GetPosPanel(NormalGameStateManager.Instance.indexToPosition[seat]);
+            foreach (Transform group in panel.combination3DObjects)
+                foreach (Transform tile in group) result[tile] = group;
+        }
+        return result;
+    }
+
+    public static string CheckWinningTilePresentation() {
+        int passed = 0;
+        void Verify(bool value, string name) {
+            if (!value) throw new InvalidOperationException("Hongque winning tile presentation: " + name);
+            passed++;
+        }
+        Verify(RuleRegistry.Resolve("hongque", "hongque") != null, "hongque manifest is registered");
+        Verify(!JsonConvert.DeserializeObject<HongqueWinnerResultInfo>("{}").HasWinningTile, "old packet keeps legacy presentation");
+        var none = JsonConvert.DeserializeObject<HongqueWinnerResultInfo>("{\"winning_tile\":null}");
+        Verify(none.HasWinningTile && none.winning_tile == null, "explicitly absent winning tile survives decoding");
+        var hand = new[] { 1087, 1097, 1107 };
+        var consumed = HepaiRevealDirector.BuildRecordRequest("self", "hu_self", hand, Array.Empty<string>(), "hongque", false, 1081, null);
+        Verify(consumed.WinTileMode == HepaiWinTilePresentMode.WholeHandReveal && consumed.HepaiTile == 1081,
+            "EX1 in a meld does not turn FX7 into a new drawn tile");
+        Verify(consumed.HepaiPlayerHand.SequenceEqual(hand), "remaining hand is unchanged");
+        var direct = HepaiRevealDirector.BuildRecordRequest("self", "hu_self", new[] {1087,1097,1107,1077},
+            Array.Empty<string>(), "hongque", false, 1077, null);
+        Verify(direct.WinTileMode == HepaiWinTilePresentMode.TsumoTravel && direct.HepaiPlayerHand.Last() == 1077,
+            "DY7 left in the hand retains direct self-draw travel");
+        var reordered = HepaiRevealDirector.BuildRecordRequest("self", "hu_self", new[] {1077,1087,1097,1107},
+            Array.Empty<string>(), "hongque", false, 1077, null);
+        Verify(reordered.HepaiPlayerHand.Last() == 1077, "actual draw is used even when source hand was sorted");
+        var noDraw = HepaiRevealDirector.BuildRecordRequest("self", "hu_self", hand, Array.Empty<string>(), "hongque", false, -1, null);
+        Verify(noDraw.WinTileMode == HepaiWinTilePresentMode.WholeHandReveal, "no draw source only reveals existing hand");
+        var ron = HepaiRevealDirector.BuildRecordRequest("self", "hu", hand, Array.Empty<string>(), "hongque", false, 1081, "right");
+        Verify(ron.WinTileMode != HepaiWinTilePresentMode.WholeHandReveal, "ron keeps its existing source behavior");
+        return JsonConvert.SerializeObject(new { passed });
+    }
+
+    IEnumerator CheckKongMovement(HongqueEventInfo[] events, Dictionary<Transform, Transform> existing) {
+        Check(Game3DManager.Instance.HasPendingRecordTableAnimations, "kong events enter the table animation queue");
+        var firstPositions = new Dictionary<Transform, Vector3>();
+        var moved = new HashSet<Transform>();
+        var added = new HashSet<int>(events.SelectMany(item => item.hand_tiles).Select(HongqueTileVisual.FromCode));
+        float until = Time.realtimeSinceStartup + 30;
+        while (Game3DManager.Instance.HasPendingRecordTableAnimations && Time.realtimeSinceStartup < until) {
+            foreach (int seat in events.Select(item => item.player).Distinct()) {
+                var panel = Game3DManager.Instance.GetPosPanel(NormalGameStateManager.Instance.indexToPosition[seat]);
+                foreach (Transform group in panel.combination3DObjects) {
+                    foreach (Transform tile in group) {
+                        if (existing.ContainsKey(tile) || !added.Contains(MahjongObjectPool.GetTile3D(tile.gameObject).GetTileId())) continue;
+                        if (!firstPositions.TryGetValue(tile, out Vector3 start)) firstPositions[tile] = tile.position;
+                        else if (Vector3.Distance(start, tile.position) > 0.1f) moved.Add(tile);
+                    }
+                }
+            }
+            yield return null;
+        }
+        Check(!Game3DManager.Instance.HasPendingRecordTableAnimations, "all consecutive kongs finish before queue becomes idle");
+        Check(moved.Count == events.Sum(item => item.hand_tiles.Length), "every added tile moves across multiple frames", moved.Count);
+        Check(existing.All(item => item.Key != null && item.Key.gameObject.activeInHierarchy && item.Key.parent == item.Value),
+            "existing meld objects are retained instead of flashing through a rebuild");
+        foreach (var group in events.GroupBy(item => new { item.player, item.meld_index })) {
+            var last = group.Last();
+            var panel = Game3DManager.Instance.GetPosPanel(NormalGameStateManager.Instance.indexToPosition[last.player]);
+            var tiles = panel.combination3DObjects[last.meld_index].GetComponentsInChildren<Tile3D>();
+            Check(tiles.Select(item => item.GetTileId()).OrderBy(id => id).SequenceEqual(last.tiles.Select(HongqueTileVisual.FromCode).OrderBy(id => id)),
+                "queued kong ends with exactly its authoritative meld " + last.player + "/" + last.meld_index);
+        }
     }
 }
 #endif

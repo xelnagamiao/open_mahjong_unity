@@ -197,7 +197,7 @@ public sealed class AutoActionPolicy {
 
         // 2. 自动和牌（受不点和/不抢杠约束；"和"由词表判定，规则专有词在各自 XxxActionWords 里归类）
         string huAction = GetFirstHuAction(AllowActions);
-        if (!string.IsNullOrEmpty(huAction)) {
+        if (!string.IsNullOrEmpty(huAction) && !ActionWords.RequiresManualChoice(huAction)) {
             bool shouldAutoWin = Clock.IsQiangGangAsk
                 ? AutoAction.Instance.ShouldAutoWinRobKong()
                 : AutoAction.Instance.ShouldAutoWinRon();

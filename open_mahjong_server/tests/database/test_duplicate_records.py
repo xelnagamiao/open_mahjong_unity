@@ -30,7 +30,8 @@ def duplicate_db(monkeypatch):
     conn = pool.getconn()
     with conn:
         with conn.cursor() as cursor:
-            ensure_duplicate_tables(cursor)
+            from server.database.sichuan_duplicate import ensure_tables
+            ensure_tables(cursor)
             cursor.execute("""
                 CREATE TABLE game_records (game_id VARCHAR(16) PRIMARY KEY, record JSONB NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
@@ -46,6 +47,13 @@ def duplicate_db(monkeypatch):
     pool.putconn(conn)
     from server.database import scene_stats
     monkeypatch.setattr(scene_stats, "record_game_metrics", lambda *args, **kwargs: None)
+    # This isolated schema tests record publication and access, not commerce.
+    # Wallet schema/ledger transactions have their own integration coverage.
+    from server.database import commerce
+    from server.database.game_rewards import build_currency_reward
+    monkeypatch.setattr(commerce, "prepare_game_reward",
+        lambda cursor, record, indexed_ids, **_: build_currency_reward(record, indexed_ids, []))
+    monkeypatch.setattr(commerce, "settle_game_reward", lambda *args, **kwargs: None)
     try:
         yield db
     finally:
@@ -71,6 +79,80 @@ def insert_wall(db, rule="guobiao"):
         (key,owner_user_id,scope,wall_type,rule,tiles,seed)
         VALUES ('DUP_test01234567',10000001,'personal','key',%s,%s,'private-seed') RETURNING id""",
         (rule, Json([11] * 4)), fetch=True)[0]
+
+
+def training_pair(db):
+    from server.database.sichuan_duplicate import PairedMatchStore
+    from server.gamestate.public.sichuan_duplicate import new_match
+    from server.game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, make_board
+    seed='0123456789abcdef'*4
+    snapshot=new_match(str(uuid4()),SBR_DUPLICATE,{'open':'1','closed':'2'},[make_board(seed,1)],seed)
+    snapshot.update(wall_source='training',wall_type='training')
+    store=PairedMatchStore(db)
+    store.create(snapshot,event_id='training_event',owner_id=10000001,name='training')
+    return snapshot,store
+
+
+def test_training_migration_persists_seed_snapshot_without_keys_or_quota(duplicate_db):
+    db=duplicate_db
+    snapshot,store=training_pair(db)
+    assert snapshot['wall_id'] is None and 'key' not in snapshot
+    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
+    assert execute(db,"SELECT COUNT(*) FROM duplicate_games",fetch=True)==(0,)
+    assert execute(db,"""SELECT is_nullable FROM information_schema.columns
+        WHERE table_schema=current_schema() AND table_name='sichuan_duplicate_matches' AND column_name='wall_id'""",fetch=True)==('YES',)
+    snapshot.update(revision=1,status='interrupted')
+    store.save(snapshot,0)
+    recovered=store.unfinished()[0]
+    assert recovered['seed']==snapshot['seed'] and recovered['boards']==snapshot['boards']
+    assert recovered['wall_source']=='training' and recovered['wall_id'] is None
+    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
+
+
+def test_training_record_access_requires_persisted_pair_and_no_formal_link(duplicate_db):
+    db=duplicate_db
+    snapshot,store=training_pair(db)
+    game_id='TrainingGame0001'
+    title=dict(rule='sichuan',sub_rule='sichuan/doubles_duplicate',is_duplicate=True,
+               wall_source='training',duplicate_wall_type='training',duplicate_match_id=snapshot['id'],duplicate_table='open')
+    record={'game_title':title,'game_round':{}}
+    assert not duplicate_record_is_visible(db,record,game_id)
+    execute(db,"INSERT INTO game_records(game_id,record) VALUES(%s,%s)",(game_id,Json(record)))
+    assert not duplicate_record_is_visible(db,record,game_id)
+    snapshot.update(record_ids={'open':game_id},revision=1)
+    store.save(snapshot,0)
+    assert duplicate_record_is_visible(db,record,game_id)
+    assert not duplicate_record_is_visible(db,record,'forgedgame')
+    wall_id=insert_wall(db)
+    execute(db,"INSERT INTO duplicate_games(game_id,wall_id) VALUES(%s,%s)",(game_id,wall_id))
+    assert not duplicate_record_is_visible(db,record,game_id)
+    # Even an unlocked formal association is not a keyless training record.
+    execute(db,"UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s",(wall_id,))
+    assert not duplicate_record_is_visible(db,record,game_id)
+
+
+def test_training_record_saves_bot_table_without_formal_event_statistics(duplicate_db,monkeypatch):
+    from unittest.mock import Mock
+    from server.database.sichuan.store_sichuan import store_sichuan_game_record
+    db=duplicate_db
+    snapshot,store=training_pair(db)
+    metrics=Mock()
+    monkeypatch.setattr('server.database.scene_stats.record_game_metrics',metrics)
+    record={'game_title':dict(rule='sichuan',sub_rule='sichuan/doubles_duplicate',room_type='events',
+        event_id='training_event',is_duplicate=True,wall_source='training',duplicate_wall_type='training',
+        duplicate_match_id=snapshot['id'],duplicate_table='open',max_round=1,duplicate_round_count=1,
+        game_instance_id='training-instance'), 'game_round':{}}
+    players=[SimpleNamespace(user_id=10000001 if i==0 else i,username=f'p{i}',score=0,original_player_index=i,
+        record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
+    game_id=store_sichuan_game_record(db,record,players,'events','normal')
+    assert game_id
+    assert execute(db,"SELECT room_type,event_id FROM game_player_records WHERE game_id=%s",(game_id,),fetch=True)==('custom',None)
+    assert execute(db,"SELECT COUNT(*) FROM duplicate_games",fetch=True)==(0,)
+    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
+    metrics.assert_not_called()
+    snapshot.update(record_ids={'open':game_id},revision=1)
+    store.save(snapshot,0)
+    assert DatabaseManager.get_record_by_id(db,game_id) is not None
 
 
 @pytest.mark.parametrize("count", [1, 4, 8, 12, 16])

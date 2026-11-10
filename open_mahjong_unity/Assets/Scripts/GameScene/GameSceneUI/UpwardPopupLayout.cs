@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -21,11 +22,17 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
     UnityEngine.UI.Button previous, next;
     int signature, contentSignature;
     bool initialized;
+    bool singleColumn;
+    IReadOnlyList<Vector2> virtualSizes;
+    Func<int, RectTransform> createVirtualChoice;
+    readonly Dictionary<int, RectTransform> virtualChoices = new Dictionary<int, RectTransform>();
+    int virtualRevision;
     public int PageIndex { get; private set; }
     public int PageCount => pages.Count;
     public bool HasMultiplePages => PageCount > 1;
 
     sealed class Item {
+        public int Index;
         public RectTransform Main, Hint;
         public Vector2 Size;
         public float Scale;
@@ -36,11 +43,42 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         public float Width, Height;
     }
 
-    public static UpwardPopupLayout ForActions(Transform parent, TMP_Text label) {
+    public static UpwardPopupLayout ForActions(Transform parent, TMP_Text label, bool singleColumn = false) {
         var layout = parent.GetComponent<UpwardPopupLayout>() ?? parent.gameObject.AddComponent<UpwardPopupLayout>();
         layout.labelTemplate = label;
+        layout.singleColumn = singleColumn;
         layout.Refresh();
         return layout;
+    }
+
+    public static UpwardPopupLayout ForVirtualActions(Transform parent, TMP_Text label,
+        IReadOnlyList<Vector2> sizes, Func<int, RectTransform> createChoice) {
+        var layout = parent.GetComponent<UpwardPopupLayout>() ?? parent.gameObject.AddComponent<UpwardPopupLayout>();
+        layout.ClearVirtualActions();
+        layout.labelTemplate = label;
+        layout.virtualSizes = sizes;
+        layout.createVirtualChoice = createChoice;
+        layout.singleColumn = true;
+        layout.PageIndex = 0;
+        layout.virtualRevision++;
+        layout.Refresh();
+        return layout;
+    }
+
+    public void ClearVirtualActions() {
+        foreach (var child in virtualChoices.Values) ReleaseVirtualChoice(child);
+        virtualChoices.Clear();
+        virtualSizes = null;
+        createVirtualChoice = null;
+        virtualRevision++;
+    }
+
+    static void ReleaseVirtualChoice(RectTransform child) {
+        if (child == null) return;
+        child.gameObject.SetActive(false);
+        child.SetParent(null, false);
+        if (Application.isPlaying) UnityEngine.Object.Destroy(child.gameObject);
+        else UnityEngine.Object.DestroyImmediate(child.gameObject);
     }
 
     public void SetHintRows(RectTransform tiles, RectTransform hints) {
@@ -74,6 +112,7 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
             int hash = Screen.width * 397 ^ Screen.height ^ MobileViewportLayout.SafeArea.GetHashCode();
             var canvas = GetComponentInParent<Canvas>();
             if (canvas != null) hash = hash * 397 ^ ((RectTransform)canvas.rootCanvas.transform).rect.GetHashCode();
+            if (virtualSizes != null) return hash * 397 ^ virtualRevision;
             Transform source = tileRow != null ? tileRow : transform;
             foreach (RectTransform child in source) {
                 if (tileRow == null && child.GetComponent<ActionBlock>() == null) continue;
@@ -94,7 +133,13 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         items.Clear(); rows.Clear(); pages.Clear();
         Transform source = tileRow != null ? tileRow : transform;
         int content = 0;
-        foreach (RectTransform child in source) {
+        if (virtualSizes != null) {
+            content = virtualRevision;
+            for (int index = 0; index < virtualSizes.Count; index++) {
+                virtualChoices.TryGetValue(index, out var child);
+                items.Add(new Item { Index = index, Main = child, Size = virtualSizes[index] });
+            }
+        } else foreach (RectTransform child in source) {
             if (tileRow == null && child.GetComponent<ActionBlock>() == null) continue;
             RectTransform hint = hintRow != null && child.GetSiblingIndex() < hintRow.childCount
                 ? (RectTransform)hintRow.GetChild(child.GetSiblingIndex()) : null;
@@ -148,7 +193,23 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
         rect.anchoredPosition = new Vector2(Mathf.Clamp(origin.x, bounds.xMin + width * .5f, bounds.xMax - width * .5f), bottom);
         if (tileRow != null) { Stretch(tileRow); Stretch(hintRow); }
         foreach (var r in pages[PageIndex]) foreach (var item in r.Items) item.Visible = true;
+        if (virtualSizes != null) {
+            foreach (var item in items) {
+                if (!item.Visible && item.Main != null) {
+                    ReleaseVirtualChoice(item.Main);
+                    virtualChoices.Remove(item.Index);
+                    item.Main = null;
+                }
+            }
+            foreach (var item in items) {
+                if (item.Visible && item.Main == null) {
+                    item.Main = createVirtualChoice(item.Index);
+                    virtualChoices[item.Index] = item.Main;
+                }
+            }
+        }
         foreach (var item in items) {
+            if (item.Main == null) continue;
             item.Main.gameObject.SetActive(item.Visible);
             if (item.Hint != null) item.Hint.gameObject.SetActive(item.Visible);
         }
@@ -167,6 +228,14 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
     }
 
     void BuildBalancedRows(float maxWidth) {
+        if (singleColumn) {
+            foreach (var item in items) {
+                var row = new Row { Width = item.Size.x * item.Scale, Height = item.Size.y * item.Scale };
+                row.Items.Add(item);
+                rows.Add(row);
+            }
+            return;
+        }
         // Preserve order and the minimum row count, then minimize squared unused
         // width, including the last row. Choices and tile/hint pairs stay intact.
         int count = items.Count;

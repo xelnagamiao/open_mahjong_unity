@@ -337,6 +337,16 @@ public partial class GameRecordManager {
             int playbackNode = currentNode;
             string nextAction = PeekNextTickAction();
             bool holdPreviousHuResult = ShouldHoldPreviousHuResult(nextAction);
+            if (IsHongqueRecord() && (nextAction == "end" || holdPreviousHuResult)) {
+                // 连杠的落牌、飘字与语音可能长于面板原本的停留预算。
+                // 先等结算面板实际准备好，再开始它的停留计时，不能让 end 紧跟面板首帧。
+                while (IsSpectating && !PauseAutoPlay && currentRoundIndex == playbackRound
+                        && currentNode == playbackNode && _recordHuPresentationActive) {
+                    yield return null;
+                }
+                if (!IsSpectating) yield break;
+                if (PauseAutoPlay || currentRoundIndex != playbackRound || currentNode != playbackNode) continue;
+            }
             // end tick 会清除上一条结算（和牌/流局）面板。这里需按结算面板的完整演出时长保持，
             // 否则会出现“和牌面板一闪而过就进入下一局”的问题（应与真实玩家 8 秒确认倒计时一致）。
             float delay = nextAction == "end" || holdPreviousHuResult

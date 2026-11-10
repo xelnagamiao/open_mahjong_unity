@@ -1,4 +1,4 @@
-export const DUPLICATE_WALL_LABELS = Object.freeze({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' })
+export const DUPLICATE_WALL_LABELS = Object.freeze({ training: '训练牌山', manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' })
 export const DUPLICATE_ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16])
 
 export function duplicateWallLayout(wall) {
@@ -140,4 +140,26 @@ export function duplicateDate(value) {
   if (!value) return '—'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('zh-CN', { hour12: false })
+}
+
+/** Keep each paired match's scores and records separate when a key is reused. */
+export function duplicatePublicGroups(detail) {
+  const games = Array.isArray(detail?.games) ? detail.games : []
+  const matches = Array.isArray(detail?.paired_matches) ? detail.paired_matches
+    : detail?.paired_match ? [detail.paired_match] : []
+  const assigned = new Set()
+  const groups = matches.map((match, index) => {
+    const recordIds = new Set(Object.values(match.record_ids || {}).filter(Boolean).map(String))
+    const records = games.filter(game => {
+      const belongs = game.match_id != null && match.match_id != null
+        ? String(game.match_id) === String(match.match_id)
+        : recordIds.has(String(game.game_id))
+      if (belongs) assigned.add(game)
+      return belongs
+    })
+    return { key: match.match_id || `legacy-match-${index}`, match, games: records }
+  })
+  const remaining = games.filter(game => !assigned.has(game))
+  if (!groups.length || remaining.length) groups.push({ key: 'unmatched-games', match: null, games: remaining })
+  return groups
 }

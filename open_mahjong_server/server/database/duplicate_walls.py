@@ -36,12 +36,21 @@ def load_duplicate_wall(db, key):
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, key, rule, wall_type, tiles, event_id, deleted_at, seed, use_flowers, round_count, round_tiles, scope, owner_user_id FROM duplicate_walls WHERE key = %s", (key,))
             row = cursor.fetchone()
+            planned_count = None
+            if row and row[2] in (SBR_WALL_SUBRULE, XUELIU_WALL_SUBRULE):
+                cursor.execute("SELECT MIN((data->>'planned_boards')::integer) FROM sichuan_duplicate_matches WHERE wall_id=%s", (row[0],))
+                planned_count = cursor.fetchone()[0]
         if not row or row[6] is not None:
             raise ValueError("复式密钥不存在或已删除")
         tiles = json.loads(row[4]) if isinstance(row[4], str) else row[4]
-        return dict(id=row[0], key=row[1], rule=row[2], wall_type=row[3], tiles=tiles,
+        wall = dict(id=row[0], key=row[1], rule=row[2], wall_type=row[3], tiles=tiles,
                     event_id=row[5], seed=row[7], use_flowers=row[8], round_count=row[9], scope=row[11], owner_user_id=row[12],
                     round_tiles=json.loads(row[10]) if isinstance(row[10], str) else row[10])
+        if (planned_count in (1, 4, 8, 12, 16) and isinstance(wall["round_tiles"], list)
+                and planned_count < wall["round_count"] and len(wall["round_tiles"]) == wall["round_count"]):
+            wall["legacy_source_round_count"] = wall["round_count"]
+            wall.update(round_count=planned_count, round_tiles=wall["round_tiles"][:planned_count])
+        return wall
     finally:
         db._put_connection(conn)
 
@@ -58,7 +67,7 @@ def validate_duplicate_wall(wall, room):
     sichuan = bloodflow or bloodbattle
     if not supports_duplicate_room(room):
         raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）和川麻双打复式")
-    accepted_rules = (XUELIU_WALL_RULE,) if bloodflow else (SBR_WALL_RULE,) if bloodbattle else (rule, sub_rule)
+    accepted_rules = (XUELIU_WALL_RULE, XUELIU_WALL_SUBRULE) if bloodflow else (SBR_WALL_RULE, SBR_WALL_SUBRULE) if bloodbattle else (rule, sub_rule)
     if wall["rule"] not in accepted_rules:
         raise ValueError("复式牌墙的玩法与房间不一致")
     if sichuan and wall.get("event_id") != room.get("event_id"):
@@ -144,6 +153,13 @@ def reserve_duplicate_game(db, wall_id):
         db._put_connection(conn)
 
 
+def is_training_duplicate_record(title):
+    """Identify the server's keyless paired-training format, not access authority."""
+    return (title.get("wall_source") == "training" and title.get("duplicate_wall_type") == "training"
+            and title.get("is_duplicate") is True and not title.get("duplicate_key")
+            and title.get("sub_rule") in (SBR_WALL_SUBRULE, XUELIU_WALL_SUBRULE))
+
+
 def duplicate_record_is_visible(db, game_record, game_id=None):
     title = game_record.get("game_title") or {}
     key = title.get("duplicate_key") or None
@@ -153,6 +169,24 @@ def duplicate_record_is_visible(db, game_record, game_id=None):
     conn = db._get_connection()
     try:
         with conn.cursor() as cursor:
+            if is_training_duplicate_record(title):
+                # A caller-supplied training marker must not unlock a formal game.
+                # Require the persisted record and its keyless paired snapshot.
+                cursor.execute("""SELECT EXISTS (
+                    SELECT 1 FROM game_records r JOIN sichuan_duplicate_matches m
+                      ON m.id::text = r.record->'game_title'->>'duplicate_match_id'
+                    WHERE r.game_id=%s AND m.wall_id IS NULL
+                      AND m.data->>'wall_source'='training'
+                      AND m.data->'record_ids'->>(r.record->'game_title'->>'duplicate_table')=r.game_id
+                      AND r.record->'game_title'->>'wall_source'='training'
+                      AND r.record->'game_title'->>'duplicate_wall_type'='training'
+                      AND r.record->'game_title'->>'is_duplicate'='true'
+                      AND r.record->'game_title'->>'sub_rule' IN (%s,%s)
+                      AND COALESCE(r.record->'game_title'->>'duplicate_key','')=''
+                      AND NOT EXISTS (SELECT 1 FROM duplicate_games g WHERE g.game_id=r.game_id))""",
+                    (game_id, SBR_WALL_SUBRULE, XUELIU_WALL_SUBRULE))
+                row = cursor.fetchone()
+                return bool(row and row[0] is True)
             cursor.execute("""SELECT
                 (%s IS NULL OR EXISTS (SELECT 1 FROM duplicate_walls WHERE key = %s AND is_unlocked))
                 AND NOT EXISTS (SELECT 1 FROM duplicate_games g

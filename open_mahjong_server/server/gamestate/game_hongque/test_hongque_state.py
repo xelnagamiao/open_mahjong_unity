@@ -452,7 +452,8 @@ async def _exercise_onlycut_allows_kong_on_last_tile() -> None:
     )
     assert player.hand == []
     assert player.melds[0]["tiles"] == ["AX1", "AX2", "AX3", "AX4"]
-    assert state.game_status == "onlycut_after_action"
+    assert state.game_status == "waiting_hand_action"
+    assert state.build_state(1)["legal_actions"] == ["win", "supplement"]
 
     await state.submit_action(player.user_id, "supplement", action_tick=state.action_tick)
     assert state.game_status == "waiting_hand_action"
@@ -1221,6 +1222,7 @@ async def _exercise_group_wait_self_win() -> None:
     state = HongqueGameState(None, room, gamestate_id="group-wait-win-test")
     player = state.players[0]
     player.hand = ["AX1", "AX2", "AX3"]
+    player.drawn_tile = "AX3"
     player.melds = [{
         "kind": "sequence",
         "tiles": ["BX4", "BX5", "BX6"],
@@ -1309,7 +1311,7 @@ def test_supplement_reverts_to_plain_kong_only() -> None:
     asyncio.run(_exercise_supplement_reverts_to_plain_kong_only())
 
 
-def test_win_via_kong_finishes_round_without_moving_hand() -> None:
+def test_win_via_kong_moves_hand_into_meld_before_settlement() -> None:
     asyncio.run(_exercise_win_via_kong_finishes_round())
 
 
@@ -1337,7 +1339,7 @@ async def _exercise_win_only_when_hand_is_last_tile() -> None:
     # 手牌只剩最后一张（自摸/补牌张）时只下发“和”，普通杠无独立意义。
     assert "win" in actions
     assert "kong" not in actions
-    assert candidates == []
+    assert len(candidates) == 1 and candidates[0]["kind"] == "win"
 
 
 async def _exercise_win_and_plain_kong_are_offered_separately() -> None:
@@ -1418,9 +1420,9 @@ async def _exercise_win_via_kong_finishes_round() -> None:
     assert state.phase == "round_end"
     assert state.round_result["reason"] == "self_draw"
     winner = state.round_result["winners"][0]
-    # 杠和并入普通和：手牌保持完整展示，明牌不实际移动，和牌拆解按扩展后的明牌计。
-    assert winner["hand"] == ["AX4"]
-    assert winner["melds"][0]["tiles"] == ["AX1", "AX2", "AX3"]
+    # 杠和先实际移动手牌，再以落地后的明牌结算。
+    assert winner["hand"] == []
+    assert winner["melds"][0]["tiles"] == ["AX1", "AX2", "AX3", "AX4"]
     assert winner["partition"] == []
     assert winner["groups"] == [["AX1", "AX2", "AX3", "AX4"]]
     # 摸最后一张墙牌自摸：海底只按自摸计算。

@@ -70,6 +70,7 @@ export function createEventRoomForm(settings = {}) {
     loadRiichiForm(form, config)
   }
   form.password = String(settings.password || '')
+  form.password_enabled = settings.password_enabled ?? Boolean(form.password)
   loadEventRoomExtensions(form, config)
   clearUnsupportedDuplicateRoom(form)
   return form
@@ -81,6 +82,7 @@ export function changeEventRoomRule(form, rule) {
     room_rule: rule,
     room_config: { room_name: form.room_name },
     password: form.password,
+    password_enabled: form.password_enabled,
   }))
   form.duplicate_enabled = false
   form.auto_duplicate = false
@@ -93,7 +95,9 @@ function validateCommonTimers(form) {
 }
 
 export function buildEventRoomSettings(form) {
-  return extendEventRoomPayload(form, buildBaseEventRoomSettings(form))
+  const settings = extendEventRoomPayload(form, buildBaseEventRoomSettings(form))
+  if (form.password_enabled === false) settings.password = ''
+  return settings
 }
 
 function buildBaseEventRoomSettings(form) {
@@ -164,7 +168,8 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   const rule = ruleLabels[form.room_rule] || form.room_rule
   const config = settings.room_config || {}
   const isDuplicate = Boolean(duplicateRoomActive(form) || config.is_duplicate || config.duplicate_wall_type)
-  const duplicate = isDuplicate ? ` · ${duplicateWallLabel(config.duplicate_wall_type) === '—' ? '复式' : duplicateWallLabel(config.duplicate_wall_type)}` : ''
+  const wallType = config.wall_source || config.duplicate_wall_type
+  const duplicate = isDuplicate ? ` · ${duplicateWallLabel(wallType) === '—' ? '复式' : duplicateWallLabel(wallType)}` : ''
   if (form.room_rule === 'hongque') return `${hongqueProfiles.find(p => p.value === form.sub_rule)?.label || rule} · ${form.game_round}局`
   if (form.room_rule === 'riichi') return `${selectedRiichiPreset(form)?.label || rule + ' · 自定义'} · 起始 ${form.starting_score} 点 · ${form.riichi_hepai_limit} 番起和（不含宝牌） · 起和线：${riichiWinLineLabel(form.minimum_win_score)}${duplicate}`
   if (form.room_rule === 'hongkong') return `${rule} · ${hkProfileLabel(form)}`
@@ -192,52 +197,60 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   return `${rule} · ${isDuplicate ? (config.duplicate_round_count ? `${config.duplicate_round_count} 局` : '局数跟随密钥') : round} · 局时 ${form.round_timer}s · 步时 ${form.step_timer}s${duplicate}`
 }
 
+export const EVENT_RULES_WITH_SUB_RULE_SELECTOR = new Set(['guobiao', 'sichuan', 'hongkong', 'riichi', 'guangdong', 'duocai', 'changsha', 'fuzhou', 'hangzhou', 'hongque', 'nanjing', 'shenyang'])
+
+const subRuleLabels = {
+  'guangdong/tuidao_mil2024': 'MIL 2024（无癞子）',
+  'guangdong/mil2023': 'MIL 2023（花鬼）',
+  'guizhou/standard': '贵州 MIL 2023',
+  'yixing/standard': '宜兴标准规则',
+  'malaysia/traditional84': '马来西亚三人传统84张规则',
+  'shenyang/mil2025': '沈阳 MIL 2025',
+  'nanjing/mil2024': '南京 MIL 2024',
+  'fuzhou/standard': '福州十六张',
+  'wenzhou/mil2024': '温州 MIL 2024',
+  'nanchang/mil2026': '南昌 MIL 2026',
+  'shangrao/standard': '上饶麻将',
+  'hongque/v1.6': '虹雀² v1.7', 'hongque/w-v1.0': '虹雀 W v1.0',
+  'beijing/chipengti': '北京麻将（吃碰提）',
+  'duocai/guobiao': '夺彩·国标',
+  'duocai/riichi': '夺彩·立直',
+  'hangzhou/mil2025': 'MIL 杭州（2025）',
+  'wuhan/mil2025': '武汉 MIL 2025',
+  'hongzhong/mil2024': '红中 MIL 2024',
+  'singapore/spgg2024': '新加坡麻将',
+  'jiujiang/standard': '九江麻将',
+  'changchun/mil2024': '长春 MIL 2024',
+  'guobiao/standard': '国标标准', 'guobiao/xiaolin': '小林', 'guobiao/kshen': 'K神', 'guobiao/lanshi': '蓝十', 'guobiao/transparent': '透明国标',
+  'guobiao/blood_battle': '国标麻将（血战到底）', 'guobiao/sanma': '三人国标',
+  'guobiao/transparent_realtime': '国标透明（实时手牌）',
+  'guobiao/huahun': '国标（花混癞子）',
+  'guobiao/sixteen': '国标麻将（十六张）',
+  'guobiao/four_jokers': '国标麻将(四癞子)',
+  'shanxi/mil2023': 'MIL山西（2023）',
+  'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
+  ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
+  'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
+  'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
+  'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
+  'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
+}
+
+export function eventRoomSubRuleLabel(form) {
+  return form.room_rule === 'hongkong' ? hkProfileLabel(form) : subRuleLabels[form.sub_rule] || form.sub_rule
+}
+
 /** Full, read-only review of the canonical settings used for this one table. */
 export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   const form = createEventRoomForm(settings)
   const config = settings.room_config || {}
   const isDuplicate = Boolean(duplicateRoomActive(form) || config.is_duplicate || config.duplicate_wall_type)
   const enabled = value => value ? '开启' : '关闭'
-  const subRules = {
-    'guangdong/tuidao_mil2024': 'MIL 2024（无癞子）',
-    'guangdong/mil2023': 'MIL 2023（花鬼）',
-    'guizhou/standard': '贵州 MIL 2023',
-    'yixing/standard': '宜兴标准规则',
-    'malaysia/traditional84': '马来西亚三人传统84张规则',
-    'shenyang/mil2025': '沈阳 MIL 2025',
-    'nanjing/mil2024': '南京 MIL 2024',
-    'fuzhou/standard': '福州十六张',
-    'wenzhou/mil2024': '温州 MIL 2024',
-    'nanchang/mil2026': '南昌 MIL 2026',
-    'shangrao/standard': '上饶麻将',
-    'hongque/v1.6': '虹雀² v1.7', 'hongque/w-v1.0': '虹雀 W v1.0',
-    'beijing/chipengti': '北京麻将（吃碰提）',
-    'duocai/guobiao': '夺彩·国标',
-    'duocai/riichi': '夺彩·立直',
-    'hangzhou/mil2025': 'MIL 杭州（2025）',
-    'wuhan/mil2025': '武汉 MIL 2025',
-    'hongzhong/mil2024': '红中 MIL 2024',
-    'singapore/spgg2024': '新加坡麻将',
-    'jiujiang/standard': '九江麻将',
-    'changchun/mil2024': '长春 MIL 2024',
-    'guobiao/standard': '国标标准', 'guobiao/xiaolin': '小林', 'guobiao/kshen': 'K神', 'guobiao/lanshi': '蓝十', 'guobiao/transparent': '透明国标',
-    'guobiao/blood_battle': '国标麻将（血战到底）', 'guobiao/sanma': '三人国标',
-  'guobiao/transparent_realtime': '国标透明（实时手牌）',
-  'guobiao/huahun': '国标（花混癞子）',
-  'guobiao/sixteen': '国标麻将（十六张）',
-  'guobiao/four_jokers': '国标麻将(四癞子)',
-    'shanxi/mil2023': 'MIL山西（2023）',
-    'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
-    ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
-    'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
-    'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
-    'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
-    'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
-  }
+
   const rows = [
     { label: '规则', value: ruleLabels[form.room_rule] || form.room_rule },
     { label: '房间名', value: form.room_name || '自动命名' },
-    { label: '子规则', value: form.room_rule === 'hongkong' ? hkProfileLabel(form) : subRules[form.sub_rule] || form.sub_rule },
+    { label: '子规则', value: eventRoomSubRuleLabel(form) },
     { label: form.room_rule === 'guizhou' ? '局数' : '圈数', value: form.room_rule === 'guizhou' ? `${form.game_round * 4}局` : ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈` },
     { label: form.room_rule === 'guizhou' ? '局时储备' : '局时', value: Number(form.round_timer) === 0 && !['guizhou', 'sichuan'].includes(form.room_rule) ? '不限时' : `${form.round_timer} 秒` },
     { label: '步时', value: `${form.step_timer} 秒` },
@@ -247,7 +260,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     if (timerRow) { timerRow.label = '局时储备'; timerRow.value = `${form.round_timer} 秒` }
   }
   if (isDuplicate) {
-    rows.push({ label: '复式', value: settings.room_config?.duplicate_wall_type ? duplicateWallLabel(settings.room_config.duplicate_wall_type) : '开启' })
+    rows.push({ label: '复式', value: config.wall_source || config.duplicate_wall_type ? duplicateWallLabel(config.wall_source || config.duplicate_wall_type) : '开启' })
     const roundRow = rows.find(row => row.label === '圈数')
     if (roundRow) roundRow.value = config.duplicate_round_count ? `${config.duplicate_round_count} 局` : '跟随密钥设置'
   }

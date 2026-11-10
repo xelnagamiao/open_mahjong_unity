@@ -55,6 +55,7 @@ public class SichuanDuplicateLobbyInfo {
 }
 
 public class RoomInfo {
+    public string wall_source;
     public SichuanDuplicateLobbyInfo duplicate_lobby;
     public bool unlimited_rounds;
     public string duplicate_match_id;
@@ -752,6 +753,7 @@ public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4�
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
+    public string wall_source;
     public bool is_duplicate;
     public string duplicate_key;
     public string game_id;              // 对局ID（base62字符串）
@@ -768,6 +770,7 @@ public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返�
 public static class DuplicateWallDisplay {
     public static string TypeName(string wallType) {
         switch (wallType) {
+            case "training": return "训练牌山";
             case "manual": return "手动牌山";
             case "seed": return "复现牌山";
             case "key": return "密钥牌山";
@@ -981,6 +984,19 @@ public class HongqueCandidateInfo {
     public string[] hand_tiles;
     public int priority;
     public int meld_index;
+    public string[][] groups;
+    public int @base;
+    public int fan_total;
+    public int points;
+    public HongqueFanInfo[] fans;
+    public HongqueKongStepInfo[] kong_steps;
+}
+
+[System.Serializable]
+public class HongqueKongStepInfo {
+    public int meld_index;
+    public string[] hand_tiles;
+    public string[] tiles;
 }
 
 [System.Serializable]
@@ -1026,6 +1042,12 @@ public class HongqueWinnerResultInfo {
     public Dictionary<int, int> score_changes;
     public int player;
     public string[] hand;
+    private string winningTile;
+    [JsonIgnore] public bool HasWinningTile { get; private set; }
+    public string winning_tile {
+        get => winningTile;
+        set { winningTile = value; HasWinningTile = true; }
+    }
     public string[][] partition;
     public string[][] groups;
     public int @base;

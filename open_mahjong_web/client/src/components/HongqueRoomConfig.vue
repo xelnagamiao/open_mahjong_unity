@@ -1,6 +1,6 @@
 <template>
   <div class="hongque-room-config">
-    <el-form-item label="子规则">
+    <el-form-item label="子规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule" aria-label="虹雀子规则">
         <el-option v-for="profile in hongqueProfiles" :key="profile.value" :value="profile.value" :label="profile.label" />
       </el-select>

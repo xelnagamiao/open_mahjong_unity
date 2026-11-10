@@ -34,6 +34,7 @@ from ..public.claim_protection import (
 from .shunhe import tag_list_for_viewer
 from .action_window import prepare_action_window
 from .duplicate_wall import wall_display_masks
+from ..public.duplicate_wall import duplicate_fields, uses_duplicate_wall
 from .action_check import xueliu_post_hu_kong_candidates, is_xueliu_required_hu
 
 from ..public.ask_timing import begin_ask_round, reconnect_clock
@@ -143,7 +144,7 @@ def _base_game_info(self):
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base.update(build_player_entry_order_fields(self))
-    if getattr(self, "duplicate_key", None):
+    if uses_duplicate_wall(self):
         from ..public.duplicate_wall import duplicate_fields, duplicate_remaining_tile_counts
         base.update(duplicate_fields(self), duplicate_remaining_tiles=duplicate_remaining_tile_counts(self),
                     sichuan_wall_masks=wall_display_masks(self), salt=None, commitment=None)
@@ -161,6 +162,7 @@ async def broadcast_duplicate_status(self):
         conn = self.game_server.user_id_to_connection.get(player.user_id)
         if player.user_id > 10 and conn is not None:
             await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
+        await self.send_to_realtime_spectators(player.player_index, response)
 
 
 async def broadcast_game_start(self):
@@ -895,6 +897,7 @@ async def broadcast_game_end(self):
                         master_seed=None if getattr(self, "duplicate_key", None) else self.master_seed,
                         commitment=None if getattr(self, "duplicate_key", None) else self.commitment,
                         salt=None if getattr(self, "duplicate_key", None) else self.salt,
+                        **duplicate_fields(self),
                         player_final_data=player_final_data,
                         record_detail=local_record_detail_for_end(self),
                     ),

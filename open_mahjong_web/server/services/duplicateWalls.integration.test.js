@@ -32,6 +32,48 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
     const service = createDuplicateWallService(pool);
     const body = { scope: 'personal', wall_type: 'key', rule: 'guobiao' };
 
+    await t.test('shared Sichuan key keeps every group locked until all complete and publishes separate scores', async () => {
+      const { randomUUID } = require('node:crypto');
+      const { wall } = await service.create(88001, { scope: 'personal', wall_type: 'key', rule: 'sichuan/sbr', round_count: 4 });
+      await pool.query("UPDATE duplicate_walls SET rule='sichuan/doubles_duplicate' WHERE id=$1", [wall.id]);
+      const pairs = [1, 2].map(n => ({ id: randomUUID(), profile: { scoring: 'raw_difference' },
+        lobby: { name: `Group ${n}` }, room_ids: { open: `${n}o`, closed: `${n}c` }, scores: [n * 100, 0],
+        small_scores: [n * 100, 0], imp_scores: [n, 0], results: [], planned_boards: 4, completed_boards: 4,
+        record_ids: { open: `multi${n}open`, closed: `multi${n}closed` } }));
+      for (const [index, pair] of pairs.entries()) {
+        await pool.query('INSERT INTO sichuan_duplicate_matches(id,wall_id,status,data) VALUES($1,$2,$3,$4)',
+          [pair.id, wall.id, index === 0 ? 'completed' : 'running', pair]);
+        for (const game_id of Object.values(pair.record_ids)) {
+          await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', [game_id, wall.id]);
+          if (game_id === 'multi2closed') continue;
+          await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [game_id,
+            { game_title: { is_duplicate: true, duplicate_key: wall.key, duplicate_match_id: pair.id } }]);
+        }
+      }
+      const ids = pairs.flatMap(pair => Object.values(pair.record_ids));
+      await assert.rejects(service.manage(88001, wall.id, { is_unlocked: true }), { status: 409 });
+      assert.deepEqual(await accessibleGameIds(pool, ids), []);
+      await pool.query("UPDATE sichuan_duplicate_matches SET status='completed' WHERE id=$1", [pairs[1].id]);
+      await assert.rejects(service.manage(88001, wall.id, { is_unlocked: true }), { status: 409 });
+      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', ['multi2closed',
+        { game_title: { is_duplicate: true, duplicate_key: wall.key, duplicate_match_id: pairs[1].id } }]);
+      await assert.rejects(service.manage(88002, wall.id, { is_unlocked: true }), { status: 403 });
+      await service.manage(88001, wall.id, { is_unlocked: true });
+      assert.deepEqual([...(await accessibleGameIds(pool, ids))].sort(), [...ids].sort());
+      const detail = await service.publicDetail(wall.key);
+      assert.equal(detail.paired_match, undefined);
+      assert.equal(detail.games.length, 4);
+      assert.equal(detail.paired_matches.length, 2);
+      for (const pair of pairs) {
+        const result = detail.paired_matches.find(item => item.match_id === pair.id);
+        assert.deepEqual(result.scores, pair.scores);
+        assert.deepEqual(result.record_ids, pair.record_ids);
+      }
+      const quota = await service.getQuota(88001, 'personal');
+      assert.equal(quota.created_today, 1);
+      assert.equal(quota.stored, 1);
+    });
+
     await t.test('real HTTP routes enforce player JWT, ownership and public key locks', async () => {
       process.env.ADMIN_USER_IDS ||= '1';
       process.env.ADMIN_JWT_EXPIRES_SEC ||= '3600';
@@ -414,6 +456,29 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
           assert.equal(result.event_name, null);
         }
       }
+    });
+    await t.test('training records require an authoritative no-key pair and exact uploaded content', async () => {
+      const matchId = '10000000-0000-4000-8000-000000000001';
+      const training = { game_title: { cloud_game_id: 'training-open', wall_source: 'training',
+        duplicate_wall_type: 'training', is_duplicate: true, duplicate_match_id: matchId,
+        duplicate_table: 'open', sub_rule: 'sichuan/doubles_duplicate' }, round_records: [] };
+      await pool.query(`INSERT INTO sichuan_duplicate_matches(id,wall_id,event_id,status,data)
+        VALUES($1,NULL,'event-a','completed',$2)`, [matchId, JSON.stringify({ wall_source: 'training', record_ids: { open: 'training-open', closed: 'training-closed' } })]);
+      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', ['training-open', JSON.stringify(training)]);
+      assert.equal(await recordIsLocked(pool, 'training-open'), false);
+      assert.deepEqual(await accessibleGameIds(pool, ['training-open']), ['training-open']);
+      assert.equal(await sharedSourceIsLocked(pool, training), false);
+      assert.equal(await sharedSourceIsLocked(pool, { ...training, round_records: [{ hidden: 'substituted formal record' }] }), true);
+      assert.equal(await sharedSourceIsLocked(pool, { game_title: { ...training.game_title, cloud_game_id: 'unknown-training' } }), true);
+      assert.equal(await sharedSourceIsLocked(pool, { game_title: { wall_source: 'training', duplicate_wall_type: 'training' } }), true);
+      await pool.query("UPDATE sichuan_duplicate_matches SET data = jsonb_set(data,'{record_ids,open}','\"wrong-record\"') WHERE id=$1", [matchId]);
+      assert.equal(await recordIsLocked(pool, 'training-open'), true);
+      assert.equal(await sharedSourceIsLocked(pool, training), true);
+      await pool.query("UPDATE sichuan_duplicate_matches SET data = jsonb_set(data,'{record_ids,open}','\"training-open\"') WHERE id=$1", [matchId]);
+      const lockedWall = (await service.create(80000091, body)).wall;
+      await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', ['training-open', lockedWall.id]);
+      assert.equal(await recordIsLocked(pool, 'training-open'), true, 'a training label never overrides a formal wall association');
+      assert.equal(await sharedSourceIsLocked(pool, training), true);
     });
   } finally {
     await pool.end();

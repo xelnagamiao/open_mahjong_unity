@@ -64,6 +64,7 @@ function setupAdmin(kind = 'event') {
     '../../services/eventPlayerStats': {},
     '../../services/duplicateWalls': { createDuplicateWallService: () => ({}) },
     '../../services/eventRoomCreation': { createEventRoomCreationService: () => ({}) },
+    '../../services/eventDuplicateWalls': { createEventDuplicateWallService: () => ({}) },
     '../../services/eventRoomBots': { createEventRoomBotService: () => ({}) },
     '../../services/gameServerProxy': {},
   });

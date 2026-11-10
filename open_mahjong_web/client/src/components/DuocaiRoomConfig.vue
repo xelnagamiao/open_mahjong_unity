@@ -2,7 +2,7 @@
   <div class="duocai-room-config">
     <p class="source">{{ DUOCAI_DESCRIPTION }}</p>
     <div class="settings">
-      <el-form-item label="子规则">
+      <el-form-item label="子规则" class="room-sub-rule-field">
         <el-select v-model="form.sub_rule" aria-label="夺彩子规则" @change="changeDuocaiProfile(form, $event)">
           <el-option v-for="item in DUOCAI_PROFILES" :key="item.value" :value="item.value" :label="item.label" />
         </el-select>

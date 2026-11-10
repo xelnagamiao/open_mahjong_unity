@@ -5,8 +5,8 @@ import captain from '../../../shared/washizuDoubles.json' with { type: 'json' }
 
 export const riichiModes = [
   { value: 'riichi/standard', label: '四人立直' },
-  { value: 'riichi/sanma', label: '三人立直' },
   { value: 'riichi/langyong', label: '浪涌麻将' },
+  { value: 'riichi/sanma', label: '三人立直' },
   { value: 'riichi/washizu', label: '鹫巢麻将' },
   { value: 'riichi/washizu_realtime', label: '鹫巢麻将（实时手牌）' },
   { value: captain.sub_rule, label: captain.label },

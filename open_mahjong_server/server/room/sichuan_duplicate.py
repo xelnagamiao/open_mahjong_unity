@@ -2,6 +2,7 @@
 from copy import deepcopy
 import secrets
 import uuid
+import re
 
 from ..response import Response, public_room_data
 from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat, board_from_tiles, rule_profile
@@ -22,20 +23,49 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
     sync_mode = config.get("duplicate_sync_mode", False)
     if type(sync_mode) is not bool:
         return Response(type="tips", success=False, message="复式同步模式必须为布尔值")
-    if config.get("random_seed") not in (None, "", 0, "0"):
+    wall_source = config.get("wall_source")
+    if wall_source is not None and wall_source not in ("training", "key", "seed", "manual"):
+        return Response(type="tips", success=False, message="复式牌山来源无效")
+    training = wall_source == "training"
+    if "allow_spectator" in config and type(config["allow_spectator"]) is not bool:
+        return Response(type="tips", success=False, message="allow_spectator必须为布尔值")
+    if training and config.get("duplicate_key"):
+        return Response(type="tips", success=False, message="训练牌山不能同时使用复式密钥")
+    if not training and config.get("random_seed") not in (None, "", 0, "0"):
         return Response(type="tips", success=False, message="复式双打请选择自动生成或输入已有密钥；场景复现请使用普通房间")
+    if training:
+        from ..gamestate.public.random_seed_manager import parse_user_master_seed
+        try:
+            raw_seed = config.get("random_seed")
+            if not isinstance(raw_seed, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", raw_seed):
+                raise ValueError("训练牌山需要非零的64位十六进制种子")
+            parsed_seed = parse_user_master_seed(raw_seed)
+            if not parsed_seed:
+                raise ValueError("训练牌山需要非零的64位十六进制种子")
+        except ValueError as error:
+            return Response(type="tips", success=False, message=str(error))
+        seed = format(parsed_seed, "064x")
+    else:
+        seed = secrets.token_hex(32)
     source = None
     if config.get("duplicate_key"):
         from ..database.duplicate_walls import load_duplicate_wall, validate_duplicate_wall
         source = load_duplicate_wall(manager.game_server.db_manager, config["duplicate_key"])
         validate_duplicate_wall(source, {"room_rule": "sichuan", "sub_rule": sub_rule, "event_id": event_id})
+        if wall_source is not None and wall_source != source["wall_type"]:
+            return Response(type="tips", success=False, message="所选密钥的牌山类型与来源不一致")
+        wall_source = source["wall_type"]
         count = source["round_count"]
+    elif wall_source in ("seed", "manual"):
+        return Response(type="tips", success=False, message="复现牌山和手动牌山需要对应类型的已有密钥")
+    wall_source = wall_source or "key"
+    allow_spectator = config.get("allow_spectator", True) if training else False
     layout = rule_profile(sub_rule)["wall_layout"]
-    match_id, seed = str(uuid.uuid4()), secrets.token_hex(32)
+    match_id = str(uuid.uuid4())
     rooms = {}
     try:
         for table, label in (("open", "开室"), ("closed", "闭室")):
-            room_config = dict(config, allow_spectator=False, game_round=max(1, count // 4),
+            room_config = dict(config, sub_rule=sub_rule, allow_spectator=allow_spectator, game_round=max(1, count // 4),
                                room_name=f"{config.get('room_name') or '复式双打'} · {label}")
             room_config.pop("duplicate_key", None)
             response = await manager.create_empty_event_room(event_id, "sichuan", room_config,
@@ -52,8 +82,11 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
         snapshot = new_match(match_id, sub_rule, {table: room["room_id"] for table, room in rooms.items()},
                              [board_from_tiles(tiles, n, layout=layout) for n, tiles in enumerate(source["round_tiles"], 1)] if source else
                              [make_board(seed, n, layout=layout) for n in range(1, count + 1)], seed, sync_mode=sync_mode)
+        snapshot.update(wall_source=wall_source, wall_type=wall_source, allow_spectator=allow_spectator)
         if source:
             snapshot.update(source_wall_id=source["id"], key=source["key"], wall_type=source["wall_type"])
+            if source.get("legacy_source_round_count"):
+                snapshot["legacy_source_round_count"] = source["legacy_source_round_count"]
             if source.get("seed") is not None:
                 snapshot["seed"] = source["seed"]
         store = PairedMatchStore(manager.game_server.db_manager)
@@ -62,7 +95,8 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
                         duplicate_peer_room_id=rooms["closed" if table == "open" else "open"]["room_id"],
                         duplicate_round_count=count, duplicate_scoring=snapshot["profile"]["scoring"],
                         duplicate_sync_mode=sync_mode,
-                        duplicate_status="waiting", is_duplicate=True, allow_spectator=False,
+                        duplicate_status="waiting", is_duplicate=True, allow_spectator=allow_spectator,
+                        wall_source=wall_source, duplicate_wall_type=wall_source,
                         team_by_seat=team_by_seat(table), roster_revision=0)
             room["duplicate_lobby_room_id"] = rooms["open"]["room_id"]
         snapshot["lobby"] = dict(version=1, name=config.get("room_name") or "复式双打", revision=0,
@@ -70,8 +104,9 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
         snapshot["room_snapshots"] = deepcopy(rooms)
         snapshot["room_password"] = password
         store.create(snapshot, event_id=event_id, owner_id=created_by or 0, name=config.get("room_name") or "复式双打")
-        for room in rooms.values():
-            room["duplicate_key"] = snapshot["key"]
+        if not training:
+            for room in rooms.values():
+                room["duplicate_key"] = snapshot["key"]
         manager.game_server.gamestate_manager.sichuan_duplicate_matches[match_id] = PairedMatch(snapshot, store.save)
     except BaseException:
         # Neither room has been published yet. Roll back both in-memory rooms.
@@ -151,7 +186,7 @@ async def request_start(manager, room, connection_id, lobby_revision=None):
                     raise ValueError("有真人的房间，其房主须在线")
                 if pair.data["completed_boards"] and get_seats(other) != [m["user_id"] for m in pair.data["members"][t]]:
                     raise ValueError("续赛须由原阵容按原座位入座")
-                if not other.get("duplicate_game_id"):
+                if pair.data.get("wall_source") != "training" and not other.get("duplicate_game_id"):
                     other["duplicate_game_id"] = reserve_duplicate_game(manager.game_server.db_manager, pair.data["wall_id"])
                 error = await manager.start_game(None if bot_table else host_connection.Connect_id, other["room_id"], roster_revision=other["roster_revision"], _paired_prepare=True)
                 if error is not None:
@@ -279,9 +314,14 @@ def restore_pairs(server):
             room = deepcopy(saved)
             room.update(instance_id=str(uuid.uuid4()), player_list=[], seat_list=[-1]*4,
                         ready_list=[], host_user_id=None, player_settings={}, is_game_running=False,
-                        duplicate_key=snapshot["key"], duplicate_status=pair.data["status"],
+                        duplicate_status=pair.data["status"],
                         duplicate_sync_mode=pair.synchronous, duplicate_progress=pair.public_info(table))
             room.pop("active_gamestate_id", None)
+            if snapshot.get("wall_source") == "training":
+                room.pop("duplicate_key", None)
+                room.pop("duplicate_game_id", None)
+            else:
+                room["duplicate_key"] = snapshot["key"]
             room["roster_revision"] = room.get("roster_revision", 0) + 1
             server.room_manager.rooms[room["room_id"]] = room
             if snapshot.get("room_password"):

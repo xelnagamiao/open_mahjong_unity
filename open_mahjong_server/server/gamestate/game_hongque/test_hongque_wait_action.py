@@ -42,8 +42,9 @@ def test_last_tile_kong_cannot_leave_onlycut_without_an_action(supplements, wall
             await state.submit_action(player.user_id, "kong", candidate_id=candidate["id"])
         assert player.hand == ["AX4"]
         actions, candidates = state._legal_turn_actions(player)
-        assert actions == ["discard"]
-        assert candidates == []
+        assert actions == ["discard", "win"]
+        assert len(candidates) == 1 and candidates[0]["kind"] == "win"
+        assert candidates[0]["kong_steps"]
         await state.cleanup_game_state()
 
     asyncio.run(exercise())

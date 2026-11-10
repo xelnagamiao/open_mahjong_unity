@@ -6,22 +6,27 @@ class DuplicateFinished(Exception):
     """Normal duplicate lifecycle completion, never a failed game."""
 
 
+def uses_duplicate_wall(state):
+    return bool(getattr(state, "duplicate_key", None) or getattr(state, "duplicate_match", None))
+
+
 def duplicate_fields(state):
-    if not getattr(state, "duplicate_key", None):
+    if not uses_duplicate_wall(state):
         return {}
     return {"is_duplicate": True, "duplicate_wall_type": state.duplicate_wall_type,
-            "duplicate_round_count": getattr(state, "duplicate_round_count", 1)}
+            "duplicate_round_count": getattr(state, "duplicate_round_count", 1),
+            **({"wall_source": state.wall_source} if hasattr(state, "wall_source") else {})}
 
 
 def duplicate_match_complete(state):
-    total = getattr(state, "duplicate_round_count", 1) if getattr(state, "duplicate_key", None) else state.max_round * len(state.player_list)
+    total = getattr(state, "duplicate_round_count", 1) if uses_duplicate_wall(state) else state.max_round * len(state.player_list)
     return state.current_round >= total
 
 
 def duplicate_remaining_tile_counts(state):
     """Public count snapshot in original-seat order, without exposing wall tiles."""
     wall = getattr(state, "tiles_list", None)
-    if not getattr(state, "duplicate_key", None) or not (isinstance(wall, DuplicateWall) or hasattr(wall, "remaining_counts")):
+    if not uses_duplicate_wall(state) or not (isinstance(wall, DuplicateWall) or hasattr(wall, "remaining_counts")):
         return None
     return [len(part) for part in wall.parts]
 

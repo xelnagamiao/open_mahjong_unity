@@ -81,6 +81,9 @@ def record_game_metrics(db_manager, game_id, game_record, player_list, scene, *,
     from .statistics_catalog import resolve_statistics_identity, BY_SUB_RULE
     from .riichi.record_stats import resolve_original_index
     title = game_record.get("game_title") or {}
+    from .duplicate_walls import is_training_duplicate_record
+    if is_training_duplicate_record(title):
+        return
     rule, sub_rule = resolve_statistics_identity(scene.get("rule"), scene.get("sub_rule"), title, scene.get("match_type"))
     if not BY_SUB_RULE.get(sub_rule, {}).get("basic_stats"):
         return

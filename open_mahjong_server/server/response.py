@@ -64,6 +64,7 @@ class PlayerInfo(BaseModel):
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
+    wall_source: Optional[str] = None
     unlimited_rounds: bool = False
     unlimited_info: Optional[dict] = None
     washizu_doubles: Optional[dict] = None
@@ -435,6 +436,7 @@ class Player_final_data(BaseModel):
     score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
+    wall_source: Optional[str] = None
     sichuan_match: Optional[dict] = None
     duplicate_match: Optional[dict] = None
     team_result: Optional[dict] = None

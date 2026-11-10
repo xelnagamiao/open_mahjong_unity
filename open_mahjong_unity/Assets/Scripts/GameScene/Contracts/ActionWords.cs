@@ -32,12 +32,19 @@ public readonly struct ActionCandidate {
     public readonly int[] TileIds;
     public readonly int TargetTile;
     public readonly string Caption;
+    public readonly int[][] TileGroups;
+    public readonly string Details;
+    public readonly string TextContext;
 
-    public ActionCandidate(string actionType, int[] tileIds, int targetTile = 0, string caption = null) {
+    public ActionCandidate(string actionType, int[] tileIds, int targetTile = 0, string caption = null, int[][] tileGroups = null,
+        string details = null, string textContext = null) {
         TargetTile = targetTile;
         Caption = caption;
         ActionType = actionType;
         TileIds = tileIds ?? Array.Empty<int>();
+        TileGroups = tileGroups;
+        Details = details;
+        TextContext = textContext;
     }
 }
 

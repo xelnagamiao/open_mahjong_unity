@@ -13,4 +13,6 @@ public enum HepaiWinTilePresentMode {
     SichuanRonSingleToBuhua,
     /// <summary>四川血战·一炮多响：河牌分裂，每家补花区 1 张变暗亮面。</summary>
     SichuanRonMultiToBuhua,
+    /// <summary>摸入张已加入副露：只摊开实际剩余手牌，不生成新的独立和牌张。</summary>
+    WholeHandReveal,
 }

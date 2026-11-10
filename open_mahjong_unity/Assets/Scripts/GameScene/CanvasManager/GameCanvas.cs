@@ -37,6 +37,8 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private Transform ExtraActionButton; // 场景常驻槽；当前仅供虹雀“补牌”使用
     [SerializeField] private Transform DedicatedActionButtonContainer; // 独立布局容器；清单 UsesDedicatedActionButtonContainer 时使用
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
+    [SerializeField] private ActionChoicePanel actionChoicePanel;
+    public ActionChoicePanel ChoicePanel => actionChoicePanel;
 
     [Header("本家状态标记槽（族按槽名点亮，见 SetSelfStatusIndicator）")]
     [SerializeField] private GameObject selfFuritenIndicator;     // 槽 furiten：振听（日麻）
@@ -574,6 +576,8 @@ public partial class GameCanvas : MonoBehaviour {
 
     public void ClearActionButton() {
         ActionBlockContainerState = "None";
+        actionChoicePanel?.Hide();
+        ActionBlockContenter.GetComponent<UpwardPopupLayout>()?.ClearVirtualActions();
         foreach (Transform child in ActionBlockContenter){
             Destroy(child.gameObject);
         }

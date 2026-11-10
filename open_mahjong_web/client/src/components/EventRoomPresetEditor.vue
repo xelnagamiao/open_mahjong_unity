@@ -22,29 +22,31 @@
       <p class="preset-help">{{ selectedKey === 'default' ? '用于手动组桌和自动匹配。' : '保存后可在组桌和自动匹配中选择。' }}修改仅影响后续新桌。</p>
       <el-alert v-if="remoteChanged || conflict" title="已保存的设置发生更新，当前草稿仍保留。请核对后再保存，或取消修改以载入最新设置。" type="warning" :closable="false" class="preset-notice" />
       <el-alert v-if="sourceMissing" title="该预设已被删除，草稿仍保留。请选择其他配置，或复制内容后新建预设。" type="warning" :closable="false" class="preset-notice" />
+      <EventRoomFieldsLayout>
       <div v-if="selectedKey !== 'default' || form.room_rule !== 'guobiao'" class="preset-top-fields">
-        <el-form-item v-if="selectedKey !== 'default'" label="预设名称" required class="preset-name-field">
+        <el-form-item v-if="selectedKey !== 'default'" label="预设名称" required class="room-preset-name-field">
           <el-input v-model="draftName" maxlength="40" show-word-limit placeholder="例如：小组赛 · 东南战" />
         </el-form-item>
-        <el-form-item v-if="form.room_rule !== 'guobiao'" label="规则">
+        <el-form-item v-if="form.room_rule !== 'guobiao'" label="规则" class="room-rule-field">
           <el-select v-model="form.room_rule" @change="changeEventRoomRule(form, $event)">
             <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.room_rule !== 'guobiao'" label="房间名" class="preset-room-name-field">
+        <el-form-item v-if="form.room_rule !== 'guobiao'" label="房间名" class="room-name-field">
           <el-input v-model="form.room_name" clearable placeholder="可选，留空自动命名" />
         </el-form-item>
       </div>
-      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" panel-layout>
+      <EventRoomFixedSubRuleField :form="form" />
+      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false">
         <template #before-sub-rule>
-          <el-form-item label="规则">
+          <el-form-item label="规则" class="room-rule-field">
             <el-select v-model="form.room_rule" @change="changeEventRoomRule(form, $event)">
               <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
             </el-select>
           </el-form-item>
         </template>
         <template #after-sub-rule>
-          <el-form-item label="房间名" class="preset-room-name-field">
+          <el-form-item label="房间名" class="room-name-field">
             <el-input v-model="form.room_name" clearable placeholder="可选，留空自动命名" />
           </el-form-item>
         </template>
@@ -75,6 +77,7 @@
       <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" />
       <RoomTimerFields v-else :form="form" />
       <EventRoomSupplementFields :form="form" :show-password="false" />
+      </EventRoomFieldsLayout>
       <div class="preset-form-actions">
         <el-button type="primary" :loading="busy" :disabled="!loaded || sourceMissing || (!dirty && selectedKey !== 'new')" @click="save">保存配置</el-button>
         <el-button :disabled="busy" @click="cancel">取消修改</el-button>
@@ -88,6 +91,8 @@
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import EventRoomSupplementFields from '@/components/EventRoomSupplementFields.vue'
+import EventRoomFieldsLayout from '@/components/EventRoomFieldsLayout.vue'
+import EventRoomFixedSubRuleField from '@/components/EventRoomFixedSubRuleField.vue'
 import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -222,16 +227,13 @@ defineExpose({ canDiscard, resetDraft, dirty })
 .preset-form-heading + .preset-help { margin-top: 5px; }
 .preset-notice { margin-bottom: 12px; }
 .preset-top-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
-.preset-name-field { grid-column: 1 / -1; }
-.preset-top-fields > .preset-room-name-field { grid-column: span 2; }
 .preset-form :deep(.el-form-item) { margin-bottom: 12px; }
+.preset-form :deep(.event-room-fields .el-form-item) { margin-bottom: 0; }
 .preset-form :deep(.el-select), .preset-form :deep(.el-input), .preset-form :deep(.el-input-number) { width: 100% !important; }
 .preset-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #ebeef5; }
 .preset-form-actions :deep(.el-button) { margin-left: 0; }
 .preset-form-actions .preset-help { margin: 0; }
 @container (max-width: 620px) {
   .preset-top-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .preset-room-name-field { grid-column: 1 / -1; }
-  .preset-top-fields > .preset-room-name-field { grid-column: 1 / -1; }
 }
 </style>

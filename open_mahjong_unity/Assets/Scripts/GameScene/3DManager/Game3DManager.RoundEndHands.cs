@@ -45,6 +45,11 @@ public partial class Game3DManager {
             RecycleRobbedAddedKongSource(request);
         }
         switch (request.WinTileMode) {
+            case HepaiWinTilePresentMode.WholeHandReveal:
+                LayRoundEndClosedFaceHandAtPosition(pos, hand);
+                request.OnHandReady?.Invoke();
+                yield return new WaitForSeconds(HepaiRevealTiming.TravelSeconds);
+                break;
             case HepaiWinTilePresentMode.TsumoTravel:
                 yield return CoTsumoTravelReveal(pos, panel, closed, winTileId, request.OnHandReady);
                 break;
@@ -185,7 +190,8 @@ public partial class Game3DManager {
         if (request.IsCuoheRon) return false;
         // A rule can use an instant reveal when no river/committed kong source exists.
         // Keep the existing TsumoTravel draw-slot path for ordinary expanded replay.
-        if (request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) return false;
+        if (request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause
+            || request.WinTileMode == HepaiWinTilePresentMode.WholeHandReveal) return false;
         return HepaiRevealDirector.RonWinTileTravelsFromRiver(request.RecordRule);
     }
     /// <summary>

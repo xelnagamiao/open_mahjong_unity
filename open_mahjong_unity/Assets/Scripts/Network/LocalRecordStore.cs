@@ -117,11 +117,13 @@ public static class LocalRecordStore {
     }
 
     private static bool IsDuplicateRecord(RecordDetail detail) {
-        if (detail.is_duplicate || !string.IsNullOrEmpty(detail.duplicate_key)) return true;
-        if (!detail.record.TryGetValue("game_title", out object rawTitle) || rawTitle == null) return false;
+        if (!string.IsNullOrEmpty(detail.duplicate_key)) return true;
+        if (!detail.record.TryGetValue("game_title", out object rawTitle) || rawTitle == null) return detail.is_duplicate;
         JObject title = rawTitle as JObject ?? JObject.FromObject(rawTitle);
-        return title.Value<bool?>("is_duplicate") == true
-            || !string.IsNullOrEmpty(title.Value<string>("duplicate_key"));
+        if (!string.IsNullOrEmpty(title.Value<string>("duplicate_key"))) return true;
+        if (title.Value<string>("wall_source") == "training"
+            && SichuanLobby.IsDuplicate(title.Value<string>("sub_rule"))) return false;
+        return detail.is_duplicate || title.Value<bool?>("is_duplicate") == true;
     }
 
     public static List<RecordInfo> ListAll() {

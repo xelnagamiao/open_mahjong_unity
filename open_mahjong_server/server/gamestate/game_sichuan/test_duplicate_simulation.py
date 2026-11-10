@@ -20,13 +20,16 @@ from ...game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, XUELIU_DU
 @pytest.mark.parametrize("sub,cls", [(SBR_DUPLICATE,SbrDuplicateGameState),(XUELIU_DUPLICATE,XueliuDuplicateGameState)])
 @pytest.mark.parametrize("seed", [1807, 2409])
 @pytest.mark.parametrize("sync_mode", [False, True])
+@pytest.mark.parametrize("training", [False, True])
 @run_async
-async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode):
+async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode, training):
     messages = []
     db = build_db_manager()
     db.store_sichuan_game_record.return_value = None
     server = build_game_server(db, messages=messages)
-    data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed,n) for n in (1,2)],str(seed),sync_mode=sync_mode)
+    seed_text=format(seed,'064x') if training else str(seed)
+    data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed_text,n) for n in (1,2)],seed_text,sync_mode=sync_mode)
+    if training: data.update(wall_source='training',wall_type='training',wall_id=None)
     data["status"] = "running"
     pair = PairedMatch(data, lambda *_: None)
     server.gamestate_manager.sichuan_duplicate_matches = {"test-pair":pair}
@@ -38,6 +41,9 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode):
                     player_settings={uid:{"username":f"P{uid}"} for uid in ids},
                     team_by_seat=team_by_seat(table),duplicate_match_id="test-pair",
                     duplicate_table=table,duplicate_key="test-duplicate-key",duplicate_game_id=table+"game-id")
+        if training:
+            room.pop('duplicate_key');room.pop('duplicate_game_id')
+            room.update(wall_source='training',allow_spectator=True)
         state = cls(server,room,server.calculation_service,db,table)
         states.append(state)
         server.gamestate_manager.gamestate_id_to_game_state[table] = state
@@ -107,6 +113,9 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode):
             recovered=SimpleNamespace(duplicate_match=PairedMatch(snapshot,lambda *_:None),duplicate_table=s.duplicate_table,
                 player_list=[SimpleNamespace(**p,record_counter=SimpleNamespace(rank_result=0)) for p in checkpoint['players']])
             DuplicateMixin._finish_team_match(recovered)
+            if training:
+                from ..public.match_result import attach_match_result
+                attach_match_result(recovered.game_record,recovered.player_list)
             assert json.loads(json.dumps(recovered.game_record,default=str))==json.loads(json.dumps(s.game_record,default=str))
             assert s.game_record['game_title']['duplicate_profile']['sub_rule'] == sub
             assert all(tick[2] == 'dw' for r in s.game_record['game_round'].values() for tick in r['action_ticks'] if tick[0] in ('d','gd'))
@@ -121,7 +130,17 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode):
         assert all('duplicate_key' not in str(m) and 'duplicate_boards' not in str(m) for m in live)
         ends = [m['message']['game_end_info'] for m in messages if m.get('type','').endswith('game_end')]
         assert len(ends) == 8, 'all eight clients must receive the serialized final result'
-        assert all('master_seed' not in e and 'salt' not in e and 'record_detail' not in e for e in ends)
+        if training:
+            assert all(int(e['master_seed'])==seed and e['duplicate_wall_type']=='training' and e.get('record_detail') for e in ends)
+            for state in states:
+                title=state.game_record['game_title']
+                assert title['duplicate_seed']==seed_text and 'duplicate_key' not in title
+                spectator=state.spectator_manager._build_full_record()
+                assert spectator['game_title']['wall_source']=='training'
+                assert spectator['duplicate_match']['status']=='completed'
+                assert spectator['game_round']['round_index_1']['duplicate_walls']
+        else:
+            assert all('master_seed' not in e and 'salt' not in e and 'record_detail' not in e for e in ends)
         assert all(e['duplicate_match']['status'] == 'completed' for e in ends)
         for end in ends:
             for key in ('small_scores', 'imp_scores'):

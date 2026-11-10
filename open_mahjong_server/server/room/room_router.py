@@ -519,6 +519,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         duplicate_key=message.get("duplicate_key", ""),
         duplicate_round_count=message.get("duplicate_round_count"),
         duplicate_sync_mode=message.get("duplicate_sync_mode", False),
+        wall_source=message.get("wall_source"),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

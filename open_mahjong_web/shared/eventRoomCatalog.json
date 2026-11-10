@@ -89,14 +89,6 @@
   },
   "rules": [
     {
-      "value": "singapore",
-      "label": "新加坡麻将"
-    },
-    {
-      "value": "jiujiang",
-      "label": "九江麻将"
-    },
-    {
       "value": "guobiao",
       "label": "国标"
     },
@@ -107,10 +99,6 @@
     {
       "value": "qingque",
       "label": "青雀"
-    },
-    {
-      "value": "classical",
-      "label": "古典"
     },
     {
       "value": "sichuan",
@@ -125,12 +113,16 @@
       "label": "台湾麻将"
     },
     {
+      "value": "classical",
+      "label": "古典"
+    },
+    {
       "value": "hongkong",
       "label": "香港麻将"
     },
     {
-      "value": "guangdong",
-      "label": "广东麻将"
+      "value": "hongque",
+      "label": "虹雀"
     },
     {
       "value": "guizhou",
@@ -141,6 +133,34 @@
       "label": "宜兴麻将"
     },
     {
+      "value": "shanxi",
+      "label": "山西麻将"
+    },
+    {
+      "value": "hangzhou",
+      "label": "杭州麻将"
+    },
+    {
+      "value": "hongzhong",
+      "label": "红中麻将"
+    },
+    {
+      "value": "guangdong",
+      "label": "广东麻将"
+    },
+    {
+      "value": "changchun",
+      "label": "长春麻将"
+    },
+    {
+      "value": "jiujiang",
+      "label": "九江麻将"
+    },
+    {
+      "value": "nanjing",
+      "label": "南京麻将"
+    },
+    {
       "value": "malaysia",
       "label": "马来西亚三人麻将"
     },
@@ -149,12 +169,8 @@
       "label": "沈阳麻将"
     },
     {
-      "value": "nanjing",
-      "label": "南京麻将"
-    },
-    {
-      "value": "fuzhou",
-      "label": "福州麻将"
+      "value": "wenzhou",
+      "label": "温州麻将"
     },
     {
       "value": "wuhan",
@@ -169,36 +185,20 @@
       "label": "上饶麻将"
     },
     {
-      "value": "hongque",
-      "label": "虹雀"
+      "value": "duocai",
+      "label": "夺彩麻将"
     },
     {
       "value": "beijing",
       "label": "北京麻将（吃碰提）"
     },
     {
-      "value": "duocai",
-      "label": "夺彩麻将"
+      "value": "fuzhou",
+      "label": "福州麻将"
     },
     {
-      "value": "shanxi",
-      "label": "山西麻将"
-    },
-    {
-      "value": "wenzhou",
-      "label": "温州麻将"
-    },
-    {
-      "value": "hangzhou",
-      "label": "杭州麻将"
-    },
-    {
-      "value": "hongzhong",
-      "label": "红中麻将"
-    },
-    {
-      "value": "changchun",
-      "label": "长春麻将"
+      "value": "singapore",
+      "label": "新加坡麻将"
     }
   ]
 }

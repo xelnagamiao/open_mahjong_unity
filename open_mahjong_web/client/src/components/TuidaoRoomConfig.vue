@@ -1,6 +1,6 @@
 <template>
   <div class="tuidao-settings">
-    <el-form-item label="子规则">
+    <el-form-item label="子规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule"><el-option v-for="profile in guangdongProfiles" :key="profile.value" :label="profile.label" :value="profile.value" /></el-select>
     </el-form-item>
     <p class="source">{{ selectedProfile.description }}</p>

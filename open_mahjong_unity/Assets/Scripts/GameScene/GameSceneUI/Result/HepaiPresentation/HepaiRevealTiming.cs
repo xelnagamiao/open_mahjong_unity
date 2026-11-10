@@ -13,4 +13,10 @@ public static class HepaiRevealTiming {
 
     /// <summary>牌谱展开明牌：和牌 display 后等待再弹出结算面板。</summary>
     public const float RecordShowCardsPanelDelaySeconds = 1f;
+
+    /// <summary>虹雀末次杠宣言到和牌宣言的最短间隔，与杠牌三段动画总时长一致。</summary>
+    public const float HongqueKongDeclarationIntervalSeconds = 0.64f;
+
+    /// <summary>虹雀空手和没有倒牌动画，宣言后仍保留可辨认的停顿。</summary>
+    public const float HongqueEmptyHandDeclarationHoldSeconds = 1f;
 }

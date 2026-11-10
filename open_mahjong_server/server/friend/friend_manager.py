@@ -216,7 +216,8 @@ class FriendManager:
                 success=False,
                 message="对方当前不在游戏中",
             )
-        if getattr(game_state, "duplicate_key", None):
+        from ..gamestate.public.spectator_rules import duplicate_spectator_blocked
+        if duplicate_spectator_blocked(game_state):
             return Response(type="friend/realtime_request_result", success=False, message="复式对局不开放实时观战")
         player_index = self._find_player_index(game_state, target_user_id)
         if player_index is None:
@@ -445,7 +446,8 @@ class FriendManager:
                 realtime_request_id=request_id,
             )
 
-        if getattr(game_state, "duplicate_key", None):
+        from ..gamestate.public.spectator_rules import duplicate_spectator_blocked
+        if duplicate_spectator_blocked(game_state):
             return Response(type="friend/realtime_request_respond_result", success=False,
                             message="复式对局不开放实时观战", realtime_request_id=request_id)
         spectators_list: List[RealtimeSpectator] = getattr(

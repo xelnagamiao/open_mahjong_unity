@@ -13,17 +13,20 @@ class DuplicateMixin:
         self.duplicate_match = game_server.gamestate_manager.sichuan_duplicate_matches[room_data["duplicate_match_id"]]
         self.duplicate_table = room_data["duplicate_table"]
         self.duplicate_match.states[self.duplicate_table] = self
-        self.duplicate_key = room_data["duplicate_key"]
+        self.duplicate_key = room_data.get("duplicate_key")
+        self.wall_source = self.duplicate_match.data.get("wall_source", self.duplicate_match.data.get("wall_type", "key"))
         self.duplicate_wall_type = self.duplicate_match.data.get("wall_type", "key")
         self.duplicate_round_count = self.duplicate_match.data["planned_boards"]
         self._duplicate_seed = self.duplicate_match.data["seed"]
+        if self.wall_source == "training":
+            self.room_random_seed = int(self._duplicate_seed, 16)
         self._duplicate_round_tiles = [flatten_board(board) for board in self.duplicate_match.data["boards"]]
         self._duplicate_tiles = self._duplicate_round_tiles[0]
-        self._duplicate_game_id = room_data["duplicate_game_id"]
+        self._duplicate_game_id = room_data.get("duplicate_game_id")
         self.duplicate_adjustments = [0, 0]
         self.duplicate_last_draw = None
-        self.spectator_enabled = False
-        self.spectator_manager.enabled = False
+        self.spectator_enabled = self.spectator_enabled and self.wall_source == "training"
+        self.spectator_manager.enabled = self.spectator_enabled
 
     async def run_game_loop(self):
         await self.duplicate_match.start_gate.wait()
@@ -47,6 +50,7 @@ class DuplicateMixin:
         title["duplicate_match_id"] = self.duplicate_match.data["id"]
         title["duplicate_table"] = self.duplicate_table
         title["duplicate_sync_mode"] = self.duplicate_match.synchronous
+        title["wall_source"] = self.wall_source
         title["doubles_rule_profile"].update(self.duplicate_match.data["profile"])
 
     def _reset_round_state(self):
@@ -124,6 +128,13 @@ class DuplicateMixin:
              "original_player_index": p.original_player_index, "rank": p.record_counter.rank_result}
             for p in self.player_list]
         self.duplicate_match.save(candidate)
+
+    def complete_spectator_record(self, record):
+        # Pair totals and both-table progress live outside the generic tick log.
+        for key in ("doubles_result", "duplicate_match", "duplicate_boards"):
+            if key in self.game_record:
+                record[key] = deepcopy(self.game_record[key])
+        return record
 
     def _is_match_end(self):
         return self.duplicate_match.completed

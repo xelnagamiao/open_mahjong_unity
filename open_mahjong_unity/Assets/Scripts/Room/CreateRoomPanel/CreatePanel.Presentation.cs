@@ -73,10 +73,10 @@ public partial class CreatePanel {
         if (!roomPresentationBaked) return;
         RefreshTierPresets();
         SubRuleText.text = "子规则"; SubRuleText.gameObject.SetActive(true); SubRuleDropdown.gameObject.SetActive(true);
-        RoomFieldState(PasswordPanel, passwordInput, true, passwordToggle.isOn);
+        RoomFieldState(PasswordPanel, passwordInput, passwordToggle.isOn, passwordToggle.isOn);
         RoomFieldState(SetRandomSeedPanel, randomSeedInput, true, SetRandomSeedToggle.isOn);
         RoomFieldState(InputHepaiLimitPlane, HepaiLimitInput, InputHepaiLimitToggle.gameObject.activeSelf && !IsShanghaiQiaoma, InputHepaiLimitToggle.isOn);
-        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall || IsSichuanDuplicate,
+        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall || (IsSichuanDuplicate && !IsSichuanTraining),
             IsSichuanDuplicate || (DuplicateWallToggle && DuplicateWallToggle.isOn));
         bool cuoheVisible = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CuoheType) && CuoHeheToggle.gameObject.activeSelf;
         if (CuoheTypePanel) CuoheTypePanel.SetActive(cuoheVisible);

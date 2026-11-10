@@ -10,7 +10,8 @@ public partial class GameRecordManager {
     private readonly int[] duplicateSupplementDraws = new int[4];
 
     private bool IsDuplicateReplay => gameRecord?.gameTitle != null
-        && !string.IsNullOrEmpty(ReadGameTitleString(gameRecord.gameTitle, "duplicate_key", ""));
+        && (ReadGameTitleBool(gameRecord.gameTitle, "is_duplicate", false)
+            || !string.IsNullOrEmpty(ReadGameTitleString(gameRecord.gameTitle, "duplicate_key", "")));
 
     private bool TryGetDuplicateWallRange(int playerIndex, out int start, out int end) {
         start = end = 0;

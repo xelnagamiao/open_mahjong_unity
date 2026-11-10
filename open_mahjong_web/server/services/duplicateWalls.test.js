@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { catalog, fullWall, validateTiles, generateTiles, normalizeInput, wallDto, createDuplicateWallService } = require('./duplicateWalls');
 const { sharedSourceIsLocked } = require('./duplicateRecordAccess');
+const { createEventDuplicateWallService } = require('./eventDuplicateWalls');
 
 // Stateful transactional adapter: a queued advisory lock makes concurrent creates exercise the real service boundary.
 function memoryPool() {
@@ -56,7 +57,7 @@ function memoryPool() {
     }
     if (sql.startsWith('SELECT * FROM duplicate_walls WHERE id')) return { rows: walls.filter((r) => String(r.id) === String(params[0]) && !r.deleted_at).map((r) => ({ ...r })) };
     if (sql.startsWith('SELECT 1 FROM duplicate_games')) return { rows: linked.has(String(params[0])) ? [{}] : [] };
-    if (sql.startsWith('SELECT status, data FROM sichuan_duplicate_matches')) return { rows: pairs.has(String(params[0])) ? [pairs.get(String(params[0]))] : [] };
+    if (sql.startsWith('SELECT status, data FROM sichuan_duplicate_matches')) return { rows: pairs.has(String(params[0])) ? [pairs.get(String(params[0]))].flat() : [] };
     if (sql.startsWith('SELECT game_id FROM game_records')) return { rows: params[0].filter(id => records.has(id)).map(game_id => ({ game_id })) };
     if (sql.startsWith('UPDATE duplicate_walls')) {
       const row = walls.find((r) => String(r.id) === String(params[0]));
@@ -69,6 +70,36 @@ function memoryPool() {
   }
   return { walls, admins, linked, pairs, records, query, async connect() { const client = { release() {} }; client.query = (sql, params) => query(sql, params, client); return client; } };
 }
+test('a shared key waits for every group and every distinct table record before unlocking', async () => {
+  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const { wall } = await service.create(10, { scope: 'event', event_id: 'evt_A', wall_type: 'key', rule: 'sichuan/sbr' });
+  pool.walls[0].rule = 'sichuan/doubles_duplicate';
+  const first = { status: 'completed', data: { record_ids: { open: 'a-open', closed: 'a-closed' } } };
+  const second = { status: 'running', data: { record_ids: { open: 'b-open', closed: 'b-closed' } } };
+  pool.pairs.set(wall.id, [first, second, { status: 'cancelled', data: {} }]);
+  for (const id of ['a-open', 'a-closed', 'b-open']) pool.records.add(id);
+  await assert.rejects(service.manage(10, wall.id, { is_unlocked: true }), { status: 409 });
+  second.status = 'completed';
+  await assert.rejects(service.manage(10, wall.id, { is_unlocked: true }), { status: 409 });
+  pool.records.add('b-closed');
+  second.data.record_ids.closed = 'a-closed';
+  await assert.rejects(service.manage(10, wall.id, { is_unlocked: true }), { status: 409 });
+  second.data.record_ids.closed = 'b-closed';
+  assert.equal((await service.manage(10, wall.id, { is_unlocked: true })).wall.is_unlocked, true);
+});
+
+test('event random key audit failure rolls back the real creation transaction and quota', async () => {
+  const pool = memoryPool();
+  const walls = createDuplicateWallService(pool);
+  const service = createEventDuplicateWallService({ duplicateWalls: walls, writeAudit: async (_audit, db) => {
+    assert.equal(typeof db.query, 'function');
+    throw new Error('audit unavailable');
+  } });
+  await assert.rejects(service.create({ event_id: 'evt_A', kind: 'event', status: 'active' }, 10,
+    { rule: 'sichuan/sbr', wall_type: 'key', round_count: 8, use_flowers: false }), /audit unavailable/);
+  assert.equal(pool.walls.length, 0);
+  assert.equal((await walls.getQuota(10, 'event', 'evt_A')).created_today, 0);
+});
 
 for (const rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
   test(`${rule}: paired records remain locked until both tables and records finish`, async () => {
@@ -388,6 +419,22 @@ test('sharing native records checks current key state and denies missing keys', 
   assert.equal(await sharedSourceIsLocked(() => { throw new Error('should not need DB'); }, '[{"type":"start_game"}]'), false);
 });
 
+test('sharing a Python training export resolves cloud_game_id and verifies the complete persisted JSON', async () => {
+  const record = { game_title: { cloud_game_id: 'trainingCloud', wall_source: 'training',
+    duplicate_wall_type: 'training', is_duplicate: true, duplicate_match_id: '10000000-0000-4000-8000-000000000001',
+    duplicate_table: 'open' }, game_round: {} };
+  const queries = [];
+  const db = { async query(sql, args) {
+    queries.push({ sql, args });
+    assert.match(sql, /gr\.record = \$2::jsonb/);
+    assert.match(sql, /sichuan_duplicate_matches/);
+    return { rows: args[0] === 'trainingCloud' && args[1] === JSON.stringify(record) ? [{}] : [] };
+  } };
+  assert.equal(await sharedSourceIsLocked(db, record), false);
+  assert.deepEqual(queries[0].args, ['trainingCloud', JSON.stringify(record)]);
+  assert.equal(await sharedSourceIsLocked(db, { ...record, game_round: { injected: [] } }), true);
+});
+
 test('unlocked paired data returns both persisted score totals and per-board conversions', async () => {
   const key = `dup_${'1'.repeat(32)}`;
   const data = { profile: { scoring: 'raw_difference' }, scores: [0, 140], small_scores: [0, 140], imp_scores: [0, 8],
@@ -412,4 +459,24 @@ test('unlocked paired data returns both persisted score totals and per-board con
   assert.deepEqual(result.imp_scores, [0, 8]);
   assert.deepEqual(result.boards, data.results);
   assert.deepEqual(result.scores, [0, 140]);
+});
+
+test('shared public key returns independent match scores and records without a combined total', async () => {
+  const key = `dup_${'2'.repeat(32)}`;
+  const pairs = [1, 2].map(n => ({ id: `match-${n}`, status: 'completed', data: {
+    profile: { scoring: 'imp' }, lobby: { name: `Group ${n}` }, room_ids: { open: `${n}o`, closed: `${n}c` },
+    scores: [n, 0], small_scores: [n * 10, 0], imp_scores: [n, 0],
+    record_ids: { open: `record-${n}o`, closed: `record-${n}c` }, results: [], planned_boards: 4, completed_boards: 4,
+  } }));
+  const pool = { async query(sql) {
+    if (sql.includes('dw.is_unlocked = TRUE')) return { rows: [{ id: '1', key, rule: 'sichuan/doubles_duplicate', is_unlocked: true }] };
+    if (sql.includes('WITH matched_games')) return { rows: [] };
+    if (sql.includes('FROM sichuan_duplicate_matches')) return { rows: [...pairs, { status: 'cancelled', data: {} }] };
+    throw new Error(`Unexpected query: ${sql}`);
+  } };
+  const result = await createDuplicateWallService(pool).publicDetail(key);
+  assert.equal(result.paired_match, undefined);
+  assert.deepEqual(result.paired_matches.map(pair => pair.match_id), ['match-1', 'match-2']);
+  assert.deepEqual(result.paired_matches.map(pair => pair.scores), [[1, 0], [2, 0]]);
+  assert.deepEqual(result.paired_matches.map(pair => pair.record_ids), pairs.map(pair => pair.data.record_ids));
 });

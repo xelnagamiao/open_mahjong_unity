@@ -100,7 +100,7 @@ async def bot_turn(game_state, tick: int) -> None:
         return
     player = game_state.players[player_index]
     action = plan.get("action")
-    if game_state.game_status == "onlycut_after_action" and action == "win":
+    if action == "win" and "win" not in game_state._legal_turn_actions(player)[0]:
         if player.supplements < 2 and game_state.wall:
             action = "supplement"
         else:

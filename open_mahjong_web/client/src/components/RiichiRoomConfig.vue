@@ -1,6 +1,6 @@
 <template>
   <div class="riichi-room-config">
-    <el-form-item label="子规则">
+    <el-form-item label="子规则" class="room-sub-rule-field">
       <el-select :model-value="form.sub_rule" aria-label="立直子规则" @change="changeRiichiMode(form, $event)">
         <el-option v-for="mode in riichiModes" :key="mode.value" :label="mode.label" :value="mode.value" />
       </el-select>

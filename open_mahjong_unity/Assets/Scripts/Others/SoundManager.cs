@@ -66,7 +66,7 @@ public partial class SoundManager : MonoBehaviour {
 
         if (soundToPlay != null) {
             float volume = ConfigManager.Instance.GetVoiceVolumeRatio();
-            PlaySeatVoice(playerPosition, soundToPlay, volume);
+            PlaySeatVoice(playerPosition, soundToPlay, volume, voiceKey);
             Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");

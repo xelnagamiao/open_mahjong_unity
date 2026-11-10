@@ -4,6 +4,7 @@ import secrets
 import string
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +149,13 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         if getattr(gs, "sub_rule", None) == "guobiao/lanshi":
             from ...game_calculation.lanshi_v4 import RULE_VERSION
             title["rule_version"] = RULE_VERSION
-    if getattr(gs, "duplicate_key", None):
+    from .duplicate_wall import uses_duplicate_wall
+    if uses_duplicate_wall(gs):
         title["duplicate_rules_version"] = 2
+        if getattr(gs, "duplicate_match", None):
+            title.update(duplicate_match_id=gs.duplicate_match.data["id"], duplicate_table=gs.duplicate_table,
+                         duplicate_sync_mode=gs.duplicate_match.synchronous,
+                         duplicate_profile=deepcopy(gs.duplicate_match.data["profile"]))
     if getattr(gs, "_duplicate_game_id", None):
         title["duplicate_game_id"] = gs._duplicate_game_id
     game_instance_id = getattr(gs, 'gamestate_id', None)
@@ -178,9 +184,11 @@ def apply_game_title_end_fields(gs, title: Dict[str, Any]) -> None:
     master_seed = getattr(gs, "master_seed", None)
     if master_seed is not None and not getattr(gs, "duplicate_key", None):
         title["master_seed_hex"] = format(master_seed, "064x")
-    if getattr(gs, "duplicate_key", None):
+    from .duplicate_wall import uses_duplicate_wall
+    if uses_duplicate_wall(gs):
         # End-only fields: persisted behind the key lock, never live payloads.
-        title["duplicate_key"] = gs.duplicate_key
+        if getattr(gs, "duplicate_key", None):
+            title["duplicate_key"] = gs.duplicate_key
         title["duplicate_tiles"] = list(gs._duplicate_tiles)
         title["duplicate_round_tiles"] = [list(tiles) for tiles in getattr(gs, "_duplicate_round_tiles", (gs._duplicate_tiles,))]
         if getattr(gs, "_duplicate_seed", None) is not None and gs.duplicate_wall_type != "manual":
@@ -211,7 +219,8 @@ def build_round_header_data(gs) -> Dict[str, Any]:
             "honba": gs.honba,
             "riichi_sticks": gs.riichi_sticks,
         }
-    if getattr(gs, "duplicate_key", None):
+    from .duplicate_wall import uses_duplicate_wall
+    if uses_duplicate_wall(gs):
         round_data["duplicate_walls"] = [list(part) for part in gs.tiles_list.parts]
         if hasattr(gs.tiles_list, "common"):
             round_data["duplicate_wall_layout"] = "xueliu"

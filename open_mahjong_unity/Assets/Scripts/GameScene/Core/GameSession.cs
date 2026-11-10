@@ -59,6 +59,7 @@ public sealed class GameSession {
     public IReadOnlyList<int> SichuanTeamsByPlayerIndex { get; private set; }
 
     public string DuplicateWallType;
+    public bool IsTrainingDuplicate => IsDuplicate && DuplicateWallType == "training";
 
     // ---- 座位 / 时间 ----
     /// <summary>自身 player_index：0 东 1 南 2 西 3 北。</summary>

@@ -45,6 +45,7 @@ public static class MainSceneUiBaker {
         RoundPanelUiBaker.Bake(scene);
         ReplayControlsBaker.Bake(scene);
         TableHudClarityBaker.Bake(scene);
+        ActionChoicePanelBaker.Bake(scene);
         HomepageLocalizationBaker.BakePrefabs(scene);
         HomepageLocalizationBaker.Bake(scene);
         PlatformEnglishLayoutBaker.Bake(scene);
@@ -93,6 +94,7 @@ public static class MainSceneUiBaker {
         RoomMatchPageLayoutBaker.Validate(scene);
         MatchDetailUiBaker.Validate(scene);
         ReplayControlsBaker.Validate(scene);
+        ActionChoicePanelBaker.Validate(scene);
         EventContentUiBaker.Validate(scene);
         EventVenuePresentationBaker.Validate(scene);
         VenueListPolishBaker.Validate(scene);
@@ -149,7 +151,7 @@ public sealed class MainSceneUiBuildCheck : IProcessSceneWithReport {
     public int callbackOrder => 1;
     public void OnProcessScene(Scene scene, BuildReport report) {
         // Play Mode has already initialized the UI; authored inactive-state checks apply to player builds.
-        if (report == null || scene.path == "Assets/AndroidUpdate/AndroidBootstrap.unity") return;
+        if ((report == null && !AndroidContentBuild.BuildingContentBundles) || scene.path == "Assets/AndroidUpdate/AndroidBootstrap.unity") return;
         try { RuleSupportTableBaker.Bake(scene); MainSceneUiBaker.Validate(scene); }
         catch (Exception error) { throw new BuildFailedException(error.Message); }
     }

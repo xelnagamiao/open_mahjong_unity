@@ -9,6 +9,21 @@ public partial class GameCanvas{
     private const float GangScoreFloatHoldSeconds = 1f;
     private const float GangScoreFloatFadeSeconds = 0.5f;
     private const float GangScoreFloatYOffset = -42f;
+
+    internal bool IsActionDisplayVisible(string playerPosition, string actionType, string roomRule = null) {
+        Transform displayPos = playerPosition == "self" ? SelfActionDisplayPos
+            : playerPosition == "left" ? LeftActionDisplayPos
+            : playerPosition == "right" ? RightActionDisplayPos
+            : playerPosition == "top" ? TopActionDisplayPos : null;
+        if (displayPos == null || !displayPos.gameObject.activeInHierarchy) return false;
+        string caption = GetActionDisplayText(actionType, roomRule);
+        foreach (Transform child in displayPos) {
+            TMP_Text text = child.GetComponent<TMP_Text>();
+            if (child.gameObject.activeInHierarchy && text != null && text.text == caption) return true;
+        }
+        return false;
+    }
+
     // 显示操作文本
     public void ShowActionDisplay(string playerPosition, string actionType, string roomRule = null) {
         Transform displayPos = null;

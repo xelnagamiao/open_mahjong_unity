@@ -9,8 +9,8 @@
         <el-switch v-else v-model="form[key]" :aria-label="eventFieldDefinitions[key].label" :disabled="key === 'allow_spectator' && keyBound" @change="value => changed(key, value)" />
       </el-form-item>
     </template>
-    <el-form-item label="场景复现"><el-switch v-model="form.scene_reproduction" aria-label="场景复现" :disabled="keyBound" /><span v-if="keyBound" class="mode-help">复式房间禁用场景复现与观战。</span></el-form-item>
-    <el-form-item v-if="form.scene_reproduction" label="随机种子" class="seed-field"><el-input v-model="form.random_seed" maxlength="66" placeholder="64位十六进制随机种子" aria-label="随机种子" /><span>按随机种子复现，允许观战开关独立生效。</span></el-form-item>
+    <el-form-item v-if="!paired" label="场景复现"><el-switch v-model="form.scene_reproduction" aria-label="场景复现" :disabled="keyBound" /><span v-if="keyBound" class="mode-help">复式房间禁用场景复现与观战。</span></el-form-item>
+    <el-form-item v-if="!paired && form.scene_reproduction" label="随机种子" class="seed-field"><el-input v-model="form.random_seed" maxlength="66" placeholder="64位十六进制随机种子" aria-label="随机种子" /><span>按随机种子复现，允许观战开关独立生效。</span></el-form-item>
   </div>
   <TaiwanRoomDetails v-if="form.room_rule === 'taiwan'" :form="form" />
 </template>
@@ -18,16 +18,18 @@
 import { computed, watch } from 'vue'
 import { duplicateRoomActive, eventFieldDefinitions, jinluoWeathers, supplementFields } from '@/utils/eventRoomExtensions.js'
 import TaiwanRoomDetails from '@/components/TaiwanRoomDetails.vue'
+import { isPairedRoom, isTrainingWall } from '@/utils/sichuanWallSource.js'
 const props = defineProps({ form: { type: Object, required: true }, showPassword: { type: Boolean, default: true } })
 const keys = computed(() => supplementFields(props.form.room_rule))
-const keyBound = computed(() => duplicateRoomActive(props.form))
+const paired = computed(() => isPairedRoom(props.form))
+const keyBound = computed(() => duplicateRoomActive(props.form) && !isTrainingWall(props.form))
 let spectatorBeforeDuplicate = true
 watch(keyBound, (active, previous) => {
   if (active) {
     spectatorBeforeDuplicate = props.form.allow_spectator !== false
     props.form.allow_spectator = false
     props.form.scene_reproduction = false
-  } else if (previous) props.form.allow_spectator = spectatorBeforeDuplicate
+  } else if (previous && !paired.value) props.form.allow_spectator = spectatorBeforeDuplicate
 }, { immediate:true, flush:'sync' })
 function visible(key) {
   if (key === 'password') return props.showPassword

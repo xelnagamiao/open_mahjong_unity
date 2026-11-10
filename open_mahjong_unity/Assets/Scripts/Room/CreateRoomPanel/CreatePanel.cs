@@ -117,7 +117,7 @@ public partial class CreatePanel : MonoBehaviour {
     private bool SupportsDuplicateWall => _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
         && !GuobiaoGameState.IsTransparentSubRule(GetSelectedSubRule())
         && !GuobiaoGameState.UsesAsyncLocalTips(GetSelectedSubRule());
-    private string SelectedDuplicateKey => IsSichuanDuplicate || (SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn)
+    private string SelectedDuplicateKey => !IsSichuanTraining && (IsSichuanDuplicate || (SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn))
         ? DuplicateKeyInput?.text.Trim() ?? "" : "";
 
     [Header("按钮")]
@@ -244,6 +244,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     public void ResetSessionCaches() {
         contextDrafts.Clear();
+        ResetSichuanWallSource();
         _roomNameBoundUserId = int.MinValue;
         _lastDefaultRoomName = null;
         if (roomNameInput != null) roomNameInput.text = "";
@@ -622,8 +623,8 @@ public partial class CreatePanel : MonoBehaviour {
             }
         }
         if (AllowSpectatorToggle != null) {
-            AllowSpectatorToggle.interactable = !enabled;
-            if (enabled) AllowSpectatorToggle.isOn = false;
+            AllowSpectatorToggle.interactable = !enabled || IsSichuanTraining;
+            if (enabled && !IsSichuanTraining) AllowSpectatorToggle.isOn = false;
         }
         foreach (Toggle round in new[] { gameTime1Button, gameTime2Button, gameTime3Button, gameTime4Button }) {
             if (round != null) round.interactable = !enabled;

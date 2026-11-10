@@ -64,7 +64,7 @@
       <p class="muted">当前筛选共 {{ filteredItems.length }} 个房间。默认显示大厅房间，可切换房间范围查看赛事或基地房间。</p>
       <p class="muted">赛事、基地及管理员创建的房间允许保留空房，玩家创建的大厅房间无人后自动解散。</p>
     </el-card>
-    <VenueRoomDialog v-model="createVisible" :form="form" :loading="creating" :room-rule-options="roomRuleOptions" :show-auto-duplicate="Boolean(selectedVenue)" :allow-paired="Boolean(selectedVenue)" :load-duplicate-quota="loadDuplicateQuota" show-reason @confirm="createRoom">
+    <VenueRoomDialog v-model="createVisible" :form="form" :loading="creating" :room-rule-options="roomRuleOptions" :show-auto-duplicate="Boolean(selectedVenue)" :allow-paired="Boolean(selectedVenue)" :load-duplicate-quota="loadDuplicateQuota" :generate-duplicate-key="generateDuplicateKey" show-reason @confirm="createRoom">
       <template #before-settings>
         <el-form-item label="房间所属">
           <el-select v-model="venueId" filterable placeholder="大厅房间" style="width: 100%" aria-label="房间所属">
@@ -83,7 +83,7 @@ import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
-import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
+import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import { formatRule, formatSubRule } from '@/utils/gameMeta'
 
 const items = ref([])
@@ -156,16 +156,22 @@ async function openCreate() {
   } catch { ElMessage.error('获取赛事和基地列表失败，可稍后重新打开') }
 }
 
-async function createRoom() {
+async function generateDuplicateKey(payload) {
+  if (!selectedVenue.value) throw new Error('请选择赛事或基地')
+  const response = await adminApi.post(`/events/${encodeURIComponent(venueId.value)}/duplicate-walls`, { ...payload, reason: form.reason.trim() })
+  return { ...response.data.data.wall, quota: response.data.data.quota }
+}
+
+async function createRoom(payload) {
   if (!form.reason.trim()) { ElMessage.warning('请填写操作原因'); return }
-  const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule)
+  const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(payload.room_config?.sub_rule)
   if (paired && !selectedVenue.value) {
     ElMessage.warning('复式双打请选择赛事或基地创建'); return
   }
   creating.value = true
   try {
     const response = await adminApi.post('/room-control/create', {
-      ...buildEventRoomCreation(form), event_id: venueId.value || undefined, reason: form.reason.trim(),
+      ...payload, event_id: venueId.value || undefined, reason: form.reason.trim(),
     })
     ElMessage.success(`已创建 ${response.data.data.created_count} ${paired ? '个八人复式房间' : '个房间'}`)
     createVisible.value = false

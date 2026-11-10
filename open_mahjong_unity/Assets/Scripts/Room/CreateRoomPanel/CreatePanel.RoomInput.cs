@@ -7,7 +7,8 @@ public partial class CreatePanel {
     internal RoomCreationInput CaptureRoomCreationInput() {
         return new RoomCreationInput {
             Rule = _ruleState, SubRule = GetSelectedSubRule(), RoomName = roomNameInput.text.Trim(),
-            Password = passwordInput.text.Trim(), RandomSeed = randomSeedInput.text.Trim(), EventId = _venueEventId,
+            Password = passwordInput.text.Trim(), RandomSeed = IsSichuanTraining ? SichuanTrainingSeedInput.text.Trim() : randomSeedInput.text.Trim(), EventId = _venueEventId,
+            WallSource = IsSichuanDuplicate ? SelectedSichuanWallSource : null,
             DuplicateKey = SelectedDuplicateKey, DuplicateEnabled = IsSichuanDuplicate || ReadRoomToggle(DuplicateWallToggle),
             DuplicateRoundCount = SichuanDuplicateBoardCounts[SichuanDuplicateRounds ? SichuanDuplicateRounds.value : 2],
             DuplicateSyncMode = ReadRoomToggle(SichuanDuplicateSyncToggle),
@@ -27,7 +28,7 @@ public partial class CreatePanel {
             SmallHuSelfDrawOnly = ReadRoomToggle(ChangshaKamoToggle),
             ScoreCapType = GetChangshaScoreCapType(), ScoreCapValue = GetChangshaScoreCapValue(),
             PasswordEnabled = ReadRoomToggle(passwordToggle),
-            RandomSeedEnabled = ReadRoomToggle(SetRandomSeedToggle),
+            RandomSeedEnabled = IsSichuanTraining || (!IsSichuanDuplicate && ReadRoomToggle(SetRandomSeedToggle)),
             HepaiLimitEnabled = ReadRoomToggle(InputHepaiLimitToggle),
             Tips = ReadRoomToggle(tipsToggle),
             CountTips = ReadRoomToggle(countTipsToggle),

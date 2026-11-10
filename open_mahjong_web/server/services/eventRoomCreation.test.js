@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { ROOM_COUNTS, createEventRoomCreationService } = require('./eventRoomCreation');
 
 const event = { event_id: 'evt_A', kind: 'event', status: 'active' };
+const trainingSeed = 'abcdef0123456789'.repeat(4);
 function fixture({ failAt, quotaError, failAudit } = {}) {
   const calls = [], audits = [], batches = [];
   const service = createEventRoomCreationService({
@@ -22,6 +23,54 @@ function fixture({ failAt, quotaError, failAudit } = {}) {
   });
   return { service, calls, audits, batches };
 }
+
+for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+  test(`${sub_rule} training keeps seed and spectator preference and never generates keys`, async () => {
+    for (const allow_spectator of [undefined, true, false]) {
+      const { service, calls, batches } = fixture({ quotaError: true });
+      const original = { room_rule: 'sichuan', room_count: 3, room_config: {
+        sub_rule, wall_source: 'training', random_seed: `0x${trainingSeed.toUpperCase()}`, duplicate_round_count: 8,
+        ...(allow_spectator === undefined ? {} : { allow_spectator }),
+      } };
+      const copy = structuredClone(original);
+      const result = await service.create(event, 10, original);
+      assert.equal(result.created_pair_count, 3);
+      assert.equal(result.generated_key_count, 0);
+      assert.equal(batches.length, 0);
+      for (const call of calls) {
+        assert.equal(call.body.room_config.random_seed, trainingSeed);
+        assert.equal(call.body.room_config.allow_spectator, allow_spectator !== false);
+        assert.equal('duplicate_key' in call.body.room_config, false);
+      }
+      assert.deepEqual(original, copy);
+    }
+  });
+}
+test('paired source validation rejects mixed payloads before touching keys or rooms', async () => {
+  const base = { sub_rule: 'sichuan/doubles_duplicate', duplicate_round_count: 8 };
+  for (const room_config of [
+    { ...base, wall_source: 'training' },
+    { ...base, wall_source: 'training', random_seed: '0'.repeat(64) },
+    { ...base, wall_source: 'training', random_seed: trainingSeed, duplicate_key: 'dup_saved' },
+    { ...base, wall_source: 'training', random_seed: trainingSeed, allow_spectator: 'true' },
+    { ...base, wall_source: 'seed' }, { ...base, wall_source: 'manual' },
+    { ...base, wall_source: 'key', random_seed: trainingSeed }, { ...base, wall_source: 'unknown' },
+  ]) {
+    const { service, calls, batches } = fixture();
+    await assert.rejects(service.create(event, 10, { room_rule: 'sichuan', room_config }));
+    assert.equal(calls.length + batches.length, 0);
+  }
+});
+test('formal source types are forwarded for authoritative key-type checking and disable spectating', async () => {
+  for (const wall_source of ['key', 'seed', 'manual']) {
+    const { service, calls } = fixture();
+    await service.create(event, 10, { room_rule: 'sichuan', room_config: {
+      sub_rule: 'sichuan/doubles_duplicate', wall_source, duplicate_key: 'dup_saved', duplicate_round_count: 8, allow_spectator: true,
+    } });
+    assert.equal(calls[0].body.room_config.wall_source, wall_source);
+    assert.equal(calls[0].body.room_config.allow_spectator, false);
+  }
+});
 
 test('both Sichuan paired subrules create pairs for events and bases without generic wall creation', async () => {
   for (const kind of ['event', 'base']) for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
@@ -60,21 +109,22 @@ test('ordinary bloodflow cannot reuse a legacy key by omitting the duplicate tog
 });
 
 for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
-test(`${sub_rule} binds one existing wall to one pair without generating another key`, async () => {
-  const body = { room_rule: 'sichuan', room_count: 1,
+test(`${sub_rule} shares an existing wall across independent pairs without generating more keys`, async () => {
+  const body = { room_rule: 'sichuan', room_count: 3,
     room_config: { sub_rule, duplicate_round_count: 8, duplicate_key: ' dup_saved ' } };
-  for (const kind of ['event', 'base']) {
-    const { service, calls, batches } = fixture();
-    const result = await service.create({ ...event, kind }, 10, body);
-    assert.equal(result.created_pair_count, 1);
-    assert.equal(result.created_room_count, 1);
-    assert.equal(result.created_table_count, 2);
-    assert.equal(calls[0].body.room_config.duplicate_key, 'dup_saved');
+  for (const kind of ['event', 'base']) for (const wall_source of [undefined, 'key', 'seed', 'manual']) {
+    const { service, calls, batches, audits } = fixture();
+    const result = await service.create({ ...event, kind }, 10, { ...body,
+      room_config: { ...body.room_config, ...(wall_source ? { wall_source } : {}) } });
+    assert.equal(result.created_pair_count, 3);
+    assert.equal(result.created_room_count, 3);
+    assert.equal(result.created_table_count, 6);
+    assert.equal(result.generated_key_count, 0);
+    assert.ok(calls.every(call => call.body.room_config.duplicate_key === 'dup_saved'));
+    assert.ok(calls.every(call => call.body.room_config.allow_spectator === false));
     assert.equal(batches.length, 0);
+    assert.equal(audits.length, 3);
   }
-  const invalid = fixture();
-  await assert.rejects(invalid.service.create(event, 10, { ...body, room_count: 3 }), /一个已有牌山/);
-  assert.equal(invalid.calls.length + invalid.batches.length, 0);
 });
 }
 
