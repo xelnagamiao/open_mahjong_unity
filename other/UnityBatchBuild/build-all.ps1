@@ -143,6 +143,33 @@ function Sync-Folder([string]$From, [string]$To, [string]$Log) {
     if ($LASTEXITCODE -ge 8) { throw "Copy failed ($LASTEXITCODE): $From. See $Log" }
 }
 
+function Initialize-ApkVersionCounter([string]$Counter, [string[]]$PreviousApks) {
+    $floor = 0
+    if (Test-Path -LiteralPath $Counter -PathType Leaf) {
+        $floor = [int]([IO.File]::ReadAllText($Counter).Trim())
+        if ($floor -lt 1) { throw 'Invalid cached Android APK version code.' }
+    }
+    foreach ($apk in ($PreviousApks | Select-Object -Unique)) {
+        if (!(Test-Path -LiteralPath $apk -PathType Leaf)) { continue }
+        $sidecar = Join-Path (Split-Path $apk -Parent) 'android-update.json'
+        if (!(Test-Path -LiteralPath $sidecar -PathType Leaf)) { throw "Cannot determine the previous APK version code: $sidecar is missing." }
+        $previous = Get-Content -LiteralPath $sidecar -Raw -Encoding UTF8 | ConvertFrom-Json
+        $apkInfo = Get-Item -LiteralPath $apk
+        if ($previous.schemaVersion -ne 1 -or $previous.versionCode -lt 1 -or
+            $previous.versionCode -ge [int]::MaxValue -or $previous.versionCode -ne [math]::Truncate($previous.versionCode) -or
+            $previous.file -ne $apkInfo.Name -or $previous.sizeBytes -ne $apkInfo.Length -or
+            $previous.sha256 -notmatch '^[a-fA-F0-9]{64}$' -or
+            (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash -ne $previous.sha256) {
+            throw "Previous APK and update manifest do not agree: $apk"
+        }
+        $floor = [math]::Max($floor, [int]$previous.versionCode)
+    }
+    if ($floor -gt 0) {
+        [IO.File]::WriteAllText($Counter, [string]$floor, (New-Object Text.UTF8Encoding($false)))
+        Write-Host "Android APK version code floor: $floor"
+    }
+}
+
 Assert-NoLinks $work $true
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 $lock = $null
@@ -245,6 +272,11 @@ try {
             # All targets use the source project's Editor version. Android-only
             # SDK preparation still stays in its isolated build copy.
             & "$PSScriptRoot/prepare-android-content.ps1" -Project $copy -Work $work -Validation:$Validation -ValidationRelease $ValidationRelease
+        }
+        if ($item.Target -eq 'Android' -and !$Validation) {
+            $previousApk = [string]$config.Android
+            if (![IO.Path]::IsPathRooted($previousApk)) { $previousApk = Join-Path $repo $previousApk }
+            Initialize-ApkVersionCounter (Join-Path $work 'apk-version-code.txt') @($previousApk, $item.Output)
         }
         $log = Join-Path $run "$($item.Target).log"
         $started = Get-Date

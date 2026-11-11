@@ -35,9 +35,11 @@ public sealed class IosContentManifest {
 }
 
 public static class IosResourceCache {
+#if UNITY_IOS && !UNITY_EDITOR
     static bool initialized;
     static AssetBundle bundle;
     static HashSet<string> keys;
+#endif
     public static int ActiveVersion { get; private set; }
     public static string Root => Path.Combine(Application.persistentDataPath, "ios-resources",
         IosContentManifest.NormalizeVersion(Application.version) + "-" + ConfigManager.releaseVersion);
@@ -45,9 +47,9 @@ public static class IosResourceCache {
     // Activated once per process. Downloaded updates never unload assets used by
     // a live match; the next launch reads the atomic manifest pointer.
     static void EnsureLoaded() {
+#if UNITY_IOS && !UNITY_EDITOR
         if (initialized) return;
         initialized = true;
-#if UNITY_IOS && !UNITY_EDITOR
         try {
             string pointer = Path.Combine(Root, "current.json");
             if (!File.Exists(pointer) || new FileInfo(pointer).Length > 65536) return;
@@ -67,15 +69,18 @@ public static class IosResourceCache {
 #endif
     }
     public static T Load<T>(string path) where T : UnityEngine.Object {
+#if UNITY_IOS && !UNITY_EDITOR
         EnsureLoaded();
         string key = path?.ToLowerInvariant();
         if (bundle && key != null && keys.Contains(key)) {
             try { var asset = bundle.LoadAsset<T>(key); if (asset) return asset; }
             catch (Exception e) { Debug.LogWarning("[iOS resources] 资源回退：" + e.Message); }
         }
+#endif
         return Resources.Load<T>(path);
     }
     public static T[] LoadAll<T>(string path) where T : UnityEngine.Object {
+#if UNITY_IOS && !UNITY_EDITOR
         EnsureLoaded();
         string key = path?.ToLowerInvariant();
         if (bundle && key != null && keys.Contains(key)) {
@@ -84,12 +89,20 @@ public static class IosResourceCache {
                 if (values.Length != 0) return values;
             } catch (Exception e) { Debug.LogWarning("[iOS resources] 子资源回退：" + e.Message); }
         }
+#endif
         return Resources.LoadAll<T>(path);
     }
     public static int InstalledVersion { get { EnsureLoaded(); return ActiveVersion; } }
 }
 
 public sealed class IosResourceUpdates : MonoBehaviour {
+    // Use the same game release number as Android. Repacking a compatible
+    // release (or incrementing an Apple submission build number) must not nag players.
+    public static bool ShouldOfferPlayerUpdate(int offeredRelease, int installedRelease) =>
+        installedRelease > 0 && offeredRelease > installedRelease;
+    public static void OpenDownloadPage() => Application.OpenURL(ConfigManager.iosDownloadUrl);
+
+#if UNITY_IOS && !UNITY_EDITOR
     // Stop oversized metadata before it becomes a large in-memory response.
     sealed class LimitedJson : DownloadHandlerScript {
         readonly MemoryStream bytes = new MemoryStream();
@@ -101,10 +114,6 @@ public sealed class IosResourceUpdates : MonoBehaviour {
         protected override byte[] GetData() => bytes.ToArray();
     }
     [Serializable] sealed class VersionReply { public string status, platform, bundleId; public int schemaVersion, releaseVersion; }
-    // Use the same game release number as Android. Repacking a compatible
-    // release (or incrementing an Apple submission build number) must not nag players.
-    public static bool ShouldOfferPlayerUpdate(int offeredRelease, int installedRelease) =>
-        installedRelease > 0 && offeredRelease > installedRelease;
     static IosResourceUpdates instance;
     UnityWebRequest activeRequest;
     bool busy;
@@ -113,11 +122,9 @@ public sealed class IosResourceUpdates : MonoBehaviour {
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Install() {
-#if UNITY_IOS && !UNITY_EDITOR
         if (instance) return;
         instance = new GameObject("IosResourceUpdates").AddComponent<IosResourceUpdates>();
         DontDestroyOnLoad(instance.gameObject);
-#endif
     }
     IEnumerator Start() { yield return new WaitForSecondsRealtime(3); Check(); }
     void OnApplicationPause(bool paused) { if (!paused) Check(); }
@@ -126,7 +133,6 @@ public sealed class IosResourceUpdates : MonoBehaviour {
         lastCheck = Time.realtimeSinceStartup;
         StartCoroutine(FetchSafely());
     }
-    public static void OpenDownloadPage() => Application.OpenURL(ConfigManager.iosDownloadUrl);
     IEnumerator FetchSafely() {
         var fetch = Fetch();
         try {
@@ -239,4 +245,5 @@ public sealed class IosResourceUpdates : MonoBehaviour {
     }
     static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { } }
     void OnDestroy() { activeRequest?.Abort(); if (instance == this) instance = null; }
+#endif
 }

@@ -1,13 +1,28 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 
 // Deterministic protocol checks; deliberately does not claim native device coverage.
 public static class IosReadinessValidation {
+    public static void ValidateNonIosPlatformIsolation() {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+        foreach (string field in new[] { "initialized", "bundle", "keys" })
+            if (typeof(IosResourceCache).GetField(field, flags) != null)
+                throw new Exception("iOS bundle state leaked into a non-iOS assembly: " + field);
+        if (typeof(IosResourceUpdates).GetNestedType("LimitedJson", flags) != null)
+            throw new Exception("iOS download handler leaked into a non-iOS assembly.");
+        foreach (string method in new[] { "Install", "Fetch", "FetchSafely", "OnDestroy" })
+            if (typeof(IosResourceUpdates).GetMethod(method, flags) != null)
+                throw new Exception("iOS updater leaked into a non-iOS assembly: " + method);
+    }
+
     public static string Run() {
         var passed = new List<string>();
         void Check(bool condition, string label) { if (!condition) throw new Exception(label); passed.Add(label); }
+        ValidateNonIosPlatformIsolation();
+        passed.Add("iOS bundle state and downloader excluded from non-iOS assemblies");
         var manifest = new IosContentManifest {
             schemaVersion = 1, platform = "ios", bundleId = "com.Salasasa-Studio.open-mahjong-unity",
             playerVersion = "0.5.89", releaseVersion = 34, contentVersion = 1,

@@ -14,6 +14,7 @@ from ..public.outbound_pipe import drain_viewer
 
 async def prepare_table(table="closed", synchronous=True):
     state, messages, match = make_state(table)
+    state.duplicate_waiting_for = None
     match.data["sync_mode"] = synchronous
     state.game_server.gamestate_manager.gamestate_id_to_game_state[state.gamestate_id] = state
     with patch("asyncio.sleep", new_callable=AsyncMock):
