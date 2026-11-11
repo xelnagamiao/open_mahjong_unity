@@ -45,6 +45,7 @@ public class Tile3D : MonoBehaviour
     private Color instanceFrontColor = Color.white;
     private Color instanceBackColor = Color.white;
     private Color? ruleBackColor;
+    public Color? RuleBackColor => ruleBackColor;
     private Color instanceSideColor = Color.white;
     private Color instanceBackEdgeColor = Color.white;
     private Color instanceFrontEdgeColor = Color.white;
@@ -248,6 +249,8 @@ public class Tile3D : MonoBehaviour
 
     private void ApplyPropertyBlock() {
         if (cardRenderer == null || tileMaterialIndex < 0) return;
+        if (currentTileId >= 10 && DuocaiTileVisual.TryBack(currentTileId, out int ruleBack))
+            ruleBackColor = DuocaiTileVisual.BackColor(ruleBack);
         if (propBlock == null) {
             propBlock = new MaterialPropertyBlock();
         }
@@ -482,6 +485,7 @@ public class Tile3D : MonoBehaviour
     }
 
     public void SetRuleBackColor(Color color) {
+        if (ruleBackColor.HasValue && ruleBackColor.Value == color) return;
         InitializeComponents();
         ruleBackColor=color;
         ApplyPropertyBlock();
@@ -635,6 +639,8 @@ public class Tile3D : MonoBehaviour
     public void SetTileIds(int tileId, int poolTileId) {
         currentTileId = tileId;
         currentPoolTileId = poolTileId;
+        if (tileId >= 10 && DuocaiTileVisual.TryBack(tileId, out int back))
+            SetRuleBackColor(DuocaiTileVisual.BackColor(back));
     }
 
     /// <summary>

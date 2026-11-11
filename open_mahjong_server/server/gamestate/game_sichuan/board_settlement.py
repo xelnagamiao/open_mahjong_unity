@@ -108,7 +108,10 @@ async def publish_board(state, builder, statuses, max_fans, skip_chajiao):
     state._sbr_presentation_started_at = time.monotonic()
     state._sichuan_grouped_endgame = False
     state._liuju_final_panel_shown = True
-    state.next_status = 'match_end' if state.current_round >= summary['max_rounds'] else 'round_end_by_ready'
+    duplicate = getattr(state, 'duplicate_match', None)
+    has_final_comparison = duplicate is not None and duplicate.synchronous
+    state.next_status = ('match_end' if state.current_round >= summary['max_rounds'] and not has_final_comparison
+                         else 'round_end_by_ready')
     player_action_record_sichuan_liuju_step(state, 'board_summary', json.dumps(summary, ensure_ascii=False))
     await broadcast_result(state, hu_class='liuju', liuju_step='board_summary',
                            sichuan_settlement=summary, score_changes={i: 0 for i in range(4)},

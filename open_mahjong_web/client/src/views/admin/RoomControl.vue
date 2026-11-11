@@ -27,40 +27,10 @@
           <el-option label="无人在线" value="offline" />
         </el-select>
       </div>
-      <el-table :data="filteredItems" v-loading="loading" class="room-table" empty-text="没有符合条件的房间">
-        <el-table-column prop="room_id" label="房间号" width="100" />
-        <el-table-column prop="room_name" label="房间名称" min-width="160" />
-        <el-table-column label="所属" min-width="150">
-          <template #default="{ row }">{{ row.event_id ? `${row.venue_kind === 'base' ? '基地' : '赛事'} · ${row.event_name || row.event_id}` : '大厅房间' }}</template>
-        </el-table-column>
-        <el-table-column label="玩法" min-width="180">
-          <template #default="{ row }">{{ row.sub_rule ? formatSubRule(row.sub_rule) : formatRule(row.room_rule) }}</template>
-        </el-table-column>
-        <el-table-column label="房主" min-width="140">
-          <template #default="{ row }">{{ row.host_user_id ? `${row.host_name} (${row.host_user_id})` : '待入座' }}</template>
-        </el-table-column>
-        <el-table-column label="玩家" min-width="230">
-          <template #default="{ row }">
-            <div v-for="p in row.players" :key="p.waiting ? `waiting-${p.user_id}` : p.seat_index" class="player">
-              {{ p.username }}<span class="muted"> ({{ p.user_id }})</span>
-              <el-tag :type="p.is_bot ? 'info' : p.online ? 'success' : 'warning'" size="small">{{ p.is_bot ? '机器人' : p.online ? '在线' : '离线' }}</el-tag>
-            </div>
-            <span v-if="!row.players.length" class="muted">空房间</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="145">
-          <template #default="{ row }">
-            <el-tag :type="row.is_game_running ? 'success' : row.online_count ? 'info' : 'warning'">{{ row.is_game_running ? '对局中' : '等待中' }}</el-tag>
-            <div class="muted">{{ row.players.length }}/{{ row.max_player }} 座 · {{ row.online_count }} 人在线</div>
-            <div v-if="row.duplicate_match_id" class="muted">{{ row.duplicate_lobby ? '八人复式房间' : (row.duplicate_table === 'open' ? '开室' : '闭室') + ' · 配对房间' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="110" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="danger" :loading="closing === row.room_id" :disabled="Boolean(closing) || row.event_seating_pending" @click="closeRoom(row)">关闭房间</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-loading="loading" class="room-list" role="list" aria-label="房间列表">
+        <el-empty v-if="!filteredItems.length" description="没有符合条件的房间" :image-size="64" />
+        <AdminRoomRow v-for="room in filteredItems" :key="room.instance_id || room.room_id" :room="room" :closing="closing" @close="closeRoom" />
+      </div>
       <p class="muted">当前筛选共 {{ filteredItems.length }} 个房间。默认显示大厅房间，可切换房间范围查看赛事或基地房间。</p>
       <p class="muted">赛事、基地及管理员创建的房间允许保留空房，玩家创建的大厅房间无人后自动解散。</p>
     </el-card>
@@ -84,7 +54,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
-import { formatRule, formatSubRule } from '@/utils/gameMeta'
+import AdminRoomRow from '@/components/AdminRoomRow.vue'
 
 const items = ref([])
 const loading = ref(false)
@@ -213,10 +183,7 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer) })
 .venue-filter { width: 280px; max-width: 100%; }
 .search { width: 240px; max-width: 100%; }
 .status { width: 125px; }
-.room-table { margin-top: 16px; }
-.room-table :deep(th.el-table__cell) { font-weight: 400; }
+.room-list { display: grid; gap: 8px; margin-top: 16px; min-height: 80px; }
 :global(.room-filter-popper .el-select-dropdown__item.is-selected) { font-weight: 400; }
 .muted { color: #909399; font-size: 12px; line-height: 1.8; }
-.player { margin: 3px 0; font-size: 13px; }
-.player .el-tag { margin-left: 6px; }
 </style>

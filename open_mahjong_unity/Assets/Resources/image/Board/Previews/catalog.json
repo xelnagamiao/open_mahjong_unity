@@ -64,6 +64,11 @@
             "name": "Tablecloth_Focus_08_CityGlass",
             "preview": "",
             "displayName": "都市青"
+        },
+        {
+            "name": "Tablecloth_Solid_LightBlue",
+            "preview": "",
+            "displayName": "浅蓝"
         }
     ],
     "edge": [
@@ -183,6 +188,26 @@
             "name": "Seam_04",
             "preview": "image/Board/Previews/TableSeams/Seam_04",
             "displayName": "Seam_04"
+        },
+        {
+            "name": "Seam_07",
+            "preview": "image/Board/Previews/TableSeams/Seam_07",
+            "displayName": "Seam_07"
+        },
+        {
+            "name": "Seam_08",
+            "preview": "image/Board/Previews/TableSeams/Seam_08",
+            "displayName": "Seam_08"
+        },
+        {
+            "name": "Seam_09",
+            "preview": "image/Board/Previews/TableSeams/Seam_09",
+            "displayName": "Seam_09"
+        },
+        {
+            "name": "Seam_10",
+            "preview": "image/Board/Previews/TableSeams/Seam_10",
+            "displayName": "Seam_10"
         }
     ]
 }

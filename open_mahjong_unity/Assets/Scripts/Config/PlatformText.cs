@@ -34,7 +34,7 @@ public static partial class PlatformText
         entries=new Dictionary<string,Entry>(StringComparer.Ordinal);
         normalized=new Dictionary<string,Entry>(StringComparer.Ordinal);
         traditional=new Dictionary<char,char>();templates=new List<Template>();
-        var asset=Resources.Load<TextAsset>("Localization/PlatformUI");
+        var asset=IosResourceCache.Load<TextAsset>("Localization/PlatformUI");
         var catalog=asset?JsonUtility.FromJson<Catalog>(asset.text):null;
         foreach(var entry in catalog?.entries??Array.Empty<Entry>()){
             entries[entry.key]=entry;

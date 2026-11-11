@@ -19,6 +19,7 @@ public partial class GuobiaoGameState : TurnBasedGameState {
     public GuobiaoEndResultExtras LastEndExtras { get; private set; }
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        ResetHintTiming();
         ResetOpeningFlowers();
         PlayerInfo self = OpeningSelfPlayer(gameInfo);
         Mirror.LastDealTileId = self?.has_draw_slot == true && self.hand_tiles?.Length > 0
@@ -49,6 +50,7 @@ public partial class GuobiaoGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        ResetHintTiming();
         ResetOpeningFlowers();
         cuohe.Clear();
         LastEndExtras = null;

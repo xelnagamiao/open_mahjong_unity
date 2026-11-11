@@ -78,6 +78,10 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
 }
 
 public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
+    [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+    public bool? real_time;
+    [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+    public int? tactical_grace_seconds;
     public string wall_source;
     public string duplicate_key;
     public int? duplicate_round_count;

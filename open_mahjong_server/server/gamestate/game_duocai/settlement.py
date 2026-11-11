@@ -25,8 +25,11 @@ class EndOfHand:
         changes = win_payments(quote, winner, discarder=payer, honba=self.honba, riichi_sticks=self.riichi_sticks,
                               liabilities=liabilities, rinshan_payer=p.rinshan_payer if source == 'self_draw' else None)
         if source == 'rob_kong':
-            self.player_list[payer].hand_tiles.remove(tile)
-            self._event('rob_kan', payer, tile=tile)
+            declarer = self.player_list[payer]
+            drawn = declarer.has_draw_slot and declarer.hand_tiles[-1] == tile
+            declarer.hand_tiles.remove(tile)
+            declarer.has_draw_slot = False
+            self._event('rob_kan', payer, tile=tile, is_mo_gang=drawn)
             self.pending_kong = None
         detail = asdict(quote)
         detail['ura_revealed'] = self.variant == 'riichi' and bool(p.riichi)

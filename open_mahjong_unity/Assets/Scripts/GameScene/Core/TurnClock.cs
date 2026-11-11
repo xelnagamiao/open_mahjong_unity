@@ -36,6 +36,8 @@ public sealed class TurnClock {
     public int LastAskHandPlayerIndex = -1;
     /// <summary>当前是否在等待自己做出手牌/鸣牌操作（供回到主菜单时的红色提醒按钮判断）。</summary>
     public bool IsSelfActionRequired;
+    /// <summary>短等待到期后仍保留鸣牌资格；只由服务器后续询问/动作或主动选择关闭。</summary>
+    public bool IsRetainedClaimAsk { get; private set; }
     /// <summary>本家剩余局时（开局同步）。</summary>
     public int SelfRemainingTime;
 
@@ -80,6 +82,8 @@ public sealed class TurnClock {
     /// </summary>
     public void BeginHandAsk(string seat, int remainingTime, int askHandPlayerIndex,
                              string dealTileType = null, int stepTimeOverride = -1) {
+        if (IsRetainedClaimAsk) GameCanvas.Instance.StopTimeRunning();
+        IsRetainedClaimAsk = false;
         int displayStepTime = stepTimeOverride >= 0 ? stepTimeOverride : Session.RoomStepTime;
         // 仅行动者换人时收拢：首次 ask、同玩家连补花后的再次 ask 均不收拢，保留摸牌区以区分手切/摸切
         bool shouldConsolidateHands = LastAskHandPlayerIndex >= 0 && askHandPlayerIndex != LastAskHandPlayerIndex;
@@ -124,8 +128,11 @@ public sealed class TurnClock {
     }
 
     /// <summary>鸣牌询问（吃/碰/杠/和/过），被问者一定是本家。</summary>
-    public void BeginClaimAsk(int remainingTime, bool isTacticalRecheck = false, int stepTimeOverride = -1) {
+    public void BeginClaimAsk(int remainingTime, bool isTacticalRecheck = false, int stepTimeOverride = -1,
+                              double? retainedClaimSeconds = null) {
         int displayStepTime = stepTimeOverride >= 0 ? stepTimeOverride : Session.RoomStepTime;
+        IsRetainedClaimAsk = retainedClaimSeconds.HasValue && !isTacticalRecheck;
+        GameCanvas.Instance.StopTimeRunning();
         GameCanvas.Instance.ClearActionButton();
         AutoActionPolicy auto = AutoActionPolicy.Current;
         // 全量自动（牌张跳过 / 自动和 / 筛光后 pass）：不出按钮，避免闪按钮泄密
@@ -139,7 +146,8 @@ public sealed class TurnClock {
                 Game3DManager.Instance?.ShowClaimGlow(CurrentAskCutTileId);
             }
             // 战术鸣牌打断窗口：remaining_time 即为 grace 秒数，不再叠加步时（避免显示 5+5）
-            GameCanvas.Instance.LoadingRemianTime(remainingTime, isTacticalRecheck ? 0 : displayStepTime);
+            if (IsRetainedClaimAsk) GameCanvas.Instance.LoadingClaimWaitTime(retainedClaimSeconds.Value);
+            else GameCanvas.Instance.LoadingRemianTime(remainingTime, isTacticalRecheck ? 0 : displayStepTime);
         }
         IsSelfActionRequired = true;
         GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskOther);
@@ -157,6 +165,7 @@ public sealed class TurnClock {
         if (seat != "self") return;
 
         ClearQiangGangAskState();
+        IsRetainedClaimAsk = false;
         GameCanvas.Instance.StopTimeRunning();
         AllowActionList.Clear();
         GameCanvas.Instance.ClearActionButton();
@@ -180,6 +189,7 @@ public sealed class TurnClock {
         GameCanvas.Instance.StopTimeRunning();
         GameCanvas.Instance.ClearActionButton();
         AllowActionList.Clear();
+        IsRetainedClaimAsk = false;
         ClearCutConstraints(AskCloseReason.Cleared);
         State?.OnAskWindowClosed(AskCloseReason.Cleared);
         IsSelfActionRequired = false;
@@ -188,6 +198,8 @@ public sealed class TurnClock {
 
     /// <summary>步时耗尽：清按钮与输入，服务端随后会代为出牌/过。</summary>
     public void Timeout() {
+        // 短等待到期仅结束独占等待；不能像普通硬超时一样移除碰/杠/和按钮。
+        if (IsRetainedClaimAsk) return;
         AutoActionPolicy.Current.Cancel("TimeOut");
         ClearQiangGangAskState();
         GameSceneMouseInputController.Instance.ClearStaleHandInput("TimeOut");
@@ -212,6 +224,8 @@ public sealed class TurnClock {
     /// <summary>退出对局/牌谱/观战。</summary>
     public void ResetForExit() {
         AutoActionPolicy.Current.Cancel("ResetForExit");
+        if (IsRetainedClaimAsk) GameCanvas.Instance?.StopTimeRunning();
+        IsRetainedClaimAsk = false;
         IsSelfActionRequired = false;
         AllowActionList.Clear();
         CurrentAskCutTileId = 0;

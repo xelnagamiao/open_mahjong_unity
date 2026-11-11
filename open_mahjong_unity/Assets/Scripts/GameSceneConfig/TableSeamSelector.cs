@@ -33,12 +33,24 @@ public sealed partial class TableSeamSelector : MonoBehaviour
     {
         if (!Application.isPlaying || !HasBakedUi) return;
         if (!bound) {
+            RefreshSeamOptions();
             bound = true;
             dropdowns[1].onValueChanged.AddListener(index => SelectStyle(TableSurfaceNames.SeamStyleAtOption(index)));
             dropdowns[2].onValueChanged.AddListener(index => SelectShadow(TableLightingPresets.ShadowStyleAtOption(index)));
             dropdowns[3].onValueChanged.AddListener(index => SelectLight(TableLightingPresets.LightStyleAtOption(index)));
         }
         if (isActiveAndEnabled) Resume();
+    }
+
+    // Scenes retain baked dropdown options. Refresh their data without rebuilding
+    // the layout so newly added seams also work in existing scenes and builds.
+    private void RefreshSeamOptions()
+    {
+        var names = new List<string>(TableSurfaceNames.SeamOptionCount);
+        for (int i = 0; i < TableSurfaceNames.SeamOptionCount; i++)
+            names.Add(TableSurfaceNames.SeamDisplayName(TableSurfaceNames.SeamStyleAtOption(i)));
+        dropdowns[1].ClearOptions();
+        dropdowns[1].AddOptions(names);
     }
 
 

@@ -26,6 +26,8 @@ public class Sichuan_Create_RoomConfig {
     public string WallSource { get; set; }
     public int DuplicateRoundCount { get; set; }
     public bool DuplicateSyncMode { get; set; }
+    public bool RealTime { get; set; }
+    public int TacticalGraceSeconds { get; set; } = 5;
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
         if (string.IsNullOrEmpty(RoomName)) {
@@ -52,6 +54,14 @@ public class Sichuan_Create_RoomConfig {
         }
         if (RoundTimer < 0) {
             error = "局时不能为负数";
+            return false;
+        }
+        if (SichuanLobby.IsDuplicate(SubRule) && System.Array.IndexOf(SichuanLobby.SecondWaitSeconds, TacticalGraceSeconds) < 0) {
+            error = "第二等待时间必须为3、5、8、10、15或20秒";
+            return false;
+        }
+        if (!SichuanLobby.IsDuplicate(SubRule) && RealTime) {
+            error = "真实时间仅支持川麻复式";
             return false;
         }
         if (StepTimer < 0) {

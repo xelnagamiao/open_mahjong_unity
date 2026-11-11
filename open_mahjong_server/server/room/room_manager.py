@@ -383,7 +383,7 @@ class RoomManager:
                 validate_room_config(sub_rule, validated_config.jinluo_mode, validated_config.jinluo_weather)
                 if validated_config.jinluo_mode:
                     validated_config.open_cuohe, hepai_limit = True, 8
-                    tips = False
+                    validated_config.tian_di_ren_he = True
             except ValueError as e:
                 return Response(
                     type="tips",
@@ -1208,7 +1208,8 @@ class RoomManager:
                                   tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard",
                                   tourist_limit: bool = False, allow_spectator: bool = True,
                                   tactical_call: bool = True, blood_battle: bool = True, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0,
-                                  duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None) -> Response:
+                                  duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None,
+                                  real_time: bool = False, tactical_grace_seconds: int = 5) -> Response:
         """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
         try:
@@ -1228,6 +1229,11 @@ class RoomManager:
                 return event_blocked
             host_name = player.username
 
+            from .sichuan_timing import timing_config
+            try:
+                duplicate_timing = timing_config(sub_rule, dict(real_time=real_time, tactical_grace_seconds=tactical_grace_seconds))
+            except ValueError as error:
+                return Response(type="tips", success=False, message=f"房间配置无效: {error}")
             if is_duplicate_sub_rule(sub_rule):
                 if tourist_limit and getattr(player, "is_tourist", False):
                     return Response(type="tips", success=False, message="游客不能创建限制游客加入的复式房间")
@@ -1239,7 +1245,8 @@ class RoomManager:
                               count_tips=count_tips, pointer_tips=pointer_tips, tourist_limit=tourist_limit,
                               tactical_call=tactical_call, claim_protection=claim_protection,
                               allow_spectator=allow_spectator,
-                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source)
+                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source,
+                              **duplicate_timing)
                 if duplicate_round_count is not None:
                     config["duplicate_round_count"] = duplicate_round_count
                 response = await create_pair(self, event_id, sub_rule, config, password, host_user_id)
@@ -2087,6 +2094,15 @@ class RoomManager:
         await self._broadcast_room_info(room_id)
         return None
 
+    async def set_sichuan_real_time(self, Connect_id: str, room_id: str, real_time, tactical_grace_seconds) -> Optional[Response]:
+        room = self.rooms.get(room_id)
+        if room is None:
+            return Response(type="tips", success=False, message="房间不存在")
+        if room.get("room_rule") != "sichuan" or not room.get("duplicate_lobby_room_id"):
+            return Response(type="tips", success=False, message="真实时间与第二等待时间仅支持川麻双打复式")
+        from .sichuan_lobby import timing_settings
+        return await timing_settings(self, Connect_id, room, real_time, tactical_grace_seconds)
+
     async def set_claim_protection(self, Connect_id: str, room_id: str, enabled) -> Optional[Response]:
         room = self.rooms.get(room_id)
         if room and room.get("duplicate_lobby_room_id"):
@@ -2391,6 +2407,11 @@ class RoomManager:
             if key in room_config and type(room_config[key]) is not bool:
                 return Response(type="tips", success=False, message=f"{key}必须为布尔值")
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
+        from .sichuan_timing import timing_config
+        try:
+            duplicate_timing = timing_config(room_config.get("sub_rule") if rule == "sichuan" else None, room_config)
+        except ValueError as error:
+            return Response(type="tips", success=False, message=f"房间配置无效: {error}")
         if room_config.get("wall_source") is not None and not is_duplicate_sub_rule(room_config.get("sub_rule")):
             return Response(type="tips", success=False, message="牌山来源选项仅支持川麻双打复式")
         if is_duplicate_sub_rule(room_config.get("sub_rule")) and not _paired_internal:
@@ -2484,7 +2505,7 @@ class RoomManager:
                 validate_room_config(sub_rule, validated.jinluo_mode, validated.jinluo_weather)
                 if validated.jinluo_mode:
                     validated.open_cuohe, hepai_limit = True, 8
-                    tips = False
+                    validated.tian_di_ren_he = True
             elif rule == "qingque":
                 validated = self.room_validators["guobiao"](
                     **base_config,
@@ -2634,6 +2655,7 @@ class RoomManager:
             room_data["hepai_limit"] = hepai_limit
         self._apply_event_fields(room_data, event_id)
         room_data.update(validated.dict())
+        room_data.update(duplicate_timing)
         for key, default in (("count_tips", False), ("pointer_tips", True)):
             value = room_config.get(key, default)
             if type(value) is not bool:

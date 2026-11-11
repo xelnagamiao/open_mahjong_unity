@@ -9,6 +9,7 @@ export interface FourJokersHintRequest {
   sub_rule?: string; no_joker_bonus?: string; black_flower_progressive?: boolean
   hand_tiles: number[]; tiles_combination: string[]; get_tile: number
   ron_way: string[]; self_way: string[]; hepai_limit: number; joker_multi_wait?: boolean
+  current_draw?: boolean; initial_draw?: boolean
 }
 export interface FourJokersHint { kind: 'dianhe'|'ron_only'|'zimo'|'wuyi'; label: string; score: number }
 const waits = new Map<string, number[]>()

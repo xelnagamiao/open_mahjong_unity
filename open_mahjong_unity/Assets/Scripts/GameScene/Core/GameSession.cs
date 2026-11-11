@@ -33,6 +33,8 @@ public sealed class GameSession {
     /// <summary>起和番限制。</summary>
     public int HepaiLimit = 8;
     public bool JinluoMode;
+    public bool TianDiRenHe;
+    public int DealerIndex = -1;
     public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";
@@ -94,8 +96,7 @@ public sealed class GameSession {
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
         HepaiLimit = gameInfo.hepai_limit ?? 8;
-        JinluoMode = gameInfo.jinluo_mode;
-        JinluoWeather = gameInfo.jinluo_weather ?? JinluoRules.DefaultWeather;
+        LoadGuobiaoConfig(gameInfo);
         JokerMultiWait = gameInfo.joker_multi_wait;
         NoJokerBonus = gameInfo.no_joker_bonus ?? "add8";
         BlackFlowerProgressive = gameInfo.black_flower_progressive;
@@ -114,6 +115,14 @@ public sealed class GameSession {
         DuplicateWallType = gameInfo.duplicate_wall_type;
     }
 
+    /// <summary>完整装载和现有手动初始化链共用，避免实战漏读国标附加选项。</summary>
+    public void LoadGuobiaoConfig(GameInfo gameInfo) {
+        JinluoMode = gameInfo.jinluo_mode;
+        JinluoWeather = gameInfo.jinluo_weather ?? JinluoRules.DefaultWeather;
+        TianDiRenHe = gameInfo.tian_di_ren_he || (JinluoMode && gameInfo.sub_rule == "guobiao/standard");
+        DealerIndex = gameInfo.dealer_index ?? -1;
+    }
+
     /// <summary>退出对局/牌谱/观战：清掉与本局绑定的规则与标志，保留 Host 与观战标志（由观战入口自行管理）。</summary>
     public void ResetForExit() {
         IsGameActive = false;
@@ -128,6 +137,8 @@ public sealed class GameSession {
         DetailedConfig.Clear();
         JokerMultiWait = false;
         JinluoMode = false;
+        TianDiRenHe = false;
+        DealerIndex = -1;
         JinluoWeather = JinluoRules.DefaultWeather;
         NoJokerBonus = "add8"; BlackFlowerProgressive = true;
     }

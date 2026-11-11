@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { funDataDir } = require('../utils/runtimeData');
-const { parseRecordShareInput, classicReplayLinks, GAME_ID_RE } = require('../utils/recordShareParse');
+const { parseRecordShareInput, classicReplayLinks, GAME_ID_RE, shareInteger } = require('../utils/recordShareParse');
+const { recordPlayers, resolveProtagonist } = require('../utils/classicRecordProtagonist');
 
 const ID_RE = /^cls_[a-z0-9]{12}$/;
 const DESCRIPTION_MAX = 80;
@@ -142,17 +143,17 @@ function listPublic() {
   return listAll();
 }
 
-async function attachRecordMeta(items) {
+async function attachRecordMeta(items, { strict = false, persist = true } = {}) {
   const gameIds = [...new Set((items || []).map((item) => item.game_id).filter(Boolean))];
   if (!gameIds.length) return items || [];
   const pool = require('../config/database');
   const [records, players] = await Promise.all([
     pool.query(
-      `SELECT game_id, created_at FROM game_records WHERE game_id = ANY($1::varchar[])`,
+      `SELECT game_id, record, created_at FROM game_records WHERE game_id = ANY($1::varchar[])`,
       [gameIds]
     ),
     pool.query(
-      `SELECT game_id, user_id, username, score, rank, rule
+      `SELECT game_id, user_id, username, score, rank, rule, original_player_index
          FROM game_player_records
         WHERE game_id = ANY($1::varchar[])
         ORDER BY rank`,
@@ -160,6 +161,7 @@ async function attachRecordMeta(items) {
     ),
   ]);
   const createdAt = new Map(records.rows.map((row) => [row.game_id, row.created_at]));
+  const recordByGame = new Map(records.rows.map(row => [row.game_id, row.record]));
   const playersByGame = new Map();
   for (const row of players.rows) {
     if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
@@ -169,20 +171,43 @@ async function attachRecordMeta(items) {
       score: Number(row.score) || 0,
       rank: Number(row.rank) || 0,
       rule: row.rule || null,
+      original_player_index: row.original_player_index,
     });
   }
-  return items.map((item) => {
+  const decorated = items.map((item) => {
     const table = playersByGame.get(item.game_id) || [];
     const rule = table[0]?.rule || null;
-    return {
+    const players = recordByGame.has(item.game_id) ? recordPlayers(recordByGame.get(item.game_id), table) : table;
+    const protagonist = players.length ? resolveProtagonist(item, recordByGame.get(item.game_id), players, strict) : null;
+    const fields = {
       ...item,
+      protagonist_user_id: protagonist?.user_id ?? null,
+      protagonist_player_index: protagonist?.original_player_index ?? null,
+    };
+    return {
+      ...decorate(fields),
+      protagonist,
       created_at_game: createdAt.get(item.game_id) || null,
       rule,
       show_2d: !rule || rule === 'guobiao',
       missing: !createdAt.has(item.game_id),
-      players: table,
+      players: [...players].sort((a, b) => (a.rank || 99) - (b.rank || 99)),
     };
   });
+  if (persist) {
+    // 仅补齐仍未设置主角的同一条目，避免异步查询覆盖管理员刚保存的修改。
+    const catalog = loadCatalog();
+    let changed = false;
+    for (const item of decorated) {
+      const stored = catalog.items.find(row => row.id === item.id && recordKey(row) === recordKey(item));
+      if (!stored || stored.protagonist_user_id != null || stored.protagonist_player_index != null || !item.protagonist) continue;
+      stored.protagonist_user_id = item.protagonist_user_id;
+      stored.protagonist_player_index = item.protagonist_player_index;
+      changed = true;
+    }
+    if (changed) saveCatalog(catalog);
+  }
+  return decorated;
 }
 
 function parseClassicInput(body = {}) {
@@ -193,10 +218,19 @@ function parseClassicInput(body = {}) {
   }
   const round = pickPosition(body.round, parsed?.round, 1);
   const node = pickPosition(body.node, parsed?.node, 0);
+  const explicitPlayer = body.protagonist_user_id !== undefined || body.protagonist_player_index !== undefined;
+  const userId = explicitPlayer ? body.protagonist_user_id : parsed?.player;
+  const playerIndex = explicitPlayer ? body.protagonist_player_index : parsed?.playerIndex;
+  if ((userId != null && userId !== '' && shareInteger(userId) == null)
+      || (playerIndex != null && playerIndex !== '' && shareInteger(playerIndex, 0, 3) == null)) {
+    throw Object.assign(new Error('无效的主角参数'), { status: 400 });
+  }
   return {
     game_id: gameId,
     round: round == null ? null : round,
     node: node == null ? null : node,
+    protagonist_user_id: shareInteger(userId),
+    protagonist_player_index: shareInteger(playerIndex, 0, 3),
     description: normalizeDescription(body.description),
     sort: clampSort(body.sort, 0),
   };
@@ -228,6 +262,18 @@ function createClassicRecord(body) {
   return decorate(item);
 }
 
+function classicUpdateInput(current, body) {
+  const replacedLink = body.url || (body.game_id && body.game_id !== current.game_id) || (body.gameId && body.gameId !== current.game_id);
+  const replacedPlayer = body.protagonist_user_id !== undefined || body.protagonist_player_index !== undefined;
+  return {
+    ...current,
+    ...(replacedLink ? { round: undefined, node: undefined, protagonist_user_id: undefined, protagonist_player_index: undefined } : {}),
+    ...(replacedPlayer ? { protagonist_user_id: undefined, protagonist_player_index: undefined } : {}),
+    ...body,
+    game_id: body.game_id || body.gameId || current.game_id,
+  };
+}
+
 function updateClassicRecord(id, body) {
   if (!ID_RE.test(id) && id !== SEED_ID) {
     throw Object.assign(new Error('无效的经典牌谱 ID'), { status: 400 });
@@ -238,14 +284,7 @@ function updateClassicRecord(id, body) {
     throw Object.assign(new Error('经典牌谱不存在'), { status: 404 });
   }
   const current = catalog.items[index];
-  const fields = parseClassicInput({
-    url: body.url,
-    game_id: body.game_id || body.gameId || current.game_id,
-    round: body.round !== undefined ? body.round : current.round,
-    node: body.node !== undefined ? body.node : current.node,
-    description: body.description != null ? body.description : current.description,
-    sort: body.sort !== undefined ? body.sort : current.sort,
-  });
+  const fields = parseClassicInput(classicUpdateInput(current, body));
   if (findDuplicate(catalog, fields, id)) {
     throw Object.assign(new Error('这条牌谱已经添加过了'), { status: 409 });
   }
@@ -283,5 +322,6 @@ module.exports = {
   updateClassicRecord,
   deleteClassicRecord,
   parseClassicInput,
+  classicUpdateInput,
   attachRecordMeta,
 };

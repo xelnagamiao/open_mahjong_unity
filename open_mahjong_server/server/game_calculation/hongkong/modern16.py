@@ -161,8 +161,8 @@ def _score_shape(ctx, rules, shape, waits):
     suits = {t//10 for t in all_tiles if t in NUMBERS}
     honors = any(t in HONORS for t in all_tiles)
     groups = _groups(ctx,shape)
-    # HKMA permits direct/concealed kongs, but a prior pung still breaks menqing.
-    closed = not ctx.called_chow_or_pung and all(c[0] in "gG" for c in ctx.melds)
+    # This profile permits all final kong melds, including added kongs, for menqing.
+    closed = all(c[0] in "gG" for c in ctx.melds)
     add("base", "底", 5)
     add("dealer", "庄家", 1, ctx.dealer)
     add("dealer_streak", "拉庄", 2*ctx.dealer_streak, ctx.dealer and ctx.dealer_streak > 0)
@@ -321,7 +321,10 @@ def _standard(ctx,shape,waits,add,remove,fans):
     _meld_points(ctx,shape,add,remove)
     kongs = sum(m.kind == "kong" for m in shape.melds)
     add("all_pungs", "对对糊", 40, all(m.kind != "sequence" for m in shape.melds))
-    concealed = len(shape.concealed_pungs(ctx.self_draw))
+    # X暗刻/杠 includes every kong, even an exposed/added one. Keep the
+    # shared concealed-meld definition strict for other profiles.
+    concealed = kongs + sum(shape.melds[i].kind == "triplet"
+                            for i in shape.concealed_pungs(ctx.self_draw))
     if concealed == 5 and kongs == 0:
         add("five_pure_pungs","坎坎糊",240)
         remove("all_pungs","concealed")

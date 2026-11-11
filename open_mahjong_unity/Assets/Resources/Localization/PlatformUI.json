@@ -34189,6 +34189,24 @@
       "en": "Rooster {0} points"
     },
     {
+      "key": "精分 {0}分  杠分 {1}分",
+      "zh": "精分 {0}分  杠分 {1}分",
+      "tw": "精分 {0}分  槓分 {1}分",
+      "en": "Jing {0} points  Kong {1} points"
+    },
+    {
+      "key": "本副合计 {0}分",
+      "zh": "本副合计 {0}分",
+      "tw": "本副合計 {0}分",
+      "en": "Hand total {0} points"
+    },
+    {
+      "key": "本次变化 {0}分",
+      "zh": "本次变化 {0}分",
+      "tw": "本次變化 {0}分",
+      "en": "Change {0} points"
+    },
+    {
       "key": "本副净分包含和牌、精分及杠分",
       "zh": "本副净分包含和牌、精分及杠分",
       "tw": "本副淨分包含和牌、精分及槓分",
@@ -36281,6 +36299,48 @@
       "zh": "盐",
       "tw": "鹽",
       "en": "Salt"
+    },
+    {
+      "key": "真实时间",
+      "zh": "真实时间",
+      "tw": "真實時間",
+      "en": "Real-time responses"
+    },
+    {
+      "key": "第二等待时间",
+      "zh": "第二等待时间",
+      "tw": "第二等待時間",
+      "en": "Secondary wait"
+    },
+    {
+      "key": "等待下一位玩家摸牌",
+      "zh": "等待下一位玩家摸牌",
+      "tw": "等待下一位玩家摸牌",
+      "en": "Waiting for the next player to draw"
+    },
+    {
+      "key": "真实时间仅支持川麻复式",
+      "zh": "真实时间仅支持川麻复式",
+      "tw": "真實時間僅支援川麻複式",
+      "en": "Real-time responses are available only in duplicate Sichuan games."
+    },
+    {
+      "key": "第二等待时间必须为3、5、8、10、15或20秒",
+      "zh": "第二等待时间必须为3、5、8、10、15或20秒",
+      "tw": "第二等待時間必須為3、5、8、10、15或20秒",
+      "en": "The secondary wait must be 3, 5, 8, 10, 15, or 20 seconds."
+    },
+    {
+      "key": "真实时间：其他玩家出牌后，如果下一位应由你摸牌，碰、明杠或和牌使用正常局时与步时；否则使用第二等待时间。第二等待时间结束后，牌局不再专门等待你，但本张弃牌尚未处理完时，仍可操作。第二等待时间也用于战术鸣牌的抢断询问。血战有人和牌退场后，按仍在行牌的顺序判断。",
+      "zh": "真实时间：其他玩家出牌后，如果下一位应由你摸牌，碰、明杠或和牌使用正常局时与步时；否则使用第二等待时间。第二等待时间结束后，牌局不再专门等待你，但本张弃牌尚未处理完时，仍可操作。第二等待时间也用于战术鸣牌的抢断询问。血战有人和牌退场后，按仍在行牌的顺序判断。",
+      "tw": "真實時間：其他玩家出牌後，如果下一位應由你摸牌，碰、明槓或和牌使用正常局時與步時；否則使用第二等待時間。第二等待時間結束後，牌局不再專門等待你，但本張棄牌尚未處理完時，仍可操作。第二等待時間也用於戰術鳴牌的搶斷詢問。血戰有人和牌退場後，按仍在行牌的順序判斷。",
+      "en": "After a discard, the next player due to draw uses the normal turn time and round reserve for pung, exposed kong, or win decisions. Other players use the secondary wait. When it expires, play no longer waits specifically for you, but you can still respond until the discard is resolved. Tactical claim rechecks use the same duration. In Blood Battle, turn order skips players who have already won."
+    },
+    {
+      "key": "非下一位摸牌者的首次响应等待与战术鸣牌抢断询问共用此时长，不扣局时。关闭真实时间会保留所选秒数，战术鸣牌开启时继续使用。首次等待结束仍可操作；抢断询问到期后执行已确定的动作。",
+      "zh": "非下一位摸牌者的首次响应等待与战术鸣牌抢断询问共用此时长，不扣局时。关闭真实时间会保留所选秒数，战术鸣牌开启时继续使用。首次等待结束仍可操作；抢断询问到期后执行已确定的动作。",
+      "tw": "非下一位摸牌者的首次回應等待與戰術鳴牌搶斷詢問共用此時長，不扣局時。關閉真實時間會保留所選秒數，戰術鳴牌開啟時繼續使用。首次等待結束仍可操作；搶斷詢問到期後執行已確定的動作。",
+      "en": "This duration is shared by the initial response wait for players who are not next to draw and tactical claim rechecks. It does not consume the round reserve. Turning off real-time responses preserves the selected duration for tactical claims. Initial expiry keeps responses available; recheck expiry resolves the pending claim."
     },
     {
       "key": "第 {0} 页",

@@ -126,6 +126,8 @@ class GameInfo(BaseModel):
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
     show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
+    real_time: Optional[bool] = None  # 仅川麻两种复式子规则
+    tactical_grace_seconds: Optional[int] = None
     claim_protection: Optional[bool] = True  # 实际鸣牌保护状态；含机器人的对局关闭
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     player_entry_order: Optional[List[int]] = None  # shuffle 前对局入场顺序 user_id[4]
@@ -222,6 +224,9 @@ class Ask_other_action_info(BaseModel):
     chi_candidates: Optional[Dict[str, List[List[int]]]] = None
     # 战术鸣牌（国标/青雀）：当前正处于战术鸣牌打断阶段，仅对当前申请的更高优先级行为再次询问
     is_tactical_recheck: Optional[bool] = None
+    # 川麻复式：独立短时；到期转 waiting_draw，操作权保留至本张弃牌处理完毕。
+    claim_wait_mode: Optional[str] = None
+    claim_seconds_remaining: Optional[float] = None
 
 class Do_action_info(BaseModel):
     washizu_layouts: Optional[Dict[int, dict]] = None

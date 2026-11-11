@@ -28,13 +28,13 @@ public static class LocalAssetPick {
         get {
 #if UNITY_IOS && !UNITY_EDITOR
             return new[] {
-                "public.image",
+                "public.png", "public.jpeg",
                 "public.zip-archive",
                 NativeFilePicker.ConvertExtensionToFileType("zip"),
             };
 #else
             return new[] {
-                "image/*",
+                "image/png", "image/jpeg",
                 "application/zip",
                 "application/x-zip-compressed",
                 NativeFilePicker.ConvertExtensionToFileType("zip"),
@@ -46,9 +46,9 @@ public static class LocalAssetPick {
     public static string[] ImageFileTypes {
         get {
 #if UNITY_IOS && !UNITY_EDITOR
-            return new[] { "public.image" };
+            return new[] { "public.png", "public.jpeg" };
 #else
-            return new[] { "image/*" };
+            return new[] { "image/png", "image/jpeg" };
 #endif
         }
     }
@@ -58,13 +58,17 @@ public static class LocalAssetPick {
             return;
         }
 #if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+        if (NativeFilePicker.IsFilePickerBusy()) {
+            onError?.Invoke("请先完成当前文件选择");
+            return;
+        }
         try {
             NativeFilePicker.PickFile(path => {
                 if (string.IsNullOrEmpty(path)) {
                     return;
                 }
                 try {
-                    onPicked(File.ReadAllBytes(path), Path.GetFileName(path));
+                    onPicked(LocalAssetImportLimits.ReadValidated(path, AllowsZip(fileTypes)), Path.GetFileName(path));
                 }
                 catch (Exception e) {
                     onError?.Invoke("读取文件失败: " + e.Message);
@@ -84,12 +88,21 @@ public static class LocalAssetPick {
             return;
         }
 #if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+        if (NativeFilePicker.IsFilePickerBusy()) {
+            onError?.Invoke("请先完成当前文件选择");
+            return;
+        }
         try {
             NativeFilePicker.PickFile(path => {
                 if (string.IsNullOrEmpty(path)) {
                     return;
                 }
-                onPicked(path);
+                try {
+                    LocalAssetImportLimits.ValidateFile(path, AllowsZip(fileTypes));
+                    onPicked(path);
+                } catch (Exception e) {
+                    onError?.Invoke("读取文件失败: " + e.Message);
+                }
             }, fileTypes);
         }
         catch (Exception e) {
@@ -98,5 +111,12 @@ public static class LocalAssetPick {
 #else
         onError?.Invoke("当前平台请使用本地文件选择");
 #endif
+    }
+
+    private static bool AllowsZip(string[] fileTypes) {
+        if (fileTypes == null) return false;
+        foreach (string type in fileTypes)
+            if (!string.IsNullOrEmpty(type) && type.IndexOf("zip", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        return false;
     }
 }

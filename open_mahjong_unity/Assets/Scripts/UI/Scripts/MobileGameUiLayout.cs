@@ -108,7 +108,7 @@ public sealed class MobileGameUiLayout : MonoBehaviour {
             side.anchorMax=new Vector2(0,side.anchorMax.y);
             side.anchoredPosition=new Vector2(Margin+side.rect.width*side.pivot.x,side.anchoredPosition.y);
         }
-        float scale=Screen.height/reference.y/Mathf.Max(.001f,CanvasReferenceLayout.PixelsPerUnit(viewport));
+        float scale=MobileViewportLayout.GameArea.height/reference.y/Mathf.Max(.001f,CanvasReferenceLayout.PixelsPerUnit(viewport));
         float gap=Margin*scale;
         Rect available=Inset(viewport.rect,gap);
         panel.localScale=panelScale*scale;
@@ -132,8 +132,8 @@ public sealed class MobileGameUiLayout : MonoBehaviour {
         foreach(var state in players) {
             var rect=state.rect;if (!rect || !(rect.parent is RectTransform parent)) continue;
             if (!tableCamera || !rootCanvas) continue;
-            // Perspective projection uses viewport height. Width changes move neither
-            // the table nor these reference offsets relative to the camera centre.
+            // The camera lens is unchanged; player offsets follow the height
+            // of its actual viewport, including mobile tablet letterboxing.
             Rect pixels=tableCamera.pixelRect;
             Vector2 screen=pixels.center+state.referenceOffset*(pixels.height/reference.y);
             Camera uiCamera=rootCanvas.renderMode==RenderMode.ScreenSpaceOverlay?null:rootCanvas.worldCamera;

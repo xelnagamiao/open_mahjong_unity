@@ -37,7 +37,7 @@ public static partial class PlatformText
     {
         if (localeCatalogs.TryGetValue(language, out var data)) return data;
         data = new LocaleData();
-        var asset = Resources.Load<TextAsset>("Localization/PlatformUI." + LocaleCode(language));
+        var asset = IosResourceCache.Load<TextAsset>("Localization/PlatformUI." + LocaleCode(language));
         var catalog = asset ? JsonUtility.FromJson<LocaleCatalog>(asset.text) : null;
         foreach (var entry in catalog?.entries ?? Array.Empty<LocaleEntry>())
         {

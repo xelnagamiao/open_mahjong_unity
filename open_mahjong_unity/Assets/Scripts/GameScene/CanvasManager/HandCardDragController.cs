@@ -35,6 +35,7 @@ public class HandCardDragController : MonoBehaviour {
     private Vector2 dragOffsetLocal;
     private Vector2 dragStartScreenPos;
     private Camera pointerPressCamera;
+    private int activePointerId = -1;
     private bool pendingPress;
     private bool dragSessionActive;
     private bool isFinishingDrag;
@@ -110,16 +111,39 @@ public class HandCardDragController : MonoBehaviour {
         if (!pendingPress || isFinishingDrag) {
             return;
         }
+        Vector2 pointerPosition = Input.mousePosition;
+        if (activePointerId >= 0) {
+            if (!TryGetActiveTouch(out Touch touch)) return;
+            if (touch.phase == TouchPhase.Canceled) {
+                AbortPressSession("触摸已取消");
+                return;
+            }
+            if (touch.phase == TouchPhase.Ended) return;
+            pointerPosition = touch.position;
+        }
         if (!dragSessionActive) {
-            if (ShouldActivate(Input.mousePosition)) {
-                ActivateDragSession(Input.mousePosition, pointerPressCamera);
+            if (ShouldActivate(pointerPosition)) {
+                ActivateDragSession(pointerPosition, pointerPressCamera);
             }
             return;
         }
-        UpdateDragCardScreenPosition(Input.mousePosition, pointerPressCamera);
+        UpdateDragCardScreenPosition(pointerPosition, pointerPressCamera);
     }
 
-    private static bool IsPhysicalPointerDown() {
+    private bool TryGetActiveTouch(out Touch touch) {
+        for (int i = 0; i < Input.touchCount; i++) {
+            touch = Input.GetTouch(i);
+            if (touch.fingerId == activePointerId) return true;
+        }
+        touch = default;
+        return false;
+    }
+
+    private bool IsPhysicalPointerDown() {
+        if (activePointerId >= 0) {
+            return TryGetActiveTouch(out Touch touch)
+                && touch.phase != TouchPhase.Ended && touch.phase != TouchPhase.Canceled;
+        }
         if (Input.GetMouseButton(0)) {
             return true;
         }
@@ -285,6 +309,7 @@ public class HandCardDragController : MonoBehaviour {
         isFinishingDrag = false;
         wasArmedAtPress = HandCardSelectionController.Instance.IsArmed(card);
         dragStartScreenPos = eventData.position;
+        activePointerId = eventData.pointerId;
         pointerPressCamera = eventData.pressEventCamera;
         pressStartUnscaledTime = Time.unscaledTime;
         lastPointerDownUnscaledTime = Time.unscaledTime;
@@ -314,7 +339,7 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     public void OnDrag(TileCard card, PointerEventData eventData) {
-        if (!pendingPress || dragCard != card || isFinishingDrag) {
+        if (!pendingPress || dragCard != card || isFinishingDrag || activePointerId != eventData.pointerId) {
             return;
         }
         pointerPressCamera = eventData.pressEventCamera;
@@ -331,6 +356,11 @@ public class HandCardDragController : MonoBehaviour {
     public bool OnPointerUp(TileCard card, PointerEventData eventData) {
         if (!pendingPress || dragCard != card) {
             return false;
+        }
+        if (activePointerId != eventData.pointerId) return true;
+        if (TileCard.IsCanceledTouch(eventData)) {
+            AbortPressSession("触摸已取消");
+            return true;
         }
         pendingPress = false;
         pointerPressCamera = eventData.pressEventCamera;
@@ -546,6 +576,7 @@ public class HandCardDragController : MonoBehaviour {
         activeGapIndex = -1;
         activeMergeDraw = false;
         wasArmedAtPress = false;
+        activePointerId = -1;
     }
 
     private IEnumerator EnableHoverNextFrame() {

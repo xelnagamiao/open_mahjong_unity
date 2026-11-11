@@ -3,7 +3,7 @@ import asyncio
 import ast
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -56,6 +56,40 @@ def test_wind_weather_tracks_seat_round_and_double_wind():
     assert jinluo.matches_weather(pairs, "seat_round_winds", 41, 41)
     assert not jinluo.matches_weather(pairs, "seat_round_winds", 43, 41)
     assert not jinluo.matches_weather(pairs, "seat_round_winds", 42, 43)
+
+
+@pytest.mark.parametrize("pairs,core,fans,weather_matches", [
+    ([12, 14, 17, 22, 24, 26, 28], 27, {"七对", "断幺", "缺一门"}, True),
+    ([11, 14, 17, 22, 24, 26, 28], 26, {"七对", "无字", "缺一门"}, True),
+    ([12, 14, 17, 22, 24, 26, 45], 25, {"七对", "缺一门"}, False),
+    ([12, 14, 17, 22, 24, 26, 35], 26, {"七对", "断幺"}, False),
+])
+@pytest.mark.parametrize("flowers", [0, 2, 5, 6, 7, 8])
+def test_missing_suit_weather_in_real_scoring_ron_and_bot(pairs, core, fans, weather_matches, flowers):
+    # 断幺不重复计无字；天气必须按牌结构判断，不能要求番表出现“无字”。
+    hand = [tile for tile in pairs for _ in range(2)]
+    tile = hand[-1]
+    state = make_state(enabled=False)
+    state.jinluo_mode, state.jinluo_weather, state.open_cuohe = True, "missing_suit", True
+    state.player_list[0].discard_tiles = [19, tile]  # 普通巡目，排除开局和牌豁免。
+    player = state.player_list[1]
+    player.hand_tiles, player.waiting_tiles = hand[:-1], {tile}
+    player.huapai_list = list(range(51, 51 + flowers))
+    actions = {index: [] for index in range(4)}
+
+    check_hepai(state, actions, tile, 1, "dianhe")
+
+    action = next(action for action in actions[1] if action.startswith("hu_"))
+    result = state.result_dict[action]
+    counts = jinluo.fan_counts(result[1])
+    assert result[0] - counts["花牌"] == core < 28
+    assert set(counts) - {"花牌"} == fans
+    assert counts["花牌"] == flowers
+    assert jinluo.matches_weather(jinluo.pair_tiles(hand, []), "missing_suit") is weather_matches
+    legal = weather_matches or flowers >= 6
+    assert jinluo.allows_state_win(state, result, hand, [], 1) is legal
+    assert should_accept_hu(state, 1, action) is legal
+    assert player.hand_tiles == hand[:-1]  # 荣和验证不把他家弃牌写进手牌。
 
 
 @pytest.mark.parametrize("score,flowers,allowed", [(24, 0, False), (27, 0, False), (28, 0, True), (29, 2, False), (30, 2, True)])
@@ -111,17 +145,68 @@ def test_clear_two_numbers_cannot_include_honors():
 
 
 @pytest.mark.parametrize("weather,yes,no", WEATHER_CASES)
-@pytest.mark.parametrize("event", [False, True])
-def test_room_settings_and_forced_wrong_win_mode(weather, yes, no, event):
+@pytest.mark.parametrize("entry", ["custom", "event", "admin"])
+@pytest.mark.parametrize("tips", [False, True])
+def test_room_settings_and_forced_wrong_win_mode(weather, yes, no, entry, tips):
     manager = room_manager()
-    config = dict(sub_rule="guobiao/standard", jinluo_mode=True, jinluo_weather=weather, open_cuohe=False, hepai_limit=64)
-    response = asyncio.run(manager.create_empty_event_room("event1", "guobiao", config) if event else
-                            manager.create_GB_room("connection", "金锣赛", 1, "", 20, 5, False, **config))
+    config = dict(sub_rule="guobiao/standard", jinluo_mode=True, jinluo_weather=weather,
+                  open_cuohe=False, hepai_limit=64, tian_di_ren_he=False)
+    response = asyncio.run(manager.create_empty_event_room("event1" if entry == "event" else None, "guobiao", {**config, "tips": tips}) if entry != "custom" else
+                            manager.create_GB_room("connection", "金锣赛", 1, "", 20, 5, tips, **config))
     assert response.success, response.message
     assert response.room_info["jinluo_mode"] is True
     assert response.room_info["jinluo_weather"] == weather
     assert response.room_info["open_cuohe"] is True
     assert response.room_info["hepai_limit"] == 8
+    assert response.room_info["tian_di_ren_he"] is True
+    assert response.room_info["tips"] is tips
+
+
+@pytest.mark.parametrize("entry", ["custom", "event", "admin"])
+@pytest.mark.parametrize("opening_enabled", [False, True])
+def test_non_jinluo_room_keeps_opening_win_choice(entry, opening_enabled):
+    manager = room_manager()
+    config = dict(sub_rule="guobiao/standard", jinluo_mode=False, tian_di_ren_he=opening_enabled)
+    response = asyncio.run(manager.create_empty_event_room("event1" if entry == "event" else None, "guobiao", config) if entry != "custom" else
+                            manager.create_GB_room("connection", "普通国标", 1, "", 20, 5, False, **config))
+    assert response.success, response.message
+    assert response.room_info["tian_di_ren_he"] is opening_enabled
+
+
+@pytest.mark.parametrize("jinluo_mode", [False, True])
+@pytest.mark.parametrize("opening_enabled", [False, True])
+@pytest.mark.parametrize("tips", [False, True])
+def test_game_state_enforces_jinluo_opening_wins_for_legacy_room_data(jinluo_mode, opening_enabled, tips):
+    from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
+    from .game_calculation_service import GameCalculationService
+
+    state = GuobiaoGameState(SimpleNamespace(user_id_to_connection={}), {
+        "player_list": [0, 2, 3, 4], "room_id": "jinluo-opening-test",
+        "round_timer": 10, "step_timer": 1, "game_round": 1, "tips": tips,
+        "room_rule": "guobiao", "room_type": "custom", "sub_rule": "guobiao/standard",
+        "jinluo_mode": jinluo_mode, "tian_di_ren_he": opening_enabled,
+    }, GameCalculationService(), Mock(), "jinluo-opening-test")
+    assert state.tian_di_ren_he is (jinluo_mode or opening_enabled)
+    assert state.tips is tips
+    title = build_game_title_data(state)
+    assert title["tian_di_ren_he"] is (jinluo_mode or opening_enabled)
+    assert title["tips"] is tips
+
+    # 真实天和原本13番；锁定的现有天地人和计分增加8番，仍不足普通24番。
+    hand = [11, 12, 13, 22, 23, 24, 33, 34, 35, 17, 18, 19, 26, 26]
+    for index, player in enumerate(state.player_list):
+        player.player_index = player.original_player_index = index
+    state.tiles_list = [19, 29, 39]
+    state.player_list[0].hand_tiles = hand
+    state.player_list[0].waiting_tiles = {26}
+    actions = {index: [] for index in range(4)}
+    check_hepai(state, actions, 26, 0, "handgot", is_first_action=True)
+    result = state.result_dict["hu_self"]
+    assert result[0] == (21 if jinluo_mode or opening_enabled else 13)
+    assert ("天和" in result[1]) is (jinluo_mode or opening_enabled)
+    if jinluo_mode:
+        assert jinluo.allows_state_win(state, result, hand, [], 0)
+        assert should_accept_hu(state, 0, "hu_self")
 
 
 @pytest.mark.parametrize("config", [{"jinluo_mode": "true"}, {"jinluo_weather": "auto"}, {"jinluo_weather": None}, {"jinluo_weather": []}])

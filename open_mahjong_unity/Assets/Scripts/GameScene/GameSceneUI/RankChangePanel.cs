@@ -16,9 +16,55 @@ public class RankChangePanel : MonoBehaviour {
 
     private Coroutine animCoroutine;
     private bool ratingAlreadyApplied;
+    private RatingTextLayout[] originalTextLayouts;
+
+    private struct RatingTextLayout {
+        public TMP_Text text;
+        public Vector2 position, size;
+        public bool autoSize;
+        public float fontSize, minSize, maxSize;
+        public TextWrappingModes wrapping;
+
+        public RatingTextLayout(TMP_Text value) {
+            text=value;
+            position=value.rectTransform.anchoredPosition; size=value.rectTransform.sizeDelta;
+            autoSize=value.enableAutoSizing; fontSize=value.fontSize;
+            minSize=value.fontSizeMin; maxSize=value.fontSizeMax; wrapping=value.textWrappingMode;
+        }
+        public void Restore() {
+            text.rectTransform.anchoredPosition=position; text.rectTransform.sizeDelta=size;
+            text.enableAutoSizing=autoSize; text.fontSize=fontSize;
+            text.fontSizeMin=minSize; text.fontSizeMax=maxSize; text.textWrappingMode=wrapping;
+        }
+    }
+
+    private void RestoreRatingTextLayout() {
+        if(originalTextLayouts==null) {
+            var layouts=new System.Collections.Generic.List<RatingTextLayout>();
+            foreach(var text in new[]{rankNameText,scoreText,ptChangeText,ratingDetailsText})
+                if(text!=null)layouts.Add(new RatingTextLayout(text));
+            originalTextLayouts=layouts.ToArray();
+        }
+        foreach(var layout in originalTextLayouts)layout.Restore();
+    }
+
+    private void FitRatingDetails() {
+        if(ratingDetailsText==null || !ratingDetailsText.gameObject.activeSelf)return;
+        // Preserve the original card; reserve separate rows above its confirm button.
+        var delta=ptChangeText.rectTransform;
+        delta.anchoredPosition=new Vector2(delta.anchoredPosition.x,-105.342f);
+        delta.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,44f);
+        ptChangeText.textWrappingMode=TextWrappingModes.NoWrap;
+        var details=ratingDetailsText.rectTransform;
+        details.anchoredPosition=new Vector2(details.anchoredPosition.x,-167.5f);
+        details.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,61f);
+        ratingDetailsText.enableAutoSizing=true;
+        ratingDetailsText.fontSizeMin=18f; ratingDetailsText.fontSizeMax=22f;
+    }
 
     public void ShowRatedChange(string rule,string system,string oldRank,float oldScore,string newRank,float newScore,float pt,float oldR,float newR,
         float? matchPoints=null,float gameMultiplier=1,float tierMultiplier=1,float rankCost=0,string pointDetails=null) {
+        RestoreRatingTextLayout();
         ratingAlreadyApplied=true;
         if(system=="grade") {
             ShowRankChange(oldRank,oldScore,newRank,newScore,pt);
@@ -38,6 +84,9 @@ public class RankChangePanel : MonoBehaviour {
             gameObject.SetActive(true);progressBar.gameObject.SetActive(false);
             if(resultTitle!=null)resultTitle.text="Elo 结算";
             rankNameText.text=RankedRules.Name(rule)+" · Elo";
+            rankNameText.enableAutoSizing=true;rankNameText.fontSizeMin=32f;rankNameText.fontSizeMax=50f;
+            scoreText.enableAutoSizing=true;scoreText.fontSizeMin=32f;scoreText.fontSizeMax=50f;
+            scoreText.textWrappingMode=TextWrappingModes.NoWrap;
             scoreText.text=$"R {oldR:0.##} 至 {newR:0.##}";
             ptChangeText.text=$"{newR-oldR:+0.##;-0.##;0} R";
             if(ratingDetailsText!=null&&!string.IsNullOrEmpty(pointDetails)) {
@@ -45,6 +94,7 @@ public class RankChangePanel : MonoBehaviour {
             }
             confirmButton.interactable=true;
         }
+        FitRatingDetails();
     }
 
     private void Awake() {
@@ -61,6 +111,7 @@ public class RankChangePanel : MonoBehaviour {
     /// 显示段位变动动画
     /// </summary>
     public void ShowRankChange(string oldRank, float oldScore, string newRank, float newScore, float pt) {
+        RestoreRatingTextLayout();
         if (ratingDetailsText != null) ratingDetailsText.gameObject.SetActive(false);
         if(resultTitle!=null)resultTitle.text="段位结算";
         progressBar.gameObject.SetActive(true);

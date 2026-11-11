@@ -49,6 +49,8 @@ internal static class SichuanRoomBuilder {
             WallSource = source,
             DuplicateRoundCount = duplicate ? input.DuplicateRoundCount : 0,
             DuplicateSyncMode = duplicate && input.DuplicateSyncMode,
+            RealTime = duplicate && input.RealTime,
+            TacticalGraceSeconds = duplicate ? input.TacticalGraceSeconds : 5,
         };
 
         if (!config.Validate(out string error, input.PasswordEnabled, training || input.RandomSeedEnabled)) {

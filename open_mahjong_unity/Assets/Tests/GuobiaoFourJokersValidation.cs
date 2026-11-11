@@ -7,6 +7,53 @@ using UnityEngine;
 
 public static class GuobiaoFourJokersValidation {
     public static object RunPaging() => UpwardPopupLayoutValidation.RunHints();
+    public static object RunOpeningHints() {
+        var checks=new List<string>();
+        void Check(bool ok,string label){if(!ok)throw new Exception(label);checks.Add(label);}
+        WaitTileHint Resolve(WaitHintQuery query) {
+            WaitTileHint result=null;
+            var routine=FourJokersTips.Resolve(query,hint=>result=hint);
+            var watch=System.Diagnostics.Stopwatch.StartNew();
+            while(routine.MoveNext()) {
+                if(watch.ElapsedMilliseconds>5000)throw new Exception("Opening hint job timed out");
+                System.Threading.Thread.Sleep(1);
+            }
+            return result??throw new Exception("Opening hint job failed");
+        }
+        foreach(string sub in new[]{GuobiaoGameState.FourJokersSubRule,GuobiaoGameState.HuahunSubRule,GuobiaoGameState.SixteenSubRule}) {
+            bool sixteen=sub==GuobiaoGameState.SixteenSubRule;
+            var hand=new List<int>{11,12,13,24,25,26,36,37,38,41,41,41,45,45};
+            if(sixteen)hand.AddRange(new[]{21,22,23});
+            var query=new WaitHintQuery{SubRule=sub,HandWithWin=hand,Melds=new List<string>(),HepaiTile=45,
+                WayToHepai=new List<string>(),SingleTileWay=new List<string>(),MergedWay=new List<string>{"点和"},HepaiLimit=8,NoJokerBonus="none"};
+            int ordinary=sixteen?12:10;
+            var baseline=Resolve(query);
+            Check(baseline.Kind==WaitTileHint.KindRon&&baseline.Label==ordinary+"番",sub+" ordinary hint unchanged");
+            query.GuobiaoTiming=new GuobiaoHintTiming{DrawTile=45,DrawOpening="人和"};
+            var human=Resolve(query);
+            Check(human.Kind==WaitTileHint.KindTsumoOnly&&human.Label=="自摸"+(ordinary+10)+"番",sub+" current human win uses self draw score");
+            query.GuobiaoTiming=new GuobiaoHintTiming{DrawTile=45,InitialDraw=true};
+            var initial=Resolve(query);
+            Check(initial.Kind==WaitTileHint.KindTsumoOnly&&initial.Label=="自摸"+(ordinary+1)+"番",sub+" initial draw excludes single wait with opening switch off");
+            query.GuobiaoTiming.DrawOpening="天和";
+            var heavenly=Resolve(query);
+            Check(heavenly.Label=="自摸"+(ordinary+9)+"番",sub+" heavenly win adds eight without single wait");
+            query.GuobiaoTiming=new GuobiaoHintTiming{RonTile=45,RonOpening="地和"};
+            var earth=Resolve(query);
+            Check(earth.Kind==WaitTileHint.KindRon&&earth.Label==(ordinary+8)+"番",sub+" earth win is added to actual discard");
+            query.GuobiaoTiming.RonTile=46;
+            Check(Resolve(query).Label==baseline.Label,sub+" another wait does not inherit earth win");
+            query.GuobiaoTiming=null;
+            Check(FourJokersTips.TryDescribeCached(query,out var cached)&&cached.Label==baseline.Label,sub+" expired opening restores ordinary cache");
+        }
+        var onlyRon=new WaitHintQuery{SubRule=GuobiaoGameState.FourJokersSubRule,HandWithWin=new List<int>{25,25},
+            Melds=new List<string>{"s12","s24","s36","s17"},HepaiTile=25,HepaiLimit=8,
+            WayToHepai=new List<string>(),SingleTileWay=new List<string>(),MergedWay=new List<string>{"点和"}};
+        Check(Resolve(onlyRon).Kind==WaitTileHint.KindRonOnly,"all-exposed hand qualifies only by ron");
+        onlyRon.GuobiaoTiming=new GuobiaoHintTiming{DrawTile=25};
+        Check(Resolve(onlyRon).Kind==WaitTileHint.KindNone,"actual self draw cannot fall back to qualifying ron");
+        return new{count=checks.Count,checks};
+    }
     public static object Run() {
         var checks = new List<string>();
         void Check(bool ok, string label) { if (!ok) throw new Exception(label); checks.Add(label); }

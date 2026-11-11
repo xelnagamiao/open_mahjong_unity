@@ -4,6 +4,13 @@ using UnityEngine;
 public partial class GameCanvas : MonoBehaviour {
     private double _timerStepDeadline;
     private double _timerDeadline;
+    private bool _retainClaimActionsAtZero;
+    private TMPro.FontStyles _timerFontStyleBeforeWait;
+    private TMPro.FontWeight _timerFontWeightBeforeWait;
+    private bool _timerAutoSizeBeforeWait;
+    private TMPro.TextWrappingModes _timerWrappingBeforeWait;
+    private float _timerFontSizeBeforeWait, _timerFontMinBeforeWait, _timerFontMaxBeforeWait;
+    public bool IsWaitingForDraw { get; private set; }
     public bool IsCountdownRunning => _countdownCoroutine != null && remianTimeText != null
         && _timerDeadline > Time.realtimeSinceStartupAsDouble;
 
@@ -19,15 +26,19 @@ public partial class GameCanvas : MonoBehaviour {
     public void LoadingRemianTime(int remainingTime, int cuttime) => LoadingRemianTime((double)remainingTime, cuttime);
 
     // Families with an exact server budget retain fractions until display.
-    public void LoadingRemianTime(double remainingTime, double cuttime){
+    public void LoadingRemianTime(double remainingTime, double cuttime) => StartDecisionTimer(remainingTime, cuttime, false);
+
+    /// <summary>独立短等待：零秒后保留按钮，直到服务器推进弃牌窗口。</summary>
+    public void LoadingClaimWaitTime(double seconds) => StartDecisionTimer(seconds, 0, true);
+
+    private void StartDecisionTimer(double remainingTime, double cuttime, bool retainClaimActionsAtZero){
         if (VotePanel.Instance != null && VotePanel.Instance.IsGameTimerSuppressed) {
             StopTimeRunning();
             return;
         }
 
-        // 停止可能正在运行的倒计时协程
-        if (_countdownCoroutine != null)
-            StopCoroutine(_countdownCoroutine);
+        StopTimeRunning();
+        _retainClaimActionsAtZero = retainClaimActionsAtZero;
 
         // 保存初始时间值
         _currentRemainingTime = (int)System.Math.Ceiling(System.Math.Max(0, remainingTime));
@@ -38,6 +49,10 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 设置倒计时初始值
         if (remianTimeText == null) return;
+        if (_retainClaimActionsAtZero && remainingTime <= 0) {
+            _countdownCoroutine = StartCoroutine(WaitingForDraw());
+            return;
+        }
         RefreshRemainTimeDisplay();
         TryPlayCountdownTickSound();
 
@@ -74,6 +89,10 @@ public partial class GameCanvas : MonoBehaviour {
 
             // 剩余时间为0 结束协程
             if (_currentRemainingTime <= 0 && _currentCutTime <= 0){
+                if (_retainClaimActionsAtZero) {
+                    yield return WaitingForDraw();
+                    break;
+                }
                 remianTimeText.text = "";
                 NormalGameStateManager.Instance?.SwitchCurrentPlayer("self","TimeOut",0);
                 break;
@@ -82,6 +101,54 @@ public partial class GameCanvas : MonoBehaviour {
         }
     }
 
+    private IEnumerator WaitingForDraw() {
+        IsWaitingForDraw = true;
+        _timerFontStyleBeforeWait = remianTimeText.fontStyle;
+        _timerFontWeightBeforeWait = remianTimeText.fontWeight;
+        _timerAutoSizeBeforeWait = remianTimeText.enableAutoSizing;
+        _timerWrappingBeforeWait = remianTimeText.textWrappingMode;
+        _timerFontSizeBeforeWait = remianTimeText.fontSize;
+        _timerFontMinBeforeWait = remianTimeText.fontSizeMin;
+        _timerFontMaxBeforeWait = remianTimeText.fontSizeMax;
+        remianTimeText.fontStyle &= ~TMPro.FontStyles.Bold;
+        remianTimeText.fontWeight = TMPro.FontWeight.Regular;
+        remianTimeText.fontSizeMin = Mathf.Min(18, _timerFontSizeBeforeWait);
+        remianTimeText.fontSizeMax = _timerFontSizeBeforeWait;
+        remianTimeText.enableAutoSizing = true;
+        remianTimeText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+        remianTimeText.color = Color.white;
+        double started = Time.realtimeSinceStartupAsDouble;
+        int lastDots = 0;
+        AppLanguage? lastLanguage = null;
+        string[] frames = null;
+        while (_retainClaimActionsAtZero && remianTimeText != null) {
+            if (VotePanel.Instance != null && VotePanel.Instance.IsGameTimerSuppressed) {
+                StopTimeRunning();
+                yield break;
+            }
+            // 语言/主题刷新也不能把这段中文等待提示重新加粗。
+            if ((remianTimeText.fontStyle & TMPro.FontStyles.Bold) != 0)
+                remianTimeText.fontStyle &= ~TMPro.FontStyles.Bold;
+            if (remianTimeText.fontWeight != TMPro.FontWeight.Regular)
+                remianTimeText.fontWeight = TMPro.FontWeight.Regular;
+            int dots = ClaimWaitDotCount(Time.realtimeSinceStartupAsDouble - started);
+            AppLanguage language = ConfigManager.CurrentLanguage;
+            if (lastLanguage != language) {
+                string message = PlatformText.GetContextual("等待下一位玩家摸牌", "sichuan");
+                frames = new[] { message + ".", message + "..", message + "..." };
+                lastLanguage = language;
+                lastDots = 0;
+            }
+            if (dots != lastDots) {
+                remianTimeText.text = frames[dots - 1];
+                lastDots = dots;
+            }
+            yield return null;
+        }
+    }
+
+    internal static int ClaimWaitDotCount(double elapsed) => 1 + (int)(System.Math.Max(0, elapsed) / 0.5 % 3);
+
     public void StopTimeRunning(){
         if (_countdownCoroutine != null) {
             StopCoroutine(_countdownCoroutine);
@@ -89,6 +156,17 @@ public partial class GameCanvas : MonoBehaviour {
         }
         _currentRemainingTime = 0;
         _currentCutTime = 0;
+        _retainClaimActionsAtZero = false;
+        if (IsWaitingForDraw && remianTimeText != null) {
+            remianTimeText.fontStyle = _timerFontStyleBeforeWait;
+            remianTimeText.fontWeight = _timerFontWeightBeforeWait;
+            remianTimeText.enableAutoSizing = _timerAutoSizeBeforeWait;
+            remianTimeText.fontSizeMin = _timerFontMinBeforeWait;
+            remianTimeText.fontSizeMax = _timerFontMaxBeforeWait;
+            remianTimeText.fontSize = _timerFontSizeBeforeWait;
+            remianTimeText.textWrappingMode = _timerWrappingBeforeWait;
+        }
+        IsWaitingForDraw = false;
         if (remianTimeText == null) return;
         remianTimeText.text = "";
         remianTimeText.color = Color.white;

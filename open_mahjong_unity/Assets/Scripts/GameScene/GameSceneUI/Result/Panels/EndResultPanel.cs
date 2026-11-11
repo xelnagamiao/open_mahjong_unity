@@ -109,6 +109,7 @@ public partial class EndResultPanel : MonoBehaviour {
     private bool endButtonConfirmed = false;
     // 当前赢家在本局结算中的实际净得点。
     private int? currentWinnerPointDelta;
+    private SettlementTotalDisplay nanchangSettlementTotal;
     private const string HidePanelButtonText = "隐藏面板";
     private const string ShowPanelButtonText = "显示面板";
 
@@ -445,6 +446,7 @@ public partial class EndResultPanel : MonoBehaviour {
         string roomRuleForFan = GameSession.Current.SubRule;
         ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
         ConfigureGuizhouSettlement(roomRuleForFan, GuizhouGameState.Active?.Info, hepai_player_index, false);
+        ConfigureNanchangSettlement(roomRuleForFan, NanchangGameState.Active?.Info, hepai_player_index);
         ShowChangshaBirdPanel(changshaBirdTiles);
         ApplyGuobiaoConcealedKongs(guobiaoAngangCheckText, roomRuleForFan, hu_fan);
         if (!restoringResult) TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
@@ -687,6 +689,7 @@ public partial class EndResultPanel : MonoBehaviour {
 
         ShowRiichiExtrasPanel(roomType, riichiExtras);
         ConfigureGuizhouSettlement(roomType, GameRecordManager.Instance?.GuizhouRecordInfo, hepai_player_index, !animateFanReveal);
+        ConfigureNanchangSettlement(roomType, GameRecordManager.Instance?.NanchangRecordInfo, hepai_player_index);
         hu_fan = AppendGuizhouEntries(hu_fan);
         SetChangshaBirdTiles(changshaBirdTiles);
         ShowChangshaBirdPanel(this.changshaBirdTiles);
@@ -1235,14 +1238,19 @@ public partial class EndResultPanel : MonoBehaviour {
     /// 立直麻将显示番（han）+符（fu）+点数。
     /// </summary>
     private void ShowTotalPanel(string rule, double huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
-        ShowTotalPanel(guizhouSettlement != null ? guizhouSettlement.TotalDisplay()
-            : BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta));
+        ShowTotalPanel(nanchangSettlementTotal ?? (guizhouSettlement != null ? guizhouSettlement.TotalDisplay()
+            : BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta)));
     }
 
     /// <summary>总计栏只负责摆字：读 <see cref="SettlementTotalDisplay"/>，null 字段即隐藏该栏。</summary>
     private void ShowTotalPanel(SettlementTotalDisplay display) {
         FanCountTotalPanel.SetActive(true);
         SettlementTotalLayout.Ensure(FanCountTotalPanel).Show(display, TotalFan, TotalFu, TotalScore, TotalLimitDisplay);
+    }
+
+    private void ConfigureNanchangSettlement(string rule, NanchangInfo info, int winner) {
+        if ((rule == NanchangGameState.RuleId || rule == NanchangGameState.SubRule) && winner >= 0 && winner < 4)
+            nanchangSettlementTotal = NanchangSettlementDisplay.Build(info)?.TotalDisplay(winner);
     }
 
     /// <summary>总计文案：族清单的 SettlementTotal 钩子给出；未声明的族用通用"番 + 点"。</summary>
@@ -1262,6 +1270,7 @@ public partial class EndResultPanel : MonoBehaviour {
 
     /// <summary>立直麻将结算扩展：宝牌/里宝牌指示牌槽位。长沙扎鸟走独立面板，不占用这里。</summary>
     private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
+        nanchangSettlementTotal = null;
         ClearGuizhouSettlement();
         if (RiichiPanel != null) {
             RiichiPanel.SetActive(extras != null);
@@ -1327,6 +1336,7 @@ public partial class EndResultPanel : MonoBehaviour {
     }
 
     public void ClearEndResultPanel(){
+        nanchangSettlementTotal = null;
         ResetDealerChoiceControls();
         RestoreSichuanBoardChildren();
         ClearGuizhouSettlement();

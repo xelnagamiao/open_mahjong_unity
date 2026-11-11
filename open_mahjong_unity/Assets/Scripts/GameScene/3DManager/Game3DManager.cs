@@ -690,6 +690,17 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false) {
+        var refreshBacks = DuocaiTableIndicators.CaptureHandBacks(PlayerPosition);
+        var postBacks = DuocaiTableIndicators.CaptureHandBackState(PlayerPosition);
+        return CompleteTileChange(Change3DTileCore(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile, concealedDiscard, postBacks), refreshBacks);
+    }
+
+    private static IEnumerator CompleteTileChange(IEnumerator animation, System.Action refreshBacks) {
+        yield return animation;
+        refreshBacks?.Invoke();
+    }
+
+    private IEnumerator Change3DTileCore(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi, bool playCutPhysicsSound, string meldDiscarderPos, int meldClaimedTile, bool concealedDiscard, int[] duocaiPostBacks) {
         PosPanel3D panel = GetPosPanel(PlayerPosition);
         if (panel == null) {
             yield break;
@@ -718,7 +729,7 @@ public partial class Game3DManager : MonoBehaviour {
                 yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition, duocaiPostBacks);
             }
             bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(cut_class);
             if (playCutPhysicsSound) PlayDiscardSound(PlayerPosition, isRiichi);
@@ -740,7 +751,7 @@ public partial class Game3DManager : MonoBehaviour {
                 yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition, duocaiPostBacks);
             }
             yield return Set3DTileCoroutine(concealedDiscard ? 0 : tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
             // 摸补：摸牌区删花后保留主列与摸牌区间距，不收拢；手补仍收拢主列
@@ -767,7 +778,7 @@ public partial class Game3DManager : MonoBehaviour {
                 yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true, PlayerPosition);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true, PlayerPosition, duocaiPostBacks);
             }
             yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
         }

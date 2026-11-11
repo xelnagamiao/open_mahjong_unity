@@ -23,13 +23,18 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         // 这里若清空缓存会把刚算好的提示抹掉。
         if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByGameState) return;
         selfHandTiles = new List<int>(selfHandTiles);
+        var sourceHand = new List<int>(selfHandTiles);
         combinationTiles = new List<string>(combinationTiles);
         string subRule = GameSession.Current.SubRule;
+        int actualDraw = GuobiaoGameState.Active?.BuildHintTiming().DrawTile ?? 0;
+        bool currentGuobiaoHand = actualDraw > 0
+            && selfHandTiles.Count + combinationTiles.Count * 3 == (subRule == GuobiaoGameState.SixteenSubRule ? 17 : 14);
+        if (currentGuobiaoHand && !selfHandTiles.Remove(actualDraw)) currentGuobiaoHand = false;
         HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
             OnReady = () => {
                 if (this != null && GameSession.Current.SubRule == subRule && TableMirror.Current.SelfHandTiles != null
-                    && TableMirror.Current.SelfHandTiles.OrderBy(t => t).SequenceEqual(selfHandTiles.OrderBy(t => t)))
-                    ShowTipsBlock(selfHandTiles, combinationTiles);
+                    && TableMirror.Current.SelfHandTiles.OrderBy(t => t).SequenceEqual(sourceHand.OrderBy(t => t)))
+                    ShowTipsBlock(sourceHand, combinationTiles);
             },
             SubRule = GameSession.Current.SubRule,
             Hand = selfHandTiles,
@@ -38,7 +43,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
         });
         // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0){
+        if (waitingTiles.Count > 0 && (!currentGuobiaoHand || waitingTiles.Contains(WashizuTile.Face(actualDraw)))){
             var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);
             TipsContainer.Instance.CacheTenpaiTips(selfHandTiles, waitingList);

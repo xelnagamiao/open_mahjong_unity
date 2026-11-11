@@ -312,7 +312,10 @@ class HongKongHandFlow:
             p.combination_mask[position] = mask
             action = "jiagang"
         p.has_draw_slot = False
-        p.kong_liability_payer = None
+        # Lianhuise's uninterrupted kong chain keeps the first kong's payer,
+        # including when later kongs are concealed or upgrade an exposed pung.
+        if not (self.rules.use_kong_liability and p.replacement_kind == "kong" and p.consecutive_kongs > 0):
+            p.kong_liability_payer = None
         p.consecutive_kongs += 1
         self._event(action,actor,tile=tile,meld_code=code,combination_mask=mask,is_mo_gang=pending["is_mo_gang"])
         if pending["concealed"] and self.rules.is_sixteen:

@@ -37,14 +37,18 @@ public class SichuanGameState : TurnBasedGameState {
     private int lastXueliuGangTick;
     private int snapshotActionTick;
     private bool dingquePresentationShown;
+    private readonly SichuanClaimWaitClock claimWaitClock = new SichuanClaimWaitClock();
 
     // =====================================================================
     // 开局
     // =====================================================================
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanClaimRestore");
+        claimWaitClock.Reset();
         RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
         snapshotActionTick = gameInfo?.action_tick ?? 0;
+        if (Session.IsDuplicate) Clock.LastAskActionTick = snapshotActionTick;
         RestoreDuplicateWall(gameInfo);
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;
@@ -83,7 +87,7 @@ public class SichuanGameState : TurnBasedGameState {
             case "duplicate_status":
                 Clock.Clear("duplicate_status");
                 RoundPanel.Instance?.UpdateDuplicateStatus(response.duplicate_match_info);
-                RoundEndPresentation.Instance?.ShowSichuanDuplicateResult(response.duplicate_match_info);
+                RoundEndPresentation.Instance?.ShowSichuanDuplicateResult(response.duplicate_match_info, response.received_monotonic);
                 return true;
             case "xueliu_continue":
                 ApplyXueliuContinue(response.game_info);
@@ -104,6 +108,8 @@ public class SichuanGameState : TurnBasedGameState {
 
     protected override void OnAskHandAction(Response response) {
         AskHandActionGBInfo info = response.ask_hand_action_info;
+        if (info == null || claimWaitClock.IsStaleAsk(info.action_tick, Clock.LastAskActionTick)) return;
+        if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanHandAsk");
         if (info?.xueliu_exchange != null) {
             if (info.action_tick < Clock.LastAskActionTick) return;
             Clock.LastAskActionTick = info.action_tick;
@@ -125,6 +131,55 @@ public class SichuanGameState : TurnBasedGameState {
             return;
         }
         base.OnAskHandAction(response);
+    }
+
+    protected override void OnAskClaim(Response response) {
+        AskOtherActionGBInfo info = response.ask_other_action_info;
+        if (info == null || claimWaitClock.IsStaleAsk(info.action_tick, Clock.LastAskActionTick)) return;
+        bool retained = Session.IsDuplicate && SichuanLobby.IsDuplicate(Session.SubRule)
+            && info.is_tactical_recheck != true && SichuanClaimWaitClock.IsRetainedMode(info.claim_wait_mode);
+        if (!retained) {
+            if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanNewClaimAsk");
+            base.OnAskClaim(response);
+            return;
+        }
+        if (info.action_tick < Clock.LastAskActionTick) return;
+        if (info.action_list == null || info.action_list.Length == 0) {
+            Clock.LastAskActionTick = info.action_tick;
+            Clock.Clear("sichuanClaimClosed");
+            return;
+        }
+        double now = SichuanClaimWaitClock.Now;
+        if (!claimWaitClock.TryProject(info.action_tick, info.claim_wait_mode,
+            info.claim_seconds_remaining ?? 0, response.received_monotonic ?? now, now, out double seconds)) return;
+
+        bool sameAsk = Clock.IsRetainedClaimAsk && Clock.LastAskActionTick == info.action_tick
+            && SameClaimActions(Clock.AllowActionList, info.action_list);
+        Clock.LastAskActionTick = info.action_tick;
+        OnBeforeAsk();
+        if (sameAsk) {
+            // 到期通知只换显示，不销毁仍可点击的按钮，也不重播按钮音或倒计时音。
+            if (!GameCanvas.Instance.IsWaitingForDraw) {
+                if (seconds <= 0) GameCanvas.Instance.LoadingClaimWaitTime(0);
+                else GameCanvas.Instance.CorrectCountdownBudget(seconds, 0);
+            }
+            return;
+        }
+        Clock.RiichiCandidateCuts.Clear();
+        Clock.ForbiddenCutTiles.Clear();
+        Manager.AskMingPaiAction(0, info.action_list, info.cut_tile, info.chi_candidates,
+            false, 0, seconds);
+    }
+
+    private static bool SameClaimActions(List<string> current, string[] incoming) {
+        if (current.Count != incoming.Length) return false;
+        foreach (string action in incoming) if (!current.Contains(action)) return false;
+        return true;
+    }
+
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        claimWaitClock.Close(Clock.LastAskActionTick);
+        base.OnAskWindowClosed(reason);
     }
 
     /// <summary>
@@ -221,6 +276,11 @@ public class SichuanGameState : TurnBasedGameState {
         if (info != null && info.is_claim != true && SichuanLobby.IsXueliu(Session.SubRule)
             && info.action_tick > 0 && info.action_tick <= lastXueliuGangTick
             && GameCanvas.HasNonZeroGangScoreChanges(info.gang_score_changes)) return;
+        // 操作提交/摸牌的网络帧即关闭旧弃牌窗口，不能等牌面动画结束。
+        if (info != null && Clock.IsRetainedClaimAsk) {
+            Clock.LastAskActionTick = System.Math.Max(Clock.LastAskActionTick, info.action_tick);
+            Clock.Clear("sichuanClaimAction");
+        }
         base.OnDoAction(response);
     }
 
@@ -547,6 +607,8 @@ public class SichuanGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanClaimExit");
+        claimWaitClock.Reset();
         RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
         Mirror.SetSichuanWallMasks(null);
         GameCanvas.Instance?.RefreshDuplicateRemainingTiles();

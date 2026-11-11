@@ -60,20 +60,27 @@ function single(logical:number[],melds:string[],win:number,flower:boolean):boole
   const yes=waits.length===1&&waits[0]===win
   if(singleCache.size>=4096)singleCache.clear();singleCache.set(key,yes);return yes
 }
-class FlowerScorer extends Chinese_Hepai_Check {
-  constructor(){super(false,{...Chinese_Hepai_Check.count_model_dict_default,huagang:88})}
+class JokerScorer extends Chinese_Hepai_Check {
+  constructor(private flower:boolean){super(false,{...Chinese_Hepai_Check.count_model_dict_default,huagang:88,tianhe:8,dihe:8,renhe:8})}
   override fan_count_output(p:PlayerTiles,codes:string,zimo:boolean,way:string[]):[number,string[]]{
-    p.fan_list.push('huagang');const result=super.fan_count_output(p,codes,zimo,way);result[1]=result[1].filter(f=>f!=='undefined');result[1].push('花杠');return result
+    const opening=[['天和','tianhe'],['地和','dihe'],['人和','renhe']]
+    for(const [label,key] of opening)if(way.includes(label)&&!p.fan_list.includes(key))p.fan_list.push(key)
+    if(this.flower)p.fan_list.push('huagang')
+    const result=super.fan_count_output(p,codes,zimo,way)
+    result[1]=result[1].filter(f=>f!=='undefined')
+    for(const [label,key] of opening)if(p.fan_list.includes(key))result[1].push(label)
+    if(this.flower)result[1].push('花杠')
+    return result
   }
 }
-export function jokerScore(hand:number[],melds:string[],way:string[],win:number,sub:string,multi=false,bonus='add8',progressive=true):{score:number;qualifying:number;fans:string[]} {
+export function jokerScore(hand:number[],melds:string[],way:string[],win:number,sub:string,multi=false,bonus='add8',progressive=true,allowSingle=true):{score:number;qualifying:number;fans:string[]} {
   const h=prepared(hand,melds,sub),flower=huahun(sub)&&melds.includes('G51'),joker=huahun(sub)?SEASONS.includes(win):win===59
   const empty={score:0,qualifying:0,fans:[] as string[]}
   if(!h||!hand.includes(win)||joker&&!way.some(w=>['自摸','杠上开花','last_deal','妙手回春'].includes(w)))return empty
   const flowers=way.filter(w=>w==='花牌').length
   if(huahun(sub)&&(flowers>4||!['add8','double','none'].includes(bonus)))return empty
   const baseWay=way.filter(w=>w!=='和单张'&&!(joker&&w==='和绝张')&&!(huahun(sub)&&w==='花牌'))
-  const allowed=!multi||!h.ghosts,checker=flower?new FlowerScorer():new Chinese_Hepai_Check()
+  const allowed=allowSingle&&!way.includes('天和')&&(!multi||!h.ghosts),checker=new JokerScorer(flower)
   let best=0,fans:string[]=[]
   const resolved=(logical:number[],tile:number)=>allowed&&single(logical,melds,tile,flower)?[...baseWay,'和单张']:[...baseWay]
   const accept=(result:[number,string[]])=>{if(result[0]>best){best=result[0];fans=result[1]}}
@@ -104,9 +111,11 @@ export function jokerScore(hand:number[],melds:string[],way:string[],win:number,
 export function describeJoker(q:FourJokersHintRequest):FourJokersHint {
   const sub=q.sub_rule??'guobiao/four_jokers',ghosts=q.hand_tiles.filter(t=>huahun(sub)?SEASONS.includes(t):t===59).length+(q.tiles_combination.includes('G51')?4:0)
   const limit=huahun(sub)?[8,8,16,32,64][Math.min(4,ghosts)]:q.hepai_limit
-  const score=(way:string[])=>jokerScore(q.hand_tiles,q.tiles_combination,way,q.get_tile,sub,q.joker_multi_wait,q.no_joker_bonus,q.black_flower_progressive)
-  const ron=score(q.ron_way),self=score(q.self_way)
-  const canRon=ron.score>0&&ron.qualifying>=limit,canSelf=self.score>0&&self.qualifying>=limit
+  const score=(way:string[],allowSingle=true)=>jokerScore(q.hand_tiles,q.tiles_combination,way,q.get_tile,sub,q.joker_multi_wait,q.no_joker_bonus,q.black_flower_progressive,allowSingle)
+  const self=score(q.self_way,!(q.current_draw&&q.initial_draw)),canSelf=self.score>0&&self.qualifying>=limit
+  if(q.current_draw)return canSelf?{kind:'zimo',label:`自摸${self.score}番`,score:self.score}
+    :{kind:'wuyi',label:'未起和',score:self.score}
+  const ron=score(q.ron_way),canRon=ron.score>0&&ron.qualifying>=limit
   if(canRon)return {kind:canSelf?'dianhe':'ron_only',label:canSelf?`${ron.score}番`:'仅点和',score:ron.score}
   return canSelf?{kind:'zimo',label:`自摸${self.score}番`,score:self.score}
     :{kind:'wuyi',label:'未起和',score:Math.max(ron.score,self.score)}

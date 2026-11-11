@@ -51,7 +51,7 @@ public static class AppSession {
     /// 断线面板 B 按钮：Web 与重连一致；Windows 独立版退出应用。
     /// </summary>
     public static void QuitOrReconnectOnDisconnectClose() {
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEBGL || UNITY_IOS) && !UNITY_EDITOR
         ReturnToLogin();
 #elif UNITY_STANDALONE_WIN && !UNITY_EDITOR
         UnityEngine.Application.Quit();

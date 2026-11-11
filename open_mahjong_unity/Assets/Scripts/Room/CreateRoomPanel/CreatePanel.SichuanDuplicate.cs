@@ -14,6 +14,10 @@ public partial class CreatePanel {
     [SerializeField] private UnityEngine.UI.Button SichuanTrainingCopyButton;
     [SerializeField] private TMP_Dropdown SichuanDuplicateRounds;
     [SerializeField] private Toggle SichuanDuplicateSyncToggle;
+    [SerializeField] private UnityEngine.UI.Toggle SichuanRealTimeToggle;
+    [SerializeField] private TMP_Dropdown SichuanSecondWaitDropdown;
+    private const string SichuanRealTimeHelp = "真实时间：其他玩家出牌后，如果下一位应由你摸牌，碰、明杠或和牌使用正常局时与步时；否则使用第二等待时间。第二等待时间结束后，牌局不再专门等待你，但本张弃牌尚未处理完时，仍可操作。第二等待时间也用于战术鸣牌的抢断询问。血战有人和牌退场后，按仍在行牌的顺序判断。";
+    private int SelectedSichuanSecondWait => SichuanLobby.SecondWaitSeconds[SichuanSecondWaitDropdown ? Mathf.Clamp(SichuanSecondWaitDropdown.value, 0, SichuanLobby.SecondWaitSeconds.Length - 1) : 1];
     [SerializeField] private UnityEngine.UI.Image creationHeader;
     [SerializeField] private UnityEngine.UI.Image creationFooter;
     [SerializeField] private Color ordinaryHeaderColor = new Color32(44, 58, 116, 255);
@@ -32,6 +36,8 @@ public partial class CreatePanel {
     private bool IsSichuanTraining => IsSichuanDuplicate && SelectedSichuanWallSource == "training";
 
     private void ResetSichuanWallSource() {
+        if (SichuanRealTimeToggle) SichuanRealTimeToggle.SetIsOnWithoutNotify(false);
+        if (SichuanSecondWaitDropdown) SichuanSecondWaitDropdown.SetValueWithoutNotify(1);
         if (SichuanWallSourceToggles != null)
             for (int i = 0; i < SichuanWallSourceToggles.Length; i++)
                 if (SichuanWallSourceToggles[i]) SichuanWallSourceToggles[i].SetIsOnWithoutNotify(i == 1);
@@ -74,6 +80,13 @@ public partial class CreatePanel {
             else SichuanDuplicateRounds.RefreshShownValue();
         }
         if (SichuanDuplicateSyncToggle) SichuanDuplicateSyncToggle.gameObject.SetActive(paired);
+        if (SichuanRealTimeToggle) SichuanRealTimeToggle.gameObject.SetActive(paired);
+        if (SichuanSecondWaitDropdown) {
+            bool showWait = paired && SichuanRealTimeToggle && SichuanRealTimeToggle.isOn;
+            if (!showWait) SichuanSecondWaitDropdown.Hide();
+            SichuanSecondWaitDropdown.transform.parent.gameObject.SetActive(showWait);
+            SichuanSecondWaitDropdown.gameObject.SetActive(showWait);
+        }
         if (paired) {
             foreach (var toggle in RoomRoundToggles) if (toggle) toggle.gameObject.SetActive(false);
             var rounds = RoomContent.Find("RoundSelection");
@@ -89,6 +102,10 @@ public partial class CreatePanel {
     }
 
     private void BindSichuanDuplicateControls() {
+        if (SichuanRealTimeToggle) SichuanRealTimeToggle.onValueChanged.AddListener(_ => {
+            RefreshSichuanDuplicateControls();
+            RebuildCreateRoomLayoutHierarchy();
+        });
         if (DuplicateKeyInput) DuplicateKeyInput.onValueChanged.AddListener(_ => RefreshSichuanDuplicateControls());
         if (SichuanWallSourceToggles != null)
             foreach (var toggle in SichuanWallSourceToggles.Where(t => t)) toggle.onValueChanged.AddListener(selected => {
@@ -106,6 +123,7 @@ public partial class CreatePanel {
 
 #if UNITY_EDITOR
     public void BakeSichuanDuplicateControls() {
+        BakeSichuanRealTimeControls();
         BakeSichuanWallSourceControls();
         if (!SichuanDuplicateRounds) {
             var row = Instantiate(roundTimer.transform.parent.gameObject, roundTimer.transform.parent.parent);
@@ -144,6 +162,51 @@ public partial class CreatePanel {
             creationFooter = transform.Find("FooterPanel").GetComponent<UnityEngine.UI.Image>();
             ordinaryFooterColor = creationFooter.color;
         }
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+
+    public void BakeSichuanRealTimeControls() {
+        if (!SichuanRealTimeToggle) {
+            SichuanRealTimeToggle = Instantiate(DuplicateWallToggle, DuplicateWallToggle.transform.parent);
+            SichuanRealTimeToggle.name = "SichuanRealTime";
+            SichuanRealTimeToggle.group = null;
+            SichuanRealTimeToggle.onValueChanged = new UnityEngine.UI.Toggle.ToggleEvent();
+            SichuanRealTimeToggle.SetIsOnWithoutNotify(false);
+            if (SichuanDuplicateSyncToggle)
+                SichuanRealTimeToggle.transform.SetSiblingIndex(SichuanDuplicateSyncToggle.transform.GetSiblingIndex() + 1);
+        }
+        var toggleLabel = SichuanRealTimeToggle.GetComponentInChildren<TMP_Text>(true);
+        TableText.Set(toggleLabel, "真实时间", "sichuan");
+        toggleLabel.fontStyle = FontStyles.Normal;
+        toggleLabel.fontWeight = FontWeight.Regular;
+        var help = SichuanRealTimeToggle.GetComponent<CreateRoomHelpTrigger>();
+        if (help) help.Configure(this, SichuanRealTimeHelp);
+        if (!SichuanSecondWaitDropdown) {
+            var row = Instantiate(stepTimer.transform.parent.gameObject, stepTimer.transform.parent.parent);
+            row.name = "SichuanSecondWait";
+            row.transform.SetSiblingIndex(stepTimer.transform.parent.GetSiblingIndex() + 1);
+            SichuanSecondWaitDropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
+            SichuanSecondWaitDropdown.onValueChanged = new TMP_Dropdown.DropdownEvent();
+            SichuanSecondWaitDropdown.ClearOptions();
+            SichuanSecondWaitDropdown.AddOptions(SichuanLobby.SecondWaitSeconds.Select(seconds => seconds + "秒").ToList());
+            SichuanSecondWaitDropdown.SetValueWithoutNotify(1);
+        }
+        foreach (var text in SichuanSecondWaitDropdown.transform.parent.GetComponentsInChildren<TMP_Text>(true)) {
+            if (!text.GetComponentInParent<TMP_Dropdown>(true)) {
+                TableText.Set(text, "第二等待时间", "sichuan");
+                var labelLayout = text.GetComponent<LayoutElement>();
+                if (labelLayout) DestroyImmediate(labelLayout);
+                RoomBox(text.rectTransform, 0, 0, 184, 72);
+            }
+            text.fontStyle = FontStyles.Normal;
+            text.fontWeight = FontWeight.Regular;
+        }
+        RoomFill((RectTransform)SichuanSecondWaitDropdown.transform, 192, 8, 0, 8);
+        foreach (var trigger in SichuanSecondWaitDropdown.transform.parent.GetComponentsInChildren<CreateRoomHelpTrigger>(true))
+            trigger.Configure(this, "非下一位摸牌者的首次响应等待与战术鸣牌抢断询问共用此时长，不扣局时。关闭真实时间会保留所选秒数，战术鸣牌开启时继续使用。首次等待结束仍可操作；抢断询问到期后执行已确定的动作。");
+        RoomDropdownTemplateHeight(SichuanSecondWaitDropdown);
+        SichuanRealTimeToggle.gameObject.SetActive(false);
+        SichuanSecondWaitDropdown.transform.parent.gameObject.SetActive(false);
         UnityEditor.EditorUtility.SetDirty(this);
     }
 

@@ -118,10 +118,10 @@ public static class TileFaceResolver {
             return HongqueTileVisual.LoadSprite(tileId);
         }
         if (tileId == ConfigManager.HandBackImageId) {
-            return LoadCustomHandBackSprite() ?? Resources.Load<Sprite>(TilePackIds.DefaultHandBackResource);
+            return LoadCustomHandBackSprite() ?? IosResourceCache.Load<Sprite>(TilePackIds.DefaultHandBackResource);
         }
         // 旧编号 1 是横向牌体底图，不属于标准牌面包。
-        if (tileId == 1) return Resources.Load<Sprite>(TilePackIds.HandHorizontalBgResource);
+        if (tileId == 1) return IosResourceCache.Load<Sprite>(TilePackIds.HandHorizontalBgResource);
 
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
@@ -175,7 +175,7 @@ public static class TileFaceResolver {
         }
         if (!UsesCustomStandardFaces) return null;
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
-            Texture2D builtin = Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId));
+            Texture2D builtin = IosResourceCache.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId));
             if (builtin != null) {
                 return builtin;
             }
@@ -208,7 +208,7 @@ public static class TileFaceResolver {
             return 1f;
         }
         if (TilePackIds.IsBuiltinLayeredPack(packId)
-            && Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null) {
+            && IosResourceCache.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null) {
             return packId == TilePackIds.PackFluffy && faceId >= 51 && faceId <= 58
                 ? TileTextureLayout.SnowTableImageScale : TileTextureLayout.TableImageScale;
         }
@@ -243,7 +243,7 @@ public static class TileFaceResolver {
             return BuiltinTileSprites.OfficialTable(faceId);
         }
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
-            Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(packId, faceId));
+            Sprite builtin = IosResourceCache.Load<Sprite>(TilePackIds.BuiltinTableResource(packId, faceId));
             if (builtin != null) {
                 return builtin;
             }
@@ -419,11 +419,11 @@ public static class TileFaceResolver {
     }
 
     public static Texture2D PeekDefaultHandBackTexture() {
-        Sprite sprite = Resources.Load<Sprite>(TilePackIds.DefaultHandBackResource);
+        Sprite sprite = IosResourceCache.Load<Sprite>(TilePackIds.DefaultHandBackResource);
         if (sprite != null && sprite.texture != null) {
             return sprite.texture;
         }
-        return Resources.Load<Texture2D>(TilePackIds.DefaultHandBackResource);
+        return IosResourceCache.Load<Texture2D>(TilePackIds.DefaultHandBackResource);
     }
 
     private static void NotifyChanged() {
@@ -450,7 +450,7 @@ public static class TileFaceResolver {
         if (TilePackIds.IsBuiltinPack(packId) && BuiltinTileSprites.Shared(packId, faceId) != null) return true;
         if (packId == TilePackIds.PackOfficial) return BuiltinTileSprites.OfficialTable(faceId) != null;
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
-            return Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null;
+            return IosResourceCache.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null;
         }
         return CustomTableTextures.ContainsKey(faceId);
     }
@@ -514,7 +514,7 @@ public static class TileFaceResolver {
         if (defaultHandBackgroundTexture != null) {
             return;
         }
-        defaultHandBackgroundTexture = Resources.Load<Texture2D>(TilePackIds.DefaultHandBgResource);
+        defaultHandBackgroundTexture = IosResourceCache.Load<Texture2D>(TilePackIds.DefaultHandBgResource);
     }
 
     private static void ReplaceHandBackgroundSprite(Texture2D texture) {

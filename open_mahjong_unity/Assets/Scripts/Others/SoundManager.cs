@@ -28,7 +28,7 @@ public partial class SoundManager : MonoBehaviour {
     }
 
     public void PlayActionButtonAppearSound() {
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Effects/mixkit-modern-technology-select-3124");
+        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Effects/mixkit-modern-technology-select-3124");
         if (soundToPlay == null) {
             Debug.LogWarning("未找到操作按钮显示音效: Sound/Effects/mixkit-modern-technology-select-3124");
             return;
@@ -39,7 +39,7 @@ public partial class SoundManager : MonoBehaviour {
 
     /// <summary>对局倒计时剩余 3/2/1 秒时的提示音效。</summary>
     public void PlayCountdownTickSound() {
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Effects/Timer02-0.1s");
+        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Effects/Timer02-0.1s");
         if (soundToPlay == null) {
             Debug.LogWarning("未找到倒计时音效: Sound/Effects/Timer02-0.1s");
             return;
@@ -102,7 +102,7 @@ public partial class SoundManager : MonoBehaviour {
     private AudioClip LoadVoiceClipWithFallback(string voicePath, string voiceKey, out string loadedTarget) {
         foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
             string target = $"Sound/{voicePath}/{key}";
-            AudioClip clip = Resources.Load<AudioClip>(target);
+            AudioClip clip = IosResourceCache.Load<AudioClip>(target);
             if (clip != null) {
                 loadedTarget = target;
                 return clip;
@@ -110,7 +110,7 @@ public partial class SoundManager : MonoBehaviour {
         }
         foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
             string target = $"Sound/{voiceIdToPath[1]}/{key}";
-            AudioClip clip = Resources.Load<AudioClip>(target);
+            AudioClip clip = IosResourceCache.Load<AudioClip>(target);
             if (clip != null) {
                 loadedTarget = target;
                 return clip;
@@ -134,8 +134,8 @@ public partial class SoundManager : MonoBehaviour {
     public void PlayRiichiVoice(string playerPosition, int? voiceIdOverride = null) {
         int voiceId = ResolvePlayerVoiceId(playerPosition, voiceIdOverride);
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
-        AudioClip clip = Resources.Load<AudioClip>($"Sound/{voicePath}/riichi");
-        if (clip == null) clip = Resources.Load<AudioClip>($"Sound/{voiceIdToPath[1]}/riichi");
+        AudioClip clip = IosResourceCache.Load<AudioClip>($"Sound/{voicePath}/riichi");
+        if (clip == null) clip = IosResourceCache.Load<AudioClip>($"Sound/{voiceIdToPath[1]}/riichi");
         if (clip == null) {
             Debug.LogWarning("未找到立直音效资源 Sound/<voice>/riichi");
             return;
@@ -148,7 +148,7 @@ public partial class SoundManager : MonoBehaviour {
         if (ConfigManager.Instance != null && !ConfigManager.Instance.MatchSuccessSoundEnabled) {
             return;
         }
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/gamestart");
+        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Physics/gamestart");
         if (soundToPlay == null) {
             Debug.LogWarning("未找到匹配成功音效: Sound/Physics/gamestart");
             return;
@@ -171,7 +171,7 @@ public partial class SoundManager : MonoBehaviour {
         } else {
             return;
         }
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + fileName);
+        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Physics/" + fileName);
         if (soundToPlay == null) {
             Debug.LogWarning($"未找到物理音效文件: {actionType}");
             return;

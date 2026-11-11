@@ -153,6 +153,11 @@
       </el-card>
 
       <el-card class="block">
+        <template #header><span class="game-control-title">对局管理</span></template>
+        <EventGameControl :key="detail.event_id" :event-id="detail.event_id" :kind="detail.kind" platform-admin @ended="loadRooms" />
+      </el-card>
+
+      <el-card class="block">
         <template #header>
           比赛场统计
           <span v-if="statsDateRangeLabel" class="stats-range-hint">{{ statsDateRangeLabel }}</span>
@@ -311,6 +316,7 @@ import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
 import { useAdminNotificationsStore } from '@/stores/adminNotifications'
 import EventRoomCards from '@/components/EventRoomCards.vue'
+import EventGameControl from '@/components/EventGameControl.vue'
 import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
 import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
@@ -799,6 +805,10 @@ onMounted(load)
 </script>
 
 <style scoped>
+.game-control-title {
+  font-weight: 400;
+  font-synthesis: none;
+}
 .block {
   margin-top: 16px;
 }

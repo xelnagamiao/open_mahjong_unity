@@ -51,6 +51,7 @@ public class UploadFile : MonoBehaviour {
         }, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") {
                 Debug.LogError("上传失败: " + err);
+                NotificationManager.Instance?.ShowTip("上传", false, err);
             }
         });
 
@@ -91,6 +92,16 @@ public class UploadFile : MonoBehaviour {
         }
 
         try {
+            // Reject unsupported formats and oversized images before a decoder
+            // allocates native/GPU memory (especially important on iPhone/iPad).
+            byte[] imageBytes = LocalAssetImportLimits.ReadValidated(sourcePath, false);
+            var probe = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try {
+                if (!ImageConversion.LoadImage(probe, imageBytes, true))
+                    throw new InvalidDataException("图片数据损坏，请重新选择 PNG 或 JPG 文件");
+            } finally {
+                Destroy(probe);
+            }
             // 处理目录路径：使用时间戳生成唯一文件名，避免覆盖已有文件
             if (Directory.Exists(targetPath) || string.IsNullOrEmpty(Path.GetExtension(targetPath))) {
                 string extension = Path.GetExtension(sourcePath);
@@ -106,13 +117,15 @@ public class UploadFile : MonoBehaviour {
             EnsureDirectoryExists(targetPath);
 
             // 执行文件复制
-            File.Copy(sourcePath, targetPath, false);
+            using (var output = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write))
+                output.Write(imageBytes, 0, imageBytes.Length);
             Debug.Log("文件保存成功: " + targetPath);
 
             // 通知SceneConfigPanel刷新当前页面
             NotifyPanelRefresh();
         } catch (System.Exception e) {
             Debug.LogError($"保存文件失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("上传", false, e.Message);
             Debug.LogError($"源路径: {sourcePath}, 目标路径: {targetPath}");
         }
     }

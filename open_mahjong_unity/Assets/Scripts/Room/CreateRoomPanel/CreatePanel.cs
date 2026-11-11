@@ -343,6 +343,12 @@ public partial class CreatePanel : MonoBehaviour {
                 break;
             case CreateRoomKeys.ClaimProtection: ClaimProtectionToggle.isOn = (bool)value; break;
             case CreateRoomKeys.TacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.RealTime:
+                if (SichuanRealTimeToggle) SichuanRealTimeToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.TacticalGraceSeconds:
+                if (SichuanSecondWaitDropdown) SichuanSecondWaitDropdown.SetValueWithoutNotify(Math.Max(0, Array.IndexOf(SichuanLobby.SecondWaitSeconds, (int)value)));
+                break;
             case CreateRoomKeys.UseFlowers:
                 if (GuobiaoFlowersToggle != null) GuobiaoFlowersToggle.SetIsOnWithoutNotify((bool)value);
                 break;
@@ -536,6 +542,8 @@ public partial class CreatePanel : MonoBehaviour {
                 CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
             } else {
                 HepaiLimitInput.text = "8";
+                if (GetSelectedSubRule() == GuobiaoGameState.BloodBattleSubRule)
+                    CuoHeheToggle.SetIsOnWithoutNotify(false);
             }
         }
         RefreshVisibility();
@@ -909,14 +917,14 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void ToggleCuoHehe(bool isOn) {
         RefreshCuoheTypePanelVisibility();
-        if (!isOn) return;
+        if (!isOn || IsJinluoEnabled) return;
         tipsToggle.onValueChanged.RemoveListener(ToggleTips);
         tipsToggle.isOn = false;
         tipsToggle.onValueChanged.AddListener(ToggleTips);
     }
 
     private void ToggleTips(bool isOn) {
-        if (!isOn) return;
+        if (!isOn || IsJinluoEnabled) return;
         CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
         CuoHeheToggle.isOn = false;
         CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);

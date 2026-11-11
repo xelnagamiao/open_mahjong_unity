@@ -132,7 +132,7 @@ public partial class NetworkManager : MonoBehaviour {
     private void BindWebSocketEvents(WebSocket ws) {
         ws.OnMessage += bytes => {
             if (ws != websocket) return;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
             // Record version rejection before OnClose, even if UI dispatch is queued.
             string versionMessage = System.Text.Encoding.UTF8.GetString(bytes);
             if (versionMessage.Contains("error_version")) {
@@ -176,7 +176,7 @@ public partial class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
                 if (suppressConnectionFailureUi) return;
 #endif
                 if (IsOnLoginPage()) {
@@ -197,7 +197,7 @@ public partial class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi || sessionRevoked) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
                 if (suppressConnectionFailureUi) return;
 #endif
                 GameSceneUIManager.ResetRealtimeSpectatorUi();
@@ -837,7 +837,7 @@ public partial class NetworkManager : MonoBehaviour {
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
                     if (response.message == "error_version") {
                         _disconnectDialogState = DisconnectDialogState.NoMatch;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
                         // The server closes a rejected version's socket deliberately.
                         // It must not turn this update choice into a network error.
                         suppressConnectionFailureUi = true;
@@ -856,7 +856,7 @@ public partial class NetworkManager : MonoBehaviour {
                     if (response.message == "error_version" && serverMessage != null) {
                         serverMessage.RequiredReleaseVersion = response.message_info.required_release_version;
                         serverMessage.RequiredBaseVersion = response.message_info.required_base_version;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
                         // Build the choices after assigning the server's version requirements.
                         serverMessage.ShowMessage(response.message_info.title, response.message_info.content, "error_version");
 #endif
@@ -1052,6 +1052,7 @@ public partial class NetworkManager : MonoBehaviour {
                 type = "send_release_version",
                 release_version = ConfigManager.releaseVersion,
 #if UNITY_ANDROID && !UNITY_EDITOR
+                // Android HybridCLR framework revision is unrelated to an iOS player.
                 base_version = ConfigManager.base_version,
 #endif
                 version_declaration = ConfigManager.versionDeclaration

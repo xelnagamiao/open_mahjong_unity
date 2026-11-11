@@ -78,6 +78,8 @@ public sealed class TableMirror {
     public int LastCutCardID;
     /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
     public string LastDiscardPlayerPosition;
+    /// <summary>服务端明确标记的海底弃牌（长沙翻海底不经过普通摸牌计数）。</summary>
+    public bool LastDiscardWasSeaBottom;
     /// <summary>本次鸣牌真正认走的打牌者座位（由 cut_from_player 得到）。</summary>
     public string CurrentMeldDiscarderPos;
     /// <summary>本次鸣牌真正认走的被鸣牌张 id。</summary>
@@ -144,6 +146,7 @@ public sealed class TableMirror {
 
     /// <summary>开局：清空四家河/花/副露与本家手牌相关的列表（不动用户名/分数/头像）。</summary>
     public void ClearRoundLists() {
+        LastDiscardWasSeaBottom = false;
         foreach (PlayerInfoClass info in PlayerToInfo.Values) {
             info.discard_tiles = new List<int>();
             info.discard_riichi_flags = new List<bool>();
@@ -283,6 +286,7 @@ public sealed class TableMirror {
         SelfHandTiles.Clear();
         LastCutCardID = 0;
         LastDiscardPlayerPosition = null;
+        LastDiscardWasSeaBottom = false;
         CurrentMeldDiscarderPos = null;
         CurrentMeldClaimedTileId = 0;
         LastDealTileId = 0;

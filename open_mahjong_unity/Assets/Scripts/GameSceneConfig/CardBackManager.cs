@@ -792,28 +792,31 @@ public static class CardBackManager
         if (!IsZip(bytes)) return false;
         try
         {
+            LocalAssetImportLimits.ValidateSurfaceZip(bytes);
             using (var stream = new MemoryStream(bytes, false))
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
             {
+                LocalAssetImportLimits.ValidateSurfaceArchive(archive);
                 foreach (ZipArchiveEntry entry in archive.Entries)
                 {
                     if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
                     string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
                     if (!name.EndsWith(".png")) continue;
+                    bool hand = IsHandBgFileName(name), back = !hand && IsBackFileName(name);
+                    if (!hand && !back) continue;
+                    if ((hand && handBgPng != null) || (back && backPng != null))
+                        throw new InvalidDataException("压缩包包含重复用途的图片");
                     byte[] png;
                     using (Stream open = entry.Open())
-                    using (var memory = new MemoryStream())
-                    {
-                        open.CopyTo(memory);
-                        png = memory.ToArray();
-                    }
-                    if (IsHandBgFileName(name)) handBgPng = png;
-                    else if (IsBackFileName(name)) backPng = png;
+                        png = LocalAssetImportLimits.ReadValidatedImage(open, entry.Length);
+                    if (hand) handBgPng = png;
+                    else backPng = png;
                 }
             }
         }
         catch
         {
+            backPng = handBgPng = null;
             return false;
         }
         return backPng != null || handBgPng != null;
@@ -826,28 +829,31 @@ public static class CardBackManager
         if (!IsZip(bytes)) return false;
         try
         {
+            LocalAssetImportLimits.ValidateSurfaceZip(bytes);
             using (var stream = new MemoryStream(bytes, false))
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
             {
+                LocalAssetImportLimits.ValidateSurfaceArchive(archive);
                 foreach (ZipArchiveEntry entry in archive.Entries)
                 {
                     if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
                     string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
                     if (!name.EndsWith(".png")) continue;
+                    bool hand = IsHandBgFileName(name), back = !hand && IsHandBackFileName(name);
+                    if (!hand && !back) continue;
+                    if ((hand && handBgPng != null) || (back && handBackPng != null))
+                        throw new InvalidDataException("压缩包包含重复用途的图片");
                     byte[] png;
                     using (Stream open = entry.Open())
-                    using (var memory = new MemoryStream())
-                    {
-                        open.CopyTo(memory);
-                        png = memory.ToArray();
-                    }
-                    if (IsHandBgFileName(name)) handBgPng = png;
-                    else if (IsHandBackFileName(name)) handBackPng = png;
+                        png = LocalAssetImportLimits.ReadValidatedImage(open, entry.Length);
+                    if (hand) handBgPng = png;
+                    else handBackPng = png;
                 }
             }
         }
         catch
         {
+            handBackPng = handBgPng = null;
             return false;
         }
         return handBackPng != null || handBgPng != null;
@@ -859,27 +865,26 @@ public static class CardBackManager
         if (!IsZip(bytes)) return false;
         try
         {
+            LocalAssetImportLimits.ValidateSurfaceZip(bytes);
             using (var stream = new MemoryStream(bytes, false))
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
             {
+                LocalAssetImportLimits.ValidateSurfaceArchive(archive);
                 foreach (ZipArchiveEntry entry in archive.Entries)
                 {
                     if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
                     string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
                     if (!name.EndsWith(".png")) continue;
                     if (!IsTableBgFileName(name)) continue;
+                    if (tableBgPng != null) throw new InvalidDataException("压缩包包含重复用途的图片");
                     using (Stream open = entry.Open())
-                    using (var memory = new MemoryStream())
-                    {
-                        open.CopyTo(memory);
-                        tableBgPng = memory.ToArray();
-                    }
-                    break;
+                        tableBgPng = LocalAssetImportLimits.ReadValidatedImage(open, entry.Length);
                 }
             }
         }
         catch
         {
+            tableBgPng = null;
             return false;
         }
         return tableBgPng != null;

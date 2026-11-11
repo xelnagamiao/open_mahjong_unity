@@ -179,7 +179,7 @@ public sealed class AutoActionPolicy {
 
     /// <summary>
     /// 鸣牌询问是否可在显示按钮前全量自动处理。
-    /// 优先级：牌张跳过 → 自动和 → 鸣牌过滤后无剩余项则 pass。
+    /// 优先级：选中牌的抢杠/海底保留询问 → 牌张跳过 → 自动和 → 鸣牌过滤后无剩余项则 pass。
     /// pass 立即发网（delay=0）；自动和保留短延迟。半自动返回 false，UI 显示服务端全集按钮。
     /// </summary>
     public bool TryResolveClaim(out string actionType, out float delaySeconds) {
@@ -189,8 +189,12 @@ public sealed class AutoActionPolicy {
             return false;
         }
 
-        // 1. 牌张设置命中：不询问任何操作（含荣和）
+        // 1. 牌张设置命中：特殊和牌可强制保留手动窗口，不能再被自动和/不点和覆盖。
         if (AutoAction.Instance.ShouldAutoPassForCurrentDiscard()) {
+            if (AutoAction.Instance.KeepSpecialWinAsk && AllowActions.Any(IsHuAction)
+                && (Clock.IsQiangGangAsk || IsSeaBottomClaim())) {
+                return false;
+            }
             actionType = ResolveAutoPassAction();
             return true;
         }
@@ -215,6 +219,22 @@ public sealed class AutoActionPolicy {
         }
 
         return false;
+    }
+
+    private static bool IsSeaBottomClaim() {
+        if (Mirror.LastDiscardWasSeaBottom) return true;
+        // 国标复式按出牌者下家的个人牌山判断，不能以公共剩余牌数代替。
+        if (Session.IsDuplicate && Session.RoomRule == "guobiao") {
+            foreach (var seat in Mirror.IndexToPosition) {
+                if (seat.Value != Mirror.LastDiscardPlayerPosition) continue;
+                string nextSeat = Mirror.SeatOf((seat.Key + 1) % 4);
+                var nextPlayer = Mirror.Info(nextSeat);
+                return nextPlayer != null
+                    && Mirror.GetDuplicateRemainingTiles(nextPlayer.original_player_index) == 0;
+            }
+            return false;
+        }
+        return Mirror.RemainTiles == 0;
     }
 
     /// <summary>

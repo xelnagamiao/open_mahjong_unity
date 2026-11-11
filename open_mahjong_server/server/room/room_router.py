@@ -211,6 +211,11 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
             seat_index=message.get("seat_index"), target_seat=message.get("target_seat"))
         if response is not None:
             await websocket.send_json(response.model_dump(exclude_none=True))
+    elif message_type == "room/set_sichuan_real_time":
+        response = await game_server.room_manager.set_sichuan_real_time(
+            Connect_id, message.get("room_id"), message.get("real_time"), message.get("tactical_grace_seconds"))
+        if response:
+            await websocket.send_json(response.dict(exclude_none=True))
     elif message_type == "room/set_claim_protection":
         response = await game_server.room_manager.set_claim_protection(
             Connect_id, message.get("room_id"), message.get("claim_protection"))
@@ -520,6 +525,8 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         duplicate_round_count=message.get("duplicate_round_count"),
         duplicate_sync_mode=message.get("duplicate_sync_mode", False),
         wall_source=message.get("wall_source"),
+        real_time=message.get("real_time", False),
+        tactical_grace_seconds=message.get("tactical_grace_seconds", 5),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

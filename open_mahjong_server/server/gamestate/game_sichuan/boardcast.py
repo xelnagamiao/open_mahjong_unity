@@ -11,6 +11,7 @@ from ...response import (
 from typing import List, Dict, Optional
 import logging
 import asyncio
+import math
 from ..public.lifecycle import start_owned_task
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
@@ -37,7 +38,8 @@ from .duplicate_wall import wall_display_masks
 from ..public.duplicate_wall import duplicate_fields, uses_duplicate_wall
 from .action_check import xueliu_post_hu_kong_candidates, is_xueliu_required_hu
 
-from ..public.ask_timing import begin_ask_round, reconnect_clock
+from ..public.ask_timing import begin_ask_round, reconnect_clock, note_ask_delivered
+from .real_time import claim_clock_fields, initial_real_time, DUPLICATE_SUB_RULES
 
 logger = logging.getLogger(__name__)
 XUELIU_DOUBLES_SECOND_EXCHANGE_DELAY_SEC = 3.0
@@ -144,20 +146,34 @@ def _base_game_info(self):
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base.update(build_player_entry_order_fields(self))
+    if self.sub_rule in DUPLICATE_SUB_RULES:
+        base.update(real_time=self.real_time, tactical_grace_seconds=int(self.tactical_grace_seconds))
     if uses_duplicate_wall(self):
         from ..public.duplicate_wall import duplicate_fields, duplicate_remaining_tile_counts
         base.update(duplicate_fields(self), duplicate_remaining_tiles=duplicate_remaining_tile_counts(self),
                     sichuan_wall_masks=wall_display_masks(self), salt=None, commitment=None)
         if getattr(self, "duplicate_match", None):
-            base["duplicate_match"] = {**self.duplicate_match.public_info(self.duplicate_table), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait",
-                "waiting_for": getattr(self, "duplicate_waiting_for", None), "current_board": self.current_round}
+            base["duplicate_match"] = duplicate_match_info(self)
     return base
+
+
+def duplicate_match_info(self):
+    info = {**self.duplicate_match.public_info(self.duplicate_table),
+            "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait",
+            "waiting_for": getattr(self, "duplicate_waiting_for", None), "current_board": self.current_round}
+    deadline = getattr(self, "_duplicate_comparison_deadline", None)
+    initial_ms = getattr(self, "_duplicate_comparison_initial_ms", None)
+    if info["waiting_for"] == "comparison":
+        if deadline is not None:
+            info["comparison_remaining_ms"] = max(0, math.ceil((deadline - time.monotonic()) * 1000))
+        elif initial_ms is not None:
+            info["comparison_remaining_ms"] = initial_ms
+    return info
 
 
 async def broadcast_duplicate_status(self):
     response = Response(type="gamestate/sichuan/duplicate_status", success=True, message="复式比赛进度",
-                        duplicate_match_info={**self.duplicate_match.public_info(self.duplicate_table), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait",
-                "waiting_for": getattr(self, "duplicate_waiting_for", None), "current_board": self.current_round})
+                        duplicate_match_info=duplicate_match_info(self))
     for player in self.player_list:
         conn = self.game_server.user_id_to_connection.get(player.user_id)
         if player.user_id > 10 and conn is not None:
@@ -426,6 +442,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
     if not is_tactical_recheck:
         self._tactical_hu_claimants = set()
     self.server_action_tick += 1
+    self._real_time_recheck = is_tactical_recheck
     prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
     begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
@@ -457,15 +474,18 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 remaining_time_override if remaining_time_override is not None else current_player.remaining_time
             )
             if self.action_dict.get(i):
+                ask_fields = dict(
+                    remaining_time=remaining_time_for_player,
+                    action_list=[] if required_hu else self.action_dict[i],
+                    cut_tile=cut_tile,
+                    action_tick=self.server_action_tick,
+                    is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
+                )
+                if not required_hu:
+                    ask_fields.update(claim_clock_fields(self, i))
                 response = Response(
                     type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
-                    ask_other_action_info=Ask_other_action_info(
-                        remaining_time=remaining_time_for_player,
-                        action_list=[] if required_hu else self.action_dict[i],
-                        cut_tile=cut_tile,
-                        action_tick=self.server_action_tick,
-                        is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
-                    ),
+                    ask_other_action_info=Ask_other_action_info(**ask_fields),
                 )
                 await _send_ask_response_to_viewer(self, i, response, block=is_tactical_recheck)
             elif not is_tactical_recheck:
@@ -541,15 +561,22 @@ async def reconnected_send_pending_ask_for_viewer(
         await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and self.action_dict.get(view_player_index):
         cut_tile = self.jiagang_tile if self.game_status == "waiting_action_qianggang" else self.player_list[self.current_player_index].discard_tiles[-1]
+        ask_fields = dict(
+            remaining_time=remaining_sent, step_remaining=step_sent,
+            action_list=[] if is_xueliu_required_hu(self, view_player_index) else self.action_dict[view_player_index],
+            cut_tile=cut_tile, action_tick=self.server_action_tick,
+        )
+        ask_fields.update(claim_clock_fields(self, view_player_index))
         response = Response(
             type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
-            ask_other_action_info=Ask_other_action_info(
-                remaining_time=remaining_sent, step_remaining=step_sent,
-                action_list=[] if is_xueliu_required_hu(self, view_player_index) else self.action_dict[view_player_index],
-                cut_tile=cut_tile, action_tick=self.server_action_tick,
-            ),
+            ask_other_action_info=Ask_other_action_info(**ask_fields),
         )
         await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
+        if (initial_real_time(self) and connection_user_id == player.user_id
+                and self.server_action_tick == ask_fields["action_tick"]):
+            # The new connection can deliver before a blocked old socket.
+            # Spectator snapshots must never start a player's clock.
+            note_ask_delivered(self, view_player_index)
 
 
 async def reconnected_send_pending_ask(self, user_id: int):

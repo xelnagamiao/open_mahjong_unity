@@ -12,6 +12,87 @@ public static class SichuanDuplicateCreationValidation {
     static T Field<T>(CreatePanel p, string key) => (T)typeof(CreatePanel).GetField(key, Flags).GetValue(p);
     static object Call(CreatePanel p, string key, params object[] args) => typeof(CreatePanel).GetMethod(key, Flags).Invoke(p, args);
 
+    public static object RunRealTime() {
+        if (Application.isPlaying) throw new InvalidOperationException("Run in Edit Mode");
+        foreach (var type in typeof(RuleRegistry).Assembly.GetTypes().Where(t => t.Name.EndsWith("RuleBootstrap")))
+            type.GetMethod("Register", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.Invoke(null, null);
+        var source = Resources.FindObjectsOfTypeAll<CreatePanel>().Single(p => p.gameObject.scene.IsValid()
+            && !EditorSceneManager.IsPreviewScene(p.gameObject.scene));
+        var preview = EditorSceneManager.NewPreviewScene();
+        var checks = new List<string>();
+        void Check(bool ok, string name) { if (!ok) throw new Exception(name); checks.Add(name); }
+        try {
+            var root = UnityEngine.Object.Instantiate(source.gameObject);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, preview);
+            root.SetActive(false);
+            var p = root.GetComponent<CreatePanel>();
+            foreach (string name in new[] { "roomPageParent", "venueOverlayParent" }) {
+                var parent = new GameObject(name, typeof(RectTransform));
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(parent, preview);
+                typeof(CreatePanel).GetField(name, Flags).SetValue(p, parent.GetComponent<RectTransform>());
+            }
+            p.PrepareForRoom();
+            var catalog = CreateRoomRuleTextConfigCatalog.Rules;
+            int ruleIndex = Enumerable.Range(0, catalog.Count).Single(i => catalog[i].Rule == "sichuan");
+            Field<TMP_Dropdown>(p, "chooseRule").SetValueWithoutNotify(ruleIndex);
+            Call(p, "OnRuleDropdownChanged", ruleIndex);
+            void SelectSub(string sub) {
+                int index = catalog[ruleIndex].SubRules.Select((s, i) => new { s.Key, i }).Single(s => s.Key == sub).i;
+                Field<TMP_Dropdown>(p, "SubRuleDropdown").SetValueWithoutNotify(index);
+                Call(p, "OnSubRuleChanged", index);
+            }
+            var toggle = Field<UnityEngine.UI.Toggle>(p, "SichuanRealTimeToggle");
+            var seconds = Field<TMP_Dropdown>(p, "SichuanSecondWaitDropdown");
+            var tactical = Field<UnityEngine.UI.Toggle>(p, "TacticalCallToggle");
+            Check(toggle && seconds, "real-time controls serialized in MainScene");
+            Check(seconds.options.Select(o => o.text).SequenceEqual(new[] { "3秒", "5秒", "8秒", "10秒", "15秒", "20秒" }), "six exact second-wait choices");
+            foreach (string sub in new[] { SichuanLobby.DoublesDuplicateSubRule, SichuanLobby.XueliuDuplicateSubRule }) {
+                SelectSub(sub);
+                Call(p, "ResetRoomDefaults");
+                Field<TMP_InputField>(p, "roomNameInput").text = "真实时间验证";
+                Check(toggle.gameObject.activeSelf && !toggle.isOn && seconds.value == 1 && !seconds.transform.parent.gameObject.activeSelf, sub + " default off, five seconds hidden");
+                foreach (bool enabled in new[] { true, false }) foreach (bool tactics in new[] { false, true }) foreach (int value in SichuanLobby.SecondWaitSeconds) {
+                    seconds.SetValueWithoutNotify(Array.IndexOf(SichuanLobby.SecondWaitSeconds, value));
+                    tactical.isOn = tactics;
+                    toggle.isOn = enabled;
+                    Check(seconds.transform.parent.gameObject.activeSelf == enabled, "dropdown follows real-time only");
+                    var request = p.BuildRoomRequest();
+                    Check(request.IsValid, sub + ": " + request.Error);
+                    var config = (Sichuan_Create_RoomConfig)request.Configuration;
+                    Check(config.RealTime == enabled && config.TacticalGraceSeconds == value && config.TacticalCall == tactics, "independent switches retain shared seconds");
+                    var rows = RoomConfigContainer.BuildDisplayFields(new RoomInfo { room_rule = "sichuan", sub_rule = sub,
+                        real_time = enabled, tactical_grace_seconds = value, tactical_call = tactics });
+                    Check(rows.Any(row => row.Key == "真实时间" && row.Value == (enabled ? "开" : "关")), "room summary shows real-time setting");
+                    Check(rows.Any(row => row.Key == "第二等待时间" && row.Value == value + "秒") == (enabled || tactics), "room summary shows active shared time");
+                }
+                toggle.isOn = true;
+                seconds.SetValueWithoutNotify(5);
+                Call(p, "ResetRoomDefaults");
+                Check(!toggle.isOn && seconds.value == 1, "restore defaults resets real-time setting");
+                var invalid = (Sichuan_Create_RoomConfig)p.BuildRoomRequest().Configuration;
+                invalid.TacticalGraceSeconds = 7;
+                Check(!invalid.Validate(out _, false, false), "unsupported second-wait rejected");
+                toggle.isOn = true;
+                seconds.SetValueWithoutNotify(5);
+            }
+            foreach (string sub in new[] { "sichuan/standard", SichuanLobby.DoublesSubRule, SichuanLobby.XueliuDoublesSubRule }) {
+                SelectSub(sub);
+                var config = (Sichuan_Create_RoomConfig)p.BuildRoomRequest().Configuration;
+                Check(!toggle.gameObject.activeSelf && !seconds.transform.parent.gameObject.activeSelf
+                    && !config.RealTime && config.TacticalGraceSeconds == 5, "ordinary Sichuan ignores hidden real-time draft");
+                Check(!RoomConfigContainer.BuildDisplayFields(new RoomInfo { room_rule = "sichuan", sub_rule = sub, real_time = true })
+                    .Any(row => row.Key == "真实时间" || row.Key == "第二等待时间"), "ordinary Sichuan summary unchanged");
+            }
+            var legacy = Newtonsoft.Json.JsonConvert.DeserializeObject<RoomInfo>("{\"room_rule\":\"sichuan\",\"sub_rule\":\"sichuan/doubles_duplicate\"}");
+            Check(!legacy.real_time && legacy.tactical_grace_seconds == 5, "legacy room defaults remain off and five seconds");
+            var legacyRequest = Newtonsoft.Json.Linq.JObject.FromObject(new CreateSichuanRoomRequest());
+            Check(legacyRequest["real_time"] == null && legacyRequest["tactical_grace_seconds"] == null, "non-duplicate request omits new fields");
+            foreach (var text in toggle.GetComponentsInChildren<TMP_Text>(true).Concat(seconds.transform.parent.GetComponentsInChildren<TMP_Text>(true)))
+                Check((text.fontStyle & FontStyles.Bold) == 0 && text.fontWeight == FontWeight.Regular, "new Chinese labels use regular weight");
+            return new { passed = checks.Count, checks };
+        } finally { EditorSceneManager.ClosePreviewScene(preview); }
+    }
+
     public static object Run() {
         if (Application.isPlaying) throw new InvalidOperationException("Run in Edit Mode");
         foreach (var type in typeof(RuleRegistry).Assembly.GetTypes().Where(t => t.Name.EndsWith("RuleBootstrap")))

@@ -1,10 +1,14 @@
 """Two explicit subrules; table-local Sichuan logic remains shared."""
 from copy import deepcopy
 import asyncio
+import time
 
 from .SichuanGameState import SichuanGameState
 from .XueliuDoublesGameState import XueliuDoublesGameState
 from ...game_calculation.sichuan.duplicate_rules import team_by_seat, flatten_board
+
+
+COMPARISON_SECONDS = 8
 
 
 class DuplicateMixin:
@@ -46,6 +50,8 @@ class DuplicateMixin:
     def _record_rule_profile(self):
         super()._record_rule_profile()
         title = self.game_record["game_title"]
+        title["real_time"] = self.real_time
+        title["tactical_grace_seconds"] = self.tactical_grace_seconds
         title["duplicate_profile"] = deepcopy(self.duplicate_match.data["profile"])
         title["duplicate_match_id"] = self.duplicate_match.data["id"]
         title["duplicate_table"] = self.duplicate_table
@@ -56,6 +62,8 @@ class DuplicateMixin:
     def _reset_round_state(self):
         super()._reset_round_state()
         self.duplicate_adjustments = [0, 0]
+        self._duplicate_comparison_deadline = None
+        self._duplicate_comparison_initial_ms = None
 
     async def _after_round_settled(self):
         waits = self.duplicate_match.synchronous or self.current_round >= len(self.duplicate_match.data["boards"])
@@ -84,8 +92,9 @@ class DuplicateMixin:
         self.duplicate_waiting_for = None
         await broadcast_duplicate_status(self)
         if self.duplicate_match.synchronous and self.duplicate_match.completed:
-            # The last board also receives the fixed comparison presentation.
-            await asyncio.sleep(8)
+            # The game loop skips its ordinary ready phase on the final board.
+            # Its local settlement and paired comparison still have both phases.
+            await self._ready_phase(liuju=self.ended_by == "liuju")
 
     async def _ready_phase(self, liuju):
         if not self.duplicate_match.synchronous:
@@ -94,10 +103,36 @@ class DuplicateMixin:
         from .boardcast import broadcast_ready_status, broadcast_duplicate_status
         from .board_settlement import ready_seconds
         await run_result_ready_phase(self, ready_seconds(self), broadcast_ready_status)
+        await self._comparison_phase()
+        if self.duplicate_match.completed:
+            return
         self.game_status = "duplicate_wait"
         self.duplicate_waiting_for = "ready"
         await broadcast_duplicate_status(self)
         await self.duplicate_match.wait_ready(self.duplicate_table, self.current_round)
+        self.game_status = "round_settled"
+        self.duplicate_waiting_for = None
+
+    async def _comparison_phase(self):
+        """Local ready skips only the timeline; every table gets its comparison."""
+        from .boardcast import broadcast_duplicate_status
+        if self.duplicate_match.data["status"] not in ("running", "completed"):
+            raise RuntimeError("复式对局已中断，等待管理员处理")
+        self.game_status = "duplicate_wait"
+        self.duplicate_waiting_for = "comparison"
+        self._duplicate_comparison_deadline = None
+        self._duplicate_comparison_initial_ms = COMPARISON_SECONDS * 1000
+        try:
+            await broadcast_duplicate_status(self)
+            # Socket backpressure must not spend the later recipients' display time.
+            self._duplicate_comparison_deadline = time.monotonic() + COMPARISON_SECONDS
+            self._duplicate_comparison_initial_ms = None
+            await asyncio.sleep(COMPARISON_SECONDS)
+        finally:
+            self._duplicate_comparison_deadline = None
+            self._duplicate_comparison_initial_ms = None
+        if self.duplicate_match.data["status"] not in ("running", "completed"):
+            raise RuntimeError("复式对局已中断，等待管理员处理")
         self.game_status = "round_settled"
         self.duplicate_waiting_for = None
 

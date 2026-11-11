@@ -234,6 +234,27 @@ export class RecordReplay {
     this.startingScoresByOriginal = this.computeStartingScores()
   }
 
+  /** 以开局席位消除 UID 0 / 外部玩家的歧义；无效链接保留原默认视角。 */
+  sharedViewerOriginal(userId: number | undefined, original: number | undefined, fallback: number): number {
+    if (original != null && Number.isInteger(original) && original >= 0 && original < this.playerCount) {
+      const uid = this.userIdForOriginal(original)
+      if (userId == null || uid === userId) return original
+    }
+    if (userId != null && userId > 0) {
+      const matches = this.seatIndices.filter(index => this.userIdForOriginal(index) === userId)
+      if (matches.length === 1) return matches[0]
+    }
+    return fallback
+  }
+
+  userIdForOriginal(original: number): number | undefined {
+    const raw = this.detail.record.game_title?.[`p${original}_uid`]
+      ?? this.detail.players.find(player => player.original_player_index === original)?.user_id
+    if (raw == null || raw === '') return undefined
+    const uid = Number(raw)
+    return Number.isInteger(uid) && uid >= 0 ? uid : undefined
+  }
+
   /** 只在打开牌谱时选默认玩家；后续切局由 seats 映射跟随该玩家。 */
   defaultViewerOriginal(userId: unknown): number {
     const uid = Number(userId)

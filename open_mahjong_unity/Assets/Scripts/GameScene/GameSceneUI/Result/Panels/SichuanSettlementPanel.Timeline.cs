@@ -9,7 +9,7 @@ public sealed partial class SichuanSettlementPanel {
         public SichuanSettlementPlayer Player;
         public UnityEngine.UI.Image Background;
         public UnityEngine.UI.Outline Focus;
-        public TMP_Text Order;
+        public TMP_Text Order, Name, Ready;
     }
     readonly Dictionary<int,PlayerBadge> playerBadges=new Dictionary<int,PlayerBadge>();
     readonly TMP_Text[] teamValues=new TMP_Text[2], teamTotals=new TMP_Text[2];
@@ -104,7 +104,10 @@ public sealed partial class SichuanSettlementPanel {
             var name=cell.Find("Text").GetComponent<TMP_Text>();name.text=Name(p);name.alignment=TextAlignmentOptions.MidlineLeft;
             Stretch(name.rectTransform,Vector2.zero,Vector2.one,new Vector2(44,5),new Vector2(-10,-34));
             name.textWrappingMode=TextWrappingModes.NoWrap;name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=26;
-            playerBadges[p.seat]=new PlayerBadge {Player=p,Background=cell.GetComponent<UnityEngine.UI.Image>(),Focus=outline,Order=order};
+            var ready=Text(cell,"Ready",22,Color.white,TextAlignmentOptions.MidlineRight);
+            Stretch(ready.rectTransform,new Vector2(1,0),new Vector2(1,0),new Vector2(-70,5),new Vector2(-10,35));
+            ready.text="准备";ready.textWrappingMode=TextWrappingModes.NoWrap;ready.gameObject.SetActive(false);
+            playerBadges[p.seat]=new PlayerBadge {Player=p,Background=cell.GetComponent<UnityEngine.UI.Image>(),Focus=outline,Order=order,Name=name,Ready=ready};
         }
     }
     static string EventName(SichuanSettlementEvent e) {

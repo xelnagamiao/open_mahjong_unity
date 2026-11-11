@@ -321,6 +321,53 @@ public partial class Game3DManager : MonoBehaviour
         return NormalGameStateManager.Instance.player_to_info[playerPosition].combination_tiles.Count;
     }
 
+    private IEnumerator ReplaceMeldGroupCoroutine(string seat, int meldIndex, int[] mask, int[][] previousMasks) {
+        int generation = _handAnimationGeneration;
+        var panel = GetPosPanel(seat);
+        if (panel == null || meldIndex < 0 || meldIndex >= previousMasks.Length) yield break;
+        EnsureMeldGroups(panel, previousMasks.Length);
+        Vector3 direction = seat == "self" ? LeftDirection : seat == "left" ? FrontDirection
+            : seat == "top" ? RightDirection : BackDirection;
+        float before = 0f, beforeWidth = 0f;
+        for (int i = 0; i < meldIndex; i++) AdvanceMeldCursor(seat, previousMasks[i], ref before, ref beforeWidth);
+        float oldEnd = before, oldWidth = beforeWidth;
+        AdvanceMeldCursor(seat, previousMasks[meldIndex], ref oldEnd, ref oldWidth);
+        float newEnd = before, newWidth = beforeWidth;
+        AdvanceMeldCursor(seat, mask, ref newEnd, ref newWidth);
+        float shift = newEnd - oldEnd + (newWidth - oldWidth) * 0.5f;
+        float finalEnd = newEnd, finalWidth = newWidth;
+        for (int i = meldIndex + 1; i < previousMasks.Length; i++) {
+            AdvanceMeldCursor(seat, previousMasks[i], ref finalEnd, ref finalWidth);
+            var following = panel.combination3DObjects[i];
+            if (following == null) continue;
+            foreach (Transform tile in following) tile.position += direction * shift;
+        }
+        var group = panel.combination3DObjects[meldIndex];
+        for (int i = group.childCount - 1; i >= 0; i--)
+            MahjongObjectPool.Instance.Return(-1, group.GetChild(i).gameObject);
+        StoreCombinationCursor(seat, panel.combinationsPosition.position + direction * before);
+        SetCombinationLastSlotWidth(seat, beforeWidth);
+        yield return ActionAnimationCoroutine(seat, "gang", mask, false, meldIndex);
+        if (generation != _handAnimationGeneration) yield break;
+        StoreCombinationCursor(seat, panel.combinationsPosition.position + direction * finalEnd);
+        SetCombinationLastSlotWidth(seat, finalWidth);
+        StartCoroutine(MoveCardAnimation(group.gameObject, direction, cardWidth, seat));
+    }
+
+    private void AdvanceMeldCursor(string seat, int[] mask, ref float offset, ref float lastWidth) {
+        int playerCount = NormalGameStateManager.Instance?.indexToPosition.Count ?? 4;
+        mask = HongqueDisplayOrder.MeldMask(GameRecordMeldCodec.ForTableDisplay(mask, seat, playerCount));
+        bool first = true;
+        for (int i = mask.Length - 2; i >= 0; i -= 2) {
+            int sign = mask[i];
+            if (sign == 3 || sign == 4 || MeldStackLayout.IsStack(sign)) continue;
+            float width = sign == 1 && !IsVerticalMelds() ? cardHeight : cardWidth;
+            offset += lastWidth > 0f ? (lastWidth + width) * 0.5f + (first ? MeldSpacingGap() : 0f) : width;
+            lastWidth = width;
+            first = false;
+        }
+    }
+
     /// <summary>
     /// 虹雀或长春特殊副露增长后，按各自摆放约定重建指定玩家的全部副露：
     /// 以权威 combination_masks 重新摆放，不依赖加杠动画的碰牌缓存与“末组”假设。

@@ -43,7 +43,7 @@ public static class AutoReconnect {
 
     public static bool IsEnabled {
         get {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
             return true;
 #else
             return false;

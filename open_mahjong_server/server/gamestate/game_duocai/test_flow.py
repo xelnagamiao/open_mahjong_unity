@@ -113,26 +113,65 @@ def test_concealed_kong_and_fifth_tile_use_distinct_draw_sources(variant):
     apply(g, 0, 'jiagang', choice_id=c.key)
     assert len(g.wall.indicators()) == indicators
     assert len(p.melds[0].physical) == 5
+    added = [v for v in g.outbound_payloads
+             if v.get('do_action_info', {}).get('action_list') == ['jiagang']]
+    own = next(v['do_action_info'] for v in added if v['player_index'] == 0)
+    assert own['is_mo_gang'] and own['cut_tile'] == t.EMPEROR
     assert g.game_status == P.TURN.value
     payload = g.build_game_start_payload(1)['game_info']['players_info'][0]
     assert payload['duocai_melds'][0]['physical'] == ([0]*5 if variant == 'guobiao' else list(p.melds[0].physical))
 
 
-def test_added_open_kong_waits_before_mutation_and_rob_removes_one_tile():
+@pytest.mark.parametrize('variant', ['guobiao', 'riichi'])
+@pytest.mark.parametrize('drawn_tile', [None, 13, 1013, 2013])
+def test_mixed_physical_concealed_kong_keeps_draw_identity_and_private_mask(variant, drawn_tile):
+    g = game(variant)
+    physical = (13, 13, 1013, 2013)
+    hand = [*physical, *WAIT[3:12], 41]
+    if drawn_tile is not None:
+        hand.remove(drawn_tile)
+        hand.append(drawn_tile)
+    turn(g, 0, hand)
+    choice = next(c for c in g.meld_choices[0] if c.kind == 'angang' and c.take == physical)
+    apply(g, 0, 'angang', choice_id=choice.key)
+    packets = [v for v in g.outbound_payloads
+               if v.get('do_action_info', {}).get('action_list') == ['angang']]
+    for packet in packets:
+        action = packet['do_action_info']
+        assert action['is_mo_gang'] is (drawn_tile is not None)
+        if variant == 'guobiao' and packet['player_index'] != 0:
+            assert action['cut_tile'] is None
+            assert action['combination_mask'][1::2] == [0] * 4
+        else:
+            assert action['cut_tile'] == (drawn_tile if drawn_tile is not None else 2013)
+            assert Counter(action['combination_mask'][1::2]) == Counter(physical)
+
+
+@pytest.mark.parametrize('drawn', [False, True])
+def test_added_open_kong_waits_before_mutation_and_rob_removes_one_tile(drawn):
     g = game('riichi')
     p = g.player_list[0]
     p.melds = [Meld((38, 38, 38), False, 'peng', 2)]
     g.update_melds(0)
     g.player_list[1].hand_tiles = WAIT.copy()
     g.player_list[1].discard_origin_tiles = []
-    turn(g, 0, [11, 12, 13, 22, 23, 24, 31, 32, 33, 41, 38])
+    hand = [11, 12, 13, 22, 23, 24, 31, 32, 33, 41, 38]
+    if not drawn:
+        hand[-2:] = reversed(hand[-2:])
+    turn(g, 0, hand)
     c = next(c for c in g.meld_choices[0] if c.kind == 'jiagang' and c.take == (38,))
     before = list(p.hand_tiles)
     apply(g, 0, 'jiagang', choice_id=c.key)
     assert g.game_status == P.ROB_KONG.value and p.hand_tiles == before and len(p.melds[0].physical) == 3
     assert 'hu' in g.action_dict[1]
     apply(g, 1, 'hu')
-    assert g.game_status == P.END.value and p.hand_tiles == before[:-1]
+    before.remove(38)
+    assert g.game_status == P.END.value and p.hand_tiles == before
+    packets = [v['do_action_info'] for v in g.outbound_payloads
+               if v.get('do_action_info', {}).get('action_list') == ['rob_kan']]
+    assert len(packets) == 4
+    assert all(v['cut_tile'] == 38 and v['is_mo_gang'] is drawn for v in packets)
+    assert not p.has_draw_slot
     assert len(p.melds[0].physical) == 3
     assert g.deferred_hu_settlements[0]['source'] == 'rob_kong'
     assert sum(player.score for player in g.player_list) == 160000

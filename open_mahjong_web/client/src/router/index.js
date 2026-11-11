@@ -5,6 +5,7 @@ import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { watch } from 'vue'
 import { locale, tr, setLocale } from '@/i18n'
 import { requestedGameLocale } from '@/i18n/locale-utils.js'
+import { mobileDownloadRedirect } from '@/utils/iosDownload.js'
 import { seoEntryFor, noindexEntryFor } from '@/seo'
 import { STATIC_PAGES } from '@/seo/pages.js'
 import { applyRouteHead } from '@/seo/head.js'
@@ -172,6 +173,12 @@ const routes = [
         name: 'MobileDownload',
         component: MobileDownload,
         meta: { title: '手机版下载 - salasasa.cn' }
+      },
+      {
+        path: 'ios-download',
+        name: 'IosDownload',
+        component: () => import('@/views/IosDownload.vue'),
+        meta: { title: 'iOS下载 - salasasa.cn' }
       },
       {
         path: 'guide',
@@ -481,6 +488,9 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
+  // A global guard also handles removing an explicit Android query on this route.
+  const downloadRedirect = mobileDownloadRedirect(to, globalThis.navigator)
+  if (downloadRedirect) return next(downloadRedirect)
   const gameLocale = requestedGameLocale(to.path, new URLSearchParams(
     typeof to.query.lang === 'string' ? { lang: to.query.lang } : {}
   ).toString())

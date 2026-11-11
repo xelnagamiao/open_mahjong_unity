@@ -226,6 +226,7 @@ public partial class NormalGameStateManager {
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
         hepaiLimit = gameInfo.hepai_limit ?? RuleRegistry.Current?.DefaultHepaiLimit ?? 8;
+        Session.LoadGuobiaoConfig(gameInfo);
         Session.JokerMultiWait = gameInfo.joker_multi_wait;
         Session.NoJokerBonus = gameInfo.no_joker_bonus ?? "add8";
         Session.BlackFlowerProgressive = gameInfo.black_flower_progressive;

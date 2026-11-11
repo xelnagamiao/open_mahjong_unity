@@ -291,3 +291,46 @@ test('paired mode is strict and forwarded with an asynchronous default', async (
     }
   }
 });
+
+test('paired claim timing is strict, defaults off, and stays independent of tactical calls', async () => {
+  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+    const legacy = fixture();
+    await legacy.service.create(event, 10, { room_rule: 'sichuan', room_config: { sub_rule, duplicate_round_count: 1 } });
+    assert.equal(legacy.calls[0].body.room_config.real_time, false);
+    assert.equal(legacy.calls[0].body.room_config.tactical_grace_seconds, 5);
+    for (const real_time of [false, true]) for (const tactical_grace_seconds of [3, 5, 8, 10, 15, 20]) {
+      const { service, calls } = fixture();
+      const room_config = { sub_rule, duplicate_round_count: 1, real_time, tactical_grace_seconds, tactical_call: false };
+      await service.create(event, 10, { room_rule: 'sichuan', room_count: 3, room_config });
+      assert.equal(calls.length, 3);
+      for (const { body } of calls) {
+        assert.equal(body.room_config.real_time, real_time);
+        assert.equal(body.room_config.tactical_grace_seconds, tactical_grace_seconds);
+        assert.equal(body.room_config.tactical_call, false);
+      }
+    }
+    for (const patch of [
+      ...[null, 0, 1, 'false', [], {}].map(real_time => ({ real_time })),
+      ...[null, true, false, 0, 4, 21, 5.5, '5', [], {}].map(tactical_grace_seconds => ({ tactical_grace_seconds })),
+    ]) {
+      const { service, calls, batches } = fixture();
+      await assert.rejects(service.create(event, 10, { room_rule: 'sichuan',
+        room_config: { sub_rule, duplicate_round_count: 1, ...patch } }), { status: 400 });
+      assert.equal(calls.length + batches.length, 0);
+    }
+  }
+});
+
+test('ordinary rooms keep their payloads and cannot enable duplicate claim timing', async () => {
+  for (const [room_rule, sub_rule] of [['sichuan', 'sichuan/standard'], ['guobiao', 'guobiao/standard']]) {
+    const legacy = fixture();
+    await legacy.service.create(event, 10, { room_rule, room_config: { sub_rule } });
+    assert.equal('real_time' in legacy.calls[0].body.room_config, false);
+    assert.equal('tactical_grace_seconds' in legacy.calls[0].body.room_config, false);
+    for (const patch of [{ real_time: true }, { tactical_grace_seconds: 8 }]) {
+      const { service, calls } = fixture();
+      await assert.rejects(service.create(event, 10, { room_rule, room_config: { sub_rule, ...patch } }), { status: 400 });
+      assert.equal(calls.length, 0);
+    }
+  }
+});

@@ -7,6 +7,7 @@ public partial class CreatePanel {
     [SerializeField] private UnityEngine.UI.Toggle JinluoModeToggle;
     [SerializeField] private GameObject JinluoWeatherPanel;
     [SerializeField] private TMP_Dropdown JinluoWeatherDropdown;
+    private bool jinluoControlsWereEnabled;
 
     private bool IsJinluoEnabled => _ruleState == "guobiao" && GetSelectedSubRule() == "guobiao/standard"
         && JinluoModeToggle && JinluoModeToggle.isOn;
@@ -28,11 +29,18 @@ public partial class CreatePanel {
         }
         if (JinluoWeatherPanel) JinluoWeatherPanel.SetActive(IsJinluoEnabled);
         CuoHeheToggle.interactable = !IsJinluoEnabled;
-        tipsToggle.interactable = !IsJinluoEnabled;
+        tipsToggle.interactable = true;
+        if (TianDiRenHeToggle) {
+            TianDiRenHeToggle.interactable = !IsJinluoEnabled;
+            if (IsJinluoEnabled) TianDiRenHeToggle.SetIsOnWithoutNotify(true);
+        }
         if (IsJinluoEnabled) {
             CuoHeheToggle.isOn = true;
+        } else if (jinluoControlsWereEnabled && CuoHeheToggle.isOn) {
+            // 离开金锣赛时恢复普通规则的提示/错和互斥。
             tipsToggle.SetIsOnWithoutNotify(false);
         }
+        jinluoControlsWereEnabled = IsJinluoEnabled;
     }
 
 #if UNITY_EDITOR

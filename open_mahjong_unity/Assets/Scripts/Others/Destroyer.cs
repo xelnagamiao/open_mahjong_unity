@@ -15,6 +15,7 @@ public class Destroyer : MonoBehaviour {
 
     public void AddToDestroyer(Transform obj) {
         if (obj != null) {
+            obj.gameObject.SetActive(false);
             obj.SetParent(pendingDestroyContainer);
             Destroy(obj.gameObject);
         }

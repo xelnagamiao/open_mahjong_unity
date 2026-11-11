@@ -203,7 +203,7 @@ class GuobiaoGameState:
         self.hepai_limit = 8 if huahun.enabled(self) else room_data.get("hepai_limit", 8) # 起和番限制（默认8）
         if self.jinluo_mode:
             self.open_cuohe, self.hepai_limit = True, 8
-            self.tips = False
+            self.tian_di_ren_he = True
         if self.sub_rule == "guobiao/lanshi":
             # 蓝十改固定为 5 分起和；错和者单独扣 40 分并停和续局。
             self.hepai_limit = 5

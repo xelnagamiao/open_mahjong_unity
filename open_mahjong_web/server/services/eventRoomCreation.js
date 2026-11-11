@@ -20,6 +20,14 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     if (body.duplicate_enabled !== undefined && typeof body.duplicate_enabled !== 'boolean') fail(400, '复式开关必须为布尔值');
     const roomConfig = { ...(body.room_config || {}) };
     const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(roomConfig.sub_rule);
+    if (roomConfig.real_time !== undefined && typeof roomConfig.real_time !== 'boolean') fail(400, '真实时间必须为布尔值');
+    if (roomConfig.tactical_grace_seconds !== undefined && ![3, 5, 8, 10, 15, 20].includes(roomConfig.tactical_grace_seconds)) {
+      fail(400, '第二等待时间必须为 3、5、8、10、15 或 20 秒');
+    }
+    if ((!paired || rule !== 'sichuan') && (roomConfig.real_time === true ||
+        (roomConfig.tactical_grace_seconds !== undefined && roomConfig.tactical_grace_seconds !== 5))) {
+      fail(400, '真实时间与第二等待时间仅支持川麻双打复式');
+    }
     const training = paired && roomConfig.wall_source === 'training';
     if (!paired && roomConfig.wall_source !== undefined) fail(400, '牌山来源仅支持川麻双打复式');
     if ((paired && !training) || roomConfig.duplicate_key || body.auto_duplicate) roomConfig.allow_spectator = false;
@@ -27,6 +35,8 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
       fail(400, '川麻仅支持血战或血流双打复式，请选择对应的双打复式子规则');
     }
     if (paired) {
+      roomConfig.real_time ??= false;
+      roomConfig.tactical_grace_seconds ??= 5;
       if (roomConfig.duplicate_sync_mode !== undefined && typeof roomConfig.duplicate_sync_mode !== 'boolean') fail(400, '复式同步模式必须为布尔值');
       roomConfig.duplicate_sync_mode ??= false;
       if (rule !== 'sichuan' || !['event', 'base'].includes(event.kind)) fail(400, '复式双打只能在赛事或基地中创建');

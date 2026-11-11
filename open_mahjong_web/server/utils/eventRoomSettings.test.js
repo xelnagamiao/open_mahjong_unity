@@ -53,17 +53,53 @@ test('empty and invalid stored rows return fresh independent defaults matching t
 
 test('Jinluo manual weather survives preset save and selection with fixed qualification settings', () => {
   for (const weather of ['dragon_pairs', 'seat_round_winds', 'terminal_pairs', 'all_simples', 'missing_suit', 'consecutive_pairs', 'same_rank_pairs', 'four_of_a_kind']) {
-    const doc = createPreset(undefined, 'jinluo', { room_config: { jinluo_mode: true, jinluo_weather: weather, hepai_limit: 64, tips: true } }).settings;
+    const doc = createPreset(undefined, 'jinluo', { room_config: { jinluo_mode: true, jinluo_weather: weather, hepai_limit: 64, tips: true, tian_di_ren_he: false } }).settings;
     const selected = resolveRoomSelection(doc, { revision: doc.revision, preset_id: 'jinluo' });
     assert.equal(selected.room_config.jinluo_mode, true);
     assert.equal(selected.room_config.jinluo_weather, weather);
     assert.equal(selected.room_config.hepai_limit, 8);
     assert.equal(selected.room_config.open_cuohe, true);
-    assert.equal(selected.room_config.tips, false);
+    assert.equal(selected.room_config.tips, true);
+    assert.equal(selected.room_config.tian_di_ren_he, true);
   }
   assert.throws(() => createPreset(undefined, 'bad', { room_config: { jinluo_weather: 'auto' } }), errorStatus(400, /七对天气/));
   assert.throws(() => createPreset(undefined, 'bad', { room_config: { sub_rule: 'guobiao/xiaolin', jinluo_mode: true } }), errorStatus(400, /标准国标/));
   assert.throws(() => createPreset(undefined, 'bad', { room_config: { jinluo_mode: 'true' } }), errorStatus(400, /布尔/));
+});
+
+test('Jinluo preserves optional tips with wrong-win mode in defaults and legacy presets', () => {
+  for (const tips of [false, true]) {
+    const { settings } = change(readRoomSettings({}), 'manual', { room_config: { jinluo_mode: true, tips, open_cuohe: true } });
+    assert.equal(settings.manual.room_config.tips, tips);
+    assert.equal(settings.manual.room_config.open_cuohe, true);
+    assert.equal(settings.auto_match.room_config.tips, tips);
+    const preset = createPreset(settings, 'jinluo-tips', { room_config: { jinluo_mode: true, tips } }).settings;
+    const loaded = readRoomSettings(preset);
+    const selected = resolveRoomSelection(loaded, { revision: loaded.revision, preset_id: 'jinluo-tips' });
+    assert.equal(selected.room_config.tips, tips);
+    assert.equal(selected.room_config.open_cuohe, true);
+    assert.equal(selected.room_config.tian_di_ren_he, true);
+    assert.equal(selected.room_config.hepai_limit, 8);
+  }
+  assert.throws(() => createPreset(undefined, 'ordinary', { room_config: { jinluo_mode: false, tips: true, open_cuohe: true } }), errorStatus(400, /提示与错和不能同时开启/));
+});
+
+test('opening win setting is forced only for Jinluo in manual defaults and legacy presets', () => {
+  const initial = readRoomSettings({});
+  for (const jinluo_mode of [false, true]) {
+    for (const tian_di_ren_he of [false, true]) {
+      const { settings } = change(initial, 'manual', { room_config: { jinluo_mode, tian_di_ren_he } });
+      const expected = jinluo_mode || tian_di_ren_he;
+      assert.equal(settings.manual.room_config.tian_di_ren_he, expected);
+      assert.equal(settings.auto_match.room_config.tian_di_ren_he, expected);
+      assert.equal(readRoomSettings(settings).manual.room_config.tian_di_ren_he, expected);
+    }
+  }
+  const legacy = createPreset(initial, 'jinluo-old', { room_config: { jinluo_mode: true } }).settings;
+  legacy.presets[0].room_config.tian_di_ren_he = false;
+  const loaded = readRoomSettings(legacy);
+  assert.equal(loaded.presets[0].room_config.tian_di_ren_he, true);
+  assert.equal(resolveRoomSelection(loaded, { revision: loaded.revision, preset_id: 'jinluo-old' }).room_config.tian_di_ren_he, true);
 });
 
 test('flower-mixed no-joker rewards survive preset save and selection for all three modes', () => {

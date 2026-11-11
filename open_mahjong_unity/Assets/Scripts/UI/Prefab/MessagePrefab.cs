@@ -182,6 +182,8 @@ public class MessagePrefab : MonoBehaviour {
                 return new[] { new MessageAction("好的") };
             return AndroidVersionActions(() => AndroidAppUpdater.Open(RequiredReleaseVersion),
                 RequiredBaseVersion > 0 && RequiredBaseVersion != ConfigManager.base_version);
+#elif UNITY_IOS && !UNITY_EDITOR
+            return new[] { new MessageAction("稍后"), new MessageAction("前往 iOS 更新", IosResourceUpdates.OpenDownloadPage) };
 #else
             return new[] { new MessageAction("好的") };
 #endif

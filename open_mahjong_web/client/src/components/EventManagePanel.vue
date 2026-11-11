@@ -194,6 +194,10 @@
           />
         </el-tab-pane>
 
+        <el-tab-pane label="对局管理" name="games">
+          <EventGameControl :key="eventId" :event-id="eventId" :kind="detail.kind" :active="activeTab === 'games'" @ended="loadRooms" />
+        </el-tab-pane>
+
         <el-tab-pane :label="isBase ? '加入审核' : '报名审核'" name="registrations">
           <div class="emp-tab-bar">
             <el-radio-group v-model="registrationFilter" size="small" @change="loadRegistrations">
@@ -350,41 +354,6 @@
               <el-button type="primary" :loading="savingEntry" @click="saveEntryConfig">保存准入配置</el-button>
             </el-form-item>
           </el-form>
-        </el-tab-pane>
-
-        <el-tab-pane label="进行中对局" name="games">
-          <div class="emp-tab-bar emp-tab-bar--end">
-            <el-button text type="primary" :loading="loadingGames" @click="loadGames">刷新</el-button>
-          </div>
-          <el-table :data="games" size="small" scrollbar-always-on v-loading="loadingGames" :empty-text="`当前没有本${venueNoun}进行中的对局`">
-            <el-table-column prop="gamestate_id" label="对局 ID" min-width="150" />
-            <el-table-column prop="room_rule" label="规则" width="90" />
-            <el-table-column prop="game_status" label="状态机" width="110" />
-            <el-table-column label="投票/暂停" width="110">
-              <template #default="{ row }">
-                <el-tag size="small">{{ phaseLabel(row.vote_phase) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="玩家" min-width="160">
-              <template #default="{ row }">
-                <span v-for="p in row.players" :key="p.user_id" class="player-chip">
-                  {{ p.username }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220">
-              <template #default="{ row }">
-                <el-button size="small" :disabled="isPauseDisabled(row)" @click="onPause(row)">暂停</el-button>
-                <el-button
-                  size="small"
-                  type="success"
-                  :disabled="isResumeDisabled(row)"
-                  @click="onResume(row)"
-                >解除</el-button>
-                <el-button size="small" type="danger" @click="onEnd(row)">结束对局</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
         </el-tab-pane>
 
         <el-tab-pane label="统计" name="stats">
@@ -668,6 +637,7 @@ import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import VenueProfileEditor from '@/components/VenueProfileEditor.vue'
 import EventRoomPresetEditor from '@/components/EventRoomPresetEditor.vue'
 import EventRoomCards from '@/components/EventRoomCards.vue'
+import EventGameControl from '@/components/EventGameControl.vue'
 import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '@/utils/eventRoomSettings'
 import { createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import {
@@ -786,8 +756,6 @@ const matchingSettingsSummary = computed(() => eventRoomSettingsSummary(settings
 const roomRuleOptions = eventRoomRuleOptions
 const roomForm = reactive(createEventRoomCreationForm())
 
-const games = ref([])
-const loadingGames = ref(false)
 const records = ref([])
 const loadingRecords = ref(false)
 const recordsTotal = ref(0)
@@ -885,16 +853,6 @@ const lifecycleHint = computed(() => {
   return ''
 })
 
-const PHASE_LABELS = {
-  idle: '无',
-  voting: '投票中',
-  pause_pending: '待暂停',
-  paused: '已暂停',
-  resume_voting: '解除投票',
-  resume_countdown: '解除倒计时',
-  end_countdown: '结束倒计时',
-}
-
 function formatDate(v) {
   return v ? new Date(v).toLocaleString('zh-CN') : '—'
 }
@@ -936,15 +894,6 @@ function formatScore(s) {
 function playersSummary(rec) {
   return (rec.players || []).map((p) => p.username || '?').join(' / ')
 }
-function phaseLabel(p) {
-  return PHASE_LABELS[p] || p || '无'
-}
-function isPauseDisabled(row) {
-  return row.vote_phase === 'paused' || row.vote_phase === 'pause_pending'
-}
-function isResumeDisabled(row) {
-  return row.vote_phase !== 'paused' && row.vote_phase !== 'pause_pending'
-}
 
 async function loadRooms() {
   loadingRooms.value = true
@@ -956,19 +905,6 @@ async function loadRooms() {
     rooms.value = []
   } finally {
     loadingRooms.value = false
-  }
-}
-
-async function loadGames() {
-  loadingGames.value = true
-  try {
-    const res = await eventAdminApi.get(`/events/${props.eventId}/games`)
-    games.value = res.data.data?.items || []
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载对局失败')
-    games.value = []
-  } finally {
-    loadingGames.value = false
   }
 }
 
@@ -1594,7 +1530,6 @@ async function load() {
     if (detail.value?.status === 'active') activeTab.value = 'rooms'
     await Promise.all([
       loadRooms(),
-      loadGames(),
       loadEventTotals(),
       loadRecords(),
       loadAnnouncements(),
@@ -1803,49 +1738,6 @@ async function restartPair(row) {
   }
 }
 
-async function callControl(action, row, confirmText) {
-  try {
-    await ElMessageBox.confirm(confirmText, '确认操作', { type: 'warning' })
-  } catch (_) {
-    return
-  }
-  try {
-    const res = await eventAdminApi.post(
-      `/events/${props.eventId}/games/${row.gamestate_id}/${action}`
-    )
-    ElMessage.success(res.data.message || '操作成功')
-    await loadGames()
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
-  }
-}
-
-function onPause(row) {
-  callControl('pause', row, '确认强制暂停该对局？')
-}
-function onResume(row) {
-  callControl('resume', row, '确认强制解除暂停？')
-}
-async function onEnd(row) {
-  try {
-    await ElMessageBox.confirm('确认强制结束该对局？玩家将被踢回大厅。', '危险操作', {
-      type: 'error',
-      confirmButtonText: '结束对局',
-    })
-  } catch (_) {
-    return
-  }
-  try {
-    const res = await eventAdminApi.post(
-      `/events/${props.eventId}/games/${row.gamestate_id}/end`
-    )
-    ElMessage.success(res.data.message || '已结束')
-    await loadGames()
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
-  }
-}
-
 watch(
   () => props.eventId,
   () => {
@@ -2034,6 +1926,10 @@ onUnmounted(() => clearInterval(readyPollTimer))
 }
 .emp-ready-bar {
   align-items: center;
+}
+.emp-tabs :deep(#tab-games) {
+  font-weight: 400;
+  font-synthesis: none;
 }
 .emp-ready-summary {
   display: flex;

@@ -108,6 +108,8 @@ class Protocol:
             info = payload['do_action_info']
             info.update(duocai_meld_index=event.get('meld_index'), is_riichi_horizontal=event.get('is_riichi_horizontal', False),
                         duocai_wall_position=event.get('wall_position'))
+            if event['action'] in ('angang', 'jiagang', 'rob_kan'):
+                info['cut_tile'] = event['tile']
             actor = event['player']
             if event.get('meld_index') is not None:
                 mi = event['meld_index']

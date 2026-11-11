@@ -8,9 +8,14 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 移除3D手牌显示；skipRearrange 为 true 时仅删牌，收拢由调用方在出牌等操作完成后再执行
-    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition) {
+    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition, int[] duocaiPostBacks = null) {
         if (IsSelfCardsPosition(cardPosition)) {
             yield return RemoveSelfHandCardsCoroutine(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf, skipRearrange, playerPosition);
+            yield break;
+        }
+
+        if (TryRemoveDuocaiHandCards(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf, playerPosition, duocaiPostBacks)) {
+            if (!skipRearrange) yield return Rearrange3DCardsWithAnimation(cardPosition);
             yield break;
         }
 
@@ -239,6 +244,10 @@ public partial class Game3DManager : MonoBehaviour {
         int cardCount = cardPosition.childCount;
         for (int i = 0; i < cardCount; i++) {
             Transform child = cardPosition.GetChild(i);
+            if (DuocaiTableIndicators.DisplayedInfo != null) {
+                var tile = MahjongObjectPool.GetTile3D(child.gameObject);
+                if (tile != null) tile.isRecordDrawSlotPinned = false;
+            }
             cards.Add(child);
             currentPositions[child] = child.position;
         }

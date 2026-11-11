@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public sealed partial class SichuanSettlementPanel {
-    static readonly Color ReadyHeader = new Color32(45,115,84,255);
+    static readonly Color ReadyHeader = new Color32(178,97,39,255);
     const double ReadySeconds = 8;
     Action prepareAction;
     Func<bool> prepareAvailable, selfPrepared;
@@ -68,9 +68,11 @@ public sealed partial class SichuanSettlementPanel {
             var badge=pair.Value;
             var color=badge.Player.team_id==0?Blue:Red;
             bool active=ActivePlayerSeat==pair.Key;
+            bool isReady=ready!=null && ready.TryGetValue(pair.Key,out bool done) && done;
             badge.Focus.enabled=active;
-            badge.Background.color=ready!=null && ready.TryGetValue(pair.Key,out bool done) && done
-                ?ReadyHeader:active?Color.Lerp(color,Color.white,.2f):color;
+            badge.Background.color=isReady?ReadyHeader:active?Color.Lerp(color,Color.white,.2f):color;
+            badge.Ready.gameObject.SetActive(isReady);
+            badge.Name.rectTransform.offsetMax=new Vector2(isReady?-78:-10,-34);
         }
     }
 }

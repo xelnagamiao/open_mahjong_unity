@@ -51,6 +51,7 @@
           <div class="classic-main">
             <div class="classic-title">{{ item.description }}</div>
             <div class="classic-meta">
+              <span v-if="item.protagonist">主角：{{ item.protagonist.username }}</span>
               <span v-if="item.round">{{ roundLabel(item.round) }}</span>
               <span v-if="item.node != null">{{ nodeLabel(item.node) }}</span>
               <span v-if="item.missing" class="missing">牌谱已失效</span>

@@ -238,9 +238,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
         SetPlayerVariable(VariableRemainingTiles, remaining.HasValue ? $"余牌 {remaining.Value}" : null);
         TMP_Text label = FindPlayerVariable(VariableRemainingTiles);
         if (!remaining.HasValue || label == null) return;
-        label.color = remaining.Value <= 3
-            ? new Color(1f, 0.67f, 0.4f)
-            : new Color(0.94f, 0.97f, 1f);
+        label.color = Color.white;
     }
 
     public void SetPlayerInfo(PlayerInfo playerInfo, string state, string position = null) {

@@ -9,6 +9,8 @@ public sealed class RoomCreationInput {
     public bool UnlimitedRounds;
     public int DuplicateRoundCount = 8;
     public bool DuplicateSyncMode;
+    public bool RealTime;
+    public int TacticalGraceSeconds = 5;
     public bool JinluoMode;
     public string JinluoWeather = JinluoRules.DefaultWeather;
     public int GameRound, RoundTimer, StepTimer, CuoheType, HepaiWayIndex;

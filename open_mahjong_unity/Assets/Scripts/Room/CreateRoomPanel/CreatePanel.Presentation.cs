@@ -28,7 +28,7 @@ public partial class CreatePanel {
     private Toggle[] RoomOptionToggles => new[] {
         tipsToggle, countTipsToggle, CuoHeheToggle, passwordToggle, TacticalCallToggle, ClaimProtectionToggle,
         TouristLimitToggle, InputHepaiLimitToggle, AllowSpectatorToggle, RedDoraToggle,
-        KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle, SichuanDuplicateSyncToggle,
+        KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle, SichuanDuplicateSyncToggle, SichuanRealTimeToggle,
         GuobiaoFlowersToggle, TianDiRenHeToggle, JinluoModeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
         ChangshaInitialBanBanHuToggle, ChangshaInitialQueYiSeToggle, ChangshaInitialLiuLiuShunToggle,
         ChangshaInitialSanTongToggle, ChangshaDealerBirdToggle, ChangshaBaseScoreNoDealerToggle,

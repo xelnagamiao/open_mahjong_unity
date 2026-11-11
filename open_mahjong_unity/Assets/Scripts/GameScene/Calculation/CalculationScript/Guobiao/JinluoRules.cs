@@ -14,7 +14,7 @@ public static class JinluoRules {
         "连对：两个及以上同花色相邻数牌对子", "同对：两个及以上相同序数数牌对子",
         "四归一：有四张相同牌的七对子"
     };
-    public const string Description = "金锣赛：普通牌须24素番，七对须28素番或符合所选天气、特殊七对条件；海底、妙手、杠开、双暗杠、明暗杠16素番可和。六花及以上、天地人和、三色双龙会、三同刻、全带五、清二数和低番凑番按规则放行，均须满足不计花牌的8番起和。未达条件报和按当前错和设置处罚。";
+    public const string Description = "金锣赛是一种制作国标麻将高难度番种的特殊比赛规则，将七对、番数低于等于24且不是凑番的和牌判作错和，从而有充分的时间制作平常对局较为稀有的凑番或者大牌的玩法，其中对某些具体番种有特殊的规定，具体规则可见jmcr.cc.cd，推荐添加q群1101569363游玩。";
     private static readonly HashSet<string> Reduced = new HashSet<string> { "海底捞月", "妙手回春", "杠上开花", "双暗杠", "明暗杠" };
     private static readonly HashSet<string> Unrestricted = new HashSet<string> { "天和", "地和", "人和", "人和I", "人和II", "人和Ⅰ", "人和Ⅱ", "三色双龙会", "三同刻", "全带五" };
     private static readonly HashSet<string> LowFans = new HashSet<string> {

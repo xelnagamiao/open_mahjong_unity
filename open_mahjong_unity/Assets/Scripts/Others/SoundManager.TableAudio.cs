@@ -107,7 +107,7 @@ public partial class SoundManager {
         if (expectedVersion.HasValue && expectedVersion.Value != tableAudioVersion) return;
         float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetSoundEffectVolumeRatio() : 1f;
         if (volume <= 0f) return;
-        if (discardImpactClip == null) discardImpactClip = Resources.Load<AudioClip>("Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2");
+        if (discardImpactClip == null) discardImpactClip = IosResourceCache.Load<AudioClip>("Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2");
         if (discardImpactClip == null) {
             if (!missingDiscardClipReported) Debug.LogWarning("未找到落牌音效 Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2");
             missingDiscardClipReported = true;

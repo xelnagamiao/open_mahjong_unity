@@ -24,14 +24,14 @@ public partial class ConfigManager {
     private static Sprite LoadInventorySprite(string path) {
         // Catalog paths are server-validated bundled assets, never remote URLs.
         if (!inventorySprites.TryGetValue(path, out var sprite)) {
-            sprite = Resources.Load<Sprite>(path);
+            sprite = IosResourceCache.Load<Sprite>(path);
             if (sprite == null) {
-                var sprites = Resources.LoadAll<Sprite>(path);
+                var sprites = IosResourceCache.LoadAll<Sprite>(path);
                 if (sprites.Length > 0) sprite = sprites[0];
                 else {
                     // Some existing portrait textures use Multiple mode without
                     // slice data. Create one cached sprite for the full texture.
-                    var texture = Resources.Load<Texture2D>(path);
+                    var texture = IosResourceCache.Load<Texture2D>(path);
                     if (texture != null) {
                         sprite = Sprite.Create(texture, new Rect(0,0,texture.width,texture.height),new Vector2(.5f,.5f));
                         sprite.name = texture.name;
@@ -45,9 +45,9 @@ public partial class ConfigManager {
 
     public static Sprite GetProfileSprite(int profileId) {
         if (inventoryCatalog.TryGetValue(profileId, out var item) && item.slot == "avatar")
-            return GetInventoryIcon(item) ?? Resources.Load<Sprite>("image/Profiles/1");
+            return GetInventoryIcon(item) ?? IosResourceCache.Load<Sprite>("image/Profiles/1");
         if (profileId == DefaultAvatarItemId) profileId = 1;
-        return LoadInventorySprite("image/Profiles/" + profileId) ?? Resources.Load<Sprite>("image/Profiles/1");
+        return LoadInventorySprite("image/Profiles/" + profileId) ?? IosResourceCache.Load<Sprite>("image/Profiles/1");
     }
 
     public static Color GetAvatarFrameColor(int itemId) {

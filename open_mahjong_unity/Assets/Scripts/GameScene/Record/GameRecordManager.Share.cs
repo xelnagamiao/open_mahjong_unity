@@ -63,6 +63,7 @@ public partial class GameRecordManager {
         string shareUrl = includePosition
             ? SharedRecordLink.BuildShareUrl(recordShareGameId, currentRoundIndex, currentNode)
             : SharedRecordLink.BuildShareUrl(recordShareGameId);
+        shareUrl = SharedRecordLink.WithPlayer(shareUrl, selectedPlayerUserid, selectedPlayerOriginalIndex);
         ClipboardUtility.Copy(shareUrl);
         GameHost.Current.ShowTip("牌谱", true,
             includePosition ? "已复制目前局面牌谱链接" : "已复制本局牌谱链接");

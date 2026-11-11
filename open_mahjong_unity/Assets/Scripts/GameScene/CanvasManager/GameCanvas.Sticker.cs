@@ -289,6 +289,6 @@ public partial class GameCanvas {
     }
 
     private static Sprite LoadStickerSprite(string pack, int id) {
-        return Resources.Load<Sprite>($"image/sticker/{pack}/{id}");
+        return IosResourceCache.Load<Sprite>($"image/sticker/{pack}/{id}");
     }
 }

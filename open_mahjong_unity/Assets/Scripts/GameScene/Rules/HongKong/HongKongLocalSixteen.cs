@@ -11,7 +11,8 @@ internal sealed partial class HongKongLocal {
     }
     private Value Sixteen(List<int> hand,S s,int win,bool self,int[] waits){
         var f=new Dictionary<string,int>();void Add(string key,int value,bool condition=true){if(condition)f[key]=value;}void Remove(params string[] keys){foreach(string key in keys)f.Remove(key);}
-        var all=hand.Concat(codes.SelectMany(LocalJokerHand.MeldTiles)).ToArray();int suits=all.Where(t=>t<40).Select(t=>t/10).Distinct().Count();bool honors=all.Any(t=>t>=41),closed=!((bool?)c["called_chow_or_pung"]??false)&&codes.All(m=>"gG".Contains(m[0]));var groups=Groups(hand,s);
+        // Menqing permits all final kong melds, including pungs upgraded to added kongs.
+        var all=hand.Concat(codes.SelectMany(LocalJokerHand.MeldTiles)).ToArray();int suits=all.Where(t=>t<40).Select(t=>t/10).Distinct().Count();bool honors=all.Any(t=>t>=41),closed=codes.All(m=>"gG".Contains(m[0]));var groups=Groups(hand,s);
         Add("base",5);Add("dealer",1,seat==0);Add("dealer_streak",2*streak,seat==0&&streak>0);Add("self_draw",1,self);Add("concealed",5,closed);if(closed&&self){Add("concealed_self_draw",5);Remove("self_draw");}
         if(ready.Length>0){if(new[]{"heaven","earth","human"}.Contains(ready)){Add("ready_"+ready,ready=="heaven"?40:ready=="earth"?30:20);if(ready!="human")Remove("concealed");}else if(closed){Add("closed_ready",15);Remove("concealed");}else Add("ready",5);}
         Add("no_honors",1,!honors);Add("no_flowers",1,flowers.Length==0);if(!honors&&flowers.Length==0){Add("no_honors_flowers",5);Remove("no_honors","no_flowers");}
@@ -30,7 +31,12 @@ internal sealed partial class HongKongLocal {
             int kongs=s.Melds.Count(m=>m.Kind=='g');Add("kongs",2*kongs,kongs>0);
         }
         if(s.Kind=="standard"){
-            MeldPoints();Add("all_pungs",40,s.Melds.All(m=>m.Kind!='s'));int hidden=Concealed(s,self).Length,kongs=s.Melds.Count(m=>m.Kind=='g');if(hidden==5&&kongs==0){Add("five_pure_pungs",240);Remove("all_pungs","concealed");}else if(hidden>=2){Add("concealed_pungs",new[]{0,0,5,20,60,180}[hidden]);if(hidden==5)Remove("all_pungs");}
+            MeldPoints();Add("all_pungs",40,s.Melds.All(m=>m.Kind!='s'));
+            int kongs=s.Melds.Count(m=>m.Kind=='g');
+            // X暗刻/杠 counts all kongs, including exposed/added ones, exactly once.
+            // Keep Concealed strict for other profiles and ron-completed pungs.
+            int hidden=kongs+Concealed(s,self).Count(i=>s.Melds[i].Kind=='k');
+            if(hidden==5&&kongs==0){Add("five_pure_pungs",240);Remove("all_pungs","concealed");}else if(hidden>=2){Add("concealed_pungs",new[]{0,0,5,20,60,180}[hidden]);if(hidden==5)Remove("all_pungs");}
             bool allChows=s.Melds.All(m=>m.Kind=='s');Add("all_chows",5,allChows);if(allChows&&f.ContainsKey("no_honors_flowers")){Add("big_chows",15);Remove("all_chows","no_honors_flowers");}
             int largest=s.Melds.Where(m=>m.Kind=='s').GroupBy(m=>m.Tile%10).Select(g=>g.Count()).DefaultIfEmpty().Max();if(largest>=4){Add("same_rank_chows",largest==5?60:20);if(largest==5)Remove("all_chows");}Add("pair_258",2,s.Pair<40&&new[]{2,5,8}.Contains(s.Pair%10));
             bool single=s.Win<0;if(s.Win>=0){var m=s.Melds[s.Win];if(m.Kind=='k')Add("pung_wait",1);else if(m.Kind=='s')single=win==m.Tile||m.Tile%10==2&&win%10==3||m.Tile%10==8&&win%10==7;}if(single)Add(waits.Length==1?"single_wait":"apparent_single",waits.Length==1?2:1);

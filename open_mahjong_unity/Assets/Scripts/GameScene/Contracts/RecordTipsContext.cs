@@ -8,6 +8,7 @@ public class RecordTipsContext {
     public string SubRule;
     public int HepaiLimit;
     public bool JinluoMode;
+    public GuobiaoHintTiming GuobiaoTiming;
     public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";

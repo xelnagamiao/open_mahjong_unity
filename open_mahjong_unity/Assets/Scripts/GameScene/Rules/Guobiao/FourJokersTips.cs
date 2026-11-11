@@ -22,7 +22,15 @@ internal static class FourJokersTips {
     }
     private static readonly Dictionary<string,Notification> notifications=new Dictionary<string,Notification>();
     private static string Key(IEnumerable<int> hand,IEnumerable<string> melds,string sub)=>sub+"|"+string.Join(",",hand.OrderBy(t=>t))+"|"+string.Join(",",melds.OrderBy(t=>t,StringComparer.Ordinal));
-    private static string HintKey(WaitHintQuery q)=>Key(q.HandWithWin,q.Melds,q.SubRule)+"|"+q.HepaiTile+"|"+q.NoJokerBonus+"|"+q.BlackFlowerProgressive+"|"+q.JokerMultiWait+"|"+q.HepaiLimit+"|"+string.Join(",",q.MergedWay)+"|"+string.Join(",",q.BuildZimoWay());
+    private static string HintKey(WaitHintQuery q)=>Key(q.HandWithWin,q.Melds,q.SubRule)+"|"+q.HepaiTile+"|"+q.NoJokerBonus+"|"+q.BlackFlowerProgressive+"|"+q.JokerMultiWait+"|"+q.HepaiLimit+"|"+string.Join(",",q.MergedWay)+"|"+string.Join(",",q.BuildZimoWay())+"|"+q.GuobiaoTiming?.CacheKey;
+    internal static List<string> BuildWay(WaitHintQuery q,bool selfDraw) {
+        var way=selfDraw?q.BuildZimoWay():new List<string>(q.MergedWay);
+        q.GuobiaoTiming?.AddTo(way,q.HepaiTile,selfDraw);
+        return way;
+    }
+    internal static bool IsCurrentDraw(WaitHintQuery q)=>q.GuobiaoTiming!=null&&q.GuobiaoTiming.DrawTile>0
+        &&WashizuTile.Face(q.GuobiaoTiming.DrawTile)==WashizuTile.Face(q.HepaiTile);
+    internal static bool IsInitialDraw(WaitHintQuery q)=>IsCurrentDraw(q)&&q.GuobiaoTiming.InitialDraw;
     private static WaitTileHint Copy(WaitTileHint h)=>h==null?null:new WaitTileHint{Kind=h.Kind,Label=h.Label};
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     internal static void Clear(){waits.Clear();hints.Clear();notifications.Clear();}
@@ -67,6 +75,12 @@ internal static class FourJokersTips {
         // Copy all calculator inputs before leaving the Unity thread.
         var copy=new WaitHintQuery{HandWithWin=new List<int>(q.HandWithWin),Melds=new List<string>(q.Melds??new List<string>()),HepaiTile=q.HepaiTile,SubRule=q.SubRule,HepaiLimit=q.HepaiLimit,JokerMultiWait=q.JokerMultiWait,NoJokerBonus=q.NoJokerBonus,BlackFlowerProgressive=q.BlackFlowerProgressive,
             WayToHepai=new List<string>(q.WayToHepai),SingleTileWay=new List<string>(q.SingleTileWay),MergedWay=new List<string>(q.MergedWay)};
+        if(q.GuobiaoTiming!=null) {
+            var timing=q.GuobiaoTiming;
+            copy.GuobiaoTiming=new GuobiaoHintTiming{DrawTile=timing.DrawTile,RonTile=timing.RonTile,
+                DrawOpening=timing.DrawOpening,RonOpening=timing.RonOpening,InitialDraw=timing.InitialDraw,LastDraw=timing.LastDraw,
+                LastDiscard=timing.LastDiscard,KongDraw=timing.KongDraw,RobbingKong=timing.RobbingKong};
+        }
         return Job(hints,HintKey(copy),()=>copy.SubRule==GuobiaoGameState.SixteenSubRule?GuobiaoSixteenLocal.Describe(copy):GuobiaoJokerLocal.Describe(copy),()=>LocalHintWebBridge.Describe(copy));
     }
     internal static bool TryDescribeCached(WaitHintQuery q,out WaitTileHint hint) {

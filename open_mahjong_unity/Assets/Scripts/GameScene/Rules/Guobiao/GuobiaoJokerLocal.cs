@@ -87,14 +87,14 @@ internal static class GuobiaoJokerLocal {
             p.fan_list.Add("huagang");var result=base.FanCountOutput(p,codes,zimo,way);result.Item2.Add("花杠");return result;
         }
     }
-    internal static (int score,int qualifying,List<string> fans) Score(List<int> hand,List<string> melds,List<string> way,int win,string sub,bool multi=false,string bonus="add8",bool progressive=true) {
+    internal static (int score,int qualifying,List<string> fans) Score(List<int> hand,List<string> melds,List<string> way,int win,string sub,bool multi=false,string bonus="add8",bool progressive=true,bool allowSingle=true) {
         melds=melds??new List<string>();var h=Prepare(hand,melds,sub);bool flower=Huahun(sub)&&melds.Contains("G51");
         bool joker=Huahun(sub)?Seasons.Contains(win):win==59;
         if(h==null || !hand.Contains(win) || joker&&!way.Any(w=>new[]{"自摸","杠上开花","last_deal","妙手回春"}.Contains(w)))return (0,0,new List<string>());
         int flowers=way.Count(w=>w=="花牌");
         if(Huahun(sub)&&(flowers>4 || !new[]{"add8","double","none"}.Contains(bonus)))return (0,0,new List<string>());
         var baseWay=way.Where(w=>w!="和单张" && !(joker&&w=="和绝张") && !(Huahun(sub)&&w=="花牌")).ToList();
-        bool singleAllowed=!multi || h.Ghosts==0;
+        bool singleAllowed=allowSingle&&!way.Contains("天和")&&(!multi || h.Ghosts==0);
         var checker=flower?(Chinese_Hepai_Check)new FlowerScorer():new Chinese_Hepai_Check(false,null);
         int best=0;var fans=new List<string>();
         List<string> ResolvedWay(List<int> logical,int logicalWin) {
@@ -140,9 +140,10 @@ internal static class GuobiaoJokerLocal {
     internal static WaitTileHint Describe(WaitHintQuery q) {
         int ghosts=q.HandWithWin.Count(t=>Huahun(q.SubRule)?Seasons.Contains(t):t==59)+((q.Melds?.Contains("G51")??false)?4:0);
         int limit=Huahun(q.SubRule)?new[]{8,8,16,32,64}[Math.Min(4,ghosts)]:q.HepaiLimit;
-        var ron=Score(q.HandWithWin,q.Melds,q.MergedWay,q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive);
-        var self=Score(q.HandWithWin,q.Melds,q.BuildZimoWay(),q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive);
+        var self=Score(q.HandWithWin,q.Melds,FourJokersTips.BuildWay(q,true),q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive,!FourJokersTips.IsInitialDraw(q));
         bool canSelf=self.score>0&&self.qualifying>=limit;
+        if(FourJokersTips.IsCurrentDraw(q))return canSelf?WaitTileHint.TsumoOnly($"自摸{self.score}番"):WaitTileHint.None("未起和");
+        var ron=Score(q.HandWithWin,q.Melds,FourJokersTips.BuildWay(q,false),q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive);
         if(ron.score>0&&ron.qualifying>=limit)return canSelf?WaitTileHint.Ron($"{ron.score}番"):WaitTileHint.RonOnly();
         return canSelf?WaitTileHint.TsumoOnly($"自摸{self.score}番"):WaitTileHint.None("未起和");
     }

@@ -23,6 +23,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
     private static SharedRecordLink _instance;
     private static int? _pendingRound;
     private static int? _pendingNode;
+    private static int? _pendingPlayer;
+    private static int? _pendingPlayerIndex;
     private bool _isLoading;
     private string _queuedGameId;
     private bool _localConvertedReady;
@@ -50,6 +52,12 @@ public sealed class SharedRecordLink : MonoBehaviour {
     /// <summary>round 为从 1 开始的小局索引，node 为当前已执行的动作数。</summary>
     public static string BuildShareUrl(string gameId, int round, int node) {
         return $"{BuildShareUrl(gameId)}&round={Math.Max(1, round)}&node={Math.Max(0, node)}";
+    }
+
+    public static string WithPlayer(string url, int userId, int originalPlayerIndex) {
+        if (userId >= 0) url += $"&player={userId}";
+        if (originalPlayerIndex >= 0 && originalPlayerIndex < 4) url += $"&playerIndex={originalPlayerIndex}";
+        return url;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -127,25 +135,34 @@ public sealed class SharedRecordLink : MonoBehaviour {
     }
 
     public static void CapturePosition(string value) {
-        ParsePositionQuery(value ?? "", out _pendingRound, out _pendingNode);
+        ParsePositionQuery(value ?? "", out _pendingRound, out _pendingNode, out _pendingPlayer, out _pendingPlayerIndex);
     }
 
     public static void ClearPendingJump() {
         _pendingRound = null;
         _pendingNode = null;
+        _pendingPlayer = null;
+        _pendingPlayerIndex = null;
     }
 
     public static void ApplyPendingJumpIfAny() {
-        if (!_pendingRound.HasValue && !_pendingNode.HasValue) return;
+        if (!_pendingRound.HasValue && !_pendingNode.HasValue && !_pendingPlayer.HasValue && !_pendingPlayerIndex.HasValue) return;
+        var manager = GameRecordManager.Instance;
+        if (manager == null) return;
         int round = _pendingRound ?? 1;
         int node = _pendingNode ?? 0;
+        int? player = _pendingPlayer;
+        int? playerIndex = _pendingPlayerIndex;
         ClearPendingJump();
-        GameRecordManager.Instance?.JumpToSharePosition(round, node);
+        manager.JumpToSharePosition(round, node);
+        manager.SwitchRecordPerspectiveFromShare(player, playerIndex);
     }
 
-    private static void ParsePositionQuery(string text, out int? round, out int? node) {
+    private static void ParsePositionQuery(string text, out int? round, out int? node, out int? player, out int? playerIndex) {
         round = null;
         node = null;
+        player = null;
+        playerIndex = null;
         int queryAt = text.IndexOf('?');
         if (queryAt < 0) return;
         string query = text.Substring(queryAt + 1);
@@ -160,6 +177,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
             if (!int.TryParse(raw, out int parsed)) continue;
             if (name.Equals("round", StringComparison.OrdinalIgnoreCase) && parsed >= 1) round = parsed;
             else if (name.Equals("node", StringComparison.OrdinalIgnoreCase) && parsed >= 0) node = parsed;
+            else if (name.Equals("player", StringComparison.OrdinalIgnoreCase) && parsed >= 0) player = parsed;
+            else if (name.Equals("playerIndex", StringComparison.OrdinalIgnoreCase) && parsed >= 0 && parsed < 4) playerIndex = parsed;
         }
     }
 

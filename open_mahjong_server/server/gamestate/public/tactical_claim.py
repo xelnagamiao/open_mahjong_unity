@@ -164,6 +164,13 @@ def tactical_action_rank(gs, action_type, player_index):
     return rank(action_type, player_index) if callable(rank) else (gs.action_priority.get(action_type, -1),)
 
 
+def tactical_rank_can_interrupt(gs, action_type, player_index, current_rank):
+    """Timed multi-ron adapters may retain equal-priority win confirmations."""
+    extra = getattr(gs, "tactical_extra_competitor", None)
+    return (tactical_action_rank(gs, action_type, player_index) > current_rank
+            or callable(extra) and extra(action_type, player_index, current_rank))
+
+
 def get_higher_priority_snapshot(gs, action_type, player_index):
     """从开局冻结快照重算「更高优先级竞争者」；主询问 pass 不排除。"""
     current_rank = tactical_action_rank(gs, action_type, player_index)
@@ -181,7 +188,7 @@ def get_higher_priority_snapshot(gs, action_type, player_index):
         declines = [a for a in source_actions if is_decline_action(a)]
         filtered = [
             a for a in source_actions
-            if not is_decline_action(a) and tactical_action_rank(gs, a, pid) > current_rank
+            if not is_decline_action(a) and tactical_rank_can_interrupt(gs, a, pid, current_rank)
         ]
         if filtered:
             higher_action_dict[pid] = filtered + declines
@@ -240,7 +247,7 @@ def _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actio
                 continue
             d_priority = gs.action_priority.get(d_type, -1)
             candidate_rank = tactical_action_rank(gs, d_type, pid)
-            if candidate_rank <= current_rank:
+            if not tactical_rank_can_interrupt(gs, d_type, pid, current_rank):
                 continue
             if pre_submitted is None or candidate_rank > tactical_action_rank(gs, pre_submitted[1], pre_submitted[2]):
                 pre_submitted = (d_priority, d_type, pid, dict(drained))
@@ -366,7 +373,7 @@ async def tactical_grace_phase(
                 gs.action_dict[temp_pid] = []
                 temp_priority = gs.action_priority.get(temp_type, -1)
                 candidate_rank = tactical_action_rank(gs, temp_type, temp_pid)
-                if candidate_rank <= current_rank:
+                if not tactical_rank_can_interrupt(gs, temp_type, temp_pid, current_rank):
                     continue
                 if best_submitted is None or candidate_rank > tactical_action_rank(gs, best_submitted[1], best_submitted[2]):
                     best_submitted = (temp_priority, temp_type, temp_pid, dict(temp_data))

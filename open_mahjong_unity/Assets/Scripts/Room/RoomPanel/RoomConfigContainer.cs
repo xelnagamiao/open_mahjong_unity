@@ -41,7 +41,7 @@ public class RoomConfigContainer : MonoBehaviour {
             "tips", "tactical_call", "hepai_way", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "sichuan", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "room_type", "game_round", "round_timer", "step_timer", "real_time", "tactical_grace_seconds", "random_seed",
             "tips", "blood_battle", "hepai_limit", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "changsha", new List<string> {
@@ -296,6 +296,16 @@ public class RoomConfigContainer : MonoBehaviour {
             case "tactical_call":
                 displayName = "战术鸣牌";
                 displayValue = roomInfo.tactical_call ? "开" : "关";
+                return true;
+            case "real_time":
+                if (!SichuanLobby.IsDuplicate(roomInfo.sub_rule)) return false;
+                displayName = "真实时间";
+                displayValue = roomInfo.real_time ? "开" : "关";
+                return true;
+            case "tactical_grace_seconds":
+                if (!SichuanLobby.IsDuplicate(roomInfo.sub_rule) || (!roomInfo.real_time && !roomInfo.tactical_call)) return false;
+                displayName = "第二等待时间";
+                displayValue = roomInfo.tactical_grace_seconds + "秒";
                 return true;
             case "cuohe_type":
                 displayName = "错和形式";

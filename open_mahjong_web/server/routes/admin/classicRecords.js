@@ -57,11 +57,22 @@ router.get(
 );
 
 router.post(
+  '/resolve',
+  wrap(async (req, res) => {
+    const parsed = store.parseClassicInput({ ...req.body, description: req.body?.description || '预览' });
+    await assertGameExists(parsed.game_id);
+    const [item] = await store.attachRecordMeta([parsed], { strict: true, persist: false });
+    res.json({ success: true, data: item });
+  })
+);
+
+router.post(
   '/',
   wrap(async (req, res) => {
     const parsed = store.parseClassicInput(req.body || {});
     await assertGameExists(parsed.game_id);
-    const item = store.createClassicRecord(req.body || {});
+    const [resolved] = await store.attachRecordMeta([parsed], { strict: true, persist: false });
+    const item = store.createClassicRecord(resolved);
     const [decorated] = await store.attachRecordMeta([item]);
     await writeAuditSafe(req, 'classic_record.create', item.id, {
       game_id: item.game_id,
@@ -78,16 +89,10 @@ router.put(
     if (!current) {
       throw Object.assign(new Error('经典牌谱不存在'), { status: 404 });
     }
-    const parsed = store.parseClassicInput({
-      url: req.body?.url,
-      game_id: req.body?.game_id || req.body?.gameId || current.game_id,
-      round: req.body?.round !== undefined ? req.body.round : current.round,
-      node: req.body?.node !== undefined ? req.body.node : current.node,
-      description: req.body?.description != null ? req.body.description : current.description,
-      sort: req.body?.sort !== undefined ? req.body.sort : current.sort,
-    });
+    const parsed = store.parseClassicInput(store.classicUpdateInput(current, req.body || {}));
     await assertGameExists(parsed.game_id);
-    const item = store.updateClassicRecord(req.params.id, req.body || {});
+    const [resolved] = await store.attachRecordMeta([parsed], { strict: true, persist: false });
+    const item = store.updateClassicRecord(req.params.id, resolved);
     const [decorated] = await store.attachRecordMeta([item]);
     await writeAuditSafe(req, 'classic_record.update', item.id, {
       game_id: item.game_id,

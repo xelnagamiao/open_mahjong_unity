@@ -94,7 +94,7 @@ public sealed class MobileLoginViewport : MonoBehaviour {
         Vector2 size = safeSpace.rect.size;
         if (!force && size == lastSize && full == lastFullBounds) return;
         lastSize = size; lastFullBounds = full;
-        float headerScale = Screen.height / Mathf.Max(1, safeLayout.scaleSettings.referenceResolution.y)
+        float headerScale = MobileViewportLayout.GameArea.height / Mathf.Max(1, safeLayout.scaleSettings.referenceResolution.y)
             / Mathf.Max(.001f, CanvasReferenceLayout.PixelsPerUnit(safeSpace));
 
         float horizontal = Mathf.Max(-left, right);

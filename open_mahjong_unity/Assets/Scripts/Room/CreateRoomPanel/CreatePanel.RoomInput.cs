@@ -12,6 +12,8 @@ public partial class CreatePanel {
             DuplicateKey = SelectedDuplicateKey, DuplicateEnabled = IsSichuanDuplicate || ReadRoomToggle(DuplicateWallToggle),
             DuplicateRoundCount = SichuanDuplicateBoardCounts[SichuanDuplicateRounds ? SichuanDuplicateRounds.value : 2],
             DuplicateSyncMode = ReadRoomToggle(SichuanDuplicateSyncToggle),
+            RealTime = IsSichuanDuplicate && ReadRoomToggle(SichuanRealTimeToggle),
+            TacticalGraceSeconds = IsSichuanDuplicate ? SelectedSichuanSecondWait : 5,
             UnlimitedRounds = _ruleState == "qingque" && string.IsNullOrEmpty(_venueEventId) && ReadRoomToggle(unlimitedRoundsToggle),
             GameRound = GetSelectedGameTime(), RoundTimer = GetSelectedRoundTimer(), StepTimer = GetSelectedStepTimer(),
             CuoheType = GetSelectedCuoheType(), HepaiWayIndex = HepaiWayDropdown.value,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const config = require('../../config/config');
+const pool = require('../../config/database');
 const { writeAudit } = require('../../utils/audit');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
@@ -36,7 +37,16 @@ router.get('/list', async (req, res) => {
     if (status >= 400) {
       return res.status(status).json({ success: false, message: data?.detail || '获取对局列表失败' });
     }
-    res.json({ success: true, data });
+    const items = data?.items || [];
+    const ids = [...new Set(items.map(game => game.event_id).filter(Boolean))];
+    const venues = ids.length
+      ? (await pool.query('SELECT event_id, name, kind FROM events WHERE event_id = ANY($1)', [ids])).rows
+      : [];
+    const byId = new Map(venues.map(venue => [venue.event_id, venue]));
+    res.json({ success: true, data: { ...data, items: items.map(game => ({ ...game,
+      event_name: byId.get(game.event_id)?.name || '',
+      venue_kind: byId.get(game.event_id)?.kind || '',
+    })) } });
   } catch (err) {
     console.error('admin game list:', err);
     res.status(500).json({ success: false, message: '游戏服不可达' });

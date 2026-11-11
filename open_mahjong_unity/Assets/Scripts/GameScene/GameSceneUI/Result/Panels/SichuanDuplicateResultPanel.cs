@@ -10,6 +10,12 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
     private GameObject table;
     private Button readyButton;
     private bool comparison, canReady, submitted, readyEnabled;
+    private bool comparisonPlaying;
+    private string comparisonMatch;
+    private int comparisonBoard;
+    private double? comparisonDeadline;
+    public int? ComparisonRemainingSeconds => comparisonPlaying && comparisonDeadline.HasValue
+        ? (int)System.Math.Ceiling(System.Math.Max(0, comparisonDeadline.Value - SettlementSync.Now())) : null;
 
     public static DuplicateBoardResult Comparison(DuplicateMatchInfo info) =>
         info?.sync_mode == true && info.current_board > 0
@@ -18,15 +24,23 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
     public static bool ShouldShow(DuplicateMatchInfo info) => info != null
         && info.status != "interrupted" && (info.waiting || Comparison(info) != null);
 
-    public void Show(DuplicateMatchInfo info) {
+    public void Show(DuplicateMatchInfo info, double? receivedAt = null) {
         gameObject.SetActive(true);
         var board = Comparison(info);
         comparison = board != null;
-        canReady = comparison && !info.waiting && info.status != "completed";
+        comparisonPlaying = comparison && info.waiting_for == "comparison";
+        if (comparisonPlaying && info.comparison_remaining_ms.HasValue) {
+            double deadline = (receivedAt ?? SettlementSync.Now()) + System.Math.Max(0, info.comparison_remaining_ms.Value) / 1000.0;
+            bool sameBoard = comparisonMatch == info.id && comparisonBoard == info.current_board;
+            comparisonDeadline = sameBoard && comparisonDeadline.HasValue
+                ? System.Math.Min(comparisonDeadline.Value, deadline) : deadline;
+        } else comparisonDeadline = null;
+        comparisonMatch = info.id; comparisonBoard = info.current_board;
+        canReady = comparison && !comparisonPlaying && !info.waiting && info.status != "completed";
         readyEnabled = submitted = false;
         table.SetActive(comparison);
         waiting.gameObject.SetActive(!comparison);
-        readyButton.gameObject.SetActive(canReady);
+        readyButton.gameObject.SetActive(canReady || comparisonPlaying);
         readyButton.interactable = false;
         if (!comparison) {
             bool wholeMatch = info.waiting_for == "match" || info.sync_mode == false;
@@ -47,9 +61,11 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
             values[4, team].text = Score(info.imp_scores ?? (info.scoring == "imp" ? info.scores : null), team, false);
         }
         footer.text = info.status == "completed" ? "两桌均已结束，即将显示最终结果"
-            : info.waiting_for == "ready" ? "本桌已准备，等待另一桌准备" : "两桌确认后共同进入下一副";
+            : comparisonPlaying ? "两桌完成本副对比后共同进入下一副"
+            : info.waiting_for == "ready" ? "本桌对比已完成，等待另一桌" : "两桌确认后共同进入下一副";
         if (info.scoring == "raw_difference") footer.text += " · 血流按副分判胜负";
         buttonText.text = "等待确认";
+        Update();
     }
 
     public void EnableReady() {
@@ -58,7 +74,18 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
         Update();
     }
 
+    private void OnDisable() {
+        comparisonDeadline = null;
+        comparisonPlaying = false;
+    }
+
     private void Update() {
+        if (comparisonPlaying) {
+            readyButton.interactable = false;
+            int? remaining = ComparisonRemainingSeconds;
+            buttonText.text = remaining > 0 ? $"对比展示（{remaining}）" : "等待同步";
+            return;
+        }
         if (!comparison || !canReady || !readyEnabled) return;
         bool confirmed = submitted || SettlementSync.SelfReady;
         readyButton.interactable = !confirmed;

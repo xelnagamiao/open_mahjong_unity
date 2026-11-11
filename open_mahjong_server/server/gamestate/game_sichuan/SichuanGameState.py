@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .action_check import check_action_after_peng, check_action_hand_action, refresh_waiting_tiles
 from .action_window import collect_tactical_recheck, validate_tactical_queued_action
+from .real_time import RealTimeClaimMixin
 from .wait_action import wait_action
 from .shunhe import clear_shunhe
 from .boardcast import (
@@ -134,7 +135,7 @@ class SichuanPlayer:
         self.has_draw_slot = True
 
 
-class SichuanGameState:
+class SichuanGameState(RealTimeClaimMixin):
     is_xueliu = False
     is_doubles = False
     is_team_game = False
@@ -286,6 +287,7 @@ class SichuanGameState:
 
         self.action_events: Dict[int, asyncio.Event] = {i: asyncio.Event() for i in range(4)}
         self.action_queues: Dict[int, asyncio.Queue] = {i: asyncio.Queue() for i in range(4)}
+        self.initialize_real_time(room_data)
         self.waiting_players_list = []
         self.action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
         self.action_priority: Dict[str, int] = {

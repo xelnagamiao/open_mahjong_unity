@@ -28,6 +28,7 @@ public partial class GuobiaoGameState {
     protected override void OnAskHandAction(Response response) {
         if (response.ask_hand_action_info?.opening_buhua_complete != true || openingFlowersCompleted) {
             base.OnAskHandAction(response);
+            RefreshGuobiaoHintDisplay();
             return;
         }
         openingFlowersCompleted = true;
@@ -52,6 +53,7 @@ public partial class GuobiaoGameState {
         openingHandoff = null;
         OpeningHandoffPending = false;
         base.OnAskHandAction(response);
+        RefreshGuobiaoHintDisplay();
         // Presentation must not extend the server's decision deadline.
         if (keepDrawSource) {
             var info = response.ask_hand_action_info;

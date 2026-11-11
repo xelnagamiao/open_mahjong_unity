@@ -43,6 +43,7 @@ from ..public.tactical_claim import (
 )
 from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
+from .real_time import initial_real_time, collect_real_time_claims, close_claim_clock
 
 logger = logging.getLogger(__name__)
 
@@ -136,96 +137,100 @@ async def wait_action(self):
         if action_type is None:
             action_type, player_index, action_data = "hu", index, {"action_type": "hu"}
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
-        task_list = []
-        task_to_player = {}
-        for waiting_player_index in self.waiting_players_list:
-            action_task = start_owned_task(self, self.action_events[waiting_player_index].wait())
-            task_list.append(action_task)
-            task_to_player[action_task] = waiting_player_index
-        timer_task = start_owned_task(self, asyncio.sleep(1))
-        task_list.append(timer_task)
+    if initial_real_time(self):
+        action_type, player_index, action_data = await collect_real_time_claims(
+            self, submitted_actions, action_type, player_index, action_data)
+    else:
+        while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
+            task_list = []
+            task_to_player = {}
+            for waiting_player_index in self.waiting_players_list:
+                action_task = start_owned_task(self, self.action_events[waiting_player_index].wait())
+                task_list.append(action_task)
+                task_to_player[action_task] = waiting_player_index
+            timer_task = start_owned_task(self, asyncio.sleep(1))
+            task_list.append(timer_task)
 
-        done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
-        for task in pending:
-            task.cancel()
+            done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
 
-        for task in done:
-            if task == timer_task:
-                continue
-            else:
-                temp_player_index = task_to_player[task]
-                temp_action_data = await self.action_queues[temp_player_index].get()
-                temp_action_type = temp_action_data.get("action_type")
-                action_tick = temp_action_data.get("_action_tick")
-                if action_tick is not None and action_tick != self.server_action_tick:
-                    if self.action_queues[temp_player_index].empty():
-                        self.action_events[temp_player_index].clear()
+            for task in done:
+                if task == timer_task:
                     continue
-                if temp_action_type not in self.action_dict.get(temp_player_index, []):
-                    if self.action_queues[temp_player_index].empty():
-                        self.action_events[temp_player_index].clear()
-                    continue
-                actor = self.player_list[temp_player_index]
-                from .duplicate_wall import can_draw
-                if temp_action_type in ("gang", "angang", "jiagang") and not can_draw(self, temp_player_index):
-                    continue
-                if getattr(self, "is_xueliu", False) and actor.post_hu_lock and temp_action_type in ("gang", "angang", "jiagang"):
-                    target = temp_action_data.get("target_tile")
-                    if temp_action_type == "gang":
-                        # 明杠以实际弃牌为准，不信任客户端自行提供的目标牌。
-                        discards = self.player_list[self.current_player_index].discard_tiles
-                        target = discards[-1] if discards else None
-                    if not _xueliu_post_hu_kong_allowed(self, actor, temp_action_type, target):
+                else:
+                    temp_player_index = task_to_player[task]
+                    temp_action_data = await self.action_queues[temp_player_index].get()
+                    temp_action_type = temp_action_data.get("action_type")
+                    action_tick = temp_action_data.get("_action_tick")
+                    if action_tick is not None and action_tick != self.server_action_tick:
                         if self.action_queues[temp_player_index].empty():
                             self.action_events[temp_player_index].clear()
                         continue
-                submitted_actions[temp_player_index] = temp_action_type
-                if temp_action_type == "hu":
-                    tactical_mark_player_committed(self, temp_player_index)
-                if temp_action_type == "force_pass":
-                    tactical_mark_player_force_passed(self, temp_player_index)
-                temp_action_data = dict(temp_action_data)
-                used_int_time = int(get_ask_elapsed(self, temp_player_index))
-                if timeout_grace > 0 and used_int_time >= timeout_grace:
-                    self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
-                self.action_dict[temp_player_index] = []
-                # 主询问 pass 不记入战术 passed（见 tactical_claim.py）
-                if temp_player_index in self.waiting_players_list:
-                    self.waiting_players_list.remove(temp_player_index)
+                    if temp_action_type not in self.action_dict.get(temp_player_index, []):
+                        if self.action_queues[temp_player_index].empty():
+                            self.action_events[temp_player_index].clear()
+                        continue
+                    actor = self.player_list[temp_player_index]
+                    from .duplicate_wall import can_draw
+                    if temp_action_type in ("gang", "angang", "jiagang") and not can_draw(self, temp_player_index):
+                        continue
+                    if getattr(self, "is_xueliu", False) and actor.post_hu_lock and temp_action_type in ("gang", "angang", "jiagang"):
+                        target = temp_action_data.get("target_tile")
+                        if temp_action_type == "gang":
+                            # 明杠以实际弃牌为准，不信任客户端自行提供的目标牌。
+                            discards = self.player_list[self.current_player_index].discard_tiles
+                            target = discards[-1] if discards else None
+                        if not _xueliu_post_hu_kong_allowed(self, actor, temp_action_type, target):
+                            if self.action_queues[temp_player_index].empty():
+                                self.action_events[temp_player_index].clear()
+                            continue
+                    submitted_actions[temp_player_index] = temp_action_type
+                    if temp_action_type == "hu":
+                        tactical_mark_player_committed(self, temp_player_index)
+                    if temp_action_type == "force_pass":
+                        tactical_mark_player_force_passed(self, temp_player_index)
+                    temp_action_data = dict(temp_action_data)
+                    used_int_time = int(get_ask_elapsed(self, temp_player_index))
+                    if timeout_grace > 0 and used_int_time >= timeout_grace:
+                        self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
+                    self.action_dict[temp_player_index] = []
+                    # 主询问 pass 不记入战术 passed（见 tactical_claim.py）
+                    if temp_player_index in self.waiting_players_list:
+                        self.waiting_players_list.remove(temp_player_index)
 
-                do_interrupt = True
-                for check_player_index in self.waiting_players_list:
-                    for action in self.action_dict[check_player_index]:
-                        if self.action_priority[temp_action_type] < self.action_priority[action] or (
-                            multi_ron_window and temp_action_type == "hu" and action == "hu"
-                        ):
-                            do_interrupt = False
+                    do_interrupt = True
+                    for check_player_index in self.waiting_players_list:
+                        for action in self.action_dict[check_player_index]:
+                            if self.action_priority[temp_action_type] < self.action_priority[action] or (
+                                multi_ron_window and temp_action_type == "hu" and action == "hu"
+                            ):
+                                do_interrupt = False
 
-                if not action_data:
-                    action_data = dict(temp_action_data)
-                    action_type = temp_action_type
-                    player_index = temp_player_index
-                elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
-                    action_data = dict(temp_action_data)
-                    action_type = temp_action_type
-                    player_index = temp_player_index
+                    if not action_data:
+                        action_data = dict(temp_action_data)
+                        action_type = temp_action_type
+                        player_index = temp_player_index
+                    elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
+                        action_data = dict(temp_action_data)
+                        action_type = temp_action_type
+                        player_index = temp_player_index
 
-                if do_interrupt:
-                    self.waiting_players_list = []
+                    if do_interrupt:
+                        self.waiting_players_list = []
 
-    if self.waiting_players_list:
+        if self.waiting_players_list:
+            for i in self.waiting_players_list:
+                self.player_list[i].remaining_time = 0
+
+        # 已胡后对手点炮必须胡：断线/超时也不能绕过；队友点炮仍可选择过。
         for i in self.waiting_players_list:
-            self.player_list[i].remaining_time = 0
-
-    # 已胡后对手点炮必须胡：断线/超时也不能绕过；队友点炮仍可选择过。
-    for i in self.waiting_players_list:
-        if self.action_dict.get(i) == ["hu"]:
-            submitted_actions[i] = "hu"
-            tactical_mark_player_committed(self, i)
-            if action_type != "hu":
-                action_type, player_index, action_data = "hu", i, {"action_type": "hu"}
-            self.action_dict[i] = []
+            if self.action_dict.get(i) == ["hu"]:
+                submitted_actions[i] = "hu"
+                tactical_mark_player_committed(self, i)
+                if action_type != "hu":
+                    action_type, player_index, action_data = "hu", i, {"action_type": "hu"}
+                self.action_dict[i] = []
 
     if multi_ron_window and self.tactical_call and action_type == "hu":
         # 一炮多响以最远的已报和者触发再问；较近者已经报和，也不应截掉
@@ -243,6 +248,8 @@ async def wait_action(self):
         broadcast_ask_other_action=broadcast_ask_other_action,
         submitted_actions=submitted_actions,
     )
+
+    close_claim_clock(self, clear_actions=True)
 
     if multi_ron_window:
         # 标准血战与血流都允许一炮多响，但可和不等于已报和。

@@ -21,9 +21,6 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     private Game3DManager settlementHost;
     private bool transitionHeld;
     private readonly Queue<(string suffix,Response response)> transitionMessages=new Queue<(string,Response)>();
-    private UnityEngine.Coroutine claimPresentation;
-    private Game3DManager claimPresentationHost;
-    private int claimPresentationVersion;
 
     public override bool HandleMessage(string suffix,Response response) {
         if(transitionMessages.Count>0||(transitionHeld&&(suffix=="game_start"||suffix=="game_end"))) {
@@ -40,7 +37,6 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         DuocaiTableIndicators.Refresh(Info, info.players_info);
     }
     protected override void OnRoundStarted(GameInfo info) {
-        CancelClaimPresentation();
         if (clockHand != info.duocai_info?.hand_number || clockGame != Session.GamestateId) {
             askClock.Reset(); clockHand = info.duocai_info?.hand_number ?? 0; clockGame = Session.GamestateId;
         }
@@ -53,7 +49,6 @@ public sealed class DuocaiGameState : TurnBasedGameState {
             TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
     protected override void OnAskHandAction(Response response) {
-        CancelClaimPresentation();
         Accept(response.game_info);
         var info = response.ask_hand_action_info;
         if (info == null || askClock.IsClosed(info.action_tick)) return;
@@ -64,34 +59,10 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         PresentClock(response, info.action_tick, info.remaining_time, info.step_remaining ?? Session.RoomStepTime);
     }
     protected override void OnAskClaim(Response response) {
-        CancelClaimPresentation();
         Accept(response.game_info);
         var info = response.ask_other_action_info;
         if (info == null || askClock.IsClosed(info.action_tick)) return;
-        var table=Game3DManager.Instance;
-        string seat=latestAction!=null?Mirror.SeatOf(latestAction.action_player):Mirror.LastDiscardPlayerPosition;
-        if(table!=null&&seat!=null&&table.HasPendingRecordStepAnimations(seat)) {
-            Clock.Clear("duocaiClaimPresentation");
-            claimPresentationHost=table;
-            claimPresentation=table.StartCoroutine(WaitForClaimPresentation(response,seat,claimPresentationVersion));
-        } else PresentClaim(response);
-    }
-    private IEnumerator WaitForClaimPresentation(Response response,string seat,int expected) {
-        var table=claimPresentationHost;
-        do {yield return null;}
-        while(Active==this&&expected==claimPresentationVersion&&table!=null&&table.HasPendingRecordStepAnimations(seat));
-        if(Active!=this||expected!=claimPresentationVersion)yield break;
-        claimPresentation=null;claimPresentationHost=null;
-        if(!askClock.IsClosed(response.ask_other_action_info.action_tick))PresentClaim(response);
-    }
-    private void CancelClaimPresentation() {
-        claimPresentationVersion++;
-        if(claimPresentation!=null&&claimPresentationHost!=null)claimPresentationHost.StopCoroutine(claimPresentation);
-        claimPresentation=null;claimPresentationHost=null;
-    }
-    private void PresentClaim(Response response) {
-        var info=response.ask_other_action_info;
-        Clock.PendingAskFromJiagang = false;
+        Clock.PendingAskFromJiagang = Info?.phase == "waiting_action_qianggang";
         choices = info.duocai_choices ?? Array.Empty<DuocaiChoice>();
         info.action_list = ChoiceWords(info.action_list);
         base.OnAskClaim(response);
@@ -106,12 +77,11 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         GameCanvas.Instance?.LoadingRemianTime(remaining, stepLeft);
     }
     public override void OnAskWindowClosed(AskCloseReason reason) {
-        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) {askClock.Close();CancelClaimPresentation();}
+        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) askClock.Close();
         RiichiCutSelectionController.Instance?.ExitRiichiCutMode();
         base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
-        CancelClaimPresentation();
         latestAction=response.do_action_info;
         Accept(response.game_info); base.OnDoAction(response);
     }
@@ -136,29 +106,26 @@ public sealed class DuocaiGameState : TurnBasedGameState {
             return true;
         }
         if(word=="declare_kan")return true;
-        if(!new[]{"chi_left","peng","gang","angang","jiagang","rob_kan"}.Contains(word))return false;
-        var info=latestInfo?.players_info?.FirstOrDefault(p=>p.player_index==action.PlayerIndex);
-        var target=Mirror.Info(action.Seat);if(info==null||target==null)return true;
-        var removed=new List<int>();
-        if(action.Seat=="self") {
-            var remaining=new List<int>(info.hand_tiles??Array.Empty<int>());
-            foreach(int tile in Mirror.SelfHandTiles)if(!remaining.Remove(tile))removed.Add(tile);
-            Mirror.SelfHandTiles=new List<int>(info.hand_tiles??Array.Empty<int>());
-            GameCanvas.Instance?.ChangeHandCards("RemoveCombinationCard",0,removed.ToArray(),null);
-        } else removed.AddRange(Enumerable.Repeat(0,Math.Max(0,target.hand_tiles_count-info.hand_tiles_count)));
-        target.hand_tiles_count=info.hand_tiles_count;
-        target.combination_tiles=(info.combination_tiles??Array.Empty<string>()).ToList();
-        target.combination_masks=(info.combination_mask??Array.Empty<int[]>()).ToList();
-        if(word=="rob_kan") {
-            Game3DManager.Instance?.RemoveHongqueKongHandTile(action.Seat,latestAction?.cut_tile??0);
-            return true;
+        if(word!="jiagang")return false;
+        var target=Mirror.Info(action.Seat);
+        int index=latestAction?.duocai_meld_index??-1;
+        if(target==null||index<0||index>=target.combination_masks.Count||action.CombinationMask==null)
+            throw new InvalidOperationException("夺彩扩杠缺少有效副露索引或牌组");
+        int[][] previousMasks=target.combination_masks.Select(mask=>(int[])mask.Clone()).ToArray();
+        int tile=action.CutTile??0;
+        if(tile<=0) {
+            var previous=previousMasks[index].Where((_,i)=>i%2==1).ToList();
+            foreach(int candidate in action.CombinationMask.Where((_,i)=>i%2==1))
+                if(!previous.Remove(candidate)){tile=candidate;break;}
         }
-        int index=latestAction?.duocai_meld_index??target.combination_masks.Count-1;
-        string discarder=new[]{"chi_left","peng","gang"}.Contains(word)?Mirror.SeatOf(latestAction?.cut_from_player??-1):null;
-        int claimed=latestAction?.cut_tile??0;
-        if(discarder!=null)Mirror.RemoveClaimedDiscard(discarder,claimed);
-        if(index>=0&&index<target.combination_masks.Count)Game3DManager.Instance?.PlayFreeMeld(action.Seat,target.combination_masks[index],index,removed.ToArray(),discarder,claimed,
-            word=="jiagang"?target.combination_masks.Select(mask=>(int[])mask.Clone()).ToArray():null);
+        if(tile<=0&&action.Seat=="self")throw new InvalidOperationException("夺彩扩杠缺少实际加入的手牌");
+        target.combination_tiles[index]=action.CombinationTarget;
+        target.combination_masks[index]=(int[])action.CombinationMask.Clone();
+        if(action.Seat=="self") {
+            GameRecordMeldCodec.RemoveOneJiagangTile(Mirror.SelfHandTiles,tile,tile,action.IsMoGang);
+            GameCanvas.Instance?.ChangeHandCards(action.IsMoGang?"RemoveGetCard":"RemoveJiagangCard",tile,null,null);
+        } else target.hand_tiles_count--;
+        Game3DManager.Instance?.PlayExtendedKong(action.Seat,index,action.CombinationMask,previousMasks,tile,action.IsMoGang);
         return true;
     }
     private DoActionInfo latestAction;
@@ -168,7 +135,6 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     public WaitTileHint DescribeWaiting(WaitHintQuery q) => Hints.Describe(q);
     protected override void OnShowResult(Response response) {
-        CancelClaimPresentation();
         if (settlementAccepted || response.show_result_info == null) return;
         settlementAccepted = true; Accept(response.game_info);
         Info = response.show_result_info.duocai_info ?? Info;
@@ -269,7 +235,6 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         pendingReady = null;transitionHeld=false;transitionMessages.Clear();RoundEndPresentation.Instance?.StopActiveSequence();
     }
     public override void OnSessionReset() {
-        CancelClaimPresentation();
         ResetSettlement(); askClock.Reset(); clockHand = 0; clockGame = null;
         Info = null; latestInfo=null; latestAction=null; choices=Array.Empty<DuocaiChoice>(); riichiSeats.Clear(); endHands = null; Hints.Reset(); DuocaiTableIndicators.Refresh(null);
     }

@@ -109,6 +109,17 @@ public static class GamePlayerPanelUiBaker {
                 row.GetComponent<UnityEngine.UI.Image>().color = wave.GetComponent<UnityEngine.UI.Image>().color;
                 row.gameObject.SetActive(i <= 1);
             }
+            if (Keys[i] == GamePlayerPanel.VariableRemainingTiles) {
+                var label = row.GetComponentInChildren<TMP_Text>(true);
+                label.enableAutoSizing = false;
+                label.fontSize = label.fontSizeMax = 22f;
+                label.enableAutoSizing = true;
+                label.color = Color.white;
+                var textSettings = new SerializedObject(label);
+                textSettings.FindProperty("m_fontSizeBase").floatValue = 22f;
+                textSettings.ApplyModifiedPropertiesWithoutUndo();
+                row.GetComponent<UnityEngine.UI.Image>().color = wave.GetComponent<UnityEngine.UI.Image>().color;
+            }
             DisableRaycasts(row);
             int entryIndex = -1;
             for (int j = 0; j < variables.arraySize; j++)

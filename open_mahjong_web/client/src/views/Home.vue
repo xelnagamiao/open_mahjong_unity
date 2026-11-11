@@ -131,7 +131,7 @@
           >
             <a
               class="card-main"
-              :href="item.href"
+              :href="item.href || item.to"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -166,7 +166,7 @@
 
     <section class="sec">
       <div class="sec-h">■ 牌理、计算器与猜番</div>
-      <div class="grid g3">
+      <div class="grid g4">
         <router-link
           v-for="item in calcLinks"
           :key="item.to"
@@ -281,7 +281,8 @@ const battleLinks = [
     description: '转至平台steam商店页面',
     color: '#1b2838',
   },
-  { to: '/mobile-download', title: '手机版下载', description: 'Android APK', color: '#67c23a' },
+  { to: '/mobile-download?platform=android', title: '手机版下载', description: 'Android APK', color: '#67c23a' },
+  { to: '/ios-download', title: 'iOS下载', description: 'iPhone / iPad 测试版与安装说明', color: '#596579' },
   {
     to: '/community',
     title: '加入QQ群',
@@ -289,12 +290,12 @@ const battleLinks = [
     color: '#12b7f5',
     footerHref: '/community',
   },
-  { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]
 
 const calcLinks = [
   { to: '/paili', title: '牌理', description: '分析手牌是否听牌，以及听牌的向听数或待牌。', color: '#9b59b6' },
   { to: '/calc/chinese', title: '麻雀计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
+  { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
   { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#c0392b' },
 ]
 
@@ -871,7 +872,7 @@ onMounted(() => {
 .card h3 {
   font-size: 1.2rem;
   margin-bottom: 8px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .card p {

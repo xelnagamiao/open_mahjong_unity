@@ -14,7 +14,6 @@ public sealed class BeijingGameState : TurnBasedGameState {
     private string clockGame;
     private bool settlementAccepted,transitionHeld;
     private GameInfo latestInfo;
-    private DoActionInfo latestAction;
     private Response pendingReady;
     private bool pendingSettlement;
     private UnityEngine.Coroutine sequence;
@@ -51,18 +50,10 @@ public sealed class BeijingGameState : TurnBasedGameState {
         GameCanvas.Instance?.LoadingRemianTime(remaining,stepLeft);
     }
     public override void OnAskWindowClosed(AskCloseReason reason){if(reason==AskCloseReason.Acted||reason==AskCloseReason.TimedOut)askClock.Close();base.OnAskWindowClosed(reason);}
-    protected override void OnDoAction(Response response){Accept(response.game_info);latestAction=response.do_action_info;base.OnDoAction(response);}
+    protected override void OnDoAction(Response response){Accept(response.game_info);base.OnDoAction(response);}
     protected override bool TryApplyFamilyWord(TableAction action,string word) {
         if(word=="declare_kan"||word=="tianting"||word=="beijing_payment")return true;
-        if(word!="rob_kan")return false;
-        var source=latestInfo?.players_info?.FirstOrDefault(p=>p.player_index==action.PlayerIndex);var target=Mirror.Info(action.Seat);
-        if(source!=null&&target!=null){if(action.Seat=="self") {
-            var remaining=(source.hand_tiles??Array.Empty<int>()).ToList();var removed=new List<int>();
-            foreach(int tile in Mirror.SelfHandTiles)if(!remaining.Remove(tile))removed.Add(tile);
-            Mirror.SelfHandTiles=(source.hand_tiles??Array.Empty<int>()).ToList();
-            GameCanvas.Instance?.ChangeHandCards("RemoveCombinationCard",0,removed.ToArray(),null);
-        }target.hand_tiles_count=source.hand_tiles_count;}
-        Game3DManager.Instance?.RemoveHongqueKongHandTile(action.Seat,latestAction?.cut_tile??0);return true;
+        return false;
     }
     protected override void OnActionPlayed(TableAction action) {
         if(action.Silent||!GameCanvas.HasNonZeroGangScoreChanges(action.GangScoreChanges))return;

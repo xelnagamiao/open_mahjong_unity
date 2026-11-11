@@ -54,5 +54,7 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
         cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+        if (DuocaiTableIndicators.DisplayedInfo != null)
+            MahjongObjectPool.GetTile3D(cardObj).isRecordDrawSlotPinned = actionType == "get";
     }
 }

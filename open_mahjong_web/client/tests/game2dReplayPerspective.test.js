@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { RecordReplay } from '../src/game2d/replay/recordReplay.ts'
+import { parseRecordShareInput, replaySharePath } from '../src/utils/recordShareLink.js'
 
 function record(title = {}) {
   return {
@@ -24,6 +25,39 @@ test('默认视角按登录 UID 匹配原始玩家，不使用排名或当前座
   const replay = new RecordReplay(record())
   for (let original = 0; original < 4; original++) {
     assert.equal(replay.defaultViewerOriginal(String(100 + original)), original)
+  }
+})
+
+test('2D / 3D 分享优先恢复所选玩家，跨局换座仍跟随本人', () => {
+  const replay = new RecordReplay(record())
+  for (const kind of ['2d', '3d', '2d-node', '3d-node']) {
+    const path = replaySharePath(kind, 'perspective', 2, 1, 102, 2)
+    const parsed = parseRecordShareInput(path)
+    const viewer = replay.sharedViewerOriginal(parsed.player, parsed.playerIndex, replay.defaultViewerOriginal(101))
+    assert.equal(viewer, 2)
+    for (const round of [0, 1]) {
+      assert.equal(replay.build(round, 1, viewer).snapshot.viewer.seat_index, replay.rounds[round].seats[2])
+    }
+    assert.equal(parsed.round, kind.endsWith('-node') ? 2 : undefined)
+    assert.equal(parsed.node, kind.endsWith('-node') ? 1 : undefined)
+  }
+})
+
+test('重复机器人 ID、外部牌谱、三人牌谱与无效参数', () => {
+  const detail = record({p1_uid: 0, p2_uid: 0, is_external: true})
+  const replay = new RecordReplay(detail)
+  assert.equal(replay.sharedViewerOriginal(0, 1, 0), 1)
+  assert.equal(replay.sharedViewerOriginal(0, 2, 0), 2)
+  assert.equal(replay.sharedViewerOriginal(0, undefined, 3), 3)
+  assert.equal(replay.sharedViewerOriginal(999, 2, 3), 3)
+  assert.equal(replay.sharedViewerOriginal(undefined, undefined, 3), 3)
+  detail.rule = 'malaysia'
+  assert.equal(new RecordReplay(detail).sharedViewerOriginal(undefined, 3, 1), 1)
+  for (const query of ['', '?player=&playerIndex=', '?player=-1&playerIndex=4', '?player=NaN&playerIndex=1.5']) {
+    const parsed = parseRecordShareInput(`/2d/record/perspective${query}`)
+    assert.equal(parsed.player, undefined)
+    assert.equal(parsed.playerIndex, undefined)
+    assert.equal(parsed.node, undefined)
   }
 })
 

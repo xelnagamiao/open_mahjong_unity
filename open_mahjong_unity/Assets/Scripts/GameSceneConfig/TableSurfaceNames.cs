@@ -10,15 +10,17 @@ public static class TableSurfaceNames
     private const string MetalPrefix = "Tablecloth_MetalSeam_";
     private static readonly string[] Styles =
     {
-        "纯色细线", "纯色标准线", "纯色粗线", "标准缝线", "粗缝线"
+        "纯色细线", "纯色标准线", "纯色粗线", "标准缝线", "粗缝线",
+        null, null, // Retired IDs 5 and 6 must not become new saved selections.
+        "单线圆角", "短针虚线", "双道细线", "四角留白"
     };
-    // Display order is independent of the persisted IDs and Seam_00–04 resource keys.
-    private static readonly int[] SeamDisplayOrder = { 3, 4, -1, 0, 1, 2 };
+    // Display order is independent of persisted IDs and Seam_XX resource keys.
+    private static readonly int[] SeamDisplayOrder = { 3, 4, -1, 0, 1, 2, 7, 8, 9, 10 };
     private static readonly string[] Backgrounds = { "蓝色纤维", "素绿", "绿色纤维" };
 
     // Keep explicit none and surviving IDs; retired profiles fall back to the default.
     public static int NormalizeSeamStyle(int style) =>
-        style >= -1 && style < SeamStyleCount ? style : DefaultSeam;
+        style == -1 || (style >= 0 && style < SeamStyleCount && Styles[style] != null) ? style : DefaultSeam;
 
     public static int SeamStyleAtOption(int index) =>
         index >= 0 && index < SeamOptionCount ? SeamDisplayOrder[index] : DefaultSeam;
@@ -65,7 +67,7 @@ public static class TableSurfaceNames
     public static string SeamDisplayName(int style)
     {
         if (style == -1) return "无缝线";
-        return style >= 0 && style < Styles.Length ? Styles[style] : "";
+        return style >= 0 && style < Styles.Length ? Styles[style] ?? "" : "";
     }
 
     public static int ClothSortOrder(string resourceName)

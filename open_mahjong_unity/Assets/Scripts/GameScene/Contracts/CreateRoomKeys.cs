@@ -32,6 +32,8 @@ public static class CreateRoomKeys {
     public const string HepaiWay = "hepai_way";
     public const string ClaimProtection = "claim_protection";
     public const string TacticalCall = "tactical_call";
+    public const string RealTime = "real_time";
+    public const string TacticalGraceSeconds = "tactical_grace_seconds";
     public const string BloodBattle = "blood_battle";
     public const string CsOpenKongCount = "cs_open_kong_count";
     public const string CsInitialSiXi = "cs_initial_si_xi";

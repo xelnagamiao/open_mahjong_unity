@@ -52,7 +52,9 @@ public sealed class LocalHintWebBridge : MonoBehaviour {
     }
     internal static async Task<WaitTileHint> Describe(WaitHintQuery q) {
         var result=await Submit("guobiao.score",new JObject{["sub_rule"]=q.SubRule,["hand_tiles"]=new JArray(q.HandWithWin),["tiles_combination"]=new JArray(q.Melds),["get_tile"]=q.HepaiTile,
-            ["ron_way"]=new JArray(q.MergedWay),["self_way"]=new JArray(q.BuildZimoWay()),["hepai_limit"]=q.HepaiLimit,["joker_multi_wait"]=q.JokerMultiWait,["no_joker_bonus"]=q.NoJokerBonus,["black_flower_progressive"]=q.BlackFlowerProgressive});
+            ["ron_way"]=new JArray(FourJokersTips.BuildWay(q,false)),["self_way"]=new JArray(FourJokersTips.BuildWay(q,true)),["current_draw"]=FourJokersTips.IsCurrentDraw(q),
+            ["initial_draw"]=FourJokersTips.IsInitialDraw(q),
+            ["hepai_limit"]=q.HepaiLimit,["joker_multi_wait"]=q.JokerMultiWait,["no_joker_bonus"]=q.NoJokerBonus,["black_flower_progressive"]=q.BlackFlowerProgressive});
         return new WaitTileHint{Kind=(string)result["kind"],Label=(string)result["label"]};
     }
     internal static Task<JObject> Snapshot(JObject request) {

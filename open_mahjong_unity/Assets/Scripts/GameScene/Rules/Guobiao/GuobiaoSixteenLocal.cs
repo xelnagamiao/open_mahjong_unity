@@ -119,9 +119,10 @@ internal static class GuobiaoSixteenLocal {
         return(best.score,Math.Max(0,best.score-way.Count(w=>w=="花牌")),Values.Keys.Where(k=>Value(best.fan,k)>0).Select(k=>Labels[k]+(repeat.Contains(k)?"*"+best.fan[k]:"")).ToList());
     }
     internal static WaitTileHint Describe(WaitHintQuery q) {
-        var ron=Score(q.HandWithWin,q.Melds,q.MergedWay,q.HepaiTile);
-        var self=Score(q.HandWithWin,q.Melds,q.BuildZimoWay(),q.HepaiTile);
+        var self=Score(q.HandWithWin,q.Melds,FourJokersTips.BuildWay(q,true),q.HepaiTile,!FourJokersTips.IsInitialDraw(q));
         bool canSelf=self.score>0&&self.qualifying>=q.HepaiLimit;
+        if(FourJokersTips.IsCurrentDraw(q))return canSelf?WaitTileHint.TsumoOnly("自摸"+self.score+"番"):WaitTileHint.None("未起和");
+        var ron=Score(q.HandWithWin,q.Melds,FourJokersTips.BuildWay(q,false),q.HepaiTile);
         if(ron.score>0&&ron.qualifying>=q.HepaiLimit)return canSelf?WaitTileHint.Ron(ron.score+"番"):WaitTileHint.RonOnly();
         return canSelf?WaitTileHint.TsumoOnly("自摸"+self.score+"番"):WaitTileHint.None("未起和");
     }

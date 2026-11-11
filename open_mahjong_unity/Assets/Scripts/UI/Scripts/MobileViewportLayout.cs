@@ -9,7 +9,7 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         get {
 #if OMU_SIZING_TEST && OMU_SIZING_PREVIEW && !UNITY_EDITOR
             return true;
-#elif (UNITY_ANDROID || (UNITY_WEBGL && OMU_WECHAT)) && !UNITY_EDITOR && !OMU_SIZING_BASELINE
+#elif (UNITY_ANDROID || UNITY_IOS || (UNITY_WEBGL && OMU_WECHAT)) && !UNITY_EDITOR && !OMU_SIZING_BASELINE
             return true;
 #else
             return false;
@@ -18,10 +18,15 @@ public sealed class MobileViewportLayout : MonoBehaviour {
     }
     static MobileViewportLayout instance;
     public static bool IsInstalled => Enabled && instance;
-    public static Rect SafeArea => Enabled && instance ? instance.safeArea : Screen.safeArea;
+    // Popup fitters also need to stay inside the playable rectangle, not inside
+    // the device-safe but letterboxed margins above and below it.
+    public static Rect SafeArea => Enabled && instance ? instance.gameArea : Screen.safeArea;
+    public static Rect GameArea => Enabled && instance ? instance.gameArea : new Rect(0,0,Screen.width,Screen.height);
     readonly List<RectTransform> content = new List<RectTransform>();
     readonly float[] hostMetrics = new float[9];
     Rect safeArea;
+    Rect gameArea;
+    float minimumAspect = 16f / 9f;
     int width, height;
     float nextHostRead;
 #if OMU_SIZING_TEST && OMU_SIZING_PREVIEW
@@ -38,6 +43,10 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         return; // Unlock-only baseline: preserve every original canvas/anchor.
 #else
         instance = owner.AddComponent<MobileViewportLayout>();
+        var aspect = owner.GetComponent<FixedAspectRatio>();
+        if (aspect && aspect.targetAspectRatio > 0f) instance.minimumAspect = aspect.targetAspectRatio;
+        // Establish the usable size before child layouts query it on install.
+        instance.Refresh(true);
         foreach (var root in owner.scene.GetRootGameObjects()) {
             if (root.name!="MainCanvas" && root.name!="OverlayCanvas" && root.name!="#GameCanvas") continue;
             var canvas=root.GetComponent<Canvas>();
@@ -93,6 +102,13 @@ public sealed class MobileViewportLayout : MonoBehaviour {
                 if (page.Find("NavigateBarPanel") && !page.GetComponent<MobileSidebarPageLayout>())
                     page.gameObject.AddComponent<MobileSidebarPageLayout>();
         }
+#if UNITY_IOS && !UNITY_EDITOR
+        // iOS does not move this landscape canvas above the keyboard. Keep the
+        // native text editor visible, including on inactive templates later cloned.
+        foreach (var root in owner.scene.GetRootGameObjects())
+            foreach (var input in root.GetComponentsInChildren<TMPro.TMP_InputField>(true))
+                ShowIosNativeInput(input);
+#endif
         instance.Refresh(true);
 #endif
     }
@@ -116,17 +132,51 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         target.anchoredPosition=new Vector2(-12,centreFromTop);
     }
     void Update() => Refresh(false);
+    // CanvasScaler updates during Update. Resolve the authored UI scale after
+    // it, before the child layout components run their LateUpdate methods.
+    void LateUpdate() {
+        ApplyContentArea();
+#if UNITY_IOS && !UNITY_EDITOR
+        // Run before TMP's default-order LateUpdate opens the keyboard. This also
+        // covers inputs created at runtime, without shifting the entire game UI.
+        var events=UnityEngine.EventSystems.EventSystem.current;
+        var selected=events ? events.currentSelectedGameObject : null;
+        if (selected) ShowIosNativeInput(selected.GetComponent<TMPro.TMP_InputField>());
+#endif
+    }
+#if UNITY_IOS && !UNITY_EDITOR
+    static void ShowIosNativeInput(TMPro.TMP_InputField input) {
+        // Preserve explicit keyboard suppression, password mode and multiline.
+        if (input && !input.shouldHideSoftKeyboard && input.shouldHideMobileInput)
+            input.shouldHideMobileInput=false;
+    }
+#endif
     void Refresh(bool force) {
         if (!Enabled || Screen.width<=0 || Screen.height<=0) return;
         bool resized=width!=Screen.width || height!=Screen.height;
         Rect next=ReadSafeArea(resized || force);
         if (!force && !resized && next==safeArea) return;
         width=Screen.width;height=Screen.height;safeArea=next;
-        var min=new Vector2(next.xMin/width,next.yMin/height);
-        var max=new Vector2(next.xMax/width,next.yMax/height);
+        // Narrow displays keep the original landscape composition, centred
+        // inside the device safe area. Wide phones retain horizontal expansion.
+        float gameHeight=Mathf.Min(next.height,next.width/minimumAspect);
+        gameArea=new Rect(next.x,next.y+(next.height-gameHeight)*.5f,next.width,gameHeight);
+        ApplyContentArea();
+    }
+    void ApplyContentArea() {
+        if (width<=0 || height<=0 || gameArea.width<=0 || gameArea.height<=0) return;
+        var center=new Vector2(gameArea.center.x/width,gameArea.center.y/height);
         foreach(var area in content) {
             if (!area) continue;
-            area.anchorMin=min;area.anchorMax=max;area.offsetMin=area.offsetMax=Vector2.zero;
+            var canvas=area.parent.GetComponent<Canvas>();
+            var settings=area.parent.GetComponent<UnityEngine.UI.CanvasScaler>();
+            float parentPixels=canvas ? canvas.scaleFactor : 1f;
+            float pixels=settings ? CanvasReferenceLayout.DesiredPixels(settings) : parentPixels;
+            if (pixels<=0 || parentPixels<=0) continue;
+            area.anchorMin=area.anchorMax=center;
+            area.anchoredPosition=Vector2.zero;
+            area.sizeDelta=gameArea.size/pixels;
+            area.localScale=Vector3.one*(pixels/parentPixels);
         }
     }
     Rect ReadSafeArea(bool force) {

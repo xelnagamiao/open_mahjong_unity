@@ -35,6 +35,9 @@ public partial class CreatePanel
         var subRules=CreateRoomRuleTextConfigCatalog.GetRule(_ruleState).SubRules;
         int subIndex=0;for(int i=0;i<subRules.Count;i++)if(subRules[i].Key==(string)config["sub_rule"]){subIndex=i;break;}
         SubRuleDropdown.SetValueWithoutNotify(subIndex);OnSubRuleChanged(subIndex);
+        // 先确定金锣模式，避免 JSON 字段顺序让提示与错和按普通规则互相关闭。
+        if (_ruleState == "guobiao" && JinluoModeToggle)
+            JinluoModeToggle.SetIsOnWithoutNotify((bool?)config[CreateRoomKeys.JinluoMode] ?? false);
         foreach(var property in config.Properties())
         {
             string key=property.Name;
@@ -85,6 +88,9 @@ public partial class CreatePanel
         var result=new JObject();
         foreach(var key in schema.Properties())if(raw[key.Name]!=null)result[key.Name]=raw[key.Name].DeepClone();
         foreach(string key in new[]{"duplicate_key","exchange_selection_seconds"})if(raw[key]!=null&&(key!="exchange_selection_seconds"||rule=="changsha"))result[key]=raw[key].DeepClone();
+        if (rule == "sichuan" && SichuanLobby.IsDuplicate((string)raw["sub_rule"]))
+            foreach (string key in new[] { "real_time", "tactical_grace_seconds" })
+                if (raw[key] != null) result[key] = raw[key].DeepClone();
         return result;
     }
     static JObject MergePresetDelta(JObject source,JObject current,JObject baseline)

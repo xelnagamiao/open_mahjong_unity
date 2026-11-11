@@ -40,6 +40,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private static int lastHandledPointerFrame = -1;
     private static int lastGlobalPointerUpFrame = -1;
     private static TileCard pointerDownCard;
+    private static int pointerDownId = -1;
     private RectTransform slotHitRect;
 
     private void Awake() {
@@ -132,21 +133,42 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (HandCardDragController.IsDragging || HandCardDragController.SuppressPointerHover) {
             return;
         }
-        if (Input.GetMouseButtonUp(0)) {
+        if (Input.touchCount == 0 && Input.GetMouseButtonUp(0)) {
             HandleGlobalPointerUp(Input.mousePosition);
         }
 
         for (int i = 0; i < Input.touchCount; i++) {
             Touch touch = Input.GetTouch(i);
+            if (touch.fingerId != pointerDownId) continue;
+            if (touch.phase == TouchPhase.Canceled) {
+                ClearPendingPointerState();
+                continue;
+            }
             if (touch.phase == TouchPhase.Ended) {
                 HandleGlobalPointerUp(touch.position);
             }
         }
     }
 
-    public static void NotifyPointerDown(TileCard card) {
+    public static bool NotifyPointerDown(TileCard card, int pointerId) {
+        // A second finger must not take over a pending discard or drag.
+        if (pointerDownCard != null && pointerDownId != pointerId) return false;
         pointerDownCard = card;
+        pointerDownId = pointerId;
+        return true;
     }
+
+    public static bool IsCanceledTouch(PointerEventData eventData) {
+        if (eventData.pointerId < 0) return false;
+        for (int i = 0; i < Input.touchCount; i++) {
+            Touch touch = Input.GetTouch(i);
+            if (touch.fingerId == eventData.pointerId) return touch.phase == TouchPhase.Canceled;
+        }
+        return false;
+    }
+
+    public static bool IsOtherPointer(PointerEventData eventData) =>
+        pointerDownCard != null && pointerDownId != eventData.pointerId;
 
     public static void NotifyPointerUp(TileCard card) {
         if (pointerDownCard == card) {
@@ -317,6 +339,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         DoraTileSheen.Apply(transform, tileId);
     }
 
+    public void RefreshRuleBack() => DuocaiTileVisual.ApplyHandBack(tileId, faceBackground);
+
     /// OntileClick 是出牌方法 如果牌属性currentGetTile为flase则为手切，如果为true则为摸切
     private void OnTileClick()
     {
@@ -412,6 +436,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             faceBackground.color = color;
         }
         WashizuTile.ApplyHandVisual(transform, tileId, faceBackground, tileImage);
+        RefreshRuleBack();
     }
 
     /// <summary>
@@ -537,6 +562,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 /// </summary>
 public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IPointerClickHandler {
     private TileCard owner;
+    private int pressPointerId = int.MinValue;
+    private void OnDisable() => pressPointerId = int.MinValue;
 
     public void Bind(TileCard card) {
         owner = card;
@@ -553,7 +580,8 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
         if (eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
-        TileCard.NotifyPointerDown(owner);
+        if (!TileCard.NotifyPointerDown(owner, eventData.pointerId)) return;
+        pressPointerId = eventData.pointerId;
         HandCardDragController.Instance.OnPointerDown(owner, eventData);
     }
 
@@ -561,12 +589,21 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
         if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
+        if (pressPointerId != eventData.pointerId || TileCard.IsOtherPointer(eventData)) return;
         HandCardDragController.Instance.OnDrag(owner, eventData);
     }
 
     public void OnPointerUp(PointerEventData eventData) {
         // 手牌只接受左键的拖拽与点击出牌；右键/中键交由快捷键控制器处理，手牌本身不出牌。
         if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
+            return;
+        }
+        if (pressPointerId != eventData.pointerId || TileCard.IsOtherPointer(eventData)) return;
+        pressPointerId = int.MinValue;
+        // uGUI sends PointerUp for canceled touches too. Cancellation is not a discard.
+        if (TileCard.IsCanceledTouch(eventData)) {
+            HandCardDragController.Instance.AbortActivePress("触摸已取消");
+            TileCard.NotifyPointerUp(owner);
             return;
         }
         bool dragHandled = HandCardDragController.Instance.OnPointerUp(owner, eventData);
@@ -590,6 +627,8 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
 /// </summary>
 public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler {
     private TileCard owner;
+    private int pressPointerId = int.MinValue;
+    private void OnDisable() => pressPointerId = int.MinValue;
 
     public void Bind(TileCard card) {
         owner = card;
@@ -604,13 +643,19 @@ public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPoint
             return;
         }
         if (eventData.button == PointerEventData.InputButton.Left) {
-            TileCard.NotifyPointerDown(owner);
+            if (TileCard.NotifyPointerDown(owner, eventData.pointerId)) pressPointerId = eventData.pointerId;
         }
     }
 
     public void OnPointerUp(PointerEventData eventData) {
         // 槽位点击区同样只接受左键出牌；右键不触发任何出牌。
         if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
+            return;
+        }
+        if (pressPointerId != eventData.pointerId || TileCard.IsOtherPointer(eventData)) return;
+        pressPointerId = int.MinValue;
+        if (TileCard.IsCanceledTouch(eventData)) {
+            TileCard.NotifyPointerUp(owner);
             return;
         }
         if (Time.frameCount > HandCardDragController.BlockTileClickUntilFrame) {

@@ -28,13 +28,13 @@ public partial class NormalGameStateManager {
     }
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
-    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null, bool isTacticalRecheck = false, int stepTimeOverride = -1){
+    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null, bool isTacticalRecheck = false, int stepTimeOverride = -1, double? retainedClaimSeconds = null){
         chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
         IsQiangGangAsk = pendingAskFromJiagang;
         currentAskCutTileId = cut_tile;
         if (action_list.Length > 0){
             allowActionList = BuildMingPaiAllowActionList(action_list);
-            TurnClock.Current.BeginClaimAsk(remaining_time, isTacticalRecheck, stepTimeOverride);
+            TurnClock.Current.BeginClaimAsk(remaining_time, isTacticalRecheck, stepTimeOverride, retainedClaimSeconds);
         }
         else {
             // 空询问不弹按钮，同时收掉上一轮遗留的光圈。

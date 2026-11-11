@@ -215,8 +215,8 @@
       "tile": 25,
       "ron": true,
       "self_draw": true,
-      "ron_fan": 18,
-      "self_draw_fan": 19
+      "ron_fan": 23,
+      "self_draw_fan": 28
     }
   },
   {
@@ -259,8 +259,2412 @@
       "tile": 25,
       "ron": true,
       "self_draw": true,
-      "ron_fan": 23,
-      "self_draw_fan": 24
+      "ron_fan": 33,
+      "self_draw_fan": 38
     }
+  },
+  {
+    "case": "2-dark-g37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 23,
+      "self_draw_fan": 28
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "2-dark-g37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      2
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 17,
+      "self_draw_fan": 27
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "2-dark-G37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 23,
+      "self_draw_fan": 28
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "2-dark-G37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      2
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 17,
+      "self_draw_fan": 27
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "2-dark-g37-prior-True-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 23,
+      "self_draw_fan": 28
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "2-dark-g37-prior-True-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      1,
+      2
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 17,
+      "self_draw_fan": 27
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "3-dark-g37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      3,
+      3
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 35,
+      "self_draw_fan": 40
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "3-dark-g37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      3
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 19,
+      "self_draw_fan": 39
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "3-dark-G37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      3,
+      3
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 35,
+      "self_draw_fan": 40
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "3-dark-G37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      3
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 19,
+      "self_draw_fan": 39
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "3-dark-g37-prior-True-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      3,
+      3
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 35,
+      "self_draw_fan": 40
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "3-dark-g37-prior-True-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      3
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 19,
+      "self_draw_fan": 39
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "4-dark-g37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      4,
+      4
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 87,
+      "self_draw_fan": 92
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "4-dark-g37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      3,
+      4
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 46,
+      "self_draw_fan": 91
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "4-dark-G37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      4,
+      4
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 87,
+      "self_draw_fan": 92
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "4-dark-G37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      3,
+      4
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 46,
+      "self_draw_fan": 91
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "4-dark-g37-prior-True-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      4,
+      4
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 87,
+      "self_draw_fan": 92
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "4-dark-g37-prior-True-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      32,
+      33,
+      34,
+      41,
+      41,
+      41,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      3,
+      4
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 46,
+      "self_draw_fan": 91
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "5-dark-g37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 208,
+      "self_draw_fan": 213
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "5-dark-g37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      4,
+      5
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 127,
+      "self_draw_fan": 212
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "5-dark-G37-prior-False-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 208,
+      "self_draw_fan": 213
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "5-dark-G37-prior-False-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "G37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      4,
+      5
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 127,
+      "self_draw_fan": 212
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "5-dark-g37-prior-True-win-45",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 208,
+      "self_draw_fan": 213
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "5-dark-g37-prior-True-win-11",
+    "rule": "hongkong",
+    "hand": [
+      11,
+      11,
+      11,
+      29,
+      29,
+      29,
+      41,
+      41,
+      41,
+      43,
+      43,
+      43,
+      45,
+      45
+    ],
+    "melds": [
+      "g37"
+    ],
+    "win": 11,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      4,
+      5
+    ],
+    "expected": {
+      "tile": 11,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 127,
+      "self_draw_fan": 212
+    },
+    "waits": [
+      11,
+      45
+    ]
+  },
+  {
+    "case": "multiple-gg-prior-False",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gg-prior-False-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gg-prior-True",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gg-prior-True-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gG-prior-False",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gG-prior-False-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gG-prior-True",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gG-prior-True-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-GG-prior-False",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "G11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-GG-prior-False-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "G11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-GG-prior-True",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "G11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 27,
+      "self_draw_fan": 32
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-GG-prior-True-ready",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      36,
+      37,
+      38,
+      45,
+      45
+    ],
+    "melds": [
+      "G11",
+      "G19"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      2,
+      2
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 37,
+      "self_draw_fan": 42
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-ggggg-prior-False",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19",
+      "g22",
+      "g28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 223,
+      "self_draw_fan": 228
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-ggggg-prior-False-ready",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19",
+      "g22",
+      "g28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 233,
+      "self_draw_fan": 238
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-ggggg-prior-True",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19",
+      "g22",
+      "g28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 223,
+      "self_draw_fan": 228
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-ggggg-prior-True-ready",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "g19",
+      "g22",
+      "g28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 233,
+      "self_draw_fan": 238
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gGgGg-prior-False",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19",
+      "g22",
+      "G28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 223,
+      "self_draw_fan": 228
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gGgGg-prior-False-ready",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19",
+      "g22",
+      "G28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 233,
+      "self_draw_fan": 238
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gGgGg-prior-True",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19",
+      "g22",
+      "G28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 223,
+      "self_draw_fan": 228
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "multiple-gGgGg-prior-True-ready",
+    "rule": "hongkong",
+    "hand": [
+      45,
+      45
+    ],
+    "melds": [
+      "g11",
+      "G19",
+      "g22",
+      "G28",
+      "g33"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      5,
+      5
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 233,
+      "self_draw_fan": 238
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "pung-does-not-turn-dark",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "k11"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 13,
+      "self_draw_fan": 14
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-s12-prior-False-ready-none",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "s12"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 13,
+      "self_draw_fan": 14
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-s12-prior-False-ready-ordinary",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "s12"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 18,
+      "self_draw_fan": 19
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-s12-prior-True-ready-none",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "s12"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 13,
+      "self_draw_fan": 14
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-s12-prior-True-ready-ordinary",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "s12"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 18,
+      "self_draw_fan": 19
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-k11-prior-False-ready-none",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "k11"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 13,
+      "self_draw_fan": 14
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-k11-prior-False-ready-ordinary",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "k11"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": false
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 18,
+      "self_draw_fan": 19
+    },
+    "waits": [
+      45
+    ]
+  },
+  {
+    "case": "remaining-k11-prior-True-ready-ordinary",
+    "rule": "hongkong",
+    "hand": [
+      22,
+      23,
+      24,
+      26,
+      27,
+      28,
+      32,
+      33,
+      34,
+      45,
+      45
+    ],
+    "melds": [
+      "g37",
+      "k11"
+    ],
+    "win": 45,
+    "context": {
+      "profile": "hongkong/new16",
+      "flowers_enabled": true,
+      "flowers": [],
+      "seat": 1,
+      "round_wind": 41,
+      "ready": "ordinary",
+      "dealer_streak": 0,
+      "called_chow_or_pung": true
+    },
+    "concealed_counts": [
+      1,
+      1
+    ],
+    "expected": {
+      "tile": 45,
+      "ron": true,
+      "self_draw": true,
+      "ron_fan": 18,
+      "self_draw_fan": 19
+    },
+    "waits": [
+      45
+    ]
   }
 ]

@@ -127,7 +127,7 @@ function playerName(player) {
 
 function openGame(gameId, query = {}) {
   const path = `/2d/record/${encodeURIComponent(String(gameId))}`
-  const hasQuery = query.round != null || query.node != null
+  const hasQuery = Object.keys(query).length > 0
   router.push(hasQuery ? { path, query } : path)
 }
 
@@ -140,6 +140,8 @@ function openRecord() {
   const query = {}
   if (parsed.round != null) query.round = String(parsed.round)
   if (parsed.node != null) query.node = String(parsed.node)
+  if (parsed.player != null) query.player = String(parsed.player)
+  if (parsed.playerIndex != null) query.playerIndex = String(parsed.playerIndex)
   void (async () => {
     if (isLocalOnlyGameId(parsed.gameId) && !await getLocalGameRecord(parsed.gameId)) {
       ElMessage.warning('本机没有这份牌谱')

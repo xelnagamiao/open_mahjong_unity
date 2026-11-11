@@ -58,6 +58,7 @@ public partial class AutoAction : MonoBehaviour{
     public bool IsNoRon => GetTilePassPanel()?.NoRon ?? false;
     public bool IsNoTsumo => GetTilePassPanel()?.NoTsumo ?? false;
     public bool IsNoRobKong => GetTilePassPanel()?.NoRobKong ?? false;
+    public bool KeepSpecialWinAsk => GetTilePassPanel()?.KeepSpecialWinAsk ?? true;
 
     // 是否应当自动荣和：自动胡牌开启，且牌张设置未勾选「不点和」
     public bool ShouldAutoWinRon() {
@@ -391,7 +392,7 @@ public partial class AutoAction : MonoBehaviour{
 
     /// <summary>
     /// 当前河牌/加杠牌是否命中牌张设置的跳过列表。
-    /// 命中时不询问该牌的任何操作（含荣和/抢杠），与「自动过牌」不同。
+    /// 这里只判断是否命中；抢杠/海底的保留询问由 AutoActionPolicy 优先处理。
     /// </summary>
     public bool ShouldAutoPassForCurrentDiscard() {
         return tilePassSettingPanel != null && tilePassSettingPanel.ShouldAutoPassForCurrentDiscard();

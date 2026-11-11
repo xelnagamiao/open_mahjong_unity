@@ -168,6 +168,7 @@ public sealed class ActionPlayback {
         int claimedOrLastCutTile = action.CutTile ?? cutTiles[cutTiles.Length - 1];
         Mirror.LastCutCardID = action.ConcealedDiscard ? 0 : claimedOrLastCutTile;
         Mirror.LastDiscardPlayerPosition = seat;
+        Mirror.LastDiscardWasSeaBottom = action.SeaBottomDiscard;
         foreach (int discardedTile in cutTiles) {
             Mirror.AddDiscard(seat, action.ConcealedDiscard ? 0 : discardedTile, horizontal);
         }
@@ -249,9 +250,12 @@ public sealed class ActionPlayback {
     private void ApplyAngang(TableAction action, string word) {
         string seat = action.Seat;
         PlayerInfoClass player = Mirror.Info(seat);
+        int drawTile = action.CutTile ?? (seat == "self" ? Mirror.LastDealTileId : 0);
         TableMirror.AppendMeld(player, action.CombinationTarget, action.CombinationMask);
         if (seat == "self") {
             List<int> removeList = GameRecordMeldCodec.ExtractHandTilesFromMask(action.CombinationMask);
+            if (action.IsMoGang && removeList.Contains(Mirror.LastDealTileId)) drawTile = Mirror.LastDealTileId;
+            if (action.IsMoGang && removeList.Remove(drawTile)) removeList.Insert(0, drawTile);
             foreach (int tileId in removeList) {
                 Mirror.SelfHandTiles.Remove(tileId);
             }
@@ -259,7 +263,7 @@ public sealed class ActionPlayback {
         } else {
             player.hand_tiles_count -= GameRecordMeldCodec.AngangHandTileCount;
         }
-        Game3DManager.Instance.Change3DTile(word, 0, GameRecordMeldCodec.AngangHandTileCount, seat, false, action.CombinationMask, isMoGang: action.IsMoGang);
+        Game3DManager.Instance.Change3DTile(word, drawTile, GameRecordMeldCodec.AngangHandTileCount, seat, false, action.CombinationMask, isMoGang: action.IsMoGang);
     }
 
     /// <summary>加杠：碰升杠；下一次鸣牌询问即抢杠询问。</summary>

@@ -479,7 +479,7 @@ import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
 import { formatFanCount, translateFanName, translateRuleText } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
-import { replaySharePath } from '@/utils/recordShareLink'
+import { replaySharePath, shareInteger } from '@/utils/recordShareLink'
 import { riichiWinLineLabel } from '@/utils/riichiWinRequirements.js'
 import {
   mmcrSettlementSortKey,
@@ -1867,7 +1867,8 @@ function changeVolume(next: number) {
 async function copyShareLink(kind: '2d' | '2d-node' | '3d' | '3d-node') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
   const round = roundIndex.value + 1
-  const url = new URL(replaySharePath(kind, gameId, round, node.value), window.location.origin).toString()
+  const player = replay.value?.userIdForOriginal(viewerOriginal.value)
+  const url = new URL(replaySharePath(kind, gameId, round, node.value, player, viewerOriginal.value), window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
@@ -1981,11 +1982,14 @@ async function loadRecord() {
 }
 
 /**
- * 分享链接形如 /2d/record/{gameId}?round={第几局，从 1 开始}&node={节点下标，从 0 开始}。
- * 打开链接时直接跳转到对应局数与节点；参数缺失或越界时回退到开头。
+ * round 从 1 开始，node 是已执行动作数；player / playerIndex 指定玩家和开局席位。
+ * 链接视角优先于登录玩家；无效玩家保留默认视角，局数和节点按牌谱范围夹取。
  */
 function applyDeepLinkPosition() {
   if (!replay.value) return
+  viewerOriginal.value = replay.value.sharedViewerOriginal(
+    shareInteger(route.query.player), shareInteger(route.query.playerIndex, 0, 3), viewerOriginal.value,
+  )
   const rawRound = Number(route.query.round)
   if (Number.isFinite(rawRound) && rawRound >= 1) {
     const targetRound = Math.min(replay.value.rounds.length - 1, Math.floor(rawRound) - 1)
@@ -2010,6 +2014,10 @@ watch(locale, () => {
   scene?.setAppearance(appearance.value)
 })
 watch(() => route.params.gameId, loadRecord)
+watch(() => [route.query.round, route.query.node, route.query.player, route.query.playerIndex], () => {
+  stopPlaying()
+  applyDeepLinkPosition()
+})
 
 onMounted(() => {
   window.addEventListener('four-jokers-waits-ready', refreshFourJokersHints)

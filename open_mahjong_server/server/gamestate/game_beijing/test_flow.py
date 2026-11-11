@@ -168,17 +168,27 @@ def test_ron_priority_multiple_winners_and_river_recycled_once(multi):
     assert all(not p.record_counter.recorded_fans for p in g.player_list)
 
 
-def test_added_kong_rob_removes_one_held_tile_and_preserves_pung():
+@pytest.mark.parametrize('drawn', [False, True])
+def test_added_kong_rob_removes_one_held_tile_and_preserves_pung(drawn):
     g = game()
     p = g.player_list[0]
     p.combination_tiles, p.combination_mask = ['k42'], [[1,42,0,42,0,42]]
     g.player_list[1].hand_tiles = WAIT.copy()
-    turn(g,0,[11,12,13,21,22,23,31,32,33,41,42])
+    hand = [11,12,13,21,22,23,31,32,33,41,42]
+    if not drawn:
+        hand[-2:] = reversed(hand[-2:])
+    turn(g,0,hand)
     before = p.hand_tiles.copy()
     apply(g,0,'jiagang',target_tile=42)
     assert g.machine.phase == P.ROB_KONG and p.hand_tiles == before and p.combination_tiles == ['k42']
     apply(g,1,'hu')
-    assert p.hand_tiles == before[:-1] and p.combination_tiles == ['k42']
+    before.remove(42)
+    assert p.hand_tiles == before and p.combination_tiles == ['k42']
+    packets = [v['do_action_info'] for v in g.outbound_payloads
+               if v.get('do_action_info', {}).get('action_list') == ['rob_kan']]
+    assert len(packets) == 4
+    assert all(v['cut_tile'] == 42 and v['is_mo_gang'] is drawn for v in packets)
+    assert not p.has_draw_slot
     assert not g.deferred_hu_settlements[0]['recycle_discard']
     assert any(v.get('do_action_info',{}).get('cut_tile') == 42 and 'rob_kan' in v.get('do_action_info',{}).get('action_list',[]) for v in g.outbound_payloads)
 

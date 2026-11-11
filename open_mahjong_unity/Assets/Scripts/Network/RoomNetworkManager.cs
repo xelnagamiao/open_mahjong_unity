@@ -731,6 +731,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateSichuanRoomRequest {
+                real_time = SichuanLobby.IsDuplicate(config.SubRule) ? config.RealTime : (bool?)null,
+                tactical_grace_seconds = SichuanLobby.IsDuplicate(config.SubRule) ? config.TacticalGraceSeconds : (int?)null,
                 wall_source = config.WallSource,
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,

@@ -4,6 +4,7 @@ using UnityEngine;
 public static class DuocaiTileVisual {
     private static readonly Dictionary<int,Sprite> sprites=new Dictionary<int,Sprite>();
     private static readonly Dictionary<string,Sprite> colored=new Dictionary<string,Sprite>();
+    private static readonly Dictionary<string,Sprite> bodies=new Dictionary<string,Sprite>();
     public static bool IsCurrent(int tile)=>RuleRegistry.Current?.RuleId=="duocai"&&tile>=1000&&tile<5040;
     public static string Badge(int tile)=>tile>=1000&&tile<2000?"金":tile>=2000&&tile<3000?"银":tile>=3000&&tile<4000?"赤":null;
     public static Texture2D Texture(int tile)=>DuocaiTiles.Joker(tile)?Resources.Load<Texture2D>("Duocai/Tiles/"+tile):Sprite(tile,true)?.texture;
@@ -31,4 +32,45 @@ public static class DuocaiTileVisual {
         return colored[key]=UnityEngine.Sprite.Create(texture,new Rect(0,0,texture.width,texture.height),new Vector2(.5f,.5f),source.pixelsPerUnit,0,SpriteMeshType.FullRect);
     }
     public static Color BackColor(int back)=>back==0?new Color(.7f,.08f,.1f):new Color(.07f,.25f,.72f);
+
+    public static bool TryBack(int tile,out int back) {
+        var info=DuocaiTableIndicators.DisplayedInfo;
+        back=info==null?0:(info.deck+(DuocaiTiles.UnusualBack(tile)?1:0))%2;
+        return RuleRegistry.Current?.RuleId=="duocai"&&info!=null;
+    }
+
+    public static void ApplyHandBack(int tile,UnityEngine.UI.Image body) {
+        if(body==null||!body.enabled)return;
+        var source=TileFaceResolver.LoadHandBackground();
+        if(source==null)return;
+        body.sprite=TryBack(tile,out int back)?HandBody(source,back):source;
+    }
+
+    private static Sprite HandBody(Sprite source,int back) {
+        string key=source.GetInstanceID()+":"+back;
+        if(bodies.TryGetValue(key,out var result)&&result)return result;
+        var shader=Resources.Load<Shader>("Duocai/HandBackColor");if(shader==null)return source;
+        var material=new Material(shader);var rect=source.textureRect;
+        material.SetColor("_BackColor",BackColor(back));
+        var classic=Resources.Load<Texture2D>(TilePackIds.DefaultHandBgResource);
+        var indigo=Resources.Load<Texture2D>("image/Cards/Surfaces/backgrounds/hand-indigo");
+        float aspect=rect.width/rect.height;
+        var mask=classic!=null&&indigo!=null&&Mathf.Abs(aspect-(float)classic.width/classic.height)<Mathf.Abs(aspect-(float)indigo.width/indigo.height)?classic:indigo;
+        material.SetTexture("_BackMask",mask);
+        material.SetVector("_Rect",new Vector4(rect.x/source.texture.width,rect.y/source.texture.height,rect.width/source.texture.width,rect.height/source.texture.height));
+        var target=RenderTexture.GetTemporary((int)rect.width,(int)rect.height,0,RenderTextureFormat.ARGB32,RenderTextureReadWrite.sRGB);
+        var previous=RenderTexture.active;bool previousSrgb=GL.sRGBWrite;
+        var texture=new Texture2D(target.width,target.height,TextureFormat.RGBA32,false) {name="DuocaiHandBody_"+back};
+        try {
+            GL.sRGBWrite=QualitySettings.activeColorSpace==ColorSpace.Linear;
+            Graphics.Blit(source.texture,target,material);RenderTexture.active=target;
+            texture.ReadPixels(new Rect(0,0,target.width,target.height),0,0);texture.Apply(false,true);
+        } finally {
+            GL.sRGBWrite=previousSrgb;RenderTexture.active=previous;
+            RenderTexture.ReleaseTemporary(target);Object.Destroy(material);
+        }
+        var sprite=UnityEngine.Sprite.Create(texture,new Rect(0,0,texture.width,texture.height),source.pivot/source.rect.size,source.pixelsPerUnit,0,SpriteMeshType.FullRect,source.border);
+        sprite.name=texture.name;
+        return bodies[key]=sprite;
+    }
 }

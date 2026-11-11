@@ -11,6 +11,11 @@ from ..gamestate.public.sichuan_duplicate import PairedMatch, new_match
 
 
 async def create_pair(manager, event_id, sub_rule, config, password, created_by):
+    from .sichuan_timing import timing_config
+    try:
+        config = {**config, **timing_config(sub_rule, config)}
+    except ValueError as error:
+        return Response(type="tips", success=False, message=f"房间配置无效: {error}")
     if event_id:
         event = manager.game_server.db_manager.get_event(event_id)
         if not event or event.get("kind", "event") not in ("event", "base"):

@@ -18,8 +18,11 @@ class EndOfHand:
                 or any(not self.can_win(i, source, tile, payer=payer) for i in winners)):
             raise ValueError("点和窗口错误")
         if source == "rob_kong":
-            self.player_list[payer].hand_tiles.remove(tile)
-            self._event("rob_kan", payer, tile=tile)
+            declarer = self.player_list[payer]
+            drawn = declarer.has_draw_slot and declarer.hand_tiles[-1] == tile
+            declarer.hand_tiles.remove(tile)
+            declarer.has_draw_slot = False
+            self._event("rob_kan", payer, tile=tile, is_mo_gang=drawn)
             self.pending_kong = None
         for n, winner in enumerate(winners):
             self._settle_one(winner, source, tile, payer=payer,

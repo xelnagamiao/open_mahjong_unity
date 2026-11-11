@@ -26,6 +26,7 @@ public partial class ConfigManager : MonoBehaviour {
     public static string githubUrl;
     public static string documentUrl;
     public static string mobileDownloadUrl;
+    public static string iosDownloadUrl => webUrl.TrimEnd('/') + "/ios-download";
 
     // 部署地址由下方 Debug/正式环境分支统一配置；请求参数和鉴权仍由各业务模块处理。
     public static string dataStationUrl => (string.IsNullOrWhiteSpace(webUrl) ? "https://salasasa.cn" : webUrl.TrimEnd('/')) + "/player-data/platform";
@@ -48,20 +49,23 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 34; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 35; // 发行版号(验证客户端-服务器版本是否一致)
             base_version = 1; // 安卓框架基准版本(决定是否需要安装新 APK)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 34;
+            releaseVersion = 35;
             base_version = 1;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.5.89.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.5.89.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
+#if UNITY_IOS && !UNITY_EDITOR
+        mobileDownloadUrl = iosDownloadUrl;
+#endif
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
     }
@@ -238,7 +242,7 @@ public partial class ConfigManager : MonoBehaviour {
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
     private const int DefaultTargetFrameRate = 60;
 
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
     public const int DefaultHandCutConfirmMode = 1;
 #else
     public const int DefaultHandCutConfirmMode = 0;
@@ -996,7 +1000,8 @@ public partial class ConfigManager : MonoBehaviour {
         return DefaultTargetFrameRate;
     }
 
-    // Windows / WebGL / iOS / Editor：URP MSAA 4x；Android：MSAA 关 + 相机 FXAA 兜底。
+    // iOS reduces multisample and shadow buffers; desktop/WebGL retain 4x MSAA.
+    // Android keeps its existing FXAA workaround.
     private const int MsaaSampleCountHigh = 4;
     // Android 保留 6/28 PR#50 规避：MSAA 会强制中间 render pass，Mali Valhall Vulkan 上触发 Canvas 丢失。
     private const int MsaaSampleCountDisabled = 1;
@@ -1005,6 +1010,12 @@ public partial class ConfigManager : MonoBehaviour {
         if (!(UniversalRenderPipeline.asset is UniversalRenderPipelineAsset urpAsset)) return;
 #if UNITY_ANDROID && !UNITY_EDITOR
         int target = MsaaSampleCountDisabled;
+#elif UNITY_IOS && !UNITY_EDITOR
+        int target = 2;
+        // Runtime-only settings: no changes to the shared URP asset in the Editor.
+        // Keep HDR and render scale so the established table appearance is preserved.
+        if (urpAsset.mainLightShadowmapResolution > 2048)
+            urpAsset.mainLightShadowmapResolution = 2048;
 #else
         int target = MsaaSampleCountHigh;
 #endif

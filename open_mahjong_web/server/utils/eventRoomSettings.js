@@ -313,7 +313,7 @@ function normalizeBaseRoomConfig(rule, raw) {
     }
     if (config.jinluo_mode) {
       if (config.sub_rule !== 'guobiao/standard') throw new SettingsError(400, '金锣赛仅适用于标准国标');
-      config.hepai_limit = 8; config.open_cuohe = true; config.tips = false;
+      config.hepai_limit = 8; config.open_cuohe = true; config.tian_di_ren_he = true;
     }
     if (config.sub_rule === 'guobiao/sixteen' && config.duplicate_key) throw new SettingsError(400, '国标十六张不能使用普通复式牌墙');
     if (config.sub_rule === 'guobiao/huahun') {
@@ -322,7 +322,9 @@ function normalizeBaseRoomConfig(rule, raw) {
     }
   }
   if (rule === 'guobiao' && !['guobiao/huahun', 'guobiao/four_jokers'].includes(config.sub_rule)) config.joker_multi_wait = false;
-  if (config.tips && config.open_cuohe) throw new SettingsError(400, '提示与错和不能同时开启');
+  if (config.tips && config.open_cuohe && !(rule === 'guobiao' && config.jinluo_mode)) {
+    throw new SettingsError(400, '提示与错和不能同时开启');
+  }
   if (rule === 'guobiao' && !config.open_cuohe) config.cuohe_type = 0;
   return config;
 }

@@ -4,7 +4,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 牌张设置子面板。
-/// - 勾选牌张：命中河牌/加杠牌时不询问任何操作（含荣和/抢杠）。
+/// - 勾选牌张：命中河牌/加杠牌时跳过；「仍询问抢杠海底」开启时保留这两类和牌询问。
+/// - 仍询问抢杠海底：默认开启，跨局保留。
 /// - 选中牌不自动自摸：开启且命中摸入牌时，在「自动胡牌」下跳过自动自摸（仍可手动和）；跨局保留。
 /// - 不吃/不碰/不明杠：逐项过滤对应鸣牌，不过和牌；三者全选时与主面板「自动过牌」联动。
 /// - 不点和：阻止自动荣和，并将点和纳入自动过牌判定（与未过滤鸣牌并存时不跳过，等待玩家）。
@@ -39,6 +40,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     [SerializeField] private Toggle noRonToggle;
     [SerializeField] private Toggle noTsumoToggle;
     [SerializeField] private Toggle noRobKongToggle;
+    [SerializeField] private Toggle keepSpecialWinAskToggle;
     [SerializeField] private Toggle skipAutoTsumoOnSelectedToggle;
 
     private readonly HashSet<int> passTileIds = new HashSet<int>();
@@ -52,6 +54,8 @@ public class TilePassSettingPanel : MonoBehaviour {
     private bool noRon;
     private bool noTsumo;
     private bool noRobKong;
+    /// <summary>被排除的牌仍询问抢杠和海底点和；默认开启，ResetSettings 不清空。</summary>
+    private bool keepSpecialWinAsk = true;
     /// <summary>选中牌摸入时跳过自动自摸；默认开启，ResetSettings 不清空。</summary>
     private bool skipAutoTsumoOnSelected = true;
 
@@ -61,6 +65,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     public bool NoRon => noRon;
     public bool NoTsumo => noTsumo;
     public bool NoRobKong => noRobKong;
+    public bool KeepSpecialWinAsk => keepSpecialWinAsk;
     public bool SkipAutoTsumoOnSelected => skipAutoTsumoOnSelected;
 
     public bool HasAnyMingPaiPassOption =>
@@ -113,7 +118,7 @@ public class TilePassSettingPanel : MonoBehaviour {
         SetSelectAllSilently(noRonToggle, false);
         SetSelectAllSilently(noTsumoToggle, false);
         SetSelectAllSilently(noRobKongToggle, false);
-        // skipAutoTsumoOnSelected 跨局保留，不同步重置
+        // keepSpecialWinAsk / skipAutoTsumoOnSelected 跨局保留，不同步重置
         isUpdatingSelectAll = false;
     }
 
@@ -163,6 +168,8 @@ public class TilePassSettingPanel : MonoBehaviour {
         WireBehaviorToggle(noRonToggle, value => noRon = value);
         WireBehaviorToggle(noTsumoToggle, value => noTsumo = value);
         WireBehaviorToggle(noRobKongToggle, value => noRobKong = value);
+        WireBehaviorToggle(keepSpecialWinAskToggle, value => keepSpecialWinAsk = value);
+        SetSelectAllSilently(keepSpecialWinAskToggle, keepSpecialWinAsk);
         WireBehaviorToggle(skipAutoTsumoOnSelectedToggle, value => skipAutoTsumoOnSelected = value);
         SetSelectAllSilently(skipAutoTsumoOnSelectedToggle, skipAutoTsumoOnSelected);
 

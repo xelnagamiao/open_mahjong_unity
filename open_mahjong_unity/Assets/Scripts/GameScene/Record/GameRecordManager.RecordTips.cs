@@ -208,7 +208,44 @@ public partial class GameRecordManager {
             };
         }
 
+        if (roomRule == GuobiaoGameState.RuleId && roundData != null)
+            ctx.GuobiaoTiming = BuildGuobiaoRecordTiming(selfPlayer, roundData, ctx);
         return ctx;
+    }
+
+    private GuobiaoHintTiming BuildGuobiaoRecordTiming(RecordPlayer self, Round round, RecordTipsContext ctx) {
+        int total = 0, dealerDiscards = 0;
+        bool meld = false;
+        foreach (var player in recordPlayer_to_info.Values) {
+            if (player == null) continue;
+            total += player.discardTiles?.Count ?? 0;
+            meld |= player.combinationTiles?.Count > 0;
+            if (player.playerIndex == round.dealerIndex) dealerDiscards = player.discardTiles?.Count ?? 0;
+        }
+        // currentNode 指向下一条 tick；略过纯状态/申请帧，但不能跨过补花、鸣牌或后续摸牌。
+        string lastAction = null;
+        for (int node = System.Math.Min(currentNode, round.actionTicks?.Count ?? 0) - 1; node >= 0; node--) {
+            var tick = round.actionTicks[node];
+            if (tick == null || tick.Count == 0) continue;
+            string action = tick[0];
+            if (action == "ca" || action == "state" || RecordReplay.StateActions.Contains(action)) continue;
+            lastAction = action;
+            break;
+        }
+        bool draw = lastAction == "d" || lastAction == "gd" || lastAction == "bd" || lastAction == "nd";
+        bool opening = (currentNode == 0 || lastAction == "reset")
+            && self.playerIndex == round.dealerIndex && total == 0 && !meld;
+        int drawTile = currentPlayerIndex == self.playerIndex && self.tileList?.Count % 3 == 2
+            && (draw || opening) ? self.tileList[self.tileList.Count - 1] : 0;
+        bool robbing = (lastAction == "jg" || lastAction == "rk") && lastJiagangPlayerIndex >= 0
+            && self.playerIndex != lastJiagangPlayerIndex;
+        int ronTile = robbing ? lastWinnableTileId
+            : waitingForDrawAfterCut && lastAction == "c" && self.playerIndex != lastDiscardPlayerIndex ? lastDiscardTileId : 0;
+        bool last = !ReadGameTitleBool(gameRecord.gameTitle, "is_duplicate", false) && ctx.RemainTiles == 0;
+        return GuobiaoHintTiming.Create(ctx.SubRule,
+            ReadGameTitleBool(gameRecord.gameTitle, "tian_di_ren_he", false), self.playerIndex, round.dealerIndex,
+            self.discardTiles?.Count ?? 0, total, dealerDiscards, meld,
+            drawTile, ronTile, lastDiscardPlayerIndex, lastAction == "gd", robbing, last, last, opening);
     }
 
     public Dictionary<string, object> GetDetailedConfigSnapshot() {

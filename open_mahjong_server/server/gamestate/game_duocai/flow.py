@@ -233,6 +233,7 @@ class HandFlow:
         p = self.player_list[index]
         self.interrupt_opening()
         drawn = p.has_draw_slot and p.hand_tiles[-1] in choice.take
+        action_tile = p.hand_tiles[-1] if drawn else choice.take[-1]
         for tile in choice.take:
             p.hand_tiles.remove(tile)
         old = p.melds[choice.meld_index] if choice.meld_index >= 0 else None
@@ -245,7 +246,7 @@ class HandFlow:
             p.melds[position] = Meld(old.physical + choice.take, old.concealed, old.declared, old.source)
         self.update_melds(index)
         p.has_draw_slot = False
-        self._event(choice.kind, index, tile=choice.take[-1], meld_index=position,
+        self._event(choice.kind, index, tile=action_tile, meld_index=position,
                     meld_code=p.combination_tiles[position], combination_mask=p.combination_mask[position], is_mo_gang=drawn)
         return self.draw_for(index, kind='kong', fourth=fourth)
 

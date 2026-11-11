@@ -43,6 +43,8 @@ public partial class Game3DManager {
         public HandAnimOp RiverClaim;
         public bool Completed;
         public WashizuHandLayout WashizuLayout;
+        public System.Action AfterWork;
+        public int[] DuocaiPostBacks;
     }
 
     private static readonly string[] HandAnimPlayerPositions = { "self", "left", "top", "right" };
@@ -180,6 +182,8 @@ public partial class Game3DManager {
             return;
         }
         op.PlayerPosition = playerPosition;
+        op.AfterWork = DuocaiTableIndicators.CaptureHandBacks(playerPosition);
+        op.DuocaiPostBacks = DuocaiTableIndicators.CaptureHandBackState(playerPosition);
         _handAnimQueues[playerPosition].Enqueue(op);
         EnsureHandAnimProcessorRunning(playerPosition);
     }
@@ -207,6 +211,7 @@ public partial class Game3DManager {
         while (generation == _handAnimationGeneration && queue.Count > 0) {
             HandAnimOp op = queue.Dequeue();
             yield return ExecuteHandAnimOp(op);
+            if (generation == _handAnimationGeneration) op.AfterWork?.Invoke();
         }
         if (generation == _handAnimationGeneration) _handAnimProcessors[playerPosition] = null;
     }
@@ -343,6 +348,7 @@ public partial class Game3DManager {
             case "GetCard":
                 if (!HasPendingHandAnimWork(playerPosition)) {
                     PlayHandDrawReflow(playerPosition);
+                    DuocaiTableIndicators.CaptureHandBacks(playerPosition)?.Invoke();
                     return true;
                 }
                 EnqueueHandAnimOp(playerPosition, new HandAnimOp {
@@ -368,7 +374,7 @@ public partial class Game3DManager {
             yield return RemoveSelfHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, op.TileId, op.CombinationMask, skipRearrange: true, op.PlayerPosition);
         }
         else {
-            yield return RemoveHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, op.TileId, op.CombinationMask, skipRearrange: true, op.PlayerPosition);
+            yield return RemoveHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, op.TileId, op.CombinationMask, skipRearrange: true, op.PlayerPosition, op.DuocaiPostBacks);
         }
     }
 
@@ -382,7 +388,7 @@ public partial class Game3DManager {
             yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, op.CutClass, op.TileId, null, skipRearrange: true, op.PlayerPosition);
         }
         else {
-            yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, op.CutClass, op.TileId, null, skipRearrange: true, op.PlayerPosition);
+            yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, op.CutClass, op.TileId, null, skipRearrange: true, op.PlayerPosition, op.DuocaiPostBacks);
         }
         bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(op.CutClass);
         if (op.PlayCutPhysicsSound) PlayDiscardSound(op.PlayerPosition, op.IsRiichi);
@@ -448,6 +454,14 @@ public partial class Game3DManager {
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.Rearrange,
         });
+    }
+
+    public void PlayExtendedKong(string playerPosition, int meldIndex, int[] mask, int[][] previousMasks,
+        int tileId, bool isMoGang) {
+        if (!IsHandAnimPlayer(playerPosition)) return;
+        StartCoroutine(ReplaceMeldGroupCoroutine(playerPosition, meldIndex, (int[])mask.Clone(), previousMasks));
+        _ankanPendingDrawByPlayer[playerPosition] = true;
+        EnqueueJiagangHandWork(playerPosition, tileId, isMoGang);
     }
 
     /// <summary>

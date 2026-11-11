@@ -14,6 +14,9 @@ from ..public.tactical_claim import (
 def validate_tactical_queued_action(state, seat, data):
     """战术抢断只接受本张牌合法选项及当前询问的响应。"""
     action = data.get("action_type")
+    from .real_time import receipt_valid
+    if not receipt_valid(state, seat, data):
+        return False
     from .duplicate_wall import can_draw
     if action in ("gang", "angang", "jiagang") and not can_draw(state, seat):
         return False
@@ -34,6 +37,16 @@ async def collect_tactical_recheck(state, current_priority, submitted_actions):
 
     沿用战术窗口的独立时限，不扣普通局时；所有响应仍经动作与轮次校验。
     """
+    from .real_time import initial_real_time, collect_real_time_claims
+    if initial_real_time(state):
+        from ..public.action_window import start_waiting_clocks
+        start_waiting_clocks(state)
+        action, seat, data = await collect_real_time_claims(state, submitted_actions, recheck=True)
+        if action == "hu" and current_priority == state.action_priority["hu"]:
+            # Another simultaneous winner joins the confirmed set, without
+            # restarting all remaining hu clocks for an equal-priority action.
+            return None
+        return None if action is None or is_decline_action(action) else (state.action_priority[action], action, seat, data)
     loop = asyncio.get_running_loop()
     deadline = loop.time() + float(state.tactical_grace_seconds)
     waiting = {seat for seat, actions in state.action_dict.items() if actions}

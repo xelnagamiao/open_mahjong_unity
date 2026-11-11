@@ -793,6 +793,20 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
+    /// <summary>分享视角优先校验开局席位与 UID；过期或不属于此牌谱的玩家保留默认视角。</summary>
+    public void SwitchRecordPerspectiveFromShare(int? userId, int? originalPlayerIndex) {
+        if (gameRecord == null) return;
+        RecordPlayer player = originalPlayerIndex.HasValue
+            ? recordPlayerList.Find(candidate => candidate.originalPlayerIndex == originalPlayerIndex.Value)
+            : null;
+        if (player != null && userId.HasValue && player.userId != userId.Value) player = null;
+        if (player == null && userId.HasValue && userId.Value > 0) {
+            var matches = recordPlayerList.FindAll(candidate => candidate.userId == userId.Value);
+            if (matches.Count == 1) player = matches[0];
+        }
+        if (player != null) SwitchRecordPerspectiveToOriginalPlayerIndex(player.originalPlayerIndex);
+    }
+
     /// <summary>兼容已有用户 ID 入口；UID 0 的机器人应按原始座位选择。</summary>
     public void SwitchRecordPerspectiveToUser(int userId) {
         if (userId == 0 || gameRecord == null) return;

@@ -123,6 +123,7 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         }
         if (tableBackground != null && tableBackground.enabled) tableBackground.color = c;
         WashizuTile.ApplyHandVisual(transform, tileId, faceBackground, tileImage, tableBackground);
+        if (!useTableFace) DuocaiTileVisual.ApplyHandBack(tileId, faceBackground);
     }
 
     public void OnPointerEnter(PointerEventData eventData) {

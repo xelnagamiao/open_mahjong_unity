@@ -101,6 +101,7 @@ app.use('/api/library', libraryRoutes);
 app.use('/api/duplicate-walls', require('./routes/duplicateWalls'));
 app.use('/api/client-updates/android', require('./routes/androidContent'));
 app.use('/api/client-updates/android', require('./routes/androidUpdate'));
+app.use('/api/client-updates/ios', require('./routes/iosUpdate'));
 app.use('/activity-assets', (req, res, next) => {
   if (String(req.path || '').includes('_catalog')) {
     return res.status(404).end();

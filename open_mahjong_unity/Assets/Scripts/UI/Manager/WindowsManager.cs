@@ -87,7 +87,7 @@ public class WindowsManager : MonoBehaviour {
 
     private void OnDisable() {
         lobbyTableTransition?.Cancel();
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
         if (Instance == this) Screen.sleepTimeout = SleepTimeout.SystemSetting;
 #endif
     }
@@ -98,7 +98,7 @@ public class WindowsManager : MonoBehaviour {
     }
 
     private void ApplyScreenSleepTimeout() {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
         if (Instance != this) return;
         // 牌谱、观战和结算也要常亮；挂回大厅时 gamePanel 仍运行，因此以当前页面为准。
         bool keepAwake = isActiveAndEnabled && !applicationPaused

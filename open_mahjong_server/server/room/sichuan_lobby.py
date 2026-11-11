@@ -410,6 +410,35 @@ def validate_start(manager, pair, connection_id, revision):
     return rooms
 
 
+async def timing_settings(manager, connection_id, room, real_time, tactical_grace_seconds):
+    from .sichuan_timing import timing_config
+    pair = pair_for(manager, room)
+    if pair is None:
+        return Response(type="tips", success=False, message="复式比赛未加载，请刷新后重试")
+    async with pair.lock:
+        rooms = tables(manager, pair)
+        player = manager.game_server.players.get(connection_id)
+        if not player or player.user_id != host(pair, rooms):
+            return Response(type="tips", success=False, message="只有房主可以修改房间设置")
+        if not editable(pair, rooms) or pair.data["status"] != "waiting" or pair.data.get("completed_boards"):
+            return Response(type="tips", success=False, message="请在复式比赛开始前调整真实时间设置")
+        try:
+            values = timing_config(room.get("sub_rule"), dict(real_time=real_time, tactical_grace_seconds=tactical_grace_seconds))
+        except ValueError as error:
+            return Response(type="tips", success=False, message=f"房间设置无效: {error}")
+        if not values:
+            return Response(type="tips", success=False, message="真实时间与第二等待时间仅支持川麻双打复式")
+        if all(child.get(key, False if key == "real_time" else 5) == value
+               for child in rooms.values() for key, value in values.items()):
+            return None
+        with rollback_on_error(pair, rooms):
+            for child in rooms.values():
+                child.update(values)
+            commit(pair, rooms, roster=True)
+    await manager._broadcast_room_info(rooms["open"]["room_id"])
+    return None
+
+
 async def setting(manager, connection_id, room, key, value):
     pair = pair_for(manager, room)
     async with pair.lock:

@@ -10,6 +10,7 @@ public partial class GameRecordManager {
             recordNanchangInfo = null; recordNanchangWinSource = null; recordNanchangRonRecycled = false;
             recordNanchangWaits.Clear(); NanchangTableIndicators.Refresh(null);
         },
+        NormalizeTick = tick => NanchangSettlementDisplay.NormalizeWinTick(recordNanchangInfo, tick),
         ApplyBeforeMutation = ApplyNanchangRecordAction,
         RefreshPlayerTags = () => NanchangTableIndicators.Refresh(recordNanchangInfo, indexToPosition),
         RefreshAfterAction = () => NanchangTableIndicators.Refresh(recordNanchangInfo, indexToPosition),
@@ -28,6 +29,7 @@ public partial class GameRecordManager {
     };
 
     private NanchangInfo recordNanchangInfo;
+    public NanchangInfo NanchangRecordInfo => IsNanchangRecord() ? recordNanchangInfo : null;
     private string recordNanchangWinSource;
     private bool recordNanchangRonRecycled;
     private Dictionary<int, Dictionary<string, NanchangWait[]>> recordNanchangWaits = new Dictionary<int, Dictionary<string, NanchangWait[]>>();

@@ -97,7 +97,8 @@ public static class PlatformFontAutomation
         Directory.CreateDirectory(Output);
         PlatformFontCatalog.Export();
         string python = Environment.GetEnvironmentVariable("SALASASA_FONT_PYTHON");
-        if (string.IsNullOrWhiteSpace(python)) python = "python";
+        if (string.IsNullOrWhiteSpace(python))
+            python = Application.platform == RuntimePlatform.WindowsEditor ? "python" : "python3";
         var start = new ProcessStartInfo(python,
             Quote(Path.Combine(Project, Root, "font_pipeline.py")) + " --project " + Quote(Project) +
             " --output " + Quote(Output) + " --cache " + Quote(Cache))

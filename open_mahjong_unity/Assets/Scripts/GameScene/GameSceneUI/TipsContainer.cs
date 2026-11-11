@@ -322,8 +322,14 @@ public partial class TipsContainer : MonoBehaviour
 
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         waitingTiles.Sort();
-        PrepareHintRows(gameManager.subRule, waitingTiles);
-        BuildVisibleTileCounts(gameManager, handTiles);
+        GuobiaoHintTiming guobiaoTiming = pendingCutTileId.HasValue ? null : GuobiaoGameState.Active?.BuildHintTiming();
+        int actualDraw = guobiaoTiming?.DrawTile ?? 0;
+        var displayedWaiting = actualDraw > 0
+            ? waitingTiles.Where(tile => WashizuTile.Face(tile) == WashizuTile.Face(actualDraw)).ToList() : waitingTiles;
+        PrepareHintRows(gameManager.subRule, displayedWaiting);
+        var visibleHand = new List<int>(handTiles);
+        if (actualDraw > 0) visibleHand.Add(actualDraw);
+        BuildVisibleTileCounts(gameManager, visibleHand);
 
         // 构建和牌条件
         List<string> wayToHepai = new List<string>();
@@ -357,6 +363,7 @@ public partial class TipsContainer : MonoBehaviour
         var (allDiscards, allCombinations) = CollectTableFromLiveGame(gameManager);
         // 遍历每一张和牌张
         foreach (int hepaiTile in waitingTiles) {
+            if (actualDraw > 0 && WashizuTile.Face(hepaiTile) != WashizuTile.Face(actualDraw)) continue;
             int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
                 hepaiTile, allDiscards, allCombinations, _pendingCutTileId, strictCombinationMatch: false);
             List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
@@ -383,6 +390,7 @@ public partial class TipsContainer : MonoBehaviour
                 SubRule = gameManager.subRule,
                 HepaiLimit = gameManager.hepaiLimit,
                 JinluoMode = GameSession.Current.JinluoMode, JinluoWeather = GameSession.Current.JinluoWeather,
+                GuobiaoTiming = guobiaoTiming,
                 JokerMultiWait = GameSession.Current.JokerMultiWait,
                 NoJokerBonus = GameSession.Current.NoJokerBonus, BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
                 SelfIndex = gameManager.selfIndex,

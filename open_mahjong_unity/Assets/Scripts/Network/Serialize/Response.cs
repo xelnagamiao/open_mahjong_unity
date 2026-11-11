@@ -23,6 +23,7 @@ public class WashizuHandLayout {
 public class DuplicateMatchInfo {
     public bool? sync_mode;
     public string waiting_for;
+    public int? comparison_remaining_ms;
     public int current_board;
     public int table_completed_boards;
     public string id;
@@ -55,6 +56,8 @@ public class SichuanDuplicateLobbyInfo {
 }
 
 public class RoomInfo {
+    public bool real_time;
+    public int tactical_grace_seconds = 5;
     public string wall_source;
     public SichuanDuplicateLobbyInfo duplicate_lobby;
     public bool unlimited_rounds;
@@ -458,6 +461,9 @@ public class AskOtherActionGBInfo {
     public System.Collections.Generic.Dictionary<string, int[][]> chi_candidates;
     // 战术鸣牌：True 时表示申请阶段对更高优先级行为的再次询问；倒计时仍用 remaining_time
     public bool? is_tactical_recheck;
+    // 川麻复式：real_time 为独立短等待，waiting_draw 为已结束但仍可鸣牌；缺省保持原计时。
+    public string claim_wait_mode;
+    public double? claim_seconds_remaining;
     public int? player_index; // 询问/关闭通知对应的座位
 }
 
@@ -582,6 +588,8 @@ public class WashizuDoublesInfo {
 }
 
 public class GameInfo {
+    public bool real_time;
+    public int tactical_grace_seconds = 5;
     public bool unlimited_rounds;
     public UnlimitedRoundInfo unlimited_info;
     public WashizuDoublesInfo washizu_doubles;

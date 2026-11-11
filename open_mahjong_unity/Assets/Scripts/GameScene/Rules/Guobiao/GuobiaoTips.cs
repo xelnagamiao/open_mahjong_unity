@@ -96,6 +96,7 @@ internal static class GuobiaoTips {
         return q.SubRule + "|" + HandKey(q.HandWithWin, q.Melds) + "|"
             + q.HepaiTile + "|" + q.HuapaiCount + "|" + q.HepaiLimit + "|"
             + q.JinluoMode + "|" + q.JinluoWeather + "|" + q.SelfIndex + "|" + q.CurrentRound + "|"
+            + q.GuobiaoTiming?.CacheKey + "|"
             + string.Join(",", q.MergedWay) + "|" + string.Join(",", q.WayToHepai) + "|"
             + string.Join(",", q.SingleTileWay);
     }
@@ -114,6 +115,9 @@ internal static class GuobiaoTips {
         if (q.SubRule == GuobiaoGameState.SanmaSubRule && q.HepaiTile >= 12 && q.HepaiTile <= 18) return WaitTileHint.None("不在牌组内");
         // The calculators append derived wind conditions. Keep the caller's query and cache key stable.
         var ronWay = new List<string>(q.MergedWay);
+        var zimoWay = q.BuildZimoWay();
+        q.GuobiaoTiming?.AddTo(ronWay, q.HepaiTile, false);
+        q.GuobiaoTiming?.AddTo(zimoWay, q.HepaiTile, true);
         bool jinluo = q.SubRule == "guobiao/standard" && q.JinluoMode;
         int seatWind = 41 + q.SelfIndex, roundWind = 41 + (Math.Max(1, q.CurrentRound) - 1) / 4;
         Tuple<int, List<string>> CheckWay(List<string> way) => jinluo
@@ -123,14 +127,26 @@ internal static class GuobiaoTips {
             ? JinluoRules.IsAllowed(result, q.HandWithWin, q.Melds ?? NoMelds, q.JinluoWeather, seatWind, roundWind)
             : result.Item1 - q.HuapaiCount >= q.HepaiLimit;
         var ron = CheckWay(ronWay);
-        var zimo = CheckWay(q.BuildZimoWay());
+        var zimo = CheckWay(zimoWay);
         bool canZimo = Allowed(zimo);
+        string Opening(Tuple<int, List<string>> result) => result.Item2.Find(fan => fan == "天和" || fan == "地和" || fan == "人和");
+        string ronOpening = Opening(ron), zimoOpening = Opening(zimo);
+        string NotAllowed() {
+            if (!jinluo) return "未起和";
+            // 资格筛选器可能剔除所有拆分并返回空番表；普通计番只用来解释拒绝原因，不能决定金锣资格。
+            var ordinary = Check(q.SubRule, q.HandWithWin, q.Melds, new List<string>(ronWay), q.HepaiTile);
+            return ordinary.Item2.Contains("七对") ? "天气不符" : "未达金锣";
+        }
+        // 现手真实摸入牌只展示此刻的自摸结果，不把点和分数与天/人和番数混为一行。
+        if (q.GuobiaoTiming?.DrawTile > 0 && WashizuTile.Face(q.GuobiaoTiming.DrawTile) == WashizuTile.Face(q.HepaiTile))
+            return canZimo ? WaitTileHint.TsumoOnly($"{zimoOpening}{zimo.Item1}番") : WaitTileHint.None(NotAllowed());
         if (Allowed(ron)) {
-            return canZimo ? WaitTileHint.Ron($"{ron.Item1}番") : WaitTileHint.RonOnly();
+            return canZimo ? WaitTileHint.Ron($"{ronOpening}{ron.Item1}番")
+                : WaitTileHint.RonOnly(string.IsNullOrEmpty(ronOpening) ? "仅点和" : $"{ronOpening}{ron.Item1}番");
         }
         return canZimo
-            ? WaitTileHint.TsumoOnly("仅自摸")
-            : WaitTileHint.None("未起和");
+            ? WaitTileHint.TsumoOnly(string.IsNullOrEmpty(zimoOpening) ? "仅自摸" : $"{zimoOpening}{zimo.Item1}番")
+            : WaitTileHint.None(NotAllowed());
     }
 
     private static Tuple<int, List<string>> Check(string subRule, List<int> hand, List<string> melds, List<string> way, int tile) {
