@@ -15,7 +15,10 @@ public static class SichuanDoublesValidation {
         }
         Check(SichuanLobby.SubRules.Any(s => s.Key == "sichuan/doubles"), "双打入口");
         Check(ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(2, false, SichuanLobby.DoublesSubRule) == SichuanRoundLabel.TeamFirstTwo, "双打提前结束不显示流局");
-        Check(ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(2, false, "sichuan/standard") == SichuanRoundLabel.Liuju, "标准血战标签不变");
+        foreach (string subRule in new[] {"sichuan/standard", SichuanLobby.SbrExchange}) {
+            Check(ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(2, false, subRule) == SichuanRoundLabel.TwoHu, subRule + " 显示两家和");
+            Check(ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(0, false, subRule) == SichuanRoundLabel.Liuju, subRule + " 无和牌且无查叫时显示流局");
+        }
         for (int rotation = 0; rotation < 3; rotation++) {
             int Tile(int t) => ((t / 10 - 1 + rotation) % 3 + 1) * 10 + t % 10;
             var three = new[] {11,12,13,14,15,16,21,22,23,31,31,31,29}.Select(Tile).ToList();
