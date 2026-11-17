@@ -37,6 +37,7 @@ internal static class SichuanTips {
                     && int.TryParse(m.Substring(1), out int tile) && tile / 10 == dingque)))) {
             return WaitTileHint.None("未满足");
         }
+        if (q.SubRule == SichuanLobby.SbrExchange) return SbrExchangeTips.Describe(q);
         if (SichuanLobby.IsXueliu(q.SubRule)) {
             int meldCount = SichuanLobby.IsExchange(q.SubRule) ? 4 : 3;
             bool exchange = UsesExchangeScoring(q.SubRule, q.DetailedConfig);

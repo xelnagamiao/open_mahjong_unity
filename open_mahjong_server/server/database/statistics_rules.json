@@ -520,6 +520,31 @@
       "deal_in_stat_unit": "fan"
     },
     {
+      "key": "sichuan_xuezhan_exchange",
+      "rule": "sichuan",
+      "sub_rule": "sichuan/xuezhan_exchange",
+      "family_name": "四川",
+      "sub_rule_name": "血战换三张（推广）",
+      "stats_name": "川麻（血战换三张）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "sichuan_xuezhan_exchange",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
       "key": "sichuan_xueliu",
       "rule": "sichuan",
       "sub_rule": "sichuan/xueliu",

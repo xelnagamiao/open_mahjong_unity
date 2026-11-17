@@ -138,6 +138,8 @@ def _build_way_tokens(self, player_index, hepai_type, is_get_gang_tile=False):
     way = []
     if hepai_type == "qianggang":
         way.append("抢杠")
+        if not getattr(self, "is_xueliu", False) and getattr(self, "jiagang_after_gang", False):
+            way.append("杠上炮")
     elif hepai_type == "handgot":
         if is_get_gang_tile:
             way.append("杠上花")
@@ -151,6 +153,8 @@ def _build_way_tokens(self, player_index, hepai_type, is_get_gang_tile=False):
         exchange = getattr(self, "is_xueliu", False) and getattr(self, "xueliu_meld_count", 3) == 4
         if not exchange and wall_exhausted(self):
             way.append("海底")
+    if getattr(self, "is_sbr_exchange", False):
+        way.extend(self.opening_fans(player_index, hepai_type, is_get_gang_tile))
     return way
 
 
@@ -180,6 +184,9 @@ def check_hepai(self, temp_action_dict, hepai_tile, player_index, hepai_type, is
         fan, fan_list = self.calculation_service.Sichuan_hepai_check(
             tiles_list, player.combination_tiles, way, hepai_tile, dingque
         )
+    if fan_list and getattr(self, "is_sbr_exchange", False):
+        from ...game_calculation.sichuan.sbr_exchange import add_opening_fans
+        fan, fan_list = add_opening_fans(fan, fan_list, way)
     if not fan_list or fan < getattr(self, "hepai_limit", 0):
         return
     # 血流使用独立的 10/11 张牌型检查；标准血战继续使用 MIL/SBR 检查。
@@ -234,7 +241,8 @@ def check_action_after_cut(self, cut_tile):
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     self.sichuan_hu_results = {}
 
-    cut_suit = _suit(cut_tile)
+    if getattr(self, "is_sbr_exchange", False):
+        self.last_cut_after_kong = self.last_action_was_gang
 
     # 和牌优先（一炮多响：收集所有可和家）
     for item in self.player_list:
@@ -252,7 +260,7 @@ def check_action_after_cut(self, cut_tile):
         post_hu = getattr(self, "is_xueliu", False) and item.has_won
         if _suit(cut_tile) == getattr(item, "dingque_suit", 0):
             continue
-        if not post_hu and item.hand_tiles.count(cut_tile) >= 2:
+        if not post_hu and item.hand_tiles.count(cut_tile) >= 2 and cut_tile not in getattr(item, "passed_pungs", ()):
             temp_action_dict[item.player_index].append("peng")
         if can_draw(self, item.player_index) and item.hand_tiles.count(cut_tile) == 3 and (
             not post_hu or _xueliu_post_hu_kong_allowed(self, item, "gang", cut_tile)

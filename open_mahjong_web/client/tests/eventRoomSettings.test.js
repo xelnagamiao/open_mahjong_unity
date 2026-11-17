@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { buildEventRoomSettings, changeEventRoomRule, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 
 test('Sichuan variants and generic editors preserve custom timers in presets and room creation', () => {
-  for (const sub_rule of ['standard', 'doubles', 'xueliu', 'xueliu_exchange', 'xueliu_doubles', 'doubles_duplicate', 'xueliu_doubles_duplicate']) {
+  for (const sub_rule of ['standard', 'xuezhan_exchange', 'doubles', 'xueliu', 'xueliu_exchange', 'xueliu_doubles', 'doubles_duplicate', 'xueliu_doubles_duplicate']) {
     const form = createEventRoomForm({ room_rule: 'sichuan', room_config: { sub_rule: `sichuan/${sub_rule}`, round_timer: 127, step_timer: 17 } })
     const saved = buildEventRoomSettings(form)
     const reloaded = createEventRoomForm(saved)

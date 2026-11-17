@@ -147,7 +147,7 @@ function buildBaseEventRoomSettings(form) {
     return {
       room_rule: 'sichuan', password: String(form.password || '').trim(),
       room_config: {
-        room_name: roomName, sub_rule: ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule) ? form.sub_rule : 'sichuan/standard',
+        room_name: roomName, sub_rule: ['sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule) ? form.sub_rule : 'sichuan/standard',
         ...(String(form.duplicate_key || '').trim() ? { duplicate_key: form.duplicate_key.trim() } : {}),
         game_round: form.game_round, round_timer: form.round_timer, step_timer: form.step_timer,
         tips: form.tips, tourist_limit: form.tourist_limit, allow_spectator: form.allow_spectator,
@@ -231,7 +231,7 @@ const subRuleLabels = {
   'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
   ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
   'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
-  'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
+  'sichuan/standard': '四川标准', 'sichuan/xuezhan_exchange': '血战换三张（推广）', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
   'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
   'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
 }

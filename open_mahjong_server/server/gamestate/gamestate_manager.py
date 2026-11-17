@@ -16,6 +16,8 @@ from .game_classical.ClassicalGameState import ClassicalGameState
 from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_sichuan.XueliuGameState import XueliuGameState
+from .game_sichuan.SbrExchangeGameState import SbrExchangeGameState
+from ..game_calculation.sichuan.xueliu_rules import SBR_EXCHANGE_SUB_RULE
 from .game_sichuan.XueliuDoublesGameState import XueliuDoublesGameState
 from .game_zhongyong import ZhongyongGameState, NanqueGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
@@ -214,6 +216,8 @@ class GameStateManager:
             state_class = GuangdongGameState
         if state_class is None:
             return Response(type="error_message", success=False, message="房间类型不支持")
+        if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == SBR_EXCHANGE_SUB_RULE:
+            state_class = SbrExchangeGameState
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") in ("sichuan/xueliu", "sichuan/xueliu_exchange"):
             state_class = XueliuGameState
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == "sichuan/xueliu_doubles":

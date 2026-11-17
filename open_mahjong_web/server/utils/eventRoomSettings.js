@@ -210,7 +210,7 @@ function normalizeBaseRoomConfig(rule, raw) {
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
     : rule === 'changsha' ? ['changsha/classic_double_bird', 'changsha/exchange_six'].includes(config.sub_rule)
     : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime', washizuCaptain.sub_rule].includes(config.sub_rule)
-    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
+    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
@@ -221,6 +221,7 @@ function normalizeBaseRoomConfig(rule, raw) {
   if (rule === 'sichuan') {
     integerField(config, 'hepai_limit', 0, 64, '起和番');
     if (config.sub_rule.includes('doubles')) { config.hepai_limit = 0; config.blood_battle = !config.sub_rule.includes('xueliu'); }
+    if (config.sub_rule === 'sichuan/xuezhan_exchange') config.blood_battle = true;
   }
   if (rule === 'shanxi') {
     const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};

@@ -236,7 +236,7 @@ class SichuanRoomValidator(BaseModel):
     def doubles_blood_battle(cls, v, values):
         if values.get('sub_rule') in ('sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate'):
             return False
-        return True if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/doubles_duplicate') else v
+        return True if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/doubles_duplicate', 'sichuan/xuezhan_exchange') else v
 
     @validator('room_name')
     def validate_room_name(cls, v):

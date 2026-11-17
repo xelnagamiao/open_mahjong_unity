@@ -21,6 +21,23 @@ def init_sichuan_tiles(self):
         self.tiles_list.extend([tile] * 4)
 
     self.round_random_seed = derive_round_seed(self.master_seed, self.round_index)
+    if getattr(self, "is_sbr_exchange", False):
+        rng = random.Random(self.round_random_seed)
+        rng.shuffle(self.tiles_list)
+        self.deal_dice = [rng.randint(1, 6), rng.randint(1, 6)]
+        wall_side = (sum(self.deal_dice) - 1) % 4
+        # 108 张成 54 墩，庄家及对家各 14 墩，另两门各 13 墩。
+        wall_offset = (0, 28, 54, 82)[wall_side] + 2 * min(self.deal_dice)
+        self.tiles_list[:] = self.tiles_list[wall_offset:] + self.tiles_list[:wall_offset]
+        seats = [self.player_list[(self.dealer_index + offset) % 4] for offset in range(4)]
+        for _ in range(3):
+            for player in seats:
+                for _ in range(4):
+                    player.get_tile(self.tiles_list, mark_draw_slot=False)
+        for player in seats:
+            player.get_tile(self.tiles_list, mark_draw_slot=False)
+        seats[0].get_tile(self.tiles_list, mark_draw_slot=False)
+        return
     random.seed(self.round_random_seed)
     random.shuffle(self.tiles_list)
 

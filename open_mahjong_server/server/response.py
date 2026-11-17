@@ -169,6 +169,7 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
+    sbr_window: Optional[dict] = None
     wuhan_info: Optional[dict] = None
     malaysia_info: Optional[dict] = None
     malaysia_hints: Optional[dict] = None
@@ -209,6 +210,7 @@ class Ask_hand_action_info(BaseModel):
     ready_qualification: Optional[str] = None
 
 class Ask_other_action_info(BaseModel):
+    sbr_window: Optional[dict] = None
     nanchang_chows: Optional[Dict[str, List[int]]] = None
     remaining_time: int
     # 重连补发时的剩余步时；缺省则客户端叠房间完整步时

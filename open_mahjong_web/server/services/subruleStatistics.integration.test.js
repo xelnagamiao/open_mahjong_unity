@@ -7,10 +7,11 @@ const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 
 test('all supported fan profiles have a complete independent display catalog', () => {
   const enabled = STATISTICS_RULES.filter(rule => rule.fan_stats);
-  assert.equal(enabled.length, 27);
+  assert.equal(enabled.length, 28);
   for (const rule of enabled) assert(Object.keys(INFO_FAN_DICT[rule.sub_rule]).length > 0, rule.sub_rule);
   assert.equal(INFO_FAN_DICT['hongque/v1.6']['双同顺'], '双同顺');
   assert.equal(INFO_FAN_DICT['sichuan/standard']['根'], '根');
+  assert.equal(INFO_FAN_DICT['sichuan/xuezhan_exchange']['地和'], '地和');
   assert(!INFO_FAN_DICT['sichuan/xueliu_doubles']['根']);
   assert(!INFO_FAN_DICT['changsha/classic_double_bird']['十三将']);
   assert.equal(INFO_FAN_DICT['changsha/exchange_six']['十三将'], '十三将');

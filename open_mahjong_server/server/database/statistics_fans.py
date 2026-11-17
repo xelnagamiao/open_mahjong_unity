@@ -55,6 +55,9 @@ def fan_names(sub_rule):
         from importlib import import_module
         mapping = import_module(f".{family}.store_{family}", __package__).FAN_NAME_TO_FIELD
         return {field: name for name, field in mapping.items()}
+    if sub_rule == "sichuan/xuezhan_exchange":
+        from ..game_calculation.sichuan.sbr_exchange import OPENING_FANS
+        return _names([*SICHUAN_NAMES, *OPENING_FANS])
     if sub_rule in ("sichuan/standard", "sichuan/doubles", "sichuan/doubles_duplicate"):
         return _names(SICHUAN_NAMES)
     if sub_rule in ("sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"):

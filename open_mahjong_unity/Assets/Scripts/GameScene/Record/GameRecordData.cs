@@ -44,6 +44,7 @@ public class Round {
     public int dealerIndex;
     public int startPlayerIndex;
     public Dictionary<int, int> dingqueSuits;
+    public Dictionary<int, SortedDictionary<int, int>> sbrPassedFans;
     public RiichiRoundExtras riichi;
     public HongKongInfo hongkong;
     public GuizhouInfo guizhou;

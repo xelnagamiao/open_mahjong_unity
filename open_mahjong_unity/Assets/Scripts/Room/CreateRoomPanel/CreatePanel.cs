@@ -455,7 +455,7 @@ public partial class CreatePanel : MonoBehaviour {
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle && !IsChangshaExchangeSix);
         if (BloodBattleToggle != null) {
             BloodBattleToggle.gameObject.SetActive(
-                visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu && !isSichuanDoubles);
+                visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu && !isSichuanDoubles && GetSelectedSubRule() != SichuanLobby.SbrExchange);
         }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount) && !IsChangshaExchangeSix);
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));

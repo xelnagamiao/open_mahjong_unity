@@ -35,6 +35,8 @@ const labels = [
   ['古典麻将（标准）', 'Classical (standard)', '古典麻雀（標準）', 'Classique (standard)'],
   ['川麻（血战到底）', 'Sichuan (Battle)', '四川（血戦到底）', 'Sichuan (bataille)'],
   ['川麻（血流弃三张）', 'Sichuan (discard 3)', '四川（血流・3枚捨て）', 'Sichuan (écarter 3)'],
+  ['川麻（血战换三张）', 'Sichuan Battle (exchange 3)', '四川（血戦・3枚交換）', 'Sichuan · Bataille, échange de 3'],
+  ['血战换三张（推广）', 'Bloody Battle with Three-Tile Exchange', '血戦・3枚交換（普及版）', 'Bataille avec échange de trois tuiles'],
   ['川麻（血流换三张）', 'Sichuan (exchange 3)', '四川（血流・3枚交換）', 'Sichuan (échanger 3)'],
   ['川麻（血战双打）', 'Sichuan (Battle 2v2)', '四川（血戦双打）', 'Sichuan (bataille 2v2)'],
   ['川麻（血流双打）', 'Sichuan (River 2v2)', '四川（血流双打）', 'Sichuan (rivière 2v2)'],

@@ -203,7 +203,7 @@ const rules = [
   {
     key: 'sichuan',
     label: '四川麻将',
-    description: '四川麻将包含血战到底，以及血流成河的弃三张、换三张玩法。',
+    description: '四川麻将包含标准血战到底、血战换三张（推广）及血流成河玩法。',
 
     docs: [
       {
@@ -211,6 +211,13 @@ const rules = [
         desc: '四川麻将（血战到底）',
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf'
+      },
+      {
+        subRule: 'sichuan/xuezhan_exchange',
+        title: '血战换三张（推广）竞赛规则（试行2026版）',
+        desc: '使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。',
+        url: '/rulebooks/sbr-exchange-2026.pdf',
+        filename: '血战换三张（推广）竞赛规则（试行2026版）.pdf'
       },
       {
         title: '血流成河：弃三张与换三张',
@@ -438,11 +445,14 @@ const selectedHongKong = computed(() => hongKongRulebook({
 }))
 const selectedGuangdong = computed(() => milRulebook('guangdong', route.query.sub_rule))
 const selectedHongque = computed(() => hongqueRulebook(route.query.sub_rule))
+const selectedSbr = computed(() => active.value.key === 'sichuan' && active.value.docs.find(doc => doc.subRule && doc.subRule === route.query.sub_rule))
 const activeDescription = computed(() => {
+  if (selectedSbr.value) return selectedSbr.value.desc
   if (active.value.key === 'hongque') return selectedHongque.value.description
   return active.value.key === 'guangdong' ? selectedGuangdong.value.desc : active.value.description
 })
 const activeDocs = computed(() => {
+  if (selectedSbr.value) return [selectedSbr.value, active.value.docs[0]]
   if (active.value.key === 'hongque') return [selectedHongque.value]
   if (active.value.key === 'hongkong') return [selectedHongKong.value]
   if (active.value.key === 'guangdong') return [selectedGuangdong.value]

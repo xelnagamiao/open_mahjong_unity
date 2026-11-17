@@ -385,7 +385,14 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public string next_status;
 }
 
+
+public sealed class SbrExchangeWindow {
+    public int tile;
+    public bool draw, kong, robbing, last, heaven, earth;
+}
+
 public class XueliuExchangeInfo {
+    public int direction;
     public int stage;
     public int[] active_players;
     public bool selection_done;
@@ -396,6 +403,7 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public int[] riichi_cut_tiles;
     public bool? opening_buhua_complete;
@@ -448,6 +456,7 @@ public class AskHandActionGBInfo {
 }
 
 public class AskOtherActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public Dictionary<string,int[]> fuzhou_declaration_candidates; // 询问切牌后操作
     public string[] action_list; // 操作列表

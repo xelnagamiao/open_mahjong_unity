@@ -119,10 +119,11 @@ public partial class GameCanvas {
         var ends = new List<string>();
         XueliuExchangeInfo phase = info.xueliu_exchange;
         int viewer = info.player_index;
+        int direction = phase.direction >= 1 && phase.direction <= 3 ? phase.direction : 2;
         foreach (int sender in phase.active_players ?? System.Array.Empty<int>()) {
             if (positions == null || !positions.TryGetValue(sender, out string from)
-                || !positions.TryGetValue((sender+2)%4, out string to)) continue;
-            int suit = sender == viewer ? phase.outgoing_suit : (sender+2)%4 == viewer ? phase.teammate_suit : 0;
+                || !positions.TryGetValue((sender + direction) % 4, out string to)) continue;
+            int suit = sender == viewer ? phase.outgoing_suit : (sender + direction) % 4 == viewer ? phase.teammate_suit : 0;
             packets.Add(CreateExchangePacket(suit, "ExchangeFrom_"+sender));
             starts.Add(from);
             ends.Add(to);

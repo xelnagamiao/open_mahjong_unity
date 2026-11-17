@@ -1280,7 +1280,7 @@ class RoomManager:
                 "tactical_call": tactical_call,
                 # 血流有自己的“和后留桌直到牌墙结束”状态机，
                 # 不接受标准四川血战开关覆盖。
-                "blood_battle": False if sub_rule in ("sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles") else blood_battle,
+                "blood_battle": False if sub_rule in ("sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles") else (sub_rule == "sichuan/xuezhan_exchange" or blood_battle),
                 "hepai_limit": hepai_limit,
                 "claim_protection": claim_protection,
             }

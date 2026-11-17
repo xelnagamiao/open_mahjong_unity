@@ -116,9 +116,9 @@ def choose_claim(hand, melds, visible, actions, tile, meld_count=3, dingque=0):
 
 @paced_bot(lambda: _BOT_DELAY)
 async def xueliu_smart_bot_action(state, index, actions, status):
-    if not getattr(state, 'is_xueliu', False) and not getattr(state, 'is_doubles', False):
+    if not (getattr(state, 'is_xueliu', False) or getattr(state, 'is_doubles', False) or getattr(state, 'is_sbr_exchange', False)):
         return await smart_bot_action(state, index, actions, status)
-    meld_count = 4 if getattr(state, 'is_doubles', False) else state.xueliu_meld_count
+    meld_count = state.xueliu_meld_count if getattr(state, 'is_xueliu', False) else 4
     tick = state.server_action_tick
     if not await _wait_until_actionable(state, index) or not bot_action_is_current(state, index, tick):
         return

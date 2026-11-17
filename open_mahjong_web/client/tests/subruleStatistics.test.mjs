@@ -10,14 +10,16 @@ test('observed fan labels are retained when an older display dictionary lacks th
 
 test('catalog exposes exactly the reviewed capabilities and all available modes', () => {
   assert(STATISTICS_RULES.length >= 43);
-  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 27);
+  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 28);
   assert.equal(statisticsSelection('sichuan').fan_stats, true);
   assert.equal(statisticsSelection('sichuan').fan_key, 'sichuan');
   assert.equal(statisticsSelection('guobiao_huahun').sub_rule, 'guobiao/huahun');
   assert.equal(statisticsSelection('guobiao_huahun').matchmaking, false);
   assert.equal(statisticsSelection('guobiao_four_jokers').sub_rule, 'guobiao/four_jokers');
   assert.equal(statisticsSelection('guobiao_four_jokers').matchmaking, false);
-  assert.equal(STATISTICS_RULES.filter(r=>r.matchmaking).length, 7);
+  assert.equal(STATISTICS_RULES.filter(r=>r.matchmaking).length, 8);
+  assert.equal(statisticsSelection('sichuan_xuezhan_exchange').fan_stats, true);
+  assert.equal(statisticsSelection('sichuan_xuezhan_exchange').matchmaking, false);
   for (const row of STATISTICS_RULES) {
     assert.equal(homeSceneOptions(row.key).length > 2, row.matchmaking, row.key);
     assert.equal(Boolean(row.fan_key), row.fan_stats, row.key);

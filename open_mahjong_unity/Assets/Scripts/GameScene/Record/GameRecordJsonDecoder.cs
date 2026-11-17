@@ -130,6 +130,7 @@ public static class GameRecordJsonDecoder {
         }
 
         round.dingqueSuits = (roundData["dingque_suits"] as JObject)?.ToObject<Dictionary<int, int>>();
+        round.sbrPassedFans = (roundData["sbr_passed_fans"] as JObject)?.ToObject<Dictionary<int, SortedDictionary<int, int>>>();
         if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>() ?? new List<int>();

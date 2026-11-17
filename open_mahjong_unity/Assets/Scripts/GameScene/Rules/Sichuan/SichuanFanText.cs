@@ -20,6 +20,11 @@ internal static class SichuanFanText {
     };
 
     public static string FanValue(string subRule, string fanName) {
+        if (subRule == SichuanLobby.SbrExchange) {
+            if (fanName == "自摸") return "1番";
+            if (fanName == "地和") return "4番";
+            if (fanName == "天和") return "5番";
+        }
         if (SichuanLobby.IsExchange(subRule) && UsesModernExchangeDisplay()) {
             switch (fanName) {
                 case "基本胡": return "2番";
