@@ -52,6 +52,7 @@ const labels = [
   ['港麻（新章十三·恋绘色）', 'HK (13, Lianhuise)', '香港（13枚・恋絵色）', 'HK (13, Lianhuise)'],
   ['港麻（新章十三·恋绘色魔改）', 'HK (13, Lianhuise mod)', '香港（13枚・恋絵色改）', 'HK (13, Lianhuise mod.)'],
   ['港麻（新章十六）', 'HK (new style 16)', '香港（新章16枚）', 'HK (nouveau 16)'],
+  ['广东麻将（推广）2V2 双打', 'Guangdong doubles (MIL 2v2)', '広東麻雀（MIL・2対2）', 'Guangdong en double (MIL 2v2)'],
   ['广东麻将（花鬼 MIL2023）', 'Guangdong (MIL2023)', '広東（花鬼 MIL2023）', 'Guangdong (MIL2023)'],
   ['广东麻将（推倒和 MIL2024）', 'Tuidao (MIL2024)', '広東（推倒和 MIL2024）', 'Tuidao (MIL2024)'],
   ['山西麻将（MIL 2023）', 'Shanxi (MIL2023)', '山西（MIL2023）', 'Shanxi (MIL2023)'],

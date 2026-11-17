@@ -259,7 +259,7 @@ public static class GameRecordJsonDecoder {
             sc = ParseInlineGangScoreChanges(tick);
         } else if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third" || act == "lajihe_eight_flowers")) {
             sc = ParseScoreChangesFromTick(tick, 4);
-        } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs")) {
+        } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs" || tick[1] == "penalty")) {
             sc = ParseScoreChangesFromTick(tick, 2);
         } else if (act == "wuhan" && tick.Count >= 3 && tick[1] == "bonus") {
             sc = ParseScoreChangesFromTick(tick, 2);

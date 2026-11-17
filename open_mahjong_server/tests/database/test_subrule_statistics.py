@@ -16,7 +16,10 @@ from server.database.scene_stats import record_game_metrics
 def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert len(RULES) == len({r['key'] for r in RULES}) == len({r['sub_rule'] for r in RULES})
     assert all(r['basic_stats'] == (r['rule'] != 'free') for r in RULES)
-    assert sum(r['fan_stats'] for r in RULES) == 27
+    assert sum(r['fan_stats'] for r in RULES) == 28
+    doubles = next(r for r in RULES if r['sub_rule'] == 'guangdong/mil2023-doubles')
+    assert doubles['basic_stats'] and doubles['fan_key'] == 'guangdong_doubles'
+    assert doubles['custom_modes'] == ['2/4', '4/4'] and not doubles['matchmaking']
     captain = next(r for r in RULES if r['sub_rule'] == 'riichi/washizu_doubles')
     assert captain['basic_stats'] and not captain['fan_stats'] and not captain['matchmaking']
     assert resolve_statistics_identity('riichi', captain['sub_rule']) == ('riichi', captain['sub_rule'])

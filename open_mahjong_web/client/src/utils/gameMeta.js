@@ -50,6 +50,7 @@ const SUB_RULE_LABELS = {
   'qingque/standard': '青雀',
   'classical/standard': '古典麻雀',
   'sichuan/standard': '四川麻将(血战到底)',
+  'guangdong/mil2023-doubles': '广东麻将（推广）2V2 双打',
   'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2',
   'riichi/standard': '立直麻将(标准)',
 }

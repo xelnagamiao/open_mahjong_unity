@@ -38,6 +38,8 @@ from .game_jiujiang.JiujiangGameState import JiujiangGameState
 from .game_singapore.SingaporeGameState import SingaporeGameState
 from .game_tuidao import TuidaoGameState
 from .game_guangdong import GuangdongGameState
+from .game_guangdong.doubles import GuangdongDoublesGameState
+from ..game_calculation.guangdong.config import DOUBLES_SUB_RULE as GUANGDONG_DOUBLES
 from .game_shenyang import ShenyangGameState
 from .game_shanxi import ShanxiGameState
 from .game_wuhan import WuhanGameState
@@ -212,6 +214,8 @@ class GameStateManager:
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
             state_class = GuangdongGameState
+        if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == GUANGDONG_DOUBLES:
+            state_class = GuangdongDoublesGameState
         if state_class is None:
             return Response(type="error_message", success=False, message="房间类型不支持")
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") in ("sichuan/xueliu", "sichuan/xueliu_exchange"):

@@ -224,6 +224,7 @@ public partial class GameRecordManager : MonoBehaviour {
         public int bloodWinTile;
         public bool bloodWinZimo;
         public bool bloodWinMulti;
+        public int? bloodWinSource;
         /// <summary>四川：定缺花色（1万/2饼/3条，0=未定缺）。</summary>
         public int dingqueSuit;
         private bool drawSourceActive;
@@ -603,6 +604,7 @@ public partial class GameRecordManager : MonoBehaviour {
             recordPlayer.isHu = false;
             recordPlayer.bloodWinTile = 0;
             recordPlayer.bloodWinZimo = false;
+            recordPlayer.bloodWinSource = null;
             recordPlayer.bloodWinMulti = false;
             bloodRecordRevealedHands = null;
             recordPlayer.dingqueSuit = gameRecord.gameRound.rounds[currentRoundIndex].dingqueSuits != null

@@ -39,6 +39,11 @@ async def _prepare_private_rule_fields(game_state, indices):
         await prepare(tuple(indices))
 
 
+def _rule_player_view(state, player, viewer):
+    hook = getattr(state, "player_view_fields", None)
+    return hook(player, viewer) if hook else {}
+
+
 def _combination_fields_for_rule(game_state, player, viewer_index):
     if getattr(game_state, "concealed_kongs_public", False):
         return list(player.combination_tiles), [list(mask) for mask in player.combination_mask]
@@ -129,6 +134,7 @@ async def broadcast_game_start(self):
                     'round_number_history': player.round_number_history,
                     'tag_list': player.tag_list,
                 }
+                player_info.update(_rule_player_view(self, player, current_player.player_index))
                 players_info_for_current.append(player_info)
 
             # 构建当前玩家的游戏信息
@@ -237,6 +243,7 @@ async def send_reconnect_game_state(self, reconnect_player):
             'score_history': player.score_history,
             'round_number_history': player.round_number_history,
             'tag_list': player.tag_list,
+            **_rule_player_view(self, player, reconnect_player.player_index),
         })
 
     private_fields = getattr(self, "build_private_game_info_fields", None)
@@ -302,6 +309,7 @@ async def send_realtime_spectator_snapshot(
             'score_history': player.score_history,
             'round_number_history': player.round_number_history,
             'tag_list': player.tag_list,
+            **_rule_player_view(self, player, view_player_index),
         })
 
     game_info_fields = {
@@ -824,6 +832,10 @@ async def broadcast_game_end(self):
             pt=pt,
             username=player.username,
             original_player_index=player.original_player_index,
+            team_id=getattr(player, "team_id", None),
+            team_score=self.team_result["scores"][player.team_id] if getattr(self, "team_result", None) else None,
+            team_match_points=self.team_result["match_points"][player.team_id] if getattr(self, "team_result", None) else None,
+            team_result_reason=self.team_result["reason"] if getattr(self, "team_result", None) else None,
             rank_before=getattr(player, 'rank_before', None),
             score_before=getattr(player, 'score_before', None),
             rank_after=getattr(player, 'rank_after', None),
@@ -854,6 +866,8 @@ async def broadcast_game_end(self):
                         commitment=self.commitment,
                         salt=self.salt,
                         player_final_data=player_final_data,
+                        team_result=getattr(self, 'team_result', None),
+                        sichuan_match=getattr(self, 'match_panel', None),
                         record_detail=local_record_detail_for_end(self),
                     )
                 )

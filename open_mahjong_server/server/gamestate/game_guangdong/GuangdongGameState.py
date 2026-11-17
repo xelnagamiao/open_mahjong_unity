@@ -21,6 +21,8 @@ from .tactical import GuangdongTacticalMixin
 
 
 class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongClientContextMixin, GuangdongTimingMixin, TaiwanGameState):
+    profile = book.SUB_RULE
+    multi_win_mode = "head_bump"
     flower_tiles = ()  # 55–58 是留在手内的实体鬼，不能自动补花。
     structure_tiles = book.TILES
     concealed_kongs_public = True  # 原书五-5：先公示，再仅扣两侧两张。
@@ -31,14 +33,14 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongC
         return [2, tile, 0, tile, 0, tile, 2, tile]
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
-        if room_data.get("sub_rule", book.SUB_RULE) != book.SUB_RULE:
+        if room_data.get("sub_rule", self.profile) != self.profile:
             raise ValueError("广东花鬼执行器只接受 MIL2023 子规则")
-        config = book.normalize_config(room_data.get("detailed_config"))
+        config = book.normalize_config(room_data.get("detailed_config"), self.profile)
         super().__init__(game_server, {**room_data, "detailed_config": None},
                          calculation_service, db_manager, gamestate_id)
-        self.room_rule, self.sub_rule = "guangdong", book.SUB_RULE
+        self.room_rule, self.sub_rule = "guangdong", self.profile
         self.rules = replace(self.rules, dead_wall_count=0, ready_qualification_mode="disabled",
-            public_ready_enabled=False, multi_win_mode="head_bump",
+            public_ready_enabled=False, multi_win_mode=self.multi_win_mode,
             chow_discard_restriction_mode="none", pung_same_tile_discard_forbidden=False,
             allow_kong_from_upper_discard=True, direct_kong_replacement_win_allowed=True,
             missed_win_blocks_self_draw=False, missed_win_blocks_claims=False,
@@ -228,7 +230,7 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongC
             index = (self.current_player_index + distance) % 4
             action = hu_action_for_player(self.current_player_index, index)
             self.result_dict.pop(action, None)
-            if tile not in book.TILES or "peida" in self.player_list[index].tag_list:
+            if tile not in book.TILES or "peida" in self.player_list[index].tag_list or getattr(self.player_list[index], "is_hu", False):
                 continue
             detail = self.score_candidate(index, source, tile)
             if detail:

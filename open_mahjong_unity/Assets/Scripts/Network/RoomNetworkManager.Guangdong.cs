@@ -15,7 +15,7 @@ public partial class RoomNetworkManager {
                 tips=config.Tips,count_tips=config.CountTips,pointer_tips=config.PointerTips,password=config.Password,random_seed=seed,
                 open_cuohe=false,hepai_limit=GuangdongMilRules.IsMil(config.SubRule)?2:0,use_flowers=false,claim_protection=false,tactical_call=config.TacticalCall,tourist_limit=config.TouristLimit,allow_spectator=config.AllowSpectator,
                 event_id=string.IsNullOrEmpty(config.EventId)?null:config.EventId,
-                detailed_config=GuangdongMilRules.IsMil(config.SubRule)?GuangdongMilRules.Detail(minimumScore):TuidaoRuleBootstrap.Detail(pingjiZimoNoChow),
+                detailed_config=GuangdongMilRules.IsMil(config.SubRule)?GuangdongMilRules.Detail(minimumScore, config.SubRule == GuangdongMilRules.Doubles):TuidaoRuleBootstrap.Detail(pingjiZimoNoChow),
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch(Exception error) { CancelPendingRoomEntry(); Debug.LogError($"创建广东麻将房间失败: {error.Message}"); }

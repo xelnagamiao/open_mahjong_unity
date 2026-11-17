@@ -10,7 +10,7 @@ import { salasasaTileToMmcr, duocaiTileToMmcr, mmcrTileToSalasasa } from '../sal
 import { hongzhongHintsAt as selectHongzhongHints } from '../../utils/hongzhongReplay.js'
 import { duplicateReplayWall } from '../../utils/duplicateReplayWall.js'
 import { isExternalRecord } from '../../utils/recordConvert/externalPlayers.js'
-import { isGuangdongMilRecord } from '../../utils/guangdongReplay.js'
+import { isGuangdongDoublesRecord, isGuangdongMilRecord } from '../../utils/guangdongReplay.js'
 import { hangzhouActionLabel } from '../../utils/hangzhouReplay.js'
 import { specialDrawCaption } from '../../utils/specialDrawCaptions.js'
 import { fuzhouInfoAt, applyFuzhouPhysical, fuzhouReserve, fuzhouActionLabel, isFuzhouV2 } from '../../utils/fuzhouReplay.js'
@@ -157,7 +157,7 @@ function scoreChangeFromTick(tick: RecordTick): number[] | null {
   else if (action === 'malaysia' && tick[1] === 'payment') value = tick[2]
   else if (action === 'tuidao' && tick[1] === 'kong_score') value = tick[2]
   else if (action === 'hongzhong' && ['kong_score', 'kong_refund'].includes(String(tick[1]))) value = tick[2]
-  else if (action === 'guangdong' && ['kong_score', 'refund_kongs'].includes(String(tick[1]))) value = tick[2]
+  else if (action === 'guangdong' && ['kong_score', 'refund_kongs', 'penalty'].includes(String(tick[1]))) value = tick[2]
   else if (action === 'guizhou' && tick[1] === 'draw_score') value = tick[2]
   else value = sichuanScoreChanges(tick)
   if (action === 'cc' && (tick[1] as any)?.kind === 'kong_score') value = [0, 1, 2, 3].map(i => (tick[1] as any).delta?.[i] ?? 0)
@@ -403,7 +403,8 @@ export class RecordReplay {
     }
     let currentPlayer = int(round.start_player_index, 0)
     const sichuan = isSichuanRecord(this.detail)
-    const bloodBattle = isSichuanBloodBattle(this.detail)
+    const guangdongDoubles = isGuangdongDoublesRecord(this.detail)
+    const bloodBattle = isSichuanBloodBattle(this.detail) || guangdongDoubles
     const retired = new Set<number>()
     const nodes = [0]
     for (let node = 0; node < ticks.length; node += 1) {
@@ -420,8 +421,8 @@ export class RecordReplay {
       }
       if (action === 'c') {
         if (currentPlayer === selectedSeat && node > 0) nodes.push(node)
-        currentPlayer = sichuan ? nextSichuanPlayer(currentPlayer, retired) : (currentPlayer + 1) % this.playerCount
-      } else if (sichuan && ['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)
+        currentPlayer = sichuan || guangdongDoubles ? nextSichuanPlayer(currentPlayer, retired) : (currentPlayer + 1) % this.playerCount
+      } else if ((sichuan || guangdongDoubles) && ['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)
         && !(Array.isArray(tick[3]) && tick[3].includes('错和'))) {
         const winner = int(tick[1], currentPlayer)
         if (bloodBattle) retired.add(winner)
@@ -604,7 +605,8 @@ export class RecordReplay {
     const jiujiang = this.detail.rule === 'jiujiang' || this.detail.record.game_title?.rule === 'jiujiang'
     const hongzhong = this.detail.record.game_title?.rule === 'hongzhong' || this.detail.rule === 'hongzhong'
     const sichuan = isSichuanRecord(this.detail)
-    const bloodBattle = isSichuanBloodBattle(this.detail)
+    const guangdongDoubles = isGuangdongDoublesRecord(this.detail)
+    const bloodBattle = isSichuanBloodBattle(this.detail) || guangdongDoubles
     const bloodFlow = isSichuanBloodFlow(this.detail)
     const retired = new Set<number>()
     const firstDiscards = [false, false, false, false]
@@ -642,6 +644,17 @@ export class RecordReplay {
           if (['special', 'added_offer', 'added_commit'].includes(event.kind)) currentPlayer = event.player
           if (event.kind === 'tail_pass') currentPlayer = (event.player + 1) % 4
           if (Number.isInteger(event.player)) lastActor = event.player
+        }
+        continue
+      }
+      if (guangdongDoubles && action === 'blood' && tick[1] === 'reveal_hu') {
+        const hands = tick[2] as Record<number, number[]> | undefined
+        for (let seat = 0; seat < states.length; seat++) {
+          const hand = hands?.[seat]
+          if (!Array.isArray(hand)) continue
+          states[seat].hand = hand.map(Number)
+          states[seat].drawn = null
+          states[seat].flowers = []
         }
         continue
       }
@@ -858,7 +871,7 @@ export class RecordReplay {
         state.riverDrawn.push(fromDraw)
         lastDiscardPlayer = actor
         currentPlayer = publicCut && (state.publicKong.length || ['ag', 'jg'].includes(ticks[tickIndex + 1]?.[0])) ? actor
-          : sichuan ? nextSichuanPlayer(actor, retired) : (actor + 1) % this.playerCount
+          : sichuan || guangdongDoubles ? nextSichuanPlayer(actor, retired) : (actor + 1) % this.playerCount
       } else if (action === 'bh') {
         const tile = int(tick[1])
         const fromDraw = tick.length >= 4 && bool(tick[3])
@@ -991,7 +1004,7 @@ export class RecordReplay {
           }
         }
         for (const seat of states) seat.publicKong = []
-      } else if (sichuan && ['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)) {
+      } else if ((sichuan || guangdongDoubles) && ['hu_self', 'hu_first', 'hu_second', 'hu_third'].includes(action)) {
         const fans = Array.isArray(tick[3]) ? tick[3] : []
         if (fans.includes('错和')) continue
         const selfDrawn = action === 'hu_self'
@@ -1021,6 +1034,10 @@ export class RecordReplay {
           // the public win/flower area instead of becoming another held draw.
           if (selfDrawn) state.drawn = null
           if (tile > 0) state.flowers.push(tile)
+        }
+        if (guangdongDoubles) {
+          state.drawn = null
+          if (!selfDrawn && tile > 0) state.flowers.push(tile)
         }
         if (bloodBattle) retired.add(actor)
         currentPlayer = nextSichuanPlayer(actor, retired)

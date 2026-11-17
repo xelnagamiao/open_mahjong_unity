@@ -4,7 +4,7 @@ using TMPro;
 
 public partial class RoomPanel {
     private readonly TMP_Dropdown[] teamSelectors = new TMP_Dropdown[4];
-    private int? DoublesRevision => lastRoomInfo != null && (SichuanLobby.IsTeamMode(lastRoomInfo.sub_rule) || WashizuDoubles.IsEnabled(lastRoomInfo.sub_rule))
+    private int? DoublesRevision => lastRoomInfo != null && (lastRoomInfo.sub_rule == GuangdongMilRules.Doubles || SichuanLobby.IsTeamMode(lastRoomInfo.sub_rule) || WashizuDoubles.IsEnabled(lastRoomInfo.sub_rule))
         ? lastRoomInfo.roster_revision : (int?)null;
 
     public static bool DoublesTeamsComplete(RoomInfo room) => room?.team_by_seat?.Length == 4
@@ -15,7 +15,7 @@ public partial class RoomPanel {
 
     private void RefreshDoublesTeams(RoomInfo room, PlayerRoomPanel[] panels, int[] seats, bool isHost) {
         bool captain = WashizuDoubles.IsEnabled(room.sub_rule);
-        bool doubles = SichuanLobby.IsTeamMode(room.sub_rule) || captain;
+        bool doubles = room.sub_rule == GuangdongMilRules.Doubles || SichuanLobby.IsTeamMode(room.sub_rule) || captain;
         if (!doubles) { HideDoublesTeams(); return; }
         for (int i = 0; i < panels.Length; i++) {
             if (!teamSelectors[i]) {

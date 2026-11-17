@@ -445,7 +445,10 @@ const activeDescription = computed(() => {
 const activeDocs = computed(() => {
   if (active.value.key === 'hongque') return [selectedHongque.value]
   if (active.value.key === 'hongkong') return [selectedHongKong.value]
-  if (active.value.key === 'guangdong') return [selectedGuangdong.value]
+  if (active.value.key === 'guangdong') {
+    const profile = selectedGuangdong.value
+    return profile.base ? [profile, milRulebook('guangdong', profile.base)] : [profile]
+  }
   return active.value.docs
 })
 const setGuangdongProfile = (subRule) => {

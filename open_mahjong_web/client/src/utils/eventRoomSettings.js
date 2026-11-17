@@ -201,6 +201,7 @@ export const EVENT_RULES_WITH_SUB_RULE_SELECTOR = new Set(['guobiao', 'sichuan',
 
 const subRuleLabels = {
   'guangdong/tuidao_mil2024': 'MIL 2024（无癞子）',
+  'guangdong/mil2023-doubles': 'MIL 2023（2V2 双打）',
   'guangdong/mil2023': 'MIL 2023（花鬼）',
   'guizhou/standard': '贵州 MIL 2023',
   'yixing/standard': '宜兴标准规则',

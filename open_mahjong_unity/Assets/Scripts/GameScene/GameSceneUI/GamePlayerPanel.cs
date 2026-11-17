@@ -305,6 +305,8 @@ public partial class GamePlayerPanel : MonoBehaviour {
             }
             int langyongCount = -1;
             foreach(var item in tag_list) {
+                if (item == "gd_chicken" || item == "gd_non_chicken")
+                    SetPlayerVariable(VariableDeclaredReady, item == "gd_chicken" ? "鸡和" : "非鸡和");
                 if (item == "declared_ready") SetPlayerVariable(VariableDeclaredReady,
                     roomRule == "shanghai" ? (System.Array.IndexOf(tag_list, "tian_qiao") >= 0 ? "已天敲" : "已敲牌") : "已报听");
                 if (item == "offline") {

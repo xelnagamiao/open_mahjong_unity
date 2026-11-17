@@ -18,7 +18,7 @@ export function recordHandJokers(detail, round, node) {
   else if (rule === 'malaysia') tiles = [81]
   else if (rule === 'hangzhou') tiles = [46]
   else if (rule === 'hongzhong') tiles = [45]
-  else if (rule === 'guangdong' && subRule === 'guangdong/mil2023') tiles = [55, 56, 57, 58]
+  else if (rule === 'guangdong' && ['guangdong/mil2023', 'guangdong/mil2023-doubles'].includes(subRule)) tiles = [55, 56, 57, 58]
   else if (rule === 'nanchang') {
     const info = nanchangInfoAt(round, node)
     tiles = [info?.indicator, info?.secondary]

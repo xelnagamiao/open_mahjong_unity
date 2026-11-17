@@ -134,7 +134,7 @@ public partial class GameRecordManager {
     private bool IsBloodBattleRecord() {
         if (IsXueliuRecord()) return false;
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
-        if (subRule == "zhongyong/nanque") return true;
+        if (subRule == "zhongyong/nanque" || subRule == GuangdongMilRules.Doubles) return true;
         if (ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == GuobiaoGameState.BloodBattleSubRule) return true;
         if (!IsSichuanRecord()) return false;
         return ReadGameTitleBool(gameRecord.gameTitle, "blood_battle", true);

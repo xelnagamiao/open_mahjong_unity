@@ -74,6 +74,29 @@ test('广东暗杠先公示牌种，回放中间两张正面、两侧背面', ()
   assert.deepEqual(meld.concealed_face_down, [true, false, false, true])
 })
 
+test('双打双响只收走一张河牌，后续摸牌跳过和家，盘末逐笔结算', () => {
+  const ticks = [
+    ['c', 11, 'F'], ['hu_first', 1, 2, ['GD|chicken|0|鸡和'], [0,0,0,0], 11, 1, 0, 0],
+    ['hu_second', 2, 8, [], [0,0,0,0], 11, 1, 0, 1], ['d', 41],
+    ['guangdong', 'penalty', [0,0,0,-32], 3, 'false_win'],
+    ['blood', 'reveal_hu', {0:[12],1:[13,11],2:[14,11],3:[15,41]}],
+    ['blood', 'settle_hu', 'hu_first', 1, 2, ['鸡和'], [-2,2,0,0], 0, []],
+    ['blood', 'settle_hu', 'hu_second', 2, 8, [], [-8,0,8,0], 1, []],
+  ]
+  const replay = new RecordReplay(fixture(ticks, { sub_rule:'guangdong/mil2023-doubles',
+    hands:[[12,11],[13],[14],[15]], wall:[41], final:[-10,2,8,-32] }))
+  for (const node of [8,2,3,4,6,7,8]) {
+    const snapshot = replay.build(0,node).snapshot
+    assert.equal(snapshot.seats[0].discard_pile.length, node === 2 ? 1 : 0)
+    if (node < 6) assert.deepEqual(snapshot.seats[1].flower_tiles, [0x41])
+    else assert.deepEqual(snapshot.seats[1].flower_tiles, [])
+    if (node === 4) assert.equal(snapshot.seats[3].has_drawn_tile, true)
+    if (node === 6) assert.deepEqual(snapshot.seats[1].hand_tiles, [0x43,0x41])
+    if (node === 7) assert.deepEqual(snapshot.seats.map(s => s.score), [-2,2,0,-32])
+  }
+  assert.deepEqual(replay.roundScoreChangesByOriginal(0), [-10,2,8,-32])
+})
+
 test('战鸣申请只作表现，跳转不重复移牌；最终碰只认走一次', () => {
   const r=new RecordReplay(fixture([['c',11,'F'],['ca',2,'g',11],['p',11,1]],{hands:[[11,12,13],[11,11,22],[],[]]}))
   const before=r.build(0,1).snapshot

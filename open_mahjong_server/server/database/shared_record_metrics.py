@@ -157,6 +157,10 @@ def analyze_shared_record_for_player(record, original_index):
                 changes = [0] * count
                 for original, mapped in enumerate(seats):
                     changes[mapped] = int(delta.get(original, delta.get(str(original), 0)))
+            elif title.get("sub_rule") == "guangdong/mil2023-doubles" and code == "guangdong" and len(tick) > 2 and tick[1] in ("kong_score", "penalty"):
+                changes = _parse_score_changes(tick[2])
+                if tick[1] == "penalty" and len(tick) >= 5 and tick[3] == seat and tick[4] == "false_win":
+                    out["cuohe_count"] += 1
             elif code == "blood" and len(tick) > 6 and tick[1] == "settle_hu":
                 # Visible hu ticks already supplied the counters; this event supplies payment only.
                 changes = _parse_score_changes(tick[6])

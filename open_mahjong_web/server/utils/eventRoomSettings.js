@@ -254,6 +254,7 @@ function normalizeBaseRoomConfig(rule, raw) {
     const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
     config.detailed_config = normalizeGuangdongDetails(config.sub_rule, detail, SettingsError);
   }
+  if (config.sub_rule === 'guangdong/mil2023-doubles' && ![2, 4].includes(config.game_round)) throw new SettingsError(400, '广东双打每盘八副');
   integerField(config, 'game_round', 1, 4, '圈数');
   if (rule === 'changsha' && ![1, 2, 4].includes(config.game_round)) {
     throw new SettingsError(400, '长沙麻将圈数必须为 1、2 或 4');

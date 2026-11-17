@@ -1,6 +1,8 @@
 """MIL 广东 2023 固定规则及原书七-2允许的推广赛事起和选项。"""
 
 SUB_RULE = "guangdong/mil2023"
+DOUBLES_SUB_RULE = "guangdong/mil2023-doubles"
+DOUBLES_EDITION = "mil-guangdong-2v2-2023"
 EDITION = "mil-guangdong-2023-om1"
 TILES = tuple(suit * 10 + rank for suit in (1, 2, 3) for rank in range(1, 10)) + tuple(range(41, 48))
 GHOSTS = (55, 56, 57, 58)
@@ -20,16 +22,21 @@ DEFAULT_CONFIG = {
 }
 
 
-def normalize_config(raw=None):
+def normalize_config(raw=None, sub_rule=SUB_RULE):
+    defaults = DEFAULT_CONFIG
+    if sub_rule == DOUBLES_SUB_RULE:
+        defaults = {**defaults, "edition": DOUBLES_EDITION, "horse_count": 0}
+    elif sub_rule != SUB_RULE:
+        raise ValueError("未知广东子规则")
     if raw is None:
-        return dict(DEFAULT_CONFIG)
-    if not isinstance(raw, dict) or set(raw) - DEFAULT_CONFIG.keys():
+        return dict(defaults)
+    if not isinstance(raw, dict) or set(raw) - defaults.keys():
         raise ValueError("广东 MIL 2023 配置含未知项目")
-    result = dict(DEFAULT_CONFIG)
+    result = dict(defaults)
     for key, value in raw.items():
-        if type(value) is not type(DEFAULT_CONFIG[key]):
+        if type(value) is not type(defaults[key]):
             raise ValueError(f"广东配置 {key} 类型不正确")
-        if key != "require_minimum_score" and value != DEFAULT_CONFIG[key]:
+        if value != defaults[key] and (key != "require_minimum_score" or sub_rule == DOUBLES_SUB_RULE):
             raise ValueError(f"广东 MIL 2023 的 {key} 为固定规则")
         result[key] = value
     return result

@@ -193,6 +193,14 @@ public partial class GameRecordManager {
             PlayersByPosition = new Dictionary<string, RecordTipsPlayerVisible>(),
         };
 
+        if (subRule == GuangdongMilRules.Doubles && recordGuangdongState?.ghost_discard_counts?.Length == 4) {
+            int seat = selfPlayer.playerIndex;
+            int partner = (seat + 2) % 4;
+            ctx.GuangdongTeamGhosts = recordGuangdongState.ghost_discard_counts[seat] + recordGuangdongState.ghost_discard_counts[partner];
+            if (indexToPosition.TryGetValue(partner, out var partnerPosition) && recordPlayer_to_info.TryGetValue(partnerPosition, out var teammate))
+                ctx.GuangdongChickenAvailable = !teammate.tagList.Contains("gd_chicken");
+        }
+
         string perspectivePosition = indexToPosition.TryGetValue(selfPlayer.playerIndex, out string position)
             ? position : "self";
         foreach (var kv in recordPlayer_to_info) {

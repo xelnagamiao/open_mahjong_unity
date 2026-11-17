@@ -268,12 +268,15 @@ internal static class GuangdongBaseHints {
         }
         return best;
     }
-    internal static GuangdongWait Evaluate(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts) {
-        lock(Sync)return EvaluateCore(complete,melds,winningTile,minimum,discardedGhosts);
+    internal static GuangdongWait Evaluate(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts,
+        bool doubles = false, bool chickenAvailable = true, bool blocked = false) {
+        lock(Sync)return EvaluateCore(complete,melds,winningTile,minimum,discardedGhosts,doubles,chickenAvailable,blocked);
     }
-    private static GuangdongWait EvaluateCore(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts) {
+    private static GuangdongWait EvaluateCore(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts,
+        bool doubles, bool chickenAvailable, bool blocked) {
         var wait = new GuangdongWait { tile = winningTile, ron_fan = 0, self_draw_fan = 0, ron_score = 0, self_draw_score = 0 };
-        if (!Prepare(complete, melds, 14, out var hand) || !complete.Contains(winningTile)
+        wait.restricted = doubles && blocked;
+        if (blocked || !Prepare(complete, melds, 14, out var hand) || !complete.Contains(winningTile)
             || discardedGhosts < 0 || discardedGhosts > 4 || hand.ghosts + discardedGhosts > 4) return wait;
         string key = Key(complete, melds) + ":" + winningTile;
         if (!fanCache.TryGetValue(key, out var shapes)) {
@@ -284,8 +287,10 @@ internal static class GuangdongBaseHints {
         int coefficient = (hand.ghosts == 0 ? 2 : 1) * (1 << discardedGhosts);
         int ron = Math.Max(shapes.ordinary, shapes.fourGhosts ? 12 : -1);
         int self = Math.Max(shapes.ordinary >= 0 ? shapes.ordinary + 1 : -1, shapes.fourGhosts ? 12 : -1);
-        wait.ron = !Ghost(winningTile) && ron >= 2 && (!minimum || ron * coefficient >= 4);
-        wait.self_draw = self >= 2 && (!minimum || self * coefficient >= 4);
+        bool chicken = doubles && hand.concealed && shapes.ordinary == 1 && !shapes.fourGhosts;
+        wait.restricted = chicken && !chickenAvailable;
+        wait.ron = !Ghost(winningTile) && (chicken ? chickenAvailable : ron >= 2 && (!minimum || ron * coefficient >= 4));
+        wait.self_draw = chicken ? chickenAvailable : self >= 2 && (!minimum || self * coefficient >= 4);
         if (wait.ron) { wait.ron_fan = ron; wait.ron_score = ron * coefficient; }
         if (wait.self_draw) { wait.self_draw_fan = self; wait.self_draw_score = self * coefficient; }
         wait.fan = Math.Max(wait.ron_fan.Value, wait.self_draw_fan.Value);
@@ -299,9 +304,13 @@ internal static class GuangdongBaseHints {
         int discarded = 0;
         if (query.Record?.PlayersByPosition != null && query.Record.PlayersByPosition.TryGetValue("self", out var player))
             discarded = player?.DiscardTiles?.Count(Ghost) ?? 0;
-        var wait = Evaluate(query.HandWithWin, query.Melds, query.HepaiTile, minimum, discarded);
+        bool doubles = query.SubRule == GuangdongMilRules.Doubles || query.Record?.SubRule == GuangdongMilRules.Doubles;
+        if (doubles && query.Record?.GuangdongTeamGhosts is int teamGhosts)
+            discarded = teamGhosts;
+        bool blocked = doubles && query.Record?.SelfTags?.Any(t => t == "peida" || t == "gd_chicken" || t == "gd_non_chicken") == true;
+        var wait = Evaluate(query.HandWithWin, query.Melds, query.HepaiTile, minimum, discarded, doubles, query.Record?.GuangdongChickenAvailable ?? true, blocked);
         string ron = $"点和{wait.ron_fan}番{wait.ron_score}分", self = $"自摸{wait.self_draw_fan}番{wait.self_draw_score}分";
         if (wait.ron) return WaitTileHint.Ron(wait.self_draw ? ron + "\n" + self : ron);
-        return wait.self_draw ? WaitTileHint.TsumoOnly(self) : WaitTileHint.None("未起和");
+        return wait.self_draw ? WaitTileHint.TsumoOnly(doubles ? "仅" + self : self) : WaitTileHint.None(wait.restricted ? "未满足" : "未起和");
     }
 }

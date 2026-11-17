@@ -1025,6 +1025,29 @@
       "deal_in_stat_unit": "base_points"
     },
     {
+      "key": "guangdong_doubles",
+      "rule": "guangdong",
+      "sub_rule": "guangdong/mil2023-doubles",
+      "family_name": "广东",
+      "sub_rule_name": "MIL 2023（2V2 双打）",
+      "stats_name": "广东麻将（推广）2V2 双打",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "guangdong_doubles",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "2/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
+    },
+    {
       "key": "guangdong_tuidao",
       "rule": "guangdong",
       "sub_rule": "guangdong/tuidao_mil2024",

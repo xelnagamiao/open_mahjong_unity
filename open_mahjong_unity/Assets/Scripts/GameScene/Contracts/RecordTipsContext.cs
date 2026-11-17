@@ -28,6 +28,8 @@ public class RecordTipsContext {
     public string ReadyQualification;
     public List<int> DoraIndicators;
     public int SelfDingqueSuit;
+    public int? GuangdongTeamGhosts;
+    public bool? GuangdongChickenAvailable;
     public Dictionary<string, object> DetailedConfig;
     public Dictionary<string, RecordTipsPlayerVisible> PlayersByPosition;
 }

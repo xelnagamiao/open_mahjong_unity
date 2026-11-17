@@ -14,12 +14,19 @@ public partial class GameRecordManager {
         player.bloodWinTile = tile;
         player.bloodWinZimo = action == "hu_self";
         player.bloodWinMulti = multi;
+        player.bloodWinSource = source;
         if (player.tileList.Count > 0 && player.tileList[player.tileList.Count - 1] == tile) {
             player.tileList.RemoveAt(player.tileList.Count - 1);
         }
         player.showHandDrawSlotActive = false;
         player.hasRonWinningTile = false;
-        bool qianggang = ContainsSichuanQianggangFan(ParseHuFanList(tick, 3));
+        var fans = ParseHuFanList(tick, 3);
+        if (ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == GuangdongMilRules.Doubles) {
+            string tag = System.Array.Exists(fans, f => f == "鸡和" || f?.StartsWith("GD|chicken|", System.StringComparison.Ordinal) == true)
+                ? "gd_chicken" : "gd_non_chicken";
+            if (!player.tagList.Contains(tag)) player.tagList.Add(tag);
+        }
+        bool qianggang = ContainsSichuanQianggangFan(fans);
         string sourcePosition = ResolveRecordRonDiscarderPosition(source);
         if (qianggang && recordPlayer_to_info.TryGetValue(sourcePosition ?? "", out RecordPlayer from)) {
             for (int i = 0; i < from.combinationTiles.Count; i++) {
@@ -41,7 +48,8 @@ public partial class GameRecordManager {
 
     private void RestoreBloodBattleReplayMarker(string position, RecordPlayer player) {
         if (IsBloodBattleRecord() && player.isHu && player.bloodWinTile >= 10 && bloodRecordRevealedHands == null) {
-            Game3DManager.Instance.RestoreBloodBattleWinMarker(position, player.bloodWinTile, player.bloodWinZimo, player.bloodWinMulti);
+            Game3DManager.Instance.RestoreBloodBattleWinMarker(position, player.bloodWinTile, player.bloodWinZimo, player.bloodWinMulti,
+                player.bloodWinSource.HasValue && indexToPosition.TryGetValue(player.bloodWinSource.Value, out var source) ? source : null);
         }
     }
 }

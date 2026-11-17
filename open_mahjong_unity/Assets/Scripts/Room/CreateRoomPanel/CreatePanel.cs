@@ -716,6 +716,8 @@ public partial class CreatePanel : MonoBehaviour {
         bool isChangsha = _ruleState == "changsha";
         bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId || _ruleState == ShangraoGameState.RuleId;
         if (!showRound) return;
+        bool guangdongDoubles = _ruleState == "guangdong" && GetSelectedSubRule() == GuangdongMilRules.Doubles;
+        if (gameTime1Button != null) gameTime1Button.gameObject.SetActive(!guangdongDoubles);
         if (_ruleState == FuzhouGameState.RuleId) {
             SetToggleLabel(gameTime1Button,"一圈 4局");SetToggleLabel(gameTime2Button,"半庄 8局");
             SetToggleLabel(gameTime4Button,"一雀 16局");
@@ -732,12 +734,13 @@ public partial class CreatePanel : MonoBehaviour {
             SelectGameTime(4);
         }
 
-        string handUnit = _ruleState == ShangraoGameState.RuleId ? "副" : "局";
+        if (guangdongDoubles && (gameTime1Button.isOn || gameTime3Button.isOn)) SelectGameTime(2);
+        string handUnit = guangdongDoubles || _ruleState == ShangraoGameState.RuleId ? "副" : "局";
         SetToggleLabel(gameTime1Button, (isChangsha || usesFixedHandCount) ? "4" + handUnit : _defaultGameRoundLabels[0]);
         SetToggleLabel(gameTime2Button, (isChangsha || usesFixedHandCount) ? "8" + handUnit : _defaultGameRoundLabels[1]);
         SetToggleLabel(gameTime3Button, usesFixedHandCount ? "12" + handUnit : _defaultGameRoundLabels[2]);
         SetToggleLabel(gameTime4Button, (isChangsha || usesFixedHandCount) ? "16" + handUnit : _defaultGameRoundLabels[3]);
-        if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha);
+        if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha && !guangdongDoubles);
     }
 
     private static string GetToggleLabelText(Toggle toggle) {

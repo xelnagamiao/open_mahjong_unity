@@ -55,6 +55,7 @@ class PlayerInfo(BaseModel):
     dingque_suit: Optional[int] = None  # 定缺花色：1=万 2=饼 3=条，0/None=未定缺
     hu_order: Optional[int] = None
     blood_hu_tile: Optional[int] = None
+    blood_hu_source: Optional[int] = None
     blood_hu_zimo: Optional[bool] = None
     blood_hu_multi: Optional[bool] = None
     is_hu: Optional[bool] = None  # 血战：本盘是否已和牌退场
@@ -304,6 +305,8 @@ class Show_result_info(BaseModel):
     hangzhou_fan_details: Optional[dict] = None
     hangzhou_round_changes: Optional[Dict[int, int]] = None
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
+    guangdong_tips: Optional[dict] = None
+    guangdong_chicken: Optional[bool] = None
     guangdong_result: Optional[Dict[str, object]] = None  # MIL 广东：替代见证、系数、奖马和杠账
     nanchang_info: Optional[dict] = None
     nanchang_hints: Optional[dict] = None
@@ -473,6 +476,7 @@ class Refresh_player_tag_list_info(BaseModel):
     """刷新玩家标签列表信息"""
     player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
     # 立直宣告只播放语音；成立广播在宣言牌无人荣和后同步供托与绝对分数。
+    guangdong_tips: Optional[dict] = None
     riichi_declared_player_index: Optional[int] = None
     riichi_accepted_player_index: Optional[int] = None
     player_to_score: Optional[Dict[int, int]] = None  # 当局座位 player_index -> score

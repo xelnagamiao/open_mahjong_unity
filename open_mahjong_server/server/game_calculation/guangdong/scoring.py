@@ -45,6 +45,8 @@ class Context:
     earthly: bool = False
     discarded_ghosts: int = 0
     require_minimum_score: bool = True
+    doubles: bool = False
+    chicken_available: bool = True
 
 
 def coefficient(physical_hand, discarded_ghosts):
@@ -130,11 +132,14 @@ def score_interpretation(physical_hand, melds, shape: Interpretation, context: C
     fan = sum(FANS[key][1] for key in ids)
     multiplier = coefficient(physical_hand, context.discarded_ghosts)
     base = fan * multiplier
+    chicken = context.doubles and set(ids) in ({"concealed"}, {"concealed", "self_draw"})
+    qualified = context.chicken_available if chicken else fan >= 2 and (base >= 4 or not context.require_minimum_score)
     return {
-        "is_win": fan >= 2 and (base >= 4 or not context.require_minimum_score),
+        **({"chicken": chicken} if context.doubles else {}),
+        "is_win": qualified,
         "fan": fan, "base_score": base, "coefficient": multiplier,
         "fan_ids": list(ids),
-        "fan_names": [f"GD|{key}|{FANS[key][1]}|{FANS[key][0]}" for key in ids],
+        "fan_names": [f"GD|{key}|{FANS[key][1]}|{FANS[key][0]}" for key in ids] + (["GD|chicken|0|鸡和"] if chicken else []),
         "shape": shape.kind,
         "logical_hand": list(shape.logical_hand),
         "substitutions": [{"physical": physical, "logical": logical} for physical, logical in shape.substitutions],

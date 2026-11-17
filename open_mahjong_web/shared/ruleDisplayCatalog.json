@@ -229,6 +229,10 @@
         {
           "sub_rule": "guangdong/mil2023",
           "label": "MIL 2023（花鬼）"
+        },
+        {
+          "sub_rule": "guangdong/mil2023-doubles",
+          "label": "MIL 2023（2V2 双打）"
         }
       ]
     },
