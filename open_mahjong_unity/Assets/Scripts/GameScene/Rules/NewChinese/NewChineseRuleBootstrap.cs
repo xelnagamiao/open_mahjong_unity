@@ -25,7 +25,7 @@ internal static class NewChineseRuleBootstrap {
             HasFlowerReplacement=false, DefaultHepaiLimit=0, FaceDownAnkan=true, PeekAnkan=true,
             PublicReadyStateReplay=true, RecordDangerUsesWaitHint=true, RonWinTileTravelsFromRiver=true,
             ActionCaption=a=>a=="riichi"||a=="riichi_cut"?"报听":a=="riichi_cut_cancel"?"取消报听":null,
-            ActionVoice=a=>a=="riichi"||a=="riichi_cut"?"ting":a=="hu_self"?"hu":null,
+            ActionVoice=a=>a=="riichi"||a=="riichi_cut"?"baoting":a=="hu_self"?"hu":null,
             LiveVisibleIndicators=()=>NewChineseGameState.Active?.Info?.bao > 0 ? new[]{NewChineseGameState.Active.Info.bao} : Array.Empty<int>(),
             StatsFanNames=NewChineseHand.Values.Keys.ToDictionary(k=>k,k=>k),
             Tingpai=Waiting, DescribeWaitingTile=Describe, ScoreboardFanText=q=>$"{q.HuScore}点",

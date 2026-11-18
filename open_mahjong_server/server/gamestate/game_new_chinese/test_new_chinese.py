@@ -112,6 +112,43 @@ def test_ledger_is_balanced_for_each_payment_grade(src):
                 assert sum(changes)==0
 
 
+@pytest.mark.parametrize(("source", "method", "pairs"), [
+    ("discard", "平点", ("2/1", "4/2", "20/10", "20/10")),
+    ("self_draw", "自摸", ("4/2", "8/4", "32/16", "32/16")),
+    ("black", "点黑", ("9/6", "18/12", "60/40", "60/40")),
+    ("bao_draw", "摸宝", ("8/4", "16/8", "40/20", "40/20")),
+    ("bao_seen", "通宝", ("8/4", "24/16", "48/32", "56/32")),
+])
+def test_settlement_labels_show_published_base_pair_first(source, method, pairs):
+    for grade, (shape, pair) in enumerate(zip(("边和", "夹和", "碰碰和", "七小对"), pairs)):
+        detail = dict(source=source, base=grade, fans={"门清": rules.VALUES["门清"]})
+        assert rules.settlement_labels(detail) == [
+            f"{method}{shape}（{pair}）", f"门清（{rules.VALUES['门清']}番）"]
+
+
+@pytest.mark.parametrize(("winner", "points"), [(0, 12), (1, 8)])
+def test_base_only_win_shows_same_row_live_on_restore_and_in_replay(winner, points):
+    s = table()
+    p = s.player_list[winner]
+    p.hand_tiles = [11,12,13,24,25,26,27,27,37,38,39]
+    p.combination_tiles, p.combination_mask = ["k42"], [[1,42,0,42,0,42]]
+    p.declared = p.has_draw_slot = True
+    s.start_game_recording()
+    s.start_round_recording()
+    s.machine.transition(P.TURN)
+    s.settle(winner, 39, "draw")
+    labels = ["自摸边和（4/2）"]
+    for viewer in range(4):
+        result = s.build_final_settlement_payload(viewer)["show_result_info"]
+        assert result["hu_fan"] == labels and result["hu_score"] == points
+        assert s.restore_payloads(viewer)[1]["show_result_info"]["hu_fan"] == labels
+    s.finalize_round_recording()
+    rd = s.game_record["game_round"]["round_index_1"]
+    index, tick = next((i, t) for i, t in enumerate(rd["action_ticks"]) if t[0] == "hu_self")
+    assert tick[3] == labels and rd["win_fan_by_tick"][str(index)] == 0
+    assert collect_subrule_fans(s.game_record, p.original_player_index, rules.SUB_RULE) == {}
+
+
 def test_bao_visibility_real_natural_vs_wild_and_order():
     s=table()
     h=[11,11,14,14,22,22,25,25,33,33,36,36,41]

@@ -14,6 +14,10 @@ public partial class GameRecordManager {
         ApplyBeforeMutation=ApplyNewChineseTick, RefreshAfterSeek=RefreshNewChineseRecord,
         RefreshAfterAction=RefreshNewChineseRecord, RefreshPlayerTags=RefreshNewChineseRecord,
         ConsumeWallTile=action=>action=="gd",
+        AnnounceBeforeAction=(tick,seat,voice)=>{
+            if (tick.Count > 3 && tick[0] == "c" && tick[3] == "H")
+                SoundManager.Instance.PlayActionSound(seat, "riichi", voice);
+        },
         AfterVisibleMutation=tick=>{
             if(tick.Count>1 && tick[0]=="new_chinese" && (tick[1]=="exchange" || tick[1]=="rob_kan")) Game3DManager.Instance?.RefreshRecordHandDisplay();
         }

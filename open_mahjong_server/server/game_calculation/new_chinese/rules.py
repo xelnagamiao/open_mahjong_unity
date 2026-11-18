@@ -21,6 +21,8 @@ BASE = {
     "bao_draw": ((8, 4), (16, 8), (40, 20), (40, 20)),
     "bao_seen": ((8, 4), (24, 16), (48, 32), (56, 32)),
 }
+BASE_METHOD_NAMES = {"discard": "平点", "self_draw": "自摸", "black": "点黑", "bao_draw": "摸宝", "bao_seen": "通宝"}
+BASE_SHAPE_NAMES = ("边和", "夹和", "碰碰和", "七小对")
 WAIT_FANS = {3: "听三张", 4: "听四张", 5: "听五张", 6: "听六张", 7: "听七张", 8: "听八张"}
 
 
@@ -282,6 +284,13 @@ def score(hand, codes, winning_tile, source, *, after_kong=False, chain=0, visib
 
 def ordinary_points(high, low, fan, dealer):
     return (3 * high if dealer else high + 2 * low) + 3 * fan
+
+
+def settlement_labels(detail):
+    source, grade = detail["source"], detail["base"]
+    high, low = BASE[source][grade]
+    base = f"{BASE_METHOD_NAMES[source]}{BASE_SHAPE_NAMES[grade]}（{high}/{low}）"
+    return [base, *(f"{name}（{value}番）" for name, value in detail["fans"].items())]
 
 
 def payments(detail, winner, payer=None, dealer=0):

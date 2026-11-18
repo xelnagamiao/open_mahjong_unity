@@ -8,6 +8,18 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     public static NewChineseGameState Active => RuleRegistry.ActiveGameState as NewChineseGameState;
     public NewChineseInfo Info {get; private set;}
 
+    public override bool CanCutTile(int tileId) {
+        var actions = Clock.AllowActionList;
+        if (actions.Contains("riichi_cut") && !actions.Contains("cut"))
+            return RiichiCutSelectionController.Instance?.IsActive == true && Clock.RiichiCandidateCuts.ContainsKey(tileId);
+        return base.CanCutTile(tileId);
+    }
+
+    protected override void OnActionPlayed(TableAction action) {
+        if (!action.Silent && action.IsRiichiHorizontal && action.HasWord("cut"))
+            SoundManager.Instance.PlayActionSound(action.Seat, "riichi");
+    }
+
     private void Accept(GameInfo info) {
         if (info?.new_chinese == null) return;
         Info = info.new_chinese;
@@ -65,11 +77,12 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     }
 
     protected override bool TryApplyFamilyWord(TableAction action, string word) {
-        if (word == "new_chinese_bao_change") {
-            if (!action.Silent) EndLiujuPanel.Instance?.ShowLiujuPanel("换宝", null, 1f);
+        if (word == "new_chinese_bao_reveal" || word == "new_chinese_bao_change") {
+            if (!action.Silent)
+                EndLiujuPanel.Instance?.ShowTableCaption(word == "new_chinese_bao_reveal" ? "翻宝" : "换宝");
             return true;
         }
-        return word == "new_chinese_bao_reveal" || word == "declare_kan" || word == "rob_kan";
+        return word == "declare_kan" || word == "rob_kan";
     }
 
     protected override void OnShowResult(Response response) {

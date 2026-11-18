@@ -117,9 +117,8 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         if mode == "discard":
             self.player_list[payer].discard_tiles.pop()
             self.player_list[payer].riichi_flags.pop()
-        labels = [f"{name}（{value}番）" for name, value in quote["fans"].items()]
         entry = dict(winner=index, source=source, tile=tile, discarder=payer, points=changes[index],
-                     fan_ids=labels, fan_names=list(quote["fans"]), fan_details=quote, score_changes=changes,
+                     fan_ids=rules.settlement_labels(quote), fan_names=list(quote["fans"]), fan_details=quote, score_changes=changes,
                      recycle_discard=mode == "discard", multi_ron=False, hu_order=1)
         self.deferred_hu_settlements.append(entry)
         p.is_hu, p.hu_order, self.hu_order_counter = True, 1, 1
