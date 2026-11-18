@@ -31,8 +31,16 @@ public partial class GameRecordManager {
         recordGuangdongResult = null; recordGuangdongHorses = null;
         RefreshTaiwanRecordPlayerTags();
     }
+    private void RefreshGuangdongRecordTeamScores() {
+        if (recordGuangdongState?.edition != GuangdongMilRules.DoublesVersion || RoundPanel.Instance == null) return;
+        var scores = new Dictionary<int, int>();
+        foreach (var player in recordPlayerList) scores[player.playerIndex] = player.score;
+        RoundPanel.Instance.UpdateSichuanSettlement(new ShowResultInfo { liuju_status_final = true, player_to_score = scores });
+    }
+
     private bool ApplyGuangdongRecordAction(IReadOnlyList<string> tick) {
         if (!IsGuangdongMilRecord() || tick == null || tick.Count == 0) return false;
+        if (tick[0] == "liuju") RefreshGuangdongRecordTeamScores();
         if (ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == GuangdongMilRules.SubRule)
             RemoveTuidaoWonDiscard(tick);
         if (tick.Count < 2 || tick[0] != "guangdong") return false;

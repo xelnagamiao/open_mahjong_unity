@@ -170,6 +170,17 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         Bind();reconnects++;_ = socket.SendText("{\"type\":\"qa/reconnected\"}");
     }
 
+    private void CheckTeamScores(int[] scores, string stage) {
+        var panel = FindFirstObjectByType<SichuanRoundScorePanel>();
+        string[] teams = { "BlueTeam", "RedTeam" };
+        for (int i = 0; i < teams.Length; i++) {
+            var cell = panel?.transform.Find(teams[i] + "/Score")?.GetComponent<TMPro.TMP_Text>();
+            string expected = scores[i] > 0 ? "+" + scores[i] : scores[i].ToString();
+            Check(cell != null && cell.gameObject.activeInHierarchy && cell.text == expected,
+                stage + " · " + teams[i] + " " + expected + " / " + cell?.text);
+        }
+    }
+
     private IEnumerator Inspect(JObject message) {
         yield return new WaitForSecondsRealtime(.8f);
         var mirror=TableMirror.Current;
@@ -179,6 +190,7 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         while (mirror.IndexToPosition.Any(p => mirror.Info(p.Value).score != scores[p.Key]) && Time.realtimeSinceStartup < until) yield return null;
         foreach(var pair in mirror.IndexToPosition)Check(mirror.Info(pair.Value).score==scores[pair.Key],"座位分数 "+pair.Key);
         string label=(string)message["label"];
+        CheckTeamScores(message["team_scores"].ToObject<int[]>(), label);
         if(label=="chicken")Check(mirror.IndexToPosition.Values.Any(pos=>(mirror.Info(pos).tag_list??Array.Empty<string>()).Contains("gd_chicken")), "牌桌公开鸡和");
         if(user==11000001) ClientValidationScreenshot.Capture(output, label, Check);
         _=socket.SendText(new JObject{["type"]="qa/inspected",["label"]=label,["token"]=message["token"]}.ToString(Formatting.None));
@@ -189,6 +201,7 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         RecordPanel.OpenRecord(message["detail"].ToObject<RecordDetail>(),true);
         yield return new WaitForSecondsRealtime(1.0f);
         var manager=GameRecordManager.Instance;
+        var previous = new int[2];
         foreach(var round in message["rounds"]) {
             int i=(int)round["index"];
             manager.GotoSelectRound(i,false);
@@ -198,6 +211,15 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
             var scores=round["scores"].ToObject<int[]>();
             foreach(var p in manager.recordPlayer_to_info.Values)
                 Check(p.score==scores[p.playerIndex],"牌谱第"+i+"副座位"+p.playerIndex+"结算");
+            var teamScores = round["team_scores"].ToObject<int[]>();
+            CheckTeamScores(teamScores, "回放第" + i + "副结算");
+            if (i == 1 || i == (int)message["rounds"].Last["index"]) {
+                manager.GotoAction(0); yield return null;
+                CheckTeamScores(previous, "回退第" + i + "副开局");
+                manager.GotoAction(end); yield return null;
+                CheckTeamScores(teamScores, "再看第" + i + "副结算");
+            }
+            previous = teamScores;
         }
         ClientValidationScreenshot.Capture(output, "replay-final", Check);
         _=socket.SendText("{\"type\":\"qa/replayed\"}");

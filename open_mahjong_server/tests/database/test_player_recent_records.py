@@ -13,6 +13,7 @@ from psycopg2.pool import ThreadedConnectionPool
 import pytest
 
 from server.database import player_recent_records as recent
+from server.database.inventory import ensure_inventory_tables
 from server.database.statistics_catalog import BY_KEY
 from server.gamestate.public.guobiao_win_snapshot import (
     capture_guobiao_win, restore_guobiao_best_wins, SNAPSHOT_VERSION,
@@ -177,6 +178,7 @@ def database():
     with connection(manager) as conn:
         with conn.cursor() as cursor:
             cursor.execute("""
+                CREATE TABLE users (user_id BIGINT PRIMARY KEY, is_tourist BOOLEAN NOT NULL DEFAULT FALSE);
                 CREATE TABLE game_records (game_id VARCHAR(16) PRIMARY KEY, record JSONB NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
                 CREATE TABLE game_player_records (
@@ -188,6 +190,8 @@ def database():
                     pt_change NUMERIC DEFAULT 0,
                     PRIMARY KEY (game_id, user_id));
             """)
+            cursor.executemany("INSERT INTO users(user_id) VALUES(%s)", [(uid,) for uid in UIDS])
+            ensure_inventory_tables(cursor)
             from server.database.riichi.record_stats import ensure_schema
             ensure_schema(cursor)
             recent.ensure_schema(cursor)

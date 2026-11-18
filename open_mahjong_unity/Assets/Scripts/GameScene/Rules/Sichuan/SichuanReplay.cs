@@ -288,6 +288,7 @@ public partial class GameRecordManager {
             case "settle_hu":
                 if (tick.Count < 7) return;
                 ApplyScoreDeltasFromTickIndex(tick, 6);
+                if (tick.Count > 7 && ParseTickInt(tick, 7) != 0) RefreshGuangdongRecordTeamScores();
                 break;
             case "chajiao":
                 if (tick.Count < 6) return;
@@ -401,6 +402,7 @@ public partial class GameRecordManager {
         sichuanRecordLedger.Accumulate(deltas);
         sichuanRecordLedger.RecordHu();
         bool isFinal = tick.Count > 7 && ParseTickInt(tick, 7) != 0;
+        if (isFinal) RefreshGuangdongRecordTeamScores();
         if (isFinal && TryFlushSichuanRecordLedger()) {
             GameSceneUIManager.Instance?.UpdateScoreRecord();
         }

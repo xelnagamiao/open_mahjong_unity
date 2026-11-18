@@ -62,7 +62,9 @@ async def main():
 
     async def inspect(label):
         token = f"{gs.current_round}-{len(gs.win_events)}-{label}"
-        await broadcast_qa("inspect", label=label, token=token, scores=[p.score for p in gs.player_list])
+        settled = rounds[-1]["team_scores"] if rounds else [0, 0]
+        await broadcast_qa("inspect", label=label, token=token, scores=[p.score for p in gs.player_list],
+                           team_scores=settled)
         await await_condition(lambda: all((token, uid) in inspected for uid in USERS), 45, f"inspection {token} pending {inspected}")
 
     async def plan(uid, info):
@@ -144,7 +146,9 @@ async def main():
             await inspect("chicken" if item["detail"]["chicken"] else "mid")
     async def capture_board(before):
         result = await settle(before)
-        rounds.append(dict(index=gs.round_index, scores=[p.score for p in gs.player_list], reason=gs.draw_reason))
+        totals = [sum(p.score for p in gs.player_list if p.team_id == team) for team in (0, 1)]
+        rounds.append(dict(index=gs.round_index, scores=[p.score for p in gs.player_list],
+                           team_scores=totals, reason=gs.draw_reason))
         save("boards.json", rounds)
         await inspect("board-"+str(gs.current_round))
         return result

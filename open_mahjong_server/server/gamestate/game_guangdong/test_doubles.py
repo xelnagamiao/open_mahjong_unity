@@ -10,7 +10,9 @@ from ...database.subrule_fans import collect_subrule_fans
 from ...game_calculation.guangdong import config, rules
 from ...game_calculation.guangdong.scoring import Context
 from ...room.guangdong_room import GuangdongRoomValidator
+from ..game_taiwan import boardcast
 from ..public.game_record_manager import init_game_record, init_game_round
+from ..verifier.unity_sim import UnitySim
 from .doubles import GuangdongDoublesGameState
 from .test_flow import ActionSocket
 from .test_state import HAND, hand, ticks
@@ -125,14 +127,33 @@ def test_freeze_ghosts_kongs_and_statistics():
         gs.player_list[0].discarded_ghosts = gs.player_list[2].discarded_ghosts = 1
         await gs._pay_kong(1, "direct", 29, payer=3)
         p = hand(gs, 0, CHICKEN + [41]); p.last_drawn_tile = 41
+        await boardcast.broadcast_game_start(gs)
+        sims = []
+        for player in gs.player_list:
+            sim = UnitySim(viewer_user_id=player.user_id)
+            start = gs.game_server.user_id_to_connection[player.user_id].websocket.messages[-1]
+            sim.apply(start)
+            assert sim.gsm["selfIndex"] == player.player_index
+            sims.append(sim)
         gs.accept_self_draw(0); await gs.confirm_wins()
         first = gs.win_events[0]
         assert first["detail"]["coefficient"] == 8
         for viewer in range(4):
-            info = gs.game_server.user_id_to_connection[gs.player_list[viewer].user_id].websocket.messages[-1]["show_result_info"]
+            packet = gs.game_server.user_id_to_connection[gs.player_list[viewer].user_id].websocket.messages[-1]
+            sim = sims[viewer]
+            sim.apply(packet)
+            position = sim.pos_of(0)
+            assert "gd_chicken" in sim.gsm["player_to_info"][position]["tag_list"]
+            assert sim.game3d[position]["win_marker"] == (41 if viewer == 0 else 0)
+            assert sim.end_result["show_result"] is False and sim.end_result["hu_fan"] is None
+            info = packet["show_result_info"]
             assert info["hepai_tile"] == (41 if viewer == 0 else 0)
             snap = gs.player_view_fields(p, viewer)
             assert snap["hand_tiles_count"] == 13 and (snap["hand_tiles"] is None) == (viewer != 0)
+            await boardcast.send_reconnect_game_state(gs, gs.player_list[viewer])
+            snapshot = gs.game_server.user_id_to_connection[gs.player_list[viewer].user_id].websocket.messages[-1]
+            sim.apply(snapshot)
+            assert sim.game3d[position]["win_marker"] == (41 if viewer == 0 else 0)
         await gs._pay_kong(3, "concealed", 35)
         gs.player_list[2].discarded_ghosts += 1
         hand(gs, 2, HAND)

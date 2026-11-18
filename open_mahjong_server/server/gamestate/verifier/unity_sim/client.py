@@ -340,6 +340,8 @@ class UnitySim:
                     "post_hu_lock": bool(player.get("post_hu_lock", False)),
                 }
             )
+            if self.gsm["subRule"] == "guangdong/mil2023-doubles":
+                self.game3d[pos]["win_marker"] = _as_int(player.get("blood_hu_tile")) if dest["is_hu"] else None
             if pos == "self":
                 self.gsm["selfHandTiles"] = list(hand)
                 dest["hand_tiles_count"] = len(self.gsm["selfHandTiles"])
@@ -581,6 +583,10 @@ class UnitySim:
                 player["huapai_list"].append(tile)
             else:
                 player["is_hu"] = True
+                if info.get("guangdong_chicken") is not None:
+                    tag = "gd_chicken" if info["guangdong_chicken"] else "gd_non_chicken"
+                    if tag not in player["tag_list"]:
+                        player["tag_list"].append(tag)
                 self.game3d[pos]["win_marker"] = tile
                 self.gsm["IsSelfActionRequired"] = False
                 self.gsm["allowActionList"] = []
@@ -592,6 +598,14 @@ class UnitySim:
             return
         self.gsm["IsSelfActionRequired"] = False
         self._clear_buttons()
+        self._sync_views()
+
+    def _handle_guangdong_ruling(self, message):
+        info = message.get("refresh_player_tag_list_info") or {}
+        for seat, tags in (info.get("player_to_tag_list") or {}).items():
+            self._seat_info(self.pos_of(int(seat)))["tag_list"] = list(tags)
+        for seat, score in (info.get("player_to_score") or {}).items():
+            self._seat_info(self.pos_of(int(seat)))["score"] = int(score)
         self._sync_views()
 
     def _is_xueliu(self):
@@ -675,6 +689,8 @@ def apply_message(sim: UnitySim, message: Dict[str, Any]) -> Dict[str, Any]:
         sim._handle_do_action(payload)
     elif suffix == "show_result":
         sim._handle_show_result(payload)
+    elif rule == "guangdong" and suffix == "adjudication":
+        sim._handle_guangdong_ruling(payload)
     elif suffix == "ready_status":
         sim._handle_ready(payload)
     elif suffix == "xueliu_continue":

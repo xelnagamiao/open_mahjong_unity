@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import pytest
 
+from ..verifier.unity_sim import UnitySim
 from .test_doubles import CHICKEN, presentation, state
 from .test_state import hand, ticks
 
@@ -20,6 +21,9 @@ def test_referee_penalty_once_and_ghosts_before_stop():
         tick = gs.server_action_tick
         result = await gs.adjudicate(gs.round_index, 0, "false_win")
         assert result["penalty"] == 256 and [p.score for p in gs.player_list] == [-256,0,0,0]
+        sim = UnitySim(viewer_user_id=p.user_id)
+        sim.apply(gs.game_server.user_id_to_connection[p.user_id].websocket.messages[-1])
+        assert sim.board["scores"]["self"] == -256 and "peida" in sim.gsm["player_to_info"]["self"]["tag_list"]
         assert await gs.adjudicate(gs.round_index, 0, "false_win") == result
         assert p.record_counter.cuohe_times == 1 and gs.server_action_tick == tick
         p.last_discarded_tile = 58
