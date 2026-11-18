@@ -13,6 +13,7 @@ public partial class CreatePanel {
         foreach (var key in DetailedRules) {
             if (transform.Find("DetailedConfigPanel_" + key)) continue;
             var prefab = DeferredPrefab(key);
+            if (!prefab && key == "new_chinese") { BakeRegionalDetailsPanel(key,"新中式麻将"); continue; }
             if (!prefab && key == "hongque") { BakeHongqueDetailsPanel(); continue; }
             if (!prefab) throw new InvalidOperationException("Missing authored create-room panel: " + key);
             var instance = Instantiate(prefab, transform, false);

@@ -1641,6 +1641,31 @@
       "matchmaking": false,
       "win_stat_unit": "points",
       "deal_in_stat_unit": "points"
+    },
+    {
+      "key": "new_chinese",
+      "rule": "new_chinese",
+      "sub_rule": "new_chinese/standard",
+      "family_name": "新中式",
+      "sub_rule_name": "标准规则",
+      "stats_name": "新中式麻将",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "new_chinese",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "4/4",
+        "8/4",
+        "12/4",
+        "16/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
     }
   ],
   "stat_value_units": {

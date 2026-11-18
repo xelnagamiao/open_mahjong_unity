@@ -588,6 +588,7 @@ public class WashizuDoublesInfo {
 }
 
 public class GameInfo {
+    public NewChineseInfo new_chinese;
     public bool real_time;
     public int tactical_grace_seconds = 5;
     public bool unlimited_rounds;

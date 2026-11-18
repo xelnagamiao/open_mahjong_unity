@@ -16,7 +16,7 @@ from server.database.scene_stats import record_game_metrics
 def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert len(RULES) == len({r['key'] for r in RULES}) == len({r['sub_rule'] for r in RULES})
     assert all(r['basic_stats'] == (r['rule'] != 'free') for r in RULES)
-    assert sum(r['fan_stats'] for r in RULES) == 27
+    assert sum(r['fan_stats'] for r in RULES) == 28
     captain = next(r for r in RULES if r['sub_rule'] == 'riichi/washizu_doubles')
     assert captain['basic_stats'] and not captain['fan_stats'] and not captain['matchmaking']
     assert resolve_statistics_identity('riichi', captain['sub_rule']) == ('riichi', captain['sub_rule'])
@@ -199,3 +199,17 @@ def test_legacy_refresh_requires_explicit_scope(family, game_id):
     with pytest.raises(ValueError):
         _refresh_legacy_statistics(cursor, family, game_id)
     cursor.execute.assert_not_called()
+
+def test_long_rules_preserve_existing_rows_during_schema_upgrade(db):
+    db.sql("""INSERT INTO game_player_records(game_id,user_id,username,rule,sub_rule,room_type,match_type,score,rank,original_player_index)
+              VALUES ('existing',10000101,'test','beijing','beijing/chipengti','custom','1/4',0,1,0)""")
+    db.sql('ALTER TABLE game_player_records ALTER COLUMN rule TYPE VARCHAR(10)')
+    connection = db._get_connection()
+    with connection.cursor() as cursor:
+        ensure_statistics_schema(cursor)
+        ensure_statistics_schema(cursor)
+    connection.commit()
+    assert db.sql("SELECT rule,sub_rule FROM game_player_records WHERE game_id='existing'") == [('beijing','beijing/chipengti')]
+    db.sql("""INSERT INTO game_player_records(game_id,user_id,username,rule,sub_rule,room_type,match_type,score,rank,original_player_index)
+              VALUES ('newgame',10000102,'test','new_chinese','new_chinese/standard','custom','4/4',0,1,0)""")
+    assert db.sql("SELECT rule FROM game_player_records WHERE game_id='newgame'") == [('new_chinese',)]

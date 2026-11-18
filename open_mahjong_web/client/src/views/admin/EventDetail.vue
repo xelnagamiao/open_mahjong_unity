@@ -339,6 +339,7 @@ const RULE_LABELS = {
   nanchang: '南昌麻将',
   shangrao: '上饶麻将',
   hongque: '虹雀',
+  new_chinese: '新中式麻将',
   beijing: '北京麻将（吃碰提）',
   duocai: '夺彩麻将',
 }

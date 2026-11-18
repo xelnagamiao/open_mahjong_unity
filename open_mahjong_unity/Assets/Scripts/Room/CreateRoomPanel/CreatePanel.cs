@@ -716,6 +716,12 @@ public partial class CreatePanel : MonoBehaviour {
         bool isChangsha = _ruleState == "changsha";
         bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId || _ruleState == ShangraoGameState.RuleId;
         if (!showRound) return;
+        if (_ruleState == NewChineseGameState.RuleId) {
+            SetToggleLabel(gameTime1Button,"四圈"); SetToggleLabel(gameTime2Button,"八圈");
+            SetToggleLabel(gameTime3Button,"十二圈"); SetToggleLabel(gameTime4Button,"十六圈");
+            gameTime3Button.gameObject.SetActive(true);
+            return;
+        }
         if (_ruleState == FuzhouGameState.RuleId) {
             SetToggleLabel(gameTime1Button,"一圈 4局");SetToggleLabel(gameTime2Button,"半庄 8局");
             SetToggleLabel(gameTime4Button,"一雀 16局");

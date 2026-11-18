@@ -111,7 +111,7 @@ class DatabaseManager:
                     username VARCHAR(255) NOT NULL,
                     score INT NOT NULL,
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
-                    rule VARCHAR(10) NOT NULL,
+                    rule VARCHAR(96) NOT NULL,
                     sub_rule VARCHAR(96) NULL,
                     match_type VARCHAR(24) NULL,
                     title_used INT NULL,
@@ -795,7 +795,7 @@ class DatabaseManager:
                     game_id VARCHAR(16) NOT NULL,
                     user_id BIGINT NOT NULL,
                     username VARCHAR(255) NOT NULL,
-                    rule VARCHAR(10) NOT NULL,
+                    rule VARCHAR(96) NOT NULL,
                     sub_rule VARCHAR(96) NULL,
                     room_type VARCHAR(16) NULL,
                     match_tier VARCHAR(64) NULL,
@@ -919,7 +919,7 @@ class DatabaseManager:
                     room_type VARCHAR(16) NULL,
                     match_tier VARCHAR(64) NULL,
                     event_id VARCHAR(64) NULL,
-                    rule VARCHAR(10) NOT NULL,
+                    rule VARCHAR(96) NOT NULL,
                     sub_rule VARCHAR(96) NULL,
                     game_type VARCHAR(16) NULL,
                     total_games INT NOT NULL DEFAULT 0,
@@ -946,7 +946,7 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS scene_tier_fan_daily (
                     stat_date DATE NOT NULL,
                     match_tier VARCHAR(64) NOT NULL,
-                    rule VARCHAR(10) NOT NULL DEFAULT 'guobiao',
+                    rule VARCHAR(96) NOT NULL DEFAULT 'guobiao',
                     sub_rule VARCHAR(96) NOT NULL DEFAULT '',
                     fan_field VARCHAR(32) NOT NULL,
                     fan_count INT NOT NULL DEFAULT 0,
@@ -3428,6 +3428,7 @@ DatabaseManager.store_shenyang_game_record = store_taiwan_game_record
 DatabaseManager.store_wenzhou_game_record = store_taiwan_game_record
 DatabaseManager.store_nanchang_game_record = store_taiwan_game_record
 DatabaseManager.store_shangrao_game_record = store_taiwan_game_record
+DatabaseManager.store_new_chinese_game_record = store_taiwan_game_record
 DatabaseManager.store_beijing_game_record = store_taiwan_game_record
 DatabaseManager.store_duocai_game_record = store_taiwan_game_record
 

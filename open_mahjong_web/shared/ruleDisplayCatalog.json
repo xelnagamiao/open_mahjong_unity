@@ -459,6 +459,16 @@
           "label": "吃碰提"
         }
       ]
+    },
+    {
+      "rule": "new_chinese",
+      "label": "新中式",
+      "subRules": [
+        {
+          "sub_rule": "new_chinese/standard",
+          "label": "标准规则"
+        }
+      ]
     }
   ]
 }

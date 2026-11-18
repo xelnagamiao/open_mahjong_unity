@@ -81,6 +81,7 @@ public static class PlayerInfoRuleCatalog {
         new Entry("shangrao", "shangrao", "shangrao/standard", "上饶麻将", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌得分", null),
         new Entry("duocai_guobiao", "duocai", "duocai/guobiao", "夺彩麻将·国标", 4, false, false, new string[]{"4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
         new Entry("duocai_riichi", "duocai", "duocai/riichi", "夺彩麻将·立直", 4, false, false, new string[]{"2/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
+        new Entry("new_chinese", "new_chinese", "new_chinese/standard", "新中式麻将", 4, false, true, new string[]{"4/4","8/4","12/4","16/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
         new Entry("beijing", "beijing", "beijing/chipengti", "北京麻将（吃碰提）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
     };
     private static Entry Find(string key) => Array.Find(Entries, e => e.Key == key || e.SubRule == key);

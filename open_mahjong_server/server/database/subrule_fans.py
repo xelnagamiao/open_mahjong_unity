@@ -23,6 +23,9 @@ def parse_fan_label(value, rule):
 
 
 def _fan_mapping(rule):
+    if rule == "new_chinese":
+        from ..game_calculation.new_chinese.rules import VALUES
+        return {name: name for name in VALUES}
     if rule == "qingque":
         from .qingque.store_qingque import FAN_NAME_TO_FIELD
         return FAN_NAME_TO_FIELD

@@ -31,6 +31,7 @@ from .game_fuzhou import FuzhouGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
 from .game_nanchang.NanchangGameState import NanchangGameState
 from .game_shangrao.ShangraoGameState import ShangraoGameState
+from .game_new_chinese.NewChineseGameState import NewChineseGameState
 from .game_beijing.BeijingGameState import BeijingGameState
 from .game_duocai.DuocaiGameState import DuocaiGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
@@ -92,6 +93,7 @@ class GameStateManager:
         self.user_id_to_game_state: Dict[int, Any] = {}
         self.room_id_to_NanchangGameState: Dict[str, NanchangGameState] = {}
         self.room_id_to_ShangraoGameState: Dict[str, ShangraoGameState] = {}
+        self.room_id_to_new_chinese: Dict[str, NewChineseGameState] = {}
         self.room_id_to_BeijingGameState: Dict[str, BeijingGameState] = {}
         self.room_id_to_DuocaiGameState: Dict[str, DuocaiGameState] = {}
         self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
@@ -206,7 +208,7 @@ class GameStateManager:
             "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
-            "changchun": ChangchunGameState,
+            "changchun": ChangchunGameState, "new_chinese": NewChineseGameState,
             "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "shangrao": ShangraoGameState, "beijing": BeijingGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
         }
         state_class = classes.get(room_data["room_rule"])

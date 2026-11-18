@@ -43,6 +43,7 @@ public partial class CreatePanel {
         BakeFilipinoDetailsPanel();
         BakeShangraoDetailsPanel();
         BakeBeijingDetailsPanel();
+        BakeRegionalDetailsPanel("new_chinese","新中式麻将");
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
         BakeGuangdongRoomControls();

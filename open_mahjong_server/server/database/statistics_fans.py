@@ -66,6 +66,9 @@ def fan_names(sub_rule):
         if sub_rule == "changsha/exchange_six":
             names += ["十三将", "无对十三将", "全幺九", "报听", "明牌", "闷杠"]
         return _names(names)
+    if sub_rule == "new_chinese/standard":
+        from ..game_calculation.new_chinese.rules import VALUES
+        return _names(VALUES)
     if sub_rule == "zhongyong/standard":
         from ..game_calculation.zhongyong.scoring import FANS
         return _names([*(definition[0] for definition in FANS.values()), "鸡和"])

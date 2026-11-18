@@ -5,6 +5,12 @@ from .legacy_statistics import FAMILIES
 
 
 def ensure_statistics_schema(cursor):
+    cursor.execute("""SELECT table_name FROM information_schema.columns
+                      WHERE table_schema = current_schema() AND column_name = 'rule'
+                        AND table_name IN ('game_player_records', 'game_player_metrics', 'scene_daily_stats', 'scene_tier_fan_daily')
+                        AND character_maximum_length < 96""")
+    for (table,) in cursor.fetchall():
+        cursor.execute(sql.SQL("ALTER TABLE {} ALTER COLUMN rule TYPE VARCHAR(96)").format(sql.Identifier(table)))
     cursor.execute("ALTER TABLE game_player_metrics ADD COLUMN IF NOT EXISTS fan_stats JSONB")
     # 复式子规则标识超过旧的 32 字符限制。
     for table in ("game_player_records", "game_player_metrics"):

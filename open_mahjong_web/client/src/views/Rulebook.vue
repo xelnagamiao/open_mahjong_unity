@@ -85,6 +85,7 @@ import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebo
 import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
 import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from '@/constants/shangraoRulebooks.js'
 import { duocaiRulebooks, DUOCAI_DESCRIPTION } from '../constants/duocaiRulebooks.js'
+import { newChineseRulebooks, NEW_CHINESE_DESCRIPTION } from '../constants/newChineseRulebooks.js'
 import { beijingRulebooks, BEIJING_DESCRIPTION } from '../constants/beijingRulebooks.js'
 import { hongqueRulebooks, hongqueRulebook } from '../constants/hongqueRulebooks.js'
 import { FORMULA_RULEBOOK } from '../constants/formulaRulebook.js'
@@ -389,6 +390,7 @@ const rules = [
     key: 'duocai', label: '夺彩麻将', short: '夺彩', categories: ['platform', 'custom'], accent: '#8b6b32',
     description: DUOCAI_DESCRIPTION, docs: duocaiRulebooks,
   },
+  { key: 'new_chinese', label: '新中式麻将', short: '新中式', categories: ['platform', 'custom'], accent: '#7b5340', description: NEW_CHINESE_DESCRIPTION, docs: newChineseRulebooks },
   {
     key: 'beijing', label: '北京麻将（吃碰提）', short: '北京', categories: ['platform', 'local'], accent: '#925a46', description: BEIJING_DESCRIPTION, docs: beijingRulebooks,
   },

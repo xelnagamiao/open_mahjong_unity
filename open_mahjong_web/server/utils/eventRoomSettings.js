@@ -12,6 +12,7 @@ const { normalizeFuzhouRoomConfig } = require('./fuzhouRoomSettings');
 const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
 const { normalizeNanchangRoomConfig } = require('./nanchangRoomSettings');
 const { normalizeDuocaiRoomConfig } = require('./duocaiRoomSettings');
+const { normalizeNewChineseRoomConfig } = require('./newChineseRoomSettings');
 const { normalizeBeijingRoomConfig } = require('./beijingRoomSettings');
 const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
 const { normalizeSingaporeRoomConfig } = require('./singaporeRoomSettings');
@@ -27,6 +28,7 @@ const MAX_PRESETS = 50;
 const MAX_STORED_PRESETS = MAX_PRESETS + 1;
 const DEFAULT_SUB_RULES = Object.freeze({
   hongque: 'hongque/v1.6',
+  new_chinese: 'new_chinese/standard',
   beijing: 'beijing/chipengti',
   duocai: 'duocai/guobiao',
   guobiao: 'guobiao/standard',
@@ -80,6 +82,7 @@ const exchangeOptions = require('../../shared/changshaExchangeSixOptions.json');
 function defaultConfig(rule = 'guobiao') {
   if (rule === 'shangrao') return normalizeShangraoRoomConfig({}, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig({}, SettingsError);
+  if (rule === 'new_chinese') return normalizeNewChineseRoomConfig({}, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig({}, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig({}, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
@@ -164,6 +167,7 @@ function normalizeRoomConfig(rule, raw) {
 function normalizeBaseRoomConfig(rule, raw) {
   if (rule === 'shangrao') return normalizeShangraoRoomConfig(raw, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig(raw, SettingsError);
+  if (rule === 'new_chinese') return normalizeNewChineseRoomConfig(raw, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig(raw, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig(raw, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig(raw, SettingsError);

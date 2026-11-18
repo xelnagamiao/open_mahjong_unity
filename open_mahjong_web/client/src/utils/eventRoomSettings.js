@@ -13,6 +13,7 @@ import { buildWenzhouRoomPayload, loadWenzhouForm } from './wenzhouRoomConfig.js
 import { buildNanchangRoomPayload, loadNanchangForm } from './nanchangRoomConfig.js'
 import { buildShangraoRoomPayload, loadShangraoForm, SHANGRAO_OPTIONS } from './shangraoRoomConfig.js'
 import { buildDuocaiRoomPayload, loadDuocaiForm, duocaiProfile } from './duocaiRoomConfig.js'
+import { buildNewChineseRoomPayload, loadNewChineseForm } from './newChineseRoomConfig.js'
 import { buildBeijingRoomPayload, loadBeijingForm, beijingRoomRows, BEIJING_HUN_MODES } from './beijingRoomConfig.js'
 import { buildHangzhouRoomPayload, loadHangzhouForm } from './hangzhouRoomConfig.js'
 import { buildSingaporeRoomPayload, loadSingaporeForm } from './singaporeRoomConfig.js'
@@ -57,6 +58,7 @@ export function createEventRoomForm(settings = {}) {
   if (form.room_rule === 'nanchang') loadNanchangForm(form, config)
   if (form.room_rule === 'shangrao') loadShangraoForm(form, config)
   if (form.room_rule === 'hongque') loadHongqueForm(form, config)
+  if (form.room_rule === 'new_chinese') loadNewChineseForm(form, config)
   if (form.room_rule === 'beijing') loadBeijingForm(form, config)
   if (form.room_rule === 'duocai') loadDuocaiForm(form, config)
   if (form.room_rule === 'hangzhou') loadHangzhouForm(form, config)
@@ -113,6 +115,7 @@ function buildBaseEventRoomSettings(form) {
   if (form.room_rule === 'wenzhou') return buildWenzhouRoomPayload(form)
   if (form.room_rule === 'nanchang') return buildNanchangRoomPayload(form)
   if (form.room_rule === 'shangrao') return buildShangraoRoomPayload(form)
+  if (form.room_rule === 'new_chinese') return buildNewChineseRoomPayload(form)
   if (form.room_rule === 'beijing') return buildBeijingRoomPayload(form)
   if (form.room_rule === 'duocai') return buildDuocaiRoomPayload(form)
   if (form.room_rule === 'hangzhou') return buildHangzhouRoomPayload(form)
@@ -190,6 +193,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
   if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
+  if (form.room_rule === 'new_chinese') return `${rule} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'}`
   if (form.room_rule === 'beijing') return `${rule} · ${form.game_round}圈 · ${BEIJING_HUN_MODES[form.beijing_hun_mode]} · 庄和连庄`
   if (form.room_rule === 'duocai') return `${rule} · ${duocaiProfile(form.sub_rule)?.label || form.sub_rule} · ${duocaiProfile(form.sub_rule)?.roundLabel || ''} · 起始40000点`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
@@ -357,6 +361,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
     rows.push(...hongqueRoomRows(form))
   }
+  if (form.room_rule === 'new_chinese') rows.push({ label: '换三张', value: form.exchange_three ? '开启' : '关闭' })
   if (form.room_rule === 'beijing') {
     const timer = rows.find(row => row.label === '局时')
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }

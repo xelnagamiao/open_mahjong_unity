@@ -112,6 +112,7 @@ public static class GameRecordJsonDecoder {
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
         round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
         round.shangrao = (roundData["shangrao"] as JObject)?.ToObject<ShangraoInfo>();
+        round.newChinese = (roundData["new_chinese"] as JObject)?.ToObject<NewChineseInfo>();
         round.beijing = (roundData["beijing"] as JObject)?.ToObject<BeijingInfo>();
         round.beijingHints = (roundData["beijing_hints"] as JObject)?.ToObject<Dictionary<int,BeijingHints>>();
         round.duocai = (roundData["duocai"] as JObject)?.ToObject<DuocaiInfo>();
