@@ -63,8 +63,9 @@ public sealed class SelfStatusBanner : MonoBehaviour {
         if (currentText == text && currentTile == tileId) return;
         currentText = text;
         currentTile = tileId;
-        label.text = text;
-        Vector2 textSize = label.GetPreferredValues(text, Mathf.Infinity, Mathf.Infinity);
+        TableText.Set(label, text);
+        label.GetComponent<PlatformFontBinding>()?.Apply();
+        Vector2 textSize = label.GetPreferredValues(label.text, Mathf.Infinity, Mathf.Infinity);
         float textWidth = Mathf.Ceil(textSize.x);
         float tileWidth = tileId > 0 ? 32f : 0f;
         float tileHeight = tileId > 0 ? TileFaceFit.HandSizeFor(tileId, tileWidth).y : 0f;
