@@ -323,7 +323,8 @@ public partial class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         waitingTiles.Sort();
         GuobiaoHintTiming guobiaoTiming = pendingCutTileId.HasValue ? null : GuobiaoGameState.Active?.BuildHintTiming();
-        int actualDraw = guobiaoTiming?.DrawTile ?? 0;
+        var sbrWindow = pendingCutTileId.HasValue ? null : SichuanGameState.Active?.ExchangeWindow;
+        int actualDraw = sbrWindow?.draw == true ? sbrWindow.tile : guobiaoTiming?.DrawTile ?? 0;
         var displayedWaiting = actualDraw > 0
             ? waitingTiles.Where(tile => WashizuTile.Face(tile) == WashizuTile.Face(actualDraw)).ToList() : waitingTiles;
         PrepareHintRows(gameManager.subRule, displayedWaiting);
@@ -390,7 +391,8 @@ public partial class TipsContainer : MonoBehaviour
                 SubRule = gameManager.subRule,
                 HepaiLimit = gameManager.hepaiLimit,
                 JinluoMode = GameSession.Current.JinluoMode, JinluoWeather = GameSession.Current.JinluoWeather,
-                GuobiaoTiming = guobiaoTiming,
+                GuobiaoTiming = guobiaoTiming, SbrWindow = sbrWindow,
+                SbrPassedFan = gameManager.subRule == SichuanLobby.SbrExchange ? SbrExchangeTips.PassedFan(selfInfo.tag_list) : -1,
                 JokerMultiWait = GameSession.Current.JokerMultiWait,
                 NoJokerBonus = GameSession.Current.NoJokerBonus, BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
                 SelfIndex = gameManager.selfIndex,

@@ -12,6 +12,7 @@ const { normalizeFuzhouRoomConfig } = require('./fuzhouRoomSettings');
 const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
 const { normalizeNanchangRoomConfig } = require('./nanchangRoomSettings');
 const { normalizeDuocaiRoomConfig } = require('./duocaiRoomSettings');
+const { normalizeNewChineseRoomConfig } = require('./newChineseRoomSettings');
 const { normalizeBeijingRoomConfig } = require('./beijingRoomSettings');
 const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
 const { normalizeSingaporeRoomConfig } = require('./singaporeRoomSettings');
@@ -27,6 +28,7 @@ const MAX_PRESETS = 50;
 const MAX_STORED_PRESETS = MAX_PRESETS + 1;
 const DEFAULT_SUB_RULES = Object.freeze({
   hongque: 'hongque/v1.6',
+  new_chinese: 'new_chinese/standard',
   beijing: 'beijing/chipengti',
   duocai: 'duocai/guobiao',
   guobiao: 'guobiao/standard',
@@ -80,6 +82,7 @@ const exchangeOptions = require('../../shared/changshaExchangeSixOptions.json');
 function defaultConfig(rule = 'guobiao') {
   if (rule === 'shangrao') return normalizeShangraoRoomConfig({}, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig({}, SettingsError);
+  if (rule === 'new_chinese') return normalizeNewChineseRoomConfig({}, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig({}, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig({}, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
@@ -164,6 +167,7 @@ function normalizeRoomConfig(rule, raw) {
 function normalizeBaseRoomConfig(rule, raw) {
   if (rule === 'shangrao') return normalizeShangraoRoomConfig(raw, SettingsError);
   if (rule === 'hongque') return normalizeHongqueRoomConfig(raw, SettingsError);
+  if (rule === 'new_chinese') return normalizeNewChineseRoomConfig(raw, SettingsError);
   if (rule === 'beijing') return normalizeBeijingRoomConfig(raw, SettingsError);
   if (rule === 'duocai') return normalizeDuocaiRoomConfig(raw, SettingsError);
   if (rule === 'wuhan') return normalizeWuhanRoomConfig(raw, SettingsError);
@@ -210,7 +214,7 @@ function normalizeBaseRoomConfig(rule, raw) {
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
     : rule === 'changsha' ? ['changsha/classic_double_bird', 'changsha/exchange_six'].includes(config.sub_rule)
     : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime', washizuCaptain.sub_rule].includes(config.sub_rule)
-    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
+    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
@@ -221,6 +225,7 @@ function normalizeBaseRoomConfig(rule, raw) {
   if (rule === 'sichuan') {
     integerField(config, 'hepai_limit', 0, 64, '起和番');
     if (config.sub_rule.includes('doubles')) { config.hepai_limit = 0; config.blood_battle = !config.sub_rule.includes('xueliu'); }
+    if (config.sub_rule === 'sichuan/xuezhan_exchange') config.blood_battle = true;
   }
   if (rule === 'shanxi') {
     const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
@@ -254,6 +259,7 @@ function normalizeBaseRoomConfig(rule, raw) {
     const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
     config.detailed_config = normalizeGuangdongDetails(config.sub_rule, detail, SettingsError);
   }
+  if (config.sub_rule === 'guangdong/mil2023-doubles' && ![2, 4].includes(config.game_round)) throw new SettingsError(400, '广东双打每盘八副');
   integerField(config, 'game_round', 1, 4, '圈数');
   if (rule === 'changsha' && ![1, 2, 4].includes(config.game_round)) {
     throw new SettingsError(400, '长沙麻将圈数必须为 1、2 或 4');

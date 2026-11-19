@@ -166,6 +166,11 @@ public class RoomConfigContainer : MonoBehaviour {
             result.Add(new KeyValuePair<string,string>("补发财","自愿补牌；弃出不计分"));
             return;
         }
+        if (roomInfo.sub_rule == GuangdongMilRules.Doubles) {
+            result.Add(new KeyValuePair<string,string>("规则底本", "MIL 广东推广 2V2 双打"));
+            result.Add(new KeyValuePair<string,string>("鸡和", "仅限门清，每队每副一次"));
+            return;
+        }
         if (roomInfo.sub_rule == GuangdongMilRules.SubRule) {
             bool minimum = roomInfo.detailed_config == null || !roomInfo.detailed_config.TryGetValue("require_minimum_score", out object raw) || raw?.ToString().ToLowerInvariant() != "false";
             result.Add(new KeyValuePair<string,string>("规则底本", "MIL 2023 花鬼"));

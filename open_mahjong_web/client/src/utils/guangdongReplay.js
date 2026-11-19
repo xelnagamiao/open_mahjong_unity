@@ -1,5 +1,9 @@
+export function isGuangdongDoublesRecord(detail) {
+  return (detail?.record?.game_title?.sub_rule ?? detail?.sub_rule) === 'guangdong/mil2023-doubles'
+}
+
 export function isGuangdongMilRecord(detail) {
-  return (detail?.sub_rule || detail?.record?.game_title?.sub_rule) === 'guangdong/mil2023'
+  return ['guangdong/mil2023', 'guangdong/mil2023-doubles'].includes(detail?.sub_rule || detail?.record?.game_title?.sub_rule)
 }
 
 /** Metadata is explanatory. Scores are applied only by hu/kong_score/refund_kongs. */
@@ -20,7 +24,7 @@ export function guangdongInfoAt(round, node) {
 export function parseGuangdongFan(value) {
   const fields = String(value || '').split('|')
   if (fields.length !== 4 || fields[0] !== 'GD') return null
-  return { id: fields[1], name: fields[3], value: /^[×x]/.test(fields[2]) ? fields[2] : `${fields[2]}番` }
+  return { id: fields[1], name: fields[3], value: fields[1] === 'chicken' ? '' : /^[×x]/.test(fields[2]) ? fields[2] : `${fields[2]}番` }
 }
 
 export function guangdongTileName(tile) {

@@ -45,6 +45,7 @@ public static class SelfStatusBannerValidation {
             Check(label.rectTransform.anchoredPosition.x + label.preferredWidth <= banner.ContentWidth, name + ": solid background covers label");
             foreach (var card in root.GetComponentsInChildren<StaticCard>()) {
                 var cr = (RectTransform)card.transform;
+                Check(cr.anchoredPosition.x >= label.rectTransform.anchoredPosition.x + label.preferredWidth + 11.9f, name + ": tile clears the rendered label");
                 Check(cr.anchoredPosition.x + cr.rect.width <= banner.ContentWidth, name + ": solid background covers tile");
                 Check(cr.rect.height <= rect.rect.height, name + ": tile fits height");
                 var tileCorners = new Vector3[4];
@@ -73,10 +74,14 @@ public static class SelfStatusBannerValidation {
             Check(roots.All(r => !r.activeSelf), "reset clears every status");
             canvas.SetSelfBaoIndicator(false, 15, false, false);
             Check(!roots[2].activeSelf, "unseen bao payload cannot reveal a tile");
+            float? firstTileLeft = null;
             foreach (int id in new[] { 11, 15, 29, 31, 41, 46, 47 }) {
                 canvas.SetSelfBaoIndicator(true, id, false, false);
                 Check(roots[2].GetComponent<SelfStatusBanner>().TileId==id, "authorized bao tile " + id);
                 CheckBanner(roots[2], "bao " + id);
+                float left = ((RectTransform)roots[2].GetComponentInChildren<StaticCard>().transform).anchoredPosition.x;
+                firstTileLeft ??= left;
+                Check(Mathf.Approximately(left, firstTileLeft.Value), "first reveal and replacement align " + id);
             }
             Check(roots[2].GetComponent<UnityEngine.UI.Image>().color == roots[1].GetComponent<UnityEngine.UI.Image>().color, "bao and wave share blue theme");
             int children = roots[2].GetComponentsInChildren<Transform>(true).Length;

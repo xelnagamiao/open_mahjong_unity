@@ -127,9 +127,10 @@ internal static partial class RegionalLocalCalculator {
             }
             case "guangdong": {
                 int discarded=Int(c,"discarded_ghosts")+(cut>=55&&cut<=58?1:0);
-                var row=GuangdongBaseHints.Evaluate(hand,melds,win,(bool?)c["require_minimum_score"]??true,discarded);var result=JObject.FromObject(row);
+                var row=GuangdongBaseHints.Evaluate(hand,melds,win,(bool?)c["require_minimum_score"]??true,discarded,
+                    Bool(c,"doubles"), (bool?)c["chicken_available"] ?? true, Bool(c,"blocked"));var result=JObject.FromObject(row);
                 result["kind"]=row.ron?"dianhe":row.self_draw?"zimo":"wuyi";
-                result["label"]=row.ron?$"点和{row.ron_fan}番{row.ron_score}分"+(row.self_draw?$"\n自摸{row.self_draw_fan}番{row.self_draw_score}分":""):row.self_draw?$"自摸{row.self_draw_fan}番{row.self_draw_score}分":"未起和";
+                result["label"]=row.ron?$"点和{row.ron_fan}番{row.ron_score}分"+(row.self_draw?$"\n自摸{row.self_draw_fan}番{row.self_draw_score}分":""):row.self_draw?(Bool(c,"doubles")?"仅自摸":"自摸")+$"{row.self_draw_fan}番{row.self_draw_score}分":row.restricted?"未满足":"未起和";
                 return result;
             }
             case "hangzhou":case "hongzhong": {

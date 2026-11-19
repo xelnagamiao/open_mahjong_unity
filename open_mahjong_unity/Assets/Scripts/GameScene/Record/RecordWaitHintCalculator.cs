@@ -55,6 +55,8 @@ public static class RecordWaitHintCalculator {
                 HepaiLimit = ctx.HepaiLimit,
                 JinluoMode = ctx.JinluoMode, JinluoWeather = ctx.JinluoWeather,
                 GuobiaoTiming = pendingCut.HasValue ? null : ctx.GuobiaoTiming,
+                SbrWindow = pendingCut.HasValue ? null : ctx.SbrWindow,
+                SbrPassedFan = ctx.SbrPassedFan,
                 JokerMultiWait = ctx.JokerMultiWait,
                 NoJokerBonus = ctx.NoJokerBonus, BlackFlowerProgressive = ctx.BlackFlowerProgressive,
                 SelfIndex = ctx.SelfPlayerIndex,

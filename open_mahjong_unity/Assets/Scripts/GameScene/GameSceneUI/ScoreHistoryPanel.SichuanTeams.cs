@@ -103,7 +103,7 @@ public partial class ScoreHistoryPanel {
 
     private void ApplySichuanTeamColumns(string subRule, IReadOnlyList<int> teams,
         int[] originalIndices, int[] scores, List<string>[] histories, int roundCount, int predictedCount) {
-        if (!SichuanLobby.IsTeamMode(subRule) || !ValidSichuanTeams(teams)) return;
+        if (!SichuanRoundScoreState.Supports(subRule) || !ValidSichuanTeams(teams)) return;
         var names = player0UserName != null ? player0UserName.transform.parent as RectTransform : null;
         var header = names != null ? names.parent as RectTransform : null;
         var counts = header != null ? header.Find("Count") as RectTransform : null;

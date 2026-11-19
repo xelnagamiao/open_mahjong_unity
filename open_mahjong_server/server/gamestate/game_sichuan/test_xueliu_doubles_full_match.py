@@ -13,8 +13,8 @@ from ..public.lifecycle import cancel_auxiliary_tasks
 from ..public.hand_slot_utils import has_draw_slot
 
 
-async def play_match(seed):
-    state, messages = make_state()
+async def play_match(seed, state_factory=make_state):
+    state, messages = state_factory()
     state.room_random_seed = seed
     state.db_manager.store_sichuan_game_record.return_value = None
     real_sleep = asyncio.sleep
@@ -45,10 +45,10 @@ async def play_match(seed):
                     return
                 if choice is None:
                     if 'cut' in actions:
-                        choice, tile, cut_index = choose_hand(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, state.xueliu_meld_count, player.dingque_suit, player.post_hu_lock)
+                        choice, tile, cut_index = choose_hand(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, 4, player.dingque_suit, player.post_hu_lock)
                     elif 'peng' in actions or 'gang' in actions:
                         tile = state.player_list[state.current_player_index].discard_tiles[-1]
-                        choice = choose_claim(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, tile, state.xueliu_meld_count, player.dingque_suit)
+                        choice = choose_claim(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, tile, 4, player.dingque_suit)
                     else:
                         choice = 'pass'
                 fields = {'targetTile': tile} if choice in ('angang', 'jiagang') else {}

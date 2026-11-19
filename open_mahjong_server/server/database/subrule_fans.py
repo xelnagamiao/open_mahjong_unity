@@ -13,6 +13,11 @@ def parse_fan_label(value, rule):
     # 虹雀标签“番名*次数|合计番值”：|N 是番值，*N 才是达成数量。
     if rule == "hongque":
         name = re.sub(r"\|\d+(?:\.\d+)?$", "", name)
+    if rule == "guangdong" and name.startswith("GD|"):
+        fields = name.split("|")
+        if len(fields) != 4 or fields[1] == "coefficient":
+            return None, 0
+        name = fields[3]
     count = 1
     multiple = re.fullmatch(r"(.+?)\s*[*×]\s*(\d+)", name)
     if multiple:
@@ -23,6 +28,12 @@ def parse_fan_label(value, rule):
 
 
 def _fan_mapping(rule):
+    if rule == "guangdong":
+        from .statistics_fans import fan_names
+        return fan_names("guangdong/mil2023-doubles")
+    if rule == "new_chinese":
+        from ..game_calculation.new_chinese.rules import VALUES
+        return {name: name for name in VALUES}
     if rule == "qingque":
         from .qingque.store_qingque import FAN_NAME_TO_FIELD
         return FAN_NAME_TO_FIELD

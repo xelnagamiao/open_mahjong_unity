@@ -9,6 +9,8 @@ internal static class SichuanRuleBootstrap {
             RuleId = SichuanGameState.RuleId,
             DefaultSubRule = "sichuan/standard",
             DisplayName = "四川麻将",
+            RulebookPath = (subRule, config) => subRule == SichuanLobby.SbrExchange
+                ? "/rulebook/sichuan?sub_rule=" + System.Uri.EscapeDataString(subRule) : "/rulebook/sichuan",
             LobbyOrder = 3,
             LobbySubRules = SichuanLobby.SubRules,
             CreateRoomDefaults = SichuanLobby.Defaults(),

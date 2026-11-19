@@ -18,6 +18,7 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>自家定缺花色（1万/2饼/3条，0未定）。供切牌置灰与听牌提示过滤。</summary>
     public int SelfDingqueSuit { get; set; }
+    public SbrExchangeWindow ExchangeWindow { get; private set; }
 
     /// <summary>血战到底：收到 round_continues=true 的和牌结算后挂起，待下次询问时恢复行牌。</summary>
     public bool PendingContinueAfterResult { get; private set; }
@@ -47,6 +48,7 @@ public class SichuanGameState : TurnBasedGameState {
         if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanClaimRestore");
         claimWaitClock.Reset();
         RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
+        ExchangeWindow = null;
         snapshotActionTick = gameInfo?.action_tick ?? 0;
         if (Session.IsDuplicate) Clock.LastAskActionTick = snapshotActionTick;
         RestoreDuplicateWall(gameInfo);
@@ -109,6 +111,7 @@ public class SichuanGameState : TurnBasedGameState {
     protected override void OnAskHandAction(Response response) {
         AskHandActionGBInfo info = response.ask_hand_action_info;
         if (info == null || claimWaitClock.IsStaleAsk(info.action_tick, Clock.LastAskActionTick)) return;
+        ExchangeWindow = info.sbr_window;
         if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanHandAsk");
         if (info?.xueliu_exchange != null) {
             if (info.action_tick < Clock.LastAskActionTick) return;
@@ -136,6 +139,7 @@ public class SichuanGameState : TurnBasedGameState {
     protected override void OnAskClaim(Response response) {
         AskOtherActionGBInfo info = response.ask_other_action_info;
         if (info == null || claimWaitClock.IsStaleAsk(info.action_tick, Clock.LastAskActionTick)) return;
+        ExchangeWindow = info.sbr_window;
         bool retained = Session.IsDuplicate && SichuanLobby.IsDuplicate(Session.SubRule)
             && info.is_tactical_recheck != true && SichuanClaimWaitClock.IsRetainedMode(info.claim_wait_mode);
         if (!retained) {
@@ -363,6 +367,7 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>杠即时分变：累加分数并飘字。</summary>
     protected override void OnActionPlayed(TableAction action) {
+        if (!action.IsClaim) ExchangeWindow = null;
         if (Session.IsDuplicate && action.SichuanWallMasks != null) {
             Mirror.SetSichuanWallMasks(action.SichuanWallMasks);
             Game3DManager.Instance?.UpdateSichuanWall(action.SichuanWallMasks);

@@ -82,7 +82,7 @@ def test_qiaoma_counts_patterns_without_flower_or_cap_payment_annotations():
 
 def test_workbook_and_generated_web_catalog_agree_for_every_rule():
     from scripts.validate_rule_support_table import validate, ROOT
-    assert validate()['番种统计'] == 27
+    assert validate()['番种统计'] == 30
     web_rules = json.loads((ROOT / 'open_mahjong_web/shared/statisticsRules.json').read_text(encoding='utf-8'))['rules']
     assert web_rules == RULES
     web_fans = json.loads((ROOT / 'open_mahjong_web/shared/statisticsFans.json').read_text(encoding='utf-8'))

@@ -1,5 +1,5 @@
 {
-  "sim_client_version": 5,
+  "sim_client_version": 6,
   "replay_hand_state": {
     "ron_tile": "hasRonWinningTile records whether the replay state has appended the winning tile; never infer this from hand length or tile identity",
     "changsha_multiple_ron": "replace the previously appended winning tile when the same player wins on another kong replacement tile",
@@ -223,6 +223,9 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/ZhongyongGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/NanqueGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guobiao/GuobiaoBloodBattleReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/GuangdongProtocol.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guangdong/GuangdongMilGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guangdong/GuangdongMilReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs",
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/MalaysiaProtocol.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaGameState.cs",
@@ -258,6 +261,13 @@
     "zhongyong/nanque": {
       "blood_battle": true,
       "deferred_score_settlement": true
+    },
+    "guangdong/mil2023-doubles": {
+      "deferred_score_settlement": true,
+      "public_win_tags": ["gd_chicken", "gd_non_chicken"],
+      "referee_message": "adjudication",
+      "basic_statistics": true,
+      "fan_statistics": true
     },
     "malaysia/traditional84": {
       "state_machine": [

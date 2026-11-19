@@ -60,6 +60,17 @@ test('closing carries the exact room instance and audits both paired room IDs', 
   assert.equal(audits[0].adminUserId, 101);
 });
 
+test('doubles rulings identify the board and original seat and audit the authenticated official', async () => {
+  const { service, calls, audits } = fixture();
+  const command = { gamestate_id: 'gd-game', round_index: 3, original_seat: 0, decision: 'forfeit' };
+  await assert.rejects(service.ruling(101, '1', command), { status: 400 });
+  await service.ruling(101, '1', { ...command, reason: '裁判当盘判负' });
+  assert.deepEqual(calls[0].body, command);
+  assert.equal(calls[0].path, '/admin/rooms/1/ruling');
+  assert.equal(audits[0].adminUserId, 101);
+  assert.equal(audits[0].action, 'room.ruling');
+});
+
 test('stale close failure never writes a success audit', async () => {
   const { service, audits } = fixture({ proxyToGameServer: async () => ({ status: 409, data: { detail: '房间已发生变化' } }) });
   await assert.rejects(service.close(101, '1', { instance_id: 'old', reason: '清理' }), { status: 409 });

@@ -24,6 +24,7 @@ public partial class GameCanvas {
     private Coroutine _xueliuCountdownCoroutine;
     private bool _xueliuSelecting;
     private bool _xueliuExchange;
+    private bool _newChineseExchange;
     private string XueliuOpeningLabel => _xueliuExchange ? "换三张" : "弃三张";
     private readonly List<TileCard> _xueliuSelectedCards = new List<TileCard>(3);
 
@@ -147,21 +148,29 @@ public partial class GameCanvas {
     }
 
     /// <summary>血流开局弃三张：复用定缺面板的按钮作为提交入口，牌面本身负责选择。</summary>
-    public void ShowXueliuThrowThreeSelection(int seconds = 10, bool exchange = false) {
+    public void ShowXueliuThrowThreeSelection(int seconds = 10, bool exchange = false, bool anyThreeOptional = false) {
         if (IsDingqueSelectionSuppressed()) return;
         HideXueliuThrowThreeSelection();
         _xueliuSelecting = true;
         _xueliuExchange = exchange;
+        _newChineseExchange = anyThreeOptional;
         _xueliuSelectedCards.Clear();
         if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(true);
-        SetDingqueTip($"{XueliuOpeningLabel}：选择同花牌（已选 0/3）");
+        SetDingqueTip(anyThreeOptional ? "换三张（已选 0/3）" : $"{XueliuOpeningLabel}：选择同花牌（已选 0/3）");
         if (dingqueWanButton != null) {
             dingqueWanButton.gameObject.SetActive(true);
             SetDingqueButtonLabel(dingqueWanButton, _xueliuExchange ? "提交换牌" : "提交弃牌");
             dingqueWanButton.onClick.RemoveAllListeners();
             dingqueWanButton.onClick.AddListener(SubmitXueliuThrowThree);
         }
-        if (dingqueBingButton != null) dingqueBingButton.gameObject.SetActive(false);
+        if (dingqueBingButton != null) {
+            dingqueBingButton.gameObject.SetActive(anyThreeOptional);
+            if (anyThreeOptional) {
+                SetDingqueButtonLabel(dingqueBingButton,"不换");
+                dingqueBingButton.onClick.RemoveAllListeners();
+                dingqueBingButton.onClick.AddListener(PassNewChineseExchange);
+            }
+        }
         if (dingqueTiaoButton != null) dingqueTiaoButton.gameObject.SetActive(false);
         if (dingqueCountdownText != null) dingqueCountdownText.text = Mathf.Max(1, seconds).ToString();
         SetXueliuCardSelectability(true);
@@ -202,12 +211,12 @@ public partial class GameCanvas {
     public bool TryHandleXueliuTileClick(TileCard card) {
         if (!_xueliuSelecting || card == null) return false;
         int suit = card.tileId / 10;
-        if (suit < 1 || suit > 3) return true;
+        if (!_newChineseExchange && (suit < 1 || suit > 3)) return true;
         if (_xueliuSelectedCards.Contains(card)) {
             _xueliuSelectedCards.Remove(card);
             card.SetXueliuSelected(false);
         } else {
-            if (_xueliuSelectedCards.Count > 0 && _xueliuSelectedCards[0].tileId / 10 != suit) {
+            if (!_newChineseExchange && _xueliuSelectedCards.Count > 0 && _xueliuSelectedCards[0].tileId / 10 != suit) {
                 SetDingqueTip("三张必须是同一花色");
                 return true;
             }
@@ -215,7 +224,7 @@ public partial class GameCanvas {
             _xueliuSelectedCards.Add(card);
             card.SetXueliuSelected(true);
         }
-        SetDingqueTip(string.IsNullOrEmpty(_xueliuTeamHint) ? $"{XueliuOpeningLabel}：选择同花牌（已选 {_xueliuSelectedCards.Count}/3）" : $"{_xueliuTeamHint}已选 {_xueliuSelectedCards.Count}/3");
+        SetDingqueTip(_newChineseExchange ? $"换三张（已选 {_xueliuSelectedCards.Count}/3）" : string.IsNullOrEmpty(_xueliuTeamHint) ? $"{XueliuOpeningLabel}：选择同花牌（已选 {_xueliuSelectedCards.Count}/3）" : $"{_xueliuTeamHint}已选 {_xueliuSelectedCards.Count}/3");
         return true;
     }
 
@@ -226,6 +235,7 @@ public partial class GameCanvas {
             yield return new WaitForSeconds(1f);
             remain--;
         }
+        if (_newChineseExchange) { PassNewChineseExchange(); yield break; }
         if (_xueliuSelecting) {
             SelectDefaultXueliuCards();
             SubmitXueliuThrowThree();
@@ -254,12 +264,12 @@ public partial class GameCanvas {
 
     private void SubmitXueliuThrowThree() {
         if (!_xueliuSelecting || _xueliuSelectedCards.Count != 3) {
-            SetDingqueTip("请选择同一花色的三张牌");
+            SetDingqueTip(_newChineseExchange ? "请选择三张牌" : "请选择同一花色的三张牌");
             return;
         }
         List<int> tiles = new List<int>(3);
         foreach (TileCard card in _xueliuSelectedCards) tiles.Add(card.tileId);
-        if (tiles[0] / 10 != tiles[1] / 10 || tiles[0] / 10 != tiles[2] / 10) return;
+        if (!_newChineseExchange && (tiles[0] / 10 != tiles[1] / 10 || tiles[0] / 10 != tiles[2] / 10)) return;
         _xueliuSelecting = false;
         if (_xueliuCountdownCoroutine != null) {
             StopCoroutine(_xueliuCountdownCoroutine);
@@ -269,10 +279,20 @@ public partial class GameCanvas {
         _xueliuSelectedCards.Clear();
         if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(false);
         SetXueliuCardSelectability(false);
-        GameStateNetworkManager.Instance.SendAction(_xueliuExchange ? "xueliu_exchange_three" : "xueliu_throw_three", 0, 0, tiles);
+        GameStateNetworkManager.Instance.SendAction(_newChineseExchange ? "exchange_three" : _xueliuExchange ? "xueliu_exchange_three" : "xueliu_throw_three", 0, 0, tiles);
+    }
+
+    private void PassNewChineseExchange() {
+        HideXueliuThrowThreeSelection();
+        GameStateNetworkManager.Instance.SendAction("pass",0);
+    }
+
+    public void HideNewChineseExchange() {
+        if (_newChineseExchange) HideXueliuThrowThreeSelection();
     }
 
     public void HideXueliuThrowThreeSelection() {
+        _newChineseExchange = false;
         _xueliuTeamHint = "";
         _xueliuSelecting = false;
         if (_xueliuCountdownCoroutine != null) {

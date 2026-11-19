@@ -14,6 +14,7 @@ from .fuzhou_room import FuzhouRoomValidator, create_fuzhou_room
 from .wenzhou_room import WenzhouRoomValidator, create_wenzhou_room
 from .nanchang_room import NanchangRoomValidator, create_nanchang_room
 from .shangrao_room import ShangraoRoomValidator, create_shangrao_room
+from .new_chinese_room import NewChineseRoomValidator, create_new_chinese_room
 from .beijing_room import BeijingRoomValidator, create_beijing_room
 from .duocai_room import DuocaiRoomValidator, create_duocai_room
 from .changchun_room import ChangchunRoomValidator
@@ -74,6 +75,7 @@ class RoomManager:
             "wenzhou": WenzhouRoomValidator,
             "nanchang": NanchangRoomValidator,
             "shangrao": ShangraoRoomValidator,
+            "new_chinese": NewChineseRoomValidator,
             "beijing": BeijingRoomValidator,
             "duocai": DuocaiRoomValidator,
             "hangzhou": HangzhouRoomValidator,
@@ -1280,7 +1282,7 @@ class RoomManager:
                 "tactical_call": tactical_call,
                 # 血流有自己的“和后留桌直到牌墙结束”状态机，
                 # 不接受标准四川血战开关覆盖。
-                "blood_battle": False if sub_rule in ("sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles") else blood_battle,
+                "blood_battle": False if sub_rule in ("sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles") else (sub_rule == "sichuan/xuezhan_exchange" or blood_battle),
                 "hepai_limit": hepai_limit,
                 "claim_protection": claim_protection,
             }
@@ -1358,6 +1360,9 @@ class RoomManager:
 
     async def create_Hongzhong_room(self, player_id, **config):
         return await create_hongzhong_room(self, player_id, **config)
+
+    async def create_NewChinese_room(self, player_id, **config):
+        return await create_new_chinese_room(self, player_id, **config)
 
     async def create_Beijing_room(self, player_id, **config):
         return await create_beijing_room(self, player_id, **config)
@@ -2442,6 +2447,7 @@ class RoomManager:
             "wenzhou": ("wenzhou/mil2024", "wenzhou"),
             "nanchang": ("nanchang/mil2026", "nanchang"),
             "shangrao": ("shangrao/standard", "shangrao"),
+            "new_chinese": ("new_chinese/standard", "new_chinese"),
             "beijing": ("beijing/chipengti", "beijing"),
             "duocai": ("duocai/guobiao", "duocai"),
             "hangzhou": ("hangzhou/mil2025", "hangzhou"),
@@ -2572,13 +2578,13 @@ class RoomManager:
                     **{key: room_config[key] for key in ("use_flowers", "tian_di_ren_he", "open_cuohe", "tactical_call", "claim_protection", "allow_spectator", "tourist_limit", "count_tips", "pointer_tips", "hepai_limit") if key in room_config},
                 )
                 hepai_limit = 0
-            elif rule in ("malaysia", "filipino", "vietnamese", "guizhou", "fuzhou", "nanjing", "yixing", "wenzhou", "nanchang", "shangrao", "beijing", "hongzhong", "hangzhou", "changchun", "jiujiang", "singapore"):
+            elif rule in ("malaysia", "filipino", "vietnamese", "guizhou", "fuzhou", "nanjing", "yixing", "wenzhou", "nanchang", "shangrao", "beijing", "new_chinese", "hongzhong", "hangzhou", "changchun", "jiujiang", "singapore"):
                 validated = self.room_validators[rule](
                     **{**base_config, **{key: room_config[key] for key in ("game_round", "round_timer", "step_timer") if key in room_config}},
                     sub_rule=sub_rule, tips=room_config.get("tips", True),
                     detailed_config=room_config.get("detailed_config"),
-                    **({"hepai_limit": room_config["hepai_limit"]} if rule in ("hongzhong", "jiujiang", "singapore", "beijing") and "hepai_limit" in room_config else {}),
-                    **({"starting_score": room_config["starting_score"]} if rule == "beijing" and "starting_score" in room_config else {}),
+                    **({"hepai_limit": room_config["hepai_limit"]} if rule in ("hongzhong", "jiujiang", "singapore", "beijing", "new_chinese") and "hepai_limit" in room_config else {}),
+                    **({"starting_score": room_config["starting_score"]} if rule in ("beijing", "new_chinese") and "starting_score" in room_config else {}),
                     **{key: room_config[key] for key in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection", "tian_di_ren_he", "allow_spectator", "tourist_limit", "count_tips", "pointer_tips") if key in room_config},
                 )
                 hepai_limit = 5 if rule == "malaysia" else 1 if rule in ("jiujiang", "nanchang", "shangrao", "singapore") else 0

@@ -60,6 +60,7 @@
 !/open_mahjong_server/scripts/sync_rule_display_catalog.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
 !/open_mahjong_server/scripts/validate_singapore_clients.py
+!/open_mahjong_server/scripts/validate_guangdong_doubles_clients.py
 /open_mahjong_server/server/error_log/
 /open_mahjong_server/server/local_config.py
 /open_mahjong_server/logs/

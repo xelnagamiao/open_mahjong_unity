@@ -1739,6 +1739,8 @@ export default {
     "古典麻将（标准）": "Mahjong classique (standard)",
     "川麻（血战到底）": "Sichuan (Combat sanglant jusqu'au bout)",
     "川麻（血流弃三张）": "Sichuan · Flot de sang, écarter 3",
+    "川麻（血战换三张）": "Sichuan · Bataille, échange de 3",
+    "血战换三张（推广）": "Bataille avec échange de trois tuiles",
     "川麻（血流换三张）": "Sichuan · Flot de sang, échanger 3",
     "川麻（血战双打）": "Sichuan (Combat sanglant en double)",
     "川麻（血流双打）": "Sichuan (Flot de sang en double)",

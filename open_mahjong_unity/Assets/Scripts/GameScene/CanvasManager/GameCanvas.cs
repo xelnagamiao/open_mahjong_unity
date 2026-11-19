@@ -556,9 +556,9 @@ public partial class GameCanvas : MonoBehaviour {
     public void SetSelfStatusIndicator(string slotName, bool visible, string text = null, int tileId = 0, Color? color = null) {
         if (!StatusSlots.TryGetValue(slotName, out StatusSlot slot) || slot.Banner == null) return;
         if (!visible) { slot.Banner.Hide(); return; }
+        slot.Root.SetActive(true);
         slot.Banner.SetColor(color ?? slot.Color);
         slot.Banner.SetContent(text, tileId);
-        slot.Root.SetActive(true);
     }
 
     /// <summary>Only an authorized private snapshot may provide the persistent bao tile.</summary>

@@ -11,6 +11,8 @@ from server.database.get_rule_stats import get_custom_rule_history
 
 
 SAMPLES = {
+    'guangdong': ('GD|chicken|0|鸡和', '鸡和'),
+    'new_chinese': ('门清（5番）', '门清'),
     'guobiao': ('平和', 'pinghe'), 'riichi': ('平和', 'pinfu'),
     'qingque': ('和牌', 'hepai'), 'classical': ('自摸', 'zimo'),
     'sichuan': ('清一色', '清一色'), 'changsha': ('清一色', '清一色'),

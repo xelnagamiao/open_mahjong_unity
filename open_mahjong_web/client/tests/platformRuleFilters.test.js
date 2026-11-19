@@ -31,7 +31,7 @@ test('subrule order follows the Unity create-room panel, including variants form
     'standard', 'langyong', 'sanma', 'washizu', 'washizu_realtime', 'washizu_doubles',
   ]);
   assert.deepEqual(platformSubRuleOptions('guangdong').map(rule => rule.sub_rule), [
-    'guangdong/tuidao_mil2024', 'guangdong/mil2023',
+    'guangdong/tuidao_mil2024', 'guangdong/mil2023', 'guangdong/mil2023-doubles',
   ]);
   assert.deepEqual(platformSubRuleOptions('hongque').map(rule => rule.label), ['虹雀²', '虹雀 W']);
   assert.equal(platformSubRuleOptions('guobiao')[0].label, '标准规(新编MCR)');

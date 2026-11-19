@@ -168,7 +168,7 @@ class RecordSim:
 
     def is_concealed_blood(self) -> bool:
         sub = title_str(self.game_title, "sub_rule")
-        return sub in {"zhongyong/nanque", "guobiao/blood_battle"}
+        return sub in {"zhongyong/nanque", "guobiao/blood_battle", "guangdong/mil2023-doubles"}
 
     def rule_key(self) -> str:
         return self.flags.rule_id or title_str(self.game_title, "rule").lower()
@@ -625,6 +625,9 @@ class RecordSim:
             if len(tick) >= 6 and tick[1] == "gs":
                 arr = [codec.parse_tick_int(tick, 2 + i) for i in range(4)]
                 self._apply_score_array(arr)
+        elif action == "guangdong" and title_str(self.game_title, "sub_rule") == "guangdong/mil2023-doubles":
+            if len(tick) > 2 and tick[1] in ("kong_score", "penalty"):
+                self._apply_score_array(parse_score_changes(tick, 2))
         elif action in {"liuju", "blood"}:
             if len(tick) >= 2 and (self.is_sichuan_blood() or self.is_xueliu() or self.is_concealed_blood()):
                 step = tick[1]

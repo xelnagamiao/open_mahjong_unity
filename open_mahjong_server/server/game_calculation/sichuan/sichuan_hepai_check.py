@@ -223,7 +223,7 @@ class Sichuan_Hepai_Check(ClassicalCombinationSolver):
                 list(hand_tile_list) + [w], list(combination_list), [], w,
                 dingque_suit=dingque_suit, include_situational=False,
             )
-            if fan > best_fan:
+            if names and (fan > best_fan or not best_names):
                 best_fan, best_names = fan, names
         return best_fan, best_names
 

@@ -29,4 +29,5 @@ router.get('/venues', route(async () => ({ items: (await pool.query(
 )).rows })));
 router.post('/create', route(req => service.create(req.admin.userId, req.body || {})));
 router.post('/:roomId/close', route(req => service.close(req.admin.userId, req.params.roomId, req.body || {})));
+router.post('/:roomId/ruling', route(req => service.ruling(req.admin.userId, req.params.roomId, req.body || {})));
 module.exports = router;

@@ -26,6 +26,7 @@ public class EndLiujuPanel : MonoBehaviour {
     [SerializeField] private StaticCard staticCardPrefab;
 
     private Coroutine autoHideCoroutine;
+    private readonly Queue<string> tableCaptions = new Queue<string>();
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -39,6 +40,46 @@ public class EndLiujuPanel : MonoBehaviour {
         ShowLiujuPanel(displayText, null, 2f);
     }
 
+    public void ShowTableCaption(string text) {
+        if (liujuText == null) return;
+        if (tableCaptions.Count > 0) {
+            tableCaptions.Enqueue(text);
+            return;
+        }
+        PrepareLiujuPanel(text);
+        tableCaptions.Enqueue(text);
+        autoHideCoroutine = StartCoroutine(PlayTableCaptions());
+    }
+
+    private IEnumerator PlayTableCaptions() {
+        while (tableCaptions.Count > 0) {
+            liujuText.text = tableCaptions.Peek();
+            const float duration = 1f, fade = .15f;
+            for (float elapsed = 0f; elapsed < duration; elapsed += Time.unscaledDeltaTime) {
+                liujuText.canvasRenderer.SetAlpha(Mathf.Clamp01(Mathf.Min(elapsed, duration - elapsed) / fade));
+                yield return null;
+            }
+            tableCaptions.Dequeue();
+        }
+        liujuText.canvasRenderer.SetAlpha(1f);
+        autoHideCoroutine = null;
+        gameObject.SetActive(false);
+    }
+
+    private void OnDisable() {
+        StopPanelAnimation();
+    }
+
+    private void StopPanelAnimation() {
+        if (autoHideCoroutine != null) {
+            StopCoroutine(autoHideCoroutine);
+            autoHideCoroutine = null;
+        }
+        if (tableCaptions.Count == 0) return;
+        tableCaptions.Clear();
+        liujuText.canvasRenderer.SetAlpha(1f);
+    }
+
     /// <param name="tenpaiTilesByPlayerIndex">键为 player_index，值为听张 ID 列表；未听家不出现或为 null。</param>
     public void ShowLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex, float visibleSeconds) {
         PrepareLiujuPanel(displayText, tenpaiTilesByPlayerIndex);
@@ -47,10 +88,7 @@ public class EndLiujuPanel : MonoBehaviour {
 
     public void PrepareLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex = null,
         IDictionary<int, string> indexToPosition = null) {
-        if (autoHideCoroutine != null) {
-            StopCoroutine(autoHideCoroutine);
-            autoHideCoroutine = null;
-        }
+        StopPanelAnimation();
         if (liujuText != null) liujuText.text = displayText;
         EndResultPanel.ApplyGuobiaoConcealedKongs(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
         ClearTenpaiMarkers();
@@ -59,18 +97,12 @@ public class EndLiujuPanel : MonoBehaviour {
     }
 
     public void PlayPreparedLiujuPanel(float visibleSeconds) {
-        if (autoHideCoroutine != null) {
-            StopCoroutine(autoHideCoroutine);
-            autoHideCoroutine = null;
-        }
+        StopPanelAnimation();
         autoHideCoroutine = StartCoroutine(AutoHideAfterDelay(visibleSeconds));
     }
 
     public void ClearEndLiujuPanel() {
-        if (autoHideCoroutine != null) {
-            StopCoroutine(autoHideCoroutine);
-            autoHideCoroutine = null;
-        }
+        StopPanelAnimation();
         ClearTenpaiMarkers();
         EndResultPanel.HideGuobiaoConcealedKongs(guobiaoAngangCheckText);
         gameObject.SetActive(false);

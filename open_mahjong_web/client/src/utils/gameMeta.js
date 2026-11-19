@@ -10,6 +10,7 @@ const ROOM_TYPE_LABELS = {
 
 const RULE_LABELS = {
   hongque: '虹雀',
+  new_chinese: '新中式麻将',
   beijing: '北京麻将（吃碰提）',
   duocai: '夺彩麻将',
   shenyang: '沈阳麻将',
@@ -28,6 +29,7 @@ const RULE_LABELS = {
 
 const SUB_RULE_LABELS = {
   'hongque/w-v1.0': '虹雀 W（v1.0）',
+  'new_chinese/standard': '新中式麻将',
   'beijing/chipengti': '北京麻将（吃碰提）',
   'duocai/guobiao': '夺彩·国标',
   'duocai/riichi': '夺彩·立直',
@@ -50,6 +52,7 @@ const SUB_RULE_LABELS = {
   'qingque/standard': '青雀',
   'classical/standard': '古典麻雀',
   'sichuan/standard': '四川麻将(血战到底)',
+  'guangdong/mil2023-doubles': '广东麻将（推广）2V2 双打',
   'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2',
   'riichi/standard': '立直麻将(标准)',
 }

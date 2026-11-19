@@ -52,7 +52,7 @@ public partial class CreatePanel {
     private readonly Dictionary<string, DetailedConfigState> _detailedConfigStates =
         new Dictionary<string, DetailedConfigState>();
 
-    private static readonly string[] DetailedRules = { "taiwan", "filipino", "shangrao", "beijing", "hongque", "vietnamese", "riichi" };
+    private static readonly string[] DetailedRules = { "taiwan", "filipino", "shangrao", "beijing", "new_chinese", "hongque", "vietnamese", "riichi" };
 
     private DetailedConfigState GetDetailedConfigState(string ruleKey) {
         if (string.IsNullOrEmpty(ruleKey)) return null;

@@ -32,11 +32,11 @@ public static class ScoreHistorySettlementHelper {
 
     /// <summary>四川血战终局：根据和牌家数与是否查叫，确定计分板主番类型。</summary>
     public static string ResolveSichuanEndgameRoundLabel(int huCount, bool hadChajiaoStep, string subRule = null) {
-        bool bloodBattle = string.IsNullOrEmpty(subRule) || subRule == "sichuan"
+        bool bloodBattle = string.IsNullOrEmpty(subRule) || subRule == "sichuan" || subRule == GuangdongMilRules.Doubles
             || (subRule.StartsWith("sichuan/", StringComparison.Ordinal) && !SichuanLobby.IsXueliu(subRule));
         if (bloodBattle) {
             if (huCount >= 3) return SichuanRoundLabel.ThreeHu;
-            if (huCount == 2) return !hadChajiaoStep && SichuanLobby.IsDoubles(subRule)
+            if (huCount == 2) return !hadChajiaoStep && (SichuanLobby.IsDoubles(subRule) || subRule == GuangdongMilRules.Doubles)
                 ? SichuanRoundLabel.TeamFirstTwo : SichuanRoundLabel.TwoHu;
             if (huCount == 1) return SichuanRoundLabel.OneHu;
         }

@@ -1,5 +1,6 @@
 const TUIDAO = 'guangdong/tuidao_mil2024';
 const MIL2023 = 'guangdong/mil2023';
+const DOUBLES = 'guangdong/mil2023-doubles';
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 function normalizeGuangdongDetails(subRule, detail = {}, SettingsError = Error) {
@@ -9,7 +10,7 @@ function normalizeGuangdongDetails(subRule, detail = {}, SettingsError = Error) 
     ? { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false }
     : subRule === MIL2023
       ? { edition: 'mil-guangdong-2023-om1', wildcards: true, minimum_fan: 2, minimum_score: 4, horse_count: 4 }
-      : null;
+      : subRule === DOUBLES ? { edition: 'mil-guangdong-2v2-2023', wildcards: true, minimum_fan: 2, minimum_score: 4, horse_count: 0, require_minimum_score: true } : null;
   if (!fixed) fail('不支持的广东麻将子规则');
   for (const [key, value] of Object.entries(detail)) {
     if (subRule === MIL2023 && key === 'require_minimum_score') {
@@ -20,8 +21,9 @@ function normalizeGuangdongDetails(subRule, detail = {}, SettingsError = Error) 
       fail('广东麻将固定规则项不能覆盖，请选择对应子规则');
     }
   }
+  if (subRule === DOUBLES) return fixed;
   return subRule === MIL2023 ? { ...fixed, require_minimum_score: detail.require_minimum_score ?? true }
     : { ...fixed, pingji_zimo_no_chow: detail.pingji_zimo_no_chow ?? false };
 }
 
-module.exports = { normalizeGuangdongDetails, GUANGDONG_SUB_RULES: Object.freeze([TUIDAO, MIL2023]) };
+module.exports = { normalizeGuangdongDetails, GUANGDONG_SUB_RULES: Object.freeze([TUIDAO, MIL2023, DOUBLES]) };

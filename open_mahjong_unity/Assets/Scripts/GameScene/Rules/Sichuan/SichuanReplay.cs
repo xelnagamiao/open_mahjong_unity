@@ -134,7 +134,7 @@ public partial class GameRecordManager {
     private bool IsBloodBattleRecord() {
         if (IsXueliuRecord()) return false;
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
-        if (subRule == "zhongyong/nanque") return true;
+        if (subRule == "zhongyong/nanque" || subRule == GuangdongMilRules.Doubles) return true;
         if (ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == GuobiaoGameState.BloodBattleSubRule) return true;
         if (!IsSichuanRecord()) return false;
         return ReadGameTitleBool(gameRecord.gameTitle, "blood_battle", true);
@@ -288,6 +288,7 @@ public partial class GameRecordManager {
             case "settle_hu":
                 if (tick.Count < 7) return;
                 ApplyScoreDeltasFromTickIndex(tick, 6);
+                if (tick.Count > 7 && ParseTickInt(tick, 7) != 0) RefreshGuangdongRecordTeamScores();
                 break;
             case "chajiao":
                 if (tick.Count < 6) return;
@@ -401,6 +402,7 @@ public partial class GameRecordManager {
         sichuanRecordLedger.Accumulate(deltas);
         sichuanRecordLedger.RecordHu();
         bool isFinal = tick.Count > 7 && ParseTickInt(tick, 7) != 0;
+        if (isFinal) RefreshGuangdongRecordTeamScores();
         if (isFinal && TryFlushSichuanRecordLedger()) {
             GameSceneUIManager.Instance?.UpdateScoreRecord();
         }

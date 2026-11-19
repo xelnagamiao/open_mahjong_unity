@@ -3,6 +3,7 @@
     <el-form-item label="四川子规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule" aria-label="四川子规则">
         <el-option label="四川麻将（血战到底）" value="sichuan/standard" />
+        <el-option label="血战换三张（推广）" value="sichuan/xuezhan_exchange" />
         <el-option label="血流成河（丢三张）" value="sichuan/xueliu" />
         <el-option label="血流成河（换三张）" value="sichuan/xueliu_exchange" />
         <el-option label="血战双打·2V2" value="sichuan/doubles" />
@@ -32,6 +33,6 @@ import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { isSichuanDuplicate } from '@/utils/sichuanDuplicate'
 const props = defineProps({ form: { type: Object, required: true }, allowPaired: Boolean })
 watch(() => props.form.sub_rule, value => {
-  if (!['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(value) && !(props.allowPaired && isSichuanDuplicate(value))) props.form.sub_rule = 'sichuan/standard'
+  if (!['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(value) && !(props.allowPaired && isSichuanDuplicate(value))) props.form.sub_rule = 'sichuan/standard'
 }, { immediate: true })
 </script>

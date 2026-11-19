@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>广东花鬼沿用回合制状态机，合法行动、提示和支付均由服务端裁定。</summary>
 public sealed class GuangdongMilGameState : TurnBasedGameState {
     private readonly GuangdongAskClock askClock = new GuangdongAskClock();
     private Dictionary<int, int[]> revealedHands;
+    private bool resumeAfterWin;
     public GuangdongPublicState Info { get; private set; }
     public GuangdongResult Result { get; private set; }
     private void Accept(GuangdongPublicState state, GuangdongTips tips) {
@@ -28,7 +30,26 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         Info = null; Result = null; revealedHands = null;
         GuangdongServerTips.Clear();
         Accept(info?.guangdong_state, info?.guangdong_tips);
+        resumeAfterWin = false;
+        if (info?.sub_rule == GuangdongMilRules.Doubles && info.players_info != null) {
+            foreach (var p in info.players_info)
+                if (p.is_hu == true && Mirror.IndexToPosition.TryGetValue(p.player_index, out string position))
+                    Game3DManager.Instance?.RestoreBloodBattleWinMarker(position, p.blood_hu_tile ?? 0,
+                        p.blood_hu_zimo == true, p.blood_hu_multi == true,
+                        p.blood_hu_source.HasValue ? Mirror.SeatOf(p.blood_hu_source.Value) : null);
+        }
         RefreshStableTips();
+    }
+    protected override void OnBeforeAsk() {
+        if (!resumeAfterWin) return;
+        resumeAfterWin = false;
+        RoundEndPresentation.Instance?.StopActiveSequence();
+        EndResultPanel.Instance?.ClearEndResultPanel();
+        RoundEndPresentation.Instance?.ShowSelfGameplayControlAndResyncHand3D();
+    }
+    public override bool CanCutTile(int tileId) {
+        if (Session.SubRule == GuangdongMilRules.Doubles && SeatHasTag("self", t => t == "gd_chicken" || t == "gd_non_chicken")) return false;
+        return base.CanCutTile(tileId);
     }
     protected override void OnAskHandAction(Response response) {
         var info = response.ask_hand_action_info;
@@ -67,6 +88,7 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
+        OnBeforeAsk();
         Accept(response.do_action_info?.guangdong_state ?? response.game_info?.guangdong_state, response.do_action_info?.guangdong_tips ?? response.game_info?.guangdong_tips);
         base.OnDoAction(response);
         RefreshStableTips();
@@ -81,19 +103,51 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         Presenter.ApplyScoreDeltas(action.GangScoreChanges);
         GameCanvas.Instance?.ShowGangScoreFloats(action.GangScoreChanges);
     }
+    protected override bool HandleExtraMessage(string suffix, Response response) {
+        if (suffix != "adjudication") return base.HandleExtraMessage(suffix, response);
+        var info = response.refresh_player_tag_list_info;
+        if (info != null) {
+            RefreshTags(info.player_to_tag_list);
+            Presenter.ApplyScores(info.player_to_score);
+            Accept(null, info.guangdong_tips);
+            RefreshStableTips();
+        }
+        return true;
+    }
     protected override void OnShowResult(Response response) {
+        var info = response.show_result_info;
+        if (info?.guangdong_chicken.HasValue == true && Mirror.IndexToPosition.TryGetValue(info.hepai_player_index, out string seat)) {
+            var winner = Mirror.Info(seat);
+            string tag = info.guangdong_chicken.Value ? "gd_chicken" : "gd_non_chicken";
+            winner.tag_list = (winner.tag_list ?? System.Array.Empty<string>()).Append(tag).Distinct().ToArray();
+            Accept(null, info.guangdong_tips);
+            RefreshStableTips();
+        }
         revealedHands = response.show_result_info?.revealed_hands;
         Result = response.show_result_info?.guangdong_result;
         base.OnShowResult(response);
     }
+    protected override void PresentSettlement(SettlementEnvelope env) {
+        if (env.BloodBattleStep != "mid_win") {
+            resumeAfterWin = false;
+            base.PresentSettlement(env);
+            return;
+        }
+        Manager.BeginSettlement();
+        Presenter.BeginLifecycle(env);
+        Presenter.CloseTableForSettlement();
+        resumeAfterWin = true;
+        OnBeforeHuPresented(env);
+        Presenter.PresentHu(env);
+    }
     protected override void OnTableClosedForSettlement(SettlementEnvelope env) {
         if (revealedHands == null) return;
         var others = new Dictionary<int, int[]>(revealedHands);
-        if (env.IsHu) others.Remove(env.WinnerIndex);
+        if (env.IsHu && Session.SubRule != GuangdongMilRules.Doubles) others.Remove(env.WinnerIndex);
         Game3DManager.Instance?.RevealSichuanLiujuAllHands(others);
     }
     protected override void AppendScoreboard(SettlementEnvelope env) {
-        if (SettlementSync.IsRestoring) return;
+        if (SettlementSync.IsRestoring || env.BloodBattleStep == "settle_hu" && !env.FinalPanel) return;
         var totals = GuangdongMilRules.RoundChanges(Result, env.ScoreChanges);
         if (totals == null) { base.AppendScoreboard(env); return; }
         string winnerName = Mirror.IndexToPosition.TryGetValue(env.WinnerIndex, out string winnerPosition)
@@ -144,9 +198,11 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
     }
     protected override void OnSettlementPresented(SettlementEnvelope env, ShowResultInfo info) {
         if (env.IsLiuju) Presenter.ApplyScores(env.ScoresAfter);
+        if (Session.SubRule == GuangdongMilRules.Doubles) RoundPanel.Instance?.UpdateSichuanSettlement(info);
     }
     public override void OnSessionReset() {
         askClock.Reset();
+        resumeAfterWin = false;
         // Cancel a still-fading draw result before its panel is cleared for the next table.
         RoundEndPresentation.Instance?.StopActiveSequence();
         Info = null; Result = null; revealedHands = null; GuangdongServerTips.Clear(); GuangdongServerTips.Clear(true);

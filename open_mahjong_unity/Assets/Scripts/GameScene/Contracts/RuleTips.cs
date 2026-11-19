@@ -38,6 +38,8 @@ public sealed class WaitHintQuery {
     public int HepaiLimit;
     public bool JinluoMode;
     public GuobiaoHintTiming GuobiaoTiming;
+    public SbrExchangeWindow SbrWindow;
+    public int SbrPassedFan = -1;
     public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";

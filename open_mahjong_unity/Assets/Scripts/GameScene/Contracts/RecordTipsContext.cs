@@ -9,6 +9,8 @@ public class RecordTipsContext {
     public int HepaiLimit;
     public bool JinluoMode;
     public GuobiaoHintTiming GuobiaoTiming;
+    public SbrExchangeWindow SbrWindow;
+    public int SbrPassedFan = -1;
     public string JinluoWeather = JinluoRules.DefaultWeather;
     public bool JokerMultiWait;
     public string NoJokerBonus = "add8";
@@ -28,6 +30,8 @@ public class RecordTipsContext {
     public string ReadyQualification;
     public List<int> DoraIndicators;
     public int SelfDingqueSuit;
+    public int? GuangdongTeamGhosts;
+    public bool? GuangdongChickenAvailable;
     public Dictionary<string, object> DetailedConfig;
     public Dictionary<string, RecordTipsPlayerVisible> PlayersByPosition;
 }

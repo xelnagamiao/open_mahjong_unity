@@ -14,13 +14,16 @@ internal static class TuidaoRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleNameDictionary.WholeName[GuangdongMilRules.SubRule] = "广东麻将（MIL 2023，花鬼）";
+        RuleNameDictionary.WholeName[GuangdongMilRules.Doubles] = "广东麻将（推广）2V2 双打";
+        RuleNameDictionary.ShortName[GuangdongMilRules.Doubles] = "广东双打";
         RuleNameDictionary.ShortName[GuangdongMilRules.SubRule] = "广东花鬼";
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateTuidaoReplayModule(),
             BuildRoom = TuidaoRoomBuilder.Build,
             RuleId = RuleId, DefaultSubRule = SubRule, DisplayName = "广东麻将", LobbyOrder = 15,
             LobbySubRules = new[] { new RuleLobbySubRule(SubRule, "MIL 2024（推倒和）",
-                "MIL《推倒和麻将（推广）竞赛规则（试行2024版）》：136张、十三张手牌，无花无癞子。可以吃碰杠，报听可选，头跳；番数相加32封顶，另加2底分，自摸三家付，点和一家付双份。杠分即时结算。战术鸣牌默认开启，有机器人时关闭；普通询问按房间步时加剩余局时，抢断再问独立5秒，允许升级申请。"), new RuleLobbySubRule(GuangdongMilRules.SubRule, "MIL 2023（花鬼）", GuangdongMilRules.Description) },
+                "MIL《推倒和麻将（推广）竞赛规则（试行2024版）》：136张、十三张手牌，无花无癞子。可以吃碰杠，报听可选，头跳；番数相加32封顶，另加2底分，自摸三家付，点和一家付双份。杠分即时结算。战术鸣牌默认开启，有机器人时关闭；普通询问按房间步时加剩余局时，抢断再问独立5秒，允许升级申请。"), new RuleLobbySubRule(GuangdongMilRules.SubRule, "MIL 2023（花鬼）", GuangdongMilRules.Description),
+                new RuleLobbySubRule(GuangdongMilRules.Doubles, "MIL 2023（2V2 双打）", GuangdongMilRules.DoublesDescription) },
             CreateRoomDefaults = new Dictionary<string, object> {
                 { CreateRoomKeys.SubRule, 0 }, { CreateRoomKeys.GameRound, 4 },
                 { CreateRoomKeys.RoundTimer, 3 }, { CreateRoomKeys.StepTimer, 1 },
@@ -32,6 +35,8 @@ internal static class TuidaoRuleBootstrap {
                 { GuangdongMilRules.MinimumScoreKey, true },
                 { PingjiZimoNoChowKey, false },
             },
+            OpeningHandHasDrawSlot = info => info?.sub_rule == GuangdongMilRules.Doubles && info.players_info != null
+                && System.Array.Exists(info.players_info, p => p.hand_tiles != null && p.has_draw_slot == true),
             GameStateFactory = () => new TuidaoGameState(), OutboundChannel = "guangdong",
             SubRuleGameStateFactory = subRule => GuangdongMilRules.IsMil(subRule) ? (IGameState)new GuangdongMilGameState() : new TuidaoGameState(),
             Tingpai = query => GuangdongMilRules.IsMil(query.SubRule) ? GuangdongServerTips.Waiting(query) : TuidaoHandCalculator.Waits(query.Hand, query.Melds),
@@ -51,7 +56,7 @@ internal static class TuidaoRuleBootstrap {
             HasFlowerReplacement = false, DefaultHepaiLimit = 0,
             SupportsRobbedAddedKongSource = true, ReplacementFromTailEnd = true,
             PublicReadyStateReplay = true, PeekAnkan = true,
-            RulebookPath = (subRule, detail) => "/rulebook/guangdong?sub_rule=" + System.Uri.EscapeDataString(GuangdongMilRules.IsMil(subRule) ? GuangdongMilRules.SubRule : SubRule),
+            RulebookPath = (subRule, detail) => "/rulebook/guangdong?sub_rule=" + System.Uri.EscapeDataString(GuangdongMilRules.IsMil(subRule) ? subRule : SubRule),
         });
     }
 

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 public sealed class GuangdongPublicState {
     public string edition;
     public int[] ghost_discard_counts;
+    public int[] chicken_teams;
     public List<GuangdongKongEntry> kong_ledger;
 }
 [Serializable]
@@ -20,6 +21,7 @@ public sealed class GuangdongWait {
     public int tile, fan, score;
     public int? ron_fan, self_draw_fan, ron_score, self_draw_score;
     public bool ron, self_draw;
+    [Newtonsoft.Json.JsonIgnore] public bool restricted;
 }
 [Serializable]
 public sealed class GuangdongTips {
@@ -47,4 +49,5 @@ public sealed class GuangdongResult {
     public GuangdongSubstitution[] substitutions;
     public GuangdongHorses horses;
     public int[] win_changes, kong_changes, refund_changes;
+    public Dictionary<int,int> round_changes;
 }

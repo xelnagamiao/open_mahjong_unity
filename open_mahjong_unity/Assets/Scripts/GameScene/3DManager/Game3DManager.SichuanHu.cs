@@ -10,15 +10,15 @@ public partial class Game3DManager {
         get {
             GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
             return subRule == GuobiaoGameState.BloodBattleSubRule
-                || subRule == NanqueGameState.BloodBattleSubRule;
+                || subRule == NanqueGameState.BloodBattleSubRule || subRule == GuangdongMilRules.Doubles;
         }
     }
 
-    public void RestoreBloodBattleWinMarker(string position, int tile, bool zimo, bool multi) {
+    public void RestoreBloodBattleWinMarker(string position, int tile, bool zimo, bool multi, string sourcePosition = null) {
         PosPanel3D panel = GetPosPanel(position);
         if (panel?.buhuaPosition == null) return;
         ClearSichuanHuBuhuaMarkers(position);
-        GameObject marker = SpawnSichuanBuhuaWinTileObject(panel, position, tile, zimo, multi);
+        GameObject marker = SpawnSichuanBuhuaWinTileObject(panel, position, tile, zimo, multi, sourcePosition);
         if (marker != null) marker.name = "SichuanHu_Restored";
     }
     public IEnumerator PlaySichuanMidGameHu(HepaiPresentationRequest request) {
@@ -167,7 +167,7 @@ public partial class Game3DManager {
         if (riverTile != null) {
             if (IsGuobiaoOrNanqueBloodTable && request.IsQianggang) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
             else TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
-            yield return CoAnimateTileToBuhua(riverTile, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: false, null);
+            yield return CoAnimateTileToBuhua(riverTile, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: false, null, request.DiscardPlayerPosition);
         } else {
             Debug.LogError($"[SichuanHu] 荣和取河/加杠牌失败，不 spawn 兜底 tileId={tileId} winner={winnerPos} discarder={request.DiscardPlayerPosition}");
         }
@@ -186,7 +186,7 @@ public partial class Game3DManager {
         // not consume additional copies from the four-tile physical pool.
         GameObject clone = MahjongObjectPool.Instance.SpawnPresentationTile(spawnId, startPos, startRot);
         if (clone == null) yield break;
-        yield return CoAnimateTileToBuhua(clone, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: true, startPos);
+        yield return CoAnimateTileToBuhua(clone, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: true, startPos, request.DiscardPlayerPosition);
         if (request.RecycleDiscardAfterPresent) {
             RecyclePresentedWinTileSource(request, tileId);
         }
@@ -241,7 +241,7 @@ public partial class Game3DManager {
     }
     private IEnumerator CoAnimateTileToBuhua(
         GameObject cardObj, PosPanel3D panel, string playerPosition,
-        int tileId, bool faceDown, bool dimmed, Vector3? explicitStartPos) {
+        int tileId, bool faceDown, bool dimmed, Vector3? explicitStartPos, string sourcePosition = null) {
         if (cardObj == null || panel?.buhuaPosition == null) yield break;
         // 自摸牌在起飞前已挂到补花区，不能把它自身再算作一个已占用牌位。
         int slot = panel.buhuaPosition.childCount - (cardObj.transform.parent == panel.buhuaPosition ? 1 : 0);
@@ -249,6 +249,7 @@ public partial class Game3DManager {
         Quaternion finalRot = faceDown
             ? GetMeldVerticalWorldRotation(playerPosition)
             : ComputeSichuanBuhuaSlotRotation(panel.buhuaPosition, playerPosition);
+        GuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref endPos, ref finalRot);
         if (faceDown) {
             PrepareTileForBuhuaMove(cardObj, panel.buhuaPosition, playerPosition);
         } else {
@@ -332,11 +333,12 @@ public partial class Game3DManager {
         MahjongObjectPool.Instance.Return(-1, obj);
     }
     private GameObject SpawnSichuanBuhuaWinTileObject(
-        PosPanel3D panel, string playerPosition, int tileId, bool faceDown, bool dimmed) {
+        PosPanel3D panel, string playerPosition, int tileId, bool faceDown, bool dimmed, string sourcePosition = null) {
         ComputeSichuanBuhuaSlot(panel.buhuaPosition, playerPosition, out Vector3 pos, out Quaternion rotation);
+        if (faceDown) rotation = GetMeldVerticalWorldRotation(playerPosition);
+        GuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref pos, ref rotation);
         GameObject cardObj;
         if (faceDown) {
-            rotation = GetMeldVerticalWorldRotation(playerPosition);
             if (playerPosition == "self" && tileId >= 10) {
                 cardObj = MahjongObjectPool.Instance.Spawn(tileId, pos, rotation);
             } else {
@@ -360,6 +362,24 @@ public partial class Game3DManager {
         }
         return cardObj;
     }
+    private void GuangdongWinPose(PosPanel3D panel, string seat, string source, bool selfDraw, ref Vector3 pos, ref Quaternion rotation) {
+        GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
+        if (subRule != GuangdongMilRules.Doubles) return;
+        var row = IsRecordShowCardsModeActive() ? panel.ShowCardsPosition : panel.cardsPosition;
+        if (row == null) return;
+        string[] ring = { "self", "right", "top", "left" };
+        int distance = (System.Array.IndexOf(ring, seat) - System.Array.IndexOf(ring, source) + 4) % 4;
+        GetRecordHandLayoutDirections(seat, out var width, out var depth);
+        var origin = HandRowOrigin(row, width);
+        float size = LayoutSlotWidth(false, true);
+        float span = size * Mathf.Max(0, row.childCount - 1);
+        var point = selfDraw || distance == 3 ? origin + width * (span + 1.4f * size)
+            : distance == 1 ? origin - width * (1.4f * size)
+            : origin + width * (span * .5f) - depth * (2 * size);
+        rotation = Quaternion.AngleAxis(90, Vector3.up) * rotation;
+        pos = PlaceTileOnTable(point, rotation);
+    }
+
     private void ComputeSichuanBuhuaSlot(Transform target, string playerPosition, out Vector3 pos, out Quaternion rotation, int? slot = null) {
         rotation = ComputeSichuanBuhuaSlotRotation(target, playerPosition);
         Vector3 widthDir = Vector3.zero;

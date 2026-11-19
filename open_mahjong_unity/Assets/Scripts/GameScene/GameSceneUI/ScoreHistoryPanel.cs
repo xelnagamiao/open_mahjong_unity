@@ -305,7 +305,7 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             totalRounds,
             subRuleFallback,
             recordRoundIndices,
-            SichuanLobby.IsTeamMode(resolvedSubRule) ? ResolveSichuanScoreboardTeams(player_to_info, fromRecord) : null);
+            SichuanRoundScoreState.Supports(resolvedSubRule) ? ResolveSichuanScoreboardTeams(player_to_info, fromRecord) : null);
     }
 
     internal static List<PlayerInfoClass> SelectScoreboardPlayers(IReadOnlyDictionary<string, PlayerInfoClass> players, bool isSanma) {

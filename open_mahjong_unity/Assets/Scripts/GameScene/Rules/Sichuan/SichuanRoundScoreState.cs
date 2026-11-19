@@ -14,8 +14,10 @@ public sealed class SichuanRoundScoreState {
     private int[] teams;
     private string matchId;
 
+    public static bool Supports(string subRule) => SichuanLobby.IsTeamMode(subRule) || subRule == GuangdongMilRules.Doubles;
+
     public void Initialize(GameInfo info, string subRule) {
-        Enabled = SichuanLobby.IsTeamMode(subRule);
+        Enabled = Supports(subRule);
         Paired = Enabled && (SichuanLobby.IsDuplicate(subRule) || info?.duplicate_match != null);
         teams = info?.sichuan_teams?.team_by_player_index;
         teams = teams != null ? (int[])teams.Clone() : null;
@@ -82,7 +84,7 @@ public sealed class SichuanRoundScoreState {
     public static SichuanTeamsInfo RecordSnapshot(GameRecord record, int roundIndex) {
         if (record?.gameTitle == null || record.gameRound?.rounds == null
             || !record.gameTitle.TryGetValue("sub_rule", out object rule)
-            || !SichuanLobby.IsTeamMode(rule?.ToString())
+            || !Supports(rule?.ToString())
             || !record.gameTitle.TryGetValue("team_by_player_index", out object value) || value == null) return null;
         int[] originalTeams = JArray.FromObject(value).ToObject<int[]>();
         if (originalTeams?.Length != 4) return null;

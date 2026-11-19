@@ -13,7 +13,7 @@ const profiles = {
   sichuan: ['standard', 'xueliu', 'xueliu_exchange', 'doubles', 'xueliu_doubles'],
   changsha: ['classic_double_bird', 'exchange_six'],
   hongkong: ['qingzhang', 'new13', 'new13_gametower', 'new13_lianhuise', 'qingzhang_lianhuise', 'new16'],
-  guangdong: ['tuidao_mil2024', 'mil2023'], guizhou: ['standard'], yixing: ['standard'],
+  guangdong: ['tuidao_mil2024', 'mil2023', 'mil2023-doubles'], guizhou: ['standard'], yixing: ['standard'],
   malaysia: ['traditional84'], shenyang: ['mil2025'], nanjing: ['mil2024'], fuzhou: ['standard'],
   wuhan: ['mil2025'], wenzhou: ['mil2024'], nanchang: ['mil2026'], hangzhou: ['mil2025'],
   hongzhong: ['mil2024'], singapore: ['spgg2024'], jiujiang: ['standard'], changchun: ['mil2024'], shanxi: ['mil2023'],

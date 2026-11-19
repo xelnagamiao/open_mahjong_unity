@@ -21,6 +21,13 @@ class CloseRoomBody(BaseModel):
     instance_id: str = Field(min_length=1, max_length=100)
 
 
+class DoublesRulingBody(BaseModel):
+    gamestate_id: str = Field(min_length=1, max_length=100)
+    round_index: StrictInt = Field(ge=1)
+    original_seat: StrictInt = Field(ge=0, le=3)
+    decision: Literal["false_win", "second_chicken", "forfeit"]
+
+
 class EventRoomBotBody(BaseModel):
     event_id: str = Field(min_length=1, max_length=100)
     instance_id: str = Field(min_length=1, max_length=100)
@@ -49,6 +56,18 @@ def register_admin_room_routes(app: FastAPI, game_server, *, proxy_secret: str):
     @app.get("/admin/rooms", dependencies=[Depends(require_local_proxy)])
     async def rooms():
         return {"success": True, "items": list_admin_rooms(game_server.room_manager)}
+
+    @app.post("/admin/rooms/{room_id}/ruling", dependencies=[Depends(require_local_proxy)])
+    async def ruling(room_id: str, body: DoublesRulingBody):
+        from ..game_calculation.guangdong.config import DOUBLES_SUB_RULE
+        state = game_server.gamestate_manager.get_game_state_by_room_id(room_id)
+        if state is None or state.gamestate_id != body.gamestate_id or state.sub_rule != DOUBLES_SUB_RULE:
+            raise HTTPException(status_code=409, detail="当前房间没有对应的广东双打对局")
+        try:
+            result = await state.adjudicate(body.round_index, body.original_seat, body.decision)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"success": True, "message": "判定已记录", **result}
 
     @app.post("/admin/rooms/{room_id}/bots", dependencies=[Depends(require_local_proxy)])
     async def add_event_bot(room_id: str, body: EventRoomBotBody):

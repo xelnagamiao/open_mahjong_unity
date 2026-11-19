@@ -261,6 +261,8 @@ public class ShowResultInfo {
     public string hangzhou_win_source;
     public Newtonsoft.Json.Linq.JObject hangzhou_fan_details;
     public HongzhongInfo hongzhong_info;
+    public GuangdongTips guangdong_tips;
+    public bool? guangdong_chicken;
     public GuangdongResult guangdong_result;
     public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
@@ -385,7 +387,14 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public string next_status;
 }
 
+
+public sealed class SbrExchangeWindow {
+    public int tile;
+    public bool draw, kong, robbing, last, heaven, earth;
+}
+
 public class XueliuExchangeInfo {
+    public int direction;
     public int stage;
     public int[] active_players;
     public bool selection_done;
@@ -396,6 +405,7 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public int[] riichi_cut_tiles;
     public bool? opening_buhua_complete;
@@ -448,6 +458,7 @@ public class AskHandActionGBInfo {
 }
 
 public class AskOtherActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public Dictionary<string,int[]> fuzhou_declaration_candidates; // 询问切牌后操作
     public string[] action_list; // 操作列表
@@ -572,6 +583,7 @@ public class PlayerInfo {
     public int dingque_suit;            // 四川麻将：定缺花色（1万/2饼/3条，0=未定缺），重连/初始同步
     public int? hu_order;
     public int? blood_hu_tile;
+    public int? blood_hu_source;
     public bool? blood_hu_zimo;
     public bool? blood_hu_multi;
     public bool? is_hu;                 // 四川麻将·血战到底：该玩家本盘是否已和牌退场
@@ -588,6 +600,7 @@ public class WashizuDoublesInfo {
 }
 
 public class GameInfo {
+    public NewChineseInfo new_chinese;
     public bool real_time;
     public int tactical_grace_seconds = 5;
     public bool unlimited_rounds;
@@ -708,6 +721,7 @@ public class SwitchSeatInfo { // 换位信息
 public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
     // 宣告只播放语音；成立时同步立直棒和绝对分数。
+    public GuangdongTips guangdong_tips;
     public int? riichi_declared_player_index;
     public int? riichi_accepted_player_index;
     public Dictionary<int, int> player_to_score;

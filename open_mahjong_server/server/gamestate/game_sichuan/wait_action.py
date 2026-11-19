@@ -123,6 +123,9 @@ async def wait_action(self):
     multi_ron_window = self.game_status in (
         "waiting_action_after_cut", "waiting_action_qianggang"
     )
+    peng_offers = []
+    if getattr(self, "is_sbr_exchange", False) and self.game_status == "waiting_action_after_cut":
+        peng_offers = [i for i, options in self.action_dict.items() if "peng" in options]
     submitted_actions = {}
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
@@ -249,6 +252,12 @@ async def wait_action(self):
         submitted_actions=submitted_actions,
     )
 
+    if peng_offers:
+        discarded = self.player_list[self.current_player_index].discard_tiles[-1]
+        for seat in peng_offers:
+            if is_decline_action(submitted_actions.get(seat)) or action_type not in ("hu", "peng", "gang"):
+                self.player_list[seat].passed_pungs.add(discarded)
+
     close_claim_clock(self, clear_actions=True)
 
     if multi_ron_window:
@@ -369,6 +378,11 @@ async def wait_action(self):
                     if getattr(self, "is_xueliu", False) and player.post_hu_lock:
                         refresh_waiting_tiles(self, self.current_player_index)
                     # 下雨1：摸牌加杠收未和牌每人 1 分；手牌加杠不收分（并清除待退税杠，避免杠上炮误退更早的刮风/下雨）
+                    self.jiagang_after_gang = not getattr(self, "is_xueliu", False) and self.last_action_was_gang
+                    self.jiagang_previous_gang = (
+                        self.paofen_watch[1] if self.jiagang_after_gang and self.paofen_watch
+                        and self.paofen_watch[0] == self.current_player_index else None
+                    )
                     gang_changes = None
                     if getattr(self, "is_xueliu", False):
                         # 每一杠都要成为后续输赢的独立番数；即使是手牌加杠，
@@ -392,6 +406,8 @@ async def wait_action(self):
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang"
                     else:
+                        self.jiagang_previous_gang = None
+                        self.jiagang_after_gang = False
                         self.game_status = "deal_card_after_gang"
                         await self._broadcast_kong_reveals()
                     return
@@ -624,9 +640,17 @@ async def wait_action(self):
         case "waiting_action_qianggang":
             temp_jiagang_tile = self.jiagang_tile
             self.jiagang_tile = None
+            previous_gang = self.jiagang_previous_gang
+            self.jiagang_previous_gang = None
+            self.jiagang_after_gang = False
             if action_data and action_type == "hu":
                 # 抢杠：加杠不成立 → 退回该加杠下雨分，杠回退为碰，并将牌判给抢杠者
                 refund_changes = self._refund_last_gang(self.current_player_index, temp_jiagang_tile)
+                if previous_gang is not None:
+                    for seat, amount in self._refund_gang_record(previous_gang).items():
+                        refund_changes[seat] = refund_changes.get(seat, 0) + amount
+                self._clear_paofen_pending(self.current_player_index)
+                self.last_action_was_gang = False
                 jia_player = self.player_list[self.current_player_index]
                 revert_index = -1
                 for idx, combo in enumerate(jia_player.combination_tiles):

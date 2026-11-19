@@ -66,6 +66,7 @@ const TAG_MAP = {
   changchun: ['changchun', '长春', '长春麻将'],
   'sichuan-hongzhong': ['sichuan-hongzhong', '四川红中', '川麻红中'],
   'mil-red-center': ['mil-red-center', '红中麻将（推广）'],
+  new_chinese: ['new_chinese', '新中式', '新中式麻将'],
   beijing: ['beijing', '北京麻将', '京麻', '吃碰提'],
   tianjin: ['tianjin', '天津麻将', '津麻', '混儿吊', '捉伍'],
   wuhan: ['wuhan', '武汉麻将'],
