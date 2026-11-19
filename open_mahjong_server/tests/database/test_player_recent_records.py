@@ -184,7 +184,7 @@ def database():
                 CREATE TABLE game_player_records (
                     game_id VARCHAR(16) REFERENCES game_records(game_id), user_id BIGINT,
                     username TEXT, score INT, rank INT CHECK (rank BETWEEN 1 AND 4),
-                    original_player_index INT, rule VARCHAR(10), sub_rule TEXT, match_type TEXT,
+                    original_player_index INT, rule VARCHAR(96), sub_rule TEXT, match_type TEXT,
                     room_type TEXT, match_tier TEXT, event_id TEXT, title_used INT,
                     character_used INT, profile_used INT, voice_used INT, avatar_frame_used INT DEFAULT 0,
                     pt_change NUMERIC DEFAULT 0,
@@ -198,7 +198,7 @@ def database():
             from server.database.riichi.record_stats import BASE_KEYS
             fields = [key for key in BASE_KEYS if key != "total_games"]
             cursor.execute(f"""CREATE TABLE game_player_metrics(
-                game_id VARCHAR(16), user_id BIGINT, username TEXT, rule VARCHAR(10),
+                game_id VARCHAR(16), user_id BIGINT, username TEXT, rule VARCHAR(96),
                 sub_rule VARCHAR(96), room_type TEXT, match_tier TEXT, event_id TEXT,
                 game_type TEXT, match_type TEXT, score INT, rank INT,
                 {','.join(key + ' INT DEFAULT 0' for key in fields)},
