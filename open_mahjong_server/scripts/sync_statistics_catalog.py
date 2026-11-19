@@ -30,10 +30,11 @@ def sync(write_unity=True):
         row["matchmaking"] = bool(ranked)
         assert len(row["custom_modes"]) == len(set(row["custom_modes"]))
         assert row["basic_stats"] or not (row["custom_modes"] or ranked or row["fan_stats"])
-    SOURCE.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    catalog_json = json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
+    SOURCE.write_text(catalog_json, encoding="utf-8")
     target = ROOT / "open_mahjong_web/shared/statisticsRules.json"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    target.write_text(catalog_json, encoding="utf-8")
     fans = {r["sub_rule"]: fan_names(r["sub_rule"]) for r in rows if r["fan_stats"]}
     assert all(fans.values()), "每个启用番种统计的子规则必须有完整番种目录"
     (target.parent / "statisticsFans.json").write_text(json.dumps(fans, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -104,6 +105,7 @@ FANS
             ', '.join('{%s, %s}' % (literal(key), literal(name)) for key, name in names.items()))
         for sub, names in fans.items()))
     if write_unity:
+        (ROOT / "open_mahjong_unity/Assets/DataLab/Data/statisticsRules.json").write_text(catalog_json, encoding="utf-8")
         (ROOT / "open_mahjong_unity/Assets/Scripts/UI/PlayerInfo/PlayerInfoRuleCatalog.cs").write_text(source, encoding="utf-8")
     print(f"Synced {len(rows)} subrules ({sum(r['basic_stats'] for r in rows)} statistics entries)")
 
