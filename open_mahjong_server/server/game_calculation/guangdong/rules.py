@@ -116,7 +116,8 @@ def _waiting_scores(hand, melds, context, passed_base_score):
         complete = tuple(sorted(hand + (tile,)))
         # 提示只描述基本牌型与起和门槛；过水和偶然番由实际动作判断。
         ron_context = Context(discarded_ghosts=context.discarded_ghosts,
-                              require_minimum_score=context.require_minimum_score)
+                              require_minimum_score=context.require_minimum_score,
+                              doubles=context.doubles, chicken_available=context.chicken_available)
         self_context = replace(ron_context, self_draw=True)
         ron = _score(complete, melds, tile, ron_context)
         self_draw = _score(complete, melds, tile, self_context)

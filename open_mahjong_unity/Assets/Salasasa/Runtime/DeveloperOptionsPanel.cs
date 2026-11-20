@@ -22,8 +22,8 @@ namespace Salasasa.Home
             ConfigManager.OnLanguageChanged-=RefreshWalletLabel;
         }
         void RefreshWalletLabel() {
-            if(walletLabel)walletLabel.text=walletOwner?.Wallet==null?PlatformText.Get("持有萨拉币 —"):
-                PlatformText.Format("持有萨拉币 {0}",ShopPanel.Money(walletOwner.Wallet.balance_minor));
+            if(walletLabel)walletLabel.text=PlatformText.Get("萨拉币")+" "+
+                (walletOwner?.Wallet==null?"—":ShopPanel.Money(walletOwner.Wallet.balance_minor));
         }
 
         void Awake()

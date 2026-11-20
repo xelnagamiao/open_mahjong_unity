@@ -26,6 +26,7 @@ async function ensureEventsTables() {
     ALTER TABLE events
       ADD COLUMN IF NOT EXISTS reopen_requested BOOLEAN NOT NULL DEFAULT FALSE
   `);
+  await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS team_icon_url TEXT NOT NULL DEFAULT ''`);
   // 扩展状态：registered | active | closed
   await pool.query(`
     ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_chk
@@ -109,6 +110,7 @@ async function ensureEventsTables() {
        AND reason <> ''
   `);
   await pool.query(`
+    ALTER TABLE event_applications ADD COLUMN IF NOT EXISTS team_icon_url TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS idx_event_applications_applicant
       ON event_applications(applicant_user_id, created_at DESC);
   `);
@@ -165,6 +167,7 @@ async function ensureEventsTables() {
     );
   `);
   await pool.query(`
+    ALTER TABLE event_profile_change_requests ADD COLUMN IF NOT EXISTS proposed_team_icon_url TEXT NULL;
     CREATE INDEX IF NOT EXISTS idx_event_profile_change_event
       ON event_profile_change_requests(event_id, created_at DESC);
   `);

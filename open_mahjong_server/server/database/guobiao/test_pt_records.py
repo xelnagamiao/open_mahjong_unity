@@ -1,9 +1,10 @@
 """Settlement PT must survive record storage without being replaced by game score."""
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from server.database.guobiao.store_guobiao import store_guobiao_game_record
+from tests.record_writes import capture_record_write
 
 
 class PtRecordTests(unittest.TestCase):
@@ -18,13 +19,9 @@ class PtRecordTests(unittest.TestCase):
             if pt is not None:
                 player.pt = pt
             players.append(player)
-        cursor = Mock()
-        conn = Mock()
-        conn.cursor.return_value = cursor
-        db = Mock()
-        db._get_connection.return_value = conn
         record = {"game_title": {"rule": "guobiao", "sub_rule": "guobiao/standard"}}
-        with patch("server.database.player_recent_records.update_player_recent_records"), \
+        with capture_record_write() as (db, conn, cursor), \
+             patch("server.database.player_recent_records.update_player_recent_records"), \
              patch("server.database.duplicate_walls.link_duplicate_record"), \
              patch("server.database.scene_stats.record_game_metrics"):
             game_id = store_guobiao_game_record(db, record, players, room_type, "1/4_rank")

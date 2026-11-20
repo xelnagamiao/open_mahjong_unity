@@ -9,61 +9,63 @@ import { mobileDownloadRedirect } from '@/utils/iosDownload.js'
 import { seoEntryFor, noindexEntryFor } from '@/seo'
 import { STATIC_PAGES } from '@/seo/pages.js'
 import { applyRouteHead } from '@/seo/head.js'
-import DefaultLayout from '@/layouts/DefaultLayout.vue'
-import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
-import AccountLayout from '@/layouts/AccountLayout.vue'
-import Home from '@/views/Home.vue'
-import Login from '@/views/Login.vue'
-import Register from '@/views/Register.vue'
-import ForgotPassword from '@/views/ForgotPassword.vue'
-import Account from '@/views/Account.vue'
-import EventsList from '@/views/EventsList.vue'
-import EventDetail from '@/views/EventDetail.vue'
-import CalculatorView from '@/views/CalculatorView.vue'
-import PailiView from '@/views/PailiView.vue'
-import PlayerData from '@/views/PlayerData.vue'
-import PlatformData from '@/views/PlatformData.vue'
-import RecordAnalysis from '@/views/RecordAnalysis.vue'
-import FunData from '@/views/FunData.vue'
-import UnityGame from '@/views/UnityGame.vue'
-import Rulebook from '@/views/Rulebook.vue'
-import Library from '@/views/Library.vue'
-import LibraryRule from '@/views/LibraryRule.vue'
-import LibraryLineage from '@/views/LibraryLineage.vue'
-import LibraryLayout from '@/layouts/LibraryLayout.vue'
-import RuleResearch from '@/views/RuleResearch.vue'
-import SeedVerify from '@/views/SeedVerify.vue'
-import MobileDownload from '@/views/MobileDownload.vue'
-import UsageGuide from '@/views/UsageGuide.vue'
-import Tiles from '@/views/Tiles.vue'
-import GuessFanApp from '@/views/guess-fan/GuessFanApp.vue'
-import RecordConvert from '@/views/RecordConvert.vue'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import AdminLogin from '@/views/admin/Login.vue'
-import AdminDashboard from '@/views/admin/Dashboard.vue'
-import AdminUsers from '@/views/admin/Users.vue'
-import AdminTitles from '@/views/admin/Titles.vue'
-import AdminRedemption from '@/views/admin/Redemption.vue'
-import AdminInventory from '@/views/admin/Inventory.vue'
-import AdminUserDetail from '@/views/admin/UserDetail.vue'
-import AdminRank from '@/views/admin/Rank.vue'
-import AdminGames from '@/views/admin/Games.vue'
-import AdminGameControl from '@/views/admin/GameControl.vue'
-import AdminAudit from '@/views/admin/Audit.vue'
-import AdminMessages from '@/views/admin/Messages.vue'
-import AdminSendEmail from '@/views/admin/SendEmail.vue'
-import AdminMailbox from '@/views/admin/Mailbox.vue'
-import AdminIpBans from '@/views/admin/IpBans.vue'
-import AdminStats from '@/views/admin/Stats.vue'
-import AdminEvents from '@/views/admin/Events.vue'
-import AdminEventDetail from '@/views/admin/EventDetail.vue'
-import AdminActivities from '@/views/admin/Activities.vue'
-import AdminClassicRecords from '@/views/admin/ClassicRecords.vue'
-import AdminTileContent from '@/views/admin/TileContent.vue'
-import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
-import EventAdminLogin from '@/views/event-admin/Login.vue'
-import EventAdminEvents from '@/views/event-admin/Events.vue'
-import EventAdminEventDetail from '@/views/event-admin/EventDetail.vue'
+const DefaultLayout = () => import('@/layouts/DefaultLayout.vue')
+const PlayerDataLayout = () => import('@/layouts/PlayerDataLayout.vue')
+const AccountLayout = () => import('@/layouts/AccountLayout.vue')
+const Home = () => import('@/views/Home.vue')
+const Login = () => import('@/views/Login.vue')
+const Register = () => import('@/views/Register.vue')
+const ForgotPassword = () => import('@/views/ForgotPassword.vue')
+const Account = () => import('@/views/Account.vue')
+const EventsList = () => import('@/views/EventsList.vue')
+const EventDetail = () => import('@/views/EventDetail.vue')
+const CalculatorView = () => import('@/views/CalculatorView.vue')
+const PailiView = () => import('@/views/PailiView.vue')
+const PlayerData = () => import('@/views/PlayerData.vue')
+const PlatformData = () => import('@/views/PlatformData.vue')
+const RecordAnalysis = () => import('@/views/RecordAnalysis.vue')
+const FunData = () => import('@/views/FunData.vue')
+const UnityGame = () => import('@/views/UnityGame.vue')
+const Rulebook = () => import('@/views/Rulebook.vue')
+const Library = () => import('@/views/Library.vue')
+const LibraryRule = () => import('@/views/LibraryRule.vue')
+const LibraryLineage = () => import('@/views/LibraryLineage.vue')
+const LibraryLayout = () => import('@/layouts/LibraryLayout.vue')
+const RuleResearch = () => import('@/views/RuleResearch.vue')
+const SeedVerify = () => import('@/views/SeedVerify.vue')
+const MobileDownload = () => import('@/views/MobileDownload.vue')
+const UsageGuide = () => import('@/views/UsageGuide.vue')
+const Tiles = () => import('@/views/Tiles.vue')
+const GuessFanApp = () => import('@/views/guess-fan/GuessFanApp.vue')
+const RecordConvert = () => import('@/views/RecordConvert.vue')
+const AdminLayout = () => import('@/layouts/AdminLayout.vue')
+const AdminLogin = () => import('@/views/admin/Login.vue')
+const AdminDashboard = () => import('@/views/admin/Dashboard.vue')
+const AdminUsers = () => import('@/views/admin/Users.vue')
+const AdminAccountBans = () => import('@/views/admin/AccountBans.vue')
+const AdminChatHistory = () => import('@/views/admin/ChatHistory.vue')
+const AdminTitles = () => import('@/views/admin/Titles.vue')
+const AdminRedemption = () => import('@/views/admin/Redemption.vue')
+const AdminInventory = () => import('@/views/admin/Inventory.vue')
+const AdminUserDetail = () => import('@/views/admin/UserDetail.vue')
+const AdminRank = () => import('@/views/admin/Rank.vue')
+const AdminGames = () => import('@/views/admin/Games.vue')
+const AdminGameControl = () => import('@/views/admin/GameControl.vue')
+const AdminAudit = () => import('@/views/admin/Audit.vue')
+const AdminMessages = () => import('@/views/admin/Messages.vue')
+const AdminSendEmail = () => import('@/views/admin/SendEmail.vue')
+const AdminMailbox = () => import('@/views/admin/Mailbox.vue')
+const AdminIpBans = () => import('@/views/admin/IpBans.vue')
+const AdminStats = () => import('@/views/admin/Stats.vue')
+const AdminEvents = () => import('@/views/admin/Events.vue')
+const AdminEventDetail = () => import('@/views/admin/EventDetail.vue')
+const AdminActivities = () => import('@/views/admin/Activities.vue')
+const AdminClassicRecords = () => import('@/views/admin/ClassicRecords.vue')
+const AdminTileContent = () => import('@/views/admin/TileContent.vue')
+const EventAdminLayout = () => import('@/layouts/EventAdminLayout.vue')
+const EventAdminLogin = () => import('@/views/event-admin/Login.vue')
+const EventAdminEvents = () => import('@/views/event-admin/Events.vue')
+const EventAdminEventDetail = () => import('@/views/event-admin/EventDetail.vue')
 
 const routes = [
   ...STATIC_PAGES.map((page) => ({
@@ -149,6 +151,10 @@ const routes = [
       {
         path: 'chinese',
         redirect: '/calc/chinese'
+      },
+      {
+        path: 'rulebook/new_chinese',
+        redirect: to => ({ name: 'Rulebook', params: { rule: 'custom' }, query: { ...to.query, sub_rule: 'new_chinese/standard' }, hash: to.hash }),
       },
       {
         path: 'rulebook/:rule?',
@@ -375,6 +381,8 @@ const routes = [
     children: [
       { path: '', name: 'AdminDashboard', component: AdminDashboard, meta: { title: '管理仪表盘' } },
       { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
+      { path: 'account-bans', name: 'AdminAccountBans', component: AdminAccountBans, meta: { title: '账号封禁名单' } },
+      { path: 'chat-history', name: 'AdminChatHistory', component: AdminChatHistory, meta: { title: '聊天记录' } },
       { path: 'titles', name: 'AdminTitles', component: AdminTitles, meta: { title: '头衔管理' } },
       { path: 'inventory', name: 'AdminInventory', component: AdminInventory, meta: { title: '物品管理' } },
       { path: 'shop', name: 'AdminShop', component: () => import('@/views/admin/Shop.vue'), meta: { title: '商店管理' } },
@@ -412,6 +420,7 @@ const routes = [
       { path: 'tile-content', name: 'AdminTileContent', component: AdminTileContent, meta: { title: '牌面审核' } },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },
+      { path: 'anti-cheat', name: 'AdminAntiCheat', component: () => import('@/views/admin/AntiCheat.vue'), meta: { title: '反作弊数据中心' } },
       { path: 'room-control', name: 'AdminRoomControl', component: () => import('@/views/admin/RoomControl.vue'), meta: { title: '房间管理' } },
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },

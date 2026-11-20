@@ -20,6 +20,8 @@ public class RiichiRoundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text riichiSticksCountText;
     [Tooltip("本场数量：三麻每本场200点，四麻300点；自摸每家另付100点")]
     [SerializeField] private TMP_Text honbaCountText;
+    [Tooltip("特殊规则的宝牌说明与数量标签，分别使用预制体中的文字基线。")]
+    [SerializeField] private TMP_Text indicatorTextPrefab;
 
     [Header("场况显示：宝牌指示槽位（手动拖入 StaticCard）")]
     [Tooltip("从左到右依序对应 1 张 dora 指示牌 + 最多 4 张杠宝牌。未翻开槽位固定显示牌背 0")]
@@ -197,7 +199,9 @@ public class RiichiRoundPanel : MonoBehaviour {
     }
 
     private TMP_Text CreateIndicatorLabel(string name, Vector2 position, Vector2 size) {
-        var label = Instantiate(honbaCountText, honbaCountText.transform.parent);
+        var prefab = indicatorTextPrefab ? indicatorTextPrefab
+            : Resources.Load<GameObject>("UI/Typography/RiichiIndicatorText").GetComponent<TMP_Text>();
+        var label = Instantiate(prefab, honbaCountText.transform.parent, false);
         label.name = name;
         label.raycastTarget = false;
         label.alignment = TextAlignmentOptions.MidlineLeft;

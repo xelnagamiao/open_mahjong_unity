@@ -24,7 +24,7 @@ test('creation selectors follow Unity lobby order by rule id, retaining supporte
     'guobiao', 'riichi', 'qingque', 'sichuan', 'changsha', 'taiwan', 'classical',
     'hongkong', 'hongque', 'guizhou', 'yixing', 'shanxi', 'hangzhou', 'hongzhong',
     'guangdong', 'changchun', 'jiujiang', 'nanjing', 'malaysia', 'shenyang',
-    'wenzhou', 'wuhan', 'nanchang', 'shangrao', 'duocai', 'beijing', 'fuzhou', 'singapore',
+    'wenzhou', 'wuhan', 'nanchang', 'shangrao', 'duocai', 'beijing', 'fuzhou', 'singapore', 'new_chinese',
   ])
   assert.deepEqual(riichiModes.map(option => option.value), [
     'riichi/standard', 'riichi/langyong', 'riichi/sanma', 'riichi/washizu',
@@ -43,8 +43,8 @@ test('creation selectors follow Unity lobby order by rule id, retaining supporte
     guobiaoOrder.filter(id => ['standard', 'huahun', 'four_jokers', 'sixteen'].some(sub => id === `guobiao/${sub}`)))
 })
 
-test('all 28 event rules retain scene seeds through forms, stored presets and reload', () => {
-  assert.equal(catalog.rules.length, 28)
+test('all eligible event rules retain scene seeds through forms, stored presets and reload', () => {
+  assert.ok(catalog.rules.some(rule => rule.value === 'new_chinese' && rule.label === '自定义规则'))
   for (const rule of catalog.rules) {
     const form = createEventRoomForm({room_rule:rule.value, room_config:{random_seed:seed}})
     const saved = save(buildEventRoomSettings(form))
@@ -134,7 +134,7 @@ test('leaving standard Guobiao clears hidden Jinluo mode before the next room is
   assert.equal(saved.room_config.sub_rule,'guobiao/blood_battle')
 })
 
-test('all 28 rules preserve both hint switches in named presets and automatic table selection', () => {
+test('all eligible rules preserve both hint switches in named presets and automatic table selection', () => {
   for (const {value:room_rule} of catalog.rules) for (const count_tips of [true,false]) {
     const payload=buildEventRoomSettings(createEventRoomForm({room_rule,room_config:{count_tips,pointer_tips:!count_tips}}))
     let doc=readRoomSettings({})

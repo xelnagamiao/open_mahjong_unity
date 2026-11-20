@@ -79,32 +79,40 @@ router.post('/my-records/:gameId/favorite', requirePlayer, async (req, res) => {
   const isFavorite = Boolean(req.body?.is_favorite);
   if (!validGameId(gameId)) return res.status(400).json({ success: false, message: '无效的牌谱 ID' });
 
+  let db;
   try {
-    const owned = await pool.query(
-      `SELECT is_favorite FROM game_player_records
-       WHERE game_id = $1 AND user_id = $2 AND rule = 'guobiao'`,
-      [gameId, req.player.userId],
-    );
-    if (owned.rows.length === 0) return res.status(404).json({ success: false, message: '未找到该牌谱记录' });
-    const current = Boolean(owned.rows[0].is_favorite);
-    if (current === isFavorite) return res.json({ success: true, data: { is_favorite: current } });
-    if (isFavorite) {
-      const count = await pool.query(
-        'SELECT COUNT(*)::int AS total FROM game_player_records WHERE user_id = $1 AND is_favorite = TRUE',
-        [req.player.userId],
-      );
-      if ((count.rows[0]?.total || 0) >= MAX_FAVORITES) {
+    db = await pool.connect();
+    await db.query('BEGIN');
+    await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', ['replay-favorite:' + req.player.userId]);
+    const { rows } = await db.query(`SELECT t.replay_id, bool_or(p.is_favorite) AS current
+      FROM game_player_records p JOIN game_record_tables t USING(game_id)
+      WHERE p.user_id=$2 AND p.rule='guobiao' AND t.replay_id=COALESCE(
+        (SELECT replay_id FROM game_record_tables WHERE game_id=$1),$1) GROUP BY t.replay_id`,
+      [gameId, req.player.userId]);
+    if (!rows.length) {
+      await db.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: '未找到该牌谱记录' });
+    }
+    if (isFavorite && !rows[0].current) {
+      const count = await db.query(`SELECT COUNT(DISTINCT t.replay_id)::int AS total
+        FROM game_player_records p JOIN game_record_tables t USING(game_id)
+        WHERE p.user_id=$1 AND p.is_favorite`, [req.player.userId]);
+      if (count.rows[0].total >= MAX_FAVORITES) {
+        await db.query('ROLLBACK');
         return res.status(400).json({ success: false, message: `收藏最多 ${MAX_FAVORITES} 局，请先取消部分收藏` });
       }
     }
-    await pool.query(
-      'UPDATE game_player_records SET is_favorite = $1 WHERE game_id = $2 AND user_id = $3',
-      [isFavorite, gameId, req.player.userId],
-    );
+    await db.query(`UPDATE game_player_records p SET is_favorite=$1 FROM game_record_tables t
+      WHERE p.game_id=t.game_id AND t.replay_id=$2 AND p.user_id=$3 AND p.is_favorite IS DISTINCT FROM $1`,
+      [isFavorite, rows[0].replay_id, req.player.userId]);
+    await db.query('COMMIT');
     return res.json({ success: true, data: { is_favorite: isFavorite } });
   } catch (error) {
+    if (db) await db.query('ROLLBACK');
     console.error('2d my-records favorite:', error);
     return res.status(500).json({ success: false, message: '收藏状态更新失败' });
+  } finally {
+    db?.release();
   }
 });
 

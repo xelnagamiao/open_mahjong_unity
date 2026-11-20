@@ -112,6 +112,7 @@ public static class GameRecordJsonDecoder {
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
         round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
         round.shangrao = (roundData["shangrao"] as JObject)?.ToObject<ShangraoInfo>();
+        round.newChinese = (roundData["new_chinese"] as JObject)?.ToObject<NewChineseInfo>();
         round.beijing = (roundData["beijing"] as JObject)?.ToObject<BeijingInfo>();
         round.beijingHints = (roundData["beijing_hints"] as JObject)?.ToObject<Dictionary<int,BeijingHints>>();
         round.duocai = (roundData["duocai"] as JObject)?.ToObject<DuocaiInfo>();
@@ -130,6 +131,7 @@ public static class GameRecordJsonDecoder {
         }
 
         round.dingqueSuits = (roundData["dingque_suits"] as JObject)?.ToObject<Dictionary<int, int>>();
+        round.sbrPassedFans = (roundData["sbr_passed_fans"] as JObject)?.ToObject<Dictionary<int, SortedDictionary<int, int>>>();
         if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>() ?? new List<int>();
@@ -259,7 +261,7 @@ public static class GameRecordJsonDecoder {
             sc = ParseInlineGangScoreChanges(tick);
         } else if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third" || act == "lajihe_eight_flowers")) {
             sc = ParseScoreChangesFromTick(tick, 4);
-        } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs")) {
+        } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs" || tick[1] == "penalty")) {
             sc = ParseScoreChangesFromTick(tick, 2);
         } else if (act == "wuhan" && tick.Count >= 3 && tick[1] == "bonus") {
             sc = ParseScoreChangesFromTick(tick, 2);

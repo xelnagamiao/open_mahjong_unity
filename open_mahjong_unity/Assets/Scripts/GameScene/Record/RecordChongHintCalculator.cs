@@ -102,6 +102,7 @@ public static class RecordChongHintCalculator {
       RecordPlayerIndex = player.playerIndex,
     });
 
+    if (roomRule == "duocai" || subRule?.StartsWith("duocai/") == true) return waitingTiles;
     var normalized = new HashSet<int>();
     foreach (int tileId in waitingTiles) {
       normalized.Add(TileIdOrder.Normalize(tileId));

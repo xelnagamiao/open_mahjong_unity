@@ -3,7 +3,7 @@ import logging
 import asyncio
 import uuid
 from copy import deepcopy
-from .public.lifecycle import all_humans_offline, cancel_auxiliary_tasks, cancel_game_task
+from .public.lifecycle import should_close_when_offline, cancel_auxiliary_tasks, cancel_game_task
 from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
@@ -16,6 +16,8 @@ from .game_classical.ClassicalGameState import ClassicalGameState
 from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_sichuan.XueliuGameState import XueliuGameState
+from .game_sichuan.SbrExchangeGameState import SbrExchangeGameState
+from ..game_calculation.sichuan.xueliu_rules import SBR_EXCHANGE_SUB_RULE
 from .game_sichuan.XueliuDoublesGameState import XueliuDoublesGameState
 from .game_zhongyong import ZhongyongGameState, NanqueGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
@@ -31,6 +33,7 @@ from .game_fuzhou import FuzhouGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
 from .game_nanchang.NanchangGameState import NanchangGameState
 from .game_shangrao.ShangraoGameState import ShangraoGameState
+from .game_new_chinese.NewChineseGameState import NewChineseGameState
 from .game_beijing.BeijingGameState import BeijingGameState
 from .game_duocai.DuocaiGameState import DuocaiGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
@@ -38,6 +41,8 @@ from .game_jiujiang.JiujiangGameState import JiujiangGameState
 from .game_singapore.SingaporeGameState import SingaporeGameState
 from .game_tuidao import TuidaoGameState
 from .game_guangdong import GuangdongGameState
+from .game_guangdong.doubles import GuangdongDoublesGameState
+from ..game_calculation.guangdong.config import DOUBLES_SUB_RULE as GUANGDONG_DOUBLES
 from .game_shenyang import ShenyangGameState
 from .game_shanxi import ShanxiGameState
 from .game_wuhan import WuhanGameState
@@ -92,6 +97,7 @@ class GameStateManager:
         self.user_id_to_game_state: Dict[int, Any] = {}
         self.room_id_to_NanchangGameState: Dict[str, NanchangGameState] = {}
         self.room_id_to_ShangraoGameState: Dict[str, ShangraoGameState] = {}
+        self.room_id_to_new_chinese: Dict[str, NewChineseGameState] = {}
         self.room_id_to_BeijingGameState: Dict[str, BeijingGameState] = {}
         self.room_id_to_DuocaiGameState: Dict[str, DuocaiGameState] = {}
         self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
@@ -206,14 +212,18 @@ class GameStateManager:
             "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
-            "changchun": ChangchunGameState,
+            "changchun": ChangchunGameState, "new_chinese": NewChineseGameState,
             "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "shangrao": ShangraoGameState, "beijing": BeijingGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
         }
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
             state_class = GuangdongGameState
+        if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == GUANGDONG_DOUBLES:
+            state_class = GuangdongDoublesGameState
         if state_class is None:
             return Response(type="error_message", success=False, message="房间类型不支持")
+        if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == SBR_EXCHANGE_SUB_RULE:
+            state_class = SbrExchangeGameState
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") in ("sichuan/xueliu", "sichuan/xueliu_exchange"):
             state_class = XueliuGameState
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == "sichuan/xueliu_doubles":
@@ -341,12 +351,15 @@ class GameStateManager:
                     try:
                         await state.player_disconnect(user_id)
                     finally:
-                        if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
+                        if should_close_when_offline(state):
                             await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         await self.remove_spectator_from_all_games(user_id)
     
     async def remove_spectator_from_all_games(self, user_id: int):
         """从所有进行中对局的延时观战列表移除用户（退出观战、加入匹配等场景）。"""
+        hub = getattr(self, "match_spectator_hub", None)
+        if hub is not None:
+            await hub.remove(user_id)
         for game_state in list(self.gamestate_id_to_game_state.values()):
             if hasattr(game_state, "remove_spectator"):
                 await game_state.remove_spectator(user_id)
@@ -387,7 +400,7 @@ class GameStateManager:
                 try:
                     await state.player_disconnect(user_id)
                 finally:
-                    if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
+                    if should_close_when_offline(state):
                         await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         room_manager = self.game_server.room_manager
         room = room_manager.rooms.get(state.room_id)
@@ -562,6 +575,8 @@ class GameStateManager:
                     # 虹雀的 max_round 已是副数；其他规则保存圈数，三麻每圈三副。
                     total_rounds = max_round if rule == "hongque" else max_round * required_players
                 spectator_info = SpectatorInfo(
+                    match_id=getattr(getattr(game_state, "duplicate_match", None), "data", {}).get("id"),
+                    table_id=getattr(game_state, "duplicate_table", None),
                     rule=rule,
                     sub_rule=sub_rule,
                     player1_name=player1_name,

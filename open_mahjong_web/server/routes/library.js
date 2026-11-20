@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../config/database');
-const { requirePlayer } = require('../middleware/requirePlayer');
+const { requirePlayer, requireSpeaking } = require('../middleware/requirePlayer');
 const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
 
 const router = express.Router();
@@ -18,6 +18,7 @@ const ALLOWED_RULE_KEYS = new Set([
   'wenzhou',
   'nanchang',
   'shangrao',
+  'new_chinese',
   'beijing',
   'duocai',
   'hangzhou',
@@ -222,7 +223,7 @@ router.get('/posts/:postId', async (req, res) => {
   }
 });
 
-router.post('/rules/:ruleKey/posts', postWriteLimiter, requirePlayer, async (req, res) => {
+router.post('/rules/:ruleKey/posts', postWriteLimiter, requirePlayer, requireSpeaking, async (req, res) => {
   try {
     const keyParsed = normalizeRuleKey(req.params.ruleKey);
     if (keyParsed.error) {
@@ -261,7 +262,7 @@ router.post('/rules/:ruleKey/posts', postWriteLimiter, requirePlayer, async (req
   }
 });
 
-router.post('/posts/:postId/replies', postWriteLimiter, requirePlayer, async (req, res) => {
+router.post('/posts/:postId/replies', postWriteLimiter, requirePlayer, requireSpeaking, async (req, res) => {
   const client = await pool.connect();
   try {
     const postId = Number(req.params.postId);

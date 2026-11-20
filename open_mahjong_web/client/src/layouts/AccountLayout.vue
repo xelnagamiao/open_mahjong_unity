@@ -8,7 +8,7 @@
             v-for="item in menuItems"
             :key="item.index"
             :index="item.index"
-          >{{ item.label }}</el-menu-item>
+          ><span>{{ item.label }}</span><span v-if="item.index === 'sec-mail' && assets.unread" class="mail-badge">{{ assets.unread > 99 ? '99+' : assets.unread }}</span></el-menu-item>
         </el-menu>
         <div class="aside-footer">
           <el-button class="home-btn" @click="router.push('/')">返回主站</el-button>
@@ -33,9 +33,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { usePlayerAssetsStore } from '@/stores/playerAssets'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { useMobile } from '@/composables/useMobile'
 import { usePanelViewportLock } from '@/composables/usePanelViewportLock'
@@ -43,6 +44,7 @@ import { usePanelViewportLock } from '@/composables/usePanelViewportLock'
 const route = useRoute()
 const router = useRouter()
 const auth = usePlayerAuthStore()
+const assets = usePlayerAssetsStore()
 const eventAuth = useEventAdminAuthStore()
 const { isMobile } = useMobile()
 usePanelViewportLock()
@@ -50,19 +52,22 @@ usePanelViewportLock()
 const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
-  { index: 'sec-account', label: '账户' },
+  { index: 'sec-profile', label: '个人资料' },
+  { index: 'sec-inventory', label: '物品栏' },
+  { index: 'sec-mail', label: '邮件' },
+  { index: 'sec-account', label: '账户设置' },
   { index: 'sec-redeem', label: '兑换码' },
   { index: 'sec-uploads', label: '上传内容' },
-  { index: 'sec-duplicate-personal', label: '个人复式' },
-  { index: 'sec-duplicate-event', label: '赛事/基地复式' },
-  { index: 'sec-manage-event', label: '赛事管理' },
-  { index: 'sec-manage-base', label: '基地管理' },
+  { index: 'sec-duplicate-personal', label: '复式管理' },
+  { index: 'sec-manage-event', label: '赛事与基地' },
 ]
 
 const LEGACY_HASH = {
   'sec-apply': 'sec-manage-event',
   'sec-apply-event': 'sec-manage-event',
-  'sec-apply-base': 'sec-manage-base',
+  'sec-apply-base': 'sec-manage-event',
+  'sec-manage-base': 'sec-manage-event',
+  'sec-duplicate-event': 'sec-duplicate-personal',
   'sec-manage': 'sec-manage-event',
 }
 
@@ -70,7 +75,7 @@ const activeMenu = computed(() => {
   const hash = (route.hash || '').replace(/^#/, '')
   const mapped = LEGACY_HASH[hash] || hash
   if (menuItems.some((item) => item.index === mapped)) return mapped
-  return 'sec-account'
+  return 'sec-profile'
 })
 
 function onSelect(index) {
@@ -83,9 +88,17 @@ function onLogout() {
   router.replace('/')
 }
 
+function refreshMail() { if (auth.isLoggedIn && !document.hidden) assets.refreshSummary().catch(() => {}) }
+watch(() => auth.userId, () => { assets.syncOwner(); refreshMail() }, { immediate: true })
+let summaryTimer
 onMounted(async () => {
+  summaryTimer = setInterval(refreshMail, 30000)
+  window.addEventListener('focus', refreshMail)
+  document.addEventListener('visibilitychange', refreshMail)
   if (!auth.loaded) await auth.fetchMe()
+  refreshMail()
 })
+onBeforeUnmount(() => { clearInterval(summaryTimer); window.removeEventListener('focus', refreshMail); document.removeEventListener('visibilitychange', refreshMail) })
 </script>
 
 <style scoped>
@@ -110,7 +123,7 @@ onMounted(async () => {
 }
 .account-brand {
   padding: 20px 16px;
-  font-weight: 600;
+  font-weight: 400;
   font-size: 16px;
   color: #303133;
   border-bottom: 1px solid #e4e7ed;
@@ -169,6 +182,7 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.mail-badge { margin-left:10px; padding:0 6px; border-radius:10px; background:#e7efe7; color:#4a7458; font-size:11px; line-height:19px; }
 .account-main {
   padding: 20px;
   min-width: 0;

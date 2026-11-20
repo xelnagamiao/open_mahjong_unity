@@ -1,0 +1,27 @@
+Normas de cuenta de la plataforma de mahjong Salasasa
+
+Disposiciones generales
+
+1. La plataforma de mahjong Salasasa (nombre chino: 萨拉飒飒) es el servidor de ejemplo del proyecto de código abierto open_mahjong_unity (en adelante, OMU). Es un proyecto independiente y distinto del proyecto de código abierto. Actualmente la mantiene el autor del repositorio OMU, pero no existe una relación de subordinación entre ambos.
+
+2. Entendemos que quienes desarrollen su propia plataforma a partir del proyecto de código abierto quizá no puedan sustituir de inmediato todas las referencias a salasasa. Por ello, al leer estas normas, el jugador debe comprobar que el dominio actual sea salasasa.cn y que utilice la página correcta de la tienda de steam y la versión correcta del apk. La página de la versión de steam debe mostrar Salasasa Studio como desarrollador; la única vía legítima para descargar el apk es salasasa.cn. Cualquier otra forma de obtenerlo es ilegítima.
+
+3. Al registrar una cuenta y jugar partidas en la plataforma de mahjong Salasasa, el usuario debe cumplir todas las disposiciones de estas normas.
+
+4. La plataforma puede interpretar o revisar estas normas. Si continúa usando Salasasa después de que se actualice el acuerdo de usuario, se considerará que ha aceptado el acuerdo modificado.
+
+Gestión de cuentas y datos de cuenta
+
+1. La cuenta que registre en la plataforma es personal y no puede prestarla, alquilarla ni transferirla a otra persona. La plataforma podrá eximir ciertos casos razonables de uso compartido en las categorías principiante e intermedia; aun así, podrá tomar medidas contra esas cuentas si dichas situaciones producen efectos negativos.
+
+2. La plataforma podrá imponer advertencias, bloqueos de cuenta o IP, eliminación de datos y otras sanciones a cuentas que incurran, entre otros casos, en nombres sensibles, actividades ilegales, alteraciones del orden público, insultos o trampas mediante intercambio de información sobre las fichas. Al sancionar, deberá explicar claramente la medida y su motivo. También podrá recuperar cuentas sin inicios de sesión durante un periodo prolongado, de al menos más de medio año. Asimismo, si un jugador conocido de la comunidad de mahjong o una figura pública solicita su nombre de usuario, la plataforma podrá imponer un cambio de nombre para liberar la cuenta original y destinarla a esa figura pública. Durante las actualizaciones también podrán eliminarse algunos datos secundarios poco importantes; se informa de ello a los jugadores por adelantado.
+
+3. Para promover el desarrollo continuo del mahjong competitivo nacional, todos sus datos de partida serán públicos y consultables en el portal de datos. Usted permite que todos esos datos se utilicen para cualquier fin, incluidos estadísticas, entrenamiento de IA y creación de vídeos. La plataforma también autoriza a cualquier persona a usar esos datos de dominio público: cualquiera puede empaquetar, distribuir y estudiar los datos de partidas de salasasa, incluso con fines comerciales. Esto no incluye datos ajenos a las partidas, como rangos de cuenta, avatares, firmas y anuncios de torneos o clubes.
+
+Obligaciones y normas de conducta de la plataforma y los jugadores
+
+1. Salasasa garantiza que no manipulará las fichas ni concederá ventajas injustas dirigidas a usuarios o IP concretos. Garantiza que su código esencial se comporta de forma coherente con el proyecto de código abierto open_mahjong_unity; aquí, código esencial se refiere específicamente a la construcción del muro y a la lógica de juego relacionadas con la equidad. Como las actualizaciones de la plataforma y del repositorio no siempre son simultáneas, puede haber diferencias durante determinados periodos. Además, algunas reglas de la plataforma pueden incluir modalidades recreativas no equitativas, y los descuidos de diseño en funciones secundarias pueden causar otras faltas de equidad. Si en el futuro se añaden reglas recreativas que repartan fichas según el nombre de usuario o el uid, esas reglas concretas quedan fuera de las restricciones de este apartado. La plataforma asumirá responsabilidad legal por los problemas que se detecten dentro de su ámbito.
+
+2. Si al usar Salasasa cuestiona la equidad del reparto, deberá aportar pruebas reales que lo demuestren. La plataforma demandará incondicionalmente a quienes publiquen en espacios públicos afirmaciones que denigren su equidad. Estos espacios incluyen, entre otros, Xiaoheihe, Xiaohongshu, Tieba, Bilibili, secciones de comentarios con muchos votos positivos y grupos de QQ numerosos. Por supuesto, es razonable y legítimo insultar a la plataforma diciendo que reparte fichas horribles, que va contra uno mismo o que «le da buenas fichas a tal persona». Esta declaración solo restringe las afirmaciones expresas de que la plataforma podría manipular las fichas; estas acciones de defensa de derechos también se aplicarán a quienes no sean usuarios de la plataforma.
+
+3. Esta plataforma está construida sobre open_mahjong_unity. El archivo readme de https://github.com/xelnagamiao/open_mahjong_unity establece restricciones y disposiciones independientes sobre licencias de recursos, uso comercial y obligaciones de operación. Como plataforma de ejemplo del proyecto, salasasa disfruta de una condición excepcional y ninguna de esas restricciones o disposiciones le resulta aplicable.

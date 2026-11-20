@@ -60,7 +60,8 @@ test('退房保留对局；当前对局关闭才清空重连状态，迟到的�
     assert.equal(delivered.at(-1).type, 'gamestate/closed')
     socket.receive({ ...start, game_info: { room_id: 8, gamestate_id: 'next-game' } })
     assert.equal(client.lastGameStart.game_info.gamestate_id, 'next-game')
-    socket.receive({ type: 'gamestate/guobiao/game_end', gamestate_id: 'next-game' })
+    socket.onmessage({data:'{"type":"gamestate/guobiao/game_end","gamestate_id":"next-game","game_end_info":{"record_detail":{"record":{"seed":18446744073709551615}}}}'})
+    assert.equal(delivered.at(-1).game_end_info.record_detail.record.seed, 18446744073709551615n)
     assert.equal(client.lastGameStart, null)
     assert.deepEqual(client.drainGuobiaoBuffer(), [])
   } finally {

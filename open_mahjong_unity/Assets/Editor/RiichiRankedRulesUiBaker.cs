@@ -152,7 +152,7 @@ public static class RiichiRankedRulesUiBaker {
         }
         foreach (Transform child in root.transform.Cast<Transform>().ToArray()) Object.DestroyImmediate(child.gameObject);
         foreach (var row in staged) row.transform.SetParent(root.transform, false);
-        var result = PrefabUtility.SaveAsPrefabAsset(root, Folder + name + ".prefab");
+        var result = PrefabBaselineBaker.Save(root, Folder + name + ".prefab");
         Object.DestroyImmediate(root);
         return result;
     }

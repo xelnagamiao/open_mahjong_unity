@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS player_mail (
     claim_operation_id UUID REFERENCES inventory_operations(operation_id)
 );
 CREATE INDEX IF NOT EXISTS idx_player_mail_recipient ON player_mail(user_id,mail_id DESC);
+ALTER TABLE player_mail ADD COLUMN IF NOT EXISTS action_path VARCHAR(256);
 CREATE TABLE IF NOT EXISTS player_mail_rewards (
     mail_id BIGINT NOT NULL REFERENCES player_mail(mail_id) ON DELETE CASCADE,
     item_id INTEGER NOT NULL REFERENCES item_definitions(item_id),

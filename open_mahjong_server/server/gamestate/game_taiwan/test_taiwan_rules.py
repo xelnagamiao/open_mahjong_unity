@@ -5708,7 +5708,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         spectator_ticks = []
         state.spectator_manager = SimpleNamespace(
             enabled=True,
-            record_tick=lambda tick: spectator_ticks.append(tick),
+            record_tick=lambda tick, *, timestamp: spectator_ticks.append(tick),
         )
 
         state._record_ready_state(0)
@@ -5738,7 +5738,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         spectator_ticks = []
         state.spectator_manager = SimpleNamespace(
             enabled=True,
-            record_tick=lambda tick: spectator_ticks.append(tick),
+            record_tick=lambda tick, *, timestamp: spectator_ticks.append(tick),
         )
 
         state.enter_water(0)

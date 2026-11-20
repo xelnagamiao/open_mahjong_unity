@@ -32,7 +32,7 @@ public class SimpleRoundPanel : MonoBehaviour {
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
         hasSupplementalSources = false;
         string subRule = string.IsNullOrEmpty(gameInfo.sub_rule) ? roomType : gameInfo.sub_rule;
-        bool teamScores = SichuanLobby.IsTeamMode(subRule);
+        bool teamScores = SichuanRoundScoreState.Supports(subRule);
         if (teamScores && sichuanScores == null) sichuanScores = SichuanRoundScorePanel.Create(roomNowRoundText);
         sichuanScores?.Initialize(gameInfo, subRule);
         roomNowRoundText.gameObject.SetActive(!teamScores);
@@ -101,6 +101,8 @@ public class SimpleRoundPanel : MonoBehaviour {
     }
 
     public void UpdateSichuanSettlement(ShowResultInfo info) => sichuanScores?.ApplySettlement(info);
+
+    public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => sichuanScores?.UpdateReplay(scores);
 
     public void UpdateDuplicateStatus(DuplicateMatchInfo info) {
         if (info == null) return;

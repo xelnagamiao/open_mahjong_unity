@@ -1,8 +1,10 @@
 export const GUANGDONG_MIL_SUB_RULE = 'guangdong/mil2023'
+export const GUANGDONG_DOUBLES = 'guangdong/mil2023-doubles'
 export const TUIDAO_SUB_RULE = 'guangdong/tuidao_mil2024'
 export const guangdongProfiles = Object.freeze([
   { value: TUIDAO_SUB_RULE, label: '推倒和（MIL 2024，无癞子）', description: '136张，报听可选，头跳，32番封顶，另加2底分。未启用地方附录的万能牌等补则。', book: '推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
   { value: GUANGDONG_MIL_SUB_RULE, label: '广东麻将（MIL 2023，花鬼）', description: '140张，梅兰竹菊为鬼牌，留手不补花；不吃，不报听，头跳。至少2番，默认同时满足4分起和；自摸翻剩余牌墙前4张奖马，流局退杠分。', book: '广东麻将（推广）竞赛规则（试行2023版）.pdf' },
+  { value: GUANGDONG_DOUBLES, label: '广东麻将（推广）2V2 双打', description: '四人两队，对家为队友，每盘八副。门清鸡和可点和或自摸，每队每副限一次。允许一炮多响，队友出鬼合计翻倍，无奖马。', book: '广东麻将（推广）竞赛规则2V2双打补充细则.pdf' },
 ])
 
 export function loadGuangdongForm(form, config = {}) {
@@ -19,12 +21,14 @@ export function guangdongDetail(form) {
     if (typeof enabled !== 'boolean') throw new Error('平鸡自摸禁吃开关必须是布尔值')
     return { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false, pingji_zimo_no_chow: enabled }
   }
+  if (form.sub_rule === GUANGDONG_DOUBLES) return { edition: 'mil-guangdong-2v2-2023', wildcards: true, minimum_fan: 2, minimum_score: 4, horse_count: 0, require_minimum_score: true }
   if (form.sub_rule !== GUANGDONG_MIL_SUB_RULE) throw new Error('请选择广东麻将子规则')
   if (typeof form.require_minimum_score !== 'boolean') throw new Error('4分起和开关必须是布尔值')
   return { edition: 'mil-guangdong-2023-om1', wildcards: true, minimum_fan: 2, minimum_score: 4, horse_count: 4, require_minimum_score: form.require_minimum_score }
 }
 
 export function buildGuangdongRoomPayload(form) {
+  if (form.sub_rule === GUANGDONG_DOUBLES && ![2, 4].includes(form.game_round)) throw new Error('广东双打每盘八副')
   if (String(form.duplicate_key || '').trim()) throw new Error('复式房间仅支持国标麻将')
   if (typeof form.tactical_call !== 'boolean') throw new Error('战术鸣牌开关必须是布尔值')
   return {
@@ -40,6 +44,7 @@ export function buildGuangdongRoomPayload(form) {
 }
 
 export function guangdongRows(form) {
+  if (form.sub_rule === GUANGDONG_DOUBLES) return [{ label: '规则底本', value: 'MIL 广东推广 2V2 双打' }, { label: '鸡和', value: '仅限门清，每队每副一次' }]
   return form.sub_rule === GUANGDONG_MIL_SUB_RULE
     ? [{ label: '规则底本', value: 'MIL 2023 花鬼标准本' }, { label: '起和条件', value: form.require_minimum_score ? '至少2番，同时至少4分' : '至少2番' }, { label: '鬼牌', value: '梅兰竹菊留手，不补花' }, { label: '奖马', value: '自摸翻前4马，不足不补' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（抢断5秒，有机器人时自动关闭）' : '关闭' }]
     : [{ label: '规则底本', value: 'MIL 2024 无癞子标准本' }, { label: '封顶', value: '32番，另加2底分' }, { label: '平鸡自摸禁吃', value: form.pingji_zimo_no_chow ? '开启（不能吃，鸡胡只能自摸）' : '关闭' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（有机器人时自动关闭）' : '关闭' }]

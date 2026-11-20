@@ -1,7 +1,58 @@
 """复刻 Unity GameRecordMeldCodec。"""
 from __future__ import annotations
 
+import json
 from typing import List, Optional, Sequence
+
+from ...game_hongque import rules as hongque_rules, w_rules
+from ...game_hongque.record import BASE_ID, COLOUR_CODES
+
+
+def extend_hongque_meld(hand, combinations, masks, tick, sub_rule):
+    if len(tick) not in (4, 5):
+        raise ValueError("虹雀牌谱缺少杠牌目标组，请先运行一次性牌谱迁移脚本")
+    first, index = int(tick[1]), int(tick[3])
+    if not 0 <= index < min(len(combinations), len(masks)):
+        raise ValueError("虹雀杠牌目标组无效")
+    mask = masks[index]
+    if len(mask) < 6 or len(mask) % 2 or any(sign not in (0, 1, 3) for sign in mask[::2]):
+        raise ValueError("虹雀杠牌目标组无效")
+    added = json.loads(tick[4]) if len(tick) == 5 else [first]
+    if not isinstance(added, list) or not added or added[0] != first:
+        raise ValueError("虹雀杠牌追加张无效")
+    tiles = list(mask[1::2]) + added
+    codes = []
+    for tile in tiles:
+        colour, rank = divmod(tile - BASE_ID, 10)
+        if not 0 <= colour < len(COLOUR_CODES) or not 1 <= rank <= 9:
+            raise ValueError("虹雀牌张无效")
+        codes.append(f"{COLOUR_CODES[colour]}{rank}")
+    is_w = sub_rule == w_rules.SUB_RULE
+    shape = (w_rules if is_w else hongque_rules).classify_meld(codes)
+    if shape is None:
+        raise ValueError("虹雀杠牌扩展后不是合法牌组")
+    if is_w:
+        ordered = sorted(tiles, key=lambda tile: (tile % 10, tile))
+    elif shape.base_kind == "sequence":
+        by_rank = sorted(tiles, key=lambda tile: tile % 10)
+        ordered = min(by_rank, by_rank[::-1])
+    else:
+        # The shortest lexicographic colour progression can cross the ring's zero.
+        progressions = []
+        for start in tiles:
+            colour, rank = divmod(start - BASE_ID, 10)
+            for step in (shape.colour_step, -shape.colour_step):
+                run = [BASE_ID + ((colour + step * i) % 14) * 10 + rank for i in range(len(tiles))]
+                if set(run) == set(tiles):
+                    progressions.append(run)
+        ordered = min(progressions, default=tiles)
+    remaining = list(reversed(hand))
+    for tile in added:
+        remaining.remove(tile)
+    hand[:] = reversed(remaining)
+    masks[index] = [value for tile in ordered for value in (0, tile)]
+    prefix = "h" if shape.kind == "rainbow" else "k" if shape.base_kind == "triplet" else "s"
+    combinations[index] = f"{prefix}{ordered[0]}"
 
 
 def normalize_tile(tile_id: int) -> int:

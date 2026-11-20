@@ -21,6 +21,23 @@ def state():
     return s
 
 
+def test_declared_jingdiao_draw_and_settlement_share_decomposition():
+    s = state()
+    p = s.player_list[1]
+    p.hand_tiles = [11,11,11,13,13,22,23,31,31,45,47,47,47]
+    p.combination_tiles = []
+    s.declare_jingdiao(1)
+    s.tiles_list = [13,22]
+    s.draw_for(1)
+    assert s.can_win(1, 'self_draw', 13)
+    quote = s.score_win(1, 'self_draw', 13)
+    assert quote['shape'] == 'seven_pairs'
+    assert quote['points'] == 47
+    s.settle_win(1, 'self_draw', 13)
+    assert s.round_settlement['score']['shape'] == 'seven_pairs'
+    assert s.round_settlement['win_changes'] == [-21,47,-13,-13]
+
+
 def cut(s,index,tile):
     p = s.player_list[index]
     s.current_player_index = index

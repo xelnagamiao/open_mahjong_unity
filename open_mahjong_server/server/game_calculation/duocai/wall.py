@@ -3,6 +3,9 @@ from collections import Counter
 
 from . import tiles as t
 
+CLOCKWISE_SLOTS = tuple(side * 36 + stack * 2 + layer
+                        for side in (0, 3, 2, 1) for stack in range(18) for layer in (1, 0))
+
 
 class TwinDecks:
     def __init__(self, seed):
@@ -17,7 +20,7 @@ class TwinDecks:
             self.reserves.append(choices[8:])
         self.finished = False
 
-    def next_wall(self, *, dice=None, order=None):
+    def next_wall(self, *, dice=None, order=None, variant='guobiao'):
         if self.finished:
             raise ValueError('待选赖子不足，不能再开始新副')
         deck = self.round_number % 2
@@ -28,13 +31,18 @@ class TwinDecks:
             pack = list(order)
         else:
             raise ValueError('预置牌山与当前牌组实体不一致')
-        dice = list(dice or (self.rng.randint(1, 6), self.rng.randint(1, 6)))
-        if len(dice) != 2 or any(type(v) is not int or not 1 <= v <= 6 for v in dice):
+        if variant not in ('guobiao', 'riichi'):
+            raise ValueError('夺彩子规则无效')
+        count = 4 if variant == 'guobiao' else 2
+        dice = list(dice) if dice is not None else [self.rng.randint(1, 6) for _ in range(count)]
+        if len(dice) != count or any(type(v) is not int or not 1 <= v <= 6 for v in dice):
             raise ValueError('骰点无效')
-        opening = ((sum(dice) - 1) % 4 * 36 + min(dice) * 2) % 144
+        side = (sum(dice[:2]) - 1) % 4
+        start = CLOCKWISE_SLOTS.index(side * 36 + 1)
+        opening = CLOCKWISE_SLOTS[(start + sum(dice) * 2) % 144]
         self.active = deck
         self.round_number += 1
-        return Wall(pack, opening, deck, dice)
+        return Wall(pack, opening, deck, dice, riichi=variant == 'riichi')
 
     def replace_revealed(self, revealed):
         removed = sorted(v for v in revealed if t.joker(v))
@@ -53,13 +61,14 @@ class TwinDecks:
 
 
 class Wall:
-    def __init__(self, tiles, opening=0, deck=0, dice=(1, 1), riichi=False):
+    def __init__(self, tiles, opening=1, deck=0, dice=(1, 1), riichi=False):
         if len(tiles) != 144 or Counter(tiles) - Counter(t.normal_pack()) != Counter(v for v in tiles if t.joker(v)):
             raise ValueError('夺彩牌山必须包含136张常规牌与8张不同赖子')
         if sum(t.joker(v) for v in tiles) != 8 or not t.valid_physical(tiles):
             raise ValueError('牌山实体不合法')
-        self.tiles, self.opening, self.deck, self.dice = list(tiles), opening % 144, deck, list(dice)
-        self.order = [(self.opening + i) % 144 for i in range(144)]
+        self.tiles, self.opening, self.deck, self.dice = list(tiles), opening % 144 | 1, deck, list(dice)
+        start = CLOCKWISE_SLOTS.index(self.opening)
+        self.order = list(CLOCKWISE_SLOTS[start:] + CLOCKWISE_SLOTS[:start])
         self.live = list(self.order[:-14] if riichi else self.order)
         self.dead = list(self.order[-14:] if riichi else ())
         self.removed, self.revealed = set(), set()
@@ -71,16 +80,19 @@ class Wall:
         self.live, self.dead = list(self.order[:-14]), list(self.order[-14:])
         self.dora_count = 1
 
-    def draw(self, *, fourth_kong=False):
+    def draw(self, *, fourth_kong=False, from_tail=False):
         if not self.live:
             raise ValueError('牌山已空')
         if fourth_kong and self.dead:
             if self.rinshan_used >= 4:
                 raise ValueError('岭上牌已尽')
-            position = self.dead[self.rinshan_used]
+            position = self.order[(-2, -1, -4, -3)[self.rinshan_used]]
             self.rinshan_used += 1
             self.dead.append(self.live.pop())
             self.dora_count = min(5, self.dora_count + 1)
+        elif from_tail:
+            paired = len(self.live) > 1 and self.live[-2] // 2 == self.live[-1] // 2
+            position = self.live.pop(-2 if paired else -1)
         else:
             position = self.live.pop(0)
         self.removed.add(position)
@@ -89,12 +101,12 @@ class Wall:
     def indicators(self, ura=False):
         if not self.dead:
             return []
-        return [self.tiles[self.dead[4 + 2 * i + int(ura)]] for i in range(self.dora_count)]
+        return [self.tiles[self.order[-6 - 2 * i + int(ura)]] for i in range(self.dora_count)]
 
     def public(self, *, ura=False, reveal=False):
-        known = {self.dead[4 + 2 * i]: self.tiles[self.dead[4 + 2 * i]] for i in range(self.dora_count)} if self.dead else {}
+        known = {self.order[-6 - 2 * i]: self.tiles[self.order[-6 - 2 * i]] for i in range(self.dora_count)} if self.dead else {}
         if ura:
-            known.update({self.dead[5 + 2 * i]: self.tiles[self.dead[5 + 2 * i]] for i in range(self.dora_count)})
+            known.update({self.order[-5 - 2 * i]: self.tiles[self.order[-5 - 2 * i]] for i in range(self.dora_count)})
         return [dict(position=i, side=i // 36, stack=i % 36 // 2, layer=i % 2,
                      back=(self.deck + int(t.unusual_back(value))) % 2,
                      removed=i in self.removed, dead=i in self.dead,

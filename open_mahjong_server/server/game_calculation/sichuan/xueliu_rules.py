@@ -22,7 +22,8 @@ from typing import Iterable, Mapping, Sequence
 XUELIU_SUB_RULE = "sichuan/xueliu"
 XUELIU_EXCHANGE_SUB_RULE = "sichuan/xueliu_exchange"
 SICHUAN_STANDARD_SUB_RULE = "sichuan/standard"
-SUPPORTED_SICHUAN_SUB_RULES = frozenset({SICHUAN_STANDARD_SUB_RULE, XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE, DOUBLES_SUB_RULE, XUELIU_DOUBLES_SUB_RULE, SBR_DUPLICATE, XUELIU_DUPLICATE})
+SBR_EXCHANGE_SUB_RULE = "sichuan/xuezhan_exchange"
+SUPPORTED_SICHUAN_SUB_RULES = frozenset({SICHUAN_STANDARD_SUB_RULE, SBR_EXCHANGE_SUB_RULE, XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE, DOUBLES_SUB_RULE, XUELIU_DOUBLES_SUB_RULE, SBR_DUPLICATE, XUELIU_DUPLICATE})
 
 # Public constants keep the UI/room profile and score tests on one source of
 # truth. These are blood-flow hand-shape values, not the MIL/SBR standard values.

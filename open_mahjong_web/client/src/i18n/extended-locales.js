@@ -1,11 +1,13 @@
 import fr from './locales/fr.js'
 import de from './locales/de.js'
 import ru from './locales/ru.js'
+import es from './locales/es.js'
 import { createFrenchPatterns } from './fr-patterns.js'
 import { createGermanPatterns } from './de-patterns.js'
 import { createRussianPatterns } from './ru-patterns.js'
+import { createSpanishPatterns } from './es-patterns.js'
 
-const catalogs = { fr, de, ru }
+const catalogs = { fr, de, ru, es }
 export const extendedMessages = Object.fromEntries(Object.entries(catalogs).map(([locale, catalog]) => [locale, catalog.messages]))
 
 const placeholders = /\{(?:[A-Za-z_][^{}\r\n]*|\d+(?::[^{}\r\n]+)?)\}/g
@@ -89,4 +91,5 @@ Object.assign(extendedPatterns, {
   fr: [quantityPattern('fr'), ...createFrenchPatterns(translate('fr')), ...templates(fr.messages)],
   de: [quantityPattern('de'), ...createGermanPatterns(translate('de')), ...templates(de.messages)],
   ru: [quantityPattern('ru'), ...createRussianPatterns(translate('ru')), ...templates(ru.messages)],
+  es: [quantityPattern('es'), ...createSpanishPatterns(translate('es')), ...templates(es.messages)],
 })

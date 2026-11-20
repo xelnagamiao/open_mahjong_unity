@@ -199,6 +199,10 @@
     {
       "value": "singapore",
       "label": "新加坡麻将"
+    },
+    {
+      "value": "new_chinese",
+      "label": "自定义规则"
     }
   ]
 }

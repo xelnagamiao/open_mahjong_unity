@@ -18,6 +18,7 @@ class PartyTests(unittest.IsolatedAsyncioTestCase):
             db_manager=NS(get_user_settings=Mock(side_effect=lambda uid: {'username': str(uid)}),
                 list_mutual_friends=Mock(return_value=[{'user_id': u} for u in range(1, 9)]),
                 get_rank_data=Mock(return_value={'ratings': {}})))
+        self.s.db_manager.active_account_bans = Mock(return_value={})
         for u in range(1, 9):
             c = NS(user_id=u, username=str(u), is_tourist=False, current_room_id=None, websocket=NS(send_json=AsyncMock()))
             self.s.players[str(u)] = c
@@ -69,6 +70,22 @@ class PartyTests(unittest.IsolatedAsyncioTestCase):
             notices = [call.args[0] for call in self.s.players[str(member)].websocket.send_json.call_args_list
                        if call.args[0]['type'] == 'party/notice']
             self.assertEqual([notice['message'] for notice in notices], ['1 开始了组队匹配', '2 取消了组队匹配'])
+
+    async def test_banned_partner_prevents_join_and_late_ban_cancels_only_their_team(self):
+        await self.pair(1, 2)
+        await self.pair(3, 4)
+        restricted = {2}
+        self.s.db_manager.active_account_bans.side_effect = lambda users, types: {
+            uid: 'match' for uid in users if uid in restricted}
+        self.assertFalse((await self.request(1, 'queue')).success)
+        restricted.clear()
+        self.assertTrue((await self.request(1, 'queue')).success)
+        restricted.add(2)
+        await self.request(3, 'queue')
+        self.assertFalse(self.pm.get(1).queued_at)
+        self.assertTrue(self.pm.get(3).queued_at)
+        self.assertEqual(self.mm.queues[DOUBLES_QUEUE], [3, 4])
+        self.assertFalse(self.mm.committed_users)
 
     async def test_two_parties_commit_together_and_preserve_opposite_seats(self):
         await self.pair(1, 2); await self.pair(3, 4)

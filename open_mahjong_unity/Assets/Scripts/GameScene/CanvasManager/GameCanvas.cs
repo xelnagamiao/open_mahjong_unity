@@ -408,13 +408,19 @@ public partial class GameCanvas : MonoBehaviour {
                 scoring = SichuanLobby.IsXueliu(subRule) ? "raw_difference" : "imp",
                 planned_boards = gameRecord.gameRound.rounds.Count,
                 status = "replay",
+                sync_mode = gameRecord.gameTitle.TryGetValue("duplicate_sync_mode", out var mode) && bool.TryParse(mode?.ToString(), out bool sync) ? sync : (bool?)null,
             };
         }
         roundPanel.UpdateRoomInfo(
             gameInfo,
             ruleForPanel,
             CommitmentSaltDisplay.ReadMasterSeedFromGameTitle(gameRecord.gameTitle));
+        var replay = GameRecordManager.Instance;
+        if (replay?.MatchSession != null && !replay.MatchSession.IsLiveSession)
+            UpdateMatchReplayScores(MatchReplayProjection.ScoreAt(replay.MatchSession, currentRoundIndex, replay.currentNode));
     }
+
+    public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => roundPanel?.UpdateMatchReplayScores(scores);
 
     private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {
         if (source == null || !source.TryGetValue(key, out object value) || value == null) {
@@ -556,9 +562,9 @@ public partial class GameCanvas : MonoBehaviour {
     public void SetSelfStatusIndicator(string slotName, bool visible, string text = null, int tileId = 0, Color? color = null) {
         if (!StatusSlots.TryGetValue(slotName, out StatusSlot slot) || slot.Banner == null) return;
         if (!visible) { slot.Banner.Hide(); return; }
+        slot.Root.SetActive(true);
         slot.Banner.SetColor(color ?? slot.Color);
         slot.Banner.SetContent(text, tileId);
-        slot.Root.SetActive(true);
     }
 
     /// <summary>Only an authorized private snapshot may provide the persistent bao tile.</summary>

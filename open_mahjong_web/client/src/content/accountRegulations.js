@@ -4,11 +4,12 @@ import fr from './accountRegulations.fr.txt?raw'
 import de from './accountRegulations.de.txt?raw'
 import ru from './accountRegulations.ru.txt?raw'
 import ja from './accountRegulations.ja.txt?raw'
+import es from './accountRegulations.es.txt?raw'
 import { messages } from '../i18n/messages.js'
 
 export function accountRegulationsFor(locale) {
   if (locale === 'zh-TW' || locale === 'zh-HK') return messages[locale][zh]
-  return ({ en, fr, ja, de, ru })[locale] || zh
+  return ({ en, fr, ja, de, ru, es })[locale] || zh
 }
 
 export function accountRegulationsBody(locale) {

@@ -101,7 +101,7 @@ def test_last_riichi_requires_a_remaining_turn_for_the_actual_player_count(prese
     g, _ = connected(preset)
     g.player_list[0].hand_tiles = list(SANMA_HAND if preset.startswith('sanma_') else HAND)
     g.tiles_list = [11] * (g.dead_wall_count + live)
-    threshold = 1 if preset in ('jpml_a', 'mleague') else len(g.player_list)
+    threshold = 1 if preset in ('jpml_a', 'mleague', 'mil') else len(g.player_list)
     assert ('riichi_cut' in check_action_hand_action(g, 0)[0]) is (live >= threshold)
 
 

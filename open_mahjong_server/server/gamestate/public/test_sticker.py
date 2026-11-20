@@ -123,6 +123,7 @@ def test_handle_send_sticker_accepts_hongque_game_state():
         game_server = SimpleNamespace(
             user_id_to_connection={101: sender_conn, 103: other_conn},
             players={"c1": SimpleNamespace(user_id=101)},
+            db_manager=SimpleNamespace(active_account_bans=lambda users, types: {}),
             gamestate_manager=SimpleNamespace(),
         )
         state = HongqueGameState(

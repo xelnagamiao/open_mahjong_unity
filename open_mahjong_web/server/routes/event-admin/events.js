@@ -1,6 +1,8 @@
+const { streamRecordZip, DOWNLOAD_CANCELLED } = require('../../services/recordDownloadZip');
 const { withRecordMetadataQuery } = require('../../services/recordMetadataQuery');
 const express = require('express');
-const { accessibleGameIds, recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../../services/duplicateRecordAccess');
+const { getPublicGameRecord, downloadableReplayIds } = require('../../services/publicGameRecord');
+const { LOCKED_MESSAGE } = require('../../services/duplicateRecordAccess');
 const router = express.Router();
 const pool = require('../../config/database');
 const config = require('../../config/config');
@@ -188,8 +190,8 @@ const REGISTRATION_SELECT = `SELECT r.event_id, r.user_id, r.status, r.contact, 
 
 async function countEventRecords(eventId) {
   const result = await pool.query(
-    `SELECT COUNT(DISTINCT game_id)::int AS cnt
-     FROM game_player_records WHERE event_id = $1`,
+    `SELECT COUNT(DISTINCT t.replay_id)::int AS cnt
+     FROM game_player_records JOIN game_record_tables t USING(game_id) WHERE event_id = $1`,
     [eventId]
   );
   return result.rows[0]?.cnt || 0;
@@ -244,7 +246,7 @@ router.post('/:eventId/close', requireEventMembership, requireEventOwner, async 
            reopen_requested = FALSE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [req.event.event_id]
     );
 
@@ -284,7 +286,7 @@ router.post('/:eventId/open', requireEventMembership, requireEventOwner, async (
            reopen_requested = FALSE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [req.event.event_id]
     );
 
@@ -319,7 +321,7 @@ router.post('/:eventId/request-reopen', requireEventMembership, requireEventOwne
        SET reopen_requested = TRUE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [req.event.event_id]
     );
 
@@ -746,26 +748,26 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
       params.push(limit, offset);
 
       const listRes2 = await db.query(
-        `SELECT gr.game_id, gr.created_at,
+        `SELECT gr.replay_id AS game_id, MAX(gr.created_at) AS created_at,
                 MAX(gpr.rule) AS rule,
                 MAX(gpr.sub_rule) AS sub_rule,
                 MAX(gpr.match_type) AS match_type,
                 MAX(gpr.room_type) AS room_type,
                 MAX(gpr.event_id) AS event_id
-         FROM game_records gr
+         FROM game_record_metadata gr
          JOIN game_player_records gpr ON gpr.game_id = gr.game_id
          WHERE ${whereSql}
-         GROUP BY gr.game_id, gr.created_at
-         ORDER BY gr.created_at DESC, gr.game_id DESC
+         GROUP BY gr.replay_id
+         ORDER BY MAX(gr.created_at) DESC, gr.replay_id DESC
          LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         params
       );
 
       const countParams = params.slice(0, -2);
       const countRes = await db.query(
-        `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
+        `SELECT COUNT(DISTINCT gr.replay_id)::int AS cnt
          FROM game_player_records gpr
-         JOIN game_records gr ON gr.game_id = gpr.game_id
+         JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
          WHERE ${whereSql}`,
         countParams
       );
@@ -774,10 +776,10 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
       let playersByGame = new Map();
       if (gameIds.length > 0) {
         const playersRes = await db.query(
-          `SELECT game_id, user_id, username, score, rank
-           FROM game_player_records
-           WHERE game_id = ANY($1::varchar[])
-           ORDER BY rank`,
+          `SELECT t.replay_id AS game_id, t.table_id, user_id, username, score, rank
+           FROM game_player_records p JOIN game_record_tables t USING(game_id)
+           WHERE t.replay_id = ANY($1::varchar[])
+           ORDER BY t.table_id, rank`,
           [gameIds]
         );
         for (const row of playersRes.rows) {
@@ -816,27 +818,21 @@ router.get('/:eventId/record/:gameId', requireEventMembership, async (req, res) 
       return res.status(400).json({ success: false, message: '\u65e0\u6548\u7684 game_id' });
     }
     const owned = await pool.query(
-      `SELECT 1 FROM game_player_records
-       WHERE game_id = $1 AND event_id = $2 AND room_type = 'events'
+      `SELECT 1 FROM game_player_records p JOIN game_record_tables t USING(game_id)
+       WHERE t.replay_id=COALESCE((SELECT replay_id FROM game_record_tables WHERE game_id=$1),$1)
+         AND event_id = $2 AND room_type = 'events'
        LIMIT 1`,
       [gameId, req.event.event_id]
     );
     if (owned.rows.length === 0) {
       return res.status(404).json({ success: false, message: '\u724c\u8c31\u4e0d\u5b58\u5728' });
     }
-    if (await recordIsLocked(pool, gameId)) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
+    const result = await getPublicGameRecord(gameId);
+    if (result.status !== 200) return res.status(result.status).json({ success: false, message: result.message });
     res.set('Cache-Control', 'no-store');
-    const result = await pool.query(
-      `SELECT record FROM game_records gr WHERE game_id = $1 AND ${visibleRecordSql()}`,
-      [gameId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: '\u724c\u8c31\u4e0d\u5b58\u5728' });
-    }
-    const raw = result.rows[0].record;
-    const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const body = JSON.stringify(result.data.record);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${gameId}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.data.game_id}.json"`);
     res.send(body);
   } catch (err) {
     console.error('event-admin record download:', err);
@@ -854,12 +850,13 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
 
     let gameIds = [];
     if (requestedIds.length > 0) {
-      const idResult = await pool.query(
-        `SELECT DISTINCT game_id FROM game_player_records
-         WHERE event_id = $1 AND room_type = 'events' AND game_id = ANY($2::varchar[])`,
-        [eventId, requestedIds]
-      );
-      gameIds = idResult.rows.map((r) => r.game_id);
+      const owned = await pool.query(`SELECT DISTINCT req.id FROM unnest($1::varchar[]) req(id)
+        LEFT JOIN game_record_tables alias ON alias.game_id=req.id
+        JOIN game_record_tables t ON t.replay_id=COALESCE(alias.replay_id,req.id)
+        JOIN game_player_records p ON p.game_id=t.game_id WHERE p.event_id=$2 AND p.room_type='events'`,
+        [requestedIds, eventId]);
+      const ownedIds = new Set(owned.rows.map(row => row.id));
+      gameIds = [...new Set(requestedIds)].filter(id => ownedIds.has(id));
       if (gameIds.length > DOWNLOAD_MAX_GAMES) {
         return res.status(400).json({
           success: false,
@@ -876,10 +873,10 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
       });
       const idResult = await pool.query(
         `SELECT game_id FROM (
-           SELECT DISTINCT gpr.game_id, gr.created_at
+           SELECT gr.replay_id AS game_id, MAX(gr.created_at) AS created_at
            FROM game_player_records gpr
-           JOIN game_records gr ON gr.game_id = gpr.game_id
-           WHERE ${whereSql}
+           JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+           WHERE ${whereSql} GROUP BY gr.replay_id
          ) sub
          ORDER BY created_at DESC`,
         params
@@ -897,37 +894,13 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
       return res.status(404).json({ success: false, message: '\u6ca1\u6709\u5339\u914d\u7684\u724c\u8c31' });
     }
 
-    gameIds = await accessibleGameIds(pool, gameIds);
+    gameIds = await downloadableReplayIds(pool, gameIds, { eventId });
     if (!gameIds.length) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
     res.set('Cache-Control', 'no-store');
-    const recordsResult = await pool.query(
-      `SELECT game_id, record FROM game_records gr WHERE game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
-      [gameIds]
-    );
-    const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r.record]));
-
-    const archiver = require('archiver');
     const safeName = String(eventId).replace(/[^\w.-]+/g, '_');
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="event_${safeName}_records.zip"`);
-    const archive = archiver('zip', { zlib: { level: 5 } });
-    archive.on('error', (err) => {
-      console.error('event-admin zip error:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, message: '\u6253\u5305\u5931\u8d25' });
-      } else {
-        res.end();
-      }
-    });
-    archive.pipe(res);
-    for (const gameId of gameIds) {
-      const raw = byGame.get(gameId);
-      if (raw === undefined || raw === null) continue;
-      const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
-      archive.append(body, { name: `${gameId}.json` });
-    }
-    await archive.finalize();
+    await streamRecordZip(pool, gameIds, `event_${safeName}_records.zip`, res);
   } catch (err) {
+    if (res.destroyed || err.code === DOWNLOAD_CANCELLED) return;
     console.error('event-admin records download:', err);
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });

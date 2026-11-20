@@ -23,7 +23,7 @@ internal static class SichuanRoomBuilder {
         if (input.HepaiLimitEnabled && int.TryParse(input.HepaiLimitText, out int parsed)) {
             hepaiLimit = parsed;
         }
-        bool bloodBattle = SichuanLobby.IsXueliu(subRule) ? false : input.BloodBattle;
+        bool bloodBattle = SichuanLobby.IsXueliu(subRule) ? false : subRule == SichuanLobby.SbrExchange || input.BloodBattle;
         if (SichuanLobby.IsTeamMode(subRule)) { bloodBattle = !SichuanLobby.IsXueliu(subRule); hepaiLimit = 0; }
 
         var config = new Sichuan_Create_RoomConfig {

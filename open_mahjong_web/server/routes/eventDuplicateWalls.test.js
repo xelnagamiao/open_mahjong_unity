@@ -38,6 +38,7 @@ test('manager key routes require their own authentication, event membership and 
     express, '../../config/database': db, '../../config/config': config,
     '../../utils/audit': { writeAudit: async (audit, transaction) => { assert.equal(transaction, db); audits.push(audit); } },
     '../../utils/eventsTables': {}, '../../services/eventPlayerStats': {}, '../../services/gameServerProxy': {},
+    '../../services/venueIcons': require('../services/venueIcons'),
     '../../services/duplicateWalls': { createDuplicateWallService: () => ({ async createBatch(userId, input, count, options) {
       if (quotaFailure) throw Object.assign(new Error('今日额度已用尽'), { status: 429 });
       calls.push({ userId, input, count, platformAdmin: options.platformAdmin });

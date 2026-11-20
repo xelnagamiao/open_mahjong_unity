@@ -13,7 +13,7 @@ const {
   listPlatformEvents,
 } = require('../services/platformStats');
 const { getPublicQueueStatus } = require('../services/matchQueueStatus');
-const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
+const { getPublicGameRecord } = require('../services/publicGameRecord');
 const activityStore = require('../services/activityStore');
 const classicRecordsStore = require('../services/classicRecordsStore');
 const { getWeeklyScoreboard } = require('../services/weeklyScoreboard');
@@ -150,7 +150,7 @@ router.get('/recent-records', async (req, res) => {
   }
 });
 
-/** 可分享的国标 2D 牌谱；只公开牌桌回放所需的对局和玩家公开资料。 */
+/** 公开牌谱读取，支持正式比赛编号与原桌分享编号。 */
 router.get('/record/:gameId', async (req, res) => {
   try {
     const result = await getPublicGameRecord(String(req.params.gameId || ''));
@@ -192,21 +192,6 @@ router.get('/fun-stats', async (_req, res) => {
   } catch (error) {
     console.error('platform fun-stats error:', error);
     return res.status(500).json({ success: false, message: '趣味数据读取失败' });
-  }
-});
-
-/** Public read-only record payload for the Unity 3D replay viewer (all supported rules). */
-router.get('/unity-record/:gameId', async (req, res) => {
-  try {
-    const result = await getPublicUnityGameRecord(String(req.params.gameId || ''));
-    if (result.status !== 200) {
-      return res.status(result.status).json({ success: false, message: result.message });
-    }
-    res.set('Cache-Control', 'no-store');
-    return res.json({ success: true, data: result.data });
-  } catch (error) {
-    console.error('platform public Unity record error:', error);
-    return res.status(500).json({ success: false, message: '牌谱读取失败' });
   }
 });
 

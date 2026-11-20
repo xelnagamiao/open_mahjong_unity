@@ -7,14 +7,21 @@ const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 
 test('all supported fan profiles have a complete independent display catalog', () => {
   const enabled = STATISTICS_RULES.filter(rule => rule.fan_stats);
-  assert.equal(enabled.length, 27);
+  assert.equal(enabled.length, 30);
+  assert.equal(INFO_FAN_DICT['guangdong/mil2023-doubles']['鸡和'], '鸡和');
+  assert(!INFO_FAN_DICT['guangdong/mil2023']?.['鸡和']);
   for (const rule of enabled) assert(Object.keys(INFO_FAN_DICT[rule.sub_rule]).length > 0, rule.sub_rule);
   assert.equal(INFO_FAN_DICT['hongque/v1.6']['双同顺'], '双同顺');
   assert.equal(INFO_FAN_DICT['sichuan/standard']['根'], '根');
+  assert.equal(INFO_FAN_DICT['sichuan/xuezhan_exchange']['地和'], '地和');
   assert(!INFO_FAN_DICT['sichuan/xueliu_doubles']['根']);
   assert(!INFO_FAN_DICT['changsha/classic_double_bird']['十三将']);
   assert.equal(INFO_FAN_DICT['changsha/exchange_six']['十三将'], '十三将');
   assert.equal(INFO_FAN_DICT.qingque.shiergui, '十二归');
+  assert.equal(INFO_FAN_DICT.qingque.shisanyao, '十三幺');
+  assert.equal(Object.keys(INFO_FAN_DICT.qingque).length, 90);
+  assert(!('fengpaiwudui' in INFO_FAN_DICT.qingque));
+  assert(!('fengpaisidui' in INFO_FAN_DICT.qingque));
   assert.equal(INFO_FAN_DICT.classical.luanfengheming, '鸾凤和鸣');
 });
 
@@ -30,6 +37,8 @@ test('every statistics selection isolates its subrule and fan capability', {
   try {
     const fields = BASE_KEYS.filter(k => k !== 'total_games');
     await pool.query(`CREATE TEMP TABLE game_records(game_id text PRIMARY KEY,record jsonb,created_at timestamptz DEFAULT NOW());
+      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+
       CREATE TEMP TABLE game_player_records(game_id text,user_id bigint,rule text,sub_rule text,room_type text,match_type text,match_tier text,event_id text,rank int);
       CREATE TEMP TABLE game_player_metrics(id bigserial PRIMARY KEY,game_id text,user_id bigint,rule text,sub_rule text,
         room_type text,match_type text,match_tier text,game_type text,fan_stats jsonb,${fields.map(k=>`${k} int DEFAULT 0`).join(',')});

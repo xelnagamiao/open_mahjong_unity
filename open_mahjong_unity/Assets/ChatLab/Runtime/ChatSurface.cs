@@ -10,6 +10,11 @@ namespace Salasasa.ChatLab
         public Color edge;
         protected override void OnPopulateMesh(VertexHelper vh)
         {
+            if (type == Type.Sliced && sprite)
+            {
+                base.OnPopulateMesh(vh);
+                return;
+            }
             vh.Clear();var r=rectTransform.rect;
             void Polygon(Rect box,Color tint){
                 float c=Mathf.Min(cut,Mathf.Min(box.width,box.height)/3);Vector2[] points;

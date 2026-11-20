@@ -111,6 +111,10 @@
           "label": "四川麻将(血战到底)"
         },
         {
+          "sub_rule": "sichuan/xuezhan_exchange",
+          "label": "血战到底·换三张"
+        },
+        {
           "sub_rule": "sichuan/xueliu",
           "label": "血流成河·弃三张"
         },
@@ -229,6 +233,10 @@
         {
           "sub_rule": "guangdong/mil2023",
           "label": "MIL 2023（花鬼）"
+        },
+        {
+          "sub_rule": "guangdong/mil2023-doubles",
+          "label": "MIL 2023（2V2 双打）"
         }
       ]
     },
@@ -457,6 +465,16 @@
         {
           "sub_rule": "beijing/chipengti",
           "label": "吃碰提"
+        }
+      ]
+    },
+    {
+      "rule": "new_chinese",
+      "label": "自定义规则",
+      "subRules": [
+        {
+          "sub_rule": "new_chinese/standard",
+          "label": "新中式麻将"
         }
       ]
     }

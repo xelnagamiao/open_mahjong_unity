@@ -52,7 +52,18 @@ test('series hand limits follow Guobiao dealer rotation and original player numb
       }
     }
   }
-  assert.equal(duplicateRoundLabel(16), '北四局')
+  assert.equal(duplicateRoundLabel(16), '北风北')
+})
+
+test('Guobiao duplicate round labels match the Unity center board wind-seat names', () => {
+  assert.deepEqual(Array.from({ length: 16 }, (_, i) => duplicateRoundLabel(i + 1)), [
+    '东风东', '东风南', '东风西', '东风北',
+    '南风东', '南风南', '南风西', '南风北',
+    '西风东', '西风南', '西风西', '西风北',
+    '北风东', '北风南', '北风西', '北风北',
+  ])
+  assert.equal(duplicateRoundLabel(0), '第0局')
+  assert.equal(duplicateRoundLabel(17), '第17局')
 })
 
 test('public room descriptions use type and count without disclosing keys', () => {

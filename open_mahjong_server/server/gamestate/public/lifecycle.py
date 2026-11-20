@@ -15,8 +15,26 @@ def all_humans_offline(state):
     return bool(humans) and all(is_offline(player) for player in humans)
 
 
+def should_close_when_offline(state):
+    if not all_humans_offline(state) or getattr(state, "finish_round_when_offline", False):
+        return False
+    pair = getattr(state, "duplicate_match", None)
+    if pair is not None:
+        # A completed table still owns its waiting task and final-record hook.
+        # Keep it until the sibling submits, even if nobody remains connected.
+        # Use durable progress, not current_round or the ready/UI status: an
+        # unsubmitted final board must still follow ordinary offline cleanup.
+        if pair.completed:
+            return False
+        boards = pair.data["boards"]
+        if (pair.data["status"] == "running" and boards
+                and pair.table_progress(state.duplicate_table) >= len(boards)):
+            return False
+    return True
+
+
 async def close_if_all_humans_offline(state):
-    if all_humans_offline(state):
+    if should_close_when_offline(state):
         state.close_reason = "all_humans_offline"
         await state.game_server.gamestate_manager.cleanup_game_state_complete(
             gamestate_id=state.gamestate_id

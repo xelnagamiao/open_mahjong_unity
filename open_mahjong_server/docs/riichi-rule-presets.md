@@ -11,6 +11,7 @@
 | A规 | 日本职业麻将联盟 A 规则 | 30000／30000 | 联盟浮动顺位点 | 头跳 | 无／无／无 |
 | ML规 | M 联赛四人规则 | 25000／30000 | +30/+10/-10/-30 | 头跳 | 有／有／有 |
 | 雀庄公式战 | 全国雀庄公式战手册基础规则，半庄 | 25000／25000 | 0/0/0/0 | 多响 | 有／有／有 |
+| MIL规 | MIL《立直麻将（RCR）竞赛规则》2023年试行，四人半庄 | 30000／30000 | +15/+5/-5/-15 | 头跳 | 无／有／有 |
 | 雀魂三麻 | 三人段位战，半庄 | 35000／35000 | +15/0/-15 | 双响 | 有／有／有 |
 | 天凤三麻 | 三人食断赤牌，半庄 | 35000／40000 | +20/0/-20 | 双响 | 有／有／有 |
 
@@ -18,18 +19,18 @@ A 规按日本职业麻将联盟 A 规则解释，ML 规按 M 联赛解释。预
 
 选择预设会同时应用详细规则和相关基础设置，包括场次、起始点、赤牌、食替、西入、击飞及多响方式。房间名称、密码、计时、权限和随机种子保持当前输入。手动改动后显示为自定义规则。详细面板内选择预设后，只有“应用规则”才同步基础设置；取消恢复编辑前状态。
 
-`riichi/standard` 与 `riichi/langyong` 保持为独立子规则。四个预设应用到标准日麻；原有浪涌玩法和配置仍保留。另有 `riichi/sanma` 子规则及雀魂三麻、天凤三麻两套预设，三人席位、拔北、补牌和结算设计详见[三人立直麻将](riichi-sanma.md)。
+`riichi/standard` 与 `riichi/langyong` 保持为独立子规则。四人预设应用到标准日麻；原有浪涌玩法和配置仍保留。另有 `riichi/sanma` 子规则及雀魂三麻、天凤三麻两套预设，三人席位、拔北、补牌和结算设计详见[三人立直麻将](riichi-sanma.md)。
 
 ## 新增配置
 
-42 项详细配置按以下分组显示。Unity 详细面板以顶部选择滚动定位；Web 以分组折叠面板显示，三人专属选项仅在三麻中显示。
+44 项详细配置按以下分组显示。Unity 详细面板以顶部选择滚动定位；Web 以分组折叠面板显示，三人专属选项仅在三麻中显示。
 
 | 分组 | 配置键 |
 | --- | --- |
-| 和牌门槛 | `minimum_win_score` |
+| 和牌门槛 | `minimum_win_score`、`show_teammate_hand`（鹫巢双打专用） |
 | 役种、宝牌与符数 | `open_tanyao`、`ippatsu`、`ura_dora`、`kan_dora`、`kan_ura_dora`、`double_yakuman`、`multiple_yakuman`、`kiriage_mangan`、`kazoe_limit`、`yakuman_limit`、`double_wind_pair_fu` |
 | 杠、立直与振听 | `kan_dora_timing`、`kokushi_ankan_ron`、`riichi_kan_rule`、`riichi_min_live_tiles`、`furiten_clear` |
-| 流局与连庄 | `kyuushu_abort`、`four_winds_abort`、`four_riichi_abort`、`four_kan_abort`、`nagashi_mangan`、`nagashi_allow_calls`、`tenpai_owned_tiles`、`noten_penalty`、`tenpai_renchan` |
+| 流局与连庄 | `kyuushu_abort`、`four_winds_abort`、`four_riichi_abort`、`four_kan_abort`、`nagashi_mangan`、`nagashi_allow_calls`、`tenpai_owned_tiles`、`noten_penalty`、`honba_enabled`、`tenpai_renchan` |
 | 终局 | `agari_yame`、`tenpai_yame`、`target_score`、`extension_rounds`、`return_score`、`rank_points`、`tie_break`、`end_deposits` |
 | 包牌与错和 | `pao`、`pao_suukantsu`、`pao_scope`、`pao_honba`、`chombo_penalty` |
 | 三人麻将 | `sanma_tsumo`、`nuki_ron`、`nuki_rinshan` |
@@ -119,3 +120,20 @@ python -m pytest server/game_calculation/riichi server/gamestate/game_riichi ser
 `formula` 依据[全国雀庄公式战手册 v1.0](https://github.com/lietxia/mj.000.mk/blob/main/rate.md)：四人半庄、25000起点、三种赤五各一、有食断和后付、无食替、无祝仪、有击飞，单个役最多一倍役满，允许复合多倍役满。手册其余细则允许各地规定；本预设未列细则使用平台现有日麻默认值，可在高级设置调整。未额外实现公式战账号、段位或Rate系统。
 
 该预设独立于日本职业麻将联盟A规。日麻建房左侧提供“雀庄公式战”；夺彩建房没有预设，夺彩立直采用自身规则书明确的40000起点/返点、头跳、切上满贯、允许食替等特别条款。
+
+## MIL规
+
+`mil` 依据用户提供的《立直麻将（RCR）规则 (中国大陆试行2018版).pdf》。文件名含2018，但五页正文页眉及第一章明确标注2023年MIL试行；预设采用正文第一章的线上牌局规则，不以文件名推断版本。
+
+四人半庄，30000起点／返点，顺位分+15/+5/-5/-15，同分平分顺位分，终局剩余供托不分配。允许食断、后付、振听立直及负分立直；无赤牌、有一发／里宝／杠宝／杠里宝，杠成立即翻宝。禁止食替；截和；无西入、击飞、途中流局、流局满贯及末庄和了止／听牌止。庄家和牌或荒牌听牌继续连庄。
+
+普通役11番起按三倍满封顶，真正役满不复合、不计双倍、上限一倍；国士不可抢暗杠。连风雀头4符，不切上满贯。大三元／大四喜包牌，不设置四杠子包牌。形式听牌耗尽只计可打暗手，立直后暗杠要求听张集合不变。
+
+新增可自定义设置：
+
+- `honba_enabled`：默认 `true`，旧预设、旧房间和旧牌谱沿用有本场。MIL为 `false`，连庄和荒牌流局不累计本场，荣和、自摸和包牌均无本场加点；立直供托照常结算。
+- `noten_penalty` 新增字符串值 `fixed_gap_2000`：仅四人立直可选，表示听牌与未听玩家的分数变化相差2000。一听为+1500／各-500，二听为各+1000／各-1000，三听为各+500／-1500；全听或全不听为0。它与数字 `2000`（三麻可用的固定转移总额）独立，保留原有0／2000／3000的类型和含义。
+
+这份简版未细化立直余牌下限、临时振听解除及包牌拆分。预设采用立直余牌至少1张、实际摸牌后出牌解除临时振听、责任役满包牌口径；不将这些选择称为规则书的明确条文。默认关闭错和，服务器阻止不合法的和牌。若手动打开错和，仍使用平台既有罚则，不模拟MIL的罚12000、停和且当局继续。裁判警告、迟到缺席、停赛及半庄限时收尾不在房间预设范围内。
+
+验证包含MIL流局所有座位组合、无本场荣和／自摸／包牌与供托支付、三倍满及单倍役满封顶、终局同分与剩余供托、完整对局循环，以及普通／赛事建房和Web编辑保存往返。

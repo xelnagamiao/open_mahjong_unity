@@ -173,7 +173,7 @@ def duplicate_record_is_visible(db, game_record, game_id=None):
                 # A caller-supplied training marker must not unlock a formal game.
                 # Require the persisted record and its keyless paired snapshot.
                 cursor.execute("""SELECT EXISTS (
-                    SELECT 1 FROM game_records r JOIN sichuan_duplicate_matches m
+                    SELECT 1 FROM game_record_metadata r JOIN sichuan_duplicate_matches m
                       ON m.id::text = r.record->'game_title'->>'duplicate_match_id'
                     WHERE r.game_id=%s AND m.wall_id IS NULL
                       AND m.data->>'wall_source'='training'

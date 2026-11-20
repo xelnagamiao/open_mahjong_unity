@@ -10,6 +10,16 @@ def option(game, key):
     return getattr(game, 'detailed_config', {}).get(key, DEFAULTS[key])
 
 
+def honba_count(game):
+    return game.honba if option(game, 'honba_enabled') else 0
+
+
+def next_honba(game, renchan):
+    if not option(game, 'honba_enabled'):
+        return 0
+    return game.honba + 1 if renchan or game.hu_class == 'ryuukyoku' else 0
+
+
 def win_indicators(game, player):
     """Only publish indicators actually enabled for this winner's calculation."""
     dora = list(game.dora_indicators)
@@ -136,8 +146,14 @@ def draw_payments(game, tenpai):
     noten = [i for i in range(len(game.player_list)) if i not in tenpai]
     total = option(game, 'noten_penalty')
     if tenpai and noten:
-        for i in noten: changes[i] -= total // len(noten)
-        for i in tenpai: changes[i] += total // len(tenpai)
+        if total == 'fixed_gap_2000':
+            # MIL fixes the difference between each tenpai/noten player's delta,
+            # not the pool: 1500/500, 1000/1000, or 500/1500 in four-player play.
+            for i in noten: changes[i] -= 500 * len(tenpai)
+            for i in tenpai: changes[i] += 500 * len(noten)
+        else:
+            for i in noten: changes[i] -= total // len(noten)
+            for i in tenpai: changes[i] += total // len(tenpai)
     return changes, []
 
 
@@ -191,7 +207,7 @@ def apply_pao(game, changes, winner, result, apply_honba):
             changes[game.current_player_index] += refunded
             changes[liable] -= charged
             changes[winner] += charged - refunded
-    if apply_honba and game.honba:
+    if apply_honba and honba_count(game):
         liable = payments[0][0]
         if tsumo:
             for seat in range(len(game.player_list)):

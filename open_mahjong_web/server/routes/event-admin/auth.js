@@ -4,7 +4,9 @@ const pool = require('../../config/database');
 const config = require('../../config/config');
 const { verifyPassword } = require('../../utils/password');
 const { signToken } = require('../../utils/jwt');
+const { BAN_COLUMNS, loginBanMessage } = require('../../utils/accountBans');
 const { requireEventAdmin } = require('../../middleware/requireEventAdmin');
+const { requireActiveAdminAccount } = require('../../middleware/requireActiveAdminAccount');
 const { writeAudit } = require('../../utils/audit');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
 
@@ -16,7 +18,7 @@ router.post('/login', async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT user_id, username, password, is_tourist FROM users WHERE username = $1`,
+      `SELECT user_id, username, password, is_tourist, ${BAN_COLUMNS} FROM users WHERE username = $1`,
       [username.trim()]
     );
     if (result.rows.length === 0) {
@@ -31,6 +33,8 @@ router.post('/login', async (req, res) => {
     if (!verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
+    const banMessage = loginBanMessage(user);
+    if (banMessage) return res.status(403).json({ success: false, message: banMessage });
 
     const events = await listUserEvents(user.user_id);
     if (events.length === 0) {
@@ -73,7 +77,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', requireEventAdmin, async (req, res) => {
+router.get('/me', requireEventAdmin, requireActiveAdminAccount, async (req, res) => {
   try {
     const events = await listUserEvents(req.eventAdmin.userId);
     res.json({

@@ -6,7 +6,7 @@
     <p class="source">{{ selectedProfile.description }}</p>
     <div class="common-fields">
       <el-form-item label="局数">
-        <el-select v-model="form.game_round"><el-option v-for="value in [1, 2, 3, 4]" :key="value" :label="`${value * 4}局`" :value="value" /></el-select>
+        <el-select v-model="form.game_round"><el-option v-for="value in (form.sub_rule === GUANGDONG_DOUBLES ? [2, 4] : [1, 2, 3, 4])" :key="value" :label="`${value * 4}局`" :value="value" /></el-select>
       </el-form-item>
       <el-form-item label="局时（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>
@@ -24,10 +24,11 @@
 
 <script setup>
 import { computed, watch } from 'vue'
-import { GUANGDONG_MIL_SUB_RULE, TUIDAO_SUB_RULE, guangdongProfiles } from '@/utils/guangdongRoomConfig.js'
+import { GUANGDONG_DOUBLES, GUANGDONG_MIL_SUB_RULE, TUIDAO_SUB_RULE, guangdongProfiles } from '@/utils/guangdongRoomConfig.js'
 const props = defineProps({ form: { type: Object, required: true }, showPassword: Boolean })
 const selectedProfile = computed(() => guangdongProfiles.find(item => item.value === props.form.sub_rule) || guangdongProfiles[0])
 watch(() => props.form.sub_rule, value => {
+  if (value === GUANGDONG_DOUBLES && ![2, 4].includes(props.form.game_round)) props.form.game_round = 2
   if (!guangdongProfiles.some(item => item.value === value)) props.form.sub_rule = guangdongProfiles[0].value
   if (typeof props.form.require_minimum_score !== 'boolean') props.form.require_minimum_score = true
   if (typeof props.form.pingji_zimo_no_chow !== 'boolean') props.form.pingji_zimo_no_chow = false

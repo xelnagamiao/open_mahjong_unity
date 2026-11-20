@@ -11,10 +11,7 @@
       <el-card v-loading="loadingCatalog" class="create-card" shadow="never">
         <template #header>创建复式密钥</template>
         <el-form label-position="top" :disabled="busy || loading || loadingCatalog" @submit.prevent="createWall">
-          <div class="form-grid">
-            <el-form-item label="规则" required class="rule-choice"><el-radio-group v-model="form.rule" aria-label="复式规则"><el-radio-button v-for="rule in rules" :key="rule.rule" :value="rule.rule">{{ rule.label }}</el-radio-button></el-radio-group></el-form-item>
-            <el-form-item label="密钥名称（可选）"><el-input v-model="form.name" maxlength="80" show-word-limit placeholder="例如：第一轮 · A 组" /></el-form-item>
-          </div>
+          <el-form-item label="规则" required class="rule-choice"><el-radio-group v-model="form.rule" aria-label="复式规则"><el-radio-button v-for="rule in rules" :key="rule.rule" :value="rule.rule">{{ rule.label }}</el-radio-button></el-radio-group></el-form-item>
           <div v-if="fixedSeats" class="layout-summary" role="note" aria-label="川麻牌山布局">
             <strong>{{ selectedRule.label }}</strong>
             <p>{{ duplicateLayoutDescription(selectedRule) }}</p>
@@ -36,11 +33,14 @@
           <el-form-item v-if="form.wall_type === 'seed'" label="随机种子" required><el-input v-model="form.seed" maxlength="128" show-word-limit placeholder="1–128 个字符的文本种子" autocomplete="off" /><p class="help">一个种子生成整场牌山。相同规则、花牌设置、局数和种子生成相同的手牌与牌山。</p></el-form-item>
           <template v-if="form.wall_type === 'manual' && selectedRule">
             <div class="round-tabs" role="group" aria-label="编辑各局牌山"><button v-for="round in form.round_count" :key="round" type="button" :class="{ selected: editingRound === round }" :aria-pressed="editingRound === round" :disabled="busy" @click="editingRound = round"><strong>{{ duplicateRoundLabel(round) }}</strong><span>{{ flattenDuplicateDraft(manualDrafts[round - 1]).length }} / {{ selectedRule.tile_count }} 张</span></button></div>
-            <p class="help">{{ fixedSeats ? `第 ${editingRound} 副 · 东南西北固定座位，庄家按副号轮转。` : `${duplicateRoundLabel(editingRound)} · 玩家编号按开房座位固定，风位随国标换庄、换位。` }}</p>
+            <p class="help">{{ fixedSeats ? `第 ${editingRound} 副 · 东南西北固定座位，庄家按副号轮转。` : '开启复式以后按玩家顺序设置东南西北，不再因为随机种子设定发送玩家到随机座位上' }}</p>
             <DuplicateManualEditor :key="`${form.rule}-${form.use_flowers}-${editingRound}`" v-model="manualDraft" :rule="selectedRule" :round="editingRound" :disabled="busy || loading || loadingCatalog" />
           </template>
           <p class="help">密钥默认锁定，解除锁定后公开牌谱。</p>
-          <el-button type="primary" native-type="submit" :loading="creating" :disabled="!canCreate">创建密钥</el-button>
+          <div class="create-submit-row">
+            <el-form-item label="密钥名称（可选）" class="key-name-field"><el-input v-model="form.name" maxlength="80" show-word-limit placeholder="例如：第一轮 · A 组" /></el-form-item>
+            <el-button type="primary" native-type="submit" :loading="creating" :disabled="!canCreate">创建密钥</el-button>
+          </div>
           <span v-if="quota && (quota.remaining_today <= 0 || quota.remaining_storage <= 0)" class="quota-warning">{{ quota.remaining_today <= 0 ? '今日创建次数已用完' : '密钥数量已达上限' }}</span>
         </el-form>
       </el-card>
@@ -199,19 +199,19 @@ onMounted(() => { if (props.scope === 'personal' || eventId.value) loadWalls(); 
 </script>
 
 <style scoped>
-.rule-choice { grid-column: 1 / -1; }
+.rule-choice { min-width: 0; }
 .rule-choice :deep(.el-radio-group) { display: flex; flex-wrap: wrap; gap: 8px; }
 .rule-choice :deep(.el-radio-button__inner) { border: 1px solid var(--el-border-color); border-radius: 4px; box-shadow: none; }
-.layout-summary { padding: 14px 16px; margin-bottom: 18px; background: #eff8f5; border: 1px solid #cce2d9; border-radius: 6px; color: #234b42; font-size: 13px; }
+.layout-summary { padding: 14px 16px; margin-bottom: 18px; background: var(--el-fill-color-light); border-left: 3px solid #2563b0; border-radius: 6px; color: var(--el-text-color-regular); font-size: 13px; }
 .layout-summary p { margin: 6px 0 0; line-height: 1.65; }
 .round-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .round-tabs button { display: flex; flex-direction: column; gap: 4px; min-width: 92px; padding: 10px 12px; border: 1px solid #dcdfe6; border-radius: 4px; background: #fff; color: #303133; cursor: pointer; }
-.round-tabs button.selected { border-color: #17756a; background: #eff8f5; }
+.round-tabs button.selected { border-color: #2563b0; box-shadow: inset 0 0 0 1px #2563b0; }
 .round-tabs span { font-size: 12px; color: #737d88; }
-.duplicate-panel { max-width: 1200px; margin: 0 auto; }
+.duplicate-panel { max-width: 960px; margin: 0; }
 .panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
-.panel-heading h2 { margin: 0 0 8px; color: #303133; }
-.panel-heading a { white-space: nowrap; color: #17756a; }
+.panel-heading h2 { margin: 0 0 8px; color: var(--el-text-color-primary); font-size: 22px; font-weight: 400; }
+.panel-heading a { white-space: nowrap; color: #2563b0; }
 .quota-row, .wall-heading, .key-line { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
 .quota-row { margin: 14px 0; }
 .wall-heading { justify-content: space-between; }
@@ -219,11 +219,12 @@ onMounted(() => { if (props.scope === 'personal' || eventId.value) loadWalls(); 
 .type-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; text-align: left; font: inherit; line-height: 1.6; color: #303133; background: #fff; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; }
 .type-card strong { font-size: 15px; }
 .type-card span { font-size: 13px; color: #606266; }
-.type-card:hover:not(:disabled), .type-card.selected { border-color: #17756a; }
-.type-card.selected { background: #eff8f5; }
-.type-card:focus-visible { outline: 2px solid #17756a; outline-offset: 2px; }
-.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.form-grid :deep(.el-select) { width: 100%; }
+.type-card:hover:not(:disabled), .type-card.selected { border-color: #2563b0; }
+.type-card.selected { box-shadow: inset 0 0 0 1px #2563b0; }
+.type-card:focus-visible { outline: 2px solid #2563b0; outline-offset: 2px; }
+.create-submit-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+.key-name-field { flex: 1 1 240px; min-width: 0; max-width: 440px; margin-bottom: 0; }
+.create-submit-row > .el-button { flex-shrink: 0; }
 .create-card, .created-card { margin-bottom: 20px; }
 .created-card { border-color: #b1d7c5; }
 .notice { margin: 14px 0; }
@@ -246,5 +247,5 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .key-line code, .table-key code, .seed-value { overflow-wrap: anywhere; word-break: break-all; }
 .key-line code { font-size: 17px; }
 .table-key { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-@media (max-width: 640px) { .type-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; gap: 0; } .panel-heading { flex-direction: column; gap: 8px; } .manual-builder { padding: 10px; } .quota-row { gap: 12px; } }
+@media (max-width: 640px) { .type-grid { grid-template-columns: 1fr; } .panel-heading { flex-direction: column; gap: 8px; } .manual-builder { padding: 10px; } .quota-row { gap: 12px; } }
 </style>

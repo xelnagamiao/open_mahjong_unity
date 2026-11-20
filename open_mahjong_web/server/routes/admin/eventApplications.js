@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
       `SELECT a.application_id, a.applicant_user_id, a.name, a.description, a.remark, a.reason,
               a.planned_start_at, a.planned_end_at, a.kind,
               a.status, a.reviewer_user_id, a.review_note, a.event_id,
-              a.organizer_name, a.organizer_phone, a.remark_history,
+              a.team_icon_url, a.organizer_name, a.organizer_phone, a.remark_history,
               a.created_at, a.updated_at, a.reviewed_at,
               u.username AS applicant_username
        FROM event_applications a
@@ -144,9 +144,9 @@ router.post('/:id/approve', async (req, res) => {
       ? { forbid_tourist: true, auto_approve: true, create_room_permission: 'registered', member_can_create_room: true, unregistered_can_create_room: false, unregistered_can_ready: false }
       : { forbid_tourist: false, auto_approve: false, create_room_permission: 'admin', member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
     await client.query(
-      `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
-       VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb)`,
-      [eventId, eventName, eventDescription, req.admin.userId, kind, JSON.stringify(entryConfig)]
+      `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config, team_icon_url)
+       VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb, $7)`,
+      [eventId, eventName, eventDescription, req.admin.userId, kind, JSON.stringify(entryConfig), application.team_icon_url || '']
     );
     await client.query(
       `INSERT INTO event_admins (event_id, user_id, role, added_by)

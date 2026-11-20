@@ -95,7 +95,9 @@ def _build_players_info(self, viewer_user_id: Optional[int]):
             'score_history': player.score_history,
             'round_number_history': player.round_number_history,
             'tag_list': tags,
-            'dingque_suit': getattr(player, 'dingque_suit', 0),
+            'dingque_suit': 0 if (getattr(self, 'is_sbr_exchange', False) and self.game_status == 'waiting_dingque'
+                                  and self.waiting_players_list and player.player_index != viewer_index)
+                            else getattr(player, 'dingque_suit', 0),
             'is_hu': getattr(player, 'is_hu', False),
             # 血流赢家留桌状态；standard 客户端会忽略这些附加字段。
             'has_won': getattr(player, 'has_won', False),
@@ -341,6 +343,7 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict[i],
                     action_tick=self.server_action_tick,
+                    sbr_window=self.hint_window(i) if getattr(self, "is_sbr_exchange", False) else None,
                     kong_candidates=xueliu_post_hu_kong_candidates(self, i),
                     deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                 ),
@@ -375,7 +378,7 @@ async def _auto_xueliu_throw_three(self, player_index: int) -> None:
 
 
 def _exchange_view(self, index):
-    return self.exchange_view(index) if getattr(self, "is_xueliu_doubles", False) else None
+    return self.exchange_view(index) if hasattr(self, "exchange_view") else None
 
 
 def _exchange_animation_response(self, index):
@@ -477,6 +480,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 ask_fields = dict(
                     remaining_time=remaining_time_for_player,
                     action_list=[] if required_hu else self.action_dict[i],
+                    sbr_window=self.hint_window(i, cut_tile) if getattr(self, "is_sbr_exchange", False) else None,
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
                     is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
@@ -494,6 +498,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                     ask_other_action_info=Ask_other_action_info(
                         remaining_time=remaining_time_for_player,
                         action_list=[],
+                        sbr_window=self.hint_window(i, cut_tile) if getattr(self, "is_sbr_exchange", False) else None,
                         cut_tile=cut_tile,
                         action_tick=self.server_action_tick,
                     ),
@@ -531,7 +536,7 @@ async def reconnected_send_pending_ask_for_viewer(
             ),
         )
         await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
-    elif self.game_status == "xueliu_exchange_animation" and getattr(self, "is_xueliu_doubles", False):
+    elif self.game_status == "xueliu_exchange_animation" and hasattr(self, "exchange_view"):
         await send_game_packet(self, player_conn.websocket, _exchange_animation_response(self, view_player_index).dict(exclude_none=True))
     elif self.game_status == "waiting_xueliu_throw" and (self.action_dict.get(view_player_index) or getattr(self, "is_xueliu_doubles", False)):
         response = Response(
@@ -555,6 +560,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 remaining_time=remaining_sent, step_remaining=step_sent, player_index=self.current_player_index,
                 remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                 action_list=self.action_dict.get(view_player_index, []), action_tick=self.server_action_tick,
+                sbr_window=self.hint_window(view_player_index) if getattr(self, "is_sbr_exchange", False) else None,
                 kong_candidates=xueliu_post_hu_kong_candidates(self, view_player_index),
             ),
         )
@@ -564,6 +570,7 @@ async def reconnected_send_pending_ask_for_viewer(
         ask_fields = dict(
             remaining_time=remaining_sent, step_remaining=step_sent,
             action_list=[] if is_xueliu_required_hu(self, view_player_index) else self.action_dict[view_player_index],
+            sbr_window=self.hint_window(view_player_index, cut_tile) if getattr(self, "is_sbr_exchange", False) else None,
             cut_tile=cut_tile, action_tick=self.server_action_tick,
         )
         ask_fields.update(claim_clock_fields(self, view_player_index))
@@ -905,6 +912,7 @@ async def broadcast_game_end(self):
             **({"team_small_score": self.team_result["small_scores"][player.team_id],
                 "team_imp_score": self.team_result["imp_scores"][player.team_id]}
                if getattr(self, "duplicate_match", None) else {}),
+            competition_points=getattr(player, "competition_points", None),
             **rating_result_fields(player),
             rank=player.record_counter.rank_result, score=player.score, pt=0,
             username=player.username, original_player_index=player.original_player_index,
@@ -936,6 +944,8 @@ async def broadcast_game_end(self):
 
 
 async def broadcast_refresh_player_tag_list(self):
+    if getattr(self, "is_sbr_exchange", False):
+        self.record_passed_fans()
     for current_player in self.player_list:
         try:
             if "offline" in current_player.tag_list or current_player.user_id == 0:

@@ -206,8 +206,8 @@ public static class ChatUiBaker
         var header=(RectTransform)root.Find("HeaderBar");header.sizeDelta=new Vector2(header.sizeDelta.x,55);
         var heading=(RectTransform)root.Find("Title");Place(heading,18,13,200,30);
         var headingText=heading.GetComponent<TMP_Text>();headingText.fontSize=20;headingText.fontStyle=FontStyles.Normal;headingText.fontWeight=FontWeight.Regular;
-        foreach(var rect in new[]{(RectTransform)view.close.transform,(RectTransform)bridge.plainButton.transform,(RectTransform)bridge.bubbleButton.transform})
-            rect.anchoredPosition=new Vector2(rect.anchoredPosition.x,-13);
+        var close=(RectTransform)view.close.transform;
+        close.anchoredPosition=new Vector2(close.anchoredPosition.x,-13);
         var sidebar=(RectTransform)root.Find("Sidebar");sidebar.anchoredPosition=new Vector2(1,-56);sidebar.sizeDelta=new Vector2(253,-57);
         var divider=(RectTransform)root.Find("SidebarDivider");divider.anchoredPosition=new Vector2(254,-56);divider.sizeDelta=new Vector2(1,-56);
         for(int i=0;i<view.tabs.Length;i++)
@@ -292,6 +292,10 @@ public static class ChatUiBaker
         }
         if(!bridge.source||!bridge.tableLauncher||!bridge.visibility||bridge.visibility.transform!=bridge.view.transform||bridge.transform.parent.name!="OverlayCanvas")
             throw new InvalidOperationException("Unified chat references are not baked.");
+        var messages = bridge.view.messages;
+        if (messages == null || messages.Length == 0 || bridge.avatarInitials == null || bridge.avatarInitials.Length != messages.Length ||
+            messages.Any(row => !row || !row.portrait || !row.bubble || !row.body || !row.author || !row.time) || bridge.avatarInitials.Any(label => !label))
+            throw new InvalidOperationException("Chat message bubbles and portraits must be bound on every row.");
         if(!bridge.friendListScroll || !bridge.friendListContent || bridge.friendListScroll.content!=bridge.friendListContent || bridge.view.rows.Length<20)
             throw new InvalidOperationException("The chat friend list bindings are not baked.");
         if(!bridge.tableLauncher.previewRoot.GetComponent<CanvasGroup>()||bridge.tableLauncher.transform.Find("MessageSummary"))

@@ -67,6 +67,7 @@ public static class LeaderboardPresentationBaker
         Set(view.scroll.viewport,0,0,660,496);
         Set((RectTransform)view.scroll.verticalScrollbar.transform,668,0,8,496);
         Set(node("RankList/ScrollView/Scrollbar/TrackRail"),2,0,4,496);
+        CompactRows(view, palette);
         foreach (var row in view.rows)
         {
             ((RectTransform)row.root.transform).sizeDelta = new Vector2(660,64);
@@ -90,6 +91,7 @@ public static class LeaderboardPresentationBaker
         Set(view.myHint.rectTransform,132,40,224,26);Format(view.myHint,16,TextAlignmentOptions.MidlineLeft);view.myHint.gameObject.SetActive(true);
         Set(view.myGrade.rectTransform,370,18,100,40);Format(view.myGrade,21,TextAlignmentOptions.Midline);
         Set(view.myScore.rectTransform,486,18,158,40);Format(view.myScore,21,TextAlignmentOptions.MidlineRight);
+        view.ConfigureColumns();
         view.myPlayer=node("MyRank").GetComponent<Button>();
         if (!view.myPlayer) view.myPlayer=node("MyRank").gameObject.AddComponent<Button>();
         view.myPlayer.targetGraphic=node("MyRank").GetComponent<SettingsShapeGraphic>();
@@ -174,6 +176,22 @@ public static class LeaderboardPresentationBaker
         binding.authoredStyle = FontStyles.Normal; binding.authoredWeight = FontWeight.Regular; binding.styleCaptured = true;
         binding.preserveAuthoredTypeface = false; binding.preserveAuthoredChineseFace = false;
         binding.Apply(); EditorUtility.SetDirty(binding);
+    }
+
+    public static void CompactRows(LeaderboardView view, LeaderboardPaletteEditor palette)
+    {
+        float rowHeight = ((RectTransform)view.rows[0].root.transform).rect.height;
+        var layout = view.scroll.content.GetComponent<VerticalLayoutGroup>();
+        int visible = Mathf.CeilToInt(view.scroll.viewport.rect.height / (rowHeight + layout.spacing));
+        if (visible <= 0 || rowHeight <= 0) throw new InvalidOperationException("Invalid leaderboard viewport.");
+        int capacity = visible + 2;
+        if (view.rows.Length <= capacity) return;
+        foreach (var row in view.rows.Skip(capacity)) UnityEngine.Object.DestroyImmediate(row.root);
+        view.rows = view.rows.Take(capacity).ToArray();
+        palette.shapes = palette.shapes.Where(binding => binding.graphic).ToArray();
+        palette.texts = palette.texts.Where(binding => binding.text).ToArray();
+        EditorUtility.SetDirty(view);
+        EditorUtility.SetDirty(palette);
     }
 
     public static void Validate(Scene scene)

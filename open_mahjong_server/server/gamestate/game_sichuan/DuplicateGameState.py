@@ -163,6 +163,16 @@ class DuplicateMixin:
              "original_player_index": p.original_player_index, "rank": p.record_counter.rank_result}
             for p in self.player_list]
         self.duplicate_match.save(candidate)
+        if all(t in candidate.get("final_records", {}) for t in ("open", "closed")):
+            self.duplicate_match.final_record_event.set()
+
+    async def _wait_for_match_records(self):
+        # Participant archives become a match once both final table payloads
+        # exist. A failed sibling leaves an explicitly partial local archive.
+        try:
+            await asyncio.wait_for(self.duplicate_match.final_record_event.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            pass
 
     def complete_spectator_record(self, record):
         # Pair totals and both-table progress live outside the generic tick log.

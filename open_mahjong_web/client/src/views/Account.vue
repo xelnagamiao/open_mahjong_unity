@@ -1,10 +1,13 @@
 <template>
-  <div v-loading="!auth.loaded" class="account-page" :class="{ 'account-page--manage': isManageSection }">
+  <div v-loading="!auth.loaded" class="account-page" :class="{ 'account-page--manage': isManageSection, 'account-page--duplicate': isDuplicateSection }">
     <el-empty v-if="auth.loaded && !auth.isLoggedIn" description="您尚未登录">
       <el-button type="primary" @click="$router.push({ path: '/login', query: { redirect: route.fullPath } })">去登录</el-button>
     </el-empty>
 
     <template v-else-if="auth.isLoggedIn">
+      <ProfilePanel v-if="activeSection === 'sec-profile'" />
+      <InventoryPanel v-if="activeSection === 'sec-inventory'" />
+      <MailPanel v-if="activeSection === 'sec-mail'" />
       <el-card v-show="activeSection === 'sec-account'" id="sec-account" class="block section" data-sec="sec-account">
         <template #header>账户信息</template>
         <el-descriptions :column="2" border>
@@ -86,7 +89,7 @@
 
         <el-divider content-position="left">修改用户名</el-divider>
         <el-form label-width="88px" class="bind-form" @submit.prevent="onRename">
-          <p class="hint">改名成功时自动消耗 1 张改名卡，无需提前在背包中使用。</p>
+          <p class="hint">改名成功时需要消耗 1 张改名卡</p>
           <p class="hint">用户名最多16个字符，显示长度2–20（中日韩及全角字符计2，其他字符计1）。</p>
           <el-form-item label="新用户名">
             <el-input
@@ -111,25 +114,150 @@
       </el-card>
 
       <RedeemItemsPanel v-if="activeSection === 'sec-redeem'" />
-      <TileContentPanel v-show="activeSection === 'sec-uploads'" />
-      <DuplicateWallsPanel v-if="activeSection === 'sec-duplicate-personal' || activeSection === 'sec-duplicate-event'" :key="activeSection" :scope="activeSection === 'sec-duplicate-event' ? 'event' : 'personal'" :events="myEvents" />
+      <TileContentPanel v-show="activeSection === 'sec-uploads'" :active="activeSection === 'sec-uploads'" />
+      <section v-if="isDuplicateSection" class="duplicate-workspace">
+        <div class="scope-switch" role="group" aria-label="复式创建归属">
+          <button type="button" :aria-pressed="activeSection === 'sec-duplicate-personal'" @click="switchDuplicateScope('personal')">为个人创建</button>
+          <button type="button" :aria-pressed="activeSection === 'sec-duplicate-event'" @click="switchDuplicateScope('event')">为管理的赛事／基地创建</button>
+        </div>
+        <KeepAlive>
+          <DuplicateWallsPanel :key="activeSection" :scope="activeSection === 'sec-duplicate-event' ? 'event' : 'personal'" :events="myEvents" />
+        </KeepAlive>
+      </section>
 
-      <el-card v-show="isManageSection" class="block section">
-        <template #header>
-          <div class="section-header">
-            <span>{{ isBaseManage ? '基地管理' : '赛事管理' }}</span>
-            <el-button type="primary" @click="openApplicationForm()">{{ applyCardTitle }}</el-button>
-          </div>
-        </template>
-        <p class="hint">
-          {{ isBaseManage
-            ? '查看基地申请与已注册基地；点击「管理」在下方展开管理面板。'
-            : '查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。' }}
-        </p>
+      <section v-show="isManageSection" class="venue-workspace block">
+        <div class="venue-heading"><h2>赛事与基地</h2><p>我管理的赛事与基地</p></div>
+        <div v-loading="eventsLoading" class="venue-grid">
+          <article v-for="row in myEvents" :key="row.event_id" class="venue-card" :class="{ 'venue-card--base': row.kind === 'base', 'venue-card--selected': managingEventId === row.event_id }">
+            <button type="button" class="venue-card-open" aria-label="进入管理" :title="row.description || row.name" :aria-describedby="`venue-name-${row.event_id}`" :aria-expanded="managingEventId === row.event_id" :disabled="applyLoading || iconBusy" @click="openVenueManagement(row.event_id)"></button>
+            <header class="venue-card-header">
+              <span class="venue-kind">{{ row.kind === 'base' ? '基地' : '赛事' }}</span>
+              <span class="venue-status" :class="{ 'venue-status--active': row.status === 'active' }">{{ eventStatusLabel(row.status) }}</span>
+            </header>
+            <div class="venue-card-body">
+              <h3 :id="`venue-name-${row.event_id}`" :title="row.name">{{ row.name }}</h3>
+              <p class="venue-description" :title="row.description || ''">{{ row.description || '—' }}</p>
+              <div v-if="row.reopen_requested || row.profile_change_pending" class="venue-meta">
+                <el-tag v-if="row.reopen_requested" type="warning" size="small">待再开</el-tag>
+                <el-tag v-if="row.profile_change_pending" type="warning" size="small">资料待审</el-tag>
+              </div>
+              <footer class="venue-card-footer">
+              <div class="venue-card-actions">
+                <el-button size="large" plain @click.stop="$router.push(`/events/${row.event_id}`)">公开页</el-button>
+                <el-button size="large" type="primary" @click.stop="$router.push('/player-data')">前往数据站</el-button>
+              </div>
+                <span class="venue-role" :class="{ 'venue-role--owner': row.role === 'owner' }">{{ eventRoleLabel(row.role, row.kind) }}</span>
+              </footer>
+            </div>
+          </article>
+          <button type="button" class="venue-create" :disabled="applyLoading || iconBusy" :aria-expanded="applicationPanelVisible && !isBaseApply" aria-controls="venue-application-panel" @click="startApplication('event')"><span class="venue-plus" aria-hidden="true">＋</span><span>创建赛事<small>杯赛、公开赛等赛事活动，也可以创办类似月赛、季赛的无固定时限活动</small></span></button>
+          <button type="button" class="venue-create venue-create--base" :disabled="applyLoading || iconBusy" :aria-expanded="applicationPanelVisible && isBaseApply" aria-controls="venue-application-panel" @click="startApplication('base')"><span class="venue-plus" aria-hidden="true">＋</span><span>创建基地<small>日常对局、训练与长期活动的场所</small></span></button>
+        </div>
+        <el-collapse-transition v-if="!managingEventId" @after-enter="revealApplicationPanel">
+          <section v-show="applicationPanelVisible" ref="applicationPanel" id="venue-application-panel" class="application-section" aria-labelledby="venue-application-title">
+            <header class="application-header">
+              <h3 id="venue-application-title">{{ applyCardTitle }}</h3>
+              <el-button :disabled="applyLoading || iconBusy" @click="closeApplicationPanel">收起</el-button>
+            </header>
+            <div class="application-body">
+        <div class="event-application-rules">
+          <strong>{{ applicationHelp.rulesTitle }}</strong>
+          <ol><li v-for="rule in applicationHelp.rules" :key="rule">{{ rule }}</li></ol>
+        </div>
+        <el-form label-position="top" class="apply-form" @submit.prevent="submitApplication">
+<el-form-item label="队徽（可选）"><TeamIconPicker @busy="iconBusy = $event" v-model="applyForm.team_icon_url" :disabled="applyLoading" /></el-form-item>
+          <el-form-item :label="isBaseApply ? '基地名称' : '赛事名称'" required>
+            <el-input v-model="applyForm.name" maxlength="128" show-word-limit />
+            <p class="field-note">{{ applicationHelp.name }}</p>
+          </el-form-item>
 
-        <el-divider content-position="left">申请记录</el-divider>
+          <el-form-item :label="isBaseApply ? '拟定时间（可选）' : '拟定开始时间 / 拟定结束时间'" :required="!isBaseApply">
+            <div class="date-row">
+              <el-date-picker
+                v-model="applyForm.planned_start_at"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="拟定开始时间"
+                class="date-picker"
+              />
+              <span class="date-sep">至</span>
+              <el-date-picker
+                v-model="applyForm.planned_end_at"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="拟定结束时间（可选）"
+                class="date-picker"
+                clearable
+              />
+            </div>
+            <p class="field-note">{{ applicationHelp.dates }}</p>
+          </el-form-item>
+
+          <el-form-item :label="isBaseApply ? '基地介绍' : '赛事介绍'" required>
+            <el-input
+              v-model="applyForm.description"
+              type="textarea"
+              :rows="5"
+              maxlength="2000"
+              show-word-limit
+            />
+            <p class="field-note">{{ applicationHelp.description }}</p>
+          </el-form-item>
+
+          <el-form-item :label="isBaseApply ? '基地负责人' : '赛事负责人'" required>
+            <div class="organizer-row">
+              <el-input
+                v-model="applyForm.organizer_name"
+                maxlength="32"
+                show-word-limit
+                placeholder="姓名"
+              />
+              <el-input
+                v-model="applyForm.organizer_phone"
+                maxlength="20"
+                placeholder="手机号"
+              />
+            </div>
+            <p class="field-note">{{ applicationHelpData.organizer }}</p>
+          </el-form-item>
+
+          <el-form-item :label="editingApplicationId ? '追加备注' : '备注'">
+            <ApplicationRemarkThread
+              v-if="editingApplicationId"
+              :items="editingRemarkHistory"
+              class="remark-history"
+            />
+            <el-input
+              v-model="applyForm.remark"
+              type="textarea"
+              :rows="3"
+              maxlength="2000"
+              show-word-limit
+              :placeholder="editingApplicationId ? '可追加一条新备注，将写入双方往来记录' : '可选'"
+            />
+            <p class="field-note">{{ applicationHelpData.remark }}</p>
+          </el-form-item>
+
+        </el-form>
+            </div>
+            <footer class="application-footer">
+          <el-button :disabled="applyLoading || iconBusy" @click="closeApplicationPanel()">取消</el-button>
+          <el-button type="primary" :loading="applyLoading" :disabled="iconBusy" @click="submitApplication">{{ applySubmitLabel }}</el-button>
+            </footer>
+          </section>
+        </el-collapse-transition>
+        <EventManagePanel
+          v-if="managingEventId"
+          :profile-revision="profileRevision"
+          :event-id="managingEventId"
+          @close="managingEventId = null"
+          @updated="loadMyEvents"
+        />
+        <details class="application-history" :open="!!route.query.application">
+          <summary>申请记录 · {{ myApplications.length }}</summary>
         <div class="fit-table-wrap">
-          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
+          <el-table :data="myApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
+            <el-table-column label="类型" width="80"><template #default="{ row }">{{ row.kind === 'base' ? '基地' : '赛事' }}</template></el-table-column>
             <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column label="拟定时间" min-width="150">
               <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
@@ -170,172 +298,15 @@
           </el-table>
         </div>
 
-        <el-divider content-position="left">{{ isBaseManage ? '已注册基地' : '已注册赛事' }}</el-divider>
-        <div class="fit-table-wrap">
-          <el-table
-            v-loading="eventsLoading"
-            :data="visibleEvents"
-            size="small"
-            :empty-text="isBaseManage ? '暂无管理中的基地' : '暂无管理中的赛事'"
-            class="fit-table"
-          >
-            <el-table-column prop="name" label="名称" min-width="160" />
-            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.description || '—' }}</template>
-            </el-table-column>
-            <el-table-column label="角色" width="120">
-              <template #default="{ row }">{{ eventRoleLabel(row.role, row.kind) }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="110">
-              <template #default="{ row }">
-                <el-tag :type="eventStatusTagType(row.status)" size="small">
-                  {{ eventStatusLabel(row.status) }}
-                </el-tag>
-                <el-tag v-if="row.reopen_requested" type="warning" size="small" style="margin-left: 4px">
-                  待再开
-                </el-tag>
-                <el-tag v-if="row.profile_change_pending" type="warning" size="small">资料待审</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="牌谱" width="70">
-              <template #default="{ row }">{{ row.record_count || 0 }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="220">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  :type="managingEventId === row.event_id ? 'warning' : 'danger'"
-                  @click="toggleManage(row.event_id)"
-                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
-                <el-button v-if="row.role === 'owner'" link type="warning" @click="openProfileEditor(row)">修改</el-button>
-                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
+        </details>
 
-        <EventManagePanel
-          v-if="managingEventId"
-          :profile-revision="profileRevision"
-          :event-id="managingEventId"
-          @close="managingEventId = null"
-          @updated="loadMyEvents"
-        />
-      </el-card>
+      </section>
 
-      <el-card v-show="isManageSection" :id="venueApplyHash(currentVenueKind).slice(1)" class="block section application-section">
-        <template #header>{{ applyCardTitle }}</template>
-        <div class="event-application-rules">
-          <strong>{{ isBaseApply ? 'Salasasa 平台基地规约' : 'Salasasa 平台赛事规约' }}</strong>
-          <ol v-if="isBaseApply">
-            <li>创建基地后，玩家可以在基地中进行对局，同时管理员对对局状态、玩家牌谱与数据统计均有管理权能，如果有长期月赛或者其他非杯赛的不定期活动，使用基地来创建也是可以的。</li>
-            <li>如果社团活动涉及烟、酒、槟榔等成瘾品赞助的相关内容，请在申请基地的介绍或者发布相关公告之前联系平台管理员。</li>
-          </ol>
-          <ol v-else>
-            <li>赛事的组织、奖金等各项成本开支不得低于报名费的 80%，如赛事奖励中提供更上级比赛名额或特殊奖励的，可以进行独立核算。</li>
-            <li>收取报名费的赛事必须明确规定赛事规则与奖励方式；该内容同样受赛事介绍中平台可能对赛制争端进行介入的声明约束。</li>
-            <li>涉及烟、酒、槟榔等成瘾品赞助的赛事，须提前联系平台管理员后再申报。</li>
-          </ol>
-        </div>
-        <el-form label-position="top" class="apply-form" @submit.prevent="submitApplication">
-          <el-form-item :label="isBaseApply ? '基地名称' : '赛事名称'" required>
-            <el-input v-model="applyForm.name" maxlength="128" show-word-limit />
-            <p class="field-note">
-              {{ isBaseApply
-                ? '基地名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的基地名称；错误案例：「国标麻将基地」、「salasasa麻将群」、「麻将活动室」等。'
-                : '赛事名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的赛事名称；错误案例：国标麻将比赛、FST杯；正确案例：第一届神秘嘉宾杯国标麻将比赛、咕咕嘎嘎国标麻将群内赛。' }}
-            </p>
-          </el-form-item>
 
-          <el-form-item :label="isBaseApply ? '拟定时间（可选）' : '拟定开始时间 / 拟定结束时间'" :required="!isBaseApply">
-            <div class="date-row">
-              <el-date-picker
-                v-model="applyForm.planned_start_at"
-                type="date"
-                value-format="YYYY-MM-DD"
-                placeholder="拟定开始时间"
-                class="date-picker"
-              />
-              <span class="date-sep">至</span>
-              <el-date-picker
-                v-model="applyForm.planned_end_at"
-                type="date"
-                value-format="YYYY-MM-DD"
-                placeholder="拟定结束时间（可选）"
-                class="date-picker"
-                clearable
-              />
-            </div>
-            <p class="field-note">
-              {{ isBaseApply
-                ? '对基地的持续时间不设限制，时间设置由基地管理员自行决定。'
-                : '拟定开始时间和结束时间只是申请的开启赛事和关闭赛事的大致时间范围，赛事的开启与关闭将由比赛管理员自行决定；\n如果是长期的月赛或者季度赛，可以不设截止时间或连续申报比赛，在确定拟定日期以后也可以随时进行更改。' }}
-            </p>
-          </el-form-item>
-
-          <el-form-item :label="isBaseApply ? '基地介绍' : '赛事介绍'" required>
-            <el-input
-              v-model="applyForm.description"
-              type="textarea"
-              :rows="5"
-              maxlength="2000"
-              show-word-limit
-            />
-            <p class="field-note">
-              {{ isBaseApply
-                ? '基地介绍中必须包含基地/社团的简单介绍，不得留空，如果不希望对外发展社团成员，可以不留下联系方式。'
-                : '赛事介绍中必须包含明确的报名联系方式，对于实际赛程这里可以不予规定、即使予以规定，后期也可以进行更改。但是，如果赛事在实际赛程中规定了某些赛事规则或者奖励方式但未达成，或者在临时更改赛制以后出现了争议或争端，平台也会一定程度上对赛事进行一些介入监管；包括且不限于，批评、取消办赛资格、封禁个别账户等惩罚，请务必注意这一点。' }}
-            </p>
-          </el-form-item>
-
-          <el-form-item :label="isBaseApply ? '基地负责人' : '赛事负责人'" required>
-            <div class="organizer-row">
-              <el-input
-                v-model="applyForm.organizer_name"
-                maxlength="32"
-                show-word-limit
-                placeholder="姓名"
-              />
-              <el-input
-                v-model="applyForm.organizer_phone"
-                maxlength="20"
-                placeholder="手机号"
-              />
-            </div>
-            <p class="field-note">请填写真实姓名与24小时内能够联系上的联系方式，手机号仅作为实名验证使用，如果不希望平台使用手机号进行联系，可以在备注内填写偏好的联系方式，平台绝不会通过偏好联系方式以外的方式联系您；如果不希望暴露真实姓名，可以填写惯用id，只需要手机号是实名的即可。</p>
-          </el-form-item>
-
-          <el-form-item :label="editingApplicationId ? '追加备注' : '备注'">
-            <ApplicationRemarkThread
-              v-if="editingApplicationId"
-              :items="editingRemarkHistory"
-              class="remark-history"
-            />
-            <el-input
-              v-model="applyForm.remark"
-              type="textarea"
-              :rows="3"
-              maxlength="2000"
-              show-word-limit
-              :placeholder="editingApplicationId ? '可追加一条新备注，将写入双方往来记录' : '可选'"
-            />
-            <p class="field-note">
-              给予管理员的说明，或不希望在公开介绍中展示、但需预先告知的特殊声明。修改申请、保存修改、重新提交时填写的内容会按时间追加到双方往来备注栏。
-            </p>
-          </el-form-item>
-
-          <el-form-item>
-            <el-button type="primary" :loading="applyLoading" @click="submitApplication">
-              {{ applySubmitLabel }}
-            </el-button>
-            <el-button v-if="editingApplicationId" @click="cancelApplicationEdit">取消修改</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
 
       <VenueProfileDialog v-model="profileDialogVisible" :venue="profileEditingEvent" @updated="onProfileUpdated" />
 
-      <el-dialog v-model="applicationPreviewVisible" :title="isBaseApply || previewedApplication?.kind === 'base' ? '基地页面预览' : '赛事页面预览'" width="720px">
+      <el-dialog v-model="applicationPreviewVisible" :title="previewedApplication?.kind === 'base' ? '基地页面预览' : '赛事页面预览'" width="720px">
         <EventPreviewCard v-if="previewedApplication" :event="previewedApplication" />
       </el-dialog>
     </template>
@@ -343,6 +314,8 @@
 </template>
 
 <script setup>
+import applicationHelpData from '../../../../open_mahjong_unity/Assets/Resources/VenueApplicationHelp.json'
+import TeamIconPicker from '@/components/TeamIconPicker.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -350,6 +323,9 @@ import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import playerApi from '@/api/playerClient'
 import RedeemItemsPanel from '@/components/RedeemItemsPanel.vue'
+import ProfilePanel from '@/views/account/ProfilePanel.vue'
+import InventoryPanel from '@/views/account/InventoryPanel.vue'
+import MailPanel from '@/views/account/MailPanel.vue'
 import { RenameResultUnconfirmedError } from '@/api/playerRename'
 import EventManagePanel from '@/components/EventManagePanel.vue'
 import VenueProfileDialog from '@/components/VenueProfileDialog.vue'
@@ -357,7 +333,7 @@ import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
 import TileContentPanel from '@/views/account/TileContentPanel.vue'
 import DuplicateWallsPanel from '@/views/account/DuplicateWallsPanel.vue'
-import { eventRoleLabel, eventStatusLabel, eventStatusTagType, parseVenueKind, venueApplyHash, venueManageHash } from '@/utils/eventMeta'
+import { eventRoleLabel, eventStatusLabel, venueManageHash } from '@/utils/eventMeta'
 import { useI18n } from '@/i18n'
 
 const auth = usePlayerAuthStore()
@@ -366,7 +342,7 @@ const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 
-const SECTION_IDS = ['sec-account', 'sec-redeem', 'sec-uploads', 'sec-duplicate-personal', 'sec-duplicate-event', 'sec-manage-event', 'sec-manage-base']
+const SECTION_IDS = ['sec-profile', 'sec-inventory', 'sec-mail', 'sec-account', 'sec-redeem', 'sec-uploads', 'sec-duplicate-personal', 'sec-duplicate-event', 'sec-manage-event', 'sec-manage-base']
 const LEGACY_HASH = {
   'sec-apply': 'sec-manage-event',
   'sec-apply-event': 'sec-manage-event',
@@ -379,11 +355,12 @@ const activeSection = computed(() => {
   const hash = (route.hash || '').replace(/^#/, '')
   const mapped = LEGACY_HASH[hash] || hash
   if (SECTION_IDS.includes(mapped)) return mapped
-  return 'sec-account'
+  return 'sec-profile'
 })
 const isManageSection = computed(() => activeSection.value === 'sec-manage-event' || activeSection.value === 'sec-manage-base')
-const isBaseManage = computed(() => activeSection.value === 'sec-manage-base')
-const currentVenueKind = computed(() => isBaseManage.value ? 'base' : 'event')
+const isDuplicateSection = computed(() => activeSection.value === 'sec-duplicate-personal' || activeSection.value === 'sec-duplicate-event')
+const applicationPanelVisible = ref(false)
+const applicationPanel = ref(null)
 
 const pwd = reactive({ old: '', next: '', confirm: '' })
 const pwdLoading = ref(false)
@@ -399,6 +376,7 @@ const emailUnbinding = ref(false)
 const sendCooldown = ref(0)
 
 const applyForm = reactive({
+  team_icon_url: '',
   kind: 'event',
   name: '',
   planned_start_at: null,
@@ -409,6 +387,7 @@ const applyForm = reactive({
   organizer_phone: '',
 })
 const applyLoading = ref(false)
+const iconBusy = ref(false)
 const editingApplicationId = ref(null)
 const editingApplicationStatus = ref('')
 const editingRemarkHistory = ref([])
@@ -422,13 +401,8 @@ const profileDialogVisible = ref(false)
 const profileEditingEvent = ref(null)
 const profileRevision = ref(0)
 const ownedEvents = computed(() => new Map(myEvents.value.filter((row) => row.role === 'owner').map((row) => [row.event_id, row])))
-const isBaseApply = computed(() => currentVenueKind.value === 'base')
-const visibleApplications = computed(() =>
-  myApplications.value.filter((row) => parseVenueKind(row.kind) === currentVenueKind.value)
-)
-const visibleEvents = computed(() =>
-  myEvents.value.filter((row) => parseVenueKind(row.kind) === currentVenueKind.value)
-)
+const isBaseApply = computed(() => applyForm.kind === 'base')
+const applicationHelp = computed(() => applicationHelpData[isBaseApply.value ? 'base' : 'event'])
 const applyCardTitle = computed(() => {
   if (editingApplicationId.value) {
     return isBaseApply.value ? '修改基地申请' : '修改办赛申请'
@@ -441,8 +415,21 @@ const applySubmitLabel = computed(() => {
   return isBaseApply.value ? '提交基地申请' : '提交办赛申请'
 })
 
-function toggleManage(eventId) {
-  managingEventId.value = managingEventId.value === eventId ? null : eventId
+function switchDuplicateScope(scope) {
+  router.replace({ path: '/account', hash: `#sec-duplicate-${scope}` })
+}
+
+function startApplication(kind) {
+  if (applyLoading.value || iconBusy.value) return
+  cancelApplicationEdit()
+  applyForm.kind = kind
+  openApplicationForm(kind)
+}
+
+function openVenueManagement(eventId) {
+  if (applyLoading.value || iconBusy.value) return
+  applicationPanelVisible.value = false
+  managingEventId.value = eventId
 }
 
 function openProfileEditor(row) {
@@ -470,43 +457,57 @@ function applyApplicationToForm(row) {
   applyForm.description = row.description || row.reason || ''
   applyForm.remark = ''
   applyForm.organizer_name = row.organizer_name || ''
+  applyForm.team_icon_url = row.team_icon_url || ''
   applyForm.organizer_phone = row.organizer_phone || ''
   editingRemarkHistory.value = Array.isArray(row.remark_history) ? row.remark_history : []
 }
 
 function editApplication(row) {
+  if (applyLoading.value || iconBusy.value) return
   editingApplicationId.value = row.application_id
   editingApplicationStatus.value = row.status
   applyApplicationToForm(row)
   openApplicationForm(row.kind)
 }
 
-async function openApplicationForm(kind = currentVenueKind.value) {
-  await router.push({ path: '/account', hash: venueApplyHash(kind) })
-  await scrollToSection()
+function openApplicationForm(kind = 'event') {
+  managingEventId.value = null
+  applyForm.kind = kind === 'base' ? 'base' : 'event'
+  if (applicationPanelVisible.value) nextTick(revealApplicationPanel)
+  applicationPanelVisible.value = true
+}
+
+function closeApplicationPanel() {
+  if (applyLoading.value || iconBusy.value) return
+  applicationPanelVisible.value = false
+}
+
+function revealApplicationPanel() {
+  if (!applicationPanelVisible.value) return
+  applicationPanel.value?.querySelector('.application-header')?.scrollIntoView({
+    block: 'nearest',
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  })
 }
 
 async function scrollToSection() {
   await nextTick()
-  if (/^#sec-apply(?:-event|-base)?$/.test(route.hash)) {
-    document.getElementById(venueApplyHash(currentVenueKind.value).slice(1))?.scrollIntoView({ block: 'start' })
-  } else {
-    const main = document.querySelector('.account-main')
-    if (main) main.scrollTop = 0
-  }
+  if (/^#sec-apply(?:-event|-base)?$/.test(route.hash)) return
+  const main = document.querySelector('.account-main')
+  if (main) main.scrollTop = 0
 }
 
 function cancelApplicationEdit() {
   editingApplicationId.value = null
   editingApplicationStatus.value = ''
   editingRemarkHistory.value = []
-  applyForm.kind = currentVenueKind.value
   applyForm.name = ''
   applyForm.planned_start_at = null
   applyForm.planned_end_at = null
   applyForm.description = ''
   applyForm.remark = ''
   applyForm.organizer_name = ''
+  applyForm.team_icon_url = ''
   applyForm.organizer_phone = ''
 }
 
@@ -570,10 +571,14 @@ async function loadMyEvents() {
     return
   }
   eventsLoading.value = true
+  const owner = auth.userId
   try {
     const res = await playerApi.get('/my-events')
+    if (owner !== auth.userId) return
     myEvents.value = res.data?.data?.items || []
     auth.isEventAdmin = myEvents.value.length > 0
+    // A newly approved applicant may still have the session issued before approval.
+    if (myEvents.value.length && !eventAuth.isLoggedIn) await auth.fetchMe()
   } catch {
     myEvents.value = []
   } finally {
@@ -597,6 +602,7 @@ function startCooldown(sec = 60) {
 function openManageFromQuery() {
   const manageId = typeof route.query.manage === 'string' ? route.query.manage : ''
   if (!manageId) return
+  applicationPanelVisible.value = false
   managingEventId.value = manageId
   const row = myEvents.value.find((item) => item.event_id === manageId)
   const hash = venueManageHash(row?.kind)
@@ -612,27 +618,28 @@ onMounted(async () => {
   await Promise.all([loadMyApplications(), loadMyEvents()])
   await nextTick()
   openManageFromQuery()
-  await scrollToSection()
 })
 
 watch(
-  () => route.query.manage,
-  () => {
-    openManageFromQuery()
+  () => [route.query.manage, route.query.application],
+  async ([manageId, applicationId], _previous, onCleanup) => {
+    if (!manageId && !applicationId) return
+    let current = true
+    const owner = auth.userId
+    onCleanup(() => { current = false })
+    await Promise.all([loadMyApplications(), loadMyEvents()])
+    if (current && owner === auth.userId) openManageFromQuery()
   }
 )
 
-watch(activeSection, (section) => {
-  if (section === 'sec-manage-event' || section === 'sec-manage-base') {
-    const kind = section === 'sec-manage-base' ? 'base' : 'event'
-    if (applyForm.kind !== kind) cancelApplicationEdit()
-    applyForm.kind = kind
-    const current = myEvents.value.find((item) => item.event_id === managingEventId.value)
-    if (current && parseVenueKind(current.kind) !== kind) managingEventId.value = null
+watch(() => route.hash, (hash) => {
+  if (/^#sec-apply(?:-event|-base)?$/.test(hash)) {
+    startApplication(hash === '#sec-apply-base' ? 'base' : 'event')
+  } else {
+    applicationPanelVisible.value = false
+    scrollToSection()
   }
 }, { immediate: true })
-
-watch(() => route.hash, scrollToSection)
 
 onBeforeUnmount(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -758,6 +765,7 @@ async function unbindEmail() {
 }
 
 async function submitApplication() {
+  if (iconBusy.value || applyLoading.value) return
   if (!applyForm.name.trim()) {
     ElMessage.warning(isBaseApply.value ? '请填写基地名称' : '请填写赛事名称')
     return
@@ -794,6 +802,7 @@ async function submitApplication() {
       remark: applyForm.remark,
       organizer_name: applyForm.organizer_name,
       organizer_phone: phone,
+      team_icon_url: applyForm.team_icon_url,
     }
     if (editingApplicationId.value) {
       if (editingApplicationStatus.value === 'rejected') {
@@ -807,6 +816,7 @@ async function submitApplication() {
       await playerApi.post('/event-applications', payload)
       ElMessage.success('申请已提交，请等待管理员审核')
     }
+    applicationPanelVisible.value = false
     cancelApplicationEdit()
     await loadMyApplications()
     await auth.fetchMe()
@@ -827,10 +837,51 @@ async function submitApplication() {
   margin-left: max(0px, calc((100% - 1100px) / 3));
   margin-right: auto;
 }
-.account-page--manage {
-  max-width: none;
-  margin-left: 0;
+.account-page--manage, .account-page--duplicate {
+  max-width: 1100px;
 }
+.venue-workspace { --venue-event: #2563b0; --venue-base: #16715b; container-type: inline-size; }
+.venue-heading { margin-bottom: 18px; }
+.venue-heading h2 { margin: 0 0 6px; font-size: 22px; font-weight: 400; }
+.venue-heading p { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; }
+.venue-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.venue-card { position: relative; grid-column: span 2; display: flex; flex-direction: column; height: calc((100cqw - 48px) / 4); box-sizing: border-box; border: 1px solid var(--el-border-color); border-radius: 10px; overflow: hidden; background: var(--el-bg-color); min-width: 0; }
+.venue-card-open { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.venue-card-open:disabled { cursor: not-allowed; }
+.venue-card:has(.venue-card-open:focus-visible) { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
+.venue-card:has(.venue-card-open:hover:not(:disabled)) { border-color: var(--el-color-primary); }
+.venue-card-actions { position: relative; z-index: 2; }
+.venue-card--selected { outline: 2px solid var(--el-text-color-primary); outline-offset: 2px; }
+.venue-card-header { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; background: var(--venue-event); color: #fff; padding: 8px 16px; }
+.venue-card--base .venue-card-header { background: var(--venue-base); }
+.venue-status { padding: 2px 8px; border-radius: 4px; background: #fff; color: #525866; font-size: 12px; line-height: 18px; }
+.venue-status--active { color: #15803d; }
+.venue-card-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding: 12px 16px; }
+.venue-card h3 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex-shrink: 0; }
+.venue-description { margin: 0; color: var(--el-text-color-regular); font-size: 13px; line-height: 21px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 42px; max-height: 42px; flex-shrink: 0; }
+.venue-meta, .venue-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.venue-meta { color: var(--el-text-color-secondary); font-size: 12px; }
+.venue-card-footer { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 12px; margin-top: auto; }
+.venue-role { margin-left: auto; padding: 3px 8px; border: 1px solid currentColor; border-radius: 4px; color: #b45309; font-size: 12px; line-height: 18px; white-space: nowrap; }
+.venue-role--owner { color: #c62828; }
+.venue-card-actions .el-button + .el-button { margin-left: 0; }
+.venue-create { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%; aspect-ratio: 1; box-sizing: border-box; padding: 16px; text-align: center; background: var(--el-bg-color); color: var(--el-text-color-primary); border: 1px solid var(--el-border-color); border-top: 4px solid var(--venue-event); border-radius: 10px; font: inherit; cursor: pointer; }
+.venue-create--base { border-top-color: var(--venue-base); }
+.venue-create:hover { border-color: var(--venue-event); }
+.venue-create--base:hover { border-color: var(--venue-base); }
+.venue-create:focus-visible, .scope-switch button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
+.venue-plus { color: var(--venue-event); font-size: 36px; line-height: 1; }
+.venue-create--base .venue-plus { color: var(--venue-base); }
+.venue-create small { display: block; margin-top: 5px; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+@media (max-width: 1200px) { .venue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .venue-card { height: 240px; } }
+@media (max-width: 480px) { .venue-grid { grid-template-columns: minmax(0, 1fr); } .venue-card { grid-column: span 1; height: 260px; } }
+.application-history { margin: 18px 0; background: var(--el-bg-color); border: 1px solid var(--el-border-color); border-radius: 8px; padding: 14px; }
+.application-history summary { cursor: pointer; font-size: 14px; }
+.application-history[open] summary { margin-bottom: 14px; }
+.scope-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.scope-switch button { padding: 10px 16px; font: inherit; background: var(--el-bg-color); color: var(--el-text-color-primary); border: 1px solid var(--el-border-color); border-radius: 7px; cursor: pointer; }
+.scope-switch button[aria-pressed="true"] { background: #2563b0; border-color: #2563b0; color: #fff; }
+:global(html[lang^="zh"] .venue-workspace *), :global(html[lang^="zh"] .duplicate-workspace *), :global(html[lang^="zh"] .application-section *) { font-weight: 400 !important; font-synthesis: none; }
 .block {
   margin-bottom: 16px;
   min-width: 0;
@@ -842,9 +893,14 @@ async function submitApplication() {
   flex-wrap: wrap;
   gap: 12px;
 }
-.application-section {
-  scroll-margin-top: 16px;
-}
+.application-section { margin-top: 16px; border: 1px solid var(--el-border-color); border-radius: 10px; background: var(--el-bg-color); }
+.application-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.application-header h3 { margin: 0; font-size: 18px; font-weight: 400; }
+.application-body { max-width: 760px; box-sizing: border-box; padding: 20px; }
+.application-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--el-border-color-lighter); }
+.application-footer .el-button + .el-button { margin-left: 0; }
+.venue-create:disabled { cursor: not-allowed; opacity: .6; }
+@media (max-width: 480px) { .application-header, .application-body, .application-footer { padding: 16px; } }
 .actions {
   margin-top: 16px;
   display: flex;

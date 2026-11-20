@@ -15,7 +15,7 @@ public static class GuangdongClientValidation {
         var passed=new List<string>();
         void Check(string name,bool valid) { if(!valid)throw new InvalidOperationException(name); passed.Add(name); }
         var manifest=RuleRegistry.Resolve("guangdong");
-        Check("双版本入口及旧默认",manifest.LobbySubRules.Length==2&&manifest.DefaultSubRule==TuidaoRuleBootstrap.SubRule);
+        Check("三个子规则入口及旧默认",manifest.LobbySubRules.Length==3&&manifest.DefaultSubRule==TuidaoRuleBootstrap.SubRule);
         Check("独立状态机",RuleRegistry.CreateGameState(manifest,GuangdongMilRules.SubRule) is GuangdongMilGameState && RuleRegistry.CreateGameState(manifest,TuidaoRuleBootstrap.SubRule) is TuidaoGameState);
         Check("无自动补花且专用通道",!manifest.HasFlowerReplacement&&manifest.OutboundChannel=="guangdong");
         foreach(bool minimum in new[]{false,true}) {
@@ -25,6 +25,10 @@ public static class GuangdongClientValidation {
             var rows=RoomConfigContainer.BuildDisplayFields(room);
             Check("房间配置读回 "+minimum,rows.Any(row=>row.Key=="起和条件"&&row.Value==(minimum?"至少2番且4分":"至少2番")));
         }
+        var doublesRoom = new RoomInfo {room_rule="guangdong",sub_rule=GuangdongMilRules.Doubles,detailed_config=GuangdongMilRules.Detail(true,true)};
+        var doublesFields = RoomConfigContainer.BuildDisplayFields(doublesRoom);
+        Check("双打房间规则和番种入口", doublesFields.Any(row=>row.Key=="鸡和" && row.Value.Contains("每队每副一次"))
+            && manifest.RulebookPath(GuangdongMilRules.Doubles, null).Contains("mil2023-doubles"));
         Check("白发编码",GuangdongMilRules.TileName(46)=="白"&&GuangdongMilRules.TileName(47)=="发");
         Check("四鬼实体",Enumerable.Range(55,4).All(GuangdongMilRules.IsGhost)&&!GuangdongMilRules.IsGhost(54));
         Check("系数不是番",GuangdongMilRules.FanTotal(new[]{"GD|a|2|碰碰和","GD|coefficient|×8|分数系数"})==2);
@@ -54,6 +58,8 @@ public static class GuangdongClientValidation {
         GameRecordJsonDecoder.AccumulateScoreChangesFromTick(round,new List<string>{"guangdong","refund_kongs","[-3,1,1,1]"});
         GameRecordJsonDecoder.AccumulateScoreChangesFromTick(round,new List<string>{"guangdong","horses","{\"changes\":[3,-1,-1,-1]}"});
         Check("退杠及奖马不重复",round.scoreChanges.All(v=>v==0));
+        GameRecordJsonDecoder.AccumulateScoreChangesFromTick(round,new List<string>{"guangdong","penalty","[0,-32,0,0]","1","false_win"});
+        Check("双打判罚计入跨副的起始分",round.scoreChanges.SequenceEqual(new[]{0,-32,0,0}));
         var response=JsonConvert.DeserializeObject<Response>("{\"game_info\":{\"guangdong_state\":{\"ghost_discard_counts\":[0,1,2,3]},\"guangdong_tips\":{\"hand\":[55],\"discard_waits\":{\"55\":[]}}},\"show_result_info\":{\"guangdong_result\":{\"fan\":2,\"base_score\":16,\"coefficient\":8,\"substitutions\":[{\"physical\":55,\"logical\":11}]}}}");
         Check("JSON实体键与替代解释",response.game_info.guangdong_tips.discard_waits.ContainsKey(55)&&response.show_result_info.guangdong_result.substitutions[0].physical==55);
         Check("旧协议字段可缺省",JsonConvert.DeserializeObject<GameInfo>("{}").guangdong_tips==null);

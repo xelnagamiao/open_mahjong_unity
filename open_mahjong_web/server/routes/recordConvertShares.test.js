@@ -37,8 +37,8 @@ test('shared source survives a new client and converts into a playable record', 
     assert.deepEqual(loaded, { mode: 'mjai2sala', source });
     const { getMode } = await import('../../client/src/utils/recordConvert/index.js');
     const record = JSON.parse(await getMode(loaded.mode).convert(loaded.source));
-    assert.ok(Object.keys(record.game_round).length > 0);
-    assert.equal(record.game_title.rule, 'riichi');
+    assert.ok(Object.keys(record.tables.main.payload.game_round).length > 0);
+    assert.equal(record.rule, 'riichi');
     assert.equal((await post({ mode: 'bz2sala', source: 'x'.repeat(150_000) })).status, 201);
     assert.equal((await post({ mode: 'sala2tz', source })).status, 400);
     assert.equal((await post({ mode: 'tz2sala', source: '' })).status, 400);

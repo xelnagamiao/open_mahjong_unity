@@ -50,7 +50,7 @@ public sealed class InventoryRow : MonoBehaviour {
         badge.text = compactCard && entry.Enabled && entry.IsEquipment && !entry.IsEquipped ? "" : entry.Badge;
         if (badgeBackground) badgeBackground.gameObject.SetActive(!string.IsNullOrEmpty(badge.text));
         badge.color = entry.IsEquipped ? equippedBadgeInk : badgeInk;
-        kind.text = entry.IsEquipment ? "可装配" : entry.IsCollectible ? "收藏品" : "消耗品";
+        kind.text = PlatformText.Get(entry.KindLabel);
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(Clicked);
     }

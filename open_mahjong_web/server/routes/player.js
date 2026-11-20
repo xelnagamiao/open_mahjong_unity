@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
 const { requirePlayer } = require('../middleware/requirePlayer');
-const { accessibleGameIds, recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../services/duplicateRecordAccess');
+const { downloadableReplays, downloadableReplayIds, readGameRecords, getPublicGameRecord } = require('../services/publicGameRecord');
 const { streamRecordZip, DOWNLOAD_CANCELLED } = require('../services/recordDownloadZip');
 
 // Lock state is mutable; no browser/proxy may reuse an earlier unlocked replay response.
@@ -85,7 +85,7 @@ router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
     const params = [];
     const conditions = buildRecordFilters(userId, query, params);
     const sql = `
-      SELECT sub.game_id, gpr.rank, sub.created_at,
+      SELECT DISTINCT ON (sub.replay_id) sub.replay_id AS game_id, gpr.rank, sub.created_at,
              gpr.room_type, gpr.match_tier, gpr.match_type, gpr.rule,
              (
                SELECT CASE
@@ -97,16 +97,16 @@ router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
                WHERE peer.game_id = sub.game_id
              ) AS settlement_tie_count
       FROM (
-        SELECT DISTINCT gpr.game_id, gr.created_at
+        SELECT DISTINCT gpr.game_id, gr.replay_id, gr.table_id, gr.created_at
         FROM game_player_records gpr
-        JOIN game_records gr ON gr.game_id = gpr.game_id
+        JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
         WHERE ${conditions.join(' AND ')}
       ) sub
       JOIN game_player_records gpr ON gpr.game_id = sub.game_id AND gpr.user_id = $1
-      ORDER BY sub.created_at DESC
+      ORDER BY sub.replay_id,(sub.table_id='closed'),sub.game_id
     `;
     const result = await pool.query(sql, params);
-    const items = result.rows.map((r) => ({
+    const items = result.rows.sort((a,b) => b.created_at - a.created_at || String(b.game_id).localeCompare(String(a.game_id))).map((r) => ({
       game_id: r.game_id,
       rank: r.rank != null ? Number(r.rank) : null,
       created_at: r.created_at,
@@ -143,13 +143,7 @@ router.post('/records/fetch-json', requirePlayer, async (req, res) => {
       });
     }
 
-    const owned = await pool.query(
-      `SELECT DISTINCT game_id FROM game_player_records
-       WHERE user_id = $1 AND game_id = ANY($2::varchar[])`,
-      [targetUserId, requestedIds]
-    );
-    const ownedSet = new Set(owned.rows.map((r) => r.game_id));
-    const ownedIds = await accessibleGameIds(pool, requestedIds.filter((id) => ownedSet.has(id)));
+    const ownedIds = await downloadableReplays(pool, requestedIds, { userId: targetUserId });
     if (ownedIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
     }
@@ -172,25 +166,16 @@ router.post('/records/fetch-json', requirePlayer, async (req, res) => {
       });
     }
 
-    const recordsResult = await pool.query(
-      `SELECT gr.game_id, gr.record, gpr.rank, gr.created_at
-       FROM game_records gr
-       JOIN game_player_records gpr ON gpr.game_id = gr.game_id AND gpr.user_id = $2
-       WHERE gr.game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
-      [takeIds, targetUserId]
-    );
-    const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r]));
-    const items = takeIds.map((gameId) => {
-      const row = byGame.get(gameId);
-      if (!row) return null;
-      return {
-        game_id: row.game_id,
-        record: row.record,
-        rank: row.rank != null ? Number(row.rank) : null,
-        created_at: row.created_at,
-      };
-    }).filter(Boolean);
-
+    const records = await readGameRecords(pool, takeIds.map(row => row.requested_id));
+    const items = takeIds.flatMap(({replay_id, requested_id}) => {
+      const result = records.get(requested_id);
+      if (result?.status !== 200) return [];
+      const detail = result.data;
+      const mine = detail.players.filter(p => Number(p.user_id) === targetUserId);
+      const player = mine.find(p => p.table_id === detail.selected_table_id) || mine[0];
+      return [{ game_id: replay_id, record: detail.record, selected_table_id: player?.table_id || detail.selected_table_id,
+        rank: player?.rank ?? null, created_at: detail.created_at }];
+    });
     res.json({
       success: true,
       data: {
@@ -217,14 +202,8 @@ router.get('/record/:gameId', requirePlayer, async (req, res) => {
     if (!gameId) {
       return res.status(400).json({ success: false, message: '无效的 game_id' });
     }
-    if (await recordIsLocked(pool, gameId)) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
-    const result = await pool.query(
-      `SELECT record FROM game_records gr WHERE game_id = $1 AND ${visibleRecordSql()}`,
-      [gameId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: '牌谱不存在' });
-    }
+    const result = await getPublicGameRecord(gameId);
+    if (result.status !== 200) return res.status(result.status).json({ success: false, message: result.message });
     try {
       await consumeDownloadQuota(req.player.userId, 1, { allowPartial: false });
     } catch (err) {
@@ -233,10 +212,9 @@ router.get('/record/:gameId', requirePlayer, async (req, res) => {
       }
       throw err;
     }
-    const raw = result.rows[0].record;
-    const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const body = JSON.stringify(result.data.record);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${gameId}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.data.game_id}.json"`);
     res.send(body);
   } catch (error) {
     console.error('单局牌谱下载错误:', error);
@@ -258,14 +236,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
 
     let gameIds = [];
     if (requestedIds.length > 0) {
-      // 指定 ID 模式：仅保留属于该用户的，防越权
-      const idResult = await pool.query(
-        `SELECT DISTINCT game_id FROM game_player_records
-         WHERE user_id = $1 AND game_id = ANY($2::varchar[])`,
-        [userId, requestedIds]
-      );
-      const ownedSet = new Set(idResult.rows.map(r => r.game_id));
-      gameIds = requestedIds.filter(id => ownedSet.has(id));
+      gameIds = requestedIds;
     } else {
       const params = [];
       const conditions = buildRecordFilters(userId, query, params);
@@ -273,7 +244,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
         SELECT game_id FROM (
           SELECT DISTINCT gpr.game_id, gr.created_at
           FROM game_player_records gpr
-          JOIN game_records gr ON gr.game_id = gpr.game_id
+          JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
           WHERE ${conditions.join(' AND ')}
         ) sub
         ORDER BY created_at DESC
@@ -283,7 +254,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
     }
 
     if (res.destroyed) return;
-    gameIds = await accessibleGameIds(pool, gameIds);
+    gameIds = await downloadableReplayIds(pool, gameIds, { userId });
     if (res.destroyed) return;
     if (gameIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
@@ -312,7 +283,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
       });
     }
 
-    await streamRecordZip(pool, gameIds, userId, res);
+    await streamRecordZip(pool, gameIds, `player_${userId}_records.zip`, res);
   } catch (error) {
     if (error.code === DOWNLOAD_CANCELLED || res.destroyed) return;
     console.error('批量牌谱下载错误:', error);

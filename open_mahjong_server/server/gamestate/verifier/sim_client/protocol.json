@@ -1,9 +1,28 @@
 {
-  "sim_client_version": 5,
+  "sim_client_version": 6,
   "replay_hand_state": {
     "ron_tile": "hasRonWinningTile records whether the replay state has appended the winning tile; never infer this from hand length or tile identity",
     "changsha_multiple_ron": "replace the previously appended winning tile when the same player wins on another kong replacement tile",
-    "guobiao_opening_reset": "reset preserves draw source only for the first acting player; all visual draw slots merge into the hand"
+    "guobiao_opening_reset": "reset preserves draw source only for the first acting player; all visual draw slots merge into the hand",
+    "shanghai_ordinary_draw": "After a discard, d belongs to the next seat after that discarder. An intervening bh or bd retains its explicit seat.",
+    "hongque_added_kong": "jg carries the first added tile, T/F draw flag, zero-based meld index and optional full list of added tiles. A missing index requires migration."
+  },
+  "sichuan_duplicate_claim_clock": {
+    "sub_rules": ["sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"],
+    "snapshot_flag": "is_duplicate",
+    "claim_wait_mode": ["real_time", "waiting_draw"],
+    "claim_seconds_remaining": "Fractional seconds until soft expiry, independent of remaining_time and step_time. Repeating the same action_tick may only shorten the deadline.",
+    "waiting_draw": "Keep the current claim actions selectable after soft expiry. Closing the window prevents a duplicate from reopening it.",
+    "is_tactical_recheck": "Uses remaining_time with zero step time and a hard timeout."
+  },
+  "paired_match": {
+    "record_schema": "server/records/match-record-v2.schema.json",
+    "spectator_schema": "server/records/match-spectator-v2.schema.json",
+    "stream_ids": ["match", "open", "closed"],
+    "resume_cursor": ["stream_epoch", "applied_seq"],
+    "wall_origin": ["board_instance_id", "zone", "source_original_seat", "offset"],
+    "phases": ["before_draw", "after_draw"],
+    "ready_wait": "duplicate_match.waiting_for=comparison uses comparison_remaining_ms and disables readiness until both tables finish the board comparison."
   },
   "local_hint_transport": {
     "calculation": "client",
@@ -202,6 +221,16 @@
   "unity_contract_files": [
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs",
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/NetworkManager.MatchSpectator.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchRecordCodec.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchRecordSession.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchReplayProjection.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.Match.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Core/TurnClock.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanClaimWaitClock.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Shanghai/ShanghaiReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Hongque/HongqueReplayKong.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Hongque/HongqueDisplayOrder.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/CanvasManager/GameCanvas_ActionButton.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/GameSceneUI/Result/Panels/EndResultPanel.cs",
@@ -223,6 +252,9 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/ZhongyongGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/NanqueGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guobiao/GuobiaoBloodBattleReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/GuangdongProtocol.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guangdong/GuangdongMilGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guangdong/GuangdongMilReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs",
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/MalaysiaProtocol.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaGameState.cs",
@@ -258,6 +290,13 @@
     "zhongyong/nanque": {
       "blood_battle": true,
       "deferred_score_settlement": true
+    },
+    "guangdong/mil2023-doubles": {
+      "deferred_score_settlement": true,
+      "public_win_tags": ["gd_chicken", "gd_non_chicken"],
+      "referee_message": "adjudication",
+      "basic_statistics": true,
+      "fan_statistics": true
     },
     "malaysia/traditional84": {
       "state_machine": [
@@ -318,7 +357,8 @@
   },
   "scope_notes": [
     "0.5.87 retains the common Guobiao hand-action and other-action allowlists. Session identity checks, settlement_sync revisions, settlement_restore replay and ready settlement_id are exercised by the dedicated settlement/session transport tests; this component simulator does not emulate the network dispatcher.",
-    "Beijing and Duocai private state, choices and replay metadata, Hongque W extended kong tiles, and Sichuan duplicate wall masks, deferred settle_gang and kong-reveal presentation require their rule-specific tests; they do not extend the Guobiao lab action allowlists.",
+    "The single-table simulators consume player messages and replay ticks. Match subscription, independent table streams, migration, archive alignment and progressive scores are verified by server/records and the Unity MatchRecord validations.",
+    "Beijing and Duocai private state, choices and replay metadata, Hongque W scoring, and Sichuan duplicate wall masks, deferred settle_gang and kong-reveal presentation have additional rule-specific tests.",
     "Localized settlement labels, replay queue clearing and animation suppression on reconnect are Unity presentation behavior, outside component simulation coverage.",
     "opening_buhua_complete and has_draw_slot describe Unity presentation boundaries; the component simulator does not verify animation queues, merged draw-slot layout or elapsed presentation time.",
     "Shangrao integration, unlimited-round UI, Android update prompts, spectator progress and settlement layout are outside the Guobiao component simulation; use their dedicated tests and Unity validation.",

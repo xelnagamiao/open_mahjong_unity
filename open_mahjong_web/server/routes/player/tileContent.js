@@ -38,6 +38,12 @@ const publicLimiter = createWindowLimiter({
   keyFn: (req) => `${getClientIp(req)}:tile-content-public`,
 });
 
+const previewLimiter = createWindowLimiter({
+  windowMs: 60_000,
+  max: 240,
+  keyFn: (req) => `${getClientIp(req)}:tile-content-preview`,
+});
+
 function kindLabel(kind) {
   return KIND_LABEL[kind] || '内容';
 }
@@ -138,14 +144,14 @@ router.get('/catalog', publicLimiter, async (req, res) => {
   }
 });
 
-router.get('/:id/file', publicLimiter, optionalPlayer, async (req, res) => {
+async function readableSubmission(req, res, next) {
   try {
     const submissionId = parseInt(req.params.id, 10);
     if (!Number.isInteger(submissionId) || submissionId <= 0) {
       return res.status(400).json({ success: false, message: '无效的提交 ID' });
     }
     const result = await pool.query(
-      `SELECT user_id, status, original_filename, storage_key
+      `SELECT user_id, kind, status, original_filename, storage_key
        FROM tile_content_submissions
        WHERE submission_id = $1`,
       [submissionId]
@@ -158,6 +164,23 @@ router.get('/:id/file', publicLimiter, optionalPlayer, async (req, res) => {
     if (row.status !== 'approved' && !isOwner) {
       return res.status(404).json({ success: false, message: '记录不存在' });
     }
+    res.locals.submission = row;
+    next();
+  } catch (err) { next(err); }
+}
+
+router.get('/:id/preview', previewLimiter, optionalPlayer, readableSubmission, async (_req, res, next) => {
+  const row = res.locals.submission;
+  if (row.kind !== 'tile_face') return res.sendStatus(404);
+  try {
+    const image = await store.catalogPreview(row.storage_key);
+    res.set('Cache-Control', 'private, no-cache').type('png').send(image);
+  } catch (err) { next(err); }
+});
+
+router.get('/:id/file', publicLimiter, optionalPlayer, readableSubmission, (req, res) => {
+  try {
+    const row = res.locals.submission;
     const buf = store.readZipFile(row.storage_key);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', contentDisposition(row.original_filename));
@@ -239,10 +262,9 @@ async function createOrReplace(req, res, { resubmitId }) {
 
   let saved;
   try {
-    saved = store.saveZip({
+    saved = await store.saveZip({
       kind: kindParsed.value,
       zipBuffer: req.file.buffer,
-      storageKey: existing?.storage_key || undefined,
     });
   } catch (err) {
     const status = err.status || 400;
@@ -259,6 +281,7 @@ async function createOrReplace(req, res, { resubmitId }) {
              original_filename = $3,
              file_size = $4,
              meta = $5::jsonb,
+             storage_key = $8,
              status = 'pending',
              review_note = NULL,
              reviewer_user_id = NULL,
@@ -275,6 +298,7 @@ async function createOrReplace(req, res, { resubmitId }) {
           JSON.stringify(saved.meta),
           resubmitId,
           req.player.userId,
+          saved.storageKey,
         ]
       );
     } else {
@@ -297,8 +321,12 @@ async function createOrReplace(req, res, { resubmitId }) {
       );
     }
     if (result.rows.length === 0) {
-      if (!existing) store.removePack(saved.storageKey);
+      store.removePack(saved.storageKey);
       return res.status(400).json({ success: false, message: '提交失败' });
+    }
+    if (existing) {
+      try { store.removePack(existing.storage_key); }
+      catch (err) { console.error('player tile-content remove replaced pack:', err); }
     }
     res.json({
       success: true,
@@ -306,7 +334,7 @@ async function createOrReplace(req, res, { resubmitId }) {
       message: existing ? '已重新提交，请等待管理员审核' : '已提交，请等待管理员审核',
     });
   } catch (err) {
-    if (!existing && saved?.storageKey) store.removePack(saved.storageKey);
+    if (saved?.storageKey) store.removePack(saved.storageKey);
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,

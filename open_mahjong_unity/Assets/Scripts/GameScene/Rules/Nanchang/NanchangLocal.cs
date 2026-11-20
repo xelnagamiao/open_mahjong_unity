@@ -49,12 +49,25 @@ internal sealed class NanchangLocal {
         if(melds.Count==0){if(Pairs(h.counts,h.wild))result.Add("seven_pairs");if(Lan(h.counts,h.wild))result.Add("thirteen_lan");}
         return shapeCache[key]=result.ToArray();
     }
-    private bool Jingdiao(List<int> hand){if(!Valid(hand,false))return false;foreach(int tile in jing.Where(hand.Contains)){var rest=new List<int>(hand);rest.Remove(tile);var h=Counts(rest);if(Groups(h.counts,h.wild,4-melds.Count,0)||melds.Count==0&&Pairs(h.counts,h.wild,6))return true;}return false;}
+    private bool Jingdiao(List<int> hand)=>JingdiaoShapes(hand).Length>0;
+    private string[] JingdiaoShapes(List<int> hand,bool natural=false,int? win=null){
+        if(!Valid(hand,false))return System.Array.Empty<string>();
+        var result=new HashSet<string>();
+        // Reserve one physical jing for the drawn tile; try every legal reservation.
+        foreach(int tile in jing.Where(t=>hand.Contains(t)&&(!natural||t==win))){
+            var rest=new List<int>(hand);rest.Remove(tile);var h=Counts(rest,natural);
+            if(Groups(h.counts,h.wild,4-melds.Count,0))result.Add("standard");
+            if(melds.All(m=>Meld(m).Distinct().Count()==1)&&Groups(h.counts,h.wild,4-melds.Count,0,true))result.Add("all_triplets");
+            if(melds.Count==0&&Pairs(h.counts,h.wild,6))result.Add("seven_pairs");
+        }
+        return result.ToArray();
+    }
     internal int[] Waiting(List<int> hand)=>Valid(hand,false)?Tiles.Where(t=>Shapes(hand.Concat(new[]{t}).ToList()).Length>0).ToArray():System.Array.Empty<int>();
     private sealed class Quote{internal int Fan,Points,German;internal double Effective;internal string Shape;}
     private Quote Score(List<int> hand,int win,bool self,int? payer,int[] discarded,bool other=true,bool declared=true){
         var shapes=Shapes(hand,win,self);if(shapes.Length==0)return null;var natural=Shapes(hand,win,self,true);var before=new List<int>(hand);before.Remove(win);
         bool jd=declared&&(bool?)context["declared_jingdiao"]==true&&self&&Jingdiao(before);int winner=(int?)context["index"]??1;
+        if(jd){shapes=JingdiaoShapes(before);natural=JingdiaoShapes(before,true,win);}
         int common=discarded.Sum(t=>t==jing[0]?2:t==jing[1]?1:0)+(jd?1:0);Quote best=null;
         foreach(string shape in shapes.OrderBy(s=>s,StringComparer.Ordinal)){
             bool isNatural=natural.Contains(shape);int german=isNatural?(other?5:10):0;

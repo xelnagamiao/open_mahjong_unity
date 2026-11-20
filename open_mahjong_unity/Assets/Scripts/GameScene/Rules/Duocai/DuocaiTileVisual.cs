@@ -6,6 +6,8 @@ public static class DuocaiTileVisual {
     private static readonly Dictionary<string,Sprite> colored=new Dictionary<string,Sprite>();
     private static readonly Dictionary<string,Sprite> bodies=new Dictionary<string,Sprite>();
     public static bool IsCurrent(int tile)=>RuleRegistry.Current?.RuleId=="duocai"&&tile>=1000&&tile<5040;
+    public static bool IsColoredStandard(int tile)=>IsCurrent(tile)&&tile<4000;
+    public static int ArtworkFace(int tile)=>IsColoredStandard(tile)?tile%1000:tile;
     public static string Badge(int tile)=>tile>=1000&&tile<2000?"金":tile>=2000&&tile<3000?"银":tile>=3000&&tile<4000?"赤":null;
     public static Texture2D Texture(int tile)=>DuocaiTiles.Joker(tile)?Resources.Load<Texture2D>("Duocai/Tiles/"+tile):Sprite(tile,true)?.texture;
     public static Sprite Sprite(int tile,bool table=false) {

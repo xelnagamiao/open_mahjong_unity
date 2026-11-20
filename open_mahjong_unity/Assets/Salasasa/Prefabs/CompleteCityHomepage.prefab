@@ -2488,6 +2488,7 @@ GameObject:
   - component: {fileID: 1659902699327078460}
   - component: {fileID: 6851842184490602183}
   - component: {fileID: 6452393833700340396}
+  - component: {fileID: 8653003098130896764}
   m_Layer: 0
   m_Name: Brand
   m_TagString: Untagged
@@ -6762,3 +6763,18 @@ MonoBehaviour:
   gradient: 0
   horizontalGradient: 0
   lowerColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &8653003098130896764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3459211172947347519}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

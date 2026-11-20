@@ -16,6 +16,7 @@ function loadRouter(relative, imports) {
   const filename = path.join(__dirname, relative);
   const sandbox = { module: { exports: {} }, console: { error() {} }, require(name) {
     if (name === 'express') return express;
+    if (name === '../../services/venueIcons') return require('../../services/venueIcons');
     if (Object.hasOwn(imports, name)) return imports[name];
     throw new Error(`Unexpected import ${name}`);
   } };
@@ -45,7 +46,7 @@ function setupAdmin(kind = 'event') {
       if (sql === 'ROLLBACK') { if (state.before) state.event = state.before; state.before = null; return { rows: [] }; }
       if (sql.startsWith('SELECT')) return { rows: params[0] === state.event.event_id ? [{ ...state.event }] : [] };
       if (sql.startsWith('UPDATE events')) {
-        state.event = { ...state.event, name: params[0], description: params[1] };
+        state.event = { ...state.event, name: params[0], description: params[1], team_icon_url: params[3] };
         return { rows: [{ ...state.event }] };
       }
       throw new Error(`Unexpected query ${sql}`);
@@ -153,4 +154,92 @@ test('only the latest rejected profile request is offered for editing, never an 
     latestStatus = 'cancelled';
     assert.equal((await read()).last_rejected, null);
   });
+});
+
+
+test('icon-only removal is a profile change; old clients preserve the current icon', async () => {
+  const { state, app, put } = setupAdmin();
+  state.event.team_icon_url = '/api/venue-icons/' + 'a'.repeat(64) + '.png';
+  await withServer(app, async base => {
+    let response = await put(base, { name:'新名称', description:'原介绍', reason:'保留图标' });
+    assert.equal(response.status, 200);
+    assert.ok(state.event.team_icon_url.endsWith('.png'));
+    response = await put(base, { name:'新名称', description:'原介绍', reason:'移除图标', team_icon_url:'' });
+    assert.equal(response.status, 200);
+    assert.equal(state.event.team_icon_url, '');
+    response = await put(base, { name:'新名称', description:'原介绍', reason:'非法图标', team_icon_url:'https://example.com/logo.svg' });
+    assert.equal(response.status, 400);
+    assert.equal(state.event.team_icon_url, '');
+  });
+});
+
+for (const kind of ['event', 'base']) {
+  test(`${kind} applications support optional uploads, retaining omitted icons and explicitly clearing them`, async () => {
+    const old = process.env.OM_DATA_DIR;
+    process.env.OM_DATA_DIR = fs.mkdtempSync(path.join(process.env.OM_TEST_ARTIFACTS || require('os').tmpdir(), 'venue-flow-'));
+    let row;
+    const router = loadRouter('../player/eventApplications.js', {
+      '../../middleware/requirePlayer': { requirePlayer(req, _res, next) { req.player={userId:91000002}; next(); } },
+      '../../utils/applicationRemarks': require('../../utils/applicationRemarks'),
+      '../../config/database': { async query(sql, params) {
+        if (sql.startsWith('SELECT application_id')) return { rows: [] };
+        if (sql.startsWith('SELECT *')) return { rows: [row] };
+        if (sql.startsWith('INSERT')) {
+          assert.match(sql, /remark_history, team_icon_url/);
+          row={application_id:1,status:'pending',kind,team_icon_url:params[10],name:params[1],description:params[2]};
+        } else if (sql.startsWith('UPDATE')) {
+          assert.match(sql, /team_icon_url = COALESCE\(\$12, team_icon_url\)/);
+          row={...row, team_icon_url:params[11] ?? row.team_icon_url};
+        } else throw new Error(sql);
+        return {rows:[row]};
+      } },
+    });
+    const app=express();app.use(express.json());app.use('/applications',router);
+    const body={name:'队徽测试',description:'介绍',organizer_name:'测试负责人',organizer_phone:'13800000000',planned_start_at:'2027-01-01',kind};
+    const png=fs.readFileSync(path.join(__dirname,'../../../../open_mahjong_unity/Assets/Resources/image/logo.png'));
+    const data='data:image/png;base64,'+png.toString('base64');
+    try { await withServer(app,async base=>{
+      const send=async(method,suffix,patch={})=>{const r=await fetch(base+'/applications'+suffix,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,...patch})});assert.equal(r.status,200);return (await r.json()).data;};
+      assert.equal((await send('POST','')).team_icon_url,'');
+      const uploaded=(await send('POST','',{team_icon_url:data})).team_icon_url;
+      assert.match(uploaded,/^\/api\/venue-icons\/[a-f0-9]{64}\.png$/);
+      assert.equal((await send('PUT','/1')).team_icon_url,uploaded);
+      assert.equal((await send('PUT','/1',{team_icon_url:''})).team_icon_url,'');
+      row.team_icon_url=uploaded;row.status='rejected';
+      assert.equal((await send('POST','/1/resubmit')).team_icon_url,uploaded);
+      assert.equal((await send('POST','/1/resubmit',{team_icon_url:''})).team_icon_url,'');
+    }); } finally {if(old===undefined)delete process.env.OM_DATA_DIR;else process.env.OM_DATA_DIR=old;}
+  });
+}
+
+test('application approval copies the uploaded icon into the created venue',async()=>{
+  for(const icon of ['', '/api/venue-icons/'+'a'.repeat(64)+'.png']) {
+    let saved;
+    const row={application_id:1,status:'pending',applicant_user_id:91000002,name:'测试',description:'介绍',kind:'event',team_icon_url:icon};
+    const client={release(){},async query(sql,p=[]){
+      if(sql.startsWith('SELECT * FROM event_applications'))return {rows:[row]};
+      if(sql.startsWith('SELECT user_id'))return {rows:[{user_id:91000002,is_tourist:false}]};
+      if(sql.startsWith('INSERT INTO events')){assert.match(sql,/team_icon_url/);saved=p[6];}
+      return {rows:sql.startsWith('UPDATE event_applications')?[{...row,status:'approved'}]:[]};
+    }};
+    const router=loadRouter('eventApplications.js',{'../../config/database':{async connect(){return client;}},'../../utils/audit':{async writeAudit(){}},'../../utils/eventsTables':{generateEventId:()=> 'test-venue'},'../../utils/applicationRemarks':require('../../utils/applicationRemarks')});
+    const app=express();app.use(express.json());app.use((req,_res,next)=>{req.admin={userId:91000001};next();});app.use('/review',router);
+    await withServer(app,async base=>{assert.equal((await fetch(base+'/review/1/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,200);assert.equal(saved,icon);});
+  }
+});
+
+test('profile review applies removal but preserves icons on legacy requests',async()=>{
+  for(const proposed of ['',null]) {
+    const current='/api/venue-icons/'+'a'.repeat(64)+'.png';let saved;
+    const row={request_id:1,event_id:'venue-test',status:'pending',proposed_name:'测试',proposed_description:'介绍',proposed_team_icon_url:proposed};
+    const client={release(){},async query(sql,p=[]){
+      if(sql.startsWith('SELECT * FROM event_profile'))return {rows:[row]};
+      if(sql.startsWith('SELECT event_id'))return {rows:[{event_id:'venue-test',team_icon_url:current}]};
+      if(sql.startsWith('UPDATE events')){assert.match(sql,/team_icon_url = COALESCE\(\$4, team_icon_url\)/);saved=p[3]??current;return {rows:[{team_icon_url:saved}]};}
+      return {rows:sql.startsWith('UPDATE event_profile')?[row]:[]};
+    }};
+    const router=loadRouter('eventProfileChanges.js',{'../../config/database':{async connect(){return client;}},'../../utils/audit':{async writeAudit(){}}});
+    const app=express();app.use(express.json());app.use((req,_res,next)=>{req.admin={userId:91000001};next();});app.use('/review',router);
+    await withServer(app,async base=>{assert.equal((await fetch(base+'/review/1/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:'测试审核'})})).status,200);assert.equal(saved,proposed??current);});
+  }
 });

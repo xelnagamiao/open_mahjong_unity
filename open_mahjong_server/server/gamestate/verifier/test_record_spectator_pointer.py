@@ -122,6 +122,18 @@ def test_correct_start_player_index_draw_cut_stays_on_dealer():
     assert 71 in sim.players[0].tile_list
 
 
+def test_shanghai_ordinary_draw_follows_discarder_after_another_seats_flower():
+    record = _mini_round(0, [["c", 11, "F"], ["bh", 54, 3, "F"], ["bd", 72, 3], ["d", 71]])
+    record["game_title"].update(rule="shanghai", sub_rule="shanghai/qiaoma")
+    sim = RecordSim(record)
+    frames = sim.apply_all("round_index_1")
+    assert sim.players[3].huapai_list == [54]
+    assert sim.players[3].tile_list[-1] == 72
+    assert sim.players[1].tile_list[-1] == 71
+    assert sim.current_player_index == 1
+    assert sim.goto_action("round_index_1", 4) == frames[-1]
+
+
 def test_reset_tick_overrides_leftover_start_player_index():
     sim = RecordSim(_mini_round(2, [["d", 71], ["c", 11, "F"]], extra_ticks_prefix=[["reset", 0]]))
     sim.apply_all("round_index_1")

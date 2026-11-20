@@ -35,11 +35,15 @@ def sichuan_win_fan(title, round_data, tick, tick_index):
     names = tick[3]
     if not isinstance(names, list) or not names:
         raise ValueError("Sichuan record has no fan evidence")
+    values = SBR_FAN_VALUES
+    if title.get("sub_rule") == "sichuan/xuezhan_exchange":
+        from ..game_calculation.sichuan.sbr_exchange import OPENING_FANS
+        values = {**values, **OPENING_FANS}
     total = 0
     for raw in names:
         match = re.fullmatch(r"(.+?)(?:\s*[*×]\s*(\d+))?", str(raw).strip())
         name = match[1].strip() if match else ""
-        if name not in SBR_FAN_VALUES:
+        if name not in values:
             raise ValueError(f"Unknown historical Sichuan fan: {raw}")
-        total += SBR_FAN_VALUES[name] * (int(match[2]) if match[2] else 1)
+        total += values[name] * (int(match[2]) if match[2] else 1)
     return total

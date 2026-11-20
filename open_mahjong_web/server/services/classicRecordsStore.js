@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { funDataDir } = require('../utils/runtimeData');
 const { parseRecordShareInput, classicReplayLinks, GAME_ID_RE, shareInteger } = require('../utils/recordShareParse');
+const { visibleReplayTableSql, LOCKED_MESSAGE } = require('./duplicateRecordAccess');
 const { recordPlayers, resolveProtagonist } = require('../utils/classicRecordProtagonist');
 
 const ID_RE = /^cls_[a-z0-9]{12}$/;
@@ -100,7 +101,7 @@ function pickPosition(bodyValue, parsedValue, min) {
 }
 
 function recordKey(item) {
-  return `${item.game_id}#${item.round == null ? '' : item.round}#${item.node == null ? '' : item.node}`;
+  return `${item.game_id}#${item.table || ''}#${item.cursor || ''}#${item.round == null ? '' : item.round}#${item.node == null ? '' : item.node}`;
 }
 
 function decorate(item) {
@@ -143,55 +144,111 @@ function listPublic() {
   return listAll();
 }
 
-async function attachRecordMeta(items, { strict = false, persist = true } = {}) {
-  const gameIds = [...new Set((items || []).map((item) => item.game_id).filter(Boolean))];
-  if (!gameIds.length) return items || [];
-  const pool = require('../config/database');
-  const [records, players] = await Promise.all([
-    pool.query(
-      `SELECT game_id, record, created_at FROM game_records WHERE game_id = ANY($1::varchar[])`,
-      [gameIds]
-    ),
-    pool.query(
-      `SELECT game_id, user_id, username, score, rank, rule, original_player_index
-         FROM game_player_records
-        WHERE game_id = ANY($1::varchar[])
-        ORDER BY rank`,
-      [gameIds]
-    ),
-  ]);
-  const createdAt = new Map(records.rows.map((row) => [row.game_id, row.created_at]));
-  const recordByGame = new Map(records.rows.map(row => [row.game_id, row.record]));
-  const playersByGame = new Map();
-  for (const row of players.rows) {
-    if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
-    playersByGame.get(row.game_id).push({
-      user_id: Number(row.user_id),
-      username: row.username,
-      score: Number(row.score) || 0,
-      rank: Number(row.rank) || 0,
-      rule: row.rule || null,
-      original_player_index: row.original_player_index,
-    });
+// A catalog entry with a stored perspective needs only public participant metadata.
+// Unknown perspectives need the visible action prefix of exactly one table and round.
+async function readClassicRoster(db, ids) {
+  const { rows } = await db.query(`WITH requested AS MATERIALIZED (
+      SELECT req.id,gr.*,link.table_id AS original_side
+      FROM unnest($1::varchar[]) req(id)
+      LEFT JOIN game_record_tables link ON link.game_id=req.id
+      JOIN game_record_metadata gr ON gr.replay_id=COALESCE(link.replay_id,req.id)
+    ) SELECT gr.id,gr.game_id,gr.table_id,gr.created_at,gr.original_side,
+      ${visibleReplayTableSql('gr')} AS allowed,
+      (SELECT jsonb_agg(jsonb_build_object('user_id',p.user_id,'username',p.username,'score',p.score,
+          'rank',p.rank,'rule',p.rule,'original_player_index',p.original_player_index) ORDER BY p.rank)
+        FROM game_player_records p WHERE p.game_id=gr.game_id) AS players,
+      (SELECT jsonb_object_agg(k,v) FROM jsonb_each(gr.record->'game_title') f(k,v)
+        WHERE k IN ('rule','player_count') OR k ~ '^p[0-3]_(uid|name)$') AS title
+    FROM requested gr`, [ids]);
+  const byId = new Map();
+  for (const row of rows) {
+    if (!byId.has(row.id)) byId.set(row.id, []);
+    byId.get(row.id).push(row);
   }
-  const decorated = items.map((item) => {
-    const table = playersByGame.get(item.game_id) || [];
-    const rule = table[0]?.rule || null;
-    const players = recordByGame.has(item.game_id) ? recordPlayers(recordByGame.get(item.game_id), table) : table;
-    const protagonist = players.length ? resolveProtagonist(item, recordByGame.get(item.game_id), players, strict) : null;
-    const fields = {
-      ...item,
-      protagonist_user_id: protagonist?.user_id ?? null,
-      protagonist_player_index: protagonist?.original_player_index ?? null,
-    };
+  return byId;
+}
+
+async function readClassicPositions(db, requests) {
+  if (!requests.length) return new Map();
+  // The permission check is repeated in the statement that reads actions.
+  const {rows} = await db.query(`WITH permitted AS MATERIALIZED (
+      SELECT q.*,gr.replay_id,gr.table_id
+      FROM jsonb_to_recordset($1::jsonb) q(idx int, id text, source_id text, rk text, node int, legacy boolean)
+      JOIN game_record_metadata gr ON gr.game_id=q.source_id
+      LEFT JOIN game_record_metadata link ON link.game_id=q.id
+      WHERE ${visibleReplayTableSql('gr')}
+        AND (link.game_id IS NULL OR link.game_id=gr.game_id OR ${visibleReplayTableSql('link')})
+    ), round_keys AS MATERIALIZED (
+      SELECT q.*, COALESCE(
+        CASE WHEN r.record #> ARRAY['tables',table_id,'payload','game_round',rk] IS NOT NULL THEN rk END,
+        (SELECT key FROM jsonb_object_keys(r.record #> ARRAY['tables',table_id,'payload','game_round']) AS keys(key)
+         ORDER BY substring(key FROM 13)::integer LIMIT 1)
+      ) AS round_key
+      FROM permitted q JOIN game_replays r ON r.game_id=q.replay_id
+    ), rounds AS MATERIALIZED (
+      SELECT idx,node,legacy,r.record #> ARRAY['tables',table_id,'payload','game_round',round_key] AS rd,
+        CASE WHEN legacy THEN r.record #> ARRAY['tables',table_id,'round_meta',round_key,'legacy_node_map'] END AS mapping
+      FROM round_keys q JOIN game_replays r ON r.game_id=q.replay_id
+    ), positions AS MATERIALIZED (
+      SELECT idx,rd->'seats' AS seats,rd->'start_player_index' AS first_actor,rd->'action_ticks' AS ticks,
+        CASE WHEN legacy AND jsonb_array_length(mapping)>0
+        THEN (mapping->>LEAST(node,jsonb_array_length(mapping)-1))::int ELSE node END AS n
+      FROM rounds
+    )
+    SELECT idx, jsonb_build_object('seats',seats,'start_player_index',first_actor,
+      'action_ticks',COALESCE((
+        SELECT jsonb_agg(ticks->i ORDER BY i) FROM generate_series(0,LEAST(n,COALESCE(jsonb_array_length(ticks),0))-1) i
+      ),'[]'::jsonb)) AS round FROM positions`, [JSON.stringify(requests)]);
+  return new Map(rows.map(row => [row.idx,row.round]));
+}
+
+async function attachRecordMeta(items, { strict = false, persist = true } = {}) {
+  const ids = [...new Set((items || []).map(item=>item.game_id).filter(Boolean))];
+  if (!ids.length) return items || [];
+  const db = require('../config/database');
+  const roster = await readClassicRoster(db, ids);
+  const pending = [];
+  const entries = items.map((item,idx)=>{
+    const choices = roster.get(item.game_id) || [];
+    const original = choices.find(row=>row.table_id===row.original_side);
+    const side = item.table || original?.table_id;
+    const selected = side ? choices.find(row=>row.table_id===side) :
+      ['main','open','closed'].map(key=>choices.find(row=>row.table_id===key && row.allowed)).find(Boolean) || choices[0];
+    const locked = !!selected && (!selected.allowed || (original && !original.allowed));
+    if (strict && locked) throw Object.assign(new Error(LOCKED_MESSAGE),{status:403});
+    const indexed = selected?.players || [];
+    const players = !selected ? [] : locked ? indexed : recordPlayers({game_title:selected.title},indexed);
+    let protagonist = null;
+    if (selected && !locked && players.length) {
+      if (item.protagonist_user_id!=null || item.protagonist_player_index!=null) {
+        try { protagonist = resolveProtagonist(item, {}, players, true); }
+        catch (error) { if (strict) throw error; }
+      }
+      if (!protagonist) pending.push({idx,id:item.game_id,source_id:selected.game_id,rk:'round_index_'+(item.round || 1),
+        node:Math.min(2147483647,item.node ?? 0),legacy:!item.cursor && !item.table && selected.game_id===item.game_id});
+    }
+    return {item,selected,locked,players,protagonist};
+  });
+  const positions = await readClassicPositions(db,pending);
+  for (const req of pending) {
+    const entry = entries[req.idx];
+    const round = positions.get(req.idx);
+    if (!round) {
+      if (strict) throw Object.assign(new Error(LOCKED_MESSAGE),{status:403});
+      entry.locked=true;
+      entry.players=entry.selected.players || [];
+      continue;
+    }
+    const item = {...entry.item,node:round.action_ticks.length};
+    entry.protagonist = resolveProtagonist(item,{game_round:{selected:round}},entry.players);
+  }
+  const decorated = entries.map(({item,selected,locked,players,protagonist})=>{
+    const rule = (!locked && selected?.title?.rule) || players[0]?.rule || null;
     return {
-      ...decorate(fields),
-      protagonist,
-      created_at_game: createdAt.get(item.game_id) || null,
-      rule,
-      show_2d: !rule || rule === 'guobiao',
-      missing: !createdAt.has(item.game_id),
-      players: [...players].sort((a, b) => (a.rank || 99) - (b.rank || 99)),
+      ...decorate({...item,protagonist_user_id:protagonist?.user_id ?? null,
+        protagonist_player_index:protagonist?.original_player_index ?? null}),
+      protagonist, created_at_game:selected?.created_at || null, rule, show_2d:!rule || rule==='guobiao',
+      missing:!selected, locked:Boolean(locked), players:[...players].sort((a,b)=>(a.rank||99)-(b.rank||99)),
     };
   });
   if (persist) {
@@ -227,6 +284,8 @@ function parseClassicInput(body = {}) {
   }
   return {
     game_id: gameId,
+    ...((parsed?.table || ['main','open','closed'].includes(body.table)) && { table: parsed?.table || body.table }),
+    ...((parsed?.cursor || body.cursor === 'v2') && { cursor: 'v2' }),
     round: round == null ? null : round,
     node: node == null ? null : node,
     protagonist_user_id: shareInteger(userId),
@@ -267,7 +326,7 @@ function classicUpdateInput(current, body) {
   const replacedPlayer = body.protagonist_user_id !== undefined || body.protagonist_player_index !== undefined;
   return {
     ...current,
-    ...(replacedLink ? { round: undefined, node: undefined, protagonist_user_id: undefined, protagonist_player_index: undefined } : {}),
+    ...(replacedLink ? { round: undefined, node: undefined, table: undefined, cursor: undefined, protagonist_user_id: undefined, protagonist_player_index: undefined } : {}),
     ...(replacedPlayer ? { protagonist_user_id: undefined, protagonist_player_index: undefined } : {}),
     ...body,
     game_id: body.game_id || body.gameId || current.game_id,

@@ -13,10 +13,17 @@ class Protocol:
     def duocai_info(self, viewer=None):
         ended = self.machine.phase in (P.END, P.READY, P.FINISHED)
         result = dict(rule_version=self.rule_version, variant=self.variant, phase=self.game_status, base_hand_tiles=13,
+            wall_layout_version=2,
             hand_number=self.round_index, start_scores=list(self.round_start_scores),
             seat_to_original=[p.original_player_index for p in self.player_list],
             honba=self.honba, riichi_sticks=self.riichi_sticks, match_finishing=self.match_finishing,
-            ledger=self.round_settlement if ended else None)
+            ledger=self.round_settlement if ended else None, pending_kong=None)
+        if self.pending_kong is not None:
+            actor = self.current_player_index
+            player = self.player_list[actor]
+            tile = self.pending_kong.take[0]
+            result['pending_kong'] = dict(player=actor, meld_index=self.pending_kong.meld_index, tile=tile,
+                is_mo_gang=player.has_draw_slot and player.hand_tiles[-1] == tile)
         if self.wall:
             ura = ended and any(e.get('fan_details', {}).get('ura_revealed') for e in self.deferred_hu_settlements)
             result.update(wall=self.wall.public(ura=ura), deck=self.wall.deck, opening=self.wall.opening,
@@ -108,7 +115,7 @@ class Protocol:
             info = payload['do_action_info']
             info.update(duocai_meld_index=event.get('meld_index'), is_riichi_horizontal=event.get('is_riichi_horizontal', False),
                         duocai_wall_position=event.get('wall_position'))
-            if event['action'] in ('angang', 'jiagang', 'rob_kan'):
+            if event['action'] in ('angang', 'jiagang', 'rob_kan', 'declare_kan'):
                 info['cut_tile'] = event['tile']
             actor = event['player']
             if event.get('meld_index') is not None:
@@ -128,6 +135,8 @@ class Protocol:
     def build_final_settlement_payload(self, index):
         self.apply_deferred_score_changes()
         info = wire._final_show_result_info(self)
+        if self.variant == 'riichi' and self.deferred_hu_settlements:
+            info.update(self.deferred_hu_settlements[-1].get('riichi_result', {}))
         info.update(next_status='match_end' if self.match_finishing else 'round_end_by_ready',
             duocai_info=self.duocai_info(index), score_changes={p.original_player_index:self.round_changes[p.player_index] for p in self.player_list},
             player_to_score={p.player_index:p.score for p in self.player_list},

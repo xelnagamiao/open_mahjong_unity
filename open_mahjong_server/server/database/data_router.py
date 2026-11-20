@@ -129,22 +129,10 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
         )
         record_list = []
         for game_record in records:
-            players_info = []
-            for player_data in game_record['players']:
-                players_info.append(Player_record_info(
-                    user_id=player_data['user_id'],
-                    username=player_data['username'],
-                    score=player_data['score'],
-                    rank=player_data['rank'],
-                    original_player_index=player_data.get('original_player_index'),
-                    title_used=player_data.get('title_used'),
-                    character_used=player_data.get('character_used'),
-                    profile_used=player_data.get('profile_used'),
-                    avatar_frame_used=player_data.get('avatar_frame_used',0),
-                    voice_used=player_data.get('voice_used')
-                ))
-            
+            players_info = [Player_record_info(**p) for p in game_record["players"]]
+
             record_info = Record_info(
+                match_summary=game_record.get("match_summary"),
                 game_id=game_record['game_id'],
                 rule=game_record['rule'],
                 sub_rule=game_record.get('sub_rule'),
@@ -373,29 +361,20 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
             message=f"未找到牌谱 {game_id}"
         )
     else:
-        players_info = []
-        for p in result['players']:
-            players_info.append(Player_record_info(
-                user_id=p['user_id'],
-                username=p['username'],
-                score=p['score'],
-                rank=p['rank'],
-                original_player_index=p.get('original_player_index'),
-                title_used=p.get('title_used'),
-                character_used=p.get('character_used'),
-                profile_used=p.get('profile_used'),
-                avatar_frame_used=p.get('avatar_frame_used',0),
-                voice_used=p.get('voice_used')
-            ))
-        
+        players_info = [Player_record_info(**p) for p in result["players"]]
+
         detail = Record_detail(
             game_id=result['game_id'],
             cloud_saved=True,
-            rule=result['rule'],
+            room_type=result.get('room_type'),
+            match_type=result.get('match_type'),
+            rule=result.get('rule') or '',
             sub_rule=result.get('sub_rule'),
             record=result['record'],
             created_at=result['created_at'],
-            players=players_info
+            players=players_info,
+            selected_table_id=result.get("selected_table_id"),
+            legacy_cursor_map=result.get("legacy_cursor_map")
         )
         response = Response(
             type="data/get_record_by_id",

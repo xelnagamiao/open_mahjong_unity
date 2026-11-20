@@ -2,6 +2,7 @@ import { hongKongRulebooks } from './hongKongRulebooks.js'
 import { milRulebooks } from './milRulebooks.js'
 import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from './shangraoRulebooks.js'
 import { duocaiRulebooks, DUOCAI_DESCRIPTION } from './duocaiRulebooks.js'
+import { newChineseRulebooks, NEW_CHINESE_DESCRIPTION } from './newChineseRulebooks.js'
 import { beijingRulebooks, BEIJING_DESCRIPTION } from './beijingRulebooks.js'
 import { hongqueRulebooks } from './hongqueRulebooks.js'
 import { FORMULA_RULEBOOK } from './formulaRulebook.js'
@@ -48,6 +49,7 @@ export const LIBRARY_SECTIONS = [
 ]
 
 export const LIBRARY_RULES = [
+  { key: 'new_chinese', label: '新中式麻将', short: '新中式', categories: ['platform', 'custom'], accent: '#7b5340', description: NEW_CHINESE_DESCRIPTION, resources: newChineseRulebooks },
   { key: 'beijing', label: '北京麻将（吃碰提）', short: '北京', categories: ['platform', 'local'], accent: '#925a46', description: BEIJING_DESCRIPTION, resources: beijingRulebooks },
   { key: 'duocai', label: '夺彩麻将', short: '夺彩', categories: ['platform', 'custom'], accent: '#8b6b32', description: DUOCAI_DESCRIPTION, resources: duocaiRulebooks },
   {
@@ -261,6 +263,7 @@ export const LIBRARY_RULES = [
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf',
       },
+      { title: '血战到底·换三张（MIL 2026）', url: '/rulebooks/sbr-exchange-2026.pdf', filename: '血战换三张（推广）竞赛规则（试行2026版）.pdf' },
     ],
   },
   {

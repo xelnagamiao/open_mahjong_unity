@@ -1,7 +1,7 @@
 <template>
   <div v-loading="loading" class="venue-profile-editor">
     <el-alert
-      :title="admin ? '修改后直接生效，请填写操作原因。' : '修改名称或介绍后提交审核，通过后才会在公开页生效。'"
+      :title="admin ? '修改后直接生效，请填写操作原因。' : '修改名称、介绍或队徽后提交审核，通过后才会在公开页生效。'"
       type="info" :closable="false" show-icon
     />
     <template v-if="loadError">
@@ -19,6 +19,7 @@
         <el-form-item :label="`${venueNoun}名称`" required>
           <el-input v-model="form.name" maxlength="128" show-word-limit :disabled="formDisabled" />
         </el-form-item>
+        <el-form-item label="队徽（可选）"><TeamIconPicker @busy="iconBusy = $event" v-model="form.team_icon_url" :disabled="formDisabled" /></el-form-item>
         <el-form-item :label="`${venueNoun}介绍`">
           <el-input v-model="form.description" type="textarea" :rows="6" maxlength="2000" show-word-limit :disabled="formDisabled" />
         </el-form-item>
@@ -27,7 +28,7 @@
             :placeholder="admin ? '审计必填' : '可选，供审核参考'" :disabled="formDisabled" />
         </el-form-item>
         <el-form-item class="profile-actions">
-          <el-button type="primary" :loading="saving" :disabled="loading || cancelling || !!pending" @click="submit">
+          <el-button type="primary" :loading="saving" :disabled="iconBusy || loading || cancelling || !!pending" @click="submit">
             {{ admin ? '保存修改' : lastRejected ? '修改并重新提交' : '提交修改申请' }}
           </el-button>
           <el-button v-if="pending" :loading="cancelling" :disabled="loading || saving" @click="cancel">撤销申请</el-button>
@@ -38,6 +39,7 @@
 </template>
 
 <script setup>
+import TeamIconPicker from '@/components/TeamIconPicker.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -51,12 +53,13 @@ const props = defineProps({
 })
 const emit = defineEmits(['updated'])
 const venueNoun = computed(() => venueKindLabel(props.kind))
-const form = reactive({ name: '', description: '', reason: '' })
-const current = reactive({ name: '', description: '' })
+const form = reactive({ name: '', description: '', reason: '', team_icon_url: '' })
+const current = reactive({ name: '', description: '', team_icon_url: '' })
 const pending = ref(null)
 const lastRejected = ref(null)
 const loading = ref(true)
 const saving = ref(false)
+const iconBusy = ref(false)
 const cancelling = ref(false)
 const loadError = ref('')
 const formDisabled = computed(() => loading.value || saving.value || cancelling.value || !!pending.value)
@@ -71,9 +74,11 @@ async function load() {
     const data = res.data.data
     current.name = (props.admin ? data.name : data.current_name) || ''
     current.description = (props.admin ? data.description : data.current_description) || ''
+    current.team_icon_url = (props.admin ? data.team_icon_url : data.current_team_icon_url) || ''
     pending.value = props.admin ? null : data.pending || null
     lastRejected.value = props.admin ? null : data.last_rejected || null
     const draft = pending.value || lastRejected.value
+    form.team_icon_url = draft?.proposed_team_icon_url ?? current.team_icon_url
     form.name = draft?.proposed_name ?? current.name
     form.description = draft?.proposed_description ?? current.description
     form.reason = draft?.reason || ''
@@ -85,12 +90,13 @@ async function load() {
 }
 
 async function submit() {
+  if (iconBusy.value || saving.value) return
   if (formDisabled.value || loadError.value) return
-  const payload = { name: form.name.trim(), description: form.description.trim(), reason: form.reason.trim() }
+  const payload = { team_icon_url: form.team_icon_url, name: form.name.trim(), description: form.description.trim(), reason: form.reason.trim() }
   if (!payload.name) return ElMessage.warning(`请填写${venueNoun.value}名称`)
   if (props.admin && !payload.reason) return ElMessage.warning('请填写操作原因')
-  if (payload.name === current.name.trim() && payload.description === current.description.trim()) {
-    return ElMessage.warning('名称与介绍均未变更')
+  if (payload.team_icon_url === current.team_icon_url && payload.name === current.name.trim() && payload.description === current.description.trim()) {
+    return ElMessage.warning('资料未变更')
   }
   saving.value = true
   try {
@@ -98,6 +104,8 @@ async function submit() {
       ? await adminApi.put(`/events/${props.eventId}/profile`, payload)
       : await eventAdminApi.post(`/events/${props.eventId}/profile-change`, payload)
     if (props.admin) {
+      current.team_icon_url = res.data.data.event.team_icon_url || ''
+      form.team_icon_url = current.team_icon_url
       current.name = res.data.data.event.name
       current.description = res.data.data.event.description || ''
     } else {

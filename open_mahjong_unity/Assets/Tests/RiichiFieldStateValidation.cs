@@ -29,11 +29,14 @@ public static class RiichiFieldStateValidation {
         var catalog = JObject.Parse(Resources.Load<TextAsset>("RiichiRuleOptions").text);
         foreach (var preset in catalog["presets"]) {
             bool sanma = (string)preset["sub_rule"] == "riichi/sanma";
-            Check((int)preset["values"]["noten_penalty"] == (sanma ? 2000 : 3000),
+            bool mil = (string)preset["id"] == "mil";
+            Check(mil ? (string)preset["values"]["noten_penalty"] == "fixed_gap_2000"
+                    : (int)preset["values"]["noten_penalty"] == (sanma ? 2000 : 3000),
                 "preset penalty " + (string)preset["id"]);
+            Check((bool)preset["values"]["honba_enabled"] == !mil, "preset honba " + (string)preset["id"]);
         }
         var option = catalog["options"].Single(o=>(string)o["key"]=="noten_penalty");
-        Check(option["values"].Select(v=>(int)v).SequenceEqual(new[] {0,2000,3000}), "explicit penalty choices");
+        Check(option["values"].Select(v=>v.ToString()).SequenceEqual(new[] {"0","2000","3000","fixed_gap_2000"}), "explicit penalty choices");
         return new { checks, failures = Array.Empty<string>() };
     }
 
@@ -47,7 +50,7 @@ public static class RiichiFieldStateValidation {
         PostGameNavigator.ExitToLobby(forceTeardown:true);
         if(!RecordPanel.OpenRecord(new RecordDetail { game_id="dora-regression",cloud_saved=true,
             rule="riichi",sub_rule=(string)title["sub_rule"],players=users,
-            record=record.ToObject<Dictionary<string,object>>() }))
+            record=DeviceRecordMigration.ConvertSingle("dora-regression",record,JArray.FromObject(users)) }))
             throw new InvalidOperationException("Could not open dora regression record");
         var manager=GameRecordManager.Instance;
         var round=manager.gameRecord.gameRound.rounds[1];

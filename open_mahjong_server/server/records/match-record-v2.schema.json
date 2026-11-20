@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:open-mahjong:match-record:2",
+  "title": "Match record V2",
+  "description": "Structural contract. format.validate_match additionally verifies cross-field identity, physical origin uniqueness, action lengths and table-round bindings.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "open_mahjong.match_record"
+    },
+    "schema_version": {
+      "const": 2
+    },
+    "match_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "match_format": {
+      "enum": [
+        "single_table",
+        "paired_tables_2v2"
+      ]
+    },
+    "completeness": {
+      "enum": [
+        "complete",
+        "partial"
+      ]
+    },
+    "rule": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sub_rule": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rule_profile": {
+      "type": "object"
+    },
+    "sync_mode": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "teams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "integer"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "table_id": {
+                  "enum": [
+                    "main",
+                    "open",
+                    "closed"
+                  ]
+                },
+                "original_player_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "user_id": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "table_id",
+                "original_player_index",
+                "user_id"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "team_id",
+          "members"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "board_catalog": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/board"
+      }
+    },
+    "tables": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/table"
+      }
+    },
+    "settlements": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "provenance": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "format",
+    "schema_version",
+    "match_id",
+    "record_revision",
+    "match_format",
+    "completeness",
+    "rule",
+    "sub_rule",
+    "rule_profile",
+    "sync_mode",
+    "teams",
+    "board_catalog",
+    "tables",
+    "settlements",
+    "result",
+    "provenance"
+  ],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "match_format": {
+            "const": "paired_tables_2v2"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tables": {
+            "required": [
+              "open",
+              "closed"
+            ],
+            "maxProperties": 2
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "tables": {
+            "required": [
+              "main"
+            ],
+            "maxProperties": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "wall_ref": {
+      "type": "object",
+      "properties": {
+        "board_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "zone": {
+          "enum": [
+            "seat_wall",
+            "common_wall"
+          ]
+        },
+        "source_original_seat": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "board_instance_id",
+        "zone",
+        "source_original_seat",
+        "offset"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "zone": {
+                "const": "common_wall"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source_original_seat": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "source_original_seat": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
+            }
+          }
+        }
+      ]
+    },
+    "action_meta": {
+      "type": "object",
+      "properties": {
+        "actor_original_seat": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3
+        },
+        "occurred_at_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wall_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wall_ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wall_ref_basis": {
+          "enum": [
+            "recorded",
+            "reconstructed",
+            "unavailable",
+            "not_applicable"
+          ]
+        }
+      },
+      "required": [
+        "actor_original_seat",
+        "occurred_at_ms",
+        "wall_ref",
+        "wall_ref_basis"
+      ],
+      "additionalProperties": true
+    },
+    "round_meta": {
+      "type": "object",
+      "properties": {
+        "table_round_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "board_instance_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "round_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "legacy_node_map": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "initial_anchors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "wall_ref": {
+                "$ref": "#/$defs/wall_ref"
+              },
+              "actor_original_seat": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 3
+              },
+              "node": {
+                "const": 0
+              },
+              "phase": {
+                "const": "after_draw"
+              }
+            },
+            "required": [
+              "wall_ref",
+              "actor_original_seat",
+              "node",
+              "phase"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "action_meta": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action_meta"
+          }
+        },
+        "alignment_status": {
+          "enum": [
+            "exact",
+            "partial",
+            "unavailable",
+            "not_applicable"
+          ]
+        },
+        "alignment_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "table_round_id",
+        "board_instance_id",
+        "round_index",
+        "legacy_node_map",
+        "initial_anchors",
+        "action_meta",
+        "alignment_status",
+        "alignment_reason"
+      ],
+      "additionalProperties": true
+    },
+    "board": {
+      "type": "object",
+      "properties": {
+        "board_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "board_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "wall_layout": {
+          "enum": [
+            "standard",
+            "xueliu"
+          ]
+        },
+        "status": {
+          "enum": [
+            "playing",
+            "paired"
+          ]
+        },
+        "wall_definition": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "board_instance_id",
+        "board_no",
+        "attempt",
+        "wall_layout",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "table": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "table_id": {
+              "enum": [
+                "main",
+                "open",
+                "closed"
+              ]
+            },
+            "table_record_id": {
+              "type": "null"
+            },
+            "record_state": {
+              "const": "missing"
+            },
+            "payload": {
+              "type": "null"
+            },
+            "round_meta": {
+              "type": "object",
+              "maxProperties": 0
+            },
+            "players": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "table_id",
+            "table_record_id",
+            "record_state",
+            "payload",
+            "round_meta",
+            "players"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "table_id": {
+              "enum": [
+                "main",
+                "open",
+                "closed"
+              ]
+            },
+            "table_record_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_state": {
+              "enum": [
+                "partial",
+                "complete"
+              ]
+            },
+            "payload_codec": {
+              "const": "om.action_ticks.v1"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "game_title": {
+                  "type": "object"
+                },
+                "game_round": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^round_index_[1-9][0-9]*$": {
+                      "type": "object",
+                      "properties": {
+                        "action_ticks": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "minItems": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "action_ticks"
+                      ],
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "game_title",
+                "game_round"
+              ],
+              "additionalProperties": true
+            },
+            "players": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "round_meta": {
+              "type": "object",
+              "patternProperties": {
+                "^round_index_[1-9][0-9]*$": {
+                  "$ref": "#/$defs/round_meta"
+                }
+              },
+              "additionalProperties": false
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "table_id",
+            "table_record_id",
+            "record_state",
+            "payload_codec",
+            "payload",
+            "players",
+            "round_meta",
+            "source_sha256"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

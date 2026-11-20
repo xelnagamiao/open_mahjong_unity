@@ -49,6 +49,7 @@ public static class TableFaceLayoutSettings
 
     public static HandSurfaceLibrary.FaceLayout ForTile(int tileId, string pack = null)
     {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
         if (FixedFacePack.IsFixed(pack)) return TileFaceOffsetSettings.Compose(pack, tileId, true, Get(pack));
         if (FixedFacePack.TryResolve(tileId, out var fixedPack, out int key))
             return TileFaceOffsetSettings.Compose(fixedPack, key, true, Get(fixedPack));

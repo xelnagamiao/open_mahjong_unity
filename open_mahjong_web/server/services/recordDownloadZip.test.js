@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { Writable } = require('node:stream');
 const { randomBytes } = require('node:crypto');
 const { inflateRawSync } = require('node:zlib');
+const { resultRow, singleBody } = require('./testFixtures/replay');
 const crc32 = require('crc-32');
 
 // Use the real compressor, with fault injection only for error-path tests.
@@ -74,21 +75,21 @@ function database(record = (id) => ({ game_id: id, game_title: { rule: 'hongkong
     assert.ok(ids.length <= RECORD_BATCH_SIZE);
     assert.match(sql, /access_wall\.is_unlocked IS DISTINCT FROM TRUE/);
     // PG can return rows in any order. Visibility is rechecked for each batch.
-    return { rows: [...new Set(ids)].reverse().map((id) => ({ game_id: id, record: record(id) })) };
+    return { rows: [...new Set(ids)].reverse().flatMap(id => record(id) == null ? [] : [resultRow(id, record(id))]) };
   } };
 }
 
-test('multi-batch ZIP preserves ID order, raw JSON text, objects and duplicate names', { timeout: 5000 }, async () => {
+test('multi-batch ZIP preserves ID order and the complete canonical JSON', { timeout: 5000 }, async () => {
   const ids = Array.from({ length: 47 }, (_, i) => `game${i}`);
   ids.splice(21, 0, ids[0]);
-  const record = (id) => id === 'game1' ? '{ "game_title": "原始 JSON" }' : { game_id: id, text: '牌谱' };
+  const record = (id) => ({ game_title: { rule: 'guobiao' }, game_id: id, text: '牌谱' });
   const db = database(record);
   const res = new Response();
-  await streamRecordZip(db, ids, 100, res);
+  await streamRecordZip(db, ids, "player_100_records.zip", res);
   assert.deepEqual(db.calls.map((batch) => batch.length), [20, 20, 8]);
   assert.equal(res.headers['Content-Type'], 'application/zip');
   assert.equal(res.headers['Content-Disposition'], 'attachment; filename="player_100_records.zip"');
-  assert.deepEqual(entries(res.zip()), ids.map((id) => ({ name: `${id}.json`, body: typeof record(id) === 'string' ? record(id) : JSON.stringify(record(id)) })));
+  assert.deepEqual(entries(res.zip()), ids.map((id) => ({ name: `${id}.json`, body: JSON.stringify(singleBody(id, record(id))) })));
   assert.equal(res.listenerCount('close'), 0);
 });
 
@@ -148,7 +149,7 @@ test('disconnect during SQL finishes only the current query and starts no compre
   const rejected = assert.rejects(downloading, { code: DOWNLOAD_CANCELLED });
   await new Promise((resolve) => setImmediate(resolve));
   res.destroy();
-  finishQuery({ rows: [{ game_id: '0', record: { hello: 'world' } }] });
+  finishQuery({ rows: [resultRow('0', { game_title: {} })] });
   await rejected;
   assert.equal(calls, 1);
   assert.equal(res.headersSent, false);

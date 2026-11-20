@@ -166,7 +166,11 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
             self.assertEqual(player.hand_tiles, [11, 12, 13])
             tick = ["ag", 35, "T", 35, 35, 35, 35]
             self.assertEqual(state.game_record["game_round"]["round_index_1"]["action_ticks"], [tick])
-            state.spectator_manager.record_tick.assert_called_once_with(tick)
+            sent = state.spectator_manager.record_tick
+            sent.assert_called_once()
+            self.assertEqual(sent.call_args.args, (tick,))
+            self.assertEqual([int(sent.call_args.kwargs["timestamp"] * 1000)],
+                             state.game_record["game_round"]["round_index_1"]["action_times_ms"])
             self.assertEqual(state.game_status, "deal_card_after_gang")
             for viewer in range(4):
                 packet = state.game_server.user_id_to_connection[100 + viewer].websocket.send_json.await_args.args[0]

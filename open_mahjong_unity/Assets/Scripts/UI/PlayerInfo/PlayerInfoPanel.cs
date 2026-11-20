@@ -345,8 +345,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     }
 
     private void CopyUserId() {
-        GUIUtility.systemCopyBuffer = currentUserId.ToString();
-        NotificationManager.Instance?.ShowTip("复制", true, "已复制用户ID");
+        ClipboardUtility.CopyAndNotify(currentUserId.ToString(), "复制", "已复制用户ID");
     }
 
     public void Close() {

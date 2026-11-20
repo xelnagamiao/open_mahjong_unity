@@ -14,6 +14,7 @@ public static class RuleRegistry {
 
     /// <summary>当前对局/牌谱的规则清单；无对局或规则未注册时为 null。</summary>
     public static RuleManifest Current { get; private set; }
+    public static event Action CurrentChanged;
 
     /// <summary>当前对局的族 GameState；无对局时为 null。每局 SetCurrent 时新建。</summary>
     public static IGameState ActiveGameState { get; private set; }
@@ -109,6 +110,7 @@ public static class RuleRegistry {
         Current = manifest;
         CurrentSubRule = effectiveSubRule;
         ActiveGameState = CreateGameState(manifest, effectiveSubRule);
+        CurrentChanged?.Invoke();
         return ActiveGameState;
     }
 
@@ -118,6 +120,7 @@ public static class RuleRegistry {
         Current = null;
         CurrentSubRule = null;
         ActiveGameState = null;
+        CurrentChanged?.Invoke();
     }
 
     /// <summary>

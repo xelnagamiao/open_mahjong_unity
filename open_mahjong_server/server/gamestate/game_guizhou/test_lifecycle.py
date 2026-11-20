@@ -1,6 +1,8 @@
 """Asynchronous FSM tests with an in-memory outbox, no sockets or persistence."""
 import asyncio
 from copy import deepcopy
+from functools import partial
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -83,10 +85,14 @@ def test_four_hand_async_match_has_one_finalization_and_physical_conservation(mo
         for i, p in enumerate(s.player_list):
             p.user_id = i + 1
         s.bot_speed = "instant"
-        sent = []
-        async def capture(index, payload):
-            sent.append(deepcopy(payload))
-        s._send_claim_protection_payload = capture
+        sent = {p.user_id: [] for p in s.player_list}
+        async def capture(uid, payload):
+            if payload["type"].endswith(("/game_start", "/show_result")):
+                sent[uid].append(deepcopy(payload))
+        s.game_server = SimpleNamespace(user_id_to_connection={
+            uid: SimpleNamespace(websocket=SimpleNamespace(send_json=partial(capture, uid)))
+            for uid in sent
+        })
         s.complete_game_lifecycle = AsyncMock()  # Persistence is outside this unit.
         # No presentation delay is useful in this pure, in-memory test.
         from ..public import round_end_timing
@@ -95,8 +101,14 @@ def test_four_hand_async_match_has_one_finalization_and_physical_conservation(mo
         assert s.machine.phase == P.FINISHED and s.is_match_end()
         assert len(s.game_record["game_round"]) == 4
         assert all(r["action_ticks"][-1] == ["end"] for r in s.game_record["game_round"].values())
-        assert len([p for p in sent if p["type"] == "gamestate/guizhou/game_start"]) == 16
-        assert all(p["show_result_info"]["guizhou_end_hands"] for p in sent if p["type"].endswith("/show_result"))
+        for packets in sent.values():
+            starts = [p for p in packets if p["type"] == "gamestate/guizhou/game_start"]
+            results = [p for p in packets if p["type"] == "gamestate/guizhou/show_result"]
+            assert len(starts) == 4
+            assert {p["settlement_sync"]["round_id"] for p in results} == {
+                p["settlement_sync"]["round_id"] for p in starts
+            }
+            assert all(p["show_result_info"]["guizhou_end_hands"] for p in results)
         assert sum(p.score for p in s.player_list) == 0
         assert sum(physical(s).values()) == 108 and all(n == 4 for n in physical(s).values())
         s.complete_game_lifecycle.assert_awaited_once()

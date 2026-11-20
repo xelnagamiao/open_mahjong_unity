@@ -11,7 +11,41 @@ namespace Salasasa.Events
         public GameObject managementRail;
         public GameObject[] pages;
         public GameObject[] managementPages;
+        public Salasasa.Venues.VenueTeamIcon teamIcon;
+        public RectTransform introductionHeading, introductionDivider;
+        public UnityEngine.UI.ScrollRect introductionScroll;
         public Color paper, ink, muted, accent, onAccent, border, field;
+
+        void OnEnable()
+        {
+            if (!teamIcon) return;
+            teamIcon.VisibilityChanged += SetTeamIconLayout;
+            SetTeamIconLayout(teamIcon.image && teamIcon.image.enabled && teamIcon.image.sprite);
+        }
+        void OnDisable()
+        {
+            if (teamIcon) teamIcon.VisibilityChanged -= SetTeamIconLayout;
+        }
+        void SetTeamIconLayout(bool visible)
+        {
+            if (!introductionScroll) return;
+            float width = visible ? 704 : 924;
+            var scrollRect = (RectTransform)introductionScroll.transform;
+            if (Mathf.Approximately(scrollRect.rect.width, width)) return;
+            float position = introductionScroll.verticalNormalizedPosition;
+            if (introductionHeading) introductionHeading.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            if (introductionDivider) introductionDivider.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            scrollRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            introductionScroll.viewport.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 12);
+            introductionScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 12);
+            if (introductionScroll.verticalScrollbar)
+            {
+                var scrollbar = (RectTransform)introductionScroll.verticalScrollbar.transform;
+                scrollbar.anchoredPosition = new Vector2(width - 5, scrollbar.anchoredPosition.y);
+            }
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(introductionScroll.content);
+            introductionScroll.verticalNormalizedPosition = position;
+        }
 
         public void ApplyPalette(int palette)
         {

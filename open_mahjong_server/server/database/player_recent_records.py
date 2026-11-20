@@ -30,7 +30,7 @@ def ensure_schema(cursor):
             PRIMARY KEY (user_id, rule, room_type)
         );
         CREATE TABLE IF NOT EXISTS player_recent_record_errors (
-            game_id VARCHAR(16) PRIMARY KEY REFERENCES game_records(game_id) ON DELETE CASCADE,
+            game_id VARCHAR(16) PRIMARY KEY REFERENCES game_record_tables(game_id) ON DELETE CASCADE,
             details JSONB NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         );

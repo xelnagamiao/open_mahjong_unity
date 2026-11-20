@@ -25,7 +25,7 @@ test('platform scenes match the homepage and only expose supported queues for ev
     assert.deepEqual(platformSceneOptions(rule).map(option => option.value),
       ['beginner', 'intermediate', 'advanced', 'custom']);
   }
-  for (const rule of ['qingque', 'sichuan', 'sichuan_xueliu_exchange', 'hongque']) {
+  for (const rule of ['qingque', 'sichuan', 'sichuan_doubles', 'sichuan_xueliu_exchange', 'hongque']) {
     assert.deepEqual(platformSceneOptions(rule).map(option => option.value), ['elo', 'custom']);
   }
   for (const rule of ['classical', 'guobiao_sanma', 'riichi_washizu', 'sichuan_xueliu', 'hongque_w']) {

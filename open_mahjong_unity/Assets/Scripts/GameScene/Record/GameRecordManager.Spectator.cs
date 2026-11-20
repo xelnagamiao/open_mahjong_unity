@@ -54,6 +54,7 @@ public partial class GameRecordManager {
     }
 
     public static void ClearDelayedSpectatorSession() {
+        NetworkManager.Instance?.ClearMatchSpectatorSession();
         _delayedSpectatorGamestateId = "";
         DelayedSpectatorSessionVersion++;
     }
@@ -68,6 +69,7 @@ public partial class GameRecordManager {
     /// 客户端已放弃延时观战但服务端可能仍保留观战连接时，主动请求移除。
     /// </summary>
     public static void AbandonDelayedSpectatorSessionOnServer() {
+        NetworkManager.Instance?.LeaveMatchSpectator();
         if (string.IsNullOrEmpty(_delayedSpectatorGamestateId)) return;
         string gamestateId = _delayedSpectatorGamestateId;
         ClearDelayedSpectatorSession();
@@ -119,6 +121,7 @@ public partial class GameRecordManager {
     /// 会话结束时只清理本地观战状态，不再通过即将被替换的 WebSocket 发送退出请求。
     /// </summary>
     public void ResetForSessionEnd() {
+        ClearMatchRecord();
         IsSpectating = false;
         IsLiveSpectatorMode = true;
         CurrentMode = RecordManagerMode.Record;
@@ -137,6 +140,8 @@ public partial class GameRecordManager {
     /// <summary>切换到牌谱阅览模式：用于观战中手动切离最后节点。</summary>
     public void SwitchToRecordMode() {
         if (!IsSpectating) return;
+        if (MatchSession != null) MatchSession.Mode = compareWallToggle != null && compareWallToggle.isOn
+            ? MatchRecordSession.PlaybackMode.Compare : MatchRecordSession.PlaybackMode.History;
         SetSpectatorModeFlags(false);
         ClearSpectatorActionButtons();
     }
@@ -144,6 +149,11 @@ public partial class GameRecordManager {
     /// <summary>切回直播观战模式：自动推进并对齐到当前最新状态。</summary>
     public void SwitchToLiveMode() {
         if (!IsSpectating) return;
+        if (MatchSession != null) {
+            MatchSession.Mode = MatchRecordSession.PlaybackMode.Live;
+            compareWallToggle?.SetIsOnWithoutNotify(false);
+            UpdateMatchControls();
+        }
         SetSpectatorModeFlags(true);
         ClearSpectatorActionButtons();
         JumpToLatestState();
@@ -156,6 +166,10 @@ public partial class GameRecordManager {
     /// </summary>
     public void RefreshSpectatorModeByNodePosition() {
         if (!IsSpectating) return;
+        if (MatchSession != null) {
+            if (MatchSession.Mode != MatchRecordSession.PlaybackMode.Live) SetSpectatorModeFlags(false);
+            return;
+        }
         if (IsAtSpectatorTail()) {
             SetSpectatorModeFlags(true);
         } else {
@@ -186,13 +200,7 @@ public partial class GameRecordManager {
 
     public void ShowSpectatorInfo() {
         if (!IsSpectatorSession) return;
-        bool nextState = !infoView.activeSelf;
-        if (nextState) {
-            TableText.Set(infoText, BuildSpectatorInfoString());
-            infoView.SetActive(true);
-        } else {
-            infoView.SetActive(false);
-        }
+        ToggleInfoPage(InfoPage.Game);
     }
 
     /// <summary>
@@ -262,7 +270,7 @@ public partial class GameRecordManager {
         // 不再走 GotoAction 批量跳转：堆积的 tick 由 AutoPlay 按序逐条 NextAction 播放，动画照播。
 
         // 若用户在牌谱阅览模式且已到最后一局最后节点，恢复直播模式
-        if (!IsLiveSpectatorMode && gameRecord?.gameRound?.rounds != null) {
+        if (MatchSession == null && !IsLiveSpectatorMode && gameRecord?.gameRound?.rounds != null) {
             int lastRound = 0;
             foreach (var kvp in gameRecord.gameRound.rounds) {
                 if (kvp.Key > lastRound) lastRound = kvp.Key;
@@ -304,7 +312,7 @@ public partial class GameRecordManager {
         CurrentMode = live ? RecordManagerMode.Spectator : RecordManagerMode.RecordOnSpectator;
         UpdateSpectatorModeText();
         UpdateModeUIVisibility();
-        if (live) infoView.SetActive(false);
+        RefreshReplayPresentation();
     }
 
     private IEnumerator AutoPlayCoroutine() {
@@ -397,8 +405,7 @@ public partial class GameRecordManager {
             case "state": return 0f;
             case "reset":
             case "ask_hand":
-            case "ask_other":
-            case "ca": return 0f;
+            case "ask_other": return 0f;
             case "d":
             case "gd":
             case "nd":
@@ -411,6 +418,7 @@ public partial class GameRecordManager {
             case "cl":
             case "cm":
             case "cr":
+            case "ca":
             case "p":
             case "g": return 0.6f;
             // 和牌前仅短暂停留以展示和牌张/摸切张，真正的“面板停留”由其后的 end tick 保持（见 GetSpectatorEndHoldDelay）。
@@ -728,7 +736,7 @@ public partial class GameRecordManager {
         else ExitButtonManager.Instance.HideAll();
         showGameInfoButton.gameObject.SetActive(true);
         UpdateGameInfoButtonLabel();
-        infoView.SetActive(false);
+        // Keep an open status panel attached to the replay cursor.
         UpdateRecordAutoPlayButtonVisibility();
         UpdateRecordShareButtonVisibility();
     }

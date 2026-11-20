@@ -637,6 +637,8 @@ import axios from 'axios'
 import playerApi from '@/api/playerClient'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { analyzeRecords } from '../utils/recordAnalyzer'
+import { replayTableView } from '../utils/replayTable'
+import { parseReplayJSON, stringifyReplayJSON } from '../utils/browserRecordMigration'
 import {
   analyzeRecordsAdvanced,
   buildMainFanRows,
@@ -1230,7 +1232,7 @@ const downloadGameIds = async (gameIds, { skipConfirm = false } = {}) => {
       const resp = await playerApi.post('/records/fetch-json', {
         target_user_id: targetUserId.value,
         game_ids: chunk,
-      }, { timeout: 120000 })
+      }, { timeout: 120000, responseType: 'text', transformResponse: [parseReplayJSON] })
       if (!resp.data.success) {
         ElMessage.error(resp.data.message || '拉取牌谱失败')
         break
@@ -1299,7 +1301,7 @@ const zipDownloadedFiltered = async () => {
     const items = await getLocalRecords(ids)
     const files = items.map((item) => ({
       name: `${item.game_id}.json`,
-      data: JSON.stringify(item.record, null, 0),
+      data: stringifyReplayJSON(item.record),
     }))
     const blob = zipStoreFiles(files)
     const who = (targetName.value || 'player').replace(/[\\/:*?"<>|]/g, '_')
@@ -1404,7 +1406,7 @@ const downloadRecordJson = async (gameId) => {
     const items = await getLocalRecords([id])
     if (items.length) {
       triggerBlob(
-        new Blob([JSON.stringify(items[0].record, null, 0)], { type: 'application/json' }),
+        new Blob([stringifyReplayJSON(items[0].record)], { type: 'application/json' }),
         `${id}.json`,
       )
       return
@@ -1429,7 +1431,7 @@ const loadCachedRecords = async () => {
   const metadataById = new Map(
     recordItems.value.map((row) => [String(row.game_id), row])
   )
-  const items = await getLocalRecords(cachedIds)
+  const items = (await getLocalRecords(cachedIds)).map(item => replayTableView(item, { userId: uid, sourceActions: true }))
   for (const item of items) {
     const metadata = metadataById.get(String(item.game_id))
     if (!metadata) continue

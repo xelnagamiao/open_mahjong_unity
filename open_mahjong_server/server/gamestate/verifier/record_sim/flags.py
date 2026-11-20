@@ -36,7 +36,7 @@ class RecordRuleFlags:
     rule_id: str = ""
     kong_replacement_from_front: bool = False
     replacement_from_tail_end: bool = False
-    jiagang_extends_last_meld: bool = False
+    record_kong_has_meld_index: bool = False
     face_down_ankan: bool = False
     peek_ankan: bool = False
     record_hu_tile_tick_index: int = 5
@@ -54,10 +54,11 @@ _BY_RULE: dict[str, RecordRuleFlags] = {
         kong_replacement_from_front=True,
         peek_ankan=True,
         infers_dingque_from_discards=True,
+        supports_robbed_added_kong_source=True,
     ),
     "hongque": RecordRuleFlags(
         rule_id="hongque",
-        jiagang_extends_last_meld=True,
+        record_kong_has_meld_index=True,
     ),
     "changsha": RecordRuleFlags(
         rule_id="changsha",

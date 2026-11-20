@@ -14,6 +14,7 @@
         <el-form-item>
           <el-button type="primary" @click="search" :loading="loading">搜索</el-button>
           <AccountGeography />
+          <el-button @click="$router.push('/admin/account-bans')">封禁名单</el-button>
         </el-form-item>
       </el-form>
       <el-table :data="items" v-loading="loading" style="margin-top: 16px">

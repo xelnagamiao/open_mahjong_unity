@@ -6,27 +6,38 @@ using Newtonsoft.Json.Linq;
 
 public partial class GameRecordManager {
     private DuocaiInfo recordDuocaiInfo;
-    private bool recordDuocaiRobbed;
+    private bool recordDuocaiRobbed,recordDuocaiDeclaredFromDraw;
+    private ShowResultInfo recordDuocaiResult;
+    private int recordDuocaiDeclaredActor=-1,recordDuocaiDeclaredMeld=-1,recordDuocaiDeclaredTile;
+    public RiichiEndResultExtras DuocaiRecordResultExtras()=>recordDuocaiResult==null?null:DuocaiResultPresentation.BuildExtras(recordDuocaiResult);
     private bool IsDuocaiRecordRobWin=>RecordRuleManifest?.RuleId=="duocai"&&recordDuocaiRobbed;
     private readonly Dictionary<int,DuocaiHintsCache> recordDuocaiHints=new Dictionary<int,DuocaiHintsCache>();
     private readonly Dictionary<int,int> recordDuocaiWallIndices=new Dictionary<int,int>();
     internal RuleReplayModule CreateDuocaiReplayModule()=>new RuleReplayModule("duocai") {
-        Reset=ResetDuocaiRecord,Clear=()=>{recordDuocaiInfo=null;recordDuocaiRobbed=false;recordDuocaiHints.Clear();DuocaiTableIndicators.Refresh(null);},
+        Reset=ResetDuocaiRecord,Clear=()=>{recordDuocaiInfo=null;recordDuocaiRobbed=false;recordDuocaiResult=null;recordDuocaiDeclaredActor=-1;recordDuocaiHints.Clear();Game3DManager.Instance?.ClearDuocaiDeclaredKongs();DuocaiTableIndicators.Refresh(null);},
         ApplyBeforeMutation=ApplyDuocaiTick,ConsumeWallTile=_=>true,
         IsSilentTick=tick=>tick.Count>1&&tick[0]=="duocai"&&tick[1]!="action",
         NextPlayer=(tick,current)=>tick.Count>2&&tick[0]=="duocai"&&tick[1]=="action"?(int)JObject.Parse(tick[2])["player"]:current,
         RemainingTiles=()=>recordDuocaiInfo?.wall?.Count(t=>!t.removed&&!t.dead)??0,
-        RefreshAfterAction=RefreshDuocaiRecord,RefreshAfterSeek=RefreshDuocaiRecord,
+        RefreshAfterAction=RefreshDuocaiRecord,RefreshAfterSeek=RefreshDuocaiRecordAfterSeek,
         AfterSilentMutation=tick=>SyncRecordBoardScores(),
         AfterVisibleMutation=tick=>{if(tick.Count>1&&tick[0]=="duocai"&&tick[1]=="action")RefreshDuocaiRecordMelds();}
     };
     private void ResetDuocaiRecord() {
-        recordDuocaiInfo=null;recordDuocaiRobbed=false;recordDuocaiHints.Clear();recordDuocaiWallIndices.Clear();
+        recordDuocaiInfo=null;recordDuocaiRobbed=false;recordDuocaiResult=null;recordDuocaiDeclaredActor=-1;recordDuocaiHints.Clear();recordDuocaiWallIndices.Clear();
+        Game3DManager.Instance?.ClearDuocaiDeclaredKongs();
+        Game3DManager.Instance?.RefreshDuocaiWall(null);
         if(gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var round)) {
             recordDuocaiInfo=JsonConvert.DeserializeObject<DuocaiInfo>(JsonConvert.SerializeObject(round.duocai));
+            var pending=recordDuocaiInfo?.pending_kong;
+            if(pending!=null) {
+                recordDuocaiDeclaredActor=pending.player;recordDuocaiDeclaredMeld=pending.meld_index;
+                recordDuocaiDeclaredTile=pending.tile;recordDuocaiDeclaredFromDraw=pending.is_mo_gang;
+                lastJiagangPlayerIndex=pending.player;lastWinnableTileId=pending.tile;
+            }
             if(round.duocaiHints!=null)foreach(var pair in round.duocaiHints){var cache=new DuocaiHintsCache();cache.Accept(pair.Value);recordDuocaiHints[pair.Key]=cache;}
             if(recordDuocaiInfo?.wall!=null) {
-                int index=0;foreach(var tile in recordDuocaiInfo.wall.Where(v=>!v.removed&&!v.dead).OrderBy(v=>(v.position-recordDuocaiInfo.opening+144)%144))recordDuocaiWallIndices[tile.position]=index++;
+                int index=0;foreach(var tile in recordDuocaiInfo.wall.Where(v=>!v.removed&&!v.dead).OrderBy(v=>DuocaiTableIndicators.WallOrderIndex(recordDuocaiInfo,v.position)))recordDuocaiWallIndices[tile.position]=index++;
             }
         }
         RefreshDuocaiRecord();
@@ -40,9 +51,22 @@ public partial class GameRecordManager {
     }
     private void RefreshDuocaiRecordMelds() {
         if(Game3DManager.Instance==null)return;
-        foreach(string seat in indexToPosition.Values)Game3DManager.Instance.RebuildPlayerMelds(seat);
+        foreach(string meldSeat in indexToPosition.Values)Game3DManager.Instance.RebuildPlayerMelds(meldSeat);
         Game3DManager.Instance.RefreshRecordHandDisplay();
         if(recordPlayer_to_info.TryGetValue("self",out var self))GameCanvas.Instance?.ChangeHandCards("InitHandCardsFromRecord",0,self.tileList.ToArray(),null);
+        RestoreDuocaiRecordDeclaredKong();
+    }
+    private void RefreshDuocaiRecordAfterSeek() {
+        RefreshDuocaiRecord();
+        RestoreDuocaiRecordDeclaredKong();
+    }
+    private void RestoreDuocaiRecordDeclaredKong() {
+        if(Game3DManager.Instance==null||recordPlayerList.Any(p=>p.isHu||p.hasRonWinningTile))return;
+        if(recordDuocaiDeclaredActor>=0&&indexToPosition.TryGetValue(recordDuocaiDeclaredActor,out var seat)) {
+            var player=recordPlayerList.First(p=>p.playerIndex==recordDuocaiDeclaredActor);
+            if(recordDuocaiDeclaredMeld>=0&&recordDuocaiDeclaredMeld<player.combinationMasks.Count)
+                Game3DManager.Instance.ShowDuocaiDeclaredKong(seat,recordDuocaiDeclaredMeld,recordDuocaiDeclaredTile,player.combinationMasks[recordDuocaiDeclaredMeld],recordDuocaiDeclaredFromDraw,!recordDuocaiRobbed);
+        }
     }
     private DuocaiHintsCache DuocaiCache(int? index) {
         int seat=index??(recordPlayer_to_info.TryGetValue("self",out var player)?player.playerIndex:-1);
@@ -56,6 +80,7 @@ public partial class GameRecordManager {
     private bool ApplyDuocaiTick(IReadOnlyList<string> tick) {
         if(tick==null||tick.Count<3||tick[0]!="duocai")return false;
         switch(tick[1]) {
+            case "result":recordDuocaiResult=JsonConvert.DeserializeObject<ShowResultInfo>(tick[2]);break;
             case "waits": {
                 int seat=int.Parse(tick[2]);if(!recordDuocaiHints.TryGetValue(seat,out var cache))recordDuocaiHints[seat]=cache=new DuocaiHintsCache();
                 cache.Accept(JsonConvert.DeserializeObject<DuocaiHints>(tick[3]));break;
@@ -76,9 +101,18 @@ public partial class GameRecordManager {
         int actor=(int)e["player"];string action=(string)e["action"];var player=recordPlayerList.First(p=>p.playerIndex==actor);
         currentPlayerIndex=actor;
         if(action=="riichi"){player.isRiichi=true;player.tagList.Add("riichi");return;}
-        if(action=="declare_kan"){lastJiagangPlayerIndex=actor;lastWinnableTileId=(int)e["tile"];return;}
+        if(action=="declare_kan") {
+            lastJiagangPlayerIndex=actor;lastWinnableTileId=(int)e["tile"];
+            recordDuocaiDeclaredActor=actor;recordDuocaiDeclaredTile=lastWinnableTileId;
+            recordDuocaiDeclaredFromDraw=(bool?)e["is_mo_gang"]??(player.showHandDrawSlotActive&&player.tileList.LastOrDefault()==recordDuocaiDeclaredTile);
+            recordDuocaiDeclaredMeld=(int?)e["meld_index"]??(int?)(e["choice"]?["meld_index"])??-1;return;
+        }
         if(action=="rob_kan"){recordDuocaiRobbed=true;player.tileList.Remove((int)e["tile"]);player.showHandDrawSlotActive=false;return;}
         var mask=e["combination_mask"]?.ToObject<int[]>();if(mask==null)return;
+        if(action=="jiagang") {
+            if(indexToPosition.TryGetValue(actor,out var seat))Game3DManager.Instance?.ClearDuocaiDeclaredKong(seat);
+            recordDuocaiDeclaredActor=-1;
+        }
         int index=(int?)e["meld_index"]??player.combinationMasks.Count;
         var take=mask.Where((v,i)=>i%2==1).ToList();
         if(index<player.combinationMasks.Count)foreach(int value in player.combinationMasks[index].Where((v,i)=>i%2==1))take.Remove(value);

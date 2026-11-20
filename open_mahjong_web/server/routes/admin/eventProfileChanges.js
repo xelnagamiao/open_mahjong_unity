@@ -5,9 +5,9 @@ const { writeAudit } = require('../../utils/audit');
 
 async function fetchRequest(requestId) {
   const result = await pool.query(
-    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description, r.proposed_team_icon_url,
             r.reason, r.status, r.reviewer_user_id, r.review_note, r.created_at, r.reviewed_at,
-            e.name AS current_name, e.description AS current_description, e.status AS event_status, e.kind,
+            e.name AS current_name, e.description AS current_description, e.team_icon_url AS current_team_icon_url, e.status AS event_status, e.kind,
             u.username AS requester_username
      FROM event_profile_change_requests r
      INNER JOIN events e ON e.event_id = r.event_id
@@ -40,9 +40,9 @@ router.get('/', async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const listRes = await pool.query(
-      `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+      `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description, r.proposed_team_icon_url,
               r.reason, r.status, r.created_at, r.reviewed_at,
-              e.name AS current_name, e.description AS current_description, e.kind,
+              e.name AS current_name, e.description AS current_description, e.team_icon_url AS current_team_icon_url, e.kind,
               u.username AS requester_username
        FROM event_profile_change_requests r
        INNER JOIN events e ON e.event_id = r.event_id
@@ -81,9 +81,9 @@ router.get('/by-event/:eventId', async (req, res) => {
   try {
     const eventId = String(req.params.eventId || '').trim();
     const result = await pool.query(
-      `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+      `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description, r.proposed_team_icon_url,
               r.reason, r.status, r.created_at, r.reviewed_at,
-              e.name AS current_name, e.description AS current_description,
+              e.name AS current_name, e.description AS current_description, e.team_icon_url AS current_team_icon_url,
               u.username AS requester_username
        FROM event_profile_change_requests r
        INNER JOIN events e ON e.event_id = r.event_id
@@ -128,7 +128,7 @@ router.post('/:requestId/approve', async (req, res) => {
     }
 
     const eventBefore = await client.query(
-      `SELECT event_id, name, description FROM events WHERE event_id = $1 FOR UPDATE`,
+      `SELECT event_id, name, description, team_icon_url FROM events WHERE event_id = $1 FOR UPDATE`,
       [row.event_id]
     );
     if (eventBefore.rows.length === 0) {
@@ -138,10 +138,10 @@ router.post('/:requestId/approve', async (req, res) => {
 
     const updatedEvent = await client.query(
       `UPDATE events
-       SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+       SET name = $1, description = $2, team_icon_url = COALESCE($4, team_icon_url), updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $3
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
-      [row.proposed_name, row.proposed_description || '', row.event_id]
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+      [row.proposed_name, row.proposed_description || '', row.event_id, row.proposed_team_icon_url ?? null]
     );
     const updatedReq = await client.query(
       `UPDATE event_profile_change_requests

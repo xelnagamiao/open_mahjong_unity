@@ -1,7 +1,7 @@
 """从真实计分进入结算，交叉验证各座位支付、广播与牌谱字段。"""
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -85,20 +85,19 @@ def test_passing_a_win_does_not_lock_later_wins():
 
 @pytest.mark.parametrize('room_type',['custom','events'])
 def test_persistence_keeps_independent_rule_identity_and_all_player_indexes(room_type):
-    import json
+    from tests.record_writes import capture_record_write
     from ...database.db_manager import DatabaseManager
     state=make_state()
     state.game_record['game_title']['room_type']=room_type
     if room_type=='events': state.game_record['game_title']['event_id']='jiujiang-storage-test'
-    cursor=Mock();connection=Mock();connection.cursor.return_value=cursor
-    database=SimpleNamespace(_get_connection=Mock(return_value=connection),_put_connection=Mock())
-    with patch('server.database.player_recent_records.update_player_recent_records') as recent, \
+    with capture_record_write() as (database, connection, cursor), \
+         patch('server.database.player_recent_records.update_player_recent_records') as recent, \
          patch('server.database.scene_stats.record_game_metrics') as metrics:
         game_id=DatabaseManager.store_jiujiang_game_record(database,state.game_record,state.player_list,room_type,'1/4')
-    assert game_id and len(cursor.execute.call_args_list)==5
-    saved=json.loads(cursor.execute.call_args_list[0].args[1][1])
+    assert game_id and len(cursor.execute.call_args_list)==4
+    saved=cursor.published.call_args.args[2]
     assert saved['game_title']['rule']=='jiujiang' and saved['game_title']['sub_rule']=='jiujiang/standard'
-    for call in cursor.execute.call_args_list[1:]:
+    for call in cursor.execute.call_args_list:
         assert call.args[1][6:10]==('jiujiang','jiujiang/standard','1/4',room_type)
     recent.assert_called_once_with(cursor,game_id,state.game_record)
     assert metrics.call_args.args[4]['rule']=='jiujiang'

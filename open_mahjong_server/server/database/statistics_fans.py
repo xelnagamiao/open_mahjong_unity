@@ -55,6 +55,9 @@ def fan_names(sub_rule):
         from importlib import import_module
         mapping = import_module(f".{family}.store_{family}", __package__).FAN_NAME_TO_FIELD
         return {field: name for name, field in mapping.items()}
+    if sub_rule == "sichuan/xuezhan_exchange":
+        from ..game_calculation.sichuan.sbr_exchange import OPENING_FANS
+        return _names([*SICHUAN_NAMES, *OPENING_FANS])
     if sub_rule in ("sichuan/standard", "sichuan/doubles", "sichuan/doubles_duplicate"):
         return _names(SICHUAN_NAMES)
     if sub_rule in ("sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"):
@@ -66,6 +69,12 @@ def fan_names(sub_rule):
         if sub_rule == "changsha/exchange_six":
             names += ["十三将", "无对十三将", "全幺九", "报听", "明牌", "闷杠"]
         return _names(names)
+    if sub_rule == "guangdong/mil2023-doubles":
+        from ..game_calculation.guangdong.scoring import FANS
+        return _names([*(value[0] for value in FANS.values()), "鸡和"])
+    if sub_rule == "new_chinese/standard":
+        from ..game_calculation.new_chinese.rules import VALUES
+        return _names(VALUES)
     if sub_rule == "zhongyong/standard":
         from ..game_calculation.zhongyong.scoring import FANS
         return _names([*(definition[0] for definition in FANS.values()), "鸡和"])

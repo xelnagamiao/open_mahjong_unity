@@ -41,6 +41,10 @@ public partial class CreatePanel
         foreach(var property in config.Properties())
         {
             string key=property.Name;
+            if (_ruleState == NewChineseGameState.RuleId && key == CreateRoomKeys.GameRound) {
+                SelectGameTime((int)property.Value / 4);
+                continue;
+            }
             if(key=="sub_rule"||key=="round_timer"||key=="step_timer"||key=="hepai_way"||key=="detailed_config")continue;
             string uiKey=key=="open_cuohe"?CreateRoomKeys.Cuohe:ChangshaUiKey(key);
             if(DefaultsOf(_ruleState).TryGetValue(uiKey,out var defaultValue))
@@ -56,6 +60,8 @@ public partial class CreatePanel
         if(config["exchange_selection_seconds"]!=null&&exchangeSixSelectionTime)exchangeSixSelectionTime.SetValueWithoutNotify((int)config["exchange_selection_seconds"]-10);
         if(config["duplicate_key"]!=null&&DuplicateKeyInput){DuplicateKeyInput.SetTextWithoutNotify((string)config["duplicate_key"]);DuplicateWallToggle.SetIsOnWithoutNotify(!string.IsNullOrEmpty((string)config["duplicate_key"]));}
         var detailed=config["detailed_config"] as JObject;var state=GetDetailedConfigState(_ruleState);
+        if (_ruleState == NewChineseGameState.RuleId)
+            newChineseExchangeThreeToggle.SetIsOnWithoutNotify((bool?)detailed?[CreateRoomKeys.ExchangeThree] ?? false);
         if(detailed!=null&&state!=null)
         {
             state.IsApplyingPreset=true;
@@ -85,6 +91,11 @@ public partial class CreatePanel
         if(schema==null)return null;
         var serializer=JsonSerializer.Create(new JsonSerializerSettings{ContractResolver=new DefaultContractResolver{NamingStrategy=new SnakeCaseNamingStrategy()}});
         var raw=JObject.FromObject(configuration,serializer);raw["open_cuohe"]=raw["cuo_he"];
+        if (configuration is NewChinese_Create_RoomConfig newChinese) {
+            raw["open_cuohe"] = false;
+            raw["game_round"] = newChinese.MatchRounds;
+            raw["detailed_config"] = JObject.FromObject(newChinese.NormalizedConfig());
+        }
         var result=new JObject();
         foreach(var key in schema.Properties())if(raw[key.Name]!=null)result[key.Name]=raw[key.Name].DeepClone();
         foreach(string key in new[]{"duplicate_key","exchange_selection_seconds"})if(raw[key]!=null&&(key!="exchange_selection_seconds"||rule=="changsha"))result[key]=raw[key].DeepClone();

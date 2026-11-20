@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from tests.record_writes import capture_record_write
 
 from .db_manager import DatabaseManager
 from .taiwan.store_taiwan import store_taiwan_game_record
@@ -74,17 +75,20 @@ def test_new_and_legacy_record_stores_use_the_generic_unfiltered_adapter():
 @pytest.mark.parametrize("require_minimum", [False, True])
 @pytest.mark.parametrize("room_type", ["custom", "events"])
 def test_store_keeps_subrule_exact_config_joker_data_and_event_metrics(sub_rule, require_minimum, room_type):
-    db, conn, cursor = database()
     source = record(sub_rule, require_minimum=require_minimum, room_type=room_type)
     original = deepcopy(source)
-    with patch("server.database.player_recent_records.update_player_recent_records") as recent, \
+    with capture_record_write() as (db, conn, cursor), \
+         patch("server.database.player_recent_records.update_player_recent_records") as recent, \
          patch("server.database.scene_stats.record_game_metrics") as metrics:
         game_id = DatabaseManager.store_guangdong_game_record(db, source, players(), room_type, "1/4")
-    assert game_id and source == original
-    assert len(cursor.execute.call_args_list) == 5
-    stored = json.loads(cursor.execute.call_args_list[0].args[1][1])
+    assert game_id and source["game_title"]["cloud_game_id"] == game_id
+    assert len(cursor.execute.call_args_list) == 4
+    stored = cursor.published.call_args.args[2]
     assert stored == source
-    for call in cursor.execute.call_args_list[1:]:
+    assert stored["game_round"] == original["game_round"]
+    for field, value in original["game_title"].items():
+        assert stored["game_title"][field] == value
+    for call in cursor.execute.call_args_list:
         values = call.args[1]
         assert values[6:10] == ("guangdong", sub_rule, "1/4", room_type)
         assert values[10:12] == (("gd-unit-event", "gd-unit-event") if room_type == "events" else (None, None))
@@ -92,7 +96,7 @@ def test_store_keeps_subrule_exact_config_joker_data_and_event_metrics(sub_rule,
     scene = metrics.call_args.args[4]
     assert scene["rule"] == "guangdong" and scene["sub_rule"] == sub_rule
     conn.commit.assert_called_once()
-    cursor.close.assert_called_once()
+    cursor.__exit__.assert_called_once()
     db._put_connection.assert_called_once_with(conn)
 
 
@@ -110,20 +114,24 @@ def test_database_record_list_and_detail_preserve_family_identity(sub_rule):
     rows = player_rows(sub_rule)
     source = record(sub_rule)
     cursor.fetchall.side_effect = [
-        [{"game_id": "gd-unit-record", "is_favorite": True, "note": "花鬼验证"}], rows,
+        [{"game_id": "gd-unit-record", "is_favorite": True, "note": "花鬼验证", "summary": None,
+          "selected": "main", "created_at": rows[0]["created_at"]}],
+        [dict(r,table_id="main", replay_id=r["game_id"]) for r in rows],
     ]
     listing = DatabaseManager.get_record_list(db, UIDS[0])
     assert listing[0]["rule"] == "guangdong" and listing[0]["sub_rule"] == sub_rule
     assert listing[0]["is_favorite"] and len(listing[0]["players"]) == 4
     cursor.fetchall.side_effect = None
-    cursor.fetchall.return_value = rows
+    from ..records.format import build_match
+    standard = build_match({"main": {"record": source, "game_id": "gd-unit-record", "players": rows}})
+    cursor.fetchall.return_value = [("main", r["user_id"], r["username"], r["room_type"], r["match_type"]) for r in rows]
     cursor.fetchone.side_effect = [
-        {"game_id": "gd-unit-record", "record": json.dumps(source), "created_at": rows[0]["created_at"]},
+        ("gd-unit-record", standard, rows[0]["created_at"], "main"),
         (True,),  # Existing duplicate-record visibility guard performs its own SQL lookup.
     ]
     detail = DatabaseManager.get_record_by_id(db, " gd-unit-record ")
     assert detail["rule"] == "guangdong" and detail["sub_rule"] == sub_rule
-    assert detail["record"] == source
+    assert detail["record"]["tables"]["main"]["payload"]["game_round"] == source["game_round"]
     assert len(detail["players"]) == 4
 
 

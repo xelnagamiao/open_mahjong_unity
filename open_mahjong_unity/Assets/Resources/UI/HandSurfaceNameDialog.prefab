@@ -255,6 +255,7 @@ GameObject:
   - component: {fileID: 6659883005303862250}
   - component: {fileID: 266538846990605660}
   - component: {fileID: 6189224292045638667}
+  - component: {fileID: 4766543083155126334}
   m_Layer: 5
   m_Name: Error
   m_TagString: Untagged
@@ -567,6 +568,7 @@ GameObject:
   - component: {fileID: 6378960328613849000}
   - component: {fileID: 4642961670477557801}
   - component: {fileID: 2906457876558324141}
+  - component: {fileID: 484450746248557702}
   m_Layer: 5
   m_Name: NameLabel
   m_TagString: Untagged
@@ -881,6 +883,7 @@ GameObject:
   - component: {fileID: 3971673756080826702}
   - component: {fileID: 3446669033298998625}
   - component: {fileID: 7837143044632048601}
+  - component: {fileID: 809276284210500663}
   m_Layer: 5
   m_Name: Title
   m_TagString: Untagged
@@ -1926,3 +1929,48 @@ MonoBehaviour:
   previewAspect: {fileID: 4298994678881058691}
   confirm: {fileID: 2214341527592645311}
   cancel: {fileID: 5963253241218279906}
+--- !u!114 &484450746248557702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3892101723111853434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0
+--- !u!114 &4766543083155126334
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2424214127654525981}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0
+--- !u!114 &809276284210500663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4333598818751708300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

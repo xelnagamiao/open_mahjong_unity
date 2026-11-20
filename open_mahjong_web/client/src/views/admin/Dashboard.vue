@@ -16,6 +16,7 @@
         <el-button @click="$router.push('/admin/users')">搜索用户</el-button>
         <el-button @click="$router.push('/admin/rank')">段位管理</el-button>
         <el-button @click="$router.push('/admin/games')">对局查询</el-button>
+        <el-button @click="$router.push('/admin/anti-cheat')">反作弊数据中心</el-button>
         <el-button @click="$router.push('/admin/audit')">操作审计</el-button>
         <el-button @click="$router.push('/admin/messages')">消息推送</el-button>
         <el-button @click="$router.push('/admin/activities')">活动设计</el-button>

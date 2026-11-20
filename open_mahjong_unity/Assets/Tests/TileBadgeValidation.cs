@@ -102,7 +102,7 @@ public static class TileBadgeValidation {
             EditorSceneManager.ClosePreviewScene(scene);
         }
         var settings = Resources.FindObjectsOfTypeAll<Salasasa.Home.SettingsStyleCollection>().Single(s => s.gameObject.scene.IsValid());
-        foreach (var page in settings.bakedPages.Where(p => p.category == 2)) {
+        foreach (var page in settings.AuthoredPages.Where(p => p.category == 2)) {
             var row = page.controls.Single(f => f.key == "TileCornerLabelsRow");
             Check(row.root == row.label.transform.parent && row.options.All(b => b.transform.IsChildOf(row.root)), "theme " + page.variant + " owns its row references");
             Check(row.root.GetComponent<Salasasa.Home.SettingsHintTarget>().description == TileCornerLabel.Restriction, "theme " + page.variant + " restriction note");

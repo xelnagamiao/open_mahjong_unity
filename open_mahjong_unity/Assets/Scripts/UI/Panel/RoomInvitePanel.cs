@@ -41,7 +41,7 @@ public sealed class RoomInvitePanel : MonoBehaviour {
     }
     void Copy() {
         if (busy || info == null) return;
-        busy = true; RefreshText();
+        busy = true; Set(status, ""); RefreshText();
         Invoke(nameof(CopyTimedOut), 8);
         ClipboardUtility.CopyWithResult(shareInput.text, gameObject, nameof(OnClipboardResult));
     }
@@ -49,7 +49,7 @@ public sealed class RoomInvitePanel : MonoBehaviour {
         CancelInvoke(nameof(CopyTimedOut));
         if (!isActiveAndEnabled) return;
         busy = false; RefreshText();
-        Set(status, result == "ok" ? "已复制，发送给好友即可。" : "复制失败，请选择上方文字手动复制。");
+        Set(status, result == "ok" ? "已复制，发送给好友即可。" : "");
     }
     void CopyTimedOut() => OnClipboardResult("failed");
     static void Set(TMP_Text label, string value) {

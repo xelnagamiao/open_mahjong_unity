@@ -135,6 +135,7 @@ GameObject:
   - component: {fileID: 4036607396366178241}
   - component: {fileID: 7614209022846911718}
   - component: {fileID: 6404394144657418664}
+  - component: {fileID: 1166433064149341336}
   m_Layer: 5
   m_Name: TipsText
   m_TagString: Untagged
@@ -395,3 +396,18 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &1166433064149341336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2288952593742305833}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

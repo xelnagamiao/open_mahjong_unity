@@ -5,6 +5,7 @@ mergeInto(LibraryManager.library, {
     if (parts[0] === 'de') return 4;
     if (parts[0] === 'ru') return 5;
     if (parts[0] === 'ja') return 6;
+    if (parts[0] === 'es') return 7;
     if (parts[0] !== 'zh') return 2;
     if (parts.indexOf('hans') >= 0) return 0;
     if (parts.indexOf('hant') >= 0) return 1;

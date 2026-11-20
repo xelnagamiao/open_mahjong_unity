@@ -119,8 +119,7 @@ public partial class GameRecordManager {
                 yield break;
             }
 
-            List<string> tick = roundData.actionTicks[currentNode];
-            string action = tick != null && tick.Count > 0 ? tick[0] : "";
+            string action = PeekNextTickAction();
             int previousRound = currentRoundIndex;
             int previousNode = currentNode;
             NextStep();
@@ -151,6 +150,7 @@ public partial class GameRecordManager {
             case "cl":
             case "cm":
             case "cr":
+            case "ca":
             case "p":
             case "g":
                 return 0.8f;
@@ -405,32 +405,16 @@ public partial class GameRecordManager {
     }
 
     private void ShowGameInfo() {
-        if (IsSpectatorSession) {
-            ShowSpectatorInfo();
-            return;
-        }
-        bool shouldShow = !infoView.activeSelf;
-        if (shouldShow) {
-            TableText.Set(infoText, BuildGameInfoString());
-            infoView.SetActive(true);
-        } else {
-            infoView.SetActive(false);
-        }
+        ToggleInfoPage(InfoPage.Game);
     }
 
     private void UpdateGameInfoButtonLabel() {
         if (showGameInfoButtonLabel == null) return;
-        TableText.Set(showGameInfoButtonLabel, IsSpectatorSession ? "观战信息" : "游戏信息");
+        TableText.Set(showGameInfoButtonLabel, IsSpectatorSession ? "观战信息" : "对局信息");
     }
 
     private void ShowRoundInfo() {
-        bool shouldShow = !infoView.activeSelf;
-        if (shouldShow) {
-            TableText.Set(infoText, BuildRoundInfoString());
-            infoView.SetActive(true);
-        } else {
-            infoView.SetActive(false);
-        }
+        ToggleInfoPage(InfoPage.Status);
     }
 
     private void QuitRecord() {

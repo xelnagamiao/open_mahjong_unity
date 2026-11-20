@@ -11,8 +11,12 @@ const players = [0, 1, 2, 3].map(index => ({game_id: 'ApiReplay', user_id: 100 +
   original_player_index: index, username: `P${index}`, rank: index + 1, rule: 'guobiao'}));
 const record = {game_title: {p0_uid: 100, p1_uid: 101, p2_uid: 102, p3_uid: 103},
   game_round: {r: {round_index: 2, seats: [1, 0, 3, 2], start_player_index: 0, action_ticks: [['bd', 11, 3]]}}};
-require.cache[require.resolve('../../config/database')] = {exports: {query: async sql => ({rowCount: 1,
-  rows: sql.includes('game_player_records') ? players : [{game_id: 'ApiReplay', record, created_at: '2026-01-01'}]})}};
+require.cache[require.resolve('../../config/database')] = { exports: {query:async (sql, [argument])=>{
+  if (sql.includes('WITH permitted AS')) return {rows:JSON.parse(argument).map(q=>({idx:q.idx,round:record.game_round.r}))};
+  if (sql.includes('AS original_side')) return {rows:argument.map(id=>({id,game_id:id,table_id:'main',original_side:'main',
+    allowed:true,title:record.game_title,players,created_at:'2026-01-01'}))};
+  return {rowCount:1,rows:[{game_id:'ApiReplay'}]};
+}}};
 require.cache[require.resolve('../../utils/audit')] = {exports: {writeAudit: async () => {}}};
 const store = require('../../services/classicRecordsStore');
 const router = require('./classicRecords');

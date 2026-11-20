@@ -58,6 +58,7 @@ public partial class GameRecordManager
         }
 
         GotoSelectPlayer(false);
+        RefreshGuangdongRecordTeamScores();
 
         // 推演当前目标节点信息
         for (int i = 0; i < safeActionIndex; i++) {

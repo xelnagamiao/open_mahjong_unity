@@ -1,0 +1,1092 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:open-mahjong:match-spectator:2",
+  "title": "Match spectator protocol V2",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/match_subscribe"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "match_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_tables": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "resume": {
+          "type": "object",
+          "properties": {
+            "match": {
+              "$ref": "#/$defs/cursor"
+            },
+            "open": {
+              "$ref": "#/$defs/cursor"
+            },
+            "closed": {
+              "$ref": "#/$defs/cursor"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "match_id",
+        "request_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/match_accepted"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "match_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_tables": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "policy_version": {
+          "const": 1
+        },
+        "success": {
+          "const": true
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "match_id",
+        "request_id",
+        "subscription_id",
+        "allowed_tables",
+        "policy_version",
+        "success"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/stream_snapshot"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "match_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stream_id": {
+          "enum": [
+            "match",
+            "open",
+            "closed"
+          ]
+        },
+        "stream_epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success": {
+          "const": true
+        },
+        "at_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "body": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/manifest"
+            },
+            {
+              "$ref": "#/$defs/table_body"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "match_id",
+        "subscription_id",
+        "stream_id",
+        "stream_epoch",
+        "success",
+        "at_seq",
+        "body"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "stream_id": {
+                "const": "match"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "$ref": "#/$defs/manifest"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "body": {
+                "$ref": "#/$defs/table_body"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/stream_delta"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "match_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stream_id": {
+          "enum": [
+            "match",
+            "open",
+            "closed"
+          ]
+        },
+        "stream_epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success": {
+          "const": true
+        },
+        "from_seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "to_seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "match_id",
+        "subscription_id",
+        "stream_id",
+        "stream_epoch",
+        "success",
+        "from_seq",
+        "to_seq",
+        "events"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/stream_ack"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cursors": {
+          "type": "object",
+          "properties": {
+            "match": {
+              "$ref": "#/$defs/cursor"
+            },
+            "open": {
+              "$ref": "#/$defs/cursor"
+            },
+            "closed": {
+              "$ref": "#/$defs/cursor"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "subscription_id",
+        "cursors"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/stream_resync"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stream_id": {
+          "enum": [
+            "match",
+            "open",
+            "closed"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "subscription_id",
+        "stream_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/match_unsubscribe"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "subscription_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/match_unsubscribed"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "subscription_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success": {
+          "const": true
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "subscription_id",
+        "success",
+        "request_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "spectator/error"
+        },
+        "protocol_version": {
+          "const": 2
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subscription_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "success": {
+          "const": false
+        }
+      },
+      "required": [
+        "type",
+        "protocol_version",
+        "code",
+        "retryable",
+        "success"
+      ],
+      "additionalProperties": true
+    }
+  ],
+  "$defs": {
+    "wall_ref": {
+      "type": "object",
+      "properties": {
+        "board_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "zone": {
+          "enum": [
+            "seat_wall",
+            "common_wall"
+          ]
+        },
+        "source_original_seat": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "board_instance_id",
+        "zone",
+        "source_original_seat",
+        "offset"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "zone": {
+                "const": "common_wall"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source_original_seat": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "source_original_seat": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
+            }
+          }
+        }
+      ]
+    },
+    "action_meta": {
+      "type": "object",
+      "properties": {
+        "actor_original_seat": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3
+        },
+        "occurred_at_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wall_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wall_ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wall_ref_basis": {
+          "enum": [
+            "recorded",
+            "reconstructed",
+            "unavailable",
+            "not_applicable"
+          ]
+        }
+      },
+      "required": [
+        "actor_original_seat",
+        "occurred_at_ms",
+        "wall_ref",
+        "wall_ref_basis"
+      ],
+      "additionalProperties": true
+    },
+    "round_meta": {
+      "type": "object",
+      "properties": {
+        "table_round_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "board_instance_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "round_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "legacy_node_map": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "initial_anchors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "wall_ref": {
+                "$ref": "#/$defs/wall_ref"
+              },
+              "actor_original_seat": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 3
+              },
+              "node": {
+                "const": 0
+              },
+              "phase": {
+                "const": "after_draw"
+              }
+            },
+            "required": [
+              "wall_ref",
+              "actor_original_seat",
+              "node",
+              "phase"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "action_meta": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action_meta"
+          }
+        },
+        "alignment_status": {
+          "enum": [
+            "exact",
+            "partial",
+            "unavailable",
+            "not_applicable"
+          ]
+        },
+        "alignment_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "table_round_id",
+        "board_instance_id",
+        "round_index",
+        "legacy_node_map",
+        "initial_anchors",
+        "action_meta",
+        "alignment_status",
+        "alignment_reason"
+      ],
+      "additionalProperties": true
+    },
+    "board": {
+      "type": "object",
+      "properties": {
+        "board_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "board_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "wall_layout": {
+          "enum": [
+            "standard",
+            "xueliu"
+          ]
+        },
+        "status": {
+          "enum": [
+            "playing",
+            "paired"
+          ]
+        },
+        "wall_definition": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "board_instance_id",
+        "board_no",
+        "attempt",
+        "wall_layout",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "table": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "table_id": {
+              "enum": [
+                "main",
+                "open",
+                "closed"
+              ]
+            },
+            "table_record_id": {
+              "type": "null"
+            },
+            "record_state": {
+              "const": "missing"
+            },
+            "payload": {
+              "type": "null"
+            },
+            "round_meta": {
+              "type": "object",
+              "maxProperties": 0
+            },
+            "players": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "table_id",
+            "table_record_id",
+            "record_state",
+            "payload",
+            "round_meta",
+            "players"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "table_id": {
+              "enum": [
+                "main",
+                "open",
+                "closed"
+              ]
+            },
+            "table_record_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_state": {
+              "enum": [
+                "partial",
+                "complete"
+              ]
+            },
+            "payload_codec": {
+              "const": "om.action_ticks.v1"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "game_title": {
+                  "type": "object"
+                },
+                "game_round": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^round_index_[1-9][0-9]*$": {
+                      "type": "object",
+                      "properties": {
+                        "action_ticks": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "minItems": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "action_ticks"
+                      ],
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "game_title",
+                "game_round"
+              ],
+              "additionalProperties": true
+            },
+            "players": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "round_meta": {
+              "type": "object",
+              "patternProperties": {
+                "^round_index_[1-9][0-9]*$": {
+                  "$ref": "#/$defs/round_meta"
+                }
+              },
+              "additionalProperties": false
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "table_id",
+            "table_record_id",
+            "record_state",
+            "payload_codec",
+            "payload",
+            "players",
+            "round_meta",
+            "source_sha256"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "cursor": {
+      "type": "object",
+      "properties": {
+        "stream_epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applied_seq": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "stream_epoch",
+        "applied_seq"
+      ],
+      "additionalProperties": false
+    },
+    "table_body": {
+      "type": "object",
+      "properties": {
+        "table_id": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "availability": {
+          "enum": [
+            "waiting",
+            "ready"
+          ]
+        },
+        "table_record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/table"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "released_head": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "table_round_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "node": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "table_round_id",
+                "node"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "table_phase": {
+          "enum": [
+            "waiting",
+            "playing",
+            "ended"
+          ]
+        }
+      },
+      "required": [
+        "table_id",
+        "availability",
+        "table_record",
+        "released_head",
+        "table_phase"
+      ],
+      "additionalProperties": true
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "match_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "match_format": {
+          "const": "paired_tables_2v2"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sub_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_profile": {
+          "type": "object"
+        },
+        "sync_mode": {
+          "type": "boolean"
+        },
+        "planned_boards": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phase": {
+          "enum": [
+            "running",
+            "interrupted",
+            "completed"
+          ]
+        },
+        "board_catalog": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/board"
+          }
+        },
+        "record_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teams": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "final_streams": {
+          "type": "object",
+          "properties": {
+            "match": {
+              "$ref": "#/$defs/cursor"
+            },
+            "open": {
+              "$ref": "#/$defs/cursor"
+            },
+            "closed": {
+              "$ref": "#/$defs/cursor"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "match_id",
+        "match_format",
+        "rule",
+        "sub_rule",
+        "sync_mode",
+        "planned_boards",
+        "phase",
+        "board_catalog",
+        "record_revision",
+        "result",
+        "rule_profile"
+      ],
+      "additionalProperties": true
+    },
+    "event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "manifest_updated",
+                "record_ready"
+              ]
+            },
+            "manifest": {
+              "$ref": "#/$defs/manifest"
+            }
+          },
+          "required": [
+            "kind",
+            "manifest"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "table_available",
+                "table_finalized"
+              ]
+            },
+            "body": {
+              "$ref": "#/$defs/table_body"
+            }
+          },
+          "required": [
+            "kind",
+            "body"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "round_opened"
+            },
+            "round_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "round_header": {
+              "type": "object",
+              "properties": {
+                "action_ticks": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              },
+              "required": [
+                "action_ticks"
+              ],
+              "additionalProperties": true
+            },
+            "round_meta": {
+              "$ref": "#/$defs/round_meta"
+            }
+          },
+          "required": [
+            "kind",
+            "round_key",
+            "round_header",
+            "round_meta"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "actions_appended"
+            },
+            "table_round_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_node": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ticks": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "action_meta": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/action_meta"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "table_round_id",
+            "start_node",
+            "ticks",
+            "action_meta"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

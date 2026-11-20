@@ -29,6 +29,7 @@ public static class HomepageLocalizationBaker
         {"ActivityBakedBlock",new[]{"text"}},
         {"LeaderboardController",new[]{"playerName","playerUid"}},
         {"EventVenueBinding",new[]{"label"}},
+        {"EventVenueChatPage",new[]{"status"}},
         {"CommunityQrDialog",new[]{"title","caption"}},
         {"ChatMessageRow",new[]{"author","body","time"}},
         {"ChatListRow",new[]{"title","detail","initials"}},

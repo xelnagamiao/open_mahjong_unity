@@ -80,11 +80,13 @@ def test_qiaoma_counts_patterns_without_flower_or_cap_payment_annotations():
     assert '根' not in fan_names('sichuan/xueliu_doubles')
 
 
-def test_workbook_and_generated_web_catalog_agree_for_every_rule():
+def test_workbook_and_generated_catalogs_agree_for_every_rule():
     from scripts.validate_rule_support_table import validate, ROOT
-    assert validate()['番种统计'] == 27
+    assert validate()['番种统计'] == 30
     web_rules = json.loads((ROOT / 'open_mahjong_web/shared/statisticsRules.json').read_text(encoding='utf-8'))['rules']
     assert web_rules == RULES
+    unity_rules = json.loads((ROOT / 'open_mahjong_unity/Assets/DataLab/Data/statisticsRules.json').read_text(encoding='utf-8'))['rules']
+    assert unity_rules == RULES
     web_fans = json.loads((ROOT / 'open_mahjong_web/shared/statisticsFans.json').read_text(encoding='utf-8'))
     assert web_fans == {r['sub_rule']: fan_names(r['sub_rule']) for r in RULES if r['fan_stats']}
 
@@ -123,7 +125,7 @@ def test_historical_fan_repair_preserves_replays_values_modes_and_is_idempotent(
 
 def test_failed_historical_repair_rolls_back_all_changes(db):
     gid, record = seed_historical_fans(db)
-    db.sql('UPDATE game_records SET record=NULL WHERE game_id=%s', (gid,))
+    db.sql("UPDATE game_replays SET record=record #- '{tables,main,payload}' WHERE game_id=%s", (gid,))
     result = backfill(db._get_connection(), apply=True)
     assert result['errors'] and not result['applied']
     assert db.sql('SELECT COUNT(fan_stats) FROM game_player_metrics') == [(0,)]

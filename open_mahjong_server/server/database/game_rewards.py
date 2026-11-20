@@ -41,7 +41,7 @@ def apply_currency_to_match_result(record):
 def attach_currency_to_end_packet(state, packet):
     """Delivery uses committed replay output; a failed save never advertises a reward."""
     info = packet.get('game_end_info')
-    if not info:
+    if not info or not info.get('player_final_data'):
         return packet
     record = getattr(state, 'game_record', None) or {}
     reward = record.get('currency_reward')

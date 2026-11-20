@@ -13,6 +13,8 @@ test('filtered player scores and counts use the same records', {
   try {
     await pool.query(`
       CREATE TEMP TABLE game_records (game_id text PRIMARY KEY, created_at timestamp NOT NULL, record jsonb DEFAULT '{}');
+      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+
       CREATE TEMP TABLE game_player_records (
         game_id text, user_id bigint, rule text, sub_rule text, room_type text,
         match_type text, match_tier text, event_id text, score int, rank int,

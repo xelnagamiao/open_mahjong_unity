@@ -1,3 +1,4 @@
+import { salasasaInput } from './tiles.js'
 /**
  * MJAI ↔ salasasa（日麻）
  * 事件对齐 gimite MJAI / Mortal 常用子集。
@@ -52,7 +53,7 @@ function kyokuIndex(currentRound) {
 
 /** salasasa → MJAI 事件数组（整场） */
 export function salasasaToMjaiRecord(input) {
-  const data = typeof input === 'string' ? parseJsonInput(input) : input
+  const data = salasasaInput(input)
   if (!data?.game_title || !data?.game_round) throw new Error('需要 salasasa 牌谱')
   ensureRiichi(data.game_title)
 

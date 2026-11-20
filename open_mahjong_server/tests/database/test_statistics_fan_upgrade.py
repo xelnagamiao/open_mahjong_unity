@@ -94,13 +94,13 @@ def test_first_upgrade_repairs_missing_and_stale_daily_fans_without_touching_ope
 
 def test_failed_startup_rolls_back_and_can_retry_after_record_is_repaired(db):
     gid, record = seed_historical_fans(db)
-    db.sql('UPDATE game_records SET record=NULL WHERE game_id=%s', (gid,))
+    db.sql("UPDATE game_replays SET record=record #- '{tables,main,payload}' WHERE game_id=%s", (gid,))
     with pytest.raises(RuntimeError, match='历史番种升级失败'):
         upgrade.run_startup_fan_upgrade(db)
     assert marker(db) is None
     assert db.sql('SELECT COUNT(fan_stats) FROM game_player_metrics') == [(0,)]
     assert db.sql('SELECT to_regclass(%s)', (upgrade.BACKUP_TABLE,)) == [(None,)]
-    db.sql('UPDATE game_records SET record=%s WHERE game_id=%s', (Json(record), gid))
+    db.sql("UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload}',%s) WHERE game_id=%s", (Json(record), gid))
     assert upgrade.run_startup_fan_upgrade(db)['changed'] == 4
     assert marker(db)
 

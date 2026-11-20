@@ -13,6 +13,7 @@ import { buildWenzhouRoomPayload, loadWenzhouForm } from './wenzhouRoomConfig.js
 import { buildNanchangRoomPayload, loadNanchangForm } from './nanchangRoomConfig.js'
 import { buildShangraoRoomPayload, loadShangraoForm, SHANGRAO_OPTIONS } from './shangraoRoomConfig.js'
 import { buildDuocaiRoomPayload, loadDuocaiForm, duocaiProfile } from './duocaiRoomConfig.js'
+import { buildNewChineseRoomPayload, loadNewChineseForm } from './newChineseRoomConfig.js'
 import { buildBeijingRoomPayload, loadBeijingForm, beijingRoomRows, BEIJING_HUN_MODES } from './beijingRoomConfig.js'
 import { buildHangzhouRoomPayload, loadHangzhouForm } from './hangzhouRoomConfig.js'
 import { buildSingaporeRoomPayload, loadSingaporeForm } from './singaporeRoomConfig.js'
@@ -57,6 +58,7 @@ export function createEventRoomForm(settings = {}) {
   if (form.room_rule === 'nanchang') loadNanchangForm(form, config)
   if (form.room_rule === 'shangrao') loadShangraoForm(form, config)
   if (form.room_rule === 'hongque') loadHongqueForm(form, config)
+  if (form.room_rule === 'new_chinese') loadNewChineseForm(form, config)
   if (form.room_rule === 'beijing') loadBeijingForm(form, config)
   if (form.room_rule === 'duocai') loadDuocaiForm(form, config)
   if (form.room_rule === 'hangzhou') loadHangzhouForm(form, config)
@@ -113,6 +115,7 @@ function buildBaseEventRoomSettings(form) {
   if (form.room_rule === 'wenzhou') return buildWenzhouRoomPayload(form)
   if (form.room_rule === 'nanchang') return buildNanchangRoomPayload(form)
   if (form.room_rule === 'shangrao') return buildShangraoRoomPayload(form)
+  if (form.room_rule === 'new_chinese') return buildNewChineseRoomPayload(form)
   if (form.room_rule === 'beijing') return buildBeijingRoomPayload(form)
   if (form.room_rule === 'duocai') return buildDuocaiRoomPayload(form)
   if (form.room_rule === 'hangzhou') return buildHangzhouRoomPayload(form)
@@ -147,7 +150,7 @@ function buildBaseEventRoomSettings(form) {
     return {
       room_rule: 'sichuan', password: String(form.password || '').trim(),
       room_config: {
-        room_name: roomName, sub_rule: ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule) ? form.sub_rule : 'sichuan/standard',
+        room_name: roomName, sub_rule: ['sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(form.sub_rule) ? form.sub_rule : 'sichuan/standard',
         ...(String(form.duplicate_key || '').trim() ? { duplicate_key: form.duplicate_key.trim() } : {}),
         game_round: form.game_round, round_timer: form.round_timer, step_timer: form.step_timer,
         tips: form.tips, tourist_limit: form.tourist_limit, allow_spectator: form.allow_spectator,
@@ -190,6 +193,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
   if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
+  if (form.room_rule === 'new_chinese') return `${eventRoomSubRuleLabel(form)} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'}`
   if (form.room_rule === 'beijing') return `${rule} · ${form.game_round}圈 · ${BEIJING_HUN_MODES[form.beijing_hun_mode]} · 庄和连庄`
   if (form.room_rule === 'duocai') return `${rule} · ${duocaiProfile(form.sub_rule)?.label || form.sub_rule} · ${duocaiProfile(form.sub_rule)?.roundLabel || ''} · 起始40000点`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
@@ -201,6 +205,7 @@ export const EVENT_RULES_WITH_SUB_RULE_SELECTOR = new Set(['guobiao', 'sichuan',
 
 const subRuleLabels = {
   'guangdong/tuidao_mil2024': 'MIL 2024（无癞子）',
+  'guangdong/mil2023-doubles': 'MIL 2023（2V2 双打）',
   'guangdong/mil2023': 'MIL 2023（花鬼）',
   'guizhou/standard': '贵州 MIL 2023',
   'yixing/standard': '宜兴标准规则',
@@ -211,6 +216,7 @@ const subRuleLabels = {
   'wenzhou/mil2024': '温州 MIL 2024',
   'nanchang/mil2026': '南昌 MIL 2026',
   'shangrao/standard': '上饶麻将',
+  'new_chinese/standard': '新中式麻将',
   'hongque/v1.6': '虹雀² v1.7', 'hongque/w-v1.0': '虹雀 W v1.0',
   'beijing/chipengti': '北京麻将（吃碰提）',
   'duocai/guobiao': '夺彩·国标',
@@ -231,8 +237,8 @@ const subRuleLabels = {
   'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
   ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
   'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
-  'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
-  'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
+  'sichuan/standard': '四川标准', 'sichuan/xuezhan_exchange': '血战到底·换三张', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
+  'sichuan/xueliu':'血流成河·弃三张', 'sichuan/xueliu_exchange':'血流成河·换三张',
   'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
 }
 
@@ -357,6 +363,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
     rows.push(...hongqueRoomRows(form))
   }
+  if (form.room_rule === 'new_chinese') rows.push({ label: '换三张', value: form.exchange_three ? '开启' : '关闭' })
   if (form.room_rule === 'beijing') {
     const timer = rows.find(row => row.label === '局时')
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }

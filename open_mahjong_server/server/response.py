@@ -55,6 +55,7 @@ class PlayerInfo(BaseModel):
     dingque_suit: Optional[int] = None  # 定缺花色：1=万 2=饼 3=条，0/None=未定缺
     hu_order: Optional[int] = None
     blood_hu_tile: Optional[int] = None
+    blood_hu_source: Optional[int] = None
     blood_hu_zimo: Optional[bool] = None
     blood_hu_multi: Optional[bool] = None
     is_hu: Optional[bool] = None  # 血战：本盘是否已和牌退场
@@ -169,6 +170,7 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
+    sbr_window: Optional[dict] = None
     wuhan_info: Optional[dict] = None
     malaysia_info: Optional[dict] = None
     malaysia_hints: Optional[dict] = None
@@ -209,6 +211,7 @@ class Ask_hand_action_info(BaseModel):
     ready_qualification: Optional[str] = None
 
 class Ask_other_action_info(BaseModel):
+    sbr_window: Optional[dict] = None
     nanchang_chows: Optional[Dict[str, List[int]]] = None
     remaining_time: int
     # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
@@ -304,6 +307,8 @@ class Show_result_info(BaseModel):
     hangzhou_fan_details: Optional[dict] = None
     hangzhou_round_changes: Optional[Dict[int, int]] = None
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
+    guangdong_tips: Optional[dict] = None
+    guangdong_chicken: Optional[bool] = None
     guangdong_result: Optional[Dict[str, object]] = None  # MIL 广东：替代见证、系数、奖马和杠账
     nanchang_info: Optional[dict] = None
     nanchang_hints: Optional[dict] = None
@@ -473,6 +478,7 @@ class Refresh_player_tag_list_info(BaseModel):
     """刷新玩家标签列表信息"""
     player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
     # 立直宣告只播放语音；成立广播在宣言牌无人荣和后同步供托与绝对分数。
+    guangdong_tips: Optional[dict] = None
     riichi_declared_player_index: Optional[int] = None
     riichi_accepted_player_index: Optional[int] = None
     player_to_score: Optional[Dict[int, int]] = None  # 当局座位 player_index -> score
@@ -486,11 +492,12 @@ class Ready_status_info(BaseModel):
     player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
 
 class Player_record_info(BaseModel):
-    """玩家对局记录信息"""
+    """一桌内的玩家，历史未记录的结算字段可为空。"""
+    table_id: Optional[str] = None
     user_id: int  # 用户ID
-    username: str  # 用户名
-    score: int  # 玩家分数
-    rank: int  # 排名（1-4）
+    username: Optional[str] = None  # 用户名
+    score: Optional[int] = None  # 玩家分数
+    rank: Optional[int] = None  # 排名（1-4）
     original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
@@ -499,14 +506,15 @@ class Player_record_info(BaseModel):
     voice_used: Optional[int] = None  # 使用的音色ID
 
 class Record_info(BaseModel):
-    """游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）"""
+    match_summary: Optional[Dict] = None
+    """游戏记录元数据（按对局分组，包含可见桌玩家，不含完整牌谱）"""
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4_rank），用于区分全庄战、半庄战、天梯等
     match_queue_type: Optional[str] = None  # 排位队列（如 beginner_quanzhuang），来自牌谱 game_title
     created_at: str  # 创建时间
-    players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    players: List[Player_record_info]  # 该场对局的玩家信息（按桌区分）
     is_favorite: Optional[bool] = False  # 当前用户是否收藏该牌谱
     note: Optional[str] = None  # 当前用户对该牌谱的备注
 
@@ -518,8 +526,11 @@ class Record_detail(BaseModel):
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     record: Dict  # 完整的牌谱记录（JSONB）
     created_at: str  # 创建时间
-    players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    players: List[Player_record_info]  # 该场对局的玩家信息（按桌区分）
     match_type: Optional[str] = None  # 局数类型；旧客户端反序列化时忽略多余字段
+    selected_table_id: Optional[str] = None
+    legacy_cursor_map: Optional[Dict] = None
+    room_type: Optional[str] = None
 
 Game_end_info.model_rebuild()
 
@@ -615,6 +626,8 @@ class ServerStatsInfo(BaseModel):
 
 class SpectatorInfo(BaseModel):
     """观战信息"""
+    match_id: Optional[str] = None
+    table_id: Optional[str] = None
     rule: str  # 规则类型（guobiao/qingque）
     sub_rule: str  # 子规则类型（guobiao/standard 等）
     player1_name: str  # 玩家1 用户名

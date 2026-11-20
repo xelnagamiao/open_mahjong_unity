@@ -10,6 +10,7 @@ public static class SystemAppLanguage
         if (parts[0] == "de") return AppLanguage.German;
         if (parts[0] == "ru") return AppLanguage.Russian;
         if (parts[0] == "ja") return AppLanguage.Japanese;
+        if (parts[0] == "es") return AppLanguage.Spanish;
         if (parts[0] != "zh") return AppLanguage.English;
         if (System.Array.IndexOf(parts, "hans") >= 0) return AppLanguage.SimplifiedChinese;
         if (System.Array.IndexOf(parts, "hant") >= 0) return AppLanguage.TraditionalChinese;
@@ -23,7 +24,7 @@ public static class SystemAppLanguage
     public static AppLanguage Detect()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return (AppLanguage)Mathf.Clamp(SalasasaSystemLanguage(), 0, (int)AppLanguage.Japanese);
+        return (AppLanguage)Mathf.Clamp(SalasasaSystemLanguage(), 0, (int)AppLanguage.Spanish);
 #elif UNITY_ANDROID && !UNITY_EDITOR
         try
         {
@@ -39,6 +40,7 @@ public static class SystemAppLanguage
             SystemLanguage.German => AppLanguage.German,
             SystemLanguage.Russian => AppLanguage.Russian,
             SystemLanguage.Japanese => AppLanguage.Japanese,
+            SystemLanguage.Spanish => AppLanguage.Spanish,
             SystemLanguage.ChineseTraditional => AppLanguage.TraditionalChinese,
             SystemLanguage.ChineseSimplified or SystemLanguage.Chinese => AppLanguage.SimplifiedChinese,
             _ => AppLanguage.English

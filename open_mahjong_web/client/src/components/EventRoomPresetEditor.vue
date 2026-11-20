@@ -70,6 +70,7 @@
       <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="false" />
       <ShangraoRoomConfig v-else-if="form.room_rule === 'shangrao'" :form="form" :show-password="false" />
       <HongqueRoomConfig v-else-if="form.room_rule === 'hongque'" :form="form" :show-password="false" />
+      <NewChineseRoomConfig v-else-if="form.room_rule === 'new_chinese'" :form="form" :show-password="false" />
       <BeijingRoomConfig v-else-if="form.room_rule === 'beijing'" :form="form" :show-password="false" />
       <DuocaiRoomConfig v-else-if="form.room_rule === 'duocai'" :form="form" :show-password="false" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
@@ -110,6 +111,7 @@ import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
 import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import ShangraoRoomConfig from '@/components/ShangraoRoomConfig.vue'
 import HongqueRoomConfig from '@/components/HongqueRoomConfig.vue'
+import NewChineseRoomConfig from '@/components/NewChineseRoomConfig.vue'
 import BeijingRoomConfig from '@/components/BeijingRoomConfig.vue'
 import DuocaiRoomConfig from '@/components/DuocaiRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'

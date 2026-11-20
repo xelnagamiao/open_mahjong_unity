@@ -1,3 +1,4 @@
+import { salasasaInput } from './tiles.js'
 /**
  * 雀渣 ↔ salasasa（国标）
  * 解码对齐 tziakcha.net/record 内联脚本与 other/tziakcha_to_salasasa/convert.py
@@ -821,7 +822,7 @@ function inferPlayerForCut(ticks, idx, lastDiscardPlayer) {
 }
 
 export async function salasasaToTziakcha(input, options = {}) {
-  const data = typeof input === 'string' ? parseJsonInput(input) : input
+  const data = salasasaInput(input)
   if (!data?.game_title || !data?.game_round) {
     throw new Error('需要 salasasa 牌谱（game_title + game_round）')
   }

@@ -520,6 +520,31 @@
       "deal_in_stat_unit": "fan"
     },
     {
+      "key": "sichuan_xuezhan_exchange",
+      "rule": "sichuan",
+      "sub_rule": "sichuan/xuezhan_exchange",
+      "family_name": "四川",
+      "sub_rule_name": "血战到底·换三张",
+      "stats_name": "川麻（血战到底·换三张）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "sichuan_xuezhan_exchange",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
       "key": "sichuan_xueliu",
       "rule": "sichuan",
       "sub_rule": "sichuan/xueliu",
@@ -1017,6 +1042,29 @@
         "1/4",
         "2/4",
         "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "guangdong_doubles",
+      "rule": "guangdong",
+      "sub_rule": "guangdong/mil2023-doubles",
+      "family_name": "广东",
+      "sub_rule_name": "MIL 2023（2V2 双打）",
+      "stats_name": "广东麻将（推广）2V2 双打",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "guangdong_doubles",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "2/4",
         "4/4"
       ],
       "ranked_modes": [],
@@ -1636,6 +1684,31 @@
         "2/4",
         "3/4",
         "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
+    },
+    {
+      "key": "new_chinese",
+      "rule": "new_chinese",
+      "sub_rule": "new_chinese/standard",
+      "family_name": "自定义规则",
+      "sub_rule_name": "新中式麻将",
+      "stats_name": "新中式麻将",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "new_chinese",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "4/4",
+        "8/4",
+        "12/4",
+        "16/4"
       ],
       "ranked_modes": [],
       "matchmaking": false,

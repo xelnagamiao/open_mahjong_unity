@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>Compact team score row inside the existing Sichuan Round Panel content bounds.</summary>
 public sealed class SichuanRoundScorePanel : MonoBehaviour {
     private readonly SichuanRoundScoreState state = new SichuanRoundScoreState();
-    [SerializeField] private TMP_Text blueScore, redScore, caption;
+    [SerializeField] private TMP_Text blueScore, redScore;
+    private bool? arrangedPaired;
 
     public static SichuanRoundScorePanel Create(TMP_Text roundLabel) {
         var existing = roundLabel.transform.parent.Find("SichuanTeamScores");
@@ -32,6 +33,11 @@ public sealed class SichuanRoundScorePanel : MonoBehaviour {
         if (state.Enabled) Render();
     }
 
+    public void UpdateReplay(MatchReplayProjection.Scores scores) {
+        state.UpdateReplay(scores);
+        if (state.Enabled) Render();
+    }
+
     public void ApplySettlement(ShowResultInfo info) {
         state.ApplySettlement(info);
         if (state.Enabled) Render();
@@ -43,25 +49,53 @@ public sealed class SichuanRoundScorePanel : MonoBehaviour {
         redScore.transform.parent.gameObject.SetActive(true);
         blueScore.text = state.Format(state.ShowScores ? state.Blue : null);
         redScore.text = state.Format(state.ShowScores ? state.Red : null);
-        TableText.Set(caption, state.Caption);
-        Arrange(!string.IsNullOrEmpty(state.Caption));
+        Arrange();
     }
 
     private void Build(TMP_Text template) {
         blueScore = Team("BlueTeam", "蓝队", new Color32(24, 90, 159, 255), new Color32(219, 233, 246, 255), 0, .485f, template);
         redScore = Team("RedTeam", "红队", new Color32(174, 38, 48, 255), new Color32(247, 224, 226, 255), .515f, 1, template);
-        caption = Label(transform, "ScoreCaption", template, 14, new Color32(61, 68, 76, 255));
-        TableText.Set(caption, "");
-        Arrange(false);
+        arrangedPaired = null;
+        Arrange();
     }
 
-    private void Arrange(bool showCaption) {
-        caption.gameObject.SetActive(showCaption);
-        Stretch(caption.rectTransform, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 20));
-        foreach (var score in new[] { blueScore, redScore }) {
-            var cell = (RectTransform)score.transform.parent;
-            cell.offsetMin = new Vector2(0, showCaption ? 22 : 0);
-            cell.offsetMax = Vector2.zero;
+    private void Arrange() {
+        if (arrangedPaired == state.Paired) return;
+        arrangedPaired = state.Paired;
+        ArrangeTeam(blueScore, state.Unit);
+        ArrangeTeam(redScore, state.Unit);
+    }
+
+    private static void ArrangeTeam(TMP_Text score, string unitText) {
+        var cell = (RectTransform)score.transform.parent;
+        var name = cell.Find("TeamName").GetComponent<TMP_Text>();
+        cell.offsetMin = Vector2.zero;
+        cell.offsetMax = Vector2.zero;
+        name.color = Color.black;
+        var unit = Label(cell, "Unit", score, 16, unitText == "IMP" ? Color.black : score.color);
+        Stretch(name.rectTransform, new Vector2(0, .62f), new Vector2(.53f, 1), new Vector2(8, 0), Vector2.zero);
+        Stretch(unit.rectTransform, new Vector2(.53f, .62f), Vector2.one, Vector2.zero, new Vector2(-8, 0));
+        Stretch(score.rectTransform, Vector2.zero, new Vector2(1, .62f), new Vector2(4, 0), new Vector2(-4, 0));
+        name.alignment = TextAlignmentOptions.MidlineLeft;
+        unit.alignment = TextAlignmentOptions.MidlineRight;
+        score.alignment = TextAlignmentOptions.Center;
+        name.textWrappingMode = TextWrappingModes.NoWrap;
+        SetSize(name, 18, 12);
+        SetSize(unit, 16, 11);
+        SetSize(score, 34, 14);
+        TableText.Set(unit, unitText);
+    }
+
+    private static void SetSize(TMP_Text text, float size, float minimum) {
+        text.enableAutoSizing = true;
+        text.fontSize = text.fontSizeMax = size;
+        text.fontSizeMin = minimum;
+        var locale = text.GetComponent<LocalizedPlatformLabel>();
+        if (locale) {
+            locale.authoredSize = size;
+            locale.minimumSize = minimum;
+            locale.authoredAutoSize = true;
+            locale.Refresh();
         }
     }
 
@@ -76,27 +110,18 @@ public sealed class SichuanRoundScorePanel : MonoBehaviour {
         image.raycastTarget = false;
         var label = Label(cell.transform, "TeamName", template, 16, ink);
         label.text = title;
-        label.enableAutoSizing = false;
-        label.overflowMode = TextOverflowModes.Overflow;
-        Stretch(label.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(3, -28), new Vector2(-3, 0));
         var locale = label.GetComponent<LocalizedPlatformLabel>() ?? label.gameObject.AddComponent<LocalizedPlatformLabel>();
         locale.key = title;
-        locale.authoredSize = 16;
-        locale.minimumSize = 14;
-        locale.authoredAutoSize = false;
         var value = Label(cell.transform, "Score", template, 30, ink);
         value.text = "—";
-        value.fontSizeMin = 14;
-        Stretch(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(4, 1), new Vector2(-4, -28));
         return value;
     }
 
     private static TMP_Text Label(Transform parent, string name, TMP_Text template, float size, Color color) {
         var existing = parent.Find(name);
-        var go = existing ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        if (!existing) go.transform.SetParent(parent, false);
+        var text = existing ? existing.GetComponent<TextMeshProUGUI>() : DynamicTextRow.SingleLabel(parent, name);
+        var go = text.gameObject;
         go.layer = parent.gameObject.layer;
-        var text = go.GetComponent<TextMeshProUGUI>();
         text.font = PlatformTypography.Resolve(template.font, "红蓝队");
         text.fontSharedMaterial = text.font.material;
         text.fontStyle = FontStyles.Normal;

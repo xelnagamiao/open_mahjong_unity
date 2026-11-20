@@ -13,6 +13,7 @@ public partial class ConfigManager {
         PlayerPrefs.SetInt(TileCornerLabelsKey, enabled ? 1 : 0);
         PlayerPrefs.Save();
         TileCornerLabel.RefreshAll();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void ConfirmEnglishTileLabels(bool enabled) {

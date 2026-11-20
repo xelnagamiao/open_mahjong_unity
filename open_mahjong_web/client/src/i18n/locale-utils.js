@@ -1,4 +1,4 @@
-export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'zh-HK', 'en', 'ja', 'fr', 'de', 'ru']
+export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'zh-HK', 'en', 'ja', 'fr', 'de', 'ru', 'es']
 
 export function normalizeLocale(value) {
   const locale = String(value || '').replace('_', '-').toLowerCase()
@@ -10,6 +10,7 @@ export function normalizeLocale(value) {
   if (locale.startsWith('fr')) return 'fr'
   if (locale.startsWith('de')) return 'de'
   if (locale.startsWith('ru')) return 'ru'
+  if (locale.startsWith('es')) return 'es'
   return null
 }
 

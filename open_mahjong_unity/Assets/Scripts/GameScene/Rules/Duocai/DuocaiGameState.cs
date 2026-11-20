@@ -45,6 +45,12 @@ public sealed class DuocaiGameState : TurnBasedGameState {
         foreach(var player in info.players_info??Array.Empty<PlayerInfo>())if(player.duocai_riichi>0&&Mirror.TryGetSeat(player.player_index,out var seat)) {
             riichiSeats.Add(player.player_index);Game3DManager.Instance?.PlaceRiichiTenbouAt(seat);
         }
+        var pending=info.duocai_info?.pending_kong;
+        if(pending!=null&&Mirror.TryGetSeat(pending.player,out var declaredSeat)) {
+            var masks=Mirror.Info(declaredSeat)?.combination_masks;
+            if(masks!=null&&pending.meld_index>=0&&pending.meld_index<masks.Count)
+                Game3DManager.Instance?.ShowDuocaiDeclaredKong(declaredSeat,pending.meld_index,pending.tile,masks[pending.meld_index],pending.is_mo_gang);
+        }
         if (Session.Tips && Mirror.Self != null && TipsBlock.Instance != null)
             TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
@@ -83,6 +89,9 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     protected override void OnDoAction(Response response) {
         latestAction=response.do_action_info;
+        if(latestAction?.duocai_wall_position is int position&&latestAction.action_player!=Session.SelfIndex
+            &&(latestAction.action_list??Array.Empty<string>()).Any(w=>w=="deal_tile"||w=="deal_gang_tile"))
+            DuocaiTableIndicators.QueueWallDraw(Mirror.SeatOf(latestAction.action_player),position);
         Accept(response.game_info); base.OnDoAction(response);
     }
     private static string[] ChoiceWords(string[] words) => (words ?? Array.Empty<string>()).Select(w=>new[]{"chi_left","peng","gang","angang","jiagang"}.Contains(w)?"duocai_group:"+w:w).Distinct().ToArray();
@@ -105,7 +114,13 @@ public sealed class DuocaiGameState : TurnBasedGameState {
             if(riichiSeats.Add(action.PlayerIndex))Game3DManager.Instance?.PlayRiichiTenbouFlight(action.Seat);
             return true;
         }
-        if(word=="declare_kan")return true;
+        if(word=="declare_kan") {
+            int meldIndex=latestAction?.duocai_meld_index??-1;
+            var masks=Mirror.Info(action.Seat)?.combination_masks;
+            if(masks!=null&&meldIndex>=0&&meldIndex<masks.Count)
+                Game3DManager.Instance?.ShowDuocaiDeclaredKong(action.Seat,meldIndex,action.CutTile??0,masks[meldIndex],action.IsMoGang);
+            return true;
+        }
         if(word!="jiagang")return false;
         var target=Mirror.Info(action.Seat);
         int index=latestAction?.duocai_meld_index??-1;
@@ -125,7 +140,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
             GameRecordMeldCodec.RemoveOneJiagangTile(Mirror.SelfHandTiles,tile,tile,action.IsMoGang);
             GameCanvas.Instance?.ChangeHandCards(action.IsMoGang?"RemoveGetCard":"RemoveJiagangCard",tile,null,null);
         } else target.hand_tiles_count--;
-        Game3DManager.Instance?.PlayExtendedKong(action.Seat,index,action.CombinationMask,previousMasks,tile,action.IsMoGang);
+        Game3DManager.Instance?.PlayDuocaiKong(action.Seat,index,action.CombinationMask,previousMasks,tile,action.IsMoGang);
         return true;
     }
     private DoActionInfo latestAction;
@@ -189,6 +204,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
         var env = base.BuildEnvelope(info);
+        env.Extras=DuocaiResultPresentation.BuildExtras(info);
         int expected = generation;
         if (!env.IsLiuju) env.AfterHandReveal = () => {
             if (Active == this && generation == expected)
@@ -236,6 +252,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     public override void OnSessionReset() {
         ResetSettlement(); askClock.Reset(); clockHand = 0; clockGame = null;
+        Game3DManager.Instance?.ClearDuocaiDeclaredKongs();
         Info = null; latestInfo=null; latestAction=null; choices=Array.Empty<DuocaiChoice>(); riichiSeats.Clear(); endHands = null; Hints.Reset(); DuocaiTableIndicators.Refresh(null);
     }
 }

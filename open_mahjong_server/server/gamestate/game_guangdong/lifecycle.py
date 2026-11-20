@@ -3,7 +3,8 @@
 import asyncio
 import random
 
-from ...game_calculation.guangdong.config import EDITION
+from ...game_calculation.guangdong.config import DOUBLES_SUB_RULE, EDITION
+from ..public.hand_slot_utils import mark_draw_slot
 from ...game_calculation.guangdong.settlement import winning_horses, win_payments, refund_kongs
 from ..game_tuidao.result import broadcast_result
 from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
@@ -18,6 +19,12 @@ from ...database.fulu_utils import record_fulu_rounds_for_players
 
 
 class GuangdongMatchMixin:
+    def _arrange_players(self, rng):
+        rng.shuffle(self.player_list)
+
+    def _finish_match(self):
+        assign_competition_final_ranks(self.player_list)
+
     async def _settle_hand(self, scores_before):
         match_end = self.current_round >= self.max_round * 4
         next_status = "match_end" if match_end else "round_end_by_ready"
@@ -105,10 +112,13 @@ class GuangdongMatchMixin:
         player_action_record_round_end(self)
         return match_end
 
+    def next_round_number(self):
+        return self.current_round + 1
+
     async def game_loop_chinese(self):
         self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(self.room_random_seed or None)
         capture_player_entry_order(self)
-        random.Random(self.master_seed).shuffle(self.player_list)
+        self._arrange_players(random.Random(self.master_seed))
         for i, player in enumerate(self.player_list):
             player.player_index = player.original_player_index = i
         init_game_record(self)
@@ -118,6 +128,8 @@ class GuangdongMatchMixin:
             self._reset_hand_runtime()
             self.init_tiles()
             self.current_player_index = 0
+            if self.profile == DOUBLES_SUB_RULE:
+                mark_draw_slot(self.player_list[0], self.player_list[0].hand_tiles[-1])
             init_game_round(self)
             await broadcast_game_start(self)
             for i in range(4):
@@ -133,11 +145,11 @@ class GuangdongMatchMixin:
                     values.clear()
                 player.remaining_time = self.round_time
             self.player_list.sort(key=lambda p: p.player_index)
-            self.current_round += 1
+            self.current_round = self.next_round_number()
             self.round_index += 1
             self.xunmu = 1
+        self._finish_match()
         end_game_record(self)
-        assign_competition_final_ranks(self.player_list)
         match_type = f"{self.max_round}/4"
         store = getattr(self.db_manager, "store_guangdong_game_record", None)
         game_id = store(self.game_record, self.player_list, self.room_type, match_type) if store else None

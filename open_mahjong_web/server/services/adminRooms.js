@@ -59,7 +59,17 @@ function createAdminRoomService({ pool, proxyToGameServer, writeAudit, eventRoom
       payload: { instance_id: body.instance_id, closed_room_ids: data.closed_room_ids }, reason });
     return data;
   }
-  return { list, create, close };
+  async function ruling(userId, roomId, body) {
+    const reason = String(body.reason || '').trim();
+    if (!reason) fail(400, '请填写判罚原因');
+    const { gamestate_id, round_index, original_seat, decision } = body;
+    const payload = { gamestate_id, round_index, original_seat, decision };
+    const data = checkResult(await proxyToGameServer(`/admin/rooms/${encodeURIComponent(roomId)}/ruling`, payload));
+    await writeAudit({ adminUserId: userId, action: 'room.ruling', targetType: 'room', targetId: roomId,
+      payload: { ...payload, penalty: data.penalty }, reason });
+    return data;
+  }
+  return { list, create, close, ruling };
 }
 
 module.exports = { createAdminRoomService };

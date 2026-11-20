@@ -595,7 +595,7 @@ def test_round_reset_discards_old_timing_and_restores_configured_bank():
             await s.game_loop_chinese()
         assert list(first_banks) == [1, 2, 3, 4]
         assert len(charged) >= 4
-        assert len(s._local_record_detail.record['game_round']) == 4
+        assert len(s._local_record_detail.record['tables']['main']['payload']['game_round']) == 4
     asyncio.run(scenario())
 
 

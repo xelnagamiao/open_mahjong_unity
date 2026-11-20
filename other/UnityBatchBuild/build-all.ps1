@@ -265,7 +265,9 @@ try {
             }
         }
         [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 50), $utf8NoBom)
-        if ($item.Target -in @('Android','AndroidHotUpdate') -and !(Test-Path -LiteralPath "$copy/Library/PackageCache")) {
+        if ($item.Target -in @('Android','AndroidHotUpdate') -and
+            (Test-Path -LiteralPath "$source/Library/PackageCache" -PathType Container) -and
+            !(Test-Path -LiteralPath "$copy/Library/PackageCache")) {
             Sync-Folder "$source/Library/PackageCache" "$copy/Library/PackageCache" "$run/sync.log"
         }
         if ($item.Target -in @('Android', 'AndroidHotUpdate')) {

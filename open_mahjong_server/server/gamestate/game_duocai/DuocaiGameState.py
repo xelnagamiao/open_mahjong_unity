@@ -65,9 +65,7 @@ class DuocaiGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhongyo
         self.round_start_scores = [p.score for p in self.player_list]
         self.domain_events, self.meld_choices = [], {}
         self._action_clocks, self._action_deadlines = {}, {}
-        self.wall = self.decks.next_wall(dice=dice, order=wall)
-        if self.variant == 'riichi':
-            self.wall.set_riichi()
+        self.wall = self.decks.next_wall(dice=dice, order=wall, variant=self.variant)
         for _ in range(3):
             for p in self.player_list:
                 p.hand_tiles.extend(self.wall.draw()[0] for _ in range(4))

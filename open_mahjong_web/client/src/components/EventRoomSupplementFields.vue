@@ -17,6 +17,7 @@
 <script setup>
 import { computed, watch } from 'vue'
 import { duplicateRoomActive, eventFieldDefinitions, jinluoWeathers, supplementFields } from '@/utils/eventRoomExtensions.js'
+import { updateGuobiaoRoomConfig } from '@/utils/guobiaoRoomConfig.js'
 import TaiwanRoomDetails from '@/components/TaiwanRoomDetails.vue'
 import { isPairedRoom, isTrainingWall } from '@/utils/sichuanWallSource.js'
 const props = defineProps({ form: { type: Object, required: true }, showPassword: { type: Boolean, default: true } })
@@ -41,7 +42,7 @@ function visible(key) {
   return true
 }
 function changed(key, value) {
-  if (key === 'jinluo_mode' && value) Object.assign(props.form, { hepai_limit:8, open_cuohe:true, tips:false })
+  if (key === 'jinluo_mode') updateGuobiaoRoomConfig(props.form, key, value)
   if (key === 'tips' && value) props.form.open_cuohe = false
   if (key === 'open_cuohe' && value) props.form.tips = false
 }

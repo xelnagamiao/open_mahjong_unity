@@ -1,4 +1,5 @@
 const express = require('express');
+const { normalizeTeamIcon } = require('../../services/venueIcons');
 const router = express.Router({ mergeParams: true });
 const pool = require('../../config/database');
 const { writeAudit } = require('../../utils/audit');
@@ -49,7 +50,7 @@ async function fetchAnnouncements(eventId) {
 
 async function fetchPendingProfileChange(eventId) {
   const result = await pool.query(
-    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description, r.proposed_team_icon_url,
             r.reason, r.status, r.review_note, r.created_at, r.reviewed_at,
             u.username AS requester_username
      FROM event_profile_change_requests r
@@ -64,7 +65,7 @@ async function fetchPendingProfileChange(eventId) {
 
 async function fetchLatestRejectedProfileChange(eventId) {
   const result = await pool.query(
-    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description, r.proposed_team_icon_url,
             r.reason, r.status, r.review_note, r.created_at, r.reviewed_at,
             u.username AS requester_username
      FROM event_profile_change_requests r
@@ -175,6 +176,7 @@ router.get('/profile-change', requireEventMembership, async (req, res) => {
       data: {
         current_name: req.event.name,
         current_description: req.event.description || '',
+        current_team_icon_url: req.event.team_icon_url || '',
         pending,
         last_rejected: lastRejected,
       },
@@ -199,8 +201,10 @@ router.post('/profile-change', requireEventMembership, requireEventOwner, async 
 
     const sameName = nameParsed.value === String(req.event.name || '').trim();
     const sameDesc = descParsed.value === String(req.event.description || '').trim();
-    if (sameName && sameDesc) {
-      return res.status(400).json({ success: false, message: '赛事名与简介均未变更' });
+    const icon = normalizeTeamIcon(req.body?.team_icon_url, req.event.team_icon_url);
+    if(icon.error) return res.status(400).json({success:false,message:icon.error});
+    if (sameName && sameDesc && icon.value === (req.event.team_icon_url || '')) {
+      return res.status(400).json({ success: false, message: '名称、介绍与队徽均未变更' });
     }
 
     const pending = await fetchPendingProfileChange(req.event.event_id);
@@ -213,9 +217,9 @@ router.post('/profile-change', requireEventMembership, requireEventOwner, async 
 
     const result = await pool.query(
       `INSERT INTO event_profile_change_requests
-         (event_id, requested_by, proposed_name, proposed_description, reason)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING request_id, event_id, requested_by, proposed_name, proposed_description,
+         (event_id, requested_by, proposed_name, proposed_description, reason, proposed_team_icon_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING request_id, event_id, requested_by, proposed_name, proposed_description, proposed_team_icon_url,
                  reason, status, created_at`,
       [
         req.event.event_id,
@@ -223,6 +227,7 @@ router.post('/profile-change', requireEventMembership, requireEventOwner, async 
         nameParsed.value,
         descParsed.value,
         reason,
+        icon.value,
       ]
     );
 

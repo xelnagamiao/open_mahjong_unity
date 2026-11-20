@@ -159,6 +159,7 @@ public class ChangshaRuleSettings {
 }
 
 public class EventListEntry {
+    public string team_icon_url;
     public string event_id;
     public string name;
     public string status;
@@ -218,6 +219,7 @@ public class EventReadyPlayer {
 }
 
 public class EventDetailInfo {
+    public string team_icon_url;
     public string event_id;
     public int created_by;
     public string name;
@@ -261,6 +263,8 @@ public class ShowResultInfo {
     public string hangzhou_win_source;
     public Newtonsoft.Json.Linq.JObject hangzhou_fan_details;
     public HongzhongInfo hongzhong_info;
+    public GuangdongTips guangdong_tips;
+    public bool? guangdong_chicken;
     public GuangdongResult guangdong_result;
     public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
@@ -385,7 +389,14 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public string next_status;
 }
 
+
+public sealed class SbrExchangeWindow {
+    public int tile;
+    public bool draw, kong, robbing, last, heaven, earth;
+}
+
 public class XueliuExchangeInfo {
+    public int direction;
     public int stage;
     public int[] active_players;
     public bool selection_done;
@@ -396,6 +407,7 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public int[] riichi_cut_tiles;
     public bool? opening_buhua_complete;
@@ -448,6 +460,7 @@ public class AskHandActionGBInfo {
 }
 
 public class AskOtherActionGBInfo {
+    public SbrExchangeWindow sbr_window;
     public DuocaiChoice[] duocai_choices;
     public Dictionary<string,int[]> fuzhou_declaration_candidates; // 询问切牌后操作
     public string[] action_list; // 操作列表
@@ -572,6 +585,7 @@ public class PlayerInfo {
     public int dingque_suit;            // 四川麻将：定缺花色（1万/2饼/3条，0=未定缺），重连/初始同步
     public int? hu_order;
     public int? blood_hu_tile;
+    public int? blood_hu_source;
     public bool? blood_hu_zimo;
     public bool? blood_hu_multi;
     public bool? is_hu;                 // 四川麻将·血战到底：该玩家本盘是否已和牌退场
@@ -588,6 +602,7 @@ public class WashizuDoublesInfo {
 }
 
 public class GameInfo {
+    public NewChineseInfo new_chinese;
     public bool real_time;
     public int tactical_grace_seconds = 5;
     public bool unlimited_rounds;
@@ -708,6 +723,7 @@ public class SwitchSeatInfo { // 换位信息
 public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
     // 宣告只播放语音；成立时同步立直棒和绝对分数。
+    public GuangdongTips guangdong_tips;
     public int? riichi_declared_player_index;
     public int? riichi_accepted_player_index;
     public Dictionary<int, int> player_to_score;
@@ -737,6 +753,7 @@ public class ReadyStatusInfo {
     public Dictionary<int, bool> player_to_ready; // 玩家索引到准备状态的映射 {player_index: ready}
 }
 public class PlayerRecordInfo { // 玩家对局记录信息
+    public string table_id;            // 复式比赛中的开室或闭室
     public int user_id;                 // 用户ID
     public string username;            // 用户名
     public int score;                   // 玩家分数
@@ -749,7 +766,9 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public int? voice_used;            // 使用的音色ID（可为空）
 }
 
-public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）
+public class RecordInfo {
+    [Newtonsoft.Json.JsonExtensionData] public IDictionary<string, Newtonsoft.Json.Linq.JToken> metadata;
+    public Newtonsoft.Json.Linq.JObject match_summary;
     public string game_id;              // 对局ID（base62字符串）
     public string rule;                 // 规则类型（GB/JP）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
@@ -761,6 +780,9 @@ public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4�
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
+    public Newtonsoft.Json.Linq.JObject local_table_metadata;
+    public string selected_table_id;
+    public Newtonsoft.Json.Linq.JObject legacy_cursor_map;
     public string wall_source;
     public bool is_duplicate;
     public string duplicate_key;
@@ -768,7 +790,7 @@ public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返�
     public bool cloud_saved;            // 服务端确认已保存云端；旧牌谱缺少字段时默认 false
     public string rule;                 // 规则类型（GB/JP）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
-    public Dictionary<string, object> record; // 完整的牌谱记录
+    public Newtonsoft.Json.Linq.JObject record; // 完整的比赛牌谱
     public string created_at;           // 创建时间
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
     public string match_type;           // 局数类型（本地牌谱用）
@@ -911,6 +933,9 @@ public class ServerStatsInfo { // 服务器统计信息
 }
 
 public class SpectatorInfo { // 观战信息
+    public string match_id;
+    public string table_id;
+    [Newtonsoft.Json.JsonIgnore] public SpectatorInfo[] paired_tables;
     public string rule;         // 规则类型（guobiao/qingque）
     public string sub_rule;     // 子规则类型（guobiao/standard等）
     public string player1_name; // 玩家1 用户名

@@ -1,0 +1,1235 @@
+{
+  "archive": {
+    "format": "open_mahjong.match_record",
+    "schema_version": 2,
+    "match_id": "test-match",
+    "record_revision": 1,
+    "match_format": "paired_tables_2v2",
+    "completeness": "complete",
+    "rule": "sichuan",
+    "sub_rule": "sichuan/doubles_duplicate",
+    "rule_profile": {
+      "version": "sbr2025-duplicate-v1",
+      "format": "paired_tables_2v2",
+      "sub_rule": "sichuan/doubles_duplicate",
+      "scoring": "imp",
+      "imp_scale": "sbr",
+      "board_score_cap": null,
+      "tied_match": "draw",
+      "wall_policy": "own_wall_then_retired_partner",
+      "wall_policy_source": "sbr2025",
+      "wall_layout": "standard",
+      "initial_hand_count": 13,
+      "initial_wall_count": 14,
+      "initial_common_count": 0,
+      "supplement_draw": "front",
+      "dealer_policy": "fixed_ESWN",
+      "active_flower_pig_penalty": 12
+    },
+    "sync_mode": null,
+    "teams": [],
+    "board_catalog": [
+      {
+        "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+        "board_no": 1,
+        "attempt": null,
+        "wall_layout": "standard",
+        "status": "paired",
+        "wall_definition": {
+          "number": 1,
+          "dealer": 0,
+          "hands": [
+            [
+              25,
+              22,
+              35,
+              36,
+              37,
+              32,
+              25,
+              24,
+              27,
+              38,
+              34,
+              19,
+              24
+            ],
+            [
+              37,
+              22,
+              18,
+              39,
+              38,
+              38,
+              11,
+              39,
+              19,
+              26,
+              33,
+              29,
+              11
+            ],
+            [
+              18,
+              21,
+              23,
+              23,
+              22,
+              31,
+              16,
+              27,
+              34,
+              15,
+              13,
+              22,
+              13
+            ],
+            [
+              17,
+              12,
+              15,
+              19,
+              13,
+              27,
+              36,
+              29,
+              32,
+              17,
+              35,
+              26,
+              29
+            ]
+          ],
+          "walls": [
+            [
+              15,
+              28,
+              13,
+              16,
+              35,
+              38,
+              18,
+              24,
+              18,
+              31,
+              14,
+              21,
+              28,
+              25
+            ],
+            [
+              37,
+              11,
+              36,
+              32,
+              28,
+              31,
+              21,
+              29,
+              26,
+              24,
+              12,
+              36,
+              14,
+              39
+            ],
+            [
+              16,
+              33,
+              37,
+              33,
+              27,
+              34,
+              26,
+              17,
+              12,
+              14,
+              34,
+              23,
+              33,
+              25
+            ],
+            [
+              12,
+              21,
+              16,
+              14,
+              32,
+              35,
+              19,
+              17,
+              31,
+              39,
+              23,
+              15,
+              28,
+              11
+            ]
+          ]
+        }
+      }
+    ],
+    "tables": {
+      "open": {
+        "table_id": "open",
+        "table_record_id": "idopen",
+        "record_state": "complete",
+        "payload_codec": "om.action_ticks.v1",
+        "payload": {
+          "game_title": {
+            "rule": "sichuan",
+            "sub_rule": "sichuan/doubles_duplicate",
+            "duplicate_match_id": "test-match",
+            "duplicate_table": "open",
+            "duplicate_profile": {
+              "version": "sbr2025-duplicate-v1",
+              "format": "paired_tables_2v2",
+              "sub_rule": "sichuan/doubles_duplicate",
+              "scoring": "imp",
+              "imp_scale": "sbr",
+              "board_score_cap": null,
+              "tied_match": "draw",
+              "wall_policy": "own_wall_then_retired_partner",
+              "wall_policy_source": "sbr2025",
+              "wall_layout": "standard",
+              "initial_hand_count": 13,
+              "initial_wall_count": 14,
+              "initial_common_count": 0,
+              "supplement_draw": "front",
+              "dealer_policy": "fixed_ESWN",
+              "active_flower_pig_penalty": 12
+            },
+            "duplicate_round_tiles": [
+              [
+                25,
+                22,
+                35,
+                36,
+                37,
+                32,
+                25,
+                24,
+                27,
+                38,
+                34,
+                19,
+                24,
+                15,
+                28,
+                13,
+                16,
+                35,
+                38,
+                18,
+                24,
+                18,
+                31,
+                14,
+                21,
+                28,
+                25,
+                37,
+                22,
+                18,
+                39,
+                38,
+                38,
+                11,
+                39,
+                19,
+                26,
+                33,
+                29,
+                11,
+                37,
+                11,
+                36,
+                32,
+                28,
+                31,
+                21,
+                29,
+                26,
+                24,
+                12,
+                36,
+                14,
+                39,
+                18,
+                21,
+                23,
+                23,
+                22,
+                31,
+                16,
+                27,
+                34,
+                15,
+                13,
+                22,
+                13,
+                16,
+                33,
+                37,
+                33,
+                27,
+                34,
+                26,
+                17,
+                12,
+                14,
+                34,
+                23,
+                33,
+                25,
+                17,
+                12,
+                15,
+                19,
+                13,
+                27,
+                36,
+                29,
+                32,
+                17,
+                35,
+                26,
+                29,
+                12,
+                21,
+                16,
+                14,
+                32,
+                35,
+                19,
+                17,
+                31,
+                39,
+                23,
+                15,
+                28,
+                11
+              ]
+            ]
+          },
+          "game_round": {
+            "round_index_1": {
+              "round_index": 1,
+              "current_round": 1,
+              "seats": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "dealer_index": 0,
+              "start_player_index": 0,
+              "duplicate_wall_layout": "standard",
+              "action_ticks": [
+                [
+                  "c",
+                  15,
+                  "T"
+                ],
+                [
+                  "d",
+                  37,
+                  "dw",
+                  1,
+                  0,
+                  1
+                ]
+              ],
+              "p0_tiles": [
+                25,
+                22,
+                35,
+                36,
+                37,
+                32,
+                25,
+                24,
+                27,
+                38,
+                34,
+                19,
+                24,
+                15
+              ],
+              "p1_tiles": [
+                37,
+                22,
+                18,
+                39,
+                38,
+                38,
+                11,
+                39,
+                19,
+                26,
+                33,
+                29,
+                11
+              ],
+              "p2_tiles": [
+                18,
+                21,
+                23,
+                23,
+                22,
+                31,
+                16,
+                27,
+                34,
+                15,
+                13,
+                22,
+                13
+              ],
+              "p3_tiles": [
+                17,
+                12,
+                15,
+                19,
+                13,
+                27,
+                36,
+                29,
+                32,
+                17,
+                35,
+                26,
+                29
+              ]
+            }
+          },
+          "extension_for_future_rule": {
+            "keep": true
+          }
+        },
+        "players": [],
+        "round_meta": {
+          "round_index_1": {
+            "table_round_id": "5294a813-d73e-518f-aa18-d6fb9c92654d",
+            "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+            "round_index": 1,
+            "legacy_node_map": [
+              0,
+              1,
+              2
+            ],
+            "initial_anchors": [
+              {
+                "kind": "dealer_initial_draw",
+                "wall_ref": {
+                  "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+                  "zone": "seat_wall",
+                  "source_original_seat": 0,
+                  "offset": 0
+                },
+                "actor_original_seat": 0,
+                "node": 0,
+                "phase": "after_draw"
+              }
+            ],
+            "action_meta": [
+              {
+                "actor_original_seat": 0,
+                "occurred_at_ms": null,
+                "wall_ref": null,
+                "wall_ref_basis": "not_applicable"
+              },
+              {
+                "actor_original_seat": 1,
+                "occurred_at_ms": null,
+                "wall_ref": {
+                  "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+                  "zone": "seat_wall",
+                  "source_original_seat": 1,
+                  "offset": 0
+                },
+                "wall_ref_basis": "recorded"
+              }
+            ],
+            "alignment_status": "exact",
+            "alignment_reason": null
+          }
+        },
+        "source_sha256": "4867172c4033a7f10741f13016514d91f4d611d242c1381b5fc4063e16c19e7f"
+      },
+      "closed": {
+        "table_id": "closed",
+        "table_record_id": "idclosed",
+        "record_state": "complete",
+        "payload_codec": "om.action_ticks.v1",
+        "payload": {
+          "game_title": {
+            "rule": "sichuan",
+            "sub_rule": "sichuan/doubles_duplicate",
+            "duplicate_match_id": "test-match",
+            "duplicate_table": "closed",
+            "duplicate_profile": {
+              "version": "sbr2025-duplicate-v1",
+              "format": "paired_tables_2v2",
+              "sub_rule": "sichuan/doubles_duplicate",
+              "scoring": "imp",
+              "imp_scale": "sbr",
+              "board_score_cap": null,
+              "tied_match": "draw",
+              "wall_policy": "own_wall_then_retired_partner",
+              "wall_policy_source": "sbr2025",
+              "wall_layout": "standard",
+              "initial_hand_count": 13,
+              "initial_wall_count": 14,
+              "initial_common_count": 0,
+              "supplement_draw": "front",
+              "dealer_policy": "fixed_ESWN",
+              "active_flower_pig_penalty": 12
+            },
+            "duplicate_round_tiles": [
+              [
+                25,
+                22,
+                35,
+                36,
+                37,
+                32,
+                25,
+                24,
+                27,
+                38,
+                34,
+                19,
+                24,
+                15,
+                28,
+                13,
+                16,
+                35,
+                38,
+                18,
+                24,
+                18,
+                31,
+                14,
+                21,
+                28,
+                25,
+                37,
+                22,
+                18,
+                39,
+                38,
+                38,
+                11,
+                39,
+                19,
+                26,
+                33,
+                29,
+                11,
+                37,
+                11,
+                36,
+                32,
+                28,
+                31,
+                21,
+                29,
+                26,
+                24,
+                12,
+                36,
+                14,
+                39,
+                18,
+                21,
+                23,
+                23,
+                22,
+                31,
+                16,
+                27,
+                34,
+                15,
+                13,
+                22,
+                13,
+                16,
+                33,
+                37,
+                33,
+                27,
+                34,
+                26,
+                17,
+                12,
+                14,
+                34,
+                23,
+                33,
+                25,
+                17,
+                12,
+                15,
+                19,
+                13,
+                27,
+                36,
+                29,
+                32,
+                17,
+                35,
+                26,
+                29,
+                12,
+                21,
+                16,
+                14,
+                32,
+                35,
+                19,
+                17,
+                31,
+                39,
+                23,
+                15,
+                28,
+                11
+              ]
+            ]
+          },
+          "game_round": {
+            "round_index_1": {
+              "round_index": 1,
+              "current_round": 1,
+              "seats": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "dealer_index": 0,
+              "start_player_index": 0,
+              "duplicate_wall_layout": "standard",
+              "action_ticks": [
+                [
+                  "c",
+                  15,
+                  "T"
+                ],
+                [
+                  "ca",
+                  2,
+                  "p",
+                  11
+                ],
+                [
+                  "d",
+                  37,
+                  "dw",
+                  1,
+                  0,
+                  1
+                ]
+              ],
+              "p0_tiles": [
+                25,
+                22,
+                35,
+                36,
+                37,
+                32,
+                25,
+                24,
+                27,
+                38,
+                34,
+                19,
+                24,
+                15
+              ],
+              "p1_tiles": [
+                37,
+                22,
+                18,
+                39,
+                38,
+                38,
+                11,
+                39,
+                19,
+                26,
+                33,
+                29,
+                11
+              ],
+              "p2_tiles": [
+                18,
+                21,
+                23,
+                23,
+                22,
+                31,
+                16,
+                27,
+                34,
+                15,
+                13,
+                22,
+                13
+              ],
+              "p3_tiles": [
+                17,
+                12,
+                15,
+                19,
+                13,
+                27,
+                36,
+                29,
+                32,
+                17,
+                35,
+                26,
+                29
+              ]
+            }
+          },
+          "extension_for_future_rule": {
+            "keep": true
+          }
+        },
+        "players": [],
+        "round_meta": {
+          "round_index_1": {
+            "table_round_id": "6e14a151-687b-5680-ac06-43ed12a3464b",
+            "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+            "round_index": 1,
+            "legacy_node_map": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "initial_anchors": [
+              {
+                "kind": "dealer_initial_draw",
+                "wall_ref": {
+                  "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+                  "zone": "seat_wall",
+                  "source_original_seat": 0,
+                  "offset": 0
+                },
+                "actor_original_seat": 0,
+                "node": 0,
+                "phase": "after_draw"
+              }
+            ],
+            "action_meta": [
+              {
+                "actor_original_seat": 0,
+                "occurred_at_ms": null,
+                "wall_ref": null,
+                "wall_ref_basis": "not_applicable"
+              },
+              {
+                "actor_original_seat": 1,
+                "occurred_at_ms": null,
+                "wall_ref": null,
+                "wall_ref_basis": "not_applicable"
+              },
+              {
+                "actor_original_seat": 1,
+                "occurred_at_ms": null,
+                "wall_ref": {
+                  "board_instance_id": "a6fe95d4-808f-5c1f-9632-348b71baa1d5",
+                  "zone": "seat_wall",
+                  "source_original_seat": 1,
+                  "offset": 0
+                },
+                "wall_ref_basis": "recorded"
+              }
+            ],
+            "alignment_status": "exact",
+            "alignment_reason": null
+          }
+        },
+        "source_sha256": "a6c0cfc14ff9e9eb92665baf2d390bc47fc24a671fe2d40756846055502a1076"
+      }
+    },
+    "settlements": [],
+    "result": null,
+    "provenance": {
+      "converter": "match-record-v2.1",
+      "sources": [
+        {
+          "table_id": "closed",
+          "game_id": "idclosed",
+          "sha256": "a6c0cfc14ff9e9eb92665baf2d390bc47fc24a671fe2d40756846055502a1076"
+        },
+        {
+          "table_id": "open",
+          "game_id": "idopen",
+          "sha256": "4867172c4033a7f10741f13016514d91f4d611d242c1381b5fc4063e16c19e7f"
+        }
+      ]
+    }
+  },
+  "packets": [
+    {
+      "protocol_version": 2,
+      "match_id": "test-match",
+      "stream_id": "match",
+      "stream_epoch": "epoch-match",
+      "type": "spectator/stream_snapshot",
+      "at_seq": 0,
+      "body": {
+        "match_id": "test-match",
+        "match_format": "paired_tables_2v2",
+        "rule": "sichuan",
+        "sub_rule": "sichuan/doubles_duplicate",
+        "sync_mode": false,
+        "planned_boards": 1,
+        "phase": "running",
+        "board_catalog": [
+          {
+            "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+            "board_no": 1,
+            "attempt": null,
+            "wall_layout": "standard",
+            "status": "playing"
+          }
+        ],
+        "record_revision": 1,
+        "result": null
+      }
+    },
+    {
+      "protocol_version": 2,
+      "match_id": "test-match",
+      "stream_id": "open",
+      "stream_epoch": "epoch-open",
+      "type": "spectator/stream_snapshot",
+      "at_seq": 0,
+      "body": {
+        "table_id": "open",
+        "availability": "ready",
+        "table_record": {
+          "table_id": "open",
+          "table_record_id": null,
+          "record_state": "partial",
+          "payload_codec": "om.action_ticks.v1",
+          "payload": {
+            "game_title": {
+              "rule": "sichuan",
+              "sub_rule": "sichuan/doubles_duplicate",
+              "duplicate_match_id": "test-match",
+              "duplicate_table": "open",
+              "duplicate_profile": {
+                "version": "sbr2025-duplicate-v1",
+                "format": "paired_tables_2v2",
+                "sub_rule": "sichuan/doubles_duplicate",
+                "scoring": "imp",
+                "imp_scale": "sbr",
+                "board_score_cap": null,
+                "tied_match": "draw",
+                "wall_policy": "own_wall_then_retired_partner",
+                "wall_policy_source": "sbr2025",
+                "wall_layout": "standard",
+                "initial_hand_count": 13,
+                "initial_wall_count": 14,
+                "initial_common_count": 0,
+                "supplement_draw": "front",
+                "dealer_policy": "fixed_ESWN",
+                "active_flower_pig_penalty": 12
+              }
+            },
+            "players_settings": [],
+            "game_round": {
+              "round_index_1": {
+                "round_index": 1,
+                "current_round": 1,
+                "seats": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "dealer_index": 0,
+                "start_player_index": 0,
+                "duplicate_wall_layout": "standard",
+                "p0_tiles": [
+                  25,
+                  22,
+                  35,
+                  36,
+                  37,
+                  32,
+                  25,
+                  24,
+                  27,
+                  38,
+                  34,
+                  19,
+                  24,
+                  15
+                ],
+                "p1_tiles": [
+                  37,
+                  22,
+                  18,
+                  39,
+                  38,
+                  38,
+                  11,
+                  39,
+                  19,
+                  26,
+                  33,
+                  29,
+                  11
+                ],
+                "p2_tiles": [
+                  18,
+                  21,
+                  23,
+                  23,
+                  22,
+                  31,
+                  16,
+                  27,
+                  34,
+                  15,
+                  13,
+                  22,
+                  13
+                ],
+                "p3_tiles": [
+                  17,
+                  12,
+                  15,
+                  19,
+                  13,
+                  27,
+                  36,
+                  29,
+                  32,
+                  17,
+                  35,
+                  26,
+                  29
+                ],
+                "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                "action_ticks": [
+                  [
+                    "c",
+                    15,
+                    "T"
+                  ]
+                ],
+                "action_times_ms": [
+                  101000
+                ]
+              }
+            }
+          },
+          "players": [],
+          "round_meta": {
+            "round_index_1": {
+              "table_round_id": "02fef484-9c38-5cc3-90b9-70a1784ab3e7",
+              "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+              "round_index": 1,
+              "legacy_node_map": [
+                0,
+                1
+              ],
+              "initial_anchors": [
+                {
+                  "kind": "dealer_initial_draw",
+                  "wall_ref": {
+                    "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                    "zone": "seat_wall",
+                    "source_original_seat": 0,
+                    "offset": 0
+                  },
+                  "actor_original_seat": 0,
+                  "node": 0,
+                  "phase": "after_draw"
+                }
+              ],
+              "action_meta": [
+                {
+                  "actor_original_seat": 0,
+                  "occurred_at_ms": 101000,
+                  "wall_ref": null,
+                  "wall_ref_basis": "not_applicable"
+                }
+              ],
+              "alignment_status": "exact",
+              "alignment_reason": null
+            }
+          },
+          "source_sha256": "d297ce7e5cad0924f09820beb04e4a3e5b4320d203d27b440c6064aee6423c0f"
+        },
+        "released_head": {
+          "table_round_id": "02fef484-9c38-5cc3-90b9-70a1784ab3e7",
+          "node": 1
+        },
+        "table_phase": "playing"
+      }
+    },
+    {
+      "protocol_version": 2,
+      "match_id": "test-match",
+      "stream_id": "closed",
+      "stream_epoch": "epoch-closed",
+      "type": "spectator/stream_snapshot",
+      "at_seq": 0,
+      "body": {
+        "table_id": "closed",
+        "availability": "ready",
+        "table_record": {
+          "table_id": "closed",
+          "table_record_id": null,
+          "record_state": "partial",
+          "payload_codec": "om.action_ticks.v1",
+          "payload": {
+            "game_title": {
+              "rule": "sichuan",
+              "sub_rule": "sichuan/doubles_duplicate",
+              "duplicate_match_id": "test-match",
+              "duplicate_table": "closed",
+              "duplicate_profile": {
+                "version": "sbr2025-duplicate-v1",
+                "format": "paired_tables_2v2",
+                "sub_rule": "sichuan/doubles_duplicate",
+                "scoring": "imp",
+                "imp_scale": "sbr",
+                "board_score_cap": null,
+                "tied_match": "draw",
+                "wall_policy": "own_wall_then_retired_partner",
+                "wall_policy_source": "sbr2025",
+                "wall_layout": "standard",
+                "initial_hand_count": 13,
+                "initial_wall_count": 14,
+                "initial_common_count": 0,
+                "supplement_draw": "front",
+                "dealer_policy": "fixed_ESWN",
+                "active_flower_pig_penalty": 12
+              }
+            },
+            "players_settings": [],
+            "game_round": {
+              "round_index_1": {
+                "round_index": 1,
+                "current_round": 1,
+                "seats": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "dealer_index": 0,
+                "start_player_index": 0,
+                "duplicate_wall_layout": "standard",
+                "p0_tiles": [
+                  25,
+                  22,
+                  35,
+                  36,
+                  37,
+                  32,
+                  25,
+                  24,
+                  27,
+                  38,
+                  34,
+                  19,
+                  24,
+                  15
+                ],
+                "p1_tiles": [
+                  37,
+                  22,
+                  18,
+                  39,
+                  38,
+                  38,
+                  11,
+                  39,
+                  19,
+                  26,
+                  33,
+                  29,
+                  11
+                ],
+                "p2_tiles": [
+                  18,
+                  21,
+                  23,
+                  23,
+                  22,
+                  31,
+                  16,
+                  27,
+                  34,
+                  15,
+                  13,
+                  22,
+                  13
+                ],
+                "p3_tiles": [
+                  17,
+                  12,
+                  15,
+                  19,
+                  13,
+                  27,
+                  36,
+                  29,
+                  32,
+                  17,
+                  35,
+                  26,
+                  29
+                ],
+                "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                "action_ticks": [
+                  [
+                    "c",
+                    15,
+                    "T"
+                  ]
+                ],
+                "action_times_ms": [
+                  101000
+                ]
+              }
+            }
+          },
+          "players": [],
+          "round_meta": {
+            "round_index_1": {
+              "table_round_id": "84bc7aff-4939-5450-9421-e858f2532c51",
+              "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+              "round_index": 1,
+              "legacy_node_map": [
+                0,
+                1
+              ],
+              "initial_anchors": [
+                {
+                  "kind": "dealer_initial_draw",
+                  "wall_ref": {
+                    "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                    "zone": "seat_wall",
+                    "source_original_seat": 0,
+                    "offset": 0
+                  },
+                  "actor_original_seat": 0,
+                  "node": 0,
+                  "phase": "after_draw"
+                }
+              ],
+              "action_meta": [
+                {
+                  "actor_original_seat": 0,
+                  "occurred_at_ms": 101000,
+                  "wall_ref": null,
+                  "wall_ref_basis": "not_applicable"
+                }
+              ],
+              "alignment_status": "exact",
+              "alignment_reason": null
+            }
+          },
+          "source_sha256": "4208f8cf394efe1cb9e6ef9559d18c855934e0ef2b11241db525228a8536f37f"
+        },
+        "released_head": {
+          "table_round_id": "84bc7aff-4939-5450-9421-e858f2532c51",
+          "node": 1
+        },
+        "table_phase": "playing"
+      }
+    },
+    {
+      "protocol_version": 2,
+      "match_id": "test-match",
+      "stream_id": "open",
+      "stream_epoch": "epoch-open",
+      "type": "spectator/stream_delta",
+      "from_seq": 1,
+      "to_seq": 1,
+      "events": [
+        {
+          "kind": "actions_appended",
+          "table_round_id": "02fef484-9c38-5cc3-90b9-70a1784ab3e7",
+          "start_node": 1,
+          "ticks": [
+            [
+              "d",
+              37,
+              "dw",
+              1,
+              0,
+              1
+            ]
+          ],
+          "action_meta": [
+            {
+              "actor_original_seat": 1,
+              "occurred_at_ms": 102000,
+              "wall_ref": {
+                "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                "zone": "seat_wall",
+                "source_original_seat": 1,
+                "offset": 0
+              },
+              "wall_ref_basis": "recorded"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "protocol_version": 2,
+      "match_id": "test-match",
+      "stream_id": "closed",
+      "stream_epoch": "epoch-closed",
+      "type": "spectator/stream_delta",
+      "from_seq": 1,
+      "to_seq": 1,
+      "events": [
+        {
+          "kind": "actions_appended",
+          "table_round_id": "84bc7aff-4939-5450-9421-e858f2532c51",
+          "start_node": 1,
+          "ticks": [
+            [
+              "d",
+              37,
+              "dw",
+              1,
+              0,
+              1
+            ]
+          ],
+          "action_meta": [
+            {
+              "actor_original_seat": 1,
+              "occurred_at_ms": 102000,
+              "wall_ref": {
+                "board_instance_id": "a9190ee1-bbbe-56bb-b16b-94f00df078e2",
+                "zone": "seat_wall",
+                "source_original_seat": 1,
+                "offset": 0
+              },
+              "wall_ref_basis": "recorded"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

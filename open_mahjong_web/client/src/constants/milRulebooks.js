@@ -21,6 +21,11 @@ export const milRulebooks = {
       url: '/rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf',
       filename: '广东麻将（推广）竞赛规则（试行2023版）.pdf',
     },
+    {
+      subRule: 'guangdong/mil2023-doubles', label: 'MIL 2023（2V2 双打）',
+      title: '广东麻将（推广）竞赛规则 2V2 双打补充细则', desc: '四人两队，对家为队友，每盘八副。门清鸡和可点和或自摸，每队每副限一次。允许一炮多响，队友出鬼合计翻倍，无奖马。',
+      url: '/rulebooks/mil/广东麻将（推广）竞赛规则2V2双打补充细则.pdf', filename: '广东麻将（推广）竞赛规则2V2双打补充细则.pdf', base: 'guangdong/mil2023',
+    },
   ],
   changchun: [
     {

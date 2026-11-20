@@ -1,5 +1,53 @@
 from .test_xueliu_protocol import sim_table, table, mid_win
 from .record_sim.flags import resolve_record_flags
+from .unity_sim import client
+
+
+def test_retained_duplicate_claim_survives_soft_expiry_until_the_next_action(monkeypatch):
+    now = 100.0
+    monkeypatch.setattr(client, "monotonic", lambda: now)
+    sim = sim_table()
+    start = table("sichuan/doubles_duplicate")
+    start["game_info"]["is_duplicate"] = True
+    sim.apply(start)
+
+    def ask(tick, mode, seconds, actions=("peng", "pass"), **extra):
+        return sim.apply({"type": "gamestate/sichuan/ask_other_action", "ask_other_action_info": {
+            "action_tick": tick, "cut_tile": 25, "action_list": actions, "claim_wait_mode": mode,
+            "claim_seconds_remaining": seconds, "remaining_time": 20, **extra}})
+
+    assert ask(9, "real_time", 5)["ActionButtonSim"]["visible"] is False
+    assert ask(11, "real_time", 4.75)["TimerSim"]["total_seconds"] == 4.75
+    now += 2
+    assert ask(11, "real_time", 5)["TimerSim"]["total_seconds"] == 2.75
+    now += 3
+    assert sim.snapshot()["TimerSim"]["waiting_draw"]
+    assert ask(11, "waiting_draw", 0)["GsmSim"]["allowActionList"] == ["peng", "pass"]
+    assert ask(11, "real_time", 5)["TimerSim"]["waiting_draw"]
+    sim.apply({"type": "gamestate/sichuan/do_action",
+               "do_action_info": {"action_tick": 12, "action_player": 1, "action_list": ["deal_tile"]}})
+    for stale_tick in (11, 12):
+        state = ask(stale_tick, "waiting_draw", 0)
+        assert not state["ActionButtonSim"]["visible"]
+        assert not state["GsmSim"]["IsSelfActionRequired"]
+    assert ask(13, "real_time", 5)["TimerSim"]["running"]
+    assert not ask(13, "waiting_draw", 0, actions=[])["ActionButtonSim"]["visible"]
+    assert not ask(13, "real_time", 5)["ActionButtonSim"]["visible"]
+
+    start["type"] = "gamestate/sichuan/reconnect"
+    start["game_info"]["action_tick"] = 13
+    sim.apply(start)
+    state = ask(13, "waiting_draw", 0)
+    assert state["TimerSim"]["waiting_draw"] and state["ActionButtonSim"]["visible"]
+    sim.apply({"type": "gamestate/sichuan/do_action",
+               "do_action_info": {"action_tick": 13, "action_player": 1, "action_list": ["deal_tile"]}})
+    assert sim.action_button["visible"] and sim.timer["waiting_draw"]
+    assert ask(14, "real_time", 5, is_tactical_recheck=True)["TimerSim"]["total_seconds"] == 20
+    ask(15, "waiting_draw", 0, actions=[])
+    assert not ask(15, "real_time", 5)["ActionButtonSim"]["visible"]
+    start["game_info"]["is_duplicate"] = False
+    sim.apply(start)
+    assert ask(15, "real_time", 5)["TimerSim"]["total_seconds"] == 25
 
 
 def test_two_stage_exchange_restores_committed_and_pending_view():

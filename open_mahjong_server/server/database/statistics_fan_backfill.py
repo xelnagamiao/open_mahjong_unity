@@ -18,23 +18,37 @@ logger = logging.getLogger(__name__)
 
 
 def _is_complete(cursor, selected):
-    cursor.execute("SELECT meta_value FROM app_meta WHERE meta_key=%s", (MIGRATION_KEY,))
+    return _is_migration_complete(cursor, selected, MIGRATION_KEY, "all")
+
+
+def _is_migration_complete(cursor, selected, migration_key, scope):
+    cursor.execute("SELECT meta_value FROM app_meta WHERE meta_key=%s", (migration_key,))
     row = cursor.fetchone()
     try:
         saved = json.loads(row[0]) if row else {}
     except (ValueError, TypeError):
         return False
     return (isinstance(saved, dict) and saved.get("status") == "complete"
-            and saved.get("scope") == "all" and saved.get("sub_rules") == selected)
+            and saved.get("scope") == scope and saved.get("sub_rules") == selected)
 
 
-def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, progress=None):
+def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, progress=None,
+             migration_key=MIGRATION_KEY):
+    """专项升级使用独立 migration_key，子集备份和完成标记不会覆盖全量迁移。"""
     enabled = {r["sub_rule"] for r in RULES if r["fan_stats"]}
     selected = sorted(enabled if sub_rules is None else set(sub_rules))
     if not selected or not set(selected) <= enabled or batch_size < 1:
         raise ValueError("只能回填已启用番种统计的子规则，批量大小必须为正")
     full_scope = set(selected) == enabled
-    report = dict(migration=MIGRATION_KEY, mode="apply" if apply else "dry-run",
+    track_completion = full_scope or migration_key != MIGRATION_KEY
+    scope = "all" if full_scope else "subset"
+
+    def is_complete(cursor):
+        if migration_key == MIGRATION_KEY:
+            return _is_complete(cursor, selected)
+        return _is_migration_complete(cursor, selected, migration_key, scope)
+
+    report = dict(migration=migration_key, mode="apply" if apply else "dry-run",
                   scope="all" if full_scope else "subset", sub_rules=selected,
                   scanned=0, changed=0, by_sub_rule={}, errors=[], error_count=0)
     try:
@@ -42,13 +56,13 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
             if not apply:
                 cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             else:
-                if full_scope and not force and _is_complete(cur, selected):
+                if track_completion and not force and is_complete(cur):
                     conn.rollback()
                     return {**report, "status": "already_complete", "applied": False}
                 # 并发启动先等待同一迁移事务，再检查一次完成标记。
                 cur.execute("SET LOCAL lock_timeout='0'")
                 cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (LOCK_KEY,))
-                if full_scope and not force and _is_complete(cur, selected):
+                if track_completion and not force and is_complete(cur):
                     conn.rollback()
                     return {**report, "status": "already_complete", "applied": False}
                 cur.execute("SET LOCAL lock_timeout='10s'")
@@ -101,7 +115,7 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
             cur.execute(f"""INSERT INTO {BACKUP_TABLE}(migration_key,table_name,row_key,row_data)
                 SELECT %s,'game_player_metrics',jsonb_build_array(m.game_id,m.user_id)::text,to_jsonb(m)
                 FROM game_player_metrics m JOIN corrected_statistics_fans c USING(game_id,user_id)
-                ON CONFLICT DO NOTHING""", (MIGRATION_KEY,))
+                ON CONFLICT DO NOTHING""", (migration_key,))
             cur.execute("""UPDATE game_player_metrics m SET fan_stats=c.fan_stats
                 FROM corrected_statistics_fans c WHERE m.game_id=c.game_id AND m.user_id=c.user_id""")
             # 全部已结束统计日都覆盖，指标本身已正确但遗漏的日统计也要补齐。
@@ -120,7 +134,7 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
                     jsonb_build_object('stat_date',d.stat_date,'rule',d.rule,'sub_rule',d.sub_rule,
                         'rows',COALESCE((SELECT jsonb_agg(to_jsonb(f)) FROM scene_tier_fan_daily f
                             WHERE (f.stat_date,f.rule,f.sub_rule)=(d.stat_date,d.rule,d.sub_rule)),'[]'::jsonb))
-                FROM corrected_fan_days d ON CONFLICT DO NOTHING""", (MIGRATION_KEY,))
+                FROM corrected_fan_days d ON CONFLICT DO NOTHING""", (migration_key,))
             cur.execute("""DELETE FROM scene_tier_fan_daily f USING corrected_fan_days d
                 WHERE (f.stat_date,f.rule,f.sub_rule)=(d.stat_date,d.rule,d.sub_rule)""")
             cur.execute(f"""INSERT INTO scene_tier_fan_daily(stat_date,match_tier,rule,sub_rule,fan_field,fan_count)
@@ -131,10 +145,10 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
                 WHERE m.room_type IN ('match','events') AND m.match_tier IS NOT NULL
                 GROUP BY {day},m.match_tier,m.rule,m.sub_rule,fan.key""")
             report.update(status="complete", applied=True)
-            if full_scope:
+            if track_completion:
                 cur.execute("""INSERT INTO app_meta(meta_key,meta_value) VALUES(%s,%s)
                     ON CONFLICT(meta_key) DO UPDATE SET meta_value=EXCLUDED.meta_value,updated_at=NOW()""",
-                    (MIGRATION_KEY, json.dumps(report, ensure_ascii=False)))
+                    (migration_key, json.dumps(report, ensure_ascii=False)))
         conn.commit()
         return report
     except BaseException:

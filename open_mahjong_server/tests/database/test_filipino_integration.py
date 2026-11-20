@@ -31,8 +31,13 @@ def test_real_record_and_basic_statistics_are_persisted_without_fans(db):
     with db._get_connection().cursor() as cursor:ensure_schema(cursor)
     db._get_connection().commit()
     state=finished_state();state.db_manager=db
-    game_id=state.persist_game_record()
-    assert game_id
+    asyncio.run(state.complete_game_lifecycle())
+    detail = state._local_record_detail
+    assert detail is not None and detail.cloud_saved
+    game_id = detail.game_id
+    assert sorted(p.record_counter.rank_result for p in state.player_list) == [1, 2, 3, 4]
+    asyncio.run(state.complete_game_lifecycle())
+    assert db.sql('SELECT game_id FROM game_records') == [(game_id,)]
     rows=db.sql("SELECT rule,sub_rule,count(*) FROM game_player_records GROUP BY rule,sub_rule")
     assert rows==[('filipino','filipino/classic16',4)]
     metrics=db.sql("SELECT rule,sub_rule,count(*) FROM game_player_metrics GROUP BY rule,sub_rule")

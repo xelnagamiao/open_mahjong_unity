@@ -18,7 +18,9 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
-    static extern void LocalRecordIdbPut(string gameId, IntPtr data, int dataLen, IntPtr index, int indexLen, string gameObjectName, string methodName);
+    static extern void LocalRecordIdbSnapshot(string key, string go, string method);
+    [DllImport("__Internal")]
+    static extern void LocalRecordIdbCommit(int token, IntPtr json, int len, string go, string method);
 
     [DllImport("__Internal")]
     static extern void LocalRecordIdbLoad(string key, string gameObjectName, string methodName);
@@ -27,7 +29,7 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
     static extern int LocalRecordIdbCopy(IntPtr dst, int maxLen);
 
     [DllImport("__Internal")]
-    static extern void LocalRecordIdbDelete(string gameId, string gameObjectName, string methodName);
+    static extern void LocalRecordIdbRelease(int token);
 #endif
 
     public static void Ensure() {
@@ -45,12 +47,42 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
         Enqueue(() => StartLoad(gameId, onBytes, onError));
     }
 
-    public void BeginPut(string gameId, byte[] recordUtf8, byte[] indexUtf8, Action onDone, Action<string> onError) {
-        Enqueue(() => StartPut(gameId, recordUtf8, indexUtf8, onDone, onError));
+    int snapshotToken;
+    internal void ReleaseSnapshot(int token) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        LocalRecordIdbRelease(token);
+#endif
     }
-
-    public void BeginDelete(string gameId, Action onDone) {
-        Enqueue(() => StartDelete(gameId, onDone));
+    internal void BeginSnapshot(string key, Action<int,byte[]> done, Action<string> error) {
+        Enqueue(() => {
+            _bytesCallback = bytes => done(snapshotToken, bytes);
+            _errorCallback = error;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            LocalRecordIdbSnapshot(key ?? "", gameObject.name, nameof(OnSnapshotReady));
+#else
+            OnSnapshotReady("error|IndexedDB 不可用");
+#endif
+        });
+    }
+    public void OnSnapshotReady(string message) {
+        var parts = (message ?? "").Split('|');
+        if (parts.Length == 3 && int.TryParse(parts[2],out snapshotToken)) OnLoadReady(parts[0] + "|" + parts[1]);
+        else OnLoadReady(message);
+    }
+    internal void BeginCommit(int token, DeviceRecordMigration.Plan plan, Action done, Action<string> error) {
+        Enqueue(() => {
+            _doneCallback = done; _errorCallback = error;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(
+                new { writes = plan.Writes, deletes = plan.Deletes }));
+            var pin = GCHandle.Alloc(bytes,GCHandleType.Pinned);
+            try { LocalRecordIdbCommit(token,pin.AddrOfPinnedObject(),bytes.Length,gameObject.name,nameof(OnPutReady)); }
+            catch(Exception e) { OnPutReady("error|" + e.Message); }
+            finally { pin.Free(); }
+#else
+            OnPutReady("error|IndexedDB 不可用");
+#endif
+        });
     }
 
     void Enqueue(Action action) {
@@ -88,50 +120,6 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
 #endif
     }
 
-    void StartPut(string gameId, byte[] recordUtf8, byte[] indexUtf8, Action onDone, Action<string> onError) {
-        _doneCallback = onDone;
-        _errorCallback = onError;
-#if UNITY_WEBGL && !UNITY_EDITOR
-        GCHandle dataHandle = GCHandle.Alloc(recordUtf8, GCHandleType.Pinned);
-        GCHandle indexHandle = GCHandle.Alloc(indexUtf8, GCHandleType.Pinned);
-        try {
-            LocalRecordIdbPut(
-                gameId,
-                dataHandle.AddrOfPinnedObject(),
-                recordUtf8.Length,
-                indexHandle.AddrOfPinnedObject(),
-                indexUtf8.Length,
-                gameObject.name,
-                "OnPutReady"
-            );
-        } catch (Exception e) {
-            onError?.Invoke(e.Message);
-            Finish();
-        } finally {
-            dataHandle.Free();
-            indexHandle.Free();
-        }
-#else
-        onDone?.Invoke();
-        Finish();
-#endif
-    }
-
-    void StartDelete(string gameId, Action onDone) {
-        _doneCallback = onDone;
-#if UNITY_WEBGL && !UNITY_EDITOR
-        try {
-            LocalRecordIdbDelete(gameId, gameObject.name, "OnDeleteReady");
-        } catch {
-            onDone?.Invoke();
-            Finish();
-        }
-#else
-        onDone?.Invoke();
-        Finish();
-#endif
-    }
-
     public void OnLoadReady(string message) {
         try {
             if (message == "empty") {
@@ -160,14 +148,6 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
                 _errorCallback?.Invoke(message.Substring(6));
                 return;
             }
-            _doneCallback?.Invoke();
-        } finally {
-            Finish();
-        }
-    }
-
-    public void OnDeleteReady(string message) {
-        try {
             _doneCallback?.Invoke();
         } finally {
             Finish();

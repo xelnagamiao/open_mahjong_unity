@@ -14,6 +14,9 @@ function requireAdmin(req, res, next) {
   }
 
   const userId = Number(payload.user_id);
+  if (payload.aud !== undefined && payload.aud !== 'admin') {
+    return res.status(401).json({ success: false, message: '需要管理后台登录凭据' });
+  }
   if (!config.admin.userIds.has(userId)) {
     return res.status(403).json({ success: false, message: '无管理权限' });
   }

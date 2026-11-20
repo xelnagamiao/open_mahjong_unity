@@ -32,6 +32,8 @@ def normalize_riichi_config(raw=None, sub_rule=None):
         raise ValueError('三人顺位点仅适用于三人立直子规则')
     if sub_rule in ('riichi/standard', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime', 'riichi/washizu_doubles') and result['noten_penalty'] == 2000:
         raise ValueError('2000点不听罚符仅适用于三人立直；四人立直请选择3000点或无罚符')
+    if sub_rule == 'riichi/sanma' and result['noten_penalty'] == 'fixed_gap_2000':
+        raise ValueError('固定分差2000点不听罚符仅适用于四人立直')
     from .washizu_doubles import enabled, FIXED_OPTIONS
     if enabled(sub_rule):
         result.update(FIXED_OPTIONS)

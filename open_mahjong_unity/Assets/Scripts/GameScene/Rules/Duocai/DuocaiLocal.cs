@@ -23,9 +23,25 @@ internal sealed class DuocaiLocal {
         string key=Key(hand);if(waits.TryGetValue(key,out var found))return found;
         return waits[key]=DuocaiTiles.Physical.Where(t=>Structural(hand.Concat(new[]{t}).ToArray())).ToArray();
     }
-    private int[] LogicalWaits(int[] hand) {
+    internal int[] LogicalWaits(int[] hand) {
         string key=Key(hand);if(logicalWaits.TryGetValue(key,out var found))return found;
-        return logicalWaits[key]=DuocaiTiles.Faces.Where(t=>DuocaiTiles.Physical.Any(v=>!DuocaiTiles.Joker(v)&&DuocaiTiles.Face(v)==t&&Structural(hand.Concat(new[]{v}).ToArray()))).ToArray();
+        var faces=new HashSet<int>();
+        foreach(int tile in DuocaiTiles.Physical.Where(v=>!DuocaiTiles.Joker(v)))
+            if(!faces.Contains(DuocaiTiles.Face(tile))&&Structural(hand.Concat(new[]{tile}).ToArray()))faces.Add(DuocaiTiles.Face(tile));
+        // Only exhausted normal faces need a joker-only completion search.
+        var physical=hand.Concat(melds.SelectMany(m=>m.physical)).ToArray();
+        var missing=new HashSet<int>(physical.Where(v=>!DuocaiTiles.Joker(v)).GroupBy(DuocaiTiles.Face).Where(g=>g.Count()==4).Select(g=>g.Key));
+        missing.ExceptWith(faces);
+        if(missing.Count>0&&physical.Count(DuocaiTiles.Joker)<8)
+            foreach(int tile in DuocaiTiles.Physical.Where(DuocaiTiles.Joker).OrderByDescending(v=>DuocaiTiles.Domain(v).Length)) {
+                if(physical.Contains(tile)||!DuocaiTiles.Domain(tile).Any(missing.Contains))continue;
+                foreach(var shape in DuocaiSolver.Shapes(hand.Concat(new[]{tile}).ToArray(),melds,variant)) {
+                    if(missing.Remove(shape.Win))faces.Add(shape.Win);
+                    if(missing.Count==0)break;
+                }
+                if(missing.Count==0)break;
+            }
+        return logicalWaits[key]=faces.OrderBy(v=>v).ToArray();
     }
     private bool Furiten(int[] hand,int[] discards,int win,DuocaiScoring.Context ctx) {
         var discarded=new HashSet<int>();var conditional=new HashSet<int>();
@@ -47,19 +63,28 @@ internal sealed class DuocaiLocal {
     }
     internal JObject Describe(List<int> source,int win,int? cut=null) {
         var hand=source.ToArray();var before=hand.Take(hand.Length-1).ToArray();var discards=Values("discards").Concat(cut.HasValue?new[]{cut.Value}:Array.Empty<int>()).ToArray();
+        bool actual=!cut.HasValue&&Number("current_win_tile")==win;
+        string sourceKind=(string)context["win_source"]??"";
         DuocaiScoring.Context Ctx(bool self) {
-            return new DuocaiScoring.Context {Tsumo=self,Seat=Number("seat_wind",42),Wind=Number("round_wind",41),Riichi=Number("riichi"),
-                Ippatsu=!cut.HasValue&&Flag("ippatsu"),Indicators=Values("indicators"),LastCopy=DuocaiTiles.Face(win)!=0&&(Values("visible_tiles").Count(v=>DuocaiTiles.Face(v)==DuocaiTiles.Face(win))+(cut.HasValue&&DuocaiTiles.Face(cut.Value)==DuocaiTiles.Face(win)?1:0))==3,
-                Rinshan=self&&!cut.HasValue&&Flag("has_draw_slot")&&Flag("after_kong"),
-                Last=self?(!cut.HasValue&&Flag("has_draw_slot")?Number("remaining",-1)==0:Number("remaining",-1)==1):Number("remaining",-1)==0};
+            bool timed=actual&&(self?sourceKind=="self_draw":sourceKind=="discard"||sourceKind=="rob_kong");
+            int visible=Values("visible_tiles").Count(v=>DuocaiTiles.Face(v)==DuocaiTiles.Face(win));
+            if(timed&&!self&&sourceKind=="discard")visible--;
+            if(cut.HasValue&&DuocaiTiles.Face(cut.Value)==DuocaiTiles.Face(win))visible++;
+            return new DuocaiScoring.Context {Tsumo=self,Seat=Number("seat_wind",42),Wind=Number("round_wind",41),
+                Riichi=Flag("pending_riichi")?Math.Max(Number("riichi"),Number("pending_riichi_value",1)):Number("riichi"),
+                Ippatsu=!cut.HasValue&&Flag("ippatsu"),Indicators=Values("indicators"),
+                LastCopy=DuocaiTiles.Face(win)!=0&&visible==3,
+                Rinshan=timed&&self&&Flag("rinshan"),Chankan=timed&&!self&&Flag("chankan"),
+                Last=timed&&Flag("last")&&!(self&&Flag("rinshan")),
+                Tenhou=timed&&self&&Flag("tenhou"),Chiihou=timed&&self&&Flag("chiihou")};
         }
         var ronContext=Ctx(false);var ron=DuocaiScoring.Evaluate(hand,melds,variant,ronContext);var self=DuocaiScoring.Evaluate(hand,melds,variant,Ctx(true));
         bool furiten=variant=="riichi"&&(Flag("riichi_furiten")||!cut.HasValue&&Flag("temporary_furiten")||Furiten(before,discards,win,ronContext));
-        bool canRon=ron?.Valid==true&&!furiten&&!Flag("blocked"),canSelf=self?.Valid==true&&!Flag("blocked");
+        bool canRon=ron?.Valid==true&&!furiten&&!Flag("blocked")&&!(actual&&sourceKind=="self_draw"),canSelf=self?.Valid==true&&!Flag("blocked");
         int rp=Points(ron,false,Number("seat_wind",42)==41,Number("honba")),sp=Points(self,true,Number("seat_wind",42)==41,Number("honba"));
         string kind="wuyi",label="未满足";int points=0;
         if(canRon){kind=canSelf?"dianhe":"ron_only";points=rp;label=canSelf?$"{rp}点":$"仅点和\n{rp}点";}
-        else if(canSelf){kind="zimo";points=sp;label=$"仅自摸\n{sp}点";}
+        else if(canSelf){kind="zimo";points=sp;label=actual&&sourceKind=="self_draw"?$"{sp}点":$"仅自摸\n{sp}点";}
         else if((ron?.Conditions==true&&!ron.Minimum||self?.Conditions==true&&!self.Minimum)&&!Flag("blocked"))label="未起和";
         return new JObject{["tile"]=win,["kind"]=kind,["label"]=label,["points"]=points,["ron_points"]=canRon?rp:0,["self_points"]=canSelf?sp:0,["can_ron"]=canRon,["can_self"]=canSelf,
             ["fan"]=canRon?ron.Fan:canSelf?self.Fan:Math.Max(ron?.Fan??0,self?.Fan??0),["furiten"]=furiten,

@@ -19,7 +19,9 @@
 
 ---
 
-## 2. 牌谱 JSON 顶层结构
+## 2. 牌谱正文与桌内数据
+
+正式正文的 `format` 为 `open_mahjong.match_record`，`schema_version` 为 2。一场对局对应一份正文。普通对局使用 `tables.main`；四川复式的八个席位分布在 `tables.open` 与 `tables.closed`。下例展示每桌的 `payload`。
 
 ```json
 {
@@ -31,7 +33,7 @@
 }
 ```
 
-整份 JSON 以 **JSONB** 形式存入 `game_records.record`，是唯一权威数据源；回放时应以 JSON 内 `game_title` 为准，而非仅依赖 API 顶层的 `rule` 字段。
+整场正文以 JSONB 存在 `game_replays.record`。读取接口在 `record.tables[table_id].payload.game_title` 提供该桌开局时写入的规则。
 
 ---
 
@@ -188,21 +190,24 @@
 
 ## 6. 数据库表
 
-### 6.1 `game_records`
+### 6.1 `game_replays` 与 `game_record_tables`
 
-| 列 | 类型 | 说明 |
+| 比赛表列 | 类型 | 说明 |
 |----|------|------|
-| `game_id` | VARCHAR(16) PK | base62 随机 ID（10 字符） |
-| `record` | JSONB | 完整牌谱 JSON |
+| `game_id` | VARCHAR(16) PK | 整场编号。普通对局沿用原编号，四川复式使用由比赛标识确定的编号 |
+| `record` | JSONB | 整场唯一一份正文 |
+| `summary` | JSONB | 用于列表展示与访问控制的复式摘要 |
 | `created_at` | TIMESTAMP | 创建时间 |
+
+`game_record_tables` 用原桌号关联比赛编号和 `main`、`open` 或 `closed`。历史统计和重算通过只读视图 `game_records` 取得该桌的原始数据。旧分享链接仍可使用原桌号定位。
 
 ### 6.2 `game_player_records`
 
-每局 4 行（每位玩家一行），用于列表查询与元数据展示。
+每桌的参赛玩家分别关联到其原桌号。双桌对局的列表可以通过比赛编号聚合两桌玩家。
 
 | 列 | 类型 | 说明 |
 |----|------|------|
-| `game_id` | VARCHAR(16) FK | 关联 `game_records` |
+| `game_id` | VARCHAR(16) FK | 关联 `game_record_tables.game_id` |
 | `user_id` | BIGINT | 用户 ID |
 | `username` | VARCHAR | 用户名 |
 | `score` | INT | 终局分数 |
@@ -221,7 +226,7 @@ sub_rule = game_title.get("sub_rule") or "guobiao/standard"
 
 `match_type` 由 GameState 在对局结束时传入，与 `game_title.max_round` 的数字部分一致（排位赛带 `_rank` 后缀）。
 
-**跳过保存：** 对局含机器人（`user_id <= 10`）时不写牌谱与统计。
+一般含机器人的对局在客户端保存。正式或训练复式可保存机器人桌，桌内正文保留全部席位。
 
 #### 6.2.1 `match_type` 完整取值
 
@@ -278,7 +283,7 @@ sub_rule = game_title.get("sub_rule") or "guobiao/standard"
 
 ### 7.1 记录列表 `get_record_list`
 
-从 `game_player_records` JOIN `game_records` 聚合，返回 `RecordInfo`：
+列表经 `game_record_tables` 关联 `game_player_records`，按比赛编号分页，返回 `RecordInfo`。
 
 - `game_id`、`rule`、`sub_rule`、`match_type`、`created_at`
 - `players[]`：排名、分数、装扮等
@@ -290,8 +295,9 @@ sub_rule = game_title.get("sub_rule") or "guobiao/standard"
 返回 `RecordDetail`：
 
 - `record`：完整 JSON（dict）
-- `players[]`：同上
-- 顶层 `rule` / `sub_rule`：**优先** `record.game_title`，缺失时回退 `game_player_records` 行
+- `players[]` 包含可见桌的玩家，`table_id` 区分同一比赛的不同桌。
+- `rule` 和 `sub_rule` 取自整场正文。
+- `selected_table_id` 指出选中的桌。旧桌号的响应还附带历史游标映射 `legacy_cursor_map`。
 
 ---
 
@@ -301,9 +307,8 @@ sub_rule = game_title.get("sub_rule") or "guobiao/standard"
 RecordPanel / RecordPrefab
   → DataNetworkManager.GetRecordById
   → RecordPanel.OnRecordDetailReceived(detail)
-  → JsonConvert.SerializeObject(detail.record)
-  → GameRecordManager.LoadRecord(recordJson, detail.players)
-       → GameRecordJsonDecoder.ParseGameRecord   // JSON → GameRecord
+  → GameRecordManager.LoadMatchRecord(detail.record, 所选桌, ...)
+       → GameRecordJsonDecoder.ParseGameRecord   // 解码所选桌的 payload
        → InitGameRound(roundIndex)               // 座位、风位、牌山
        → 逐步执行 action_ticks 驱动 3D/UI
 ```

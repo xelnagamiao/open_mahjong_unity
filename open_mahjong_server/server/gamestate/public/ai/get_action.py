@@ -340,7 +340,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             game_state.action_events[player_index].set()
         elif action_type in ("xueliu_throw_three", "xueliu_exchange_three"):
             # 血流开局选三张：三张真实牌 ID 必须同花，并且都来自当前手牌。
-            if not getattr(game_state, "is_xueliu", False) or action_type != getattr(game_state, "xueliu_opening_action", "xueliu_throw_three"):
+            if action_type != getattr(game_state, "xueliu_opening_action", None):
                 return
             if not hasattr(game_state, "_validate_xueliu_throw_tiles"):
                 return

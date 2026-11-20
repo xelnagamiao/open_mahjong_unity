@@ -162,7 +162,7 @@ class RiichiPlayer:
         gamestate.rinshan_count += 1
 
 
-from .rule_logic import option, match_should_end, draw_payments, apply_pao, finalize_scores
+from .rule_logic import option, match_should_end, draw_payments, apply_pao, finalize_scores, honba_count, next_honba
 
 
 class RiichiGameState:
@@ -425,6 +425,7 @@ class RiichiGameState:
 
         scheduled_rounds = self.max_round * len(self.player_list)
         while True:
+            self.honba = honba_count(self)
             if self.current_round > scheduled_rounds:
                 if self.max_round >= 4 or not self.open_xiru:
                     break
@@ -580,28 +581,9 @@ class RiichiGameState:
 
             player_action_record_round_end(self)
 
-            # —— 局终：连庄推进 / ready / 下一局 ——
-            # next_status 已在 _settle_round 广播前写好
-            if dealer_chose and self.next_status == 'match_end':
-                pass  # Ending does not consume another honba, seat or round id.
-            elif self._cuohe_triggered:
-                # 错和：亲家不变、本场不增
-                self.round_index += 1
-            else:
-                last_renchan = self._compute_last_renchan()
-                self._multi_ron_any_oya_win = False
-                if last_renchan:
-                    self.honba += 1
-                    self.round_index += 1
-                else:
-                    if self.hu_class == "ryuukyoku":
-                        self.honba += 1
-                    else:
-                        self.honba = 0
-                    self.current_round += 1
-                    self.round_index += 1
-                    self._rotate_seats()
-
+            # —— 局终：ready / 连庄推进 / 下一局 ——
+            # 准备与重连仍属于刚结算的一局，必须保留其局号、本场和座位。
+            # 提前推进会使 settlement_id 失效，并将准备状态映射到下一局座位。
             # ready（多响已在 sequence 内 ready 过；整场终场跳过）
             if dealer_chose:
                 clear_dealer_choice(self)
@@ -638,6 +620,23 @@ class RiichiGameState:
                         wait_time = 8.0
 
                     await run_result_ready_phase(self, wait_time, broadcast_ready_status)
+
+            # next_status 已在 _settle_round 广播前写好；确认完成后才推进。
+            if dealer_chose and self.next_status == 'match_end':
+                pass  # Ending does not consume another honba, seat or round id.
+            elif self._cuohe_triggered:
+                # 错和：亲家不变、本场不增
+                self.round_index += 1
+            else:
+                last_renchan = self._compute_last_renchan()
+                self._multi_ron_any_oya_win = False
+                self.honba = next_honba(self, last_renchan)
+                if last_renchan:
+                    self.round_index += 1
+                else:
+                    self.current_round += 1
+                    self.round_index += 1
+                    self._rotate_seats()
 
             if self.next_status == "match_end":
                 break
@@ -1026,6 +1025,7 @@ class RiichiGameState:
         score_changes = {i: 0 for i in range(len(self.player_list))}
         langyong_multiplier = None
         langyong_scored_points = None
+        self.honba = honba_count(self)
         if self.hu_class == "hu_self":
             from ...game_calculation.riichi.sanma import tsumo_payments
             for i, base in tsumo_payments(score_info, winner_index, len(self.player_list), option(self, 'sanma_tsumo')).items():

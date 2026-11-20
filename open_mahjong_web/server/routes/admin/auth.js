@@ -4,7 +4,9 @@ const pool = require('../../config/database');
 const config = require('../../config/config');
 const { verifyPassword } = require('../../utils/password');
 const { signToken } = require('../../utils/jwt');
+const { BAN_COLUMNS, loginBanMessage } = require('../../utils/accountBans');
 const { requireAdmin } = require('../../middleware/requireAdmin');
+const { requireActiveAdminAccount } = require('../../middleware/requireActiveAdminAccount');
 const { writeAudit } = require('../../utils/audit');
 
 router.post('/login', async (req, res) => {
@@ -15,7 +17,7 @@ router.post('/login', async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT user_id, username, password, is_tourist FROM users WHERE username = $1`,
+      `SELECT user_id, username, password, is_tourist, ${BAN_COLUMNS} FROM users WHERE username = $1`,
       [username.trim()]
     );
     if (result.rows.length === 0) {
@@ -34,9 +36,11 @@ router.post('/login', async (req, res) => {
     if (!verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
+    const banMessage = loginBanMessage(user);
+    if (banMessage) return res.status(403).json({ success: false, message: banMessage });
 
     const token = signToken(
-      { user_id: user.user_id, username: user.username },
+      { user_id: user.user_id, username: user.username, aud: 'admin' },
       config.admin.jwtSecret,
       config.admin.jwtExpiresSec
     );
@@ -63,7 +67,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', requireAdmin, (req, res) => {
+router.get('/me', requireAdmin, requireActiveAdminAccount, (req, res) => {
   res.json({
     success: true,
     data: {

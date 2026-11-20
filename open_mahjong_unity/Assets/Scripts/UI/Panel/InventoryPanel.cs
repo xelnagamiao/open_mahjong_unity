@@ -13,7 +13,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
     [SerializeField] private UnityEngine.UI.Image preview;
     [SerializeField] private WarehouseIconGraphic previewArtwork;
     [SerializeField] private UnityEngine.UI.Image detailRule;
-    [SerializeField] private TMP_Text previewGlyph, details, statusText, actionLabel;
+    [SerializeField] private TMP_Text previewGlyph, details, actionLabel;
     [SerializeField] private TMP_Text detailName, detailType, detailCount, emptyText;
     [SerializeField] private TMP_InputField quantityInput;
     [SerializeField] private UnityEngine.UI.Button actionButton, closeButton;
@@ -33,6 +33,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
     private string selectedKey;
     private InventoryCommand pending;
     private bool busy;
+    private string pendingActionLabel;
     private bool developmentVisible;
     private Salasasa.Home.BakedModalFade modalFade;
     public bool IsOpen => gameObject.activeInHierarchy && !(ModalFade && ModalFade.IsClosing);
@@ -94,7 +95,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
         Render();
         if (pending == null) Refresh();
         else {
-            statusText.text = "上次操作尚未确认，请重试";
+            ShowError("上次操作尚未确认，请重试");
             UpdateControls();
         }
     }
@@ -110,19 +111,19 @@ public sealed partial class InventoryPanel : MonoBehaviour {
 
     private void StateChanged() {
         if (user == null || user.UserId == 0 || user.UserId != openedUserId) { pending = null; Close(); return; }
-        Render();
+        if (pending == null) Render();
     }
 
     private void ChangeCategory(WarehouseCategory value) {
         if (busy || pending != null) return;
         category = value; quantityInput.SetTextWithoutNotify("1");
-        statusText.text = ""; Render();
+        Render();
         content.anchoredPosition = Vector2.zero;
     }
 
     private void Select(string key) {
         if (busy || pending != null) return;
-        selectedKey = key; quantityInput.SetTextWithoutNotify("1"); statusText.text = ""; RenderDetails();
+        selectedKey = key; quantityInput.SetTextWithoutNotify("1"); RenderDetails();
     }
 
     private void AdjustQuantity(int delta) {
@@ -133,6 +134,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
     }
 
     private void Begin(InventoryCommand command) {
+        pendingActionLabel = Selected?.ActionLabel;
         pending = command; pending.request_id = Guid.NewGuid().ToString("N");
         pendingUserId = user.UserId; Send();
     }
@@ -149,7 +151,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
         if (item.IsRenameCard) { ShowRenameConfirmation(); return; }
         int count = 1;
         if (!item.IsEquipment && (!int.TryParse(quantityInput.text, out count) || count < 1 || count > Math.Min(100, item.Quantity))) {
-            statusText.text = "使用数量须为 1–" + Math.Min(100, item.Quantity); return;
+            ShowError("使用数量须为 1–" + Math.Min(100, item.Quantity)); return;
         }
         var command = item.CreateCommand(count);
         if (command != null) Begin(command);
@@ -157,7 +159,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
 
     private void Send() {
         if (user == null || user.UserId == 0 || network == null || pending == null || pendingUserId != user.UserId) return;
-        busy = true; statusText.text = IsRead ? "" : "正在处理…";
+        busy = true;
         StopTimeout(); timeout = StartCoroutine(WaitForResponse(pending.request_id)); UpdateControls();
         if (pending.type.StartsWith("title/", StringComparison.Ordinal)) network.RequestTitles(pending.request_id, IsRead ? (int?)null : pending.item_id);
         else network.RequestInventory(pending);
@@ -168,9 +170,11 @@ public sealed partial class InventoryPanel : MonoBehaviour {
         if (pending?.request_id != requestId) yield break;
         busy = false; timeout = null;
         if (IsRead) pending = null;
-        statusText.text = pending == null ? "仓库同步超时，请重新打开背包" : "操作结果未确认，请重试原操作";
+        ShowError(pending == null ? "仓库同步超时，请重新打开背包" : "操作结果未确认，请重试原操作");
         UpdateControls();
     }
+
+    private static void ShowError(string message) => NotificationManager.Instance?.ShowTip("背包", false, message);
 
     private void StopTimeout() { if (timeout != null) StopCoroutine(timeout); timeout = null; }
 
@@ -179,10 +183,8 @@ public sealed partial class InventoryPanel : MonoBehaviour {
         StopTimeout(); busy = false;
         bool read = IsRead;
         bool loadTitles = pending.type == "inventory/get" && response.success;
-        string successMessage = response.type.EndsWith("/equip", StringComparison.Ordinal) ? "已更新" : response.message ?? "使用成功";
         if (response.success || read || !response.inventory_retryable) pending = null;
-        statusText.text = response.success ? read ? "" : successMessage
-            : response.message ?? "操作失败，请重试";
+        if (!response.success) ShowError(response.message ?? "操作失败，请重试");
         Render();
         if (loadTitles) Begin(new InventoryCommand { type = "title/get" });
     }
@@ -215,7 +217,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
             : "持有 " + item.Quantity + (item.Definition?.effect == "rename_credit" ? " 张" : " 件");
         detailCount.gameObject.SetActive(!string.IsNullOrEmpty(detailCount.text));
         detailRule.gameObject.SetActive(item != null);
-        details.text = item != null && !item.IsDefault ? item.Description : "";
+        details.text = item?.Description ?? "";
         var detailPosition = details.rectTransform.anchoredPosition;
         detailPosition.y = 0; details.rectTransform.anchoredPosition = detailPosition;
         bool showQuantity = item != null && !item.IsEquipment && !item.IsRenameCard && !item.IsCollectible && !item.GuestRestricted;
@@ -228,16 +230,20 @@ public sealed partial class InventoryPanel : MonoBehaviour {
 
     private void UpdateControls() {
         var item = Selected; bool idle = !busy && pending == null;
-        foreach (var row in rows) if (row.gameObject.activeSelf) row.Select(row.Key == selectedKey, idle);
+        // Click handlers guard in-flight requests without flashing every card/category disabled.
+        foreach (var row in rows) if (row.gameObject.activeSelf) row.Select(row.Key == selectedKey, true);
         for (int i = 0; i < categoryButtons.Length; i++) {
-            categoryButtons[i].interactable = idle;
+            categoryButtons[i].interactable = true;
             bool selected = (int)category == i;
             categoryButtons[i].targetGraphic.color = selected ? categorySelectedSurface : categorySurface;
             categoryButtons[i].GetComponentInChildren<TMP_Text>().color = selected ? categorySelectedInk : categoryInk;
         }
         actionButton.gameObject.SetActive(item != null || pending != null && !IsRead);
-        actionLabel.text = pending != null && !IsRead ? "重试本次操作" : item?.ActionLabel ?? "选择物品";
-        actionButton.interactable = !busy && (pending != null || item != null && item.CanAct);
+        actionLabel.text = pending != null && !IsRead
+            ? busy ? pendingActionLabel : "重试本次操作"
+            : item?.ActionLabel ?? "选择物品";
+        // Act guards duplicate submissions; keep the visual stable while awaiting confirmation.
+        actionButton.interactable = pending != null && !IsRead || item != null && item.CanAct;
         quantityInput.interactable = idle && item != null && item.CanAct && !item.IsRenameCard;
         int.TryParse(quantityInput.text, out int count);
         decreaseButton.interactable = quantityInput.interactable && count > 1;

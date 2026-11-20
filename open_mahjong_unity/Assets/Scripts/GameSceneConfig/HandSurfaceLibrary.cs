@@ -39,14 +39,14 @@ public static partial class HandSurfaceLibrary
         foreach (char c in name) if (char.IsControl(c)) return false;
         return true;
     }
-    public static string SuggestedName(string file, bool back)
+    public static string SuggestedName(string file, bool back, bool pair = false)
     {
         string stem;
         try { stem = Path.GetFileNameWithoutExtension(file ?? ""); } catch { stem = ""; }
         if (!TryName(stem, out stem) || stem == "hand-bg" || stem == "hand-back") stem = back ? "我的牌背" : "我的手牌背景";
         string candidate = stem;
         int number = 2;
-        while (NameExists(candidate, back))
+        while (NameExists(candidate, back) || (pair && NameExists(candidate, !back)))
         {
             string suffix = " " + number++;
             var elements = new StringInfo(stem);
@@ -119,6 +119,12 @@ public static partial class HandSurfaceLibrary
             return UnityAssetIdb.ToTexture(image);
         }
         catch (Exception e) { Debug.LogWarning("读取手牌图片失败：" + e.Message); return null; }
+    }
+    public static byte[] ExportImage(string id)
+    {
+        if (!IsId(id) || !Unpack(Read(id), out var entry, out var image) || entry.id != id)
+            throw new IOException("图片记录无法读取");
+        return image;
     }
     public static void SaveNew(byte[] image, string name, bool back, Action<Entry> done, Action<string> error)
     {

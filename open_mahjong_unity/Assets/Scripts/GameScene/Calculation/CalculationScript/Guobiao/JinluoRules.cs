@@ -11,8 +11,7 @@ public static class JinluoRules {
     };
     public static readonly string[] WeatherLabels = {
         "箭牌对子×2", "门风+场风", "数牌幺九对×3", "断幺", "无字+缺门",
-        "连对：两个及以上同花色相邻数牌对子", "同对：两个及以上相同序数数牌对子",
-        "四归一：有四张相同牌的七对子"
+        "连对", "同对", "四归一"
     };
     public const string Description = "金锣赛是一种制作国标麻将高难度番种的特殊比赛规则，将七对、番数低于等于24且不是凑番的和牌判作错和，从而有充分的时间制作平常对局较为稀有的凑番或者大牌的玩法，其中对某些具体番种有特殊的规定，具体规则可见jmcr.cc.cd，推荐添加q群1101569363游玩。";
     private static readonly HashSet<string> Reduced = new HashSet<string> { "海底捞月", "妙手回春", "杠上开花", "双暗杠", "明暗杠" };

@@ -11,7 +11,7 @@ import re
 import uuid
 
 from psycopg2.extras import Json, RealDictCursor
-from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_ID, LEGACY_FRAME_DESCRIPTIONS, LEGACY_FRAME_NAMES
+from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_ID, DEFAULT_AVATAR_FRAME_ID, LEGACY_FRAME_DESCRIPTIONS, LEGACY_FRAME_NAMES
 
 CATALOG_LOCK = 220922041
 
@@ -102,7 +102,9 @@ def _state(cursor, user_id):
     if settings['profile_image_id'] == 1 and not any(item['slot'] == 'avatar' for item in equipment) and any(
             item['item_id'] == DEFAULT_AVATAR_ID and item['is_default'] and item['use_enabled'] for item in catalog):
         equipment.append({'slot': 'avatar', 'item_id': DEFAULT_AVATAR_ID})
-    appearance = dict(settings,user_id=user_id,avatar_frame_id=next((e['item_id'] for e in equipment if e['slot']=='avatar_frame'),0))
+    if not any(item['slot'] == 'avatar_frame' for item in equipment):
+        equipment.append({'slot': 'avatar_frame', 'item_id': DEFAULT_AVATAR_FRAME_ID})
+    appearance = dict(settings,user_id=user_id,avatar_frame_id=next(e['item_id'] for e in equipment if e['slot']=='avatar_frame'))
     rename_items = {item['item_id']: item for item in catalog if item.get('effect') == 'rename_credit'}
     cards = sum(row['quantity'] for row in owned if row['item_id'] in rename_items)
     usable_cards = sum(row['quantity'] for row in owned
@@ -223,6 +225,9 @@ def mutate_inventory(db, user_id, action, body, actor_id=None):
                     slot = body.get('slot')
                     if slot not in ('character','avatar','avatar_frame'): raise InventoryError('装备槽无效')
                     iid = _int(body.get('item_id'),'物品 ID',0)
+                    # Legacy clients used 0 to unequip; normalize at the protocol boundary.
+                    if slot == 'avatar_frame' and iid == 0:
+                        iid = DEFAULT_AVATAR_FRAME_ID
                     if iid:
                         item = _definition(cursor,iid)
                         if item['slot'] != slot or not item['use_enabled']: raise InventoryError('物品不适用此装备槽或已停用',409)

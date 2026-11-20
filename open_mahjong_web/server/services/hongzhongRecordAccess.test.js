@@ -3,42 +3,22 @@ const assert = require('node:assert/strict');
 // This contract uses a query spy and never opens the shared development database.
 const pool = { query: async () => ({ rows: [] }) };
 require.cache[require.resolve('../config/database')] = { id: require.resolve('../config/database'), filename: require.resolve('../config/database'), loaded: true, exports: pool };
-const { getPublicGameRecord, getPublicUnityGameRecord } = require('./publicGameRecord');
+const { resultRow } = require('./testFixtures/replay');
+const { getPublicGameRecord } = require('./publicGameRecord');
 
 test('公开牌谱读取保留红中规则、版本、实体鸟与替代解释', async () => {
   const record = { game_title: { rule: 'hongzhong', sub_rule: 'hongzhong/mil2024', detailed_config: { rule_version: 'mil-hongzhong-2024-om1' } }, game_round: { round_index_1: { action_ticks: [['hongzhong', 'birds', { tiles: [45, 15], hits: 2, detail: { joker_substitutions: [[45, 11]] } }]] } } };
-  const mock = test.mock.method(pool, 'query', async (sql) => {
-    if (sql.startsWith('SELECT 1 FROM game_records')) return { rowCount: 0, rows: [] };
-    if (sql.startsWith('SELECT game_id, record')) return { rowCount: 1, rows: [{ game_id: 'HongzhongTest1', record, created_at: '2026-10-02' }] };
-    return { rowCount: 4, rows: [0, 1, 2, 3].map(i => ({ rule: 'hongzhong', sub_rule: 'hongzhong/mil2024', user_id: String(i+100), username: String(i), score: '0', rank: i+1, original_player_index: i })) };
-  });
-  try {
-    for (const fetch of [getPublicGameRecord, getPublicUnityGameRecord]) {
-      const result = await fetch('HongzhongTest1');
-      assert.equal(result.status, 200);
-      assert.equal(result.data.rule, 'hongzhong');
-      assert.equal(result.data.sub_rule, 'hongzhong/mil2024');
-      assert.deepEqual(result.data.record, record);
-      assert.equal(result.data.players.length, 4);
-    }
-  } finally { mock.mock.restore(); }
+  const players = [0,1,2,3].map(i => ({ user_id: i+100, username: String(i), rank: i+1,
+    original_player_index: i, score: i ? -49 : 147 }));
+  const db = { query: async () => ({ rows: [resultRow('HongzhongTest1', record, players)] }) };
+  const result = await getPublicGameRecord('HongzhongTest1', db);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.rule, record.game_title.rule);
+  assert.equal(result.data.sub_rule, record.game_title.sub_rule);
+  assert.deepEqual(result.data.record.tables.main.payload, record);
+  assert.deepEqual(result.data.players.map(p => p.score), [147,-49,-49,-49]);
 });
 
-test('红中公开牌谱仍执行格式、复式锁和未支持规则检查', async () => {
-  let locked = true;
-  const mock = test.mock.method(pool, 'query', async sql => {
-    if (sql.startsWith('SELECT 1 FROM game_records')) return { rows: locked ? [{}] : [] };
-    if (sql.startsWith('SELECT game_id, record')) return { rowCount: 1, rows: [{ game_id: 'RecordTest', record: { game_title: { rule: 'unknown' } } }] };
-    return { rows: [] };
-  });
-  try {
-    assert.equal((await getPublicGameRecord('../invalid')).status, 400);
-    assert.equal((await getPublicGameRecord('RecordTest')).status, 403);
-    locked = false;
-    assert.equal((await getPublicGameRecord('RecordTest')).status, 400);
-    assert.equal((await getPublicUnityGameRecord('RecordTest')).status, 200);
-  } finally { mock.mock.restore(); }
-});
 
 test('红中玩家记录筛选保持参数化，统计数来自通用记录索引', async () => {
   const { fetchPlayerInfo, buildRecordFilters, parseRecordQuery } = require('./playerPublicApi');

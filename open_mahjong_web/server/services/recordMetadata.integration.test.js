@@ -1,3 +1,4 @@
+const { createReplayTables, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -24,14 +25,14 @@ test('record metadata is public while locked content remains protected', {
   require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: pool };
   let server;
   try {
+    await createReplayTables(pool);
     await pool.query(`
-      CREATE TABLE users (user_id bigint PRIMARY KEY, username text);
-      CREATE TABLE events (event_id varchar(32) PRIMARY KEY, name text, description text,
+      CREATE TABLE users (user_id bigint PRIMARY KEY, username text, ban_type text, ban_reason text, ban_expires_at timestamp);
+      CREATE TABLE events (event_id varchar(32) PRIMARY KEY, name text, description text, team_icon_url text,
         status text DEFAULT 'active', kind text DEFAULT 'event', entry_config jsonb,
         reopen_requested boolean, created_by bigint, closed_at timestamp,
         created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now());
       CREATE TABLE event_admins (event_id varchar(32), user_id bigint, role text);
-      CREATE TABLE game_records (game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp NOT NULL);
       CREATE TABLE riichi_player_game_stats (game_id text, user_id bigint, version int, stats jsonb);
       CREATE TABLE game_player_metrics (
         id bigserial PRIMARY KEY, game_id text, user_id bigint, sub_rule text,
@@ -44,7 +45,7 @@ test('record metadata is public while locked content remains protected', {
         profile_used int, voice_used int, rule text, sub_rule text, room_type text,
         match_type text, match_tier text, event_id varchar(32), is_favorite boolean DEFAULT false,
         note text, PRIMARY KEY(game_id,user_id));
-      INSERT INTO users VALUES (10000101,'Test player'),(10000201,'Other player');
+      INSERT INTO users (user_id, username) VALUES (10000101,'Test player'),(10000201,'Other player');
       INSERT INTO events (event_id,name) VALUES ('evtA','Test event');
       INSERT INTO event_admins VALUES ('evtA',10000101,'owner');
     `);
@@ -66,7 +67,7 @@ test('record metadata is public while locked content remains protected', {
     ];
     for (const [gameId, room, tier, owner, key, link] of fixtures) {
       const title = { rule: 'guobiao', sub_rule: 'guobiao/standard', ...(key ? { is_duplicate: true, duplicate_key: key, duplicate_seed: 'SECRET_SEED', duplicate_tiles: [11,12] } : {}) };
-      await pool.query('INSERT INTO game_records VALUES($1,$2,$3)', [gameId,{ game_title: title, game_round: {} },'2026-09-27 12:00:00']);
+      await insertReplay(pool, [gameId,{ game_title: title, game_round: {} },'2026-09-27 12:00:00']);
       if (link) await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', [gameId,ids[link]]);
       for (let seat=0; seat<4; seat++) {
         await pool.query(`INSERT INTO game_player_records
@@ -148,6 +149,10 @@ test('record metadata is public while locked content remains protected', {
       const data = (await mine.json()).data;assert.equal(data.total,6);safeMetadata(data);
       const favourite = (await (await request('/player/my-records?favorites_only=1')).json()).data;
       assert.deepEqual(favourite.items.map((r)=>r.game_id),['bLocked']);safeMetadata(favourite);
+      assert.equal((await request('/player/my-records/aNormal/favorite', playerToken, {is_favorite:true})).status, 200);
+      const changed = (await (await request('/player/my-records?favorites_only=1')).json()).data;
+      assert.deepEqual(changed.items.map(r=>r.game_id).sort(), ['aNormal','bLocked']);
+      assert.equal((await request('/player/my-records/aNormal/favorite', playerToken, {is_favorite:false})).status, 200);
       const idList = (await (await request('/player/record-ids/10000101')).json()).data;
       assert.ok(idList.items.some((r)=>r.game_id==='bLocked'));safeMetadata(idList);
       const botToken = signToken({aud:'botapi',bot_name:'test'},config.botApi.jwtSecret,3600);
@@ -175,7 +180,7 @@ test('record metadata is public while locked content remains protected', {
     await t.test('public replay, single JSON, batch JSON and ZIP still reject locked records', async () => {
       for (const gameId of ['bLocked','dTitleOnly','eOrphan','fEvent']) {
         assert.equal(await recordIsLocked(pool,gameId),true);
-        for (const route of ['/platform/record/','/platform/unity-record/','/player/record/']) {
+        for (const route of ['/platform/record/','/player/record/']) {
           const r=await request(route+gameId);assert.equal(r.status,403,route+gameId);assert.equal((await r.text()).includes('SECRET_SEED'),false);
         }
       }
@@ -210,7 +215,7 @@ test('record metadata is public while locked content remains protected', {
         const before=(await single.query('SHOW statement_timeout')).rows[0].statement_timeout;
         await assert.rejects(withRecordMetadataQuery(single,(db)=>db.query('SELECT pg_sleep(6)')), {code:'57014'});
         assert.equal((await single.query('SHOW statement_timeout')).rows[0].statement_timeout,before);
-        await assert.rejects(withRecordMetadataQuery(single,(db)=>db.query('DELETE FROM game_records')), {code:'25006'});
+        await assert.rejects(withRecordMetadataQuery(single,(db)=>db.query('DELETE FROM game_replays')), {code:'25006'});
         assert.equal((await single.query('SELECT count(*)::int AS count FROM game_records')).rows[0].count,7);
       } finally {await single.end();}
     });

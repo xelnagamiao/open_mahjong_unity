@@ -54,6 +54,8 @@ public class DataNetworkManager : MonoBehaviour {
                 HandleUpdateRecordFavoriteResponse(response);
                 break;
             case "data/get_guobiao_stats":
+                if (!string.IsNullOrEmpty(response.data_request_id)
+                    && !ProfileOnClick.CompletePlayerInfoByIdLookup(response)) break;
                 HandleGetGuobiaoStatsResponse(response);
                 break;
             case "data/get_player_info_by_name":
@@ -281,15 +283,22 @@ public class DataNetworkManager : MonoBehaviour {
     /// <summary>
     /// 获取国标统计数据
     /// </summary>
-    public async void GetGuobiaoStats(string userid, bool need_player_info = false) {
+    public async void GetGuobiaoStats(string userid, bool need_player_info = false, string requestId = null) {
         try {
-            var request = new GetGuobiaoStatsRequest {
+            var request = new {
                 type = "data/get_guobiao_stats",
                 userid = userid,
-                need_player_info = need_player_info
+                need_player_info = need_player_info,
+                data_request_id = requestId
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
+            if (requestId != null) {
+                ProfileOnClick.CompletePlayerInfoByIdLookup(new Response {
+                    data_request_id = requestId, success = false, message = "获取玩家资料失败，请稍后重试"
+                });
+                return;
+            }
             Debug.LogError($"获取国标统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance?.OnGuobiaoStatsReceived(false, e.Message, null);
         }

@@ -1,3 +1,5 @@
+import { parseReplayJSON } from '../../utils/browserRecordMigration.js'
+
 const API_PREFIX = '/2d/api'
 
 export class ApiError extends Error {
@@ -20,7 +22,8 @@ export async function publicApiGet<T>(path: string, signal?: AbortSignal): Promi
     headers: { Accept: 'application/json' },
     credentials: 'same-origin',
   })
-  const payload = await response.json().catch(() => null) as {
+  const payload = await (path.startsWith('/platform/record/')
+    ? response.text().then(parseReplayJSON) : response.json()).catch(() => null) as {
     success?: boolean
     data?: T
     message?: string

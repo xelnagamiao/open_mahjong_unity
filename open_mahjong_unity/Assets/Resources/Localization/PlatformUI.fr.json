@@ -1,5 +1,18 @@
 {
   "entries": [
+    {"key": "换三张", "text": "Échanger trois tuiles"},
+    {"key": "留空自动生成", "text": "Laisser vide pour générer automatiquement"},
+    {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "text": "Les deux tables utilisent le même mur généré à partir de la graine. Aucune clé de duplicate n’est créée."},
+    {"key": "使用对应类型的复式密钥，副数跟随密钥。", "text": "Utilisez une clé de duplicate du type choisi. La clé détermine le nombre de donnes."},
+    {"key": "广东麻将（推广）2V2 双打", "text": "Mahjong du Guangdong · double 2 contre 2"},
+    {"key": "血战到底·换三张", "text": "Bataille avec échange de trois tuiles"},
+    {"key": "牌谱不可用", "text": "Replay indisponible"},
+    {"key": "上饶麻将（飞宝）", "text": "Mahjong de Shangrao (Feibao)"},
+    {"key": "贵州麻将（MIL）", "text": "Mahjong du Guizhou (MIL)"},
+    {"key": "广东麻将（MIL 2023，花鬼）", "text": "Mahjong du Guangdong (MIL 2023, jokers fleurs)"},
+    {"key": "新加坡 · SPGG 2024", "text": "Singapour (SPGG2024)"},
+    {"key": "夺彩麻将 · 国标", "text": "Duocai · MCR"},
+    {"key": "夺彩麻将 · 立直", "text": "Duocai · Riichi"},
     {
       "key": "宝牌提示",
       "text": "Repérage des dora"
@@ -6951,6 +6964,14 @@
     {
       "key": "川麻（血流弃三张）",
       "text": "Sichuan · Flot de sang, écarter 3"
+    },
+    {
+      "key": "川麻（血战到底·换三张）",
+      "text": "Sichuan · Bataille, échange de 3"
+    },
+    {
+      "key": "血战到底·换三张",
+      "text": "Bataille avec échange de trois tuiles"
     },
     {
       "key": "川麻（血流换三张）",
@@ -25897,7 +25918,7 @@
       "text": "Variante du Sichuan"
     },
     {
-      "key": "血流成河（丢三张）",
+      "key": "血流成河·弃三张",
       "text": "Flot de sang (écart de trois tuiles)"
     },
     {
@@ -27430,7 +27451,7 @@
     },
     {
       "key": "双环铜钱",
-      "text": "Double bord"
+      "text": "Or uni"
     },
     {
       "key": "平涂方孔",
@@ -27503,6 +27524,694 @@
     {
       "key": "第 {0} 页",
       "text": "Page {0}"
+    },
+    {
+      "key": "阅览状态",
+      "text": "État de la relecture"
+    },
+    {
+      "key": "切换到同牌山位置",
+      "text": "Rejoindre la même position dans le mur"
+    },
+    {
+      "key": "独立阅览进度",
+      "text": "Progression indépendante par salle"
+    },
+    {
+      "key": "摸牌后",
+      "text": "Après la pioche"
+    },
+    {
+      "key": "摸牌前",
+      "text": "Avant la pioche"
+    },
+    {
+      "key": "前往开室",
+      "text": "Aller en salle ouverte"
+    },
+    {
+      "key": "前往闭室",
+      "text": "Aller en salle fermée"
+    },
+    {
+      "key": "规则设置",
+      "text": "Paramètres des règles"
+    },
+    {
+      "key": "玩家 ID",
+      "text": "Identifiants des joueurs"
+    },
+    {
+      "key": "牌山与校验信息",
+      "text": "Mur et données de vérification"
+    },
+    {
+      "key": "复制完整信息",
+      "text": "Copier toutes les informations"
+    },
+    {
+      "key": "个人 IMP · 全场同座位比较",
+      "text": "IMP individuels · comparaison à la même place sur l'ensemble du match"
+    },
+    {
+      "key": "训练牌山",
+      "text": "Mur d'entraînement"
+    },
+    {
+      "key": "记录冲突",
+      "text": "Conflit entre les relevés"
+    },
+    {
+      "key": "未记录",
+      "text": "Non enregistré"
+    },
+    {
+      "key": "当前视角尚无可验证的摸牌位置",
+      "text": "Aucune position de pioche vérifiable pour le joueur affiché pour le moment"
+    },
+    {
+      "key": "经典刻纹",
+      "text": "Gravure classique"
+    },
+    {
+      "key": "樱花浮雕",
+      "text": "Fleurs de cerisier en relief"
+    },
+    {
+      "key": "和风波纹",
+      "text": "Vagues japonaises en relief"
+    },
+    {
+      "key": "邀请好友",
+      "text": "Inviter des amis"
+    },
+    {
+      "key": "邀请好友加入房间",
+      "text": "Inviter des amis dans cette salle"
+    },
+    {
+      "key": "复制邀请",
+      "text": "Copier l'invitation"
+    },
+    {
+      "key": "请稍候…",
+      "text": "Veuillez patienter…"
+    },
+    {
+      "key": "Salasasa 房间{0}（{1}）：",
+      "text": "Salle Salasasa {0} ({1}) :"
+    },
+    {
+      "key": "房间解散后，邀请链接失效。",
+      "text": "Le lien d'invitation expire à la fermeture de la salle."
+    },
+    {
+      "key": "房间解散后链接失效；加入时仍需输入房间密码。",
+      "text": "Le lien expire à la fermeture de la salle. Le mot de passe reste nécessaire pour y entrer."
+    },
+    {
+      "key": "已复制，发送给好友即可。",
+      "text": "Invitation copiée. Vous pouvez l'envoyer à vos amis."
+    },
+    {
+      "key": "复制失败，请选择上方文字手动复制。",
+      "text": "La copie a échoué. Sélectionnez le texte de l'invitation ci-dessus et copiez-le manuellement."
+    },
+    {
+      "key": "邀请已失效，原房间已解散。请联系好友获取新的邀请链接。",
+      "text": "Cette invitation a expiré car la salle a fermé. Demandez un nouveau lien à votre ami."
+    },
+    {
+      "key": "邀请链接不完整或格式不正确，请重新复制完整的邀请链接。",
+      "text": "Le lien d'invitation est incomplet ou mal formé. Copiez à nouveau le lien entier."
+    },
+    {
+      "key": "正在匹配队列中，请先取消匹配再加入房间。",
+      "text": "Vous êtes dans la file d'attente. Annulez la recherche d'adversaires avant de rejoindre une salle."
+    },
+    {
+      "key": "正在恢复连接，请稍后重试。",
+      "text": "Reconnexion en cours. Réessayez dans un instant."
+    },
+    {
+      "key": "获取房间信息超时，请重试。",
+      "text": "Le chargement des informations de la salle a expiré. Réessayez."
+    },
+    {
+      "key": "加入结果尚未确认，请重试原邀请。",
+      "text": "Votre entrée dans la salle reste à confirmer. Réessayez avec la même invitation."
+    },
+    {
+      "key": "上一次加入结果尚未确认，请先重试原邀请。",
+      "text": "Votre demande précédente pour rejoindre la salle reste à confirmer. Réessayez d'abord avec l'invitation initiale."
+    },
+    {
+      "key": "连接中断，请检查网络后重试原邀请。",
+      "text": "Connexion interrompue. Vérifiez votre connexion et réessayez avec la même invitation."
+    },
+    {
+      "key": "房间信息尚未同步，请稍后重试。",
+      "text": "Les informations de la salle ne sont pas encore synchronisées. Réessayez dans un instant."
+    },
+    {
+      "key": "房间正在关闭，请联系好友获取新的邀请链接。",
+      "text": "Cette salle est en cours de fermeture. Demandez une nouvelle invitation à votre ami."
+    },
+    {
+      "key": "该房间不允许游客加入，请使用账号登录后重试。",
+      "text": "Cette salle n'accepte pas les invités. Connectez-vous à votre compte et réessayez."
+    },
+    {
+      "key": "房间密码格式不正确",
+      "text": "Format du mot de passe de la salle incorrect"
+    },
+    {
+      "key": "继续连庄",
+      "text": "Rester donneur"
+    },
+    {
+      "key": "结束半庄",
+      "text": "Terminer la partie de deux tours"
+    },
+    {
+      "key": "等待庄家选择是否连庄",
+      "text": "Le donneur décide s'il conserve sa place"
+    },
+    {
+      "key": "可视队友暗牌",
+      "text": "Voir les tuiles cachées du partenaire"
+    },
+    {
+      "key": "仅适用于鹫巢双打。开启后，在桌面显示队友不透明手牌的牌面；3D牌体保持不透明，敌方暗牌仍隐藏。",
+      "text": "Uniquement en double Washizu. Affiche sur la table la face des tuiles opaques de votre partenaire. Les tuiles en 3D restent opaques et les tuiles cachées des adversaires restent masquées."
+    },
+    {
+      "key": "精分 {0}分  杠分 {1}分",
+      "text": "Points de jing : {0}  Points de kong : {1}"
+    },
+    {
+      "key": "本副合计 {0}分",
+      "text": "Total de la donne : {0} points"
+    },
+    {
+      "key": "本次变化 {0}分",
+      "text": "Variation : {0} points"
+    },
+    {
+      "key": "游戏内容更新",
+      "text": "Mise à jour du contenu du jeu"
+    },
+    {
+      "key": "更新中…",
+      "text": "Mise à jour en cours…"
+    },
+    {
+      "key": "当前安装包不支持内容更新，请下载安装包。",
+      "text": "Cette version ne prend pas en charge la mise à jour du contenu. Téléchargez l'APK."
+    },
+    {
+      "key": "更新完成，重新启动游戏",
+      "text": "Mise à jour terminée. Redémarrage du jeu."
+    },
+    {
+      "key": "自动进入新版仅在安卓客户端中使用。",
+      "text": "Le redémarrage automatique dans la nouvelle version est disponible uniquement sur Android."
+    },
+    {
+      "key": "正在检查已下载的安装包…",
+      "text": "Vérification de l'APK téléchargé…"
+    },
+    {
+      "key": "安装包已保存，无需重新下载。",
+      "text": "L'APK est enregistré. Il est inutile de le télécharger à nouveau."
+    },
+    {
+      "key": "请在系统设置中允许本应用安装更新，完成后返回游戏。\n安装包已保存，无需重新下载。",
+      "text": "Dans les paramètres Android, autorisez cette application à installer des mises à jour, puis revenez au jeu.\nL'APK est enregistré. Il est inutile de le télécharger à nouveau."
+    },
+    {
+      "key": "无法打开安装程序，请重试安装或去官网下载。\n安装包已保存，无需重新下载。",
+      "text": "Impossible d'ouvrir le programme d'installation. Réessayez ou téléchargez l'APK depuis le site officiel.\nL'APK est enregistré. Il est inutile de le télécharger à nouveau."
+    },
+    {
+      "key": "无法打开安装授权设置，请稍后重试。\n安装包已保存，无需重新下载。",
+      "text": "Impossible d'ouvrir les paramètres d'autorisation d'installation. Réessayez dans un instant.\nL'APK est enregistré. Il est inutile de le télécharger à nouveau."
+    },
+    {
+      "key": "内容包与已安装框架不兼容，或清单无效。",
+      "text": "Le paquet de contenu est incompatible avec le socle de l'application installée, ou son manifeste est invalide."
+    },
+    {
+      "key": "内容包签名无效。",
+      "text": "La signature du paquet de contenu est invalide."
+    },
+    {
+      "key": "内容包大小或校验值不符。",
+      "text": "La taille ou la somme de contrôle du paquet de contenu ne correspond pas à la valeur attendue."
+    },
+    {
+      "key": "内容文件数量异常。",
+      "text": "Le nombre de fichiers du paquet de contenu ne correspond pas au nombre attendu."
+    },
+    {
+      "key": "内容包包含链接。",
+      "text": "Le paquet de contenu contient des liens non pris en charge."
+    },
+    {
+      "key": "解压大小超出清单。",
+      "text": "La taille des données décompressées dépasse celle déclarée dans le manifeste."
+    },
+    {
+      "key": "解压内容不完整。",
+      "text": "Le contenu décompressé est incomplet."
+    },
+    {
+      "key": "非法内容路径。",
+      "text": "Le paquet de contenu contient un chemin de fichier invalide."
+    },
+    {
+      "key": "内容索引无效。",
+      "text": "L'index du contenu est invalide."
+    },
+    {
+      "key": "内容文件损坏：{0}",
+      "text": "Fichier de contenu endommagé : {0}"
+    },
+    {
+      "key": "内容索引缺少文件：{0}",
+      "text": "Fichier absent de l'index du contenu : {0}"
+    },
+    {
+      "key": "游戏启动失败，请重新打开游戏；如仍失败，请重新安装。",
+      "text": "Le jeu n'a pas pu démarrer. Rouvrez-le. Si le problème persiste, réinstallez l'application."
+    },
+    {
+      "key": "游戏尚未准备好，请稍后重试。",
+      "text": "Le jeu n'est pas encore prêt. Réessayez dans un instant."
+    },
+    {
+      "key": "本地游戏内容与框架不匹配。",
+      "text": "Le contenu du jeu installé est incompatible avec le socle de l'application."
+    },
+    {
+      "key": "正在检查游戏更新…",
+      "text": "Recherche de mises à jour du jeu…"
+    },
+    {
+      "key": "基础版本已变更，请下载安装包或去官网下载。",
+      "text": "La version de base de l'application a changé. Téléchargez le nouvel APK ici ou sur le site officiel."
+    },
+    {
+      "key": "客户端版本高于服务器，请等待服务器更新后重试。",
+      "text": "Votre client est plus récent que le serveur. Réessayez après la mise à jour du serveur."
+    },
+    {
+      "key": "对应游戏更新尚未完整发布，请稍后重试。",
+      "text": "La mise à jour du jeu n'est pas encore entièrement publiée. Réessayez plus tard."
+    },
+    {
+      "key": "当前已是最新版本，无需下载。",
+      "text": "Le jeu est à jour. Aucun téléchargement nécessaire."
+    },
+    {
+      "key": "更新服务返回了无效信息。",
+      "text": "Le service de mise à jour a renvoyé des informations invalides."
+    },
+    {
+      "key": "更新下载地址无效。",
+      "text": "L'adresse de téléchargement de la mise à jour est invalide."
+    },
+    {
+      "key": "内容版本与发布清单不符。",
+      "text": "La version du contenu ne correspond pas au manifeste de publication."
+    },
+    {
+      "key": "下载完成，正在安装游戏内容 {0}%\n校验、解压并检查文件…",
+      "text": "Téléchargement terminé. Installation du contenu du jeu : {0} %\nVérification de l'intégrité, décompression et contrôle des fichiers…"
+    },
+    {
+      "key": "正在启动游戏…",
+      "text": "Démarrage du jeu…"
+    },
+    {
+      "key": "新版游戏启动失败。",
+      "text": "La nouvelle version du jeu n'a pas pu démarrer."
+    },
+    {
+      "key": "存储空间不足，请至少释放 {0} MB 后重试。",
+      "text": "Espace de stockage insuffisant. Libérez au moins {0} Mo, puis réessayez."
+    },
+    {
+      "key": "无法读取安装包内的初始游戏内容。",
+      "text": "Impossible de lire le contenu initial du jeu inclus dans l'APK."
+    },
+    {
+      "key": "正在下载游戏内容 {0}%\n{1} / {2} MB",
+      "text": "Téléchargement du contenu du jeu : {0} %\n{1} / {2} Mo"
+    },
+    {
+      "key": "更新下载中断，请重试。已保存可续传的内容。",
+      "text": "Le téléchargement de la mise à jour a été interrompu. Réessayez pour le reprendre là où il s'est arrêté."
+    },
+    {
+      "key": "正在准备游戏…",
+      "text": "Préparation du jeu…"
+    },
+    {
+      "key": "去官网下载",
+      "text": "Télécharger depuis le site officiel"
+    },
+    {
+      "key": "关闭游戏",
+      "text": "Quitter le jeu"
+    },
+    {
+      "key": "当前安装包未包含代码热更新运行环境。",
+      "text": "Cet APK ne contient pas l'environnement d'exécution requis pour les mises à jour du code à chaud."
+    },
+    {
+      "key": "基础程序集元数据加载失败：{0}",
+      "text": "Impossible de charger les métadonnées des assemblies de base : {0}"
+    },
+    {
+      "key": "无法加载资源包：{0}",
+      "text": "Impossible de charger le paquet de ressources : {0}"
+    },
+    {
+      "key": "无效的游戏启动回调索引。",
+      "text": "L'index de la fonction de rappel au démarrage du jeu est invalide."
+    },
+    {
+      "key": "无效的游戏启动回调：{0}",
+      "text": "Fonction de rappel de démarrage du jeu invalide : {0}"
+    },
+    {
+      "key": "下载  {0}%",
+      "text": "Téléchargement  {0} %"
+    },
+    {
+      "key": "安装  {0}%",
+      "text": "Installation  {0} %"
+    },
+    {
+      "key": "版本检查失败",
+      "text": "Échec de la vérification de version"
+    },
+    {
+      "key": "您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。",
+      "text": "La version de votre client ne correspond pas à celle du serveur. Installez la dernière version et réessayez."
+    },
+    {
+      "key": "客户端版本与服务器不匹配",
+      "text": "Version du client incompatible avec le serveur"
+    },
+    {
+      "key": "下载安装包",
+      "text": "Télécharger l'APK"
+    },
+    {
+      "key": "应用内安装仅支持安卓客户端。",
+      "text": "L'installation depuis l'application est disponible uniquement sur Android."
+    },
+    {
+      "key": "商店",
+      "text": "Boutique"
+    },
+    {
+      "key": "持有货币",
+      "text": "Solde"
+    },
+    {
+      "key": "持有货币 —",
+      "text": "Solde —"
+    },
+    {
+      "key": "持有货币 {0}",
+      "text": "Solde : {0}"
+    },
+    {
+      "key": "元",
+      "text": "pièces"
+    },
+    {
+      "key": "收支明细",
+      "text": "Historique des transactions"
+    },
+    {
+      "key": "用对局货币，添置喜欢的物品",
+      "text": "Dépensez vos récompenses de partie pour acheter les objets qui vous plaisent"
+    },
+    {
+      "key": "全部物品",
+      "text": "Tous les objets"
+    },
+    {
+      "key": "四人真人对局每完成一小局，注册玩家获得 0.10 元（含连庄）",
+      "text": "Les joueurs inscrits gagnent 0,10 pièce par donne terminée entre quatre joueurs humains, y compris lorsque le donneur conserve sa place."
+    },
+    {
+      "key": "暂无上架商品",
+      "text": "Aucun objet en vente pour le moment"
+    },
+    {
+      "key": "正在加载商品…",
+      "text": "Chargement des objets…"
+    },
+    {
+      "key": "永久装扮",
+      "text": "Élément d'apparence permanent"
+    },
+    {
+      "key": "已拥有 {0} 件",
+      "text": "Quantité possédée : {0}"
+    },
+    {
+      "key": "购买数量",
+      "text": "Quantité à acheter"
+    },
+    {
+      "key": "合计 {0}",
+      "text": "Total : {0}"
+    },
+    {
+      "key": "购买",
+      "text": "Acheter"
+    },
+    {
+      "key": "来源",
+      "text": "Origine"
+    },
+    {
+      "key": "金额",
+      "text": "Montant"
+    },
+    {
+      "key": "余额",
+      "text": "Solde"
+    },
+    {
+      "key": "暂无收支记录",
+      "text": "Aucune transaction pour le moment"
+    },
+    {
+      "key": "加载更多",
+      "text": "Afficher plus"
+    },
+    {
+      "key": "累计获得 {0}",
+      "text": "Total gagné : {0}"
+    },
+    {
+      "key": "使用对局货币购买物品",
+      "text": "Acheter des objets avec les récompenses de partie"
+    },
+    {
+      "key": "正在同步货币",
+      "text": "Synchronisation du solde"
+    },
+    {
+      "key": "正在同步商店与货币…",
+      "text": "Synchronisation de la boutique et du solde…"
+    },
+    {
+      "key": "上次购买结果未确认，请重试原购买",
+      "text": "Votre dernier achat reste à confirmer. Réessayez avec la même commande."
+    },
+    {
+      "key": "购买结果未确认，请重试原购买",
+      "text": "Achat en attente de confirmation. Réessayez avec la même commande."
+    },
+    {
+      "key": "商店同步超时，请刷新",
+      "text": "La synchronisation de la boutique a expiré. Actualisez-la."
+    },
+    {
+      "key": "购买成功，物品已放入背包",
+      "text": "Achat effectué. Les objets sont dans votre inventaire."
+    },
+    {
+      "key": "游客可浏览商店；注册账号后可获得对局货币并购买物品",
+      "text": "Les invités peuvent consulter la boutique. Créez un compte pour gagner des pièces en jouant et acheter des objets."
+    },
+    {
+      "key": "商店请求失败，请刷新",
+      "text": "La requête à la boutique a échoué. Actualisez la boutique."
+    },
+    {
+      "key": "正在购买…",
+      "text": "Achat en cours…"
+    },
+    {
+      "key": "重试原购买",
+      "text": "Réessayer la même commande"
+    },
+    {
+      "key": "注册账号后购买",
+      "text": "Créer un compte pour acheter"
+    },
+    {
+      "key": "货币不足或数量无效",
+      "text": "Solde insuffisant ou quantité invalide"
+    },
+    {
+      "key": "对局奖励 · {0} 小局",
+      "text": "Récompense de partie · {0} donnes"
+    },
+    {
+      "key": "历史奖励补发 · {0} 小局",
+      "text": "Rattrapage de récompenses · {0} donnes"
+    },
+    {
+      "key": "商店购买",
+      "text": "Achat en boutique"
+    },
+    {
+      "key": "货币调整",
+      "text": "Ajustement du solde"
+    },
+    {
+      "key": "持有货币不足",
+      "text": "Solde insuffisant"
+    },
+    {
+      "key": "商品已下架，请刷新商店",
+      "text": "Cet objet n'est plus en vente. Actualisez la boutique."
+    },
+    {
+      "key": "商品价格已更新，请刷新商店后购买",
+      "text": "Le prix de cet objet a changé. Actualisez la boutique avant de l'acheter."
+    },
+    {
+      "key": "超过此商品单次可购买数量",
+      "text": "La quantité dépasse la limite par achat pour cet objet"
+    },
+    {
+      "key": "此物品暂不可购买",
+      "text": "Cet objet est actuellement indisponible"
+    },
+    {
+      "key": "已拥有此永久物品或购买数量无效",
+      "text": "Vous possédez déjà cet objet permanent ou la quantité demandée est invalide"
+    },
+    {
+      "key": "超过物品持有上限",
+      "text": "La quantité maximale autorisée pour cet objet est dépassée"
+    },
+    {
+      "key": "连接已断开；重连后可重试原购买",
+      "text": "Connexion interrompue. Reconnectez-vous et réessayez avec la même commande."
+    },
+    {
+      "key": "注册账号后可获得对局货币并购买物品",
+      "text": "Créez un compte pour gagner des pièces en jouant et acheter des objets"
+    },
+    {
+      "key": "商店服务暂不可用，请刷新或重试原购买",
+      "text": "La boutique est temporairement indisponible. Actualisez-la ou réessayez avec la même commande."
+    },
+    {
+      "key": "此购买编号已用于其他商品或数量",
+      "text": "Cet identifiant d'achat a déjà servi pour un autre objet ou une autre quantité"
+    },
+    {
+      "key": "持有萨拉币",
+      "text": "Solde en pièces Sala"
+    },
+    {
+      "key": "持有萨拉币 —",
+      "text": "Solde en pièces Sala —"
+    },
+    {
+      "key": "持有萨拉币 {0}",
+      "text": "Solde en pièces Sala : {0}"
+    },
+    {
+      "key": "用萨拉币，添置喜欢的物品",
+      "text": "Dépensez vos pièces Sala pour acheter les objets qui vous plaisent"
+    },
+    {
+      "key": "使用萨拉币购买物品",
+      "text": "Acheter des objets avec des pièces Sala"
+    },
+    {
+      "key": "正在同步萨拉币",
+      "text": "Synchronisation du solde en pièces Sala"
+    },
+    {
+      "key": "正在同步商店与萨拉币…",
+      "text": "Synchronisation de la boutique et du solde en pièces Sala…"
+    },
+    {
+      "key": "游客可浏览商店；注册账号后可获得萨拉币并购买物品",
+      "text": "Les invités peuvent consulter la boutique. Créez un compte pour gagner des pièces Sala et acheter des objets."
+    },
+    {
+      "key": "萨拉币不足或数量无效",
+      "text": "Solde en pièces Sala insuffisant ou quantité invalide"
+    },
+    {
+      "key": "萨拉币调整",
+      "text": "Ajustement du solde en pièces Sala"
+    },
+    {
+      "key": "持有萨拉币不足",
+      "text": "Solde en pièces Sala insuffisant"
+    },
+    {
+      "key": "注册账号后可获得萨拉币并购买物品",
+      "text": "Créez un compte pour gagner des pièces Sala et acheter des objets"
+    },
+    {
+      "key": "四人真人匹配场每完成一小局，注册玩家获得 0.10 萨拉币（含连庄）",
+      "text": "Les joueurs inscrits gagnent 0,10 pièce Sala par donne terminée en partie avec recherche d'adversaires entre quatre joueurs humains, y compris lorsque le donneur conserve sa place."
+    },
+    {
+      "key": "真实时间",
+      "text": "Réponses en temps réel"
+    },
+    {
+      "key": "第二等待时间",
+      "text": "Délai secondaire"
+    },
+    {
+      "key": "等待下一位玩家摸牌",
+      "text": "En attente de la pioche du joueur suivant"
+    },
+    {
+      "key": "真实时间仅支持川麻复式",
+      "text": "Les réponses en temps réel sont disponibles uniquement en mahjong duplicate du Sichuan."
+    },
+    {
+      "key": "第二等待时间必须为3、5、8、10、15或20秒",
+      "text": "Le délai secondaire doit être de 3, 5, 8, 10, 15 ou 20 secondes."
+    },
+    {
+      "key": "真实时间：其他玩家出牌后，如果下一位应由你摸牌，碰、明杠或和牌使用正常局时与步时；否则使用第二等待时间。第二等待时间结束后，牌局不再专门等待你，但本张弃牌尚未处理完时，仍可操作。第二等待时间也用于战术鸣牌的抢断询问。血战有人和牌退场后，按仍在行牌的顺序判断。",
+      "text": "Après un écart, si c'est à vous de piocher ensuite, vous disposez du temps par action et de la réserve de temps de la donne pour annoncer un pung, un kong exposé ou une victoire. Sinon, vous disposez du délai secondaire. À son expiration, la partie cesse de vous attendre, mais vous pouvez encore répondre tant que le sort de la tuile écartée n'est pas décidé. Ce même délai s'applique aux demandes de confirmation des appels tactiques. En Combat sanglant, l'ordre de pioche exclut les joueurs déjà sortis après une victoire."
+    },
+    {
+      "key": "非下一位摸牌者的首次响应等待与战术鸣牌抢断询问共用此时长，不扣局时。关闭真实时间会保留所选秒数，战术鸣牌开启时继续使用。首次等待结束仍可操作；抢断询问到期后执行已确定的动作。",
+      "text": "Ce délai s'applique à la première réponse des joueurs qui ne sont pas les prochains à piocher et aux demandes de confirmation des appels tactiques. Il n'est pas déduit de la réserve de temps de la donne. Si vous désactivez les réponses en temps réel, la durée choisie reste applicable aux appels tactiques activés. Après le premier délai, vous pouvez encore répondre. À l'expiration du délai de confirmation, l'action déjà retenue est exécutée."
     }
   ],
   "contexts": [

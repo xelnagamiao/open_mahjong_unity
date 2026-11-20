@@ -30,6 +30,7 @@ public class RecordPanel : MonoBehaviour {
     private const float LoadMoreScrollThreshold = 0.02f;
 
     private readonly HashSet<string> _loadedGameIds = new HashSet<string>();
+    private readonly HashSet<string> _loadedMatchIds = new HashSet<string>();
     private readonly Dictionary<string, RecordPrefab> _recordItems = new Dictionary<string, RecordPrefab>();
     private bool _isLoadingMore;
     private bool _hasMore = true;
@@ -37,6 +38,7 @@ public class RecordPanel : MonoBehaviour {
     private int _nextOffset;
     private int _listVersion;
     private bool _loadMoreArmed;
+    private bool _recordIdSubmitted;
     private IReadOnlyList<RecordInfo> _localRecords = System.Array.Empty<RecordInfo>();
     private enum ListMode { Overview, Favorite, Local }
     private ListMode _listMode = ListMode.Overview;
@@ -50,6 +52,8 @@ public class RecordPanel : MonoBehaviour {
         }
         SearchRecordButton.onClick.AddListener(OpenRecordIdInput);
         ConfirmLoadButton.onClick.AddListener(ConfirmLoadRecordById);
+        RecordIdInputField.lineType = TMP_InputField.LineType.SingleLine;
+        RecordIdInputField.onSubmit.AddListener(SubmitRecordId);
         CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
         OverviewButton.onClick.AddListener(ShowOverviewList);
         FavoriteFilterButton.onClick.AddListener(ShowFavoritesList);
@@ -63,6 +67,7 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void OnDestroy() {
+        if (RecordIdInputField) RecordIdInputField.onSubmit.RemoveListener(SubmitRecordId);
         recordScrollRect.onValueChanged.RemoveListener(OnRecordScrollChanged);
     }
 
@@ -109,6 +114,7 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void OpenRecordIdInput() {
+        _recordIdSubmitted = false;
         recordIdInputPopup.Show(() => {
             RecordIdInputField.text = "";
             RecordIdInputField.ActivateInputField();
@@ -119,7 +125,13 @@ public class RecordPanel : MonoBehaviour {
         recordIdInputPopup.Hide();
     }
 
+    private void SubmitRecordId(string _) {
+        if (recordIdInputPopup.gameObject.activeInHierarchy && ConfirmLoadButton.interactable)
+            ConfirmLoadRecordById();
+    }
+
     private void ConfirmLoadRecordById() {
+        if (_recordIdSubmitted) return;
         string raw = RecordIdInputField.text.Trim();
         if (string.IsNullOrEmpty(raw)) {
             NotificationManager.Instance.ShowTip("牌谱", false, "请输入牌谱ID");
@@ -135,6 +147,7 @@ public class RecordPanel : MonoBehaviour {
             return;
         }
         SharedRecordLink.CapturePosition(raw);
+        _recordIdSubmitted = true;
         recordIdInputPopup.Hide();
         LocalRecordStore.LoadAsync(gameId, local => {
             if (local != null && local.record != null) {
@@ -178,6 +191,7 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void ClearRecordItems() {
+        _loadedMatchIds.Clear();
         foreach (Transform child in dropdownContentTransform) {
             child.gameObject.SetActive(false);
             Destroy(child.gameObject);
@@ -210,21 +224,25 @@ public class RecordPanel : MonoBehaviour {
         if (_loadedGameIds.Contains(record.game_id)) return;
 
         _loadedGameIds.Add(record.game_id);
-        string subRule = record.sub_rule ?? "";
-        string matchType = record.match_type ?? "";
-        string recordedTime = record.created_at;
-
+        string matchId=(string)record.match_summary?["match_id"];
+        if (!string.IsNullOrEmpty(matchId) && !_loadedMatchIds.Add(matchId)) return;
         RecordPrefab item = Instantiate(RecordPrefab, dropdownContentTransform);
-        item.InitializeRecordItem(
-            record.game_id,
-            subRule,
-            matchType,
-            recordedTime,
-            record.players,
-            record.is_favorite,
-            localPlayback
-        );
+        item.BindRecord(record, localPlayback);
         _recordItems[record.game_id] = item;
+        bool needsScores = record.match_summary?["tables"]?["closed"] != null && record.match_summary["personal_imp"] == null;
+        var keys = RuleNameDictionary.RecordKeys(record.rule, record.sub_rule, record.match_summary);
+        if (localPlayback && (needsScores || string.IsNullOrWhiteSpace(keys.subRule))) {
+            int version = _listVersion;
+            LocalRecordStore.LoadAsync(record.game_id, detail => {
+                if (!this || !item || version != _listVersion || detail == null) return;
+                var stored = RuleNameDictionary.RecordKeys(detail);
+                if (string.IsNullOrWhiteSpace(record.rule)) record.rule = stored.rule;
+                if (string.IsNullOrWhiteSpace(record.sub_rule)) record.sub_rule = stored.subRule;
+                if (needsScores && detail.record != null)
+                    record.match_summary["personal_imp"] = PersonalImpSummary.Build(detail.record);
+                item.BindRecord(record, true);
+            });
+        }
     }
 
     public void OnRecordFavoriteUpdated(bool success, string gameId, bool isFavorite, string message) {
@@ -324,6 +342,11 @@ public class RecordPanel : MonoBehaviour {
             NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱数据为空");
             return false;
         }
+        if (!MatchRecordCodec.IsUnified(detail.record)) {
+            SharedRecordLink.ClearPendingJump();
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱格式无效");
+            return false;
+        }
         // 入口先守卫，避免 LoadRecord 拒绝加载后留下已经切换的空游戏窗口。
         if (GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) {
             SharedRecordLink.ClearPendingJump();
@@ -337,18 +360,14 @@ public class RecordPanel : MonoBehaviour {
         }
         bool enteredRecordScene = false;
         try {
-            // Dictionary 内嵌 JArray 时不能直接 SerializeObject，需经 JToken 还原。
-            string recordJson = JToken.FromObject(detail.record).ToString(Formatting.None);
-            if (string.IsNullOrWhiteSpace(recordJson)) {
-                throw new System.InvalidOperationException("牌谱内容为空");
-            }
             enteredRecordScene = true;
             if (!windows.TryPrepareRecordScene(out GameRecordManager manager, out string error)) {
                 throw new System.InvalidOperationException(error);
             }
             RecordSetting.Instance?.SetShowCardsMode(!detail.perspective);
             // 是否可分享取决于云端保存标记，与从云端还是本地副本打开无关。
-            manager.LoadRecord(recordJson, detail.players, detail.cloud_saved ? detail.game_id : null);
+            manager.LoadMatchRecord(detail.record, SharedRecordLink.PendingTable ?? detail.selected_table_id,
+                detail.legacy_cursor_map, detail.cloud_saved, detail.game_id);
             SharedRecordLink.ApplyPendingJumpIfAny();
             return true;
         } catch (System.Exception e) {

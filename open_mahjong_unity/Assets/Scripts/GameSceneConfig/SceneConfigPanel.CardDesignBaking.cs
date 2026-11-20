@@ -10,6 +10,7 @@ public partial class SceneConfigPanel
     /// <summary>Author the rotation sidebar page and uploaded-pack buttons in the existing UI.</summary>
     public void BakeCardDesignUsability()
     {
+        BakeCardPackTransfers();
         var cardRoot = transform.Find("Card3DDesignPanel") as RectTransform;
         if (cardRoot == null || cardFacePanel == null || cardFaceBgPanel == null) return;
 

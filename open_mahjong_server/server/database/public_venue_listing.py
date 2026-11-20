@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 
 PUBLIC_VENUES_SQL = """
-    SELECT e.event_id, e.name, e.description, e.status, e.kind,
+    SELECT e.event_id, e.name, e.description, e.team_icon_url, e.status, e.kind,
            e.entry_config, e.created_at,
            schedule.planned_start_at, schedule.planned_end_at,
            members.member_count,

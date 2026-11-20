@@ -7,11 +7,30 @@ public static class DuocaiTableIndicators {
     public static DuocaiInfo DisplayedInfo {get;private set;}
     public static PlayerInfo[] Players {get;private set;}
     private static int handVersion;
+    private static readonly HashSet<int> pendingWallDraws=new HashSet<int>();
+    private static readonly Dictionary<string,Queue<int>> wallDraws=new Dictionary<string,Queue<int>>();
+    internal static void ResetPendingWallDraws(){handVersion++;pendingWallDraws.Clear();wallDraws.Clear();}
+    internal static bool WallDrawPending(int position)=>pendingWallDraws.Contains(position);
+    public static void QueueWallDraw(string seat,int position) {
+        if(seat==null||position<0)return;
+        if(!wallDraws.TryGetValue(seat,out var queue))wallDraws[seat]=queue=new Queue<int>();
+        if(pendingWallDraws.Add(position))queue.Enqueue(position);
+    }
+    internal static Action CaptureVisibleDraw(string seat) {
+        if(seat==null||!wallDraws.TryGetValue(seat,out var queue)||queue.Count==0)return null;
+        int position=queue.Dequeue(),version=handVersion;
+        return ()=>{if(version==handVersion&&pendingWallDraws.Remove(position))Refresh(DisplayedInfo);};
+    }
     public static string SeatOf(int index) {
         var record=GameRecordManager.Instance;
         return record!=null&&record.gameObject.activeSelf&&record.gameRecord!=null
             ? record.indexToPosition.TryGetValue(index,out var seat)?seat:null : TableMirror.Current.SeatOf(index);
     }
+    public static int WallOrderIndex(DuocaiInfo info,int position) {
+        if(info.wall_layout_version<2)return (position-info.opening+144)%144;
+        return (WallRingIndex(position)-WallRingIndex(info.opening)+144)%144;
+    }
+    private static int WallRingIndex(int position)=>((4-position/36)%4)*36+(position%36/2)*2+(position%2==1?0:1);
     public static RoundIndicatorDisplay FieldState(DuocaiInfo info)=>info==null?new RoundIndicatorDisplay():new RoundIndicatorDisplay {
         Tiles=info.indicators??Array.Empty<int>(),Caption=$"第{info.hand_number}副 · {(info.deck==0?"红":"蓝")}牌组"+(info.variant=="riichi"?"":"\n待选赖子"),CaptionAboveTiles=info.variant=="riichi",
         Counter=info.variant=="riichi"?$"{info.honba}本场 · {info.riichi_sticks}供托":ReserveCaption(info)
@@ -32,7 +51,9 @@ public static class DuocaiTableIndicators {
         };
     }
     public static void Refresh(DuocaiInfo info,PlayerInfo[] players=null) {
-        if(info==null||DisplayedInfo==null||info.deck!=DisplayedInfo.deck||info.hand_number!=DisplayedInfo.hand_number)handVersion++;
+        if(info==null||DisplayedInfo==null||info.deck!=DisplayedInfo.deck||info.hand_number!=DisplayedInfo.hand_number) {
+            handVersion++;pendingWallDraws.Clear();wallDraws.Clear();
+        }
         DisplayedInfo=info;if(players!=null||info==null)Players=players;
         RoundPanel.Instance?.RefreshRuleIndicators(FieldState(info));
         var manager=Game3DManager.Instance;if(manager==null)return;
@@ -59,54 +80,76 @@ public sealed class DuocaiTableOverlay : MonoBehaviour {
 
 public partial class Game3DManager {
     private readonly Dictionary<int,GameObject> duocaiWall=new Dictionary<int,GameObject>();
-    private readonly Dictionary<int,(int face,int back,string seat,int stack,int layer)> duocaiWallViews=new Dictionary<int,(int,int,string,int,int)>();
+    private readonly Dictionary<int,(int face,int back,string seat,int stack,int layer,bool pair)> duocaiWallViews=new Dictionary<int,(int,int,string,int,int,bool)>();
     private Transform duocaiWallRoot;
+    private string duocaiWallGame;
+    private int duocaiWallHand=-1,duocaiWallDeck=-1,duocaiWallLayout;
+    internal void ClearDuocaiWall() {
+        foreach(var obj in duocaiWall.Values)if(obj!=null) {
+            SetWallTileScale(obj.transform,1f);
+            MahjongObjectPool.Instance?.Return(-1,obj);
+        }
+        duocaiWall.Clear();duocaiWallViews.Clear();duocaiWallHand=-1;duocaiWallDeck=-1;duocaiWallGame=null;
+    }
     internal void RefreshDuocaiWall(DuocaiInfo info) {
         if(MahjongObjectPool.Instance==null)return;
-        var active=new HashSet<int>(info?.wall?.Where(v=>!v.removed).Select(v=>v.position)??Enumerable.Empty<int>());
+        string game=GameSession.Current.GamestateId;
+        if(info==null) {ClearDuocaiWall();return;}
+        if(duocaiWallHand!=info.hand_number||duocaiWallDeck!=info.deck||duocaiWallGame!=game||duocaiWallLayout!=info.wall_layout_version) {
+            ClearDuocaiWall();duocaiWallHand=info.hand_number;duocaiWallDeck=info.deck;duocaiWallGame=game;duocaiWallLayout=info.wall_layout_version;
+        }
+        var visible=info.wall?.Where(v=>!v.removed||DuocaiTableIndicators.WallDrawPending(v.position)).ToArray()??Array.Empty<DuocaiWallTile>();
+        var active=new HashSet<int>(visible.Select(v=>v.position));
         foreach(int position in duocaiWall.Keys.Where(k=>!active.Contains(k)).ToArray()) {
             if(duocaiWall[position]!=null) {
                 SetWallTileScale(duocaiWall[position].transform,1f);
                 MahjongObjectPool.Instance.Return(-1,duocaiWall[position]);
             }
-            duocaiWall.Remove(position);
-            duocaiWallViews.Remove(position);
+            duocaiWall.Remove(position);duocaiWallViews.Remove(position);
         }
-        if(info?.wall==null)return;
         if(duocaiWallRoot==null){duocaiWallRoot=new GameObject("DuocaiWall").transform;duocaiWallRoot.SetParent(transform,false);}
-        foreach(var tile in info.wall.Where(v=>!v.removed)) {
+        var positions=visible.ToDictionary(v=>v.position);
+        foreach(var tile in visible) {
             string seat=DuocaiTableIndicators.SeatOf(tile.side);var panel=GetPosPanel(seat);if(panel?.cardsPosition==null||panel.discardsPosition==null)continue;
             bool created=!duocaiWall.TryGetValue(tile.position,out var obj)||obj==null;
             bool known=duocaiWallViews.TryGetValue(tile.position,out var previous);
             int face=tile.tile??0;
-            bool moved=created||!known||previous.seat!=seat||previous.stack!=tile.stack||previous.layer!=tile.layer;
+            bool pair=tile.dead&&tile.tile.HasValue&&positions.TryGetValue(tile.position^1,out var paired)&&paired.tile.HasValue;
+            bool moved=created||!known||previous.seat!=seat||previous.stack!=tile.stack||previous.layer!=tile.layer||previous.pair!=pair;
+            bool faceChanged=created||!known||previous.face!=face;
+            float stack=info.wall_layout_version>=2?8.5f-tile.stack:tile.stack-8.5f;
+            var rotation=RiverTileWorldRotation(seat);
             if(created) {
-                var rotation=RiverTileWorldRotation(seat);
-                Vector3 position=WallSlotPosition(seat,tile.stack-8.5f);
-                obj=MahjongObjectPool.Instance.SpawnPresentationTile(tile.tile??0,position,rotation);
+                obj=MahjongObjectPool.Instance.SpawnPresentationTile(face,WallSlotPosition(seat,stack),rotation);
                 if(obj==null)continue;obj.name="DuocaiWall_"+tile.position;obj.transform.SetParent(duocaiWallRoot,true);duocaiWall[tile.position]=obj;
-            } else if(!known||previous.face!=face)MahjongObjectPool.Instance.SetPresentationFace(obj,face);
-            if(moved) {
-                var rotation=RiverTileWorldRotation(seat);
-                SetWallTileScale(obj.transform,TableWallScale);
-                Vector3 position=KeepMovingTileAboveTable(obj.transform,WallSlotPosition(seat,tile.stack-8.5f),rotation);
-                obj.transform.SetPositionAndRotation(position,rotation);
-                var renderer=obj.GetComponentInChildren<Renderer>();
-                if(tile.layer==0&&renderer!=null)obj.transform.position+=Vector3.up*renderer.bounds.size.y;
-            }
+            } else if(faceChanged)MahjongObjectPool.Instance.SetPresentationFace(obj,face);
             var state=MahjongObjectPool.GetTile3D(obj);
-            if(created||!known||previous.face!=face)state.SetConcealedFaceDown(!tile.tile.HasValue);
-            if(created||!known||previous.back!=tile.back)state.SetRuleBackColor(DuocaiTileVisual.BackColor(tile.back));
-            if(created) {
+            if(moved||faceChanged) {
+                state.ResetConcealedState();
+                SetWallTileScale(obj.transform,TableWallScale);
+                Vector3 position=WallSlotPosition(seat,stack);
+                bool upper=info.wall_layout_version>=2?tile.layer==1:tile.layer==0;
+                if(pair&&!upper) {
+                    GetTileSurface(out Vector3 center,out _);
+                    position+=(center-position).normalized*(cardHeight*TableWallScale+tileSurfaceClearance);
+                }
+                obj.transform.SetPositionAndRotation(position,rotation);
+                state.SetConcealedFaceDown(!tile.tile.HasValue);
+                obj.transform.position=KeepMovingTileAboveTable(obj.transform,position,obj.transform.rotation);
+                var renderer=obj.GetComponentInChildren<Renderer>();
+                if(upper&&!pair&&renderer!=null)obj.transform.position+=Vector3.up*(renderer.bounds.size.y+tileSurfaceClearance);
+            }
+            if(created||!known||previous.back!=tile.back||faceChanged)state.SetRuleBackColor(DuocaiTileVisual.BackColor(tile.back));
+            if(moved||faceChanged) {
                 state.SetHoverPeekAllowed(false);
                 foreach(var collider in obj.GetComponentsInChildren<Collider>())collider.enabled=false;
             }
-            duocaiWallViews[tile.position]=(face,tile.back,seat,tile.stack,tile.layer);
+            duocaiWallViews[tile.position]=(face,tile.back,seat,tile.stack,tile.layer,pair);
         }
     }
     internal void ApplyDuocaiHandBacks(string seat,int deck,int[] backs) {
         var panel=GetPosPanel(seat);if(panel==null)return;
-        var cards=panel.cardsPosition?.GetComponentsInChildren<Tile3D>(false)??Array.Empty<Tile3D>();
+        var cards=panel.cardsPosition?.GetComponentsInChildren<Tile3D>(true)??Array.Empty<Tile3D>();
         bool mapped=backs?.Length==cards.Length;
         var remaining=new int[2];
         if(mapped)foreach(int back in backs)if(back>=0&&back<2)remaining[back]++;

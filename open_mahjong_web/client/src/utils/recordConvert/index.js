@@ -1,3 +1,5 @@
+import { convertedReplay } from './convertedReplay.js'
+import { stringifyReplayJSON } from '../browserRecordMigration.js'
 import { tziakchaToSalasasa, salasasaToTziakcha } from './tziakchaGuobiao.js'
 import { salasasaToBotzone, botzoneToSalasasa } from './botzoneGuobiao.js'
 import { salasasaToMjaiRecord, mjaiToSalasasaRecord } from './mjaiRiichi.js'
@@ -34,7 +36,7 @@ export const CONVERT_MODES = [
         example: '"pm6Eet01" → 955674184'
       }
     ],
-    convert: async (text) => prettyJson(await tziakchaToSalasasa(text)),
+    convert: async (text) => stringifyReplayJSON(convertedReplay(await tziakchaToSalasasa(text))),
     filename: 'salasasa-guobiao.json'
   },
   {
@@ -163,7 +165,7 @@ export const CONVERT_MODES = [
         example: '"3 0 HU" → hu_fan=[]、score=0'
       }
     ],
-    convert: async (text) => prettyJson(botzoneToSalasasa(text)),
+    convert: async (text) => stringifyReplayJSON(convertedReplay(botzoneToSalasasa(text))),
     filename: 'salasasa-from-botzone.json'
   },
   {
@@ -233,7 +235,7 @@ export const CONVERT_MODES = [
         example: '叫 3m、consumed [2m,4m] → ["cm", 13, …]'
       }
     ],
-    convert: async (text) => prettyJson(mjaiToSalasasaRecord(text)),
+    convert: async (text) => stringifyReplayJSON(convertedReplay(mjaiToSalasasaRecord(text))),
     filename: 'salasasa-riichi.json'
   }
 ]

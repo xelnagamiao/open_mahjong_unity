@@ -22,6 +22,8 @@ export function parseRecordShareInput(raw) {
   const query = new URLSearchParams(queryText)
   return {
     gameId,
+    ...(['main','open','closed'].includes(query.get('table')) && { table: query.get('table') }),
+    ...(query.get('cursor') === 'v2' && { cursor: 'v2' }),
     round: shareInteger(query.get('round'), 1),
     node: shareInteger(query.get('node')),
     player: shareInteger(query.get('player')),
@@ -39,7 +41,7 @@ export function sharePathForWin3d(win) {
   return `/game-unity?recordId=${encodeURIComponent(win.game_id)}&round=${win.round}&node=${winShareNode(win)}`
 }
 
-export function replaySharePath(kind, gameId, round, node, player, playerIndex) {
+export function replaySharePath(kind, gameId, round, node, player, playerIndex, table) {
   const id = encodeURIComponent(gameId)
   const is3d = kind === '3d' || kind === '3d-node'
   const query = new URLSearchParams(is3d ? { recordId: gameId } : {})
@@ -49,5 +51,6 @@ export function replaySharePath(kind, gameId, round, node, player, playerIndex) 
   }
   if (shareInteger(player) != null) query.set('player', String(player))
   if (shareInteger(playerIndex, 0, 3) != null) query.set('playerIndex', String(playerIndex))
+  if (table) { query.set('table', table); query.set('cursor', 'v2') }
   return `${is3d ? '/game-unity' : `/2d/record/${id}`}${query.size ? `?${query}` : ''}`
 }

@@ -7,7 +7,6 @@ import asyncio
 import json
 import random
 from collections import Counter
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -16,7 +15,8 @@ import pytest
 from .test_flow import HAND, draw, hand, make_state
 from ...game_calculation.hongzhong import rules as book
 from ..public.ai.get_action import get_ai_action
-from ..public.game_record_manager import jsonable_game_record
+from tests.record_writes import capture_record_write
+from ...database.db_manager import DatabaseManager
 
 STATE = "server.gamestate.game_hongzhong.HongzhongGameState"
 
@@ -70,8 +70,15 @@ def test_complete_four_round_match_and_persisted_replay(storage, tmp_path):
         def store(record, players, room_type, match_type):
             assert room_type == "custom" and match_type == "1/4"
             assert len(players) == 4
-            path.write_text(json.dumps(jsonable_game_record(record), ensure_ascii=False), encoding="utf-8")
-            return "HZ-UNIT-FILE"
+            with capture_record_write() as (db, connection, cursor), \
+                 patch("server.database.player_recent_records.update_player_recent_records"):
+                game_id = DatabaseManager.store_hongzhong_game_record(db, record, players, room_type, match_type)
+                connection.commit.assert_called_once()
+                import json
+                _, stored_id, stored_record, _ = cursor.published.call_args.args
+                assert game_id == stored_id
+                path.write_text(json.dumps(stored_record, ensure_ascii=False), encoding="utf-8")
+                return game_id
         state.db_manager = SimpleNamespace(store_hongzhong_game_record=store) if storage == "file" else None
         state.init_tiles = lambda: round_fixture(state)
         original_wait = state.wait_action
@@ -115,8 +122,15 @@ def test_complete_four_round_match_and_persisted_replay(storage, tmp_path):
         assert detail.cloud_saved is (storage == "file")
         if storage == "file":
             loaded = json.loads(path.read_text(encoding="utf-8"))
-            assert loaded == detail.record
-        assert detail.record["game_title"]["master_seed_hex"] == f"{2024:064x}"
+            from ...records.format import restore_source
+            assert loaded == restore_source(detail.record["tables"]["main"])
+            assert loaded["game_title"]["cloud_game_id"] == detail.game_id
+        final_players = detail.record["tables"]["main"]["payload"]["match_result"]["players"]
+        assert [(p["user_id"], p["score"], p["rank"]) for p in final_players] == [
+            (p.user_id, p.score, p.record_counter.rank_result)
+            for p in sorted(state.player_list, key=lambda p: p.original_player_index)
+        ]
+        assert detail.record["tables"]["main"]["payload"]["game_title"]["master_seed_hex"] == f"{2024:064x}"
         state.game_server.gamestate_manager.cleanup_game_state_complete.assert_awaited_once_with(gamestate_id=state.gamestate_id)
         state.spectator_manager.send_final_record_and_close.assert_awaited_once()
         assert state.run_hu_result_ready_phase.await_count == 3

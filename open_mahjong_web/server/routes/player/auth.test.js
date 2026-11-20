@@ -70,11 +70,15 @@ async function fetchMe(username, user = { username: '新名字', rename_card_cou
   return res;
 }
 
-function loadPlayerMiddleware() {
+function loadPlayerMiddleware(account = {}) {
   const middlewarePath = path.join(__dirname, '../../middleware/requirePlayer.js');
   const context = {
     module: { exports: {} },
-    require: id => id === '../config/config' ? config : createRequire(middlewarePath)(id),
+    require: id => {
+      if (id === '../config/config') return config;
+      if (id === '../config/database') return { query: async () => ({ rows: [account] }) };
+      return createRequire(middlewarePath)(id);
+    },
   };
   vm.runInNewContext(fs.readFileSync(middlewarePath, 'utf8'), context, { filename: middlewarePath });
   return context.module.exports;
@@ -95,6 +99,28 @@ test('only a successful password login schedules history, without waiting for it
   assert.equal(success.statusCode, 200);
   assert.deepEqual(history, [{ id: 101, ip: '127.0.0.1' }]);
 });
+
+for (const type of ['login', 'chat', 'match', 'full']) {
+  test(`password login and existing tokens honor ${type} bans`, async () => {
+    const account = { ...loginUser, active_ban_type: type, ban_reason: '测试原因' };
+    const blocked = ['login', 'full'].includes(type);
+    const result = await login({ username: account.username, password: 'test-password' }, { account });
+    assert.equal(result.statusCode, blocked ? 403 : 200);
+    const token = signToken({ user_id: account.user_id, aud: config.playerAuth.audience }, config.playerAuth.jwtSecret, 60);
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const res = response();
+    let allowed = false;
+    await loadPlayerMiddleware(account).requirePlayer(req, res, () => { allowed = true; });
+    assert.equal(allowed, !blocked);
+    if (allowed) {
+      loadPlayerMiddleware(account).requireSpeaking(req, res, () => {});
+      assert.equal(res.statusCode, type === 'chat' ? 403 : 200);
+    } else {
+      assert.equal(res.statusCode, 401);
+      assert.match(res.body.message, /测试原因/);
+    }
+  });
+}
 
 for (const [label, keepLoggedIn, ttl] of [
   ['30 days when selected', true, 30 * 24 * 60 * 60],
@@ -144,7 +170,7 @@ for (const remaining of [7 * 24 * 60 * 60, 60]) {
   });
 }
 
-test('player middleware accepts a 30-day token after 8 hours and rejects it after expiry', (t) => {
+test('player middleware accepts a 30-day token after 8 hours and rejects it after expiry', async (t) => {
   const now = 1800000000;
   t.mock.method(Date, 'now', () => now * 1000);
   const token = signToken({ user_id: 101, username: '测试账号', aud: config.playerAuth.audience }, config.playerAuth.jwtSecret, config.playerAuth.rememberJwtExpiresSec);
@@ -152,7 +178,7 @@ test('player middleware accepts a 30-day token after 8 hours and rejects it afte
   t.mock.method(Date, 'now', () => (now + 9 * 60 * 60) * 1000);
   const req = { headers: { authorization: `Bearer ${token}` } };
   let passed = false;
-  middleware.requirePlayer(req, response(), () => { passed = true; });
+  await middleware.requirePlayer(req, response(), () => { passed = true; });
   assert.equal(passed, true);
   assert.equal(req.player.expiresAt, now + config.playerAuth.rememberJwtExpiresSec);
   t.mock.method(Date, 'now', () => (now + config.playerAuth.rememberJwtExpiresSec + 1) * 1000);

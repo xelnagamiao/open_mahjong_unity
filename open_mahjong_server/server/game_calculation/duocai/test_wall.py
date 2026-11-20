@@ -41,13 +41,12 @@ def test_insufficient_reserve_ends_match_atomically():
 
 
 def test_four_tile_kong_draws_rinshan_and_fifth_tile_kong_draws_front():
-    wall = TwinDecks(5).next_wall(dice=[2, 3])
-    wall.set_riichi()
+    wall = TwinDecks(5).next_wall(dice=[2, 3], variant='riichi')
     assert len(wall.live) == 130 and len(wall.indicators()) == 1
     for _ in range(53):
         wall.draw()
     start = len(wall.live)
-    dead_draw = wall.dead[0]
+    dead_draw = wall.order[-2]
     assert wall.draw(fourth_kong=True)[1] == dead_draw
     assert len(wall.live) == start - 1
     assert len(wall.indicators()) == len(wall.indicators(ura=True)) == 2

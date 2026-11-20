@@ -4,7 +4,6 @@ import json
 import logging
 import re
 
-from psycopg2.extras import Json
 
 from .round_progress import apply_round_progress
 
@@ -54,26 +53,26 @@ def persist_game_record(db, record, players, room_type, match_type, id_factory, 
             from .game_rewards import apply_currency_to_match_result
             # Prepare on a copy: rolled-back persistence must not leak an earned
             # amount into the later local record or live end-game broadcast.
+            from ..records.store import lock_record_ids, paired_game_id
+            match_id = title.get("duplicate_match_id")
+            lock_record_ids(cursor, game_id, paired_game_id(match_id) if match_id else game_id)
             payload = json.loads(json.dumps(record, ensure_ascii=False, default=str))
             payload['currency_reward'] = prepare_game_reward(cursor, payload, [p.user_id for p in players], game_id=game_id)
             apply_currency_to_match_result(payload)
-            cursor.execute('''INSERT INTO game_records(game_id,record) VALUES(%s,%s)
-                ON CONFLICT(game_id) DO NOTHING RETURNING game_id''', (game_id, Json(payload)))
-            inserted = cursor.fetchone() is not None
-            if not inserted:
-                cursor.execute('SELECT record FROM game_records WHERE game_id=%s FOR UPDATE', (game_id,))
-                stored = cursor.fetchone()[0]
-                stored = json.loads(stored) if isinstance(stored, str) else stored
-                # Another server version may have committed while our INSERT
-                # waited. Reload its trusted entitlement before comparing.
-                payload['currency_reward'] = prepare_game_reward(cursor, payload, [p.user_id for p in players], game_id=game_id)
-                apply_currency_to_match_result(payload)
-                comparable = json.loads(json.dumps(stored, ensure_ascii=False, default=str))
-                comparable['currency_reward'] = payload['currency_reward']
-                apply_currency_to_match_result(comparable)
-                if comparable != payload:
-                    raise ValueError('同一对局的重复牌谱内容冲突')
-            else:
+            from ..records.store import publish_table
+            participant_snapshots = [{
+                'user_id': p.user_id, 'username': p.username, 'score': p.score,
+                'rank': p.record_counter.rank_result, 'original_player_index': p.original_player_index,
+                **{key: getattr(p, key, None) for key in (
+                    'title_used', 'character_used', 'profile_used', 'voice_used', 'avatar_frame_used')},
+            } for p in players]
+            from ..records.format import PAIRED_RULES
+            from ..records.store import load_paired_snapshot
+            snapshot = None
+            if (duplicate or training) and title["sub_rule"] in PAIRED_RULES:
+                snapshot = load_paired_snapshot(cursor, title, game_id, training=training)
+            inserted = publish_table(cursor, game_id, payload, participant_snapshots, snapshot=snapshot)
+            if inserted:
                 from .scene_stats import normalize_scene_fields, record_game_metrics
                 rule, sub_rule = title['rule'], title['sub_rule']
                 room_type, tier, event_id = normalize_scene_fields(room_type, title.get('match_tier'), title.get('event_id'))

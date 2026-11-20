@@ -50,6 +50,22 @@ public partial class ConfigManager {
         return LoadInventorySprite("image/Profiles/" + profileId) ?? IosResourceCache.Load<Sprite>("image/Profiles/1");
     }
 
+    public static bool SetProfilePortrait(UnityEngine.UI.RawImage image, int profileId, Color fallback, float alpha = 1f) {
+        var sprite = profileId > 0 ? GetProfileSprite(profileId) : null;
+        var texture = sprite ? sprite.texture : null;
+        image.texture = texture;
+        if (texture) {
+            var pixels = sprite.textureRect;
+            image.uvRect = new Rect(pixels.x / texture.width, pixels.y / texture.height,
+                pixels.width / texture.width, pixels.height / texture.height);
+            image.color = new Color(1f, 1f, 1f, alpha);
+        } else {
+            image.uvRect = new Rect(0f, 0f, 1f, 1f);
+            image.color = fallback;
+        }
+        return texture != null;
+    }
+
     public static Color GetAvatarFrameColor(int itemId) {
         if (itemId == 0) itemId = AvatarFrameGraphic.DefaultItemId;
         // Disabled owned cosmetics are removed from live equipment by the server;

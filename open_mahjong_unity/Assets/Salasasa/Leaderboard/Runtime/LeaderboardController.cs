@@ -106,7 +106,8 @@ namespace Salasasa.Leaderboards
         {
             dataSource = (DataSource)Mathf.Clamp(index, 0, 2);
             if (dataSource == DataSource.LocalWeb) selectedRule = 0;
-            sourceSwitchLabel.text = dataSource == DataSource.Sample ? "示例数据" : dataSource == DataSource.LocalWeb ? "本地实时榜单" : "游戏服务器";
+            if (sourceSwitchLabel)
+                sourceSwitchLabel.text = dataSource == DataSource.Sample ? "示例数据" : dataSource == DataSource.LocalWeb ? "本地实时榜单" : "游戏服务器";
             Refresh();
         }
 

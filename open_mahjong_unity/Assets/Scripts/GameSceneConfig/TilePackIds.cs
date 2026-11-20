@@ -4,7 +4,6 @@ using System.Collections.Generic;
 /// 标准麻将自定义牌面包允许的牌面 ID，以及设置页全量预览列表。
 /// 牌号与 Python 服务端一致：11–19 万，21–29 饼，31–39 条，41–47 字，51–58 花；
 /// 赤宝 105 / 205 / 305 = 赤 5 万 / 赤 5 饼 / 赤 5 条。
-/// 上传 zip 可包含一套 PNG，也兼容原有 hand/、table/ 两个目录。
 /// </summary>
 public static class TilePackIds {
     public const string PackOfficial = "official";
@@ -20,10 +19,7 @@ public static class TilePackIds {
     public const string HandHorizontalBgResource = ResourcesCardRoot + "/Surfaces/backgrounds/hand-horizontal";
     public const string DefaultHandBackResource = ResourcesCardRoot + "/Surfaces/backs/hand-default";
 
-    public const string HandDirEn = "hand";
-    public const string HandDirZh = "手牌牌面";
     public const string TableDirEn = "table";
-    public const string TableDirZh = "3D牌面";
 
     public static readonly int[] StandardFaceIds = BuildStandardFaceIds();
     public static readonly int[] HongqueFaceIds = BuildHongqueFaceIds();
@@ -49,28 +45,6 @@ public static class TilePackIds {
     public static bool DefaultUseHandFaceBackground(string packId) {
         // 标准手牌统一叠底；不透明完整图片自然覆盖底图。
         return true;
-    }
-
-    public static bool IsHandFolder(string fullPath) {
-        return PathHasFolder(fullPath, HandDirEn) || PathHasFolder(fullPath, HandDirZh);
-    }
-
-    public static bool IsTableFolder(string fullPath) {
-        return PathHasFolder(fullPath, TableDirEn)
-            || PathHasFolder(fullPath, TableDirZh)
-            || PathHasFolder(fullPath, "3d牌面");
-    }
-
-    private static bool PathHasFolder(string fullPath, string folder) {
-        if (string.IsNullOrEmpty(fullPath) || string.IsNullOrEmpty(folder)) {
-            return false;
-        }
-        string full = fullPath.Replace('\\', '/').TrimStart('/');
-        string needle = folder.Trim('/');
-        if (full.StartsWith(needle + "/", System.StringComparison.OrdinalIgnoreCase)) {
-            return true;
-        }
-        return full.IndexOf("/" + needle + "/", System.StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static string BuiltinTableResource(string packId, int tileId) {

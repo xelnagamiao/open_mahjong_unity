@@ -7,7 +7,7 @@ from pydantic import Field, StrictBool, StrictInt, validator
 
 from .room_validators import GBRoomValidator
 from .tuidao_room import TuidaoRoomValidator, create_tuidao_room
-from ..game_calculation.guangdong.config import SUB_RULE, normalize_config
+from ..game_calculation.guangdong.config import SUB_RULE, DOUBLES_SUB_RULE, normalize_config
 from ..game_calculation.tuidao.rules import SUB_RULE as TUIDAO_SUB_RULE
 from ..response import Response
 
@@ -20,7 +20,7 @@ FIXED_OPTIONS = (
 def enforce_guangdong_tactical(room):
     """Only occupied bot seats disable MIL flower-ghost tactical calls; never enable."""
     from ..gamestate.public.claim_protection import has_bot_players
-    if (room.get("room_rule") == "guangdong" and room.get("sub_rule") == SUB_RULE
+    if (room.get("room_rule") == "guangdong" and room.get("sub_rule") in (SUB_RULE, DOUBLES_SUB_RULE)
             and (has_bot_players(room.get("player_list")) or has_bot_players(room.get("seat_list")))):
         room["tactical_call"] = False
 
@@ -45,13 +45,13 @@ class GuangdongMilRoomValidator(GBRoomValidator):
 
     @validator("sub_rule")
     def valid_profile(cls, value):
-        if value != SUB_RULE:
+        if value not in (SUB_RULE, DOUBLES_SUB_RULE):
             raise ValueError("不支持的广东花鬼子规则")
         return value
 
     @validator("detailed_config", pre=True, always=True)
-    def valid_config(cls, value):
-        return normalize_config(value)
+    def valid_config(cls, value, values):
+        return normalize_config(value, values.get("sub_rule", SUB_RULE))
 
     @validator(*FIXED_OPTIONS)
     def fixed_false(cls, value):
@@ -71,7 +71,9 @@ def GuangdongRoomValidator(**config):
     sub_rule = config.get("sub_rule", TUIDAO_SUB_RULE)
     if sub_rule == TUIDAO_SUB_RULE:
         return TuidaoRoomValidator(**config)
-    if sub_rule == SUB_RULE:
+    if sub_rule in (SUB_RULE, DOUBLES_SUB_RULE):
+        if sub_rule == DOUBLES_SUB_RULE and config.get("game_round", 4) not in (2, 4):
+            raise ValueError("广东双打每盘八副")
         return GuangdongMilRoomValidator(**config)
     raise ValueError("不支持的广东麻将子规则")
 
@@ -148,7 +150,8 @@ async def create_guangdong_room(
 async def handle_create_guangdong_room(server, connection_id, message, websocket):
     response = await create_guangdong_room(
         server.room_manager, connection_id, room_name=message.get("roomname", ""),
-        gameround=message.get("gameround", 1), password=message.get("password", ""),
+        gameround=message.get("gameround", 2 if message.get("sub_rule") == DOUBLES_SUB_RULE else 1),
+        password=message.get("password", ""),
         roundTimerValue=message.get("roundTimerValue", 20), stepTimerValue=message.get("stepTimerValue", 5),
         tips=message.get("tips", True), random_seed=message.get("random_seed", 0),
         sub_rule=message.get("sub_rule", TUIDAO_SUB_RULE), detailed_config=message.get("detailed_config"),

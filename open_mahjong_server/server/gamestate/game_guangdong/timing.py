@@ -224,6 +224,7 @@ class GuangdongTimingMixin:
                     pending.remove(i)
                     self.action_events[i].clear()
             if (getattr(self, "tactical_call", False)
+                    and not getattr(self, "_guangdong_tactical_recheck", False)
                     and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
                     and any(data.get("action_type") not in ("pass", "force_pass") for data in responses.values())):
                 # Stop ordinary thinking at the actual first claim arrival,

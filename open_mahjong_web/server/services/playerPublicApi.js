@@ -188,7 +188,7 @@ async function fetchPlayerInfo(userId) {
       [userId]
     ),
     pool.query(
-      `SELECT ${statsKeySql(subRuleSql('p','g'))} AS rule,COUNT(*)::int AS total_games FROM game_player_records p JOIN game_records g USING(game_id) WHERE user_id=$1 GROUP BY 1`,
+      `SELECT ${statsKeySql(subRuleSql('p','g'))} AS rule,COUNT(*)::int AS total_games FROM game_player_records p JOIN game_record_metadata g USING(game_id) WHERE user_id=$1 GROUP BY 1`,
       [userId]
     ),
     allPlayerRuleStats(pool, userId),
@@ -240,11 +240,12 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     const pageParams = [];
     const conditions = buildRecordFilters(userId, query, pageParams);
     const pageSql = `
-      SELECT gpr.game_id, gr.created_at, COUNT(*) OVER() AS total
+      SELECT gr.replay_id AS game_id, MAX(gr.created_at) AS created_at, COUNT(*) OVER() AS total
       FROM game_player_records gpr
-      JOIN game_records gr ON gr.game_id = gpr.game_id
+      JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
       WHERE ${conditions.join(' AND ')}
-      ORDER BY gr.created_at DESC, gpr.game_id DESC
+      GROUP BY gr.replay_id
+      ORDER BY MAX(gr.created_at) DESC, gr.replay_id DESC
       LIMIT $${pageParams.length + 1} OFFSET $${pageParams.length + 2}
     `;
     pageParams.push(limit, offset);
@@ -254,9 +255,9 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     // A page beyond the end has no window-count row, but must retain its total.
     if (pageResult.rows.length === 0 && offset > 0) {
       const countResult = await db.query(
-        `SELECT COUNT(*)::int AS total
+        `SELECT COUNT(DISTINCT gr.replay_id)::int AS total
          FROM game_player_records gpr
-         JOIN game_records gr ON gr.game_id = gpr.game_id
+         JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
          WHERE ${conditions.join(' AND ')}`,
         pageParams.slice(0, -2),
       );
@@ -283,12 +284,12 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     }
 
     const playersResult = await db.query(
-      `SELECT game_id, user_id, username, score, rank, pt_change, rule, sub_rule, match_type, room_type,
+      `SELECT p.game_id, t.replay_id, t.table_id, user_id, username, score, rank, pt_change, rule, sub_rule, match_type, room_type,
               match_tier, event_id,
               title_used, character_used, profile_used, voice_used
-       FROM game_player_records
-       WHERE game_id = ANY($1::varchar[])
-       ORDER BY game_id, rank`,
+       FROM game_player_records p JOIN game_record_tables t USING(game_id)
+       WHERE t.replay_id = ANY($1::varchar[])
+       ORDER BY t.replay_id, t.table_id, rank`,
       [gameIds]
     );
 
@@ -296,8 +297,9 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     const metaByGame = new Map();
     const ratingsByGame = await queryRecordRatings(db, playersResult.rows);
     for (const row of playersResult.rows) {
-      if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
-      playersByGame.get(row.game_id).push({
+      if (!playersByGame.has(row.replay_id)) playersByGame.set(row.replay_id, []);
+      playersByGame.get(row.replay_id).push({
+        table_id: row.table_id,
         user_id: row.user_id,
         username: row.username,
         score: row.score,
@@ -308,8 +310,8 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
         profile_used: row.profile_used,
         voice_used: row.voice_used,
       });
-      if (!metaByGame.has(row.game_id)) {
-        metaByGame.set(row.game_id, {
+      if (!metaByGame.has(row.replay_id)) {
+        metaByGame.set(row.replay_id, {
           rule: row.rule || '',
           sub_rule: row.sub_rule || null,
           match_type: normalizeMatchType(row.match_type || null, row.sub_rule),
@@ -383,7 +385,7 @@ async function fetchPlayerScopeCounts(userId, query) {
         COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'elo')::int AS elo,
         COUNT(*) FILTER (WHERE gpr.room_type = 'events')::int AS events
       FROM game_player_records gpr
-      JOIN game_records gr ON gr.game_id = gpr.game_id
+      JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
       WHERE ${conditions.join(' AND ')}
     `, params);
     return result.rows[0];
@@ -434,7 +436,7 @@ async function listPublicEvents(kind) {
     where = `WHERE CASE WHEN COALESCE(kind, 'event') = 'base' THEN 'base' ELSE 'event' END = $1`;
   }
   const result = await pool.query(
-    `SELECT event_id, name, description, status, kind, closed_at, created_at
+    `SELECT event_id, name, description, team_icon_url, status, kind, closed_at, created_at
      FROM events
      ${where}
      ORDER BY
@@ -449,15 +451,15 @@ async function fetchPublicEventDetail(eventId) {
   const id = String(eventId || '').trim();
   if (!id) return null;
   const eventRes = await pool.query(
-    `SELECT event_id, name, description, status, kind, closed_at, created_at, updated_at
+    `SELECT event_id, name, description, team_icon_url, status, kind, closed_at, created_at, updated_at
      FROM events WHERE event_id = $1`,
     [id]
   );
   if (eventRes.rows.length === 0) return null;
   const event = eventRes.rows[0];
   const countRes = await pool.query(
-    `SELECT COUNT(DISTINCT game_id)::int AS game_count
-     FROM game_player_records
+    `SELECT COUNT(DISTINCT t.replay_id)::int AS game_count
+     FROM game_player_records JOIN game_record_tables t USING(game_id)
      WHERE event_id = $1`,
     [id]
   );

@@ -40,7 +40,7 @@ async function writeAuditSafe(req, action, targetId, payload) {
 
 async function assertGameExists(gameId) {
   const result = await pool.query(
-    'SELECT game_id FROM game_records WHERE game_id = $1 LIMIT 1',
+    'SELECT game_id FROM game_record_tables WHERE game_id = $1 OR replay_id = $1 LIMIT 1',
     [gameId]
   );
   if (!result.rowCount) {

@@ -27,9 +27,7 @@ public static class LegacyFacePlacement
             || DuocaiTileVisual.IsCurrent(tileId) || VietnameseTileVisual.IsCurrentRuleTile(tileId)
             || SingaporeTileVisual.IsAnimal(tileId) || MalaysiaTileVisual.Contains(tileId)) return false;
         pack = pack ?? ConfigManager.Instance.StandardTilePackId;
-        // Official manzu now carry their complete placement in the visible,
-        // pack-bound per-tile defaults. Never stack the old drawing correction.
-        if (TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId)) return false;
+        if (TilePackLayoutConfig.HasTileDefaults(pack, tileId, table)) return false;
         if (TilePackIds.IsCustomPack(pack) && !TileFaceResolver.HasCustomArtwork(tileId, table)) pack = TilePackIds.PackOfficial;
         if (!TilePackIds.IsBuiltinPack(pack)) return false;
         if (cache == null) {
@@ -46,13 +44,16 @@ public static class LegacyFacePlacement
 
     public static Placement Hand(int tileId, Vector2 bodySize, string pack = null)
     {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
+        if (TilePackLayoutConfig.TryImageLayout(pack, tileId, false, out var image))
+            return new Placement { offset = new Vector2(image.x, image.y), scale = Vector2.one * image.scale, hasLegacy = true };
         if (!TryEntry(tileId, pack, false, out var entry) || bodySize.x <= 0 || bodySize.y <= 0) return Placement.Identity;
         int face = WashizuTile.Face(tileId);
-        if (entry.pack == TilePackIds.PackOfficial && ((face >= 11 && face <= 19) || face == 105)) {
+        if (TilePackLayoutConfig.HasTileDefaults(entry.pack, face, false)) {
             // An incomplete uploaded pack falls back to the official artwork.
             // Read that artwork's defaults rather than duplicating old transforms.
             var defaults = TilePackLayoutConfig.Default(TilePackIds.PackOfficial, false, face);
-            var fit = TilePackLayoutConfig.ManzuHandCanvasFit(bodySize);
+            var fit = TilePackLayoutConfig.HandCanvasFit(entry.pack, tileId, bodySize);
             return new Placement { offset = Vector2.Scale(new Vector2(defaults.x, defaults.y), fit),
                 scale = Vector2.one * defaults.scale, hasLegacy = true };
         }
@@ -61,10 +62,13 @@ public static class LegacyFacePlacement
 
     public static Placement Table(int tileId, string pack = null)
     {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
+        if (TilePackLayoutConfig.TryImageLayout(pack, tileId, true, out var image))
+            return new Placement { offset = new Vector2(image.x, image.y), scale = Vector2.one * image.scale, hasLegacy = true };
         if (!TryEntry(tileId, pack, true, out var entry)) return Placement.Identity;
         float currentScale = entry.pack == TilePackIds.PackOfficial ? TileTextureLayout.SnowTableImageScale : TileTextureLayout.TableImageScale;
         int face = WashizuTile.Face(tileId);
-        if (entry.pack == TilePackIds.PackOfficial && ((face >= 11 && face <= 19) || face == 105)) {
+        if (TilePackLayoutConfig.HasTileDefaults(entry.pack, face, true)) {
             var defaults = TilePackLayoutConfig.Default(TilePackIds.PackOfficial, true, face);
             return new Placement { offset = new Vector2(defaults.x, defaults.y),
                 scale = Vector2.one * (defaults.scale / currentScale), hasLegacy = true };

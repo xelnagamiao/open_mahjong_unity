@@ -32,10 +32,12 @@ async def _wait_until_actionable(game_state, player_index: int, attempts: int = 
     return False
 
 
-def _pick_auto_cut_tile(player):
+def _pick_auto_cut_tile(player, prefer_legal_draw=False):
     """摸切优先；手牌仍含定缺花色时先切第一张定缺牌（与服务端 _enforce_dingque_first 一致）。"""
     hand = player.hand_tiles
     dingque = getattr(player, "dingque_suit", 0)
+    if prefer_legal_draw and has_draw_slot(player) and hand[-1] // 10 == dingque:
+        return hand[-1], len(hand) - 1, True
     dingque_tile = first_dingque_tile(hand, dingque)
     if dingque_tile is not None:
         tile_id = dingque_tile
@@ -104,7 +106,7 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 await submit_bot_action(get_ai_action, game_state, player_index, "buhua", None, None, None, None)
                 return
             if "cut" in action_list and current_player.hand_tiles:
-                tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player, getattr(game_state, "is_sbr_exchange", False))
                 if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
                     from ....game_calculation.guobiao_huahun import auto_cut
                     tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))
@@ -124,7 +126,7 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 logger.warning(f"机器人 {player_index} ({current_player.username}) 鸣牌后未进入 waiting_players_list，放弃操作")
                 return
             if "cut" in action_list and current_player.hand_tiles:
-                tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player, getattr(game_state, "is_sbr_exchange", False))
                 if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
                     from ....game_calculation.guobiao_huahun import auto_cut
                     tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))

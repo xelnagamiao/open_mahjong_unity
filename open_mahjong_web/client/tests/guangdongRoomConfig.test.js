@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { existsSync } from 'node:fs'
+import { milRulebook } from '../src/constants/milRulebooks.js'
 import { createEventRoomForm, buildEventRoomSettings, eventRoomSettingsRows, eventRoomSettingsSummary } from '../src/utils/eventRoomSettings.js'
-import { GUANGDONG_MIL_SUB_RULE, TUIDAO_SUB_RULE, guangdongDetail, guangdongProfiles } from '../src/utils/guangdongRoomConfig.js'
+import { GUANGDONG_DOUBLES, GUANGDONG_MIL_SUB_RULE, TUIDAO_SUB_RULE, guangdongDetail, guangdongProfiles } from '../src/utils/guangdongRoomConfig.js'
 const require = createRequire(import.meta.url)
 const { readRoomSettings, applyRoomSettingsChange } = require('../../server/utils/eventRoomSettings.js')
 const save = payload => {
@@ -32,7 +34,26 @@ test('旧广东默认仍为无癞推倒和，MIL2023默认启用4分门槛', () 
   assert.equal(eventRoomSettingsRows(payload).find(row => row.label === '起和条件').value, '至少2番，同时至少4分')
   form.require_minimum_score = false
   assert.equal(eventRoomSettingsRows(buildEventRoomSettings(form)).find(row => row.label === '起和条件').value, '至少2番')
-  assert.equal(guangdongProfiles.length, 2)
+  assert.deepEqual(guangdongProfiles.map(p => p.value), [TUIDAO_SUB_RULE, GUANGDONG_MIL_SUB_RULE, GUANGDONG_DOUBLES])
+})
+
+test('双打开房按八副分盘，锁定无马，规则书链接底本与补充细则', () => {
+  const form = createEventRoomForm({room_rule:'guangdong',room_config:{sub_rule:GUANGDONG_DOUBLES}})
+  for (const length of [2,4]) {
+    form.game_round = length
+    const payload = buildEventRoomSettings(form)
+    assert.equal(payload.room_config.detailed_config.horse_count, 0)
+    assert.deepEqual(buildEventRoomSettings(createEventRoomForm(save(payload))).room_config, payload.room_config)
+    assert.throws(() => save({...payload, room_config:{...payload.room_config, detailed_config:{horse_count:4}}}))
+  }
+  for (const length of [1,3]) {
+    form.game_round = length
+    assert.throws(() => buildEventRoomSettings(form))
+  }
+  const supplement = milRulebook('guangdong', GUANGDONG_DOUBLES)
+  const base = milRulebook('guangdong', supplement.base)
+  assert.equal(base.subRule, GUANGDONG_MIL_SUB_RULE)
+  for (const book of [base,supplement]) assert.ok(existsSync(new URL('../public'+book.url,import.meta.url)))
 })
 
 test('拒绝强制类型转换、跨版本配置和未提供的馆规', () => {

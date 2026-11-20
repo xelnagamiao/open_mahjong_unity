@@ -15,7 +15,8 @@ GAME_ID_LENGTH = 10
 def generate_game_id(length: int = GAME_ID_LENGTH) -> str:
     return ''.join(secrets.choice(GAME_ID_ALPHABET) for _ in range(length))
 
-# 番种定义映射（用于统计），基于 FanTextDictionary.cs 的 FanToDisplayQingque
+# MMCR 14.1 番种目录，与 QingqueFanMetadata.ChineseNames 保持一致。
+# 保留已有字段名，避免历史客户端和统计查询失去兼容性。
 FAN_NAME_TO_FIELD = {
     "和牌": "hepai",
     "天和": "tianhe",
@@ -24,6 +25,7 @@ FAN_NAME_TO_FIELD = {
     "海底捞月": "haidilaoyue",
     "河底捞鱼": "hedilaoyue",
     "抢杠": "qianggang",
+    "十三幺": "shisanyao",
     "七对": "qidui",
     "门前清": "menqianqing",
     "四暗杠": "siangang",
@@ -48,8 +50,6 @@ FAN_NAME_TO_FIELD = {
     "风牌三刻": "fengpaisanke",
     "风牌七对": "fengpaiqidui",
     "风牌六对": "fengpailiudui",
-    "风牌五对": "fengpaiwudui",
-    "风牌四对": "fengpaisidui",
     "大三元": "dasanyuan",
     "小三元": "xiaosanyuan",
     "三元六对": "sanyuanliudui",

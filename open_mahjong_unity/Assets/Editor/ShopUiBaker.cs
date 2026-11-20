@@ -55,7 +55,7 @@ public static class ShopUiBaker {
         Box("Surface", window, 1,1,1278,742,Surface).raycastTarget = true;
         Box("Header", window, 1,1,1278,104,C("202020"));
         Label("Title",window,32,22,270,44,"商店",32,Ink);
-        Label("BalanceCaption",window,688,18,280,24,"持有萨拉币",15,Muted).alignment = TextAlignmentOptions.Right;
+        Label("BalanceCaption",window,688,18,280,24,"萨拉币",15,Muted).alignment = TextAlignmentOptions.Right;
         shop.balanceLabel = Label("Balance",window,668,42,300,40,"—",30,Accent);
         shop.balanceLabel.alignment = TextAlignmentOptions.Right;
         shop.closeButton = Button("Close",window,"×",C("AE463B"),Ink); Top((RectTransform)shop.closeButton.transform,1210,30,42,42);
@@ -168,7 +168,7 @@ public static class ShopUiBaker {
             var button=Button("OpenShopButton",content,"",C("414141"),Ink);Top((RectTransform)button.transform,0,88,width,76);
             Label("Title",button.transform,18,8,width-36,30,"商店",22,Ink);
             Label("Description",button.transform,18,42,250,22,"使用萨拉币购买物品",15,Muted);
-            developer.walletLabel=Label("Wallet",button.transform,width-266,30,248,30,"持有萨拉币 —",17,Accent);
+            developer.walletLabel=Label("Wallet",button.transform,width-266,30,248,30,"萨拉币 —",17,Accent);
             developer.walletLabel.alignment=TextAlignmentOptions.Right;
             Dynamic(developer.walletLabel);
             developer.shopButton=button;
@@ -176,6 +176,7 @@ public static class ShopUiBaker {
     }
 
     static void RefineShop(ShopPanel shop) {
+        RefineDescription(shop);
         var window = shop.transform.Find("ShopWindow");
         foreach (var name in new[] { "Refresh", "Subtitle" }) {
             var unused = window.Find(name);
@@ -207,6 +208,56 @@ public static class ShopUiBaker {
         Top(shop.statusLabel.rectTransform,32,668,820,36);
     }
 
+    public static void RefineDescription(ShopPanel shop) {
+        var caption = shop.transform.Find("ShopWindow/BalanceCaption").GetComponent<TMP_Text>();
+        var localized = caption.GetComponent<LocalizedPlatformLabel>();
+        if (localized) localized.SetSource("萨拉币"); else caption.text = "萨拉币";
+
+        var scroll = shop.descriptionScroll;
+        var root = (RectTransform)scroll.transform;
+        var text = shop.detailDescription;
+        // ScrollRect's expanding viewport requires its content and scrollbar to be direct children.
+        text.rectTransform.SetParent(scroll.viewport, false);
+        text.rectTransform.anchorMin = new Vector2(0, 1);
+        text.rectTransform.anchorMax = Vector2.one;
+        text.rectTransform.pivot = new Vector2(.5f, 1);
+        text.rectTransform.sizeDelta = Vector2.zero;
+        text.rectTransform.anchoredPosition = Vector2.zero;
+        text.alignment = TextAlignmentOptions.TopLeft;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Overflow;
+        var fit = text.GetComponent<UnityEngine.UI.ContentSizeFitter>() ?? text.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>();
+        fit.horizontalFit = UnityEngine.UI.ContentSizeFitter.FitMode.Unconstrained;
+        fit.verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+        scroll.content = text.rectTransform;
+        var unusedContent = scroll.viewport.Find("Content");
+        if (unusedContent && unusedContent.childCount == 0) UnityEngine.Object.DestroyImmediate(unusedContent.gameObject);
+        Fill(scroll.viewport);
+
+        var barRoot = root.Find("VerticalScrollbar") as RectTransform;
+        if (!barRoot) {
+            barRoot = Rect("VerticalScrollbar", root);
+            var track = barRoot.gameObject.AddComponent<UnityEngine.UI.Image>();
+            track.color = C("292929"); track.raycastTarget = true;
+            var bar = barRoot.gameObject.AddComponent<UnityEngine.UI.Scrollbar>();
+            var slidingArea = Rect("SlidingArea", barRoot); Fill(slidingArea);
+            slidingArea.offsetMin = Vector2.one; slidingArea.offsetMax = -Vector2.one;
+            var handle = Box("Handle", slidingArea, 0, 0, 0, 0, C("BFA286")); Fill(handle.rectTransform);
+            handle.raycastTarget = true;
+            bar.handleRect = handle.rectTransform; bar.targetGraphic = handle;
+            bar.direction = UnityEngine.UI.Scrollbar.Direction.BottomToTop;
+        }
+        barRoot.anchorMin = new Vector2(1, 0); barRoot.anchorMax = Vector2.one;
+        barRoot.pivot = Vector2.one; barRoot.sizeDelta = new Vector2(10, 0); barRoot.anchoredPosition = Vector2.zero;
+        scroll.verticalScrollbar = barRoot.GetComponent<UnityEngine.UI.Scrollbar>();
+        scroll.verticalScrollbarVisibility = UnityEngine.UI.ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+        scroll.verticalScrollbarSpacing = 8;
+        scroll.horizontal = false; scroll.vertical = true;
+        scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
+        foreach (var component in root.GetComponentsInChildren<Component>(true)) if (component) EditorUtility.SetDirty(component);
+        EditorUtility.SetDirty(caption); if (localized) EditorUtility.SetDirty(localized);
+    }
+
     public static void Validate(Scene scene) {
         var owner=scene.GetRootGameObjects().SelectMany(root=>root.GetComponentsInChildren<CompleteLobbyController>(true)).Single();
         var shop=owner.shop;
@@ -218,6 +269,9 @@ public static class ShopUiBaker {
         foreach(var text in shop.GetComponentsInChildren<TMP_Text>(true))
             if((text.fontStyle&FontStyles.Bold)!=0||text.fontWeight!=FontWeight.Regular)throw new InvalidOperationException("商店中文文本字重须为正常。");
         if(!shop.goodsScroll.viewport.GetComponent<UnityEngine.UI.Mask>()||!shop.historyScroll.viewport.GetComponent<UnityEngine.UI.Mask>())throw new InvalidOperationException("商店滚动区域缺少遮罩。");
+        if (!shop.descriptionScroll.verticalScrollbar || shop.descriptionScroll.verticalScrollbarVisibility != UnityEngine.UI.ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport
+            || shop.descriptionScroll.content != shop.detailDescription.rectTransform || shop.detailDescription.transform.parent != shop.descriptionScroll.viewport)
+            throw new InvalidOperationException("商店描述须使用自动隐藏的右侧滚动条。");
     }
 
     static void FitTextHeights(System.Collections.Generic.IEnumerable<TMP_Text> texts) {

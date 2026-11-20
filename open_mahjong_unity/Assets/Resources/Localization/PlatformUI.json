@@ -1,5 +1,39 @@
 {
   "entries": [
+    {"key": "换三张", "zh": "换三张", "tw": "換三張", "en": "Exchange three tiles"},
+    {"key": "留空自动生成", "zh": "留空自动生成", "tw": "留空自動產生", "en": "Leave blank to generate automatically"},
+    {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "zh": "按随机种子生成两室相同牌山，不创建复式密钥。", "tw": "按隨機種子為兩室產生相同牌山，不建立複式密鑰。", "en": "Both rooms use the same wall generated from the seed. No duplicate key is created."},
+    {"key": "使用对应类型的复式密钥，副数跟随密钥。", "zh": "使用对应类型的复式密钥，副数跟随密钥。", "tw": "使用對應類型的複式密鑰，副數依密鑰而定。", "en": "Use a duplicate key of the selected type. The key determines the number of deals."},
+    {"key": "广东麻将（推广）2V2 双打", "zh": "广东麻将（推广）2V2 双打", "tw": "廣東麻將（推廣）2V2 雙打", "en": "Guangdong Mahjong · 2v2 Doubles"},
+    {"key": "血战到底·换三张", "zh": "血战到底·换三张", "tw": "血戰到底·換三張", "en": "Bloody Battle with Three-Tile Exchange"},
+    {"key": "牌谱不可用", "zh": "牌谱不可用", "tw": "牌譜無法使用", "en": "Replay unavailable"},
+    {"key": "上饶麻将（飞宝）", "zh": "上饶麻将（飞宝）", "tw": "上饒麻將（飛寶）", "en": "Shangrao Mahjong (Flying Treasure)"},
+    {"key": "贵州麻将（MIL）", "zh": "贵州麻将（MIL）", "tw": "貴州麻將（MIL）", "en": "Guizhou Mahjong (MIL)"},
+    {"key": "广东麻将（MIL 2023，花鬼）", "zh": "广东麻将（MIL 2023，花鬼）", "tw": "廣東麻將（MIL 2023，花鬼）", "en": "Guangdong Mahjong (MIL 2023, flower jokers)"},
+    {"key": "新加坡 · SPGG 2024", "zh": "新加坡 · SPGG 2024", "tw": "新加坡麻將（SPGG 2024）", "en": "Singapore (SPGG2024)"},
+    {"key": "MIL 杭州（2025）", "zh": "MIL 杭州（2025）", "tw": "杭州麻將（MIL 2025）", "en": "Hangzhou (MIL2025)"},
+    {"key": "夺彩麻将 · 国标", "zh": "夺彩麻将 · 国标", "tw": "奪彩麻將·國標", "en": "Duocai · MCR"},
+    {"key": "夺彩麻将 · 立直", "zh": "夺彩麻将 · 立直", "tw": "奪彩麻將·立直", "en": "Duocai · Riichi"},
+    {"key": "阅览状态", "zh": "阅览状态", "tw": "閱覽狀態", "en": "Replay status"},
+    {"key": "切换到同牌山位置", "zh": "切换到同牌山位置", "tw": "切換到同牌山位置", "en": "Align wall position"},
+    {"key": "独立阅览进度", "zh": "独立阅览进度", "tw": "獨立閱覽進度", "en": "Independent progress"},
+    {"key": "摸牌后", "zh": "摸牌后", "tw": "摸牌後", "en": "After draw"},
+    {"key": "摸牌前", "zh": "摸牌前", "tw": "摸牌前", "en": "Before draw"},
+    {"key": "前往开室", "zh": "前往开室", "tw": "前往開室", "en": "Open room"},
+    {"key": "前往闭室", "zh": "前往闭室", "tw": "前往閉室", "en": "Closed room"},
+    {"key": "规则设置", "zh": "规则设置", "tw": "規則設定", "en": "Rule settings"},
+    {"key": "玩家 ID", "zh": "玩家 ID", "tw": "玩家 ID", "en": "Player IDs"},
+    {"key": "牌山与校验信息", "zh": "牌山与校验信息", "tw": "牌山與校驗資訊", "en": "Wall and verification"},
+    {"key": "复制完整信息", "zh": "复制完整信息", "tw": "複製完整資訊", "en": "Copy full details"},
+    {"key": "个人 IMP · 全场同座位比较", "zh": "个人 IMP · 全场同座位比较", "tw": "個人 IMP · 全場同座位比較", "en": "Personal IMP · same-seat comparison for the full match"},
+    {"key": "训练牌山", "zh": "训练牌山", "tw": "訓練牌山", "en": "Training wall"},
+    {"key": "记录冲突", "zh": "记录冲突", "tw": "紀錄衝突", "en": "Conflicting records"},
+    {"key": "未记录", "zh": "未记录", "tw": "未記錄", "en": "Not recorded"},
+    {"key": "当前视角尚无可验证的摸牌位置", "zh": "当前视角尚无可验证的摸牌位置", "tw": "目前視角尚無可驗證的摸牌位置", "en": "No verified draw position for this player yet"},
+
+    { "key": "经典刻纹", "zh": "经典刻纹", "tw": "經典刻紋", "en": "Classic relief" },
+    { "key": "樱花浮雕", "zh": "樱花浮雕", "tw": "櫻花浮雕", "en": "Sakura relief" },
+    { "key": "和风波纹", "zh": "和风波纹", "tw": "和風波紋", "en": "Wave relief" },
     {
       "key": "邀请好友",
       "zh": "邀请好友",
@@ -10583,6 +10617,18 @@
       "zh": "川麻（血流弃三张）",
       "tw": "川麻（血流棄三張）",
       "en": "Sichuan (discard 3)"
+    },
+    {
+      "key": "川麻（血战到底·换三张）",
+      "zh": "川麻（血战到底·换三张）",
+      "tw": "川麻（血戰到底·換三張）",
+      "en": "Sichuan Battle (exchange 3)"
+    },
+    {
+      "key": "血战到底·换三张",
+      "zh": "血战到底·换三张",
+      "tw": "血戰到底·換三張",
+      "en": "Bloody Battle with Three-Tile Exchange"
     },
     {
       "key": "川麻（血流换三张）",
@@ -36188,9 +36234,9 @@
     },
     {
       "key": "双环铜钱",
-      "zh": "双环铜钱",
-      "tw": "雙環銅錢",
-      "en": "Double rim"
+      "zh": "铸金素面",
+      "tw": "鑄金素面",
+      "en": "Plain gold"
     },
     {
       "key": "平涂方孔",

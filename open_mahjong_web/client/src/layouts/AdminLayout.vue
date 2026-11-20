@@ -65,6 +65,8 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 const menuItems = [
   { index: '/admin', label: '仪表盘' },
   { index: '/admin/users', label: '用户' },
+  { index: '/admin/account-bans', label: '账号封禁名单' },
+  { index: '/admin/chat-history', label: '聊天记录' },
   { index: '/admin/titles', label: '头衔' },
   { index: '/admin/inventory', label: '物品' },
   { index: '/admin/shop', label: '商店' },
@@ -74,6 +76,7 @@ const menuItems = [
   { index: '/admin/tile-content', label: '牌面审核' },
   { index: '/admin/rank', label: '段位' },
   { index: '/admin/games', label: '对局记录' },
+  { index: '/admin/anti-cheat', label: '反作弊数据中心' },
   { index: '/admin/room-control', label: '房间管理' },
   { index: '/admin/game-control', label: '对局管理' },
   { index: '/admin/audit', label: '审计' },

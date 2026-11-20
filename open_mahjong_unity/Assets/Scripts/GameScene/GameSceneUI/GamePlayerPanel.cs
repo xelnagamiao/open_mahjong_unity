@@ -43,6 +43,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
     public RecordPlayerWaits RecordWaits => recordWaits;
     private PlayerInfo titlePlayerInfo;
     private string titleDisplayState;
+    private string playerDisplayPosition;
     private bool titleTypographyCaptured, originalTitleAutoSize;
     private float originalTitleSize, originalTitleMinimum, originalTitleMaximum, originalTitleWidth;
     private Vector2 originalTitleSizeDelta;
@@ -53,7 +54,9 @@ public partial class GamePlayerPanel : MonoBehaviour {
         GameSettings.TitleChanged += RefreshTitle;
         GameSettings.AppearanceChanged += RefreshAppearance;
         ConfigManager.OnLanguageChanged += RefreshLocalizedTitle;
+        StreamerModeHelper.OnChanged += RefreshPlayerName;
         RefreshTitle(0, 1);
+        RefreshPlayerName();
     }
 
     private void RefreshLocalizedTitle() => RefreshTitle(-1, 0);
@@ -164,6 +167,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
         GameSettings.TitleChanged -= RefreshTitle;
         GameSettings.AppearanceChanged -= RefreshAppearance;
         ConfigManager.OnLanguageChanged -= RefreshLocalizedTitle;
+        StreamerModeHelper.OnChanged -= RefreshPlayerName;
         ClearSticker();
         HideActionMenu();
     }
@@ -241,24 +245,31 @@ public partial class GamePlayerPanel : MonoBehaviour {
         label.color = Color.white;
     }
 
+    /// <summary>匿名设置只刷新昵称，保留队色、玩家变量与当前操作状态。</summary>
+    public void RefreshPlayerName() {
+        if (titlePlayerInfo == null || playerNameText == null) return;
+        if (titleDisplayState == "gamestate") {
+            playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
+                titlePlayerInfo.username, playerDisplayPosition, titlePlayerInfo.user_id);
+        } else if (titleDisplayState == "record" && RecordSetting.Instance != null && RecordSetting.Instance.IsAnonymousPlayers) {
+            // 牌谱匿名玩家：按 original_player_index（0=东 1=南 2=西 3=北）显示"X起玩家"
+            playerNameText.text = RecordSetting.GetAnonymousPlayerName(titlePlayerInfo.original_player_index);
+        } else {
+            playerNameText.text = titlePlayerInfo.username;
+        }
+    }
+
     public void SetPlayerInfo(PlayerInfo playerInfo, string state, string position = null) {
         ResetPlayerVariables();
         SetSichuanTeam(-1);
         if (state != "record") recordWaits?.Hide();
         duplicateOriginalPlayerIndex = state == "gamestate" ? playerInfo.original_player_index : -1;
         RefreshDuplicateRemainingTiles();
-        if (state == "gamestate") {
-            playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
-                playerInfo.username, position, playerInfo.user_id);
-        } else if (state == "record" && RecordSetting.Instance != null && RecordSetting.Instance.IsAnonymousPlayers) {
-            // 牌谱匿名玩家：按 original_player_index（0=东 1=南 2=西 3=北）显示"X起玩家"
-            playerNameText.text = RecordSetting.GetAnonymousPlayerName(playerInfo.original_player_index);
-        } else {
-            playerNameText.text = playerInfo.username;
-        }
-        // 设置头衔
         titlePlayerInfo = playerInfo;
         titleDisplayState = state;
+        playerDisplayPosition = position;
+        RefreshPlayerName();
+        // 设置头衔
         RefreshTitle(0, 1);
 
         if (playerProfilePicture != null) {
@@ -305,6 +316,8 @@ public partial class GamePlayerPanel : MonoBehaviour {
             }
             int langyongCount = -1;
             foreach(var item in tag_list) {
+                if (item == "gd_chicken" || item == "gd_non_chicken")
+                    SetPlayerVariable(VariableDeclaredReady, item == "gd_chicken" ? "鸡和" : "非鸡和");
                 if (item == "declared_ready") SetPlayerVariable(VariableDeclaredReady,
                     roomRule == "shanghai" ? (System.Array.IndexOf(tag_list, "tian_qiao") >= 0 ? "已天敲" : "已敲牌") : "已报听");
                 if (item == "offline") {

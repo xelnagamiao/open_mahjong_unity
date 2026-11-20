@@ -1,7 +1,7 @@
 /** Sichuan family and ordinary continuous-win replay state helpers. */
 export function sichuanDoublesSummary(detail) {
   const title = detail?.record?.game_title || {}
-  if (!['sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(title.sub_rule)) return null
+  if (!['guangdong/mil2023-doubles', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(title.sub_rule)) return null
   const teams = title.team_by_player_index
   if (!Array.isArray(teams) || teams.length !== 4 || teams.filter(t => t === 0).length !== 2 || teams.filter(t => t === 1).length !== 2) return null
   return {

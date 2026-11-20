@@ -671,6 +671,7 @@ public partial class NetworkManager : MonoBehaviour {
         try{
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
             Response response = ChangshaExchangeSixResponse.Decode(jsonStr);
+            if (HandleMatchSpectatorMessage(jsonStr, response.type)) return;
             // Login responses contain the chat credential; do not persist it in logs.
             if (response.type == "login") Debug.Log($"收到登录响应: success={response.success}");
             else if (response.type != "pong") Debug.Log($"收到服务器消息: {jsonStr}");

@@ -15,7 +15,7 @@ from ..public.ai.smart_bot_logic import find_best_cut, count_visible_tiles
 from ...game_calculation.riichi.rule_config import preset_room_config
 
 
-@pytest.mark.parametrize('preset,langyong', [('majsoul',False),('tenhou',False),('jpml_a',False),('mleague',False),('majsoul',True)])
+@pytest.mark.parametrize('preset,langyong', [('majsoul',False),('tenhou',False),('jpml_a',False),('mleague',False),('mil',False),('majsoul',True)])
 def test_complete_matches_keep_physical_tiles_scores_and_record_config(preset,langyong,caplog):
     async def run():
         g=game(preset)
@@ -68,6 +68,8 @@ def test_complete_matches_keep_physical_tiles_scores_and_record_config(preset,la
                 assert set(Counter(map(_normalize,all_tiles)).values())=={4}
             assert sum(p.score for p in g.player_list)+g.riichi_sticks*1000==g._starting_score()*4
             assert g.round_index<30, 'match failed to terminate'
+            if preset == 'mil':
+                assert g.honba == 0
         g.wait_action=automated_wait
         with patch('server.gamestate.game_riichi.RiichiGameState.asyncio.sleep',instant_sleep), \
              patch('server.gamestate.game_riichi.RiichiGameState.run_synced_hu_ready_phase',new=AsyncMock()), \
@@ -77,6 +79,8 @@ def test_complete_matches_keep_physical_tiles_scores_and_record_config(preset,la
         assert all(r['action_ticks'][-1]==['end'] for r in g.game_record['game_round'].values())
         assert actions['cut']>30
         assert g._riichi_finalized
+        if preset == 'mil':
+            assert all(r['riichi']['honba'] == 0 for r in g.game_record['game_round'].values())
         assert all(hasattr(p,'riichi_points') for p in g.player_list)
         assert not any('失败' in r.message or 'ERROR'==r.levelname for r in caplog.records)
     asyncio.run(run())

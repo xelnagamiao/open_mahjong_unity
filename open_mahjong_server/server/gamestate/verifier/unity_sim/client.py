@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from math import isfinite
+from time import monotonic
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .labels import WINDS, build_action_buttons, display_text
@@ -185,8 +187,14 @@ class UnitySim:
         self.opening = {"three_tiles": False, "exchange": False, "dingque": False, "seconds": 0}
         self.last_xueliu_win_tick = 0
         self.snapshot_action_tick = 0
+        self.retained_claim_tick = -1
+        self.retained_claim_deadline = None
 
     def snapshot(self) -> Dict[str, Any]:
+        if self.retained_claim_deadline is not None:
+            seconds = max(0, self.retained_claim_deadline - monotonic())
+            self.timer = {"remaining_time": seconds, "step_remaining": 0, "total_seconds": seconds,
+                          "running": seconds > 0, "waiting_draw": seconds == 0}
         return {
             "NetworkManagerSim": deepcopy(self.network),
             "GsmSim": deepcopy(self.gsm),
@@ -304,6 +312,11 @@ class UnitySim:
         self.gsm["subRule"] = info.get("sub_rule") or ""
         self.gsm["stepTime"] = _as_int(info.get("step_time"), 0)
         self.snapshot_action_tick = _as_int(info.get("action_tick"), 0)
+        self.gsm["isDuplicate"] = bool(info.get("is_duplicate"))
+        self.gsm["LastAskActionTick"] = self.snapshot_action_tick if self.gsm["isDuplicate"] else 0
+        self.retained_claim_tick = -1
+        self.retained_claim_deadline = None
+        self.timer = {"remaining_time": 0, "running": False}
         self.last_xueliu_win_tick = 0
         self.opening = {"three_tiles": False, "exchange": False, "dingque": False, "seconds": 0}
         self.gsm["gamestateId"] = info.get("gamestate_id")
@@ -340,6 +353,8 @@ class UnitySim:
                     "post_hu_lock": bool(player.get("post_hu_lock", False)),
                 }
             )
+            if self.gsm["subRule"] == "guangdong/mil2023-doubles":
+                self.game3d[pos]["win_marker"] = _as_int(player.get("blood_hu_tile")) if dest["is_hu"] else None
             if pos == "self":
                 self.gsm["selfHandTiles"] = list(hand)
                 dest["hand_tiles_count"] = len(self.gsm["selfHandTiles"])
@@ -350,7 +365,11 @@ class UnitySim:
 
     def _handle_ask_hand(self, message: Dict[str, Any]) -> None:
         info = message.get("ask_hand_action_info") or {}
-        self.gsm["LastAskActionTick"] = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+        tick = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+        if self.retained_claim_tick >= 0 and tick < self.gsm["LastAskActionTick"]:
+            return
+        self._close_retained_claim(self.gsm["LastAskActionTick"])
+        self.gsm["LastAskActionTick"] = tick
         self.gsm["remainTiles"] = _as_int(info.get("remain_tiles"), self.gsm["remainTiles"])
         player_index = _as_int(info.get("player_index"), 0)
         pos = self.pos_of(player_index)
@@ -394,9 +413,30 @@ class UnitySim:
 
     def _handle_ask_other(self, message: Dict[str, Any]) -> None:
         info = message.get("ask_other_action_info") or {}
-        self.gsm["LastAskActionTick"] = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+        tick = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+        mode = info.get("claim_wait_mode")
+        retained = (self.gsm.get("isDuplicate") and self.gsm.get("subRule") in
+                    {"sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"}
+                    and not info.get("is_tactical_recheck") and mode in {"real_time", "waiting_draw"})
+        if (retained or self.retained_claim_tick >= 0) and tick < self.gsm["LastAskActionTick"]:
+            return
         actions = [str(item) for item in _as_list(info.get("action_list"))]
-        remaining = _as_int(info.get("remaining_time"), 0)
+        if retained and not actions:
+            self.gsm["LastAskActionTick"] = tick
+            self._close_retained_claim(tick, explicit_close=True)
+            return
+        if retained:
+            if tick == self.retained_claim_tick and self.retained_claim_deadline is None:
+                return
+            seconds = float(info.get("claim_seconds_remaining") or 0)
+            duration = max(0, seconds) if mode == "real_time" and isfinite(seconds) else 0
+            deadline = monotonic() + duration
+            if tick == self.retained_claim_tick:
+                deadline = min(deadline, self.retained_claim_deadline)
+            self.retained_claim_tick, self.retained_claim_deadline = tick, deadline
+        else:
+            self._close_retained_claim(self.gsm["LastAskActionTick"])
+        self.gsm["LastAskActionTick"] = tick
         cut_tile = _as_int(info.get("cut_tile"), 0)
         self.gsm["currentAskCutTileId"] = cut_tile
         self.gsm["chiCandidates"] = info.get("chi_candidates") or {}
@@ -405,13 +445,26 @@ class UnitySim:
         if allow:
             self.gsm["IsSelfActionRequired"] = True
             self._set_buttons(allow, kind="other")
-            self._begin_timer(info)
+            if not retained:
+                self._begin_timer(info)
             self.game3d["claim_glow"] = {"tile": cut_tile, "on": True}
         else:
             self.gsm["IsSelfActionRequired"] = False
             self._clear_buttons()
         self.network["last_ask"] = {"kind": "other", "actions": actions, "cut_tile": cut_tile}
         self._sync_views()
+
+    def _close_retained_claim(self, tick: int, *, explicit_close: bool = False) -> None:
+        if self.retained_claim_deadline is None and not explicit_close:
+            return
+        if self.retained_claim_tick >= 0:
+            self.retained_claim_tick = max(tick, self.retained_claim_tick)
+        self.retained_claim_deadline = None
+        self.gsm["IsSelfActionRequired"] = False
+        self.gsm["allowActionList"] = []
+        self.gsm["currentAskCutTileId"] = 0
+        self.timer = {"remaining_time": 0, "running": False}
+        self._clear_buttons()
 
     def _remove_one(self, seq: List[int], tile: int) -> None:
         if tile in seq:
@@ -426,6 +479,13 @@ class UnitySim:
 
     def _handle_do_action(self, message: Dict[str, Any]) -> None:
         info = message.get("do_action_info") or {}
+        tick = _as_int(info.get("action_tick"))
+        if self.gsm["roomRule"] == "sichuan" and not info.get("is_claim") and 0 < tick <= self.snapshot_action_tick:
+            return
+        if self.retained_claim_deadline is not None:
+            tick = max(self.gsm["LastAskActionTick"], tick)
+            self._close_retained_claim(tick)
+            self.gsm["LastAskActionTick"] = tick
         actions = [str(item) for item in _as_list(info.get("action_list"))]
         actor = _as_int(info.get("action_player"), 0)
         pos = self.pos_of(actor)
@@ -553,6 +613,7 @@ class UnitySim:
             tick = _as_int(info.get("action_tick"), 0)
             if tick > 0 and tick <= max(self.snapshot_action_tick, self.last_xueliu_win_tick): return
             self.last_xueliu_win_tick = tick
+        self._close_retained_claim(self.gsm["LastAskActionTick"])
         hidden_mid = bool(info.get("defer_score_settlement")) or info.get("blood_battle_step") == "mid_win"
         reveal = (info.get("liuju_step") or info.get("blood_battle_step")) == "reveal_hu"
         self.end_result = {
@@ -581,6 +642,10 @@ class UnitySim:
                 player["huapai_list"].append(tile)
             else:
                 player["is_hu"] = True
+                if info.get("guangdong_chicken") is not None:
+                    tag = "gd_chicken" if info["guangdong_chicken"] else "gd_non_chicken"
+                    if tag not in player["tag_list"]:
+                        player["tag_list"].append(tag)
                 self.game3d[pos]["win_marker"] = tile
                 self.gsm["IsSelfActionRequired"] = False
                 self.gsm["allowActionList"] = []
@@ -594,6 +659,14 @@ class UnitySim:
         self._clear_buttons()
         self._sync_views()
 
+    def _handle_guangdong_ruling(self, message):
+        info = message.get("refresh_player_tag_list_info") or {}
+        for seat, tags in (info.get("player_to_tag_list") or {}).items():
+            self._seat_info(self.pos_of(int(seat)))["tag_list"] = list(tags)
+        for seat, score in (info.get("player_to_score") or {}).items():
+            self._seat_info(self.pos_of(int(seat)))["score"] = int(score)
+        self._sync_views()
+
     def _is_xueliu(self):
         return self.gsm.get("subRule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}
 
@@ -601,6 +674,8 @@ class UnitySim:
         remaining = _as_int(info.get("remaining_time"), 0)
         step = _as_int(info.get("step_remaining"), self.gsm.get("stepTime", 0))
         if step < 0: step = self.gsm.get("stepTime", 0)
+        if info.get("is_tactical_recheck"):
+            step = 0
         self.timer = {"remaining_time": remaining, "step_remaining": max(0, step),
                       "total_seconds": remaining + max(0, step), "running": True}
 
@@ -654,6 +729,7 @@ class UnitySim:
         self.vote = {"active": True, "payload": message.get("vote_info") or message}
 
     def _handle_game_end(self, _message: Dict[str, Any]) -> None:
+        self._close_retained_claim(self.gsm["LastAskActionTick"])
         self.gsm["IsSelfActionRequired"] = False
         self._clear_buttons()
 
@@ -675,6 +751,8 @@ def apply_message(sim: UnitySim, message: Dict[str, Any]) -> Dict[str, Any]:
         sim._handle_do_action(payload)
     elif suffix == "show_result":
         sim._handle_show_result(payload)
+    elif rule == "guangdong" and suffix == "adjudication":
+        sim._handle_guangdong_ruling(payload)
     elif suffix == "ready_status":
         sim._handle_ready(payload)
     elif suffix == "xueliu_continue":

@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="loading" class="emp">
+  <div ref="panelRoot" v-loading="loading" class="emp">
     <header class="emp-head">
       <div class="emp-head-main">
         <h2 class="emp-name">{{ detail?.name || '加载中…' }}</h2>
@@ -36,11 +36,11 @@
             type="primary"
             @click="openEvent"
           >{{ isBase ? '开启基地' : '开始赛事' }}</el-button>
-          <el-button
-            v-if="detail.status === 'active'"
-            type="warning"
-            @click="closeEvent"
-          >{{ isBase ? '关闭基地' : '关闭赛事' }}</el-button>
+          <el-tooltip :disabled="detail.status === 'active'" :content="detail.status === 'closed' ? `${venueNoun}已关闭` : `仅已开启的${venueNoun}可以关闭`" placement="top">
+            <span>
+              <el-button type="danger" plain :disabled="detail.status !== 'active'" @click="closeEvent">{{ isBase ? '关闭基地' : '关闭赛事' }}</el-button>
+            </span>
+          </el-tooltip>
           <el-button
             v-if="detail.status === 'closed' && !detail.reopen_requested"
             type="primary"
@@ -63,105 +63,6 @@
       </section>
 
       <el-tabs v-model="activeTab" class="emp-tabs">
-        <el-tab-pane v-if="isOwner" :label="isBase ? '基地资料' : '赛事资料'" name="profile">
-          <VenueProfileEditor :key="`${detail.event_id}-${profileRevision}`" :event-id="detail.event_id" :kind="detail.kind" @updated="emit('updated')" />
-        </el-tab-pane>
-
-        <el-tab-pane :label="isBase ? '基地公告' : '比赛公告'" name="announcements">
-          <div class="emp-tab-bar">
-            <el-button v-if="!announceEditorOpen" type="primary" @click="announceEditorOpen = true">发布公告</el-button>
-            <el-button text type="primary" :loading="loadingAnnouncements" :disabled="publishingAnnounce" @click="loadAnnouncements">刷新</el-button>
-          </div>
-          <el-alert v-if="announceEditorOpen" type="info" :closable="false" show-icon class="emp-alert emp-announce-tip">
-            <template #title>{{ isBase ? '发布基地公告说明' : '发布比赛公告说明' }}</template>
-            <p class="tip-lead">
-              {{ isBase
-                ? '可用于活动通知、规则变更、精彩片段、排名或违规公示。平台对此不做严格规定。'
-                : '您在包括且不限于以下情形时都可以发布比赛公告，并且您应该在1、4条所属情形发生时发布比赛公告，本平台对此不做严格规定。' }}
-            </p>
-            <ol v-if="!isBase" class="tip-list">
-              <li>赛事规则的最新变更或者活动通知</li>
-              <li>传达赛事中出现的精彩片段</li>
-              <li>发布比赛的中途对阵情况，帮助玩家更好的观看享受比赛</li>
-              <li>公布比赛中途或最终的排名以及奖励获得者</li>
-              <li>对比赛中的违规行为进行公布</li>
-            </ol>
-          </el-alert>
-          <el-form v-if="announceEditorOpen" :disabled="publishingAnnounce" label-position="top" class="emp-profile-form" @submit.prevent="publishAnnouncement">
-            <el-form-item label="标题">
-              <el-input v-model="announceForm.title" maxlength="200" show-word-limit />
-            </el-form-item>
-            <el-form-item label="内容">
-              <el-input
-                v-model="announceForm.body"
-                type="textarea"
-                :rows="5"
-                maxlength="10000"
-                show-word-limit
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="publishingAnnounce" @click="publishAnnouncement">
-                发布公告
-              </el-button>
-              <el-button @click="announceEditorOpen = false">取消</el-button>
-            </el-form-item>
-          </el-form>
-          <el-table
-            :data="announcements"
-            size="small"
-            v-loading="loadingAnnouncements"
-            empty-text="暂无公告"
-          >
-            <el-table-column prop="title" label="标题" min-width="140" />
-            <el-table-column label="内容" min-width="200" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.body }}</template>
-            </el-table-column>
-            <el-table-column label="作者" width="110">
-              <template #default="{ row }">{{ row.author_username || row.created_by }}</template>
-            </el-table-column>
-            <el-table-column label="时间" min-width="150">
-              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="90">
-              <template #default="{ row }">
-                <el-button
-                  v-if="canDeleteAnnouncement(row)"
-                  link
-                  type="danger"
-                  @click="deleteAnnouncement(row)"
-                >删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
-        <el-tab-pane v-if="isOwner" label="子管理员" name="admins">
-          <div class="emp-tab-bar">
-            <el-form inline class="emp-form" @submit.prevent="addAdmin">
-              <el-form-item label="用户 ID">
-                <el-input v-model="adminForm.user_id" clearable style="width: 140px" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="savingAdmin" @click="addAdmin">添加子管理员</el-button>
-              </el-form-item>
-            </el-form>
-            <span class="emp-count">{{ adminList.length }} / 10</span>
-          </div>
-          <el-table :data="adminList" size="small" :empty-text="`暂无${venueNoun}子管理员`">
-            <el-table-column prop="username" label="用户名" min-width="120" />
-            <el-table-column prop="user_id" label="用户 ID" width="120" />
-            <el-table-column label="添加时间" min-width="150">
-              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="90">
-              <template #default="{ row }">
-                <el-button link type="danger" @click="removeAdmin(row)">移除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
         <el-tab-pane label="房间" name="rooms">
           <el-alert
             v-if="detail.status !== 'active'"
@@ -584,6 +485,104 @@
             </div>
           </div>
         </el-tab-pane>
+        <el-tab-pane :label="isBase ? '基地公告' : '比赛公告'" name="announcements">
+          <div class="emp-tab-bar">
+            <el-button v-if="!announceEditorOpen" type="primary" @click="announceEditorOpen = true">发布公告</el-button>
+            <el-button text type="primary" :loading="loadingAnnouncements" :disabled="publishingAnnounce" @click="loadAnnouncements">刷新</el-button>
+          </div>
+          <el-alert v-if="announceEditorOpen" type="info" :closable="false" show-icon class="emp-alert emp-announce-tip">
+            <template #title>{{ isBase ? '发布基地公告说明' : '发布比赛公告说明' }}</template>
+            <p class="tip-lead">
+              {{ isBase
+                ? '可用于活动通知、规则变更、精彩片段、排名或违规公示。平台对此不做严格规定。'
+                : '您在包括且不限于以下情形时都可以发布比赛公告，并且您应该在1、4条所属情形发生时发布比赛公告，本平台对此不做严格规定。' }}
+            </p>
+            <ol v-if="!isBase" class="tip-list">
+              <li>赛事规则的最新变更或者活动通知</li>
+              <li>传达赛事中出现的精彩片段</li>
+              <li>发布比赛的中途对阵情况，帮助玩家更好的观看享受比赛</li>
+              <li>公布比赛中途或最终的排名以及奖励获得者</li>
+              <li>对比赛中的违规行为进行公布</li>
+            </ol>
+          </el-alert>
+          <el-form v-if="announceEditorOpen" :disabled="publishingAnnounce" label-position="top" class="emp-profile-form" @submit.prevent="publishAnnouncement">
+            <el-form-item label="标题">
+              <el-input v-model="announceForm.title" maxlength="200" show-word-limit />
+            </el-form-item>
+            <el-form-item label="内容">
+              <el-input
+                v-model="announceForm.body"
+                type="textarea"
+                :rows="5"
+                maxlength="10000"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="publishingAnnounce" @click="publishAnnouncement">
+                发布公告
+              </el-button>
+              <el-button @click="announceEditorOpen = false">取消</el-button>
+            </el-form-item>
+          </el-form>
+          <el-table
+            :data="announcements"
+            size="small"
+            v-loading="loadingAnnouncements"
+            empty-text="暂无公告"
+          >
+            <el-table-column prop="title" label="标题" min-width="140" />
+            <el-table-column label="内容" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.body }}</template>
+            </el-table-column>
+            <el-table-column label="作者" width="110">
+              <template #default="{ row }">{{ row.author_username || row.created_by }}</template>
+            </el-table-column>
+            <el-table-column label="时间" min-width="150">
+              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="90">
+              <template #default="{ row }">
+                <el-button
+                  v-if="canDeleteAnnouncement(row)"
+                  link
+                  type="danger"
+                  @click="deleteAnnouncement(row)"
+                >删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :disabled="!isOwner" label="子管理员" name="admins">
+          <div class="emp-tab-bar">
+            <el-form inline class="emp-form" @submit.prevent="addAdmin">
+              <el-form-item label="用户 ID">
+                <el-input v-model="adminForm.user_id" clearable style="width: 140px" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="savingAdmin" @click="addAdmin">添加子管理员</el-button>
+              </el-form-item>
+            </el-form>
+            <span class="emp-count">{{ adminList.length }} / 10</span>
+          </div>
+          <el-table :data="adminList" size="small" :empty-text="`暂无${venueNoun}子管理员`">
+            <el-table-column prop="username" label="用户名" min-width="120" />
+            <el-table-column prop="user_id" label="用户 ID" width="120" />
+            <el-table-column label="添加时间" min-width="150">
+              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="90">
+              <template #default="{ row }">
+                <el-button link type="danger" @click="removeAdmin(row)">移除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :disabled="!isOwner" :label="isBase ? '基地资料' : '赛事资料'" name="profile">
+          <VenueProfileEditor v-if="isOwner" :key="`${detail.event_id}-${profileRevision}`" :event-id="detail.event_id" :kind="detail.kind" @updated="emit('updated')" />
+        </el-tab-pane>
       </el-tabs>
     </template>
 
@@ -628,7 +627,7 @@
 
 <script setup>
 import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { tr } from '@/i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
@@ -673,6 +672,7 @@ const RULE_LABELS = {
   nanchang: '南昌麻将',
   shangrao: '上饶麻将',
   hongque: '虹雀',
+  new_chinese: '自定义规则',
   beijing: '北京麻将（吃碰提）',
   duocai: '夺彩麻将',
   shanxi: '山西麻将',
@@ -721,6 +721,32 @@ const eventAuth = useEventAdminAuthStore()
 const loading = ref(false)
 const detail = ref(null)
 const activeTab = ref('rooms')
+const panelRoot = ref(null)
+let tabScrollRevision = 0
+
+// A short tab must not shrink the scroll range past the current viewport.
+// Reserve only the missing height, rather than keeping the tallest tab forever.
+function preserveTabViewport() {
+  const content = panelRoot.value?.querySelector('.emp-tabs > .el-tabs__content')
+  if (!content) return
+  let scroller = panelRoot.value.parentElement
+  while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+    scroller = scroller.parentElement
+  }
+  scroller ||= document.scrollingElement
+  if (!scroller) return
+  const top = scroller.scrollTop
+  const bottomSpace = Math.max(0, scroller.scrollHeight - scroller.clientHeight - top)
+  content.style.minHeight = `${Math.max(0, Math.ceil(content.getBoundingClientRect().height - bottomSpace))}px`
+  const revision = ++tabScrollRevision
+  nextTick(() => {
+    if (revision !== tabScrollRevision || !content.isConnected || !scroller.isConnected) return
+    // Restore after Vue changes the panes, including browser scroll anchoring.
+    scroller.scrollTo({ top, left: scroller.scrollLeft, behavior: 'instant' })
+  })
+}
+
+watch(activeTab, preserveTabViewport, { flush: 'sync' })
 const savingAdmin = ref(false)
 const adminForm = reactive({ user_id: '' })
 
@@ -1526,8 +1552,7 @@ async function load() {
   try {
     const res = await eventAdminApi.get(`/events/${props.eventId}`)
     detail.value = res.data.data
-    activeTab.value = isOwner.value ? 'profile' : 'announcements'
-    if (detail.value?.status === 'active') activeTab.value = 'rooms'
+    activeTab.value = 'rooms'
     await Promise.all([
       loadRooms(),
       loadEventTotals(),
@@ -1741,6 +1766,8 @@ async function restartPair(row) {
 watch(
   () => props.eventId,
   () => {
+    tabScrollRevision += 1
+    panelRoot.value?.querySelector('.emp-tabs > .el-tabs__content')?.style.removeProperty('min-height')
     roomSettingsDoc.value = { revision: 0, manual: {}, auto_match: { enabled: false }, presets: [] }
     roomSettingsLoaded.value = false
     roomDialogVisible.value = false

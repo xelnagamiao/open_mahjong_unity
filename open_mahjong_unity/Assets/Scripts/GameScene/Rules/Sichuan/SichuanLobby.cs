@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 internal static class SichuanLobby {
+    public const string SbrExchange = "sichuan/xuezhan_exchange";
     public const string DoublesSubRule = "sichuan/doubles";
     public const string XueliuDoublesSubRule = "sichuan/xueliu_doubles";
     public const string DoublesDuplicateSubRule = "sichuan/doubles_duplicate";
@@ -16,6 +17,7 @@ internal static class SichuanLobby {
     public static readonly RuleLobbySubRule[] SubRules =
         new RuleLobbySubRule[] {
             new RuleLobbySubRule("sichuan/standard", "四川麻将(血战到底)", "四川麻将（血战到底）"),
+            new RuleLobbySubRule(SbrExchange, "血战到底·换三张", "使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。"),
             new RuleLobbySubRule(
                 "sichuan/xueliu",
                 "血流成河·弃三张",

@@ -45,10 +45,13 @@ def test_missing_or_invalid_evidence_never_falls_back_to_place(db):
 
 @pytest.fixture
 def replay_db(db):
+    from ..records.store import ensure_tables as ensure_match_record_tables
+    from .inventory import ensure_inventory_tables
     from .player_recent_records import ensure_schema
     from .riichi.record_stats import BASE_KEYS
     fields = [key for key in BASE_KEYS if key != 'total_games']
-    db.sql("""ALTER TABLE game_player_records ADD COLUMN match_tier TEXT,
+    db.sql("""ALTER TABLE users ADD COLUMN is_tourist BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE game_player_records ADD COLUMN match_tier TEXT, ADD COLUMN pt_change NUMERIC(12,2),
         ADD COLUMN event_id TEXT, ADD COLUMN title_used INT, ADD COLUMN character_used INT,
         ADD COLUMN profile_used INT, ADD COLUMN voice_used INT, ADD COLUMN avatar_frame_used INT;
         """ + f"""CREATE TABLE game_player_metrics(game_id TEXT,user_id BIGINT,username TEXT,
@@ -56,7 +59,11 @@ def replay_db(db):
         match_type TEXT,score INT,rank INT,{','.join(key+' INT DEFAULT 0' for key in fields)},
         created_at TIMESTAMPTZ DEFAULT NOW(),fan_stats JSONB,PRIMARY KEY(game_id,user_id));""")
     conn = db._get_connection()
-    with conn.cursor() as cur: ensure_schema(cur)
+    with conn.cursor() as cur:
+        cur.execute("DROP TABLE game_records")  # Empty rating-only fixture.
+        ensure_match_record_tables(cur)
+        ensure_schema(cur)
+        ensure_inventory_tables(cur)
     conn.commit(); db._put_connection(conn)
     return db
 

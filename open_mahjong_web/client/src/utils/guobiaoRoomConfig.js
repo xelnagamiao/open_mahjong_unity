@@ -1,4 +1,5 @@
 export const supportsGuobiaoOpeningWins = subRule => ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/sanma', 'guobiao/transparent', 'guobiao/transparent_realtime', 'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(subRule || 'guobiao/standard')
+export const jinluoRequiredSettings = Object.freeze({ hepai_limit: 8, open_cuohe: true, tian_di_ren_he: true })
 
 const defaultHepai = {
   'guobiao/standard': 8, 'guobiao/blood_battle': 8, 'guobiao/sanma': 8, 'guobiao/sixteen': 8, 'guobiao/xiaolin': 1,
@@ -9,9 +10,13 @@ const defaultHepai = {
 /** Apply dependent switches as the user edits, before a configuration can be submitted. */
 export function updateGuobiaoRoomConfig(form, key, value) {
   form[key] = value
+  if (key === 'jinluo_mode' && value) Object.assign(form, jinluoRequiredSettings)
+  const leavingJinluo = (key === 'jinluo_mode' && !value)
+    || (key === 'sub_rule' && form.jinluo_mode && value !== 'guobiao/standard')
+  if (leavingJinluo && form.tips) Object.assign(form, { open_cuohe: false, cuohe_type: 0 })
   if (key === 'tips' && value) {
     if (form.sub_rule === 'guobiao/lanshi') form.tips = false
-    else { form.open_cuohe = false; form.cuohe_type = 0 }
+    else if (!form.jinluo_mode) { form.open_cuohe = false; form.cuohe_type = 0 }
   }
   if (key === 'open_cuohe') {
     if (value) form.tips = false

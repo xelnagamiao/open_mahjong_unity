@@ -11096,6 +11096,7 @@ GameObject:
   - component: {fileID: 1968371549242136277}
   - component: {fileID: 1463152349240513509}
   - component: {fileID: 3421471265228000376}
+  - component: {fileID: 2177116091336380780}
   m_Layer: 0
   m_Name: LobbyEyebrow
   m_TagString: Untagged
@@ -13552,3 +13553,18 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2177116091336380780
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7977871546645685503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

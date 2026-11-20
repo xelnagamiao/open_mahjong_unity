@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>Shared drawing layers for authored UI and runtime-created popups.</summary>
 public static class UiCanvasLayers {
+    public static event System.Action<Canvas> Configured;
     public const string Board = "BoardUI";
     public const string Page = "PageUI";
     public const string Navigation = "NavigationUI";
@@ -43,5 +44,6 @@ public static class UiCanvasLayers {
         // A newly added nested Canvas only accepts overrideSorting while enabled.
         canvas.overrideSorting = independent;
         canvas.sortingOrder = order;
+        Configured?.Invoke(canvas);
     }
 }

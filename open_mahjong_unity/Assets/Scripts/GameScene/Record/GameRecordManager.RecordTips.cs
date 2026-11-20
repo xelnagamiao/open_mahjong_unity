@@ -14,6 +14,13 @@ public partial class GameRecordManager {
         TipsBlock.Instance.HideTipsBlock();
     }
 
+    internal int DuocaiRecordCurrentDrawTile(int playerIndex) {
+        if(RecordRuleManifest?.RuleId!="duocai"||!recordDuocaiHints.TryGetValue(playerIndex,out var cache))return 0;
+        var player=recordPlayerList.FirstOrDefault(p=>p.playerIndex==playerIndex);
+        int tile=cache.CurrentDrawTile;
+        return player?.showHandDrawSlotActive==true&&player.tileList.Count%3==2&&player.tileList.Contains(tile)?tile:0;
+    }
+
     public void RefreshRecordTips() {
         RefreshRecordPlayerWaits();
         if (!ShouldShowRecordTips()) {
@@ -40,6 +47,8 @@ public partial class GameRecordManager {
 
         Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
         HashSet<int> waiting = RecordChongHintCalculator.ComputeWaitingTilesForPlayer(selfPlayer, roomRule, detailedConfig, subRule);
+        int actualDraw=roomRule=="duocai"?DuocaiRecordCurrentDrawTile(selfPlayer.playerIndex):0;
+        if(actualDraw>0)waiting.IntersectWith(new[]{actualDraw});
         if (waiting.Count == 0) {
             HideRecordTips();
             return;
@@ -129,19 +138,28 @@ public partial class GameRecordManager {
                 DetailedConfig = ctx.DetailedConfig, ExcludedSuit = player.dingqueSuit,
                 RecordPlayerIndex = player.playerIndex,
             });
+            bool duocai=roomRule=="duocai";
+            int actualDraw=duocai?DuocaiRecordCurrentDrawTile(player.playerIndex):0;
+            if(actualDraw>0)waiting.IntersectWith(new[]{actualDraw});
             if (waiting.Count == 0) {
                 view.Hide();
                 continue;
             }
             var visible = RecordWaitHintCalculator.CountVisibleTiles(ctx, player.tileList);
+            var displayed=duocai?DuocaiHintPresentation.DisplayTiles(waiting).ToList():waiting.ToList();
             var entries = new List<RecordPlayerWaits.Entry>();
-            foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, hand, waiting.ToList())) {
+            foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, hand, displayed)) {
+                query.WaitingVariants=duocai?DuocaiHintPresentation.Variants(waiting,query.HepaiTile):null;
                 WaitTileHint hint = RuleTips.DescribeWaitingTile(manifest, query);
                 if (GuobiaoGameState.UsesAsyncLocalTips(query.SubRule) && hint == null)
                     yield return FourJokersTips.Resolve(query, result => hint = result);
+                while(duocai&&hint==null) {
+                    yield return null;
+                    hint=RuleTips.DescribeWaitingTile(manifest,query);
+                }
                 entries.Add(new RecordPlayerWaits.Entry {
                     Tile = query.HepaiTile,
-                    Remaining = RecordWaitHintCalculator.Remaining(query.HepaiTile, visible, manifest),
+                    Remaining = (query.WaitingVariants??new[]{query.HepaiTile}).Sum(tile=>RecordWaitHintCalculator.Remaining(tile,visible,manifest)),
                     Hint = hint,
                 });
                 yield return null;
@@ -169,6 +187,7 @@ public partial class GameRecordManager {
         var ctx = new RecordTipsContext {
             RoomRule = roomRule,
             SubRule = subRule,
+            SbrPassedFan = subRule == SichuanLobby.SbrExchange ? SbrExchangeTips.RecordedPassedFan(roundData, selfPlayer.playerIndex, currentNode) : -1,
             HepaiLimit = hepaiLimit,
             JokerMultiWait = ReadGameTitleBool(gameRecord.gameTitle, "joker_multi_wait", false),
             JinluoMode = ReadGameTitleBool(gameRecord.gameTitle, "jinluo_mode", false),
@@ -187,11 +206,19 @@ public partial class GameRecordManager {
             RedDora = !gameRecord.gameTitle.TryGetValue("red_dora", out object redDora)
                 || !bool.TryParse(redDora?.ToString(), out bool redEnabled) || redEnabled,
             ReadyQualification = selfPlayer.readyQualification,
-            DoraIndicators = IsBeijingRecord() && recordBeijingInfo != null ? new List<int> {recordBeijingInfo.indicator} : IsShangraoRecord() ? ShangraoRecordVisibleTiles() : IsFuzhouRecord() ? FuzhouRecordVisibleIndicators() : IsChangchunRecord() ? GetChangchunRecordVisibleIndicators() : IsWenzhouRecord() && recordWenzhouInfo != null ? new List<int> { recordWenzhouInfo.indicator } : new List<int>(recordRiichiDoraIndicators),
+            DoraIndicators = RecordRuleManifest?.RuleId=="duocai" ? new List<int>(recordDuocaiInfo?.indicators??System.Array.Empty<int>()) : IsBeijingRecord() && recordBeijingInfo != null ? new List<int> {recordBeijingInfo.indicator} : IsShangraoRecord() ? ShangraoRecordVisibleTiles() : IsFuzhouRecord() ? FuzhouRecordVisibleIndicators() : IsChangchunRecord() ? GetChangchunRecordVisibleIndicators() : IsWenzhouRecord() && recordWenzhouInfo != null ? new List<int> { recordWenzhouInfo.indicator } : new List<int>(recordRiichiDoraIndicators),
             SelfDingqueSuit = selfPlayer.dingqueSuit,
             DetailedConfig = GetDetailedConfigSnapshot(),
             PlayersByPosition = new Dictionary<string, RecordTipsPlayerVisible>(),
         };
+
+        if (subRule == GuangdongMilRules.Doubles && recordGuangdongState?.ghost_discard_counts?.Length == 4) {
+            int seat = selfPlayer.playerIndex;
+            int partner = (seat + 2) % 4;
+            ctx.GuangdongTeamGhosts = recordGuangdongState.ghost_discard_counts[seat] + recordGuangdongState.ghost_discard_counts[partner];
+            if (indexToPosition.TryGetValue(partner, out var partnerPosition) && recordPlayer_to_info.TryGetValue(partnerPosition, out var teammate))
+                ctx.GuangdongChickenAvailable = !teammate.tagList.Contains("gd_chicken");
+        }
 
         string perspectivePosition = indexToPosition.TryGetValue(selfPlayer.playerIndex, out string position)
             ? position : "self";
@@ -200,6 +227,7 @@ public partial class GameRecordManager {
             // 所有计番器都把 self 当作待计算玩家；其余座位只用于合计桌面可见牌。
             string key = kv.Key == perspectivePosition ? "self" : kv.Key == "self" ? perspectivePosition : kv.Key;
             ctx.PlayersByPosition[key] = new RecordTipsPlayerVisible {
+                HuapaiTiles = kv.Value.huapaiList,
                 DiscardTiles = kv.Value.discardTiles ?? new List<int>(),
                 CombinationTiles = kv.Value.combinationTiles ?? new List<string>(),
                 CombinationMasks = kv.Value.combinationMasks,
@@ -208,7 +236,7 @@ public partial class GameRecordManager {
             };
         }
 
-        if (roomRule == GuobiaoGameState.RuleId && roundData != null)
+        if ((roomRule == GuobiaoGameState.RuleId || subRule == SichuanLobby.SbrExchange) && roundData != null)
             ctx.GuobiaoTiming = BuildGuobiaoRecordTiming(selfPlayer, roundData, ctx);
         return ctx;
     }
@@ -223,14 +251,14 @@ public partial class GameRecordManager {
             if (player.playerIndex == round.dealerIndex) dealerDiscards = player.discardTiles?.Count ?? 0;
         }
         // currentNode 指向下一条 tick；略过纯状态/申请帧，但不能跨过补花、鸣牌或后续摸牌。
-        string lastAction = null;
+        string lastAction = null, precedingAction = null;
         for (int node = System.Math.Min(currentNode, round.actionTicks?.Count ?? 0) - 1; node >= 0; node--) {
             var tick = round.actionTicks[node];
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
             if (action == "ca" || action == "state" || RecordReplay.StateActions.Contains(action)) continue;
-            lastAction = action;
-            break;
+            if (lastAction == null) lastAction = action;
+            else { precedingAction = action; break; }
         }
         bool draw = lastAction == "d" || lastAction == "gd" || lastAction == "bd" || lastAction == "nd";
         bool opening = (currentNode == 0 || lastAction == "reset")
@@ -242,6 +270,21 @@ public partial class GameRecordManager {
         int ronTile = robbing ? lastWinnableTileId
             : waitingForDrawAfterCut && lastAction == "c" && self.playerIndex != lastDiscardPlayerIndex ? lastDiscardTileId : 0;
         bool last = !ReadGameTitleBool(gameRecord.gameTitle, "is_duplicate", false) && ctx.RemainTiles == 0;
+        if (ctx.SubRule == SichuanLobby.SbrExchange) {
+            if (drawTile == 0 && ronTile == 0) return null;
+            bool first = !meld;
+            foreach (var player in recordPlayer_to_info.Values) if (player?.isHu == true) first = false;
+            bool ownDraw = drawTile > 0;
+            ctx.SbrWindow = new SbrExchangeWindow {
+                tile = ownDraw ? drawTile : ronTile, draw = ownDraw, last = last && !robbing,
+                robbing = robbing, kong = ownDraw ? lastAction == "gd" : precedingAction == "gd",
+                heaven = ownDraw && first && opening,
+                earth = first && self.playerIndex != round.dealerIndex && (ownDraw
+                    ? self.discardTiles.Count == 0
+                    : !robbing && lastDiscardPlayerIndex == round.dealerIndex && total == 1)
+            };
+            return null;
+        }
         return GuobiaoHintTiming.Create(ctx.SubRule,
             ReadGameTitleBool(gameRecord.gameTitle, "tian_di_ren_he", false), self.playerIndex, round.dealerIndex,
             self.discardTiles?.Count ?? 0, total, dealerDiscards, meld,

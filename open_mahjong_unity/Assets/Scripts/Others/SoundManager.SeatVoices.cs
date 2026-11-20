@@ -13,10 +13,12 @@ public partial class SoundManager {
         SyncSeatVoicePerspective();
         UpdateSeatVoicePositions();
         UpdateTableSoundVolumes();
+        SampleAudioDiagnostics();
     }
 
     private void OnDisable() {
-        CancelTableAudio();
+        StopAudioPrewarm();
+        CancelTableAudioWithReason("manager-disabled");
     }
 
     private void OnDestroy() {
@@ -49,11 +51,10 @@ public partial class SoundManager {
             && seatVoiceSources.TryGetValue(playerPosition, out AudioSource source) && source != null && source.isPlaying;
     }
 
-    private void PlaySeatVoice(string playerPosition, AudioClip clip, float volume, string voiceKey = null) {
-        if (!isActiveAndEnabled || clip == null) return;
+    private void PlaySeatVoice(string playerPosition, AudioClip clip, float volume, string voiceKey = null, long request = 0) {
+        if (!isActiveAndEnabled || clip == null) { TraceAudio(request, "skip", "voice-inactive-or-missing", null, clip); return; }
         EnsureSeatVoiceSources();
-        // Synchronize before starting a new call as well as in LateUpdate: a perspective switch and
-        // the next replay action can arrive in the same frame. Only the old calls should be stopped.
+        // 只同步新事件的上下文；切视角、切局或重建牌桌都不截断已开始的短语音。
         SyncSeatVoicePerspective();
         if (string.IsNullOrEmpty(playerPosition) || !seatVoiceSources.TryGetValue(playerPosition, out AudioSource source)) {
             playerPosition = "self";
@@ -63,7 +64,7 @@ public partial class SoundManager {
         source.clip = clip;
         UpdateSeatVoicePositions();
         source.volume = OriginalSourceGain * volume;
-        source.PlayOneShot(clip);
+        DiagnosticPlay(request, source, clip, true);
         if (!string.IsNullOrEmpty(voiceKey)) {
             // PlayOneShot 会叠加；后续和牌语音不能覆盖仍在播放的杠语音的完成信息。
             string key = playerPosition + "/" + voiceKey;
@@ -132,6 +133,7 @@ public partial class SoundManager {
         Dictionary<int, string> map = record != null ? record.indexToPosition : context != null ? live.indexToPosition : null;
         int round = record != null ? record.currentRoundIndex : context != null ? TableMirror.Current.CurrentRound : 0;
         bool changed = context != lastVoiceContext || round != lastVoiceRound;
+        string previousSeats = AudioDiagnosticsEnabled ? string.Join(",", lastVoiceSeats) : "";
         // Original player indices are 0..3 (0..2 for sanma). Compare the complete mapping so that
         // live spectator reinitialization, replay rotation, and a move to/from the lobby all work.
         for (int index = 0; index < lastVoiceSeats.Length; index++) {
@@ -140,14 +142,18 @@ public partial class SoundManager {
             if (lastVoiceSeats[index] != seat) changed = true;
             lastVoiceSeats[index] = seat;
         }
-        if (changed) CancelTableAudio();
+        if (changed) {
+            tableAudioVersion++;
+            TraceAudio(0, "table-context-change", "context=" + (context != lastVoiceContext)
+                + "/round=" + lastVoiceRound + "->" + round + "/seats=" + previousSeats + "->" + string.Join(",", lastVoiceSeats));
+        }
         lastVoiceContext = context;
         lastVoiceRound = round;
     }
 
     private void StopSeatVoices() {
         foreach (AudioSource source in seatVoiceSources.Values) {
-            if (source != null) source.Stop();
+            if (source != null) DiagnosticStop(source, "cancel-seat-voices");
         }
         seatVoiceEnds.Clear();
     }

@@ -88,11 +88,11 @@
           <template v-else><el-switch :model-value="isHuahun || (!isLanshi && modelValue.use_flowers !== false)" :disabled="isLanshi || isHuahun" :active-text="panelLayout ? tr('花牌') : ''" :aria-label="tr('花牌')" @update:model-value="patch('use_flowers', $event)" /><span v-if="modelValue.sub_rule === 'guobiao/lanshi'" class="flower-help">{{ tr('固定无花') }}</span></template>
         </el-form-item>
         <el-form-item :label="panelLayout ? undefined : tr('提示')">
-          <el-switch :model-value="!isLanshi && !isJinluo && modelValue.tips" :disabled="isLanshi || isJinluo" :active-text="panelLayout ? tr('提示') : ''" :aria-label="tr('提示')" @update:model-value="patch('tips', $event)" />
+          <el-switch :model-value="!isLanshi && modelValue.tips" :disabled="isLanshi" :active-text="panelLayout ? tr('提示') : ''" :aria-label="tr('提示')" @update:model-value="patch('tips', $event)" />
         </el-form-item>
         <el-form-item v-if="supportsOpeningWins" :label="panelLayout ? undefined : tr('天地人和')">
           <el-tooltip :content="tr('各加计8番：天和为庄家起手自摸；地和为闲家和庄家首张弃牌；人和为闲家首次摸牌自摸。全桌吃碰杠（含暗杠）打断，补花不打断。')">
-            <el-switch :model-value="!!modelValue.tian_di_ren_he" :active-text="panelLayout ? tr('天地人和') : ''" :aria-label="tr('天地人和')" @update:model-value="patch('tian_di_ren_he', $event)" />
+            <el-switch :model-value="isJinluo || !!modelValue.tian_di_ren_he" :disabled="isJinluo" :active-text="panelLayout ? tr('天地人和') : ''" :aria-label="tr('天地人和')" @update:model-value="patch('tian_di_ren_he', $event)" />
           </el-tooltip>
         </el-form-item>
         <el-form-item v-if="['guobiao/huahun', 'guobiao/four_jokers'].includes(modelValue.sub_rule)" :label="panelLayout ? undefined : tr('癞子多面听')">

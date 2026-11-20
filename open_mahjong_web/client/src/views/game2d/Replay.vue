@@ -480,6 +480,7 @@ import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
 import { formatFanCount, translateFanName, translateRuleText } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
 import { replaySharePath, shareInteger } from '@/utils/recordShareLink'
+import { replayTableView, replayLinkNode } from '@/utils/replayTable'
 import { riichiWinLineLabel } from '@/utils/riichiWinRequirements.js'
 import {
   mmcrSettlementSortKey,
@@ -540,7 +541,7 @@ const sceneReady = ref(false)
 const copiedKind = ref<'2d' | '2d-node' | '3d' | '3d-node' | null>(null)
 const localRecord = computed(() => {
   const gameId = String(route.params.gameId || '')
-  return isLocalReplayRecord(gameId) || isLocalOnlyGameId(gameId)
+  return isLocalReplayRecord(gameId) || (detail.value?.cloud_saved != null ? !detail.value.cloud_saved : isLocalOnlyGameId(gameId))
 })
 const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
@@ -1868,7 +1869,7 @@ async function copyShareLink(kind: '2d' | '2d-node' | '3d' | '3d-node') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
   const round = roundIndex.value + 1
   const player = replay.value?.userIdForOriginal(viewerOriginal.value)
-  const url = new URL(replaySharePath(kind, gameId, round, node.value, player, viewerOriginal.value), window.location.origin).toString()
+  const url = new URL(replaySharePath(kind, gameId, round, node.value, player, viewerOriginal.value, detail.value?.selected_table_id), window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
@@ -1947,8 +1948,13 @@ async function loadRecord() {
       value = cached?.record
         ? cached as PublicGameRecord
         : await publicApiGet<PublicGameRecord>(publicRecordUrl(gameId))
+      if (!cached?.record && !['guobiao', 'hongzhong', 'hangzhou', 'jiujiang', 'shanxi', 'fuzhou'].includes(value.rule)) {
+        throw new Error('2D 牌谱阅览暂不支持这套规则，请使用 3D 阅览')
+      }
     }
-    if (isLocalReplayRecord(gameId) || isLocalOnlyGameId(gameId)) currentRanks.value = {}
+    if (!value) throw new Error('没有找到这份牌谱')
+    value = replayTableView(value, { tableId: route.query.table }) as PublicGameRecord
+    if (isLocalReplayRecord(gameId) || (value.cloud_saved != null ? !value.cloud_saved : isLocalOnlyGameId(gameId))) currentRanks.value = {}
     else await loadCurrentRanks(value)
     if (isExternalRecord(value.record.game_title)) {
       value.players = value.players.map((player) => ({
@@ -1998,7 +2004,9 @@ function applyDeepLinkPosition() {
   const rawNode = Number(route.query.node)
   if (Number.isFinite(rawNode) && rawNode >= 0) {
     const ticks = replay.value.rounds[roundIndex.value]?.action_ticks ?? []
-    node.value = Math.max(0, Math.min(ticks.length, Math.floor(rawNode)))
+    const key = replay.value.roundKeys[roundIndex.value]
+    const mapped = replayLinkNode(rawNode, detail.value?.round_meta?.[key], route.query.cursor === 'v2' || !!route.query.table)
+    node.value = Math.max(0, Math.min(ticks.length, mapped))
   }
 }
 
@@ -2013,8 +2021,8 @@ watch([roundIndex, node, viewerOriginal], () => {
 watch(locale, () => {
   scene?.setAppearance(appearance.value)
 })
-watch(() => route.params.gameId, loadRecord)
-watch(() => [route.query.round, route.query.node, route.query.player, route.query.playerIndex], () => {
+watch(() => [route.params.gameId, route.query.table], loadRecord)
+watch(() => [route.query.round, route.query.node, route.query.player, route.query.playerIndex, route.query.cursor], () => {
   stopPlaying()
   applyDeepLinkPosition()
 })

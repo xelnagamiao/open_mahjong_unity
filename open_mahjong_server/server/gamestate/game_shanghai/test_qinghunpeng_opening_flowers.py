@@ -279,7 +279,7 @@ def test_reconnect_and_spectator_follow_deferred_flower_and_reopened_asks_with_p
         observer = AsyncMock()
         state.game_server.user_id_to_connection[501] = SimpleNamespace(websocket=observer)
         recorded = []
-        state.spectator_manager = SimpleNamespace(enabled=True, record_tick=lambda t: recorded.append(deepcopy(t)),
+        state.spectator_manager = SimpleNamespace(enabled=True, record_tick=lambda t, *, timestamp: recorded.append(deepcopy(t)),
                                                   record_ask_hand=Mock(), record_ask_other=Mock())
 
         await broadcast_ask_other_action(state)

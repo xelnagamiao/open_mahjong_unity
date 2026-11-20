@@ -15,6 +15,8 @@ type ChatResponse struct {
 	ResponseType    string `json:"responseType"`
 	TargetRoomID    int    `json:"roomId"`
 	Content         string `json:"content"`
+	SenderUserID    int64  `json:"senderUserId,omitempty"`
+	ProfileImageID  int    `json:"profileImageId,omitempty"`
 	RequestType     string `json:"requestType,omitempty"`
 	RequestID       string `json:"requestId,omitempty"`
 	Success         bool   `json:"success"`
@@ -23,6 +25,7 @@ type ChatResponse struct {
 }
 
 type LoginResult struct {
+	UserID               int64
 	Response             ChatResponse
 	ReplacedConnectionID string
 	Success              bool
@@ -33,6 +36,7 @@ type LoginResult struct {
 // A username has exactly one active connection ID. Maps are used as sets for
 // room membership so login/join operations are idempotent.
 type RoomManager struct {
+	lookupAccount  func(string, int64) (accountAccess, error)
 	secretKey      string
 	mu             sync.RWMutex
 	uuidToUsername map[string]string
@@ -78,6 +82,13 @@ func (rm *RoomManager) loginChatHall(uuid string, username string, userKey strin
 		}
 	}
 
+	access, err := rm.lookupAccount(username, 0)
+	if err != nil {
+		return LoginResult{Response: ChatResponse{ResponseType: "False", Code: "access_unavailable", Content: "暂时无法验证聊天权限，请稍后重试"}}
+	}
+	if !access.CanLogin {
+		return LoginResult{Response: ChatResponse{ResponseType: "False", Code: "account_banned", Content: "账号已被禁止登录"}}
+	}
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -107,6 +118,7 @@ func (rm *RoomManager) loginChatHall(uuid string, username string, userKey strin
 			Content:      "登录聊天大厅成功",
 		},
 		ReplacedConnectionID: replacedConnectionID,
+		UserID:               access.UserID,
 		Success:              true,
 	}
 }
@@ -161,16 +173,18 @@ func (rm *RoomManager) logout(uuid string) bool {
 	return true
 }
 
-func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int, pool *ConnectionPool) bool {
+func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int, sender accountAccess, pool *ConnectionPool) bool {
 	username, recipientIDs, ok := rm.chatRecipients(uuid, targetRoom)
 	if !ok {
 		return false
 	}
 
 	response := ChatResponse{
-		ResponseType: "Chat",
-		TargetRoomID: targetRoom,
-		Content:      fmt.Sprintf("%s: %s", username, message),
+		ResponseType:   "Chat",
+		TargetRoomID:   targetRoom,
+		Content:        fmt.Sprintf("%s: %s", username, message),
+		SenderUserID:   sender.UserID,
+		ProfileImageID: sender.ProfileImageID,
 	}
 	delivered := false
 	for _, recipientID := range recipientIDs {

@@ -54,6 +54,7 @@ public static class TileFaceFit {
     }
 
     public static void FitTableArtwork(RectTransform body, Image face, Image texture, float imageScale, int tileId = -1, string pack = null) {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
         TileArtworkSampling.Apply(face);
         var bodyImage = body.GetComponent<Image>();
         Rect bounds = bodyImage != null ? bodyImage.GetPixelAdjustedRect() : body.rect;
@@ -111,6 +112,7 @@ public static class TileFaceFit {
 
     // 香港麻将万子略收小花纹，保留牌体尺寸和原图的透明留白。
     public static float HandArtworkScale(int tileId) {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
         return ConfigManager.Instance != null
             && ConfigManager.Instance.StandardTilePackId == TilePackIds.PackHkMahjong
             && tileId >= 11 && tileId <= 19 ? .92f : 1f;
@@ -156,6 +158,7 @@ public static class TileFaceFit {
 
     public static void ApplyHandArtwork(UnityEngine.UI.Image artwork, UnityEngine.UI.Image background, int tileId,
         HandSurfaceLibrary.FaceLayout layout, string pack = null) {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
         if (artwork == null || background == null || background.sprite == null || artwork == background) return;
         TileArtworkSampling.Apply(artwork);
         var body = background.rectTransform;
@@ -172,8 +175,7 @@ public static class TileFaceFit {
         Vector3 axisX = parent.InverseTransformVector(body.TransformVector(Vector3.right));
         Vector3 axisY = parent.InverseTransformVector(body.TransformVector(Vector3.up));
         layout = layout.Normalized;
-        Vector2 offsetFit = TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId)
-            ? TilePackLayoutConfig.ManzuHandCanvasFit(size) : Vector2.one;
+        Vector2 offsetFit = TilePackLayoutConfig.HandCanvasFit(pack, tileId, size);
         var adjustment = HandFaceAdjustmentSettings.ForTile(tileId, pack, offsetFit);
         var baseline = LegacyFacePlacement.Hand(tileId, size, pack);
         float totalScale = layout.scale * adjustment.scale;

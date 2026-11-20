@@ -15,11 +15,15 @@ public sealed class DuocaiHintsCache {
         if(rest.Count==1)cut=rest[0];
         return true;
     }
-    private JObject Request(string scope,List<int> hand,List<string> melds,int? cut=null,int? win=null)=>new JObject {
-        ["rule"]="duocai",["scope"]=scope,["hand"]=new JArray(hand),["melds"]=new JArray(melds??new List<string>()),
-        ["context"]=scope=="waiting"?new JObject{["variant"]=hints.local_request["context"]["variant"],
-            ["physical_melds"]=hints.local_request["context"]["physical_melds"]?.DeepClone()}:hints.local_request["context"].DeepClone(),["cut"]=cut,["win"]=win
-    };
+    public int CurrentDrawTile => (string)hints?.local_request?["context"]?["win_source"]=="self_draw"
+        ?(int?)hints.local_request["context"]["current_win_tile"]??0:0;
+    private JObject Request(string scope,List<int> hand,List<string> melds,int? cut=null,int? win=null,bool pendingRiichi=false) {
+        var context=scope=="waiting"?new JObject{["variant"]=hints.local_request["context"]["variant"],
+            ["physical_melds"]=hints.local_request["context"]["physical_melds"]?.DeepClone()}:(JObject)hints.local_request["context"].DeepClone();
+        if(pendingRiichi)context["pending_riichi"]=true;
+        return new JObject {["rule"]="duocai",["scope"]=scope,["hand"]=new JArray(hand),["melds"]=new JArray(melds??new List<string>()),
+            ["context"]=context,["cut"]=cut,["win"]=win};
+    }
     public HashSet<int> Waiting(TingpaiQuery q) {
         if(q==null||!Resolve(q.Hand,q.Melds,out var cut))return new HashSet<int>();
         var result=LocalHintSnapshots.Read<JObject>(Request("waiting",q.Hand,q.Melds,cut),q.OnReady);
@@ -29,9 +33,16 @@ public sealed class DuocaiHintsCache {
         if(q?.HandWithWin==null)return WaitTileHint.None("未满足");
         var before=new List<int>(q.HandWithWin);if(!before.Remove(q.HepaiTile)||!Resolve(before,q.Melds,out var cut))return WaitTileHint.None("未满足");
         if(blocked||hints.win_blocked)return WaitTileHint.None("未满足");
-        var complete=before.Concat(new[]{q.HepaiTile}).ToList();
-        var result=LocalHintSnapshots.Read<JObject>(Request("describe",complete,q.Melds,cut,q.HepaiTile),refreshTips:false);
-        var row=result?["row"];
-        return row==null?null:new WaitTileHint{Kind=(string)row["kind"],Label=(string)row["label"]};
+        cut=q.PendingCutTileId??(cut==CurrentDrawTile?null:cut);
+        bool pending=q.Record==null&&RiichiCutSelectionController.Instance?.IsActive==true;
+        var rows=new List<(int tile,WaitTileHint hint)>();
+        foreach(int tile in q.WaitingVariants??new[]{q.HepaiTile}) {
+            var complete=before.Concat(new[]{tile}).ToList();
+            var result=LocalHintSnapshots.Read<JObject>(Request("describe",complete,q.Melds,cut,tile,pending),refreshTips:false);
+            var row=result?["row"];
+            if(row==null)return null;
+            rows.Add((tile,new WaitTileHint{Kind=(string)row["kind"],Label=(string)row["label"]}));
+        }
+        return DuocaiHintPresentation.Merge(rows);
     }
 }

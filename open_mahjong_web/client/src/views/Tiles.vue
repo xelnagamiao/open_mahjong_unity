@@ -1,6 +1,6 @@
 <template>
   <div class="tiles-page">
-    <div class="sec-h">■ 牌面</div>
+    <div class="sec-h">■ 牌面 <router-link to="/account#sec-uploads">去上传</router-link></div>
     <el-radio-group v-model="kindFilter" size="small" class="kind-tabs" @change="load">
       <el-radio-button label="tile_face">牌面</el-radio-button>
       <el-radio-button label="tile_background">牌面背景</el-radio-button>
@@ -14,6 +14,7 @@
           <span>{{ kindLabel(row.kind) }}</span>
           <span>{{ row.username || '—' }}</span>
         </div>
+        <TilePackPreview v-if="row.kind === 'tile_face'" :row="row" />
         <div v-if="row.description" class="desc">{{ row.description }}</div>
         <a
           class="dl"
@@ -28,6 +29,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import TilePackPreview from '@/components/TilePackPreview.vue'
 
 const items = ref([])
 const loading = ref(true)
@@ -60,12 +62,15 @@ onMounted(load)
 
 <style scoped>
 .sec-h {
+  display: flex;
+  justify-content: space-between;
   background: rgba(0, 0, 0, 0.75);
   color: #fff;
   padding: 6px 12px;
   font-size: 13px;
   margin-bottom: 12px;
 }
+.sec-h a { color: inherit; }
 .kind-tabs { margin-bottom: 12px; }
 .tip { color: #999; font-size: 13px; }
 .list {
@@ -82,7 +87,7 @@ onMounted(load)
   padding: 14px 16px;
 }
 .name {
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;

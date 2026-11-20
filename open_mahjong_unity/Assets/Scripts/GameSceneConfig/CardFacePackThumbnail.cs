@@ -35,11 +35,11 @@ public sealed class CardFacePackThumbnail : MonoBehaviour {
         if (custom && requestedPack != pack) {
             string id = requestedPack = pack;
             TilePackLibrary.Load(id, result => {
-                if (this == null || requestedPack != id || pack != id || result.HandPngs.Count == 0) return;
-                customTileId = result.HandPngs.ContainsKey(tileId) ? tileId
-                    : result.HandPngs.ContainsKey(11) ? 11 : result.HandPngs.Keys.OrderBy(key => key).First();
+                if (this == null || requestedPack != id || pack != id || result.Pngs.Count == 0) return;
+                customTileId = result.Pngs.ContainsKey(tileId) ? tileId
+                    : result.Pngs.ContainsKey(11) ? 11 : result.Pngs.Keys.OrderBy(key => key).First();
                 TilePackLayoutConfig.Register(id, result.LayoutConfig);
-                customTexture = UnityAssetIdb.ToTexture(result.HandPngs[customTileId]);
+                customTexture = UnityAssetIdb.ToTexture(result.Pngs[customTileId]);
                 if (customTexture == null) return;
                 customSprite = Sprite.Create(customTexture, new Rect(0, 0, customTexture.width, customTexture.height),
                     new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect);

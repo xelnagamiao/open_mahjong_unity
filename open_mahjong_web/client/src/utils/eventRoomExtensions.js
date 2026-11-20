@@ -1,5 +1,6 @@
 import catalog from '../../../shared/eventRoomCatalog.json' with { type: 'json' }
 import taiwan from '../../../shared/taiwanRoomOptions.json' with { type: 'json' }
+import { jinluoRequiredSettings } from './guobiaoRoomConfig.js'
 import { isSichuanDuplicate, supportsDuplicateKey } from './sichuanDuplicate.js'
 import { isPairedRoom, isTrainingWall, loadSichuanWallSource, SICHUAN_WALL_SOURCES } from './sichuanWallSource.js'
 
@@ -44,6 +45,7 @@ export function loadEventRoomExtensions(form, config = {}) {
   }
   form.random_seed = config.random_seed ? String(config.random_seed) : ''
   form.scene_reproduction = Boolean(form.random_seed)
+  if (form.sub_rule === 'guobiao/standard' && form.jinluo_mode) Object.assign(form, jinluoRequiredSettings)
   loadSichuanWallSource(form, config)
   if (isPairedRoom(form) && form.wall_source) form.scene_reproduction = false
   if (form.room_rule === 'taiwan') {
@@ -83,7 +85,7 @@ export function extendEventRoomPayload(form, payload) {
     if (!jinluoWeathers.some(w => w.value === config.jinluo_weather)) throw new Error('请选择金锣赛天气')
     if (config.jinluo_mode) {
       if (form.sub_rule !== 'guobiao/standard') throw new Error('金锣赛仅适用于标准国标')
-      Object.assign(config, { hepai_limit: 8, open_cuohe: true, tips: false })
+      Object.assign(config, jinluoRequiredSettings)
     }
   }
   if (form.room_rule === 'taiwan') {
@@ -94,7 +96,7 @@ export function extendEventRoomPayload(form, payload) {
     }
     config.detailed_config = details
   }
-  if (config.open_cuohe && config.tips) throw new Error('提示与错和不能同时开启')
+  if (config.open_cuohe && config.tips && !config.jinluo_mode) throw new Error('提示与错和不能同时开启')
   return payload
 }
 

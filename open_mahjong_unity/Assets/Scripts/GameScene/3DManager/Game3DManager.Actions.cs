@@ -178,7 +178,10 @@ public partial class Game3DManager : MonoBehaviour
                     continue;
                 }
                 int lookupKey = GameRecordMeldCodec.NormalizeMeldsLookupTileId(riverTileId.Value);
-                if (!pengToJiagangPosDict.TryGetValue(lookupKey, out Vector3 TempPositionpoint)) {
+                Vector3 TempPositionpoint=Vector3.zero;
+                bool found=meldIndex>=0&&TryMeldClaimedPosition(SetParent,SignDirectionList,out TempPositionpoint);
+                if(!found)found=pengToJiagangPosDict.TryGetValue(lookupKey,out TempPositionpoint);
+                if (!found) {
                     Debug.LogError($"加杠位置未找到: lookupKey={lookupKey}, jiagangTileId={jiagangTileId}, riverTileId={riverTileId}");
                     continue;
                 }
@@ -225,6 +228,9 @@ public partial class Game3DManager : MonoBehaviour
         float lastPlacedSlot = 0f;
         float groupGap = MeldSpacingGap();
 
+        var revealAnkan=doAnimation&&actionType=="angang"&&RuleRegistry.Current?.RuleId=="duocai"
+            &&DuocaiTableIndicators.DisplayedInfo?.variant=="riichi";
+        var revealedTiles=new List<(Tile3D tile,uint lease,int sign)>();
         for (int i = 0; i < SetTileList.Count; i++)
         {
             int sign = SignDirectionList[i];
@@ -285,11 +291,13 @@ public partial class Game3DManager : MonoBehaviour
             MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
 
             Tile3D tile3D = cardObj.GetComponent<Tile3D>();
-            tile3D?.ApplyCombinationPeekState(tileId, sign);
+            if(revealAnkan&&tile3D!=null)revealedTiles.Add((tile3D,tile3D.PoolLeaseVersion,sign));
+            else tile3D?.ApplyCombinationPeekState(tileId, sign);
             if (stackAnchors != null) stackAnchors[SetTileList.Count - 1 - i] = cardObj.transform;
         }
 
         SpawnMeldStacks(combination_mask, stackAnchors, SetParent);
+        if(revealedTiles.Count>0)StartCoroutine(TrackRecordHandAnimation(CloseDuocaiAnkan(revealedTiles,_handAnimationGeneration),playerIndex));
 
         StoreCombinationCursor(playerIndex, SetPositionpoint);
         if (lastPlacedSlot > 0f) {
@@ -348,6 +356,8 @@ public partial class Game3DManager : MonoBehaviour
         StoreCombinationCursor(seat, panel.combinationsPosition.position + direction * before);
         SetCombinationLastSlotWidth(seat, beforeWidth);
         yield return ActionAnimationCoroutine(seat, "gang", mask, false, meldIndex);
+        if(generation==_handAnimationGeneration&&GameRecordMeldCodec.ExtractTileByFlag(mask,3).HasValue)
+            yield return ActionAnimationCoroutine(seat,"jiagang",mask,false,meldIndex);
         if (generation != _handAnimationGeneration) yield break;
         StoreCombinationCursor(seat, panel.combinationsPosition.position + direction * finalEnd);
         SetCombinationLastSlotWidth(seat, finalWidth);

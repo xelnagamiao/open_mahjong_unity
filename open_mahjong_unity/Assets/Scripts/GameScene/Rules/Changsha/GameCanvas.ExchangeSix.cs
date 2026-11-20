@@ -172,9 +172,7 @@ public partial class GameCanvas {
 
     private TMP_Text ExchangeSixLabel(string name, Transform parent) {
         var template = GetComponentsInChildren<TMP_Text>(true).FirstOrDefault(text => text.font != null);
-        var obj = new GameObject(name, typeof(RectTransform));
-        obj.transform.SetParent(parent, false);
-        var label = obj.AddComponent<TextMeshProUGUI>();
+        var label = DynamicTextRow.SingleLabel(parent, name);
         if (template != null) label.font = template.font;
         label.fontSize = 24;
         label.color = Color.black;

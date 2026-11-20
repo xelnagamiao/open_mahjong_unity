@@ -137,6 +137,7 @@ class SichuanPlayer:
 
 class SichuanGameState(RealTimeClaimMixin):
     is_xueliu = False
+    is_sbr_exchange = False
     is_doubles = False
     is_team_game = False
     is_xueliu_doubles = False
@@ -194,6 +195,9 @@ class SichuanGameState(RealTimeClaimMixin):
     async def _after_round_settled(self):
         """Paired-table subclasses settle both tables before advancing."""
 
+    def _base_from_fan(self, fan, names):
+        return self.calculation_service.Sichuan_base_from_fan(fan, names)
+
     def _active_flower_pig_score_changes(self, player_index):
         return {player_index: -SICHUAN_ACTIVE_HUAZHU_PENALTY}
 
@@ -248,7 +252,7 @@ class SichuanGameState(RealTimeClaimMixin):
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
         self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)
         self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
-        self.blood_battle = False if self.is_xueliu else room_data.get("blood_battle", True)
+        self.blood_battle = False if self.is_xueliu else (self.is_sbr_exchange or room_data.get("blood_battle", True))
         self.hepai_limit = room_data.get("hepai_limit", 0)
         if self.is_team_game:
             if sorted(p.team_id for p in self.player_list) != [0, 0, 1, 1]:
@@ -275,6 +279,8 @@ class SichuanGameState(RealTimeClaimMixin):
         self.current_round = 1
         self.round_index = 1
         self.jiagang_tile = None
+        self.jiagang_after_gang = False
+        self.jiagang_previous_gang = None
         self.last_action_was_gang = False
         self.paofen_watch = None  # (gainer_index, gang_record) 用于杠上炮退税
         self.pending_win = None
@@ -467,6 +473,8 @@ class SichuanGameState(RealTimeClaimMixin):
                         refresh_waiting_tiles(self, self.current_player_index)
                         draw_player = self.player_list[self.current_player_index]
                         draw_player.get_tile(self.tiles_list)
+                        if self.is_sbr_exchange:
+                            draw_player.passed_pungs.clear()
                         if clear_shunhe(draw_player):
                             await broadcast_refresh_player_tag_list(self)
                         self.last_action_was_gang = False
@@ -484,6 +492,8 @@ class SichuanGameState(RealTimeClaimMixin):
                         refresh_waiting_tiles(self, self.current_player_index)
                         gang_draw_player = self.player_list[self.current_player_index]
                         gang_draw_player.get_gang_tile(self.tiles_list, self)
+                        if self.is_sbr_exchange:
+                            gang_draw_player.passed_pungs.clear()
                         if clear_shunhe(gang_draw_player):
                             await broadcast_refresh_player_tag_list(self)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="gd")
@@ -532,7 +542,7 @@ class SichuanGameState(RealTimeClaimMixin):
             self.round_index += 1
 
         end_game_record(self)
-        assign_strict_final_ranks(self.player_list)
+        self._assign_final_ranks()
         if self.is_team_game:
             self._finish_team_match()
 
@@ -550,8 +560,9 @@ class SichuanGameState(RealTimeClaimMixin):
                 game_id = store(self.game_record, self.player_list, self.room_type, match_type)
         except Exception as e:
             logger.warning(f"四川对局落库跳过/失败: {e}")
-        remember_local_record_detail(self, game_id, match_type)
         self._after_record_saved(game_id)
+        await self._wait_for_match_records()
+        remember_local_record_detail(self, game_id, match_type)
 
         await self.broadcast_game_end()
         if hasattr(self, 'spectator_manager'):
@@ -561,6 +572,9 @@ class SichuanGameState(RealTimeClaimMixin):
         logger.info(f"四川对局结束清理完成 room_id={self.room_id}")
 
     def _restore_match_checkpoint(self):
+        pass
+
+    async def _wait_for_match_records(self):
         pass
 
     def _after_record_saved(self, game_id):
@@ -600,6 +614,8 @@ class SichuanGameState(RealTimeClaimMixin):
             p.shunhe_passed_max_fan = None
         self.xunmu = 1
         self.jiagang_tile = None
+        self.jiagang_after_gang = False
+        self.jiagang_previous_gang = None
         self.last_action_was_gang = False
         self.paofen_watch = None
         self.pending_win = None
@@ -756,7 +772,7 @@ class SichuanGameState(RealTimeClaimMixin):
                     continue
                 if self.blood_battle and p.is_hu and (p.hu_order < winner_order):
                     continue
-                pay = base + 1
+                pay = base if self.is_sbr_exchange else base + 1
                 p.score -= pay
                 changes[p.player_index] = -pay
                 total += pay
@@ -807,7 +823,7 @@ class SichuanGameState(RealTimeClaimMixin):
                 continue
             fan = info['fan']
             fan_list = info['fan_list']
-            base = self.calculation_service.Sichuan_base_from_fan(fan, fan_list)
+            base = self._base_from_fan(fan, fan_list)
             is_zimo = pw['type'] == 'zimo'
             if not is_zimo:
                 self.player_list[w].hand_tiles.append(pw['hepai_tile'])
@@ -926,6 +942,9 @@ class SichuanGameState(RealTimeClaimMixin):
             return "active"
         return None
 
+    def _chajiao_fan(self, hand, melds, dingque):
+        return self.calculation_service.Sichuan_max_fan_for_chajiao(hand, melds, dingque)
+
     def _evaluate_liuju_ting(
         self,
         hand_tiles: List[int],
@@ -967,7 +986,7 @@ class SichuanGameState(RealTimeClaimMixin):
                 )[0] >= self.hepai_limit}
                 if not waits:
                     return
-            mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(
+            mf, mf_names = self._chajiao_fan(
                 test_hand, combination_tiles, dingque_suit,
             )
             best_waits |= waits
@@ -1078,7 +1097,7 @@ class SichuanGameState(RealTimeClaimMixin):
                 display_status[p.player_index] = 'ting'
                 tenpai_max_fan[p.player_index] = max_fan
                 tenpai_tiles_map[p.player_index] = sorted(waits)
-                _, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(self._hand_for_chajiao_eval(p.hand_tiles, p.combination_tiles, p.dingque_suit), p.combination_tiles, p.dingque_suit)
+                _, mf_names = self._chajiao_fan(self._hand_for_chajiao_eval(p.hand_tiles, p.combination_tiles, p.dingque_suit), p.combination_tiles, p.dingque_suit)
                 tenpai_max_fan_names[p.player_index] = mf_names or []
             else:
                 status[p.player_index] = 'no_ting'
@@ -1160,7 +1179,7 @@ class SichuanGameState(RealTimeClaimMixin):
             if status.get(p_idx) == 'ting' and noting_players:
                 mf = tenpai_max_fan.get(p_idx, 0)
                 mf_names = tenpai_max_fan_names.get(p_idx, [])
-                base = self.calculation_service.Sichuan_base_from_fan(mf, mf_names)
+                base = self._base_from_fan(mf, mf_names)
                 if base > 0:
                     for n_idx in noting_players:
                         self.player_list[n_idx].score -= base
@@ -1222,13 +1241,16 @@ class SichuanGameState(RealTimeClaimMixin):
         for tile in set(hand):
             test = list(hand)
             test.remove(tile)
-            mf, _ = self.calculation_service.Sichuan_max_fan_for_chajiao(
+            mf, _ = self._chajiao_fan(
                 test, combination_tiles, dingque_suit,
             )
             if mf > best_mf:
                 best_mf = mf
                 best_hand = test
         return best_hand
+
+    def _assign_final_ranks(self):
+        assign_strict_final_ranks(self.player_list)
 
     def _decide_next_dealer(self) -> int:
         if self.is_doubles:

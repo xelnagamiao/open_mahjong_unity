@@ -120,7 +120,7 @@ def test_unity_script_translations_match_decoder_and_hand_rules():
     assert sichuan.infers_dingque_from_discards
     assert sichuan.peek_ankan
     hongque = resolve_record_flags({"rule": "hongque", "sub_rule": "hongque/v1.6"})
-    assert hongque.jiagang_extends_last_meld
+    assert hongque.record_kong_has_meld_index
     classical = resolve_record_flags(rule="classical")
     assert classical.record_hu_tile_tick_index == 7
 
@@ -287,14 +287,14 @@ def test_consistent_minigames_for_all_rules():
             "hongque",
             "hongque/v1.6",
             p0=[1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1021],
-            p1=[1021, 1021, 1021, 1022, 1023, 1024, 1025, 1026, 1027, 1028, 1029],
+            p1=[1001, 1011, 1031, 1022, 1023, 1024, 1025, 1026, 1027, 1028, 1029],
             p2=[1041, 1042, 1043, 1044, 1045, 1046, 1047, 1048, 1049, 1051, 1052],
             p3=[1061, 1062, 1063, 1064, 1065, 1066, 1067, 1068, 1069, 1071, 1072],
             tiles_list=[1081, 1082, 1083],
             ticks=[
                 ["c", 1021, "F"],
-                ["p", 1021, 1, 1021, 1021],
-                ["jg", 1021, "F"],
+                ["p", 1021, 1, 1001, 1011],
+                ["jg", 1031, "F", 0],
                 ["bd", 1082, 1],
                 ["c", 1082, "T"],
                 ["hu_first", 2, 8, ["清顺"], [0, 0, 8, 0], 1082],
@@ -346,7 +346,7 @@ def test_consistent_minigames_for_all_rules():
             changsha_last = last
 
     assert 1021 not in hongque_last["players"]["0"]["tile_list"]
-    assert [3, 1021] == hongque_last["players"]["1"]["combination_masks"][0][-2:]
+    assert hongque_last["players"]["1"]["combination_masks"][0] == [0, 1001, 0, 1011, 0, 1021, 0, 1031]
     assert 1082 in hongque_last["players"]["2"]["tile_list"]
     assert sichuan_last["players"]["0"]["score"] == 2
     assert sichuan_last["players"]["1"]["score"] == 0
@@ -375,6 +375,23 @@ def test_taiwan_bd_consumes_wall_from_back():
 
 def test_hongque_live_record_replays_and_local_detail():
     asyncio.run(_hongque_live())
+
+
+def test_hongque_w_kong_extends_the_named_meld_with_every_tile():
+    ticks = [["cl", 1001, 0, 1002, 1003], ["p", 1024, 0, 1044, 1064],
+             ["jg", 1003, "T", 0, [1003, 1001, 1002]]]
+    record = _round("hongque", "hongque/w-v1.0", [1002, 1003, 1044, 1064, 1001, 1002, 1003],
+                    [], [], [], [], ticks)
+    sim = RecordSim(record)
+    frames = sim.apply_all("round_index_1")
+    player = frames[-1]["players"]["0"]
+    assert player["tile_list"] == []
+    assert player["combination_tiles"][0] == "s1001"
+    assert player["combination_masks"][0] == [0, 1001, 0, 1001, 0, 1002, 0, 1002, 0, 1003, 0, 1003]
+    assert player["combination_masks"][1] == frames[-2]["players"]["0"]["combination_masks"][1]
+    assert sim.goto_action("round_index_1", 3) == frames[-1]
+    with pytest.raises(ValueError, match="迁移"):
+        sim.apply_tick(["jg", "1001", "F"])
 
 
 async def _hongque_live() -> None:
@@ -440,7 +457,7 @@ def test_hongque_bots_still_get_local_record_and_skip_store():
     persist_and_remember(state)
     assert state._local_record_detail is not None
     bots = state.player_list
-    result = state._local_record_detail.record["match_result"]
+    result = state._local_record_detail.record["tables"]["main"]["payload"]["match_result"]
     assert len(result["players"]) == 4
     assert all(p["rating_pt"] == 0 for p in result["players"])
     assert store_hongque_game_record(None, state.game_record, bots, "custom", "1/4") is None

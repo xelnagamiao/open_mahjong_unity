@@ -687,16 +687,16 @@ onMounted(() => {
   margin-top: 0;
 }
 
-.home:is(:lang(fr), :lang(de), :lang(ru)) .panel-actions {
+.home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .panel-actions {
   flex-wrap: wrap;
 }
 
-.home:is(:lang(fr), :lang(de), :lang(ru)) .grid > * {
+.home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .grid > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.home:is(:lang(fr), :lang(de), :lang(ru)) .ad-slot {
+.home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .ad-slot {
   padding: 16px;
   text-align: center;
 }
@@ -872,7 +872,7 @@ onMounted(() => {
 .card h3 {
   font-size: 1.2rem;
   margin-bottom: 8px;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .card p {
@@ -906,13 +906,13 @@ onMounted(() => {
 }
 
 @media (max-width: 560px) {
-  .home:is(:lang(fr), :lang(de), :lang(ru)) .g3,
-  .home:is(:lang(fr), :lang(de), :lang(ru)) .g4,
-  .home:is(:lang(fr), :lang(de), :lang(ru)) .g2 {
+  .home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .g3,
+  .home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .g4,
+  .home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .g2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .home:is(:lang(fr), :lang(de), :lang(ru)) .ad-slot {
+  .home:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .ad-slot {
     grid-column: auto;
   }
 

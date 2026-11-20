@@ -158,7 +158,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         string rule = ReadTitleString(gameTitle, "rule", "");
         RuleManifest roundManifest = RuleRegistry.Resolve(rule, subRule);
         bool isSichuan = roundManifest?.KongReplacementFromFront == true;
-        bool isSichuanBlood = subRule == GuobiaoGameState.BloodBattleSubRule
+        bool isSichuanBlood = subRule == GuobiaoGameState.BloodBattleSubRule || subRule == GuangdongMilRules.Doubles
             || (isSichuan && ReadTitleString(gameTitle, "blood_battle", "true") != "false");
         bool isHongque = roundManifest?.RecordKongHasMeldIndex == true;
         int sichuanHuCount = 0;
@@ -188,7 +188,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
             }
 
             if (action == "guangdong" && GuangdongMilRules.IsMil(subRule)) {
-                if (tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs"))
+                if (tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs" || tick[1] == "penalty"))
                     AccumulateSeatScores(immediateScores, ParseScoreChanges(tick, 2));
                 continue;
             }

@@ -10,11 +10,7 @@ using UnityEngine.Networking;
 /// 自定义标准牌面存储：桌面写 persistentDataPath，WebGL 走 IndexedDB（不经 PlayerPrefs / SendMessage 传文件体）。
 /// </summary>
 public static class TilePackStorage {
-    public const string HandDirName = "TilePacks/standard";
-    public const string TableDirName = "TilePacks/standard-table";
-
-    public static string HandDirectory => Path.Combine(Application.persistentDataPath, HandDirName);
-    public static string TableDirectory => Path.Combine(Application.persistentDataPath, TableDirName);
+    public static string FaceDirectory => Path.Combine(Application.persistentDataPath, "TilePacks/standard");
 
     public static void SaveImported(TilePackImporter.Result imported) {
         if (imported == null || !imported.Success) {
@@ -24,25 +20,22 @@ public static class TilePackStorage {
         // WebGL 已在选文件时把 zip 写入 IndexedDB；运行时只保留内存缓存。
         return;
 #else
-        WritePngMap(HandDirectory, imported.HandPngs);
-        WritePngMap(TableDirectory, imported.TablePngs);
-        string cfg = Path.Combine(HandDirectory, "tiles.cfg");
+        WritePngMap(FaceDirectory, imported.Pngs);
+        string cfg = Path.Combine(FaceDirectory, "tiles.cfg");
         if (imported.ConfigText != null) File.WriteAllText(cfg, imported.ConfigText, new System.Text.UTF8Encoding(false));
         else if (File.Exists(cfg)) File.Delete(cfg);
 #endif
     }
 
-    public static void LoadPngsFromDisk(Dictionary<int, byte[]> hand, Dictionary<int, byte[]> table) {
-        ReadPngMap(HandDirectory, hand);
-        ReadPngMap(TableDirectory, table);
+    public static void LoadPngsFromDisk(Dictionary<int, byte[]> pngs) {
+        ReadPngMap(FaceDirectory, pngs);
     }
 
     public static void ClearDisk() {
 #if UNITY_WEBGL && !UNITY_EDITOR
         return;
 #else
-        TryDeleteDirectory(HandDirectory);
-        TryDeleteDirectory(TableDirectory);
+        TryDeleteDirectory(FaceDirectory);
 #endif
     }
 

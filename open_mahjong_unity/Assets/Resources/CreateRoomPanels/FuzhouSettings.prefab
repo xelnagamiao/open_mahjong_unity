@@ -944,6 +944,7 @@ GameObject:
   - component: {fileID: 5057744489369026318}
   - component: {fileID: 3360131256777458592}
   - component: {fileID: 406998086146216687}
+  - component: {fileID: 5366741591989015751}
   m_Layer: 0
   m_Name: Label
   m_TagString: Untagged
@@ -1711,3 +1712,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CreateRoomHelpTrigger
   owner: {fileID: 0}
   message: "\u9009\u62E9\u9EBB\u5C06\u5B50\u89C4\u5219\u3002"
+--- !u!114 &5366741591989015751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7508214770649035702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

@@ -39,6 +39,10 @@ class HandFlow:
         if type(index) is not int or index not in range(4) or not isinstance(data, dict) or data.get('action_type') not in offered:
             raise ValueError('行动不在当前窗口内')
         action = data['action_type']
+        if self.machine.phase == P.AFTER_MELD and action != 'cut':
+            raise ValueError('吃碰后只能切牌')
+        if action in ('angang', 'jiagang') and (self.machine.phase != P.TURN or not self.player_list[index].has_draw_slot):
+            raise ValueError('摸牌后才能暗杠或加杠')
         if action in ('cut', 'riichi_cut'):
             tile, _, _ = self._cut_identity(index, data)
             if action == 'riichi_cut' and tile not in riichi_cuts(tuple(self.player_list[index].hand_tiles), tuple(self.player_list[index].melds)):
@@ -92,16 +96,21 @@ class HandFlow:
     def _turn(self, window, data):
         index, action = window['player'], data['action_type']
         p = self.player_list[index]
+        if window['status'] == P.AFTER_MELD.value and action != 'cut':
+            raise ValueError('吃碰后只能切牌')
         if action == 'hu_self':
             return self.settle_win(index, 'self_draw', p.hand_tiles[-1])
         if action == 'jiuzhongjiupai':
             return self.end_draw('nine_terminals')
         if action in ('angang', 'jiagang'):
+            if self.machine.phase != P.TURN or not p.has_draw_slot:
+                raise ValueError('摸牌后才能暗杠或加杠')
             choice = self.selected_choice(index, data)
             if choice.meld_index >= 0 and not p.melds[choice.meld_index].concealed:
                 self.pending_kong = choice
                 self.interrupt_opening()
-                self._event('declare_kan', index, tile=choice.take[0], choice=choice.public())
+                self._event('declare_kan', index, tile=choice.take[0], meld_index=choice.meld_index,
+                            is_mo_gang=p.has_draw_slot and p.hand_tiles[-1] == choice.take[0], choice=choice.public())
                 return self._window(P.ROB_KONG, index, choice.take[0], claim_actions(self, index, choice.take[0], rob=True))
             return self.commit_kong(index, choice)
         tile, position, drawn = self._cut_identity(index, data)
@@ -115,11 +124,13 @@ class HandFlow:
         p.draw_kind, p.rinshan_payer = 'none', None
         p.discard_tiles.append(tile)
         p.discard_origin_tiles.append(tile)
-        p.discard_riichi_flags.append(p.riichi_pending)
+        horizontal = p.riichi_pending or p.riichi_marker_pending
+        p.discard_riichi_flags.append(horizontal)
+        p.riichi_marker_pending = False
         self.discard_log.append((index, tile))
         self.last_discard_offsets[index] = len(self.discard_log) - 1
         self._event('cut', index, tile=tile, cutIndex=data.get('cutIndex', position), cutClass=drawn,
-                    is_riichi_horizontal=p.riichi_pending, is_timeout_action=bool(data.get('is_timeout_action')))
+                    is_riichi_horizontal=horizontal, is_timeout_action=bool(data.get('is_timeout_action')))
         return self._window(P.RESPONSE, index, tile, claim_actions(self, index, tile))
 
     def complete_riichi(self, index):
@@ -172,7 +183,8 @@ class HandFlow:
         declared = 'gang' if choice.kind == 'minggang' else choice.kind
         p.melds.append(Meld((*choice.take, tile), False, declared, actor))
         self.player_list[actor].discard_tiles.pop()
-        self.player_list[actor].discard_riichi_flags.pop()
+        if self.player_list[actor].discard_riichi_flags.pop():
+            self.player_list[actor].riichi_marker_pending = True
         p.has_draw_slot = p.after_kong = False
         p.draw_kind = 'none'
         self.current_player_index = index
@@ -208,12 +220,15 @@ class HandFlow:
                 else:
                     mask = [item for v in physical for item in (2, v)]
             else:
-                base_size = min(4, len(physical))
-                called = physical.pop(3 if meld.declared == 'gang' else 2)
+                base_size = 4 if meld.declared == 'gang' else 3
+                base, extras = physical[:base_size], physical[base_size:]
+                called = base.pop(base_size - 1)
                 mark = {1: base_size - 1, 2: 1, 3: 0}[(meld.source - index) % 4]
-                physical.insert(mark, called)
-                mask = [item for n, v in enumerate(physical[:4]) for item in (1 if n == mark else 0, v)]
-                extras = [item for v in (reversed(physical[4:]) if self.variant == 'riichi' else physical[4:]) for item in (0, v)]
+                base.insert(mark, called)
+                mask = [item for n, v in enumerate(base) for item in (1 if n == mark else 0, v)]
+                if base_size == 3 and extras:
+                    mask[mark * 2:mark * 2] = [3, extras.pop(0)]
+                extras = [item for v in (reversed(extras) if self.variant == 'riichi' else extras) for item in (0, v)]
                 mask = extras + mask if self.variant == 'riichi' else mask + extras
             p.combination_mask.append(mask)
 
@@ -253,7 +268,7 @@ class HandFlow:
     def draw_for(self, index, kind='normal', fourth=False, payer=None):
         if not self.wall.live:
             return self.end_draw()
-        tile, position = self.wall.draw(fourth_kong=fourth)
+        tile, position = self.wall.draw(fourth_kong=fourth, from_tail=kind == 'kong' and self.variant == 'guobiao')
         self.sync_wall()
         p = self.player_list[index]
         p.hand_tiles.sort()

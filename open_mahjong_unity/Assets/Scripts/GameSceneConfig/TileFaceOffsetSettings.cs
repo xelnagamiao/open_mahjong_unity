@@ -18,7 +18,7 @@ public static class TileFaceOffsetSettings
     static int Identity(string pack, int tileId) => FixedFacePack.IsFixed(pack) ? tileId : WashizuTile.Face(tileId);
     static string LegacyKey(string pack, int tileId, bool table) => Prefix + pack + "." + Identity(pack, tileId) + (table ? ".3d" : ".2d");
     static string Key(string pack, int tileId, bool table) =>
-        (TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId) ? VisibleDefaultsPrefix : Prefix)
+        ((TilePackIds.IsBuiltinPack(pack) && TilePackLayoutConfig.HasTileDefaults(pack, tileId, table)) ? VisibleDefaultsPrefix : Prefix)
         + pack + "." + Identity(pack, tileId) + (table ? ".3d" : ".2d");
     public static HandSurfaceLibrary.FaceLayout Normalize(HandSurfaceLibrary.FaceLayout v) {
         v.x = float.IsNaN(v.x) || float.IsInfinity(v.x) ? 0 : Mathf.Clamp(v.x, -1f, 1f);
@@ -38,20 +38,20 @@ public static class TileFaceOffsetSettings
         if (Values.TryGetValue(key, out var value)) return value;
         value = TilePackLayoutConfig.Default(pack, table, Identity(pack, tileId));
         string json = PlayerPrefs.GetString(key, "");
-        if (string.IsNullOrEmpty(json) && TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId))
+        if (string.IsNullOrEmpty(json) && (TilePackIds.IsBuiltinPack(pack) && TilePackLayoutConfig.HasTileDefaults(pack, tileId, table)))
             json = PlayerPrefs.GetString(LegacyKey(pack, tileId, table), "");
         if (!string.IsNullOrEmpty(json)) {
             try {
                 var record = JsonUtility.FromJson<Record>(json);
                 if (record != null && (record.version == 1 || record.version == 2) && record.pack == pack && record.tileId == Identity(pack, tileId) && record.table == table) {
                     value = Normalize(record.layout);
-                    if (record.version == 1 && TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId)) {
+                    if (record.version == 1 && (TilePackIds.IsBuiltinPack(pack) && TilePackLayoutConfig.HasTileDefaults(pack, tileId, table))) {
                         var fit = Vector2.one;
                         if (!table) {
                             var body = TileFaceResolver.LoadHandBackground();
-                            if (body != null) fit = TilePackLayoutConfig.ManzuHandCanvasFit(body.rect.size);
+                            if (body != null) fit = TilePackLayoutConfig.HandCanvasFit(pack, tileId, body.rect.size);
                         }
-                        value = FoldManzuAdjustment(value, TilePackLayoutConfig.Default(pack, table, Identity(pack, tileId)), fit);
+                        value = FoldAuthoredAdjustment(value, TilePackLayoutConfig.Default(pack, table, Identity(pack, tileId)), fit);
                         string backup = key + ".before-f5288";
                         if (!PlayerPrefs.HasKey(backup)) PlayerPrefs.SetString(backup, json);
                         Save(pack, tileId, table, value);
@@ -62,7 +62,7 @@ public static class TileFaceOffsetSettings
         Values[key] = value;
         return value;
     }
-    static HandSurfaceLibrary.FaceLayout FoldManzuAdjustment(HandSurfaceLibrary.FaceLayout adjustment,
+    static HandSurfaceLibrary.FaceLayout FoldAuthoredAdjustment(HandSurfaceLibrary.FaceLayout adjustment,
         HandSurfaceLibrary.FaceLayout basis, Vector2 offsetFit) {
         return Normalize(new HandSurfaceLibrary.FaceLayout {
             x = adjustment.x / offsetFit.x + basis.x * adjustment.scale,
@@ -89,7 +89,7 @@ public static class TileFaceOffsetSettings
         value = Normalize(value);
         Values[Key(pack, tileId, table)] = value;
         PlayerPrefs.SetString(Key(pack, tileId, table), JsonUtility.ToJson(new Record {
-            version = TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, tileId) ? 2 : 1,
+            version = (TilePackIds.IsBuiltinPack(pack) && TilePackLayoutConfig.HasTileDefaults(pack, tileId, table)) ? 2 : 1,
             pack = pack, tileId = Identity(pack, tileId), table = table, layout = value
         }));
         PlayerPrefs.Save();
@@ -97,7 +97,7 @@ public static class TileFaceOffsetSettings
     public static void MigrateUncalibratedTable(string pack, HandSurfaceLibrary.FaceLayout old) {
         foreach (int id in TilePackIds.StandardFaceIds) {
             if (PlayerPrefs.HasKey(Key(pack, id, true)) || PlayerPrefs.HasKey(LegacyKey(pack, id, true))) continue;
-            if (TilePackLayoutConfig.UsesVisibleManzuDefaults(pack, id)) {
+            if (TilePackLayoutConfig.HasTileDefaults(pack, id, true)) {
                 // The oldest group save was already absolute, before per-tile
                 // baselines. Preserve it while folding in its former image area.
                 Save(pack, id, true, new HandSurfaceLibrary.FaceLayout {

@@ -22,7 +22,7 @@ test(`${subRule} keeps standard settings including flowers and eight fan`, () =>
 })
 
 test(`${subRule} rejects ordinary duplicate keys`, () => {
-  assert.throws(() => buildGuobiaoRoomPayload({...createDefaultGuobiaoRoomConfig(),sub_rule:subRule,duplicate_key:'test-wall'}), /透明国标/)
+  assert.throws(() => buildGuobiaoRoomPayload({...createDefaultGuobiaoRoomConfig(),sub_rule:subRule,duplicate_key:'test-wall'}), /不能使用复式牌墙/)
   const form = createEventRoomCreationForm({room_rule:'guobiao',room_config:{sub_rule:subRule}})
   form.duplicate_enabled = true
   form.auto_duplicate = true

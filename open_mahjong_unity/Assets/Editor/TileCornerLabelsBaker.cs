@@ -19,11 +19,13 @@ public static class TileCornerLabelsBaker {
             .Single(s => s.gameObject.scene.path == "Assets/Scenes/MainScene.unity");
         if (settings.gameObject.scene.isDirty)
             throw new System.InvalidOperationException("Save MainScene changes before baking tile labels.");
-        foreach (var page in settings.bakedPages.Where(p => p.category == 2)) AddSetting(page);
-        // Keep the collection's serialized current-page references in sync too.
-        int variant = settings.bakedPages.Single(p => p.stage == settings.stage).variant;
-        settings.controls = settings.bakedPages.Where(p => p.variant == variant)
-            .OrderBy(p => p.category).SelectMany(p => p.controls).ToArray();
+        SettingsPagePrefabBaker.EditPages(settings, page => page.category == 2, AddSetting);
+        if (!settings.UsesPagePrefabs)
+        {
+            int variant = settings.bakedPages.Single(p => p.stage == settings.stage).variant;
+            settings.controls = settings.bakedPages.Where(p => p.variant == variant)
+                .OrderBy(p => p.category).SelectMany(p => p.controls).ToArray();
+        }
         EditorUtility.SetDirty(settings);
         EditorSceneManager.MarkSceneDirty(settings.gameObject.scene);
         EditorSceneManager.SaveScene(settings.gameObject.scene);
@@ -149,7 +151,7 @@ public static class TileCornerLabelsBaker {
             serialized.FindProperty("closeButton").objectReferenceValue = closeButton;
             serialized.FindProperty("tilePrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/GameScene/StaticTileCard.prefab").GetComponent<StaticCard>();
             serialized.ApplyModifiedPropertiesWithoutUndo();
-            PrefabUtility.SaveAsPrefabAsset(root, "Assets/Resources/TileCornerLabelChoice.prefab");
+            PrefabBaselineBaker.Save(root, "Assets/Resources/TileCornerLabelChoice.prefab");
         } finally { Object.DestroyImmediate(root); }
     }
 }

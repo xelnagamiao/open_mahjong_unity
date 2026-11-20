@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAdmin } = require('../../middleware/requireAdmin');
 const { createWindowLimiter } = require('../../middleware/rateLimit');
+const { requireActiveAdminAccount } = require('../../middleware/requireActiveAdminAccount');
 
 const authRoutes = require('./auth');
 const dashboardRoutes = require('./dashboard');
@@ -35,9 +36,11 @@ router.use(adminLimiter);
 router.use('/auth', authRoutes);
 
 // 以下均需管理员 JWT
-router.use(requireAdmin);
+router.use(requireAdmin, requireActiveAdminAccount);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', usersRoutes);
+router.use('/chat-history', require('./chatHistory'));
+router.use('/wallet', require('./wallet'));
 router.use('/titles', titlesRoutes);
 router.use('/inventory', require('./inventory'));
 router.use('/shop', require('./shop'));
@@ -59,5 +62,6 @@ router.use('/activities', activitiesRoutes);
 router.use('/classic-records', classicRecordsRoutes);
 router.use('/tile-content', tileContentRoutes);
 router.use('/platform-content', require('./platformContent'));
+router.use('/anti-cheat', require('./antiCheat'));
 
 module.exports = router;

@@ -17,6 +17,8 @@ public sealed class CardDesignTabs : MonoBehaviour
     [SerializeField] private GameObject cardModelPreview;
     [SerializeField] private CardFaceScrollLayout scrollLayout;
     [SerializeField] private CardDesignScrollLayout cardScrollLayout;
+    [SerializeField] private Button[] exportPackButtons;
+    [SerializeField] private Button[] downloadPackButtons;
 
     private int faceTab;
     private int cardTab;
@@ -27,6 +29,11 @@ public sealed class CardDesignTabs : MonoBehaviour
 
     private void Awake()
     {
+        if (exportPackButtons != null) foreach (var button in exportPackButtons) if (button != null)
+            button.onClick.AddListener(ExportPack);
+        if (downloadPackButtons != null) foreach (var button in downloadPackButtons) if (button != null)
+            button.onClick.AddListener(() => CardPackBrowser.Open(transform,
+                button.GetComponentInChildren<TMPro.TMP_Text>(true)?.font, facePanel.ImportZip));
         for (int i = 0; i < faceTabs.Length; i++) {
             int tab = i;
             faceTabs[i].onClick.AddListener(() => ShowFace(tab));
@@ -35,6 +42,12 @@ public sealed class CardDesignTabs : MonoBehaviour
             int tab = i;
             cardTabs[i].onClick.AddListener(() => ShowCard(tab));
         }
+    }
+    public void ExportPack()
+    {
+        foreach (var panel in GetComponentsInChildren<SingleTileAdjustmentPanel>(true)) panel.Close();
+        Card3DPresetLibrary.Instance?.Flush();
+        HandSurfaceLibrary.EnsureReady(() => CardPackExporter.Export(CardPackFileSave.Save, SceneConfigUi.ShowTip));
     }
 
     public void ShowFace(int tab)

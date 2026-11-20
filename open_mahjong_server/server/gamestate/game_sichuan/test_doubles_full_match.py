@@ -86,4 +86,4 @@ def test_four_boards_finish_with_private_snapshots_and_consistent_team_record(se
             assert 'hu_fan' not in info and 'hu_score' not in info
     for t in (0,1):
         assert sum(r['score_changes'][t] for r in state.team_round_history) == state.team_result['scores'][t]
-    assert endings[0]['message']['game_end_info']['record_detail']['record']['doubles_result'] == json.loads(json.dumps(state.team_result))
+    assert endings[0]['message']['game_end_info']['record_detail']['record']['tables']['main']['payload']['doubles_result'] == json.loads(json.dumps(state.team_result))

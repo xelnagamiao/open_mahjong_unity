@@ -12,7 +12,6 @@ namespace Salasasa.Chat
     [DefaultExecutionOrder(1000)]
     public sealed partial class GraphiteChatBridge : MonoBehaviour
     {
-        public const string Preference = "Salasasa.Chat.Graphite.PlainText";
         public CompleteLobbyController lobby;
         public ChatMessageStore source;
         public RectTransform[] lobbyButtons;
@@ -20,13 +19,11 @@ namespace Salasasa.Chat
         public ChatView view;
         public ChatArtStyle style;
         public CanvasGroup visibility;
-        public Button plainButton, bubbleButton, popupDismiss, popupClose, copyButton, profileButton;
+        public Button popupDismiss, popupClose, copyButton, profileButton;
         public GameObject popup;
         public RectTransform popupCard;
         public TMP_Text popupTitle, popupDetail;
         public TMP_Text[] avatarInitials;
-        public bool plainTextMessages = true;
-        public bool PlainText => plainTextMessages;
         public int SelectedChannel => SelectedConversationKey == ChatConversationListModel.LobbyKey ? 0 : SelectedConversationKey == ChatConversationListModel.RoomKey ? 1 : 2;
         public string PopupKind { get; private set; } = "";
         public int VisibleMessageCount { get; private set; }
@@ -35,24 +32,37 @@ namespace Salasasa.Chat
         public Action<string,int> ValidationSend;
         public int ValidationRoom;
         public bool ValidationMode => Array.IndexOf(Environment.GetCommandLineArgs(), "-graphite-validation") >= 0 || CompleteLobbyEnvironment.Has("-chat-hand-only");
-        string PreferenceKey => ValidationMode ? Preference + ".Validation" : Preference;
 
         public sealed class Message
         {
             public string author, text, time, type, sourceContent, conversationKey;
-            public int room, senderUserId;
+            public int room, senderUserId, profileImageId;
             public bool mine;
             public bool HasPlayerSender => type == "Chat" || type == "Sercet" || type == "Conversation" && senderUserId > 0;
         }
         readonly List<Message> history = new List<Message>();
         readonly Dictionary<string,string> drafts = new Dictionary<string,string>(StringComparer.Ordinal);
-        readonly List<Message> shown = new List<Message>();
+        sealed class MessageRowBinding
+        {
+            public ChatMessageRow row;
+            public TMP_Text initial;
+            public object source;
+            public Message display;
+            public float height;
+        }
+        readonly List<MessageRowBinding> shown = new List<MessageRowBinding>();
+        readonly Dictionary<object, MessageRowBinding> boundRows = new Dictionary<object, MessageRowBinding>();
+        readonly Stack<MessageRowBinding> freeRows = new Stack<MessageRowBinding>();
+        readonly List<object> requestedMessages = new List<object>();
+        readonly HashSet<object> requestedKeys = new HashSet<object>();
+        bool headerDirty, listDirty, messagesDirty, messageStyleDirty, scrollToEnd, followIncoming;
         string query = "", observedRoom = "";
         int observedUser, layoutSide = -1;
         Vector3 layoutButtonPosition;
         Vector2 layoutSize;
         float messageWidth;
-        bool refresh, previousVisible;
+        int renderedSelfPortrait;
+        bool previousVisible;
         bool visibilityTarget;
         float visibilityFrom, visibilityElapsed, visibilityDuration;
         Message popupMessage;
@@ -66,25 +76,23 @@ namespace Salasasa.Chat
         void Awake()
         {
             layer=GetComponent<Canvas>();
-            plainTextMessages = PlayerPrefs.GetInt(PreferenceKey, plainTextMessages ? 1 : 0) == 1;
             source.MessageReceived += Receive;
             source.Cleared += ClearHistory;
             InitializeFriendList();
             InitializeConversations();
-            foreach(var entry in source.ReceivedMessages)Receive(entry.type,entry.room,entry.content);
-            plainButton.onClick.AddListener(()=>SetMessageStyle(true));
-            bubbleButton.onClick.AddListener(()=>SetMessageStyle(false));
+            InitializeMessageRows();
+            foreach(var entry in source.ReceivedMessages)Receive(entry,false);
             view.close.onClick.AddListener(lobby.CloseChat);
             view.tabs[0].onClick.AddListener(ShowChats);
             view.tabs[1].onClick.AddListener(ShowVenues);
             view.tabs[2].onClick.AddListener(ShowFriends);
             view.search.onValueChanged.AddListener(value=>{query=value;ResetFriendScroll();RefreshList();});
-            view.composer.onValueChanged.AddListener(value=>{if(!refresh){drafts[DraftKey]=value;UpdateComposer();}});
+            view.composer.onValueChanged.AddListener(value=>{drafts[DraftKey]=value;UpdateComposer();});
             view.send.onClick.AddListener(Send);
             view.composer.onSubmit.AddListener(_=>{Send();StartCoroutine(FocusComposer());});
             foreach(var row in view.messages){var r=row;r.button.onClick.AddListener(()=>ShowMessage(r));r.avatarButton.onClick.AddListener(()=>ShowProfile(r));r.nameButton.onClick.AddListener(()=>ShowProfile(r));}
             popupDismiss.onClick.AddListener(HidePopup);popupClose.onClick.AddListener(HidePopup);
-            copyButton.onClick.AddListener(()=>{if(popupMessage!=null)GUIUtility.systemCopyBuffer=popupMessage.text;HidePopup();});
+            copyButton.onClick.AddListener(()=>{if(popupMessage!=null)ClipboardUtility.Copy(popupMessage.text);HidePopup();});
             profileButton.onClick.AddListener(()=>{
                 if(ProfileUserId>0)ProfileOnClick.OpenPlayerInfo(ProfileUserId);
                 else if(popupMessage?.HasPlayerSender==true)ProfileOnClick.OpenPlayerInfoByName(popupMessage.author);
@@ -123,8 +131,7 @@ namespace Salasasa.Chat
         }
         void LateUpdate()
         {
-            string window=WindowsManager.Instance?.GetCurrentWindow();
-            bool visible=lobby.ChatOpen && window!="login" && Available;
+            bool visible=CanReadSelected;
             UpdateVisibility(visible);
             if(AtTable && GameSceneMouseInputController.Instance && registeredInput!=GameSceneMouseInputController.Instance){
                 registeredInput=GameSceneMouseInputController.Instance;
@@ -155,6 +162,22 @@ namespace Salasasa.Chat
                 if(!Application.isMobilePlatform)view.composer.ActivateInputField();
             }
             if(Mathf.Abs(view.messageContent.rect.width-messageWidth)>.5f)RenderMessages(false);
+            int selfPortrait = user ? user.ProfileImageId : 0;
+            if (selfPortrait != renderedSelfPortrait) {
+                renderedSelfPortrait = selfPortrait;
+                messageStyleDirty = messagesDirty = true;
+            }
+            if (headerDirty) {
+                headerDirty = false;
+                RefreshConversationHeader();
+                for(int i=0;i<view.tabs.Length;i++){view.tabIndicators[i].gameObject.SetActive(i==SidebarTab);view.tabLabels[i].fontStyle=FontStyles.Normal;view.tabLabels[i].fontWeight=FontWeight.Regular;}
+                if(view.sectionTitle)view.sectionTitle.text=PlatformText.Get(SidebarTab==2?"好友":SidebarTab==1?"基地":"聊天");
+            }
+            if (listDirty) {
+                listDirty = false;
+                if (FriendsVisible) RefreshFriends(); else RefreshConversationList();
+            }
+            if (messagesDirty) FlushMessages();
             UpdateComposer();previousVisible=true;
         }
         public RectTransform LobbyButton => lobbyButtons!=null && lobbyButtons.Length>0 ? lobbyButtons[0] : null;
@@ -192,11 +215,6 @@ namespace Salasasa.Chat
             var title = view.title.rectTransform;
             float nameWidth = view.title.GetPreferredValues(view.title.text).x;
             view.status.rectTransform.anchoredPosition = new Vector2(Mathf.Min(nameWidth + 4, Mathf.Max(0, title.rect.width - 14)), -2);
-        }
-        public void SetMessageStyle(bool plain)
-        {
-            plainTextMessages=plain;PlayerPrefs.SetInt(PreferenceKey,plain?1:0);PlayerPrefs.Save();
-            HidePopup();Refresh();
         }
         public void SelectChannel(int channel)
         {
@@ -238,7 +256,13 @@ namespace Salasasa.Chat
         }
         System.Collections.IEnumerator FocusComposer(){yield return null;if(IsVisible)view.composer.ActivateInputField();}
         public void Receive(string type,int room,string content)
+            => Receive(new ChatMessageStore.ReceivedMessage{type=type,room=room,content=content},true);
+        void Receive(ChatMessageStore.ReceivedMessage entry) => Receive(entry, true);
+
+        void Receive(ChatMessageStore.ReceivedMessage entry,bool notify)
         {
+            string type=entry.type,content=entry.content;
+            int room=entry.room;
             if(type=="sendChatOk"||string.IsNullOrEmpty(content))return;
             string name=type=="serverMessage"?PlatformText.Get("服务器公告"):"系统",body=content.Trim();
             if(type=="serverMessage")body=PlatformText.Get(body);
@@ -247,31 +271,27 @@ namespace Salasasa.Chat
                 int split=body.IndexOf(": ",StringComparison.Ordinal);
                 if(split>0){name=body.Substring(0,split);body=body.Substring(split+2);}
             }
-            var message=new Message{author=name,text=body,type=type,room=room,time=DateTime.Now.ToString("HH:mm"),mine=name==UserDataManager.Instance?.Username,sourceContent=content.Trim(),conversationKey=room==0&&type!="RoomSendFailed"?ChatConversationListModel.LobbyKey:ChatConversationListModel.RoomKey};
+            var user=UserDataManager.Instance;
+            bool mine=entry.senderUserId>0?entry.senderUserId==user?.UserId:name==user?.Username;
+            var message=new Message{author=name,text=body,type=type,room=room,time=DateTime.Now.ToString("HH:mm"),mine=mine,
+                senderUserId=entry.senderUserId,profileImageId=entry.profileImageId,sourceContent=content.Trim(),
+                conversationKey=room==0&&type!="RoomSendFailed"?ChatConversationListModel.LobbyKey:ChatConversationListModel.RoomKey};
             history.Add(message);
-            if(tableLauncher)tableLauncher.Receive(message);
+            if(notify && tableLauncher)tableLauncher.Receive(message);
             while(history.Count(m=>m.conversationKey==message.conversationKey)>50)history.RemoveAt(history.FindIndex(m=>m.conversationKey==message.conversationKey));
             while(history.Count>150)history.RemoveAt(0);
-            ReceiveLegacyUnread(message);
-            RenderMessages(view.messageScroll.verticalNormalizedPosition<.08f);RefreshList();
+            if(notify)ReceiveLegacyUnread(message);
+            if (message.conversationKey == SelectedConversationKey) QueueIncomingMessage();
+            RefreshList();
         }
         public void Refresh()
         {
-            refresh=true;
-            RefreshConversationHeader();
-            for(int i=0;i<view.tabs.Length;i++){view.tabIndicators[i].gameObject.SetActive(i==SidebarTab);view.tabLabels[i].fontStyle=FontStyles.Normal;view.tabLabels[i].fontWeight=FontWeight.Regular;}
-            if(view.sectionTitle)view.sectionTitle.text=PlatformText.Get(SidebarTab==2?"好友":SidebarTab==1?"基地":"聊天");
-            plainButton.targetGraphic.color=PlainText?style.listSelection:Color.clear;
-            bubbleButton.targetGraphic.color=!PlainText?style.listSelection:Color.clear;
-            RefreshList();RenderMessages(false);UpdateComposer();refresh=false;
+            headerDirty = listDirty = messagesDirty = true;
         }
-        void RefreshList()
-        {
-            if(FriendsVisible){RefreshFriends();return;}
-            RefreshConversationList();
-        }
+        void RefreshList() => listDirty = true;
         void UpdateComposer()
         {
+            if (!CanReadSelected) return;
             bool channel=SelectedCanCompose;
             bool connected=SelectedConnected;
             view.composer.interactable=channel;
@@ -289,7 +309,7 @@ namespace Salasasa.Chat
         void ShowMessage(ChatMessageRow row)
         {
             if(row.boundIndex<0||row.boundIndex>=shown.Count)return;
-            popupMessage=shown[row.boundIndex];PopupKind="message";popup.SetActive(true);
+            popupMessage=shown[row.boundIndex].display;PopupKind="message";popup.SetActive(true);
             popupTitle.gameObject.SetActive(false);popupDetail.gameObject.SetActive(false);popupClose.gameObject.SetActive(false);
             profileButton.gameObject.SetActive(false);copyButton.gameObject.SetActive(true);
             popupCard.sizeDelta=new Vector2(152,46);PlacePopup(row.bubbleRect);Place((RectTransform)copyButton.transform,6,6,140,34);
@@ -297,8 +317,8 @@ namespace Salasasa.Chat
         void ShowProfile(ChatMessageRow row)
         {
             if(row.boundIndex<0||row.boundIndex>=shown.Count)return;
-            if(!shown[row.boundIndex].HasPlayerSender)return;
-            popupMessage=shown[row.boundIndex];ProfileUserId=popupMessage.senderUserId>0?popupMessage.senderUserId:popupMessage.mine?UserDataManager.Instance.UserId:0;
+            if(!shown[row.boundIndex].display.HasPlayerSender)return;
+            popupMessage=shown[row.boundIndex].display;ProfileUserId=popupMessage.senderUserId>0?popupMessage.senderUserId:popupMessage.mine?UserDataManager.Instance.UserId:0;
             PopupKind="profile";popup.SetActive(true);popupTitle.gameObject.SetActive(true);popupDetail.gameObject.SetActive(true);popupClose.gameObject.SetActive(true);
             popupTitle.text=popupMessage.author;popupDetail.text=ProfileUserId>0?"UID: "+ProfileUserId:"";
             profileButton.gameObject.SetActive(true);copyButton.gameObject.SetActive(false);
@@ -315,54 +335,169 @@ namespace Salasasa.Chat
         static void Place(RectTransform r,float x,float y,float w,float h){r.anchorMin=r.anchorMax=r.pivot=new Vector2(0,1);r.anchoredPosition=new Vector2(x,-y);r.sizeDelta=new Vector2(w,h);}
         public void RenderMessages(bool bottom)
         {
-            float scroll=view.messageScroll.verticalNormalizedPosition;
-            shown.Clear();
-            if(SelectedChannel<2)shown.AddRange(history.Where(m=>m.conversationKey==SelectedConversationKey));
-            else shown.AddRange(source.GetConversationMessages(SelectedConversationKey).Select(ToDisplayMessage));
-            var v=view;var messages=shown;int start=Mathf.Max(0,messages.Count-v.messages.Length);float y=6;
-            float width=v.messageContent.rect.width;messageWidth=width;VisibleMessageCount=Mathf.Min(messages.Count,v.messages.Length);
-            for(int i=0;i<v.messages.Length;i++){
-                var r=v.messages[i];int n=i+start;r.gameObject.SetActive(n<messages.Count);if(n>=messages.Count)continue;
-                var m=messages[n];r.boundIndex=n;r.author.gameObject.SetActive(true);r.button.interactable=true;r.author.text=m.author;r.time.gameObject.SetActive(true);r.body.text=m.text;r.body.richText=false;r.body.alignment=TextAlignmentOptions.TopLeft;
-                r.avatarButton.enabled=r.nameButton.enabled=m.HasPlayerSender;
-                r.portrait.raycastTarget=r.author.raycastTarget=m.HasPlayerSender;
-                if(m.type=="LoginTime"||m.type=="RoomJoined"||m.type=="RoomLeft"){
-                    var line=(RectTransform)r.transform;line.anchoredPosition=new Vector2(0,-y);line.sizeDelta=new Vector2(0,v.messageLineHeight);
-                    r.author.gameObject.SetActive(false);r.time.gameObject.SetActive(false);r.portrait.gameObject.SetActive(false);r.button.interactable=false;
-                    r.bubbleRect.anchoredPosition=Vector2.zero;r.bubbleRect.sizeDelta=new Vector2(width,v.messageLineHeight);r.bubble.color=Color.clear;
-                    r.body.rectTransform.offsetMin=r.body.rectTransform.offsetMax=Vector2.zero;r.body.alignment=TextAlignmentOptions.Center;
-                    r.body.fontSize=v.timestampFontSize;r.body.fontStyle=FontStyles.Normal;r.body.fontWeight=FontWeight.Regular;r.body.color=v.muted;
-                    r.body.text="────────  "+m.text+"  ────────";y+=v.messageLineHeight+v.messageGap;continue;
+            messagesDirty = true;
+            scrollToEnd |= bottom;
+        }
+
+        void InitializeMessageRows()
+        {
+            for (int i = view.messages.Length - 1; i >= 0; i--)
+                freeRows.Push(new MessageRowBinding { row = view.messages[i], initial = avatarInitials[i] });
+        }
+
+        void QueueIncomingMessage()
+        {
+            messagesDirty = true;
+            followIncoming = true;
+        }
+
+        void CollectMessages()
+        {
+            requestedMessages.Clear();
+            int capacity = view.messages.Length;
+            if (SelectedChannel < 2) {
+                for (int i = history.Count - 1; i >= 0 && requestedMessages.Count < capacity; i--)
+                    if (history[i].conversationKey == SelectedConversationKey) requestedMessages.Add(history[i]);
+                requestedMessages.Reverse();
+            } else {
+                var entries = source.GetConversationMessages(SelectedConversationKey);
+                for (int i = Mathf.Max(0, entries.Count - capacity); i < entries.Count; i++)
+                    requestedMessages.Add(entries[i]);
+            }
+        }
+
+        void FlushMessages()
+        {
+            messagesDirty = false;
+            CollectMessages();
+            var content = view.messageContent;
+            float width = content.rect.width;
+            bool rebind = messageStyleDirty || Mathf.Abs(width - messageWidth) > .5f;
+            messageStyleDirty = false;
+            messageWidth = width;
+            var viewport = view.messageScroll.viewport ? view.messageScroll.viewport : (RectTransform)view.messageScroll.transform;
+            float viewportHeight = viewport.rect.height;
+            float oldRange = Mathf.Max(0, content.rect.height - viewportHeight);
+            float offset = content.anchoredPosition.y;
+            bool bottom = scrollToEnd || (followIncoming && (shown.Count == 0 || offset >= oldRange * .92f));
+            if (scrollToEnd) view.messageScroll.StopMovement();
+            scrollToEnd = followIncoming = false;
+
+            requestedKeys.Clear();
+            requestedKeys.UnionWith(requestedMessages);
+            MessageRowBinding anchor = null;
+            float anchorOffset = 0;
+            foreach (var binding in shown) {
+                if (!requestedKeys.Contains(binding.source)) {
+                    boundRows.Remove(binding.source);
+                    binding.source = binding.display = null;
+                    freeRows.Push(binding);
+                    continue;
                 }
-                r.portrait.gameObject.SetActive(!PlainText);avatarInitials[i].text=m.author.Length>0?m.author.Substring(0,1):"";
-                r.author.richText=false;r.author.overflowMode=TextOverflowModes.Ellipsis;
-                r.author.font=v.senderFont;r.author.fontSize=PlainText?v.senderFontSize:13;r.author.fontStyle=FontStyles.Normal;r.author.fontWeight=FontWeight.Regular;r.author.textWrappingMode=TextWrappingModes.NoWrap;
-                r.author.color=m.author=="系统"?style.secondary:SenderColor(m.author,m.mine);
-                r.body.color=m.type=="False"||m.type=="RoomSendFailed"?new Color32(236,166,166,255):m.type=="serverMessage"?new Color32(235,143,211,255):v.text;r.body.fontSize=v.messageFontSize;r.body.fontStyle=FontStyles.Normal;r.body.fontWeight=FontWeight.Regular;
-                var face=r.body.font.faceInfo;r.body.lineSpacing=(v.messageLineHeight-face.lineHeight*v.messageFontSize/face.pointSize*face.scale)/(v.messageFontSize*.01f);r.body.paragraphSpacing=0;
-                r.time.text=m.time;r.time.fontSize=v.timestampFontSize;r.time.color=v.muted;r.time.fontStyle=FontStyles.Normal;
-                var tr=r.time.rectTransform;tr.anchorMin=tr.anchorMax=tr.pivot=new Vector2(0,1);tr.sizeDelta=new Vector2(48,20);
-                if(PlainText){
-                    r.author.text=m.author+"：";r.author.alignment=TextAlignmentOptions.TopLeft;
-                    float nw=Mathf.Clamp(r.author.GetPreferredValues(r.author.text).x+3,37,126),bx=nw+6,bw=Mathf.Max(100,width-bx-56);
-                    float h=Mathf.Max(v.messageLineHeight,Mathf.Ceil(r.body.GetPreferredValues(m.text,bw,0).y));
-                    var rect=(RectTransform)r.transform;rect.anchoredPosition=new Vector2(0,-y);rect.sizeDelta=new Vector2(0,h);
-                    r.author.rectTransform.anchoredPosition=Vector2.zero;r.author.rectTransform.sizeDelta=new Vector2(nw,v.messageLineHeight);
-                    r.bubbleRect.anchoredPosition=new Vector2(bx,0);r.bubbleRect.sizeDelta=new Vector2(bw,h);r.bubble.color=Color.clear;
-                    r.body.rectTransform.offsetMin=r.body.rectTransform.offsetMax=Vector2.zero;
-                    r.time.alignment=TextAlignmentOptions.TopRight;tr.anchoredPosition=new Vector2(width-48,-4);y+=h+v.messageGap;
-                }else{
-                    r.body.rectTransform.offsetMin=new Vector2(10,6);r.body.rectTransform.offsetMax=new Vector2(-10,-6);
-                    float max=Mathf.Max(96,Mathf.Min(460,width-66)),wanted=r.body.GetPreferredValues(m.text,max-20,0).x+21,bw=Mathf.Clamp(wanted,56,max),bh=Mathf.Max(34,r.body.GetPreferredValues(m.text,bw-20,0).y+14);
-                    var rect=(RectTransform)r.transform;rect.anchoredPosition=new Vector2(0,-y);rect.sizeDelta=new Vector2(0,bh+19);
-                    r.bubbleRect.sizeDelta=new Vector2(bw,bh);r.bubbleRect.anchoredPosition=new Vector2(m.mine?width-bw-46:46,-19);r.bubble.color=m.mine?v.selected:v.row;
-                    r.portrait.rectTransform.anchoredPosition=new Vector2(m.mine?width-36:0,-19);
-                    float aw=Mathf.Min(max-58,r.author.GetPreferredValues(m.author).x+2);
-                    r.author.rectTransform.sizeDelta=new Vector2(aw,19);r.author.rectTransform.anchoredPosition=new Vector2(m.mine?width-aw-104:46,0);r.author.alignment=TextAlignmentOptions.TopLeft;
-                    r.time.alignment=m.mine?TextAlignmentOptions.TopRight:TextAlignmentOptions.TopLeft;tr.anchoredPosition=new Vector2(m.mine?width-94:54+aw,-1);y+=bh+27;
+                float top = -((RectTransform)binding.row.transform).anchoredPosition.y;
+                if (!bottom && anchor == null && top + binding.height > offset) {
+                    anchor = binding;
+                    anchorOffset = offset - top;
                 }
             }
-            v.messageContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,y+4);Canvas.ForceUpdateCanvases();v.messageScroll.verticalNormalizedPosition=bottom?0:scroll;
+
+            shown.Clear();
+            float y = 6;
+            foreach (var key in requestedMessages) {
+                bool existing = boundRows.TryGetValue(key, out var binding);
+                if (!existing) {
+                    binding = freeRows.Pop();
+                    binding.source = key;
+                    binding.row.gameObject.SetActive(true);
+                    boundRows.Add(key, binding);
+                }
+                if (!existing || rebind) {
+                    binding.display = key as Message ?? ToDisplayMessage((ConversationChatMessage)key);
+                    binding.height = BindMessage(binding, width, y);
+                } else {
+                    var rect = (RectTransform)binding.row.transform;
+                    if (!Mathf.Approximately(rect.anchoredPosition.y, -y)) rect.anchoredPosition = new Vector2(0, -y);
+                }
+                if (binding == anchor) offset = y + anchorOffset;
+                binding.row.boundIndex = shown.Count;
+                shown.Add(binding);
+                y += binding.height;
+            }
+            VisibleMessageCount = shown.Count;
+            foreach (var unused in freeRows) {
+                if (unused.row.gameObject.activeSelf) unused.row.gameObject.SetActive(false);
+                unused.row.boundIndex = -1;
+            }
+            float height = y + 4;
+            if (!Mathf.Approximately(content.rect.height, height))
+                content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            float range = Mathf.Max(0, height - viewportHeight);
+            float target = bottom ? range : Mathf.Clamp(offset, 0, range);
+            if (!Mathf.Approximately(target, content.anchoredPosition.y))
+                content.anchoredPosition = new Vector2(content.anchoredPosition.x, target);
+        }
+
+        float BindMessage(MessageRowBinding binding, float width, float top)
+        {
+            var row = binding.row;
+            var message = binding.display;
+            bool divider = message.type == "LoginTime" || message.type == "RoomJoined" || message.type == "RoomLeft";
+            row.author.gameObject.SetActive(!divider);
+            row.time.gameObject.SetActive(!divider);
+            row.portrait.gameObject.SetActive(!divider);
+            row.button.interactable = !divider;
+            row.avatarButton.enabled = row.nameButton.enabled = message.HasPlayerSender;
+            row.portrait.raycastTarget = row.author.raycastTarget = message.HasPlayerSender;
+            row.body.richText = false;
+            row.body.fontStyle = FontStyles.Normal;
+            row.body.fontWeight = FontWeight.Regular;
+            if (divider) {
+                var line = (RectTransform)row.transform;
+                line.anchoredPosition = new Vector2(0, -top);
+                line.sizeDelta = new Vector2(0, view.messageLineHeight);
+                row.bubbleRect.anchoredPosition = Vector2.zero;
+                row.bubbleRect.sizeDelta = new Vector2(width, view.messageLineHeight);
+                row.bubble.color = Color.clear;
+                row.body.rectTransform.offsetMin = row.body.rectTransform.offsetMax = Vector2.zero;
+                row.body.alignment = TextAlignmentOptions.Center;
+                row.body.fontSize = view.timestampFontSize;
+                row.body.color = view.muted;
+                row.body.text = "────────  " + message.text + "  ────────";
+                binding.initial.gameObject.SetActive(false);
+                return view.messageLineHeight + view.messageGap;
+            }
+
+            int profileId = message.profileImageId;
+            if (message.HasPlayerSender && profileId <= 0)
+                profileId = message.mine && renderedSelfPortrait > 0 ? renderedSelfPortrait : ConfigManager.DefaultAvatarItemId;
+            bool hasPortrait = ConfigManager.SetProfilePortrait(row.portrait, profileId, style.row);
+            binding.initial.gameObject.SetActive(!hasPortrait);
+            if (!hasPortrait) binding.initial.text = FirstCharacter(message.author);
+            row.author.text = message.author;
+            row.author.richText = false;
+            row.author.overflowMode = TextOverflowModes.Ellipsis;
+            row.author.font = view.senderFont;
+            row.author.fontSize = 13;
+            row.author.fontStyle = FontStyles.Normal;
+            row.author.fontWeight = FontWeight.Regular;
+            row.author.textWrappingMode = TextWrappingModes.NoWrap;
+            row.author.color = message.author == "系统" ? style.secondary : SenderColor(message.author, message.mine);
+
+            row.body.text = message.text;
+            row.body.alignment = TextAlignmentOptions.TopLeft;
+            row.body.color = message.type == "False" || message.type == "RoomSendFailed" ? new Color32(236,166,166,255)
+                : message.type == "serverMessage" ? new Color32(235,143,211,255) : view.text;
+            row.body.fontSize = view.messageFontSize;
+            var face = row.body.font.faceInfo;
+            row.body.lineSpacing = (view.messageLineHeight - face.lineHeight * view.messageFontSize / face.pointSize * face.scale) / (view.messageFontSize * .01f);
+            row.body.paragraphSpacing = 0;
+            row.time.text = message.time;
+            row.time.fontSize = view.timestampFontSize;
+            row.time.color = view.muted;
+            row.time.fontStyle = FontStyles.Normal;
+            row.author.alignment = row.time.alignment = TextAlignmentOptions.Left;
+            row.bubble.color = message.mine ? view.selected : view.row;
+            return row.LayoutBubble(width, top, message.mine) + 8f;
         }
     }
 }

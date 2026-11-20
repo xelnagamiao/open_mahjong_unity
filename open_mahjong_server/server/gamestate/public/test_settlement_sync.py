@@ -20,6 +20,8 @@ def test_every_legacy_rule_restores_result_when_all_humans_missed_it(adapter):
         state, broadcast, _ = make_state(adapter)
         state.room_id = 1
         state.game_status = "END"
+        # The real round loop assigns this before broadcasting its settlement.
+        state.next_status = "round_end_by_ready"
         for player in state.player_list:
             player.tag_list.append("offline")
         scores = {p.player_index: p.score for p in state.player_list}

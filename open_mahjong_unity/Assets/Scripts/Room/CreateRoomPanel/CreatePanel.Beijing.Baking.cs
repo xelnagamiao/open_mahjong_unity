@@ -6,22 +6,24 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 public partial class CreatePanel {
-    public void BakeBeijingDetailsPanel() {
-        if (transform.Find("DetailedConfigPanel_beijing")) { return; }
+    public void BakeBeijingDetailsPanel() => BakeRegionalDetailsPanel("beijing", "北京麻将");
+
+    public void BakeRegionalDetailsPanel(string key, string title) {
+        if (transform.Find("DetailedConfigPanel_" + key)) { return; }
         var source = transform.Find("DetailedConfigPanel_taiwan");
         if (!source) throw new InvalidOperationException("Taiwan rule panel template missing");
         var copy = Instantiate(source.gameObject, transform);
-        copy.name = "DetailedConfigPanel_beijing";
+        copy.name = "DetailedConfigPanel_" + key;
         try {
             copy.SetActive(false);
             var fanPanel = copy.transform.Find("FanTablePanel");
             if (fanPanel) DestroyImmediate(fanPanel.gameObject);
             var header = copy.transform.Find("Dialog/HeaderPanel");
-            header.GetComponentInChildren<TMP_Text>(true).text = "北京麻将 · 高级设置";
+            header.GetComponentInChildren<TMP_Text>(true).text = title + " · 高级设置";
             var scroll = copy.transform.Find("Dialog/Create_Panel/ScrollArea").GetComponent<ScrollRect>();
             var content = scroll.content;
             foreach (Transform child in content.Cast<Transform>().ToArray()) DestroyImmediate(child.gameObject);
-            DetailedConfigRegistry.TryGet("beijing", out var definition);
+            DetailedConfigRegistry.TryGet(key, out var definition);
             void AddRow(string name, string title, IEnumerable<string> labels) {
                 var row = RoomRect(name, content);
                 RoomLabel("Label", row, title, 28);

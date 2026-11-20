@@ -21,6 +21,28 @@ def test_scoping_does_not_mutate_shared_payload_or_relabel_a_previous_game():
     asyncio.run(run())
 
 
+def test_forwarded_end_packet_keeps_its_own_tables_committed_reward():
+    async def run():
+        def table(name, amount):
+            reward = {"version": 3, "players": [{"user_id": 101, "currency_delta_minor": amount,
+                                                 "currency_reward_status": "saved"}]}
+            return NS(gamestate_id=name, game_record={"currency_reward": reward})
+
+        socket = NS(send_json=AsyncMock())
+        end = {"type": "gamestate/guobiao/game_end",
+               "game_end_info": {"player_final_data": {"0": {"user_id": 101}}}}
+        await send_game_packet(table("first", 15), socket, end)
+        first = socket.send_json.await_args.args[0]
+        assert first["game_end_info"]["player_final_data"]["0"]["currency_delta_minor"] == 15
+        await send_game_packet(table("second", 5), socket, first)
+        assert socket.send_json.await_args.args[0] == first
+        assert end["game_end_info"]["player_final_data"]["0"] == {"user_id": 101}
+        ready = {"gamestate_id": "first", "type": "gamestate/guobiao/ready_status"}
+        await send_game_packet(table("second", 5), socket, ready)
+        assert socket.send_json.await_args.args[0] == ready
+    asyncio.run(run())
+
+
 def test_lifecycle_cancellation_is_not_swallowed_as_a_send_timeout():
     async def run():
         started, stopped = asyncio.Event(), asyncio.Event()

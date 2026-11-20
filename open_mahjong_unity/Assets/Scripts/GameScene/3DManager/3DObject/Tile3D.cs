@@ -259,7 +259,8 @@ public class Tile3D : MonoBehaviour
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
         var art = TableFaceLayoutSettings.ForTile(currentVisibleFaceTileId);
         propBlock.SetVector(ArtworkLayoutId, new Vector4(art.x, art.y, art.scale, 0));
-        var baseline = usesUnifiedArtwork ? LegacyFacePlacement.Table(currentVisibleFaceTileId) : LegacyFacePlacement.Placement.Identity;
+        bool configuredArtwork = TilePackLayoutConfig.TryImageLayout(null, currentVisibleFaceTileId, true, out _);
+        var baseline = usesUnifiedArtwork || configuredArtwork || DuocaiTileVisual.IsColoredStandard(currentVisibleFaceTileId) ? LegacyFacePlacement.Table(currentVisibleFaceTileId) : LegacyFacePlacement.Placement.Identity;
         baseline.scale = Vector2.Scale(baseline.scale, atlasArtworkFit);
         propBlock.SetVector(ArtworkBaselineId, new Vector4(baseline.offset.x, baseline.offset.y, baseline.scale.x, baseline.scale.y));
         propBlock.SetFloat(BackRotationId, backRotation);

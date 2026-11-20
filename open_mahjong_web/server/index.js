@@ -3,6 +3,7 @@ const cors = require('cors'); // 引入cors 解决跨域问题 允许前端（�
 const http = require('http'); // 引入http 创建服务器
 const socketIo = require('socket.io'); // 引入socket.io 实现WebSocket通信
 require('dotenv').config(); // 引入dotenv 加载环境变量
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env.anti-cheat.local') });
 
 // 加载配置（从环境变量读取，支持 .env 文件）
 const config = require('./config/config');
@@ -80,6 +81,7 @@ const playerMyEventsRoutes = require('./routes/player/myEvents');
 const player2dRecordsRoutes = require('./routes/player/records2d');
 const playerTileContentRoutes = require('./routes/player/tileContent');
 app.use('/api/player/auth', playerAuthRoutes);
+app.use('/api/player', require('./routes/player/account'));
 app.use('/api/player/redeem', require('./routes/player/redeem'));
 app.use('/api/player/event-applications', playerEventApplicationsRoutes);
 app.use('/api/player/tile-content', playerTileContentRoutes);
@@ -92,6 +94,7 @@ const platformStatsLimiter = createWindowLimiter({
   max: 30,
   keyFn: (req) => `${getClientIp(req)}:platform-stats`,
 });
+app.get('/api/venue-icons/:name', require('./services/venueIcons').serve);
 app.use('/api/platform/content', require('./routes/platformContent'));
 app.use('/api/platform', platformStatsLimiter, platformRoutes);
 app.use('/api/admin', adminRoutes);

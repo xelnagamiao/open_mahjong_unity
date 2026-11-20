@@ -126,17 +126,21 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
         tableRect.offsetMin = tableRect.offsetMax = Vector2.zero;
         var blue = new Color32(117, 190, 255, 255);
         var red = new Color32(255, 130, 140, 255);
-        Label(table.transform, "Blue", template, 28, blue, 350, 347, 220, 42).text = "蓝队";
-        Label(table.transform, "Red", template, 28, red, 620, 347, 220, 42).text = "红队";
+        var headings = DynamicTextRow.Create(table.transform, "Headings");
+        Place((RectTransform)headings.transform, 0, 347, 900, 42);
+        Label(headings.transform, "Blue", template, 28, blue, 350, 0, 220, 42, headings).text = "蓝队";
+        Label(headings.transform, "Red", template, 28, red, 620, 0, 220, 42, headings).text = "红队";
         string[] names = { "开室队分", "闭室队分", "两室分差", "本副 IMP", "累计 IMP" };
         values = new TMP_Text[5, 2];
         for (int row = 0; row < names.Length; row++) {
             float y = 300 - 44 * row;
-            var label = Label(table.transform, "Label" + row, template, 25, Color.white, 60, y, 260, 40);
+            var line = DynamicTextRow.Create(table.transform, "Row" + row);
+            Place((RectTransform)line.transform, 0, y, 900, 40);
+            var label = Label(line.transform, "Label" + row, template, 25, Color.white, 60, 0, 260, 40, line);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.text = names[row];
-            values[row, 0] = Label(table.transform, "Blue" + row, template, 29, blue, 350, y, 220, 40);
-            values[row, 1] = Label(table.transform, "Red" + row, template, 29, red, 620, y, 220, 40);
+            values[row, 0] = Label(line.transform, "Blue" + row, template, 29, blue, 350, 0, 220, 40, line);
+            values[row, 1] = Label(line.transform, "Red" + row, template, 29, red, 620, 0, 220, 40, line);
         }
         var button = new GameObject("Continue", typeof(RectTransform), typeof(Image), typeof(Button));
         button.transform.SetParent(transform, false);
@@ -148,10 +152,8 @@ public sealed class SichuanDuplicateResultPanel : MonoBehaviour {
     }
 
     private static TMP_Text Label(Transform parent, string name, TMP_Text template, float size, Color color,
-        float x, float y, float width, float height) {
-        var host = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        host.transform.SetParent(parent, false);
-        var text = host.GetComponent<TextMeshProUGUI>();
+        float x, float y, float width, float height, DynamicTextRow row = null) {
+        var text = row ? row.Member(parent, name) : DynamicTextRow.SingleLabel(parent, name);
         text.font = template.font; text.fontSharedMaterial = template.fontSharedMaterial;
         text.color = color; text.fontSize = text.fontSizeMax = size; text.fontSizeMin = size - 5;
         text.enableAutoSizing = true; text.textWrappingMode = TextWrappingModes.NoWrap;

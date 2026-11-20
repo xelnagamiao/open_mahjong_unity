@@ -104,6 +104,9 @@ public partial class GameRecordManager {
         List<string> tick = round.actionTicks[node];
         string action = tick[0];
         switch (action) {
+            case "ca":
+                // 战术鸣牌申请只报声、飘字，不操作任何牌；出牌飞行和手牌收拢不能吞掉这次点击。
+                return true;
             case "d": case "gd": case "nd": case "bd": case "c": case "bh": case "nuki":
             case "ag": case "jg": case "rk":
             case "cl": case "cm": case "cr": case "p": case "g":

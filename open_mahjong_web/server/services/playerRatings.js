@@ -61,7 +61,7 @@ async function queryRecordRatings(db, playerRows) {
   // rating_settlements.game_id is a runtime game ID, not the random cloud replay ID.
   const { rows } = await db.query(`
     SELECT game_id, record #> '{game_title,rating_result}' AS rating_result
-    FROM game_records WHERE game_id = ANY($1::varchar[])
+    FROM game_record_metadata WHERE game_id = ANY($1::varchar[])
   `, [gameIds]);
   return new Map(rows.map(row => [row.game_id, row.rating_result]));
 }

@@ -16,8 +16,10 @@ test('Sichuan keys use authenticated routes and PostgreSQL for personal, event a
   try {
     await ensureDuplicateTables(pool);
     await pool.query(`
+      CREATE TABLE users (user_id bigint PRIMARY KEY, username text, ban_type text, ban_reason text, ban_expires_at timestamp);
       CREATE TABLE events (event_id text PRIMARY KEY, kind text, status text);
       CREATE TABLE event_admins (event_id text, user_id bigint);
+      INSERT INTO users (user_id, username) VALUES (101,'Venue admin'),(201,'Player');
       INSERT INTO events VALUES ('test-event','event','active'),('test-base','base','active');
       INSERT INTO event_admins VALUES ('test-event',101),('test-base',101);
     `);
