@@ -1,86 +1,30 @@
 import { isDuplicateGameRecord } from './duplicateWalls.js'
+import {
+  openReplayDatabase,
+  replayTransaction,
+  saveReplayRows,
+  loadReplay,
+  requestResult,
+} from './browserRecordDatabase.js'
 
-const DB_NAME = 'om.localGameRecords'
-const DB_VERSION = 1
-const RECORD_STORE = 'records'
-const META_STORE = 'meta'
-const INDEX_KEY = 'index'
 export const LOCAL_GAME_RECORD_MAX = 200
 export const LOCAL_GAME_ID_PREFIX = 'L'
-
-function openDb() {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB is unavailable'))
-      return
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(RECORD_STORE)) {
-        db.createObjectStore(RECORD_STORE, { keyPath: 'game_id' })
-      }
-      if (!db.objectStoreNames.contains(META_STORE)) {
-        db.createObjectStore(META_STORE)
-      }
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB'))
-  })
-}
-
-function runTx(mode, fn) {
-  return openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction([RECORD_STORE, META_STORE], mode)
-    let result
-    try {
-      result = fn(tx.objectStore(RECORD_STORE), tx.objectStore(META_STORE))
-    } catch (err) {
-      db.close()
-      reject(err)
-      return
-    }
-    tx.oncomplete = () => {
-      db.close()
-      resolve(result)
-    }
-    tx.onerror = () => {
-      db.close()
-      reject(tx.error ?? new Error('IndexedDB transaction failed'))
-    }
-    tx.onabort = () => {
-      db.close()
-      reject(tx.error ?? new Error('IndexedDB transaction aborted'))
-    }
-  }))
-}
-
-function requestToPromise(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-function roomTypeOf(detail) {
-  const title = detail?.record?.game_title
-  if (title && typeof title === 'object' && title.room_type != null) {
-    return String(title.room_type)
-  }
-  return detail?.room_type != null ? String(detail.room_type) : null
-}
+const open = () => openReplayDatabase('om.localGameRecords', toLocalRecordInfo)
 
 export function toLocalRecordInfo(detail) {
-  if (!detail || !detail.game_id) return null
+  if (!detail?.game_id) return null
+  const table = detail.record?.tables?.[detail.selected_table_id]
   return {
     game_id: String(detail.game_id),
+    cloud_saved: detail.cloud_saved === true,
     rule: detail.rule || '',
     sub_rule: detail.sub_rule ?? null,
     match_type: detail.match_type || '',
     created_at: detail.created_at || '',
-    players: Array.isArray(detail.players) ? detail.players : [],
-    room_type: roomTypeOf(detail),
-    is_favorite: false,
+    players: detail.players || [],
+    room_type: table?.payload?.game_title?.room_type ?? detail.room_type ?? null,
+    is_favorite: !!detail.is_favorite,
+    ...(detail.match_summary ? { match_summary: detail.match_summary } : {}),
   }
 }
 
@@ -88,47 +32,19 @@ export function isLocalOnlyGameId(gameId) {
   return String(gameId || '').startsWith(LOCAL_GAME_ID_PREFIX)
 }
 
-/** @param {object} detail 服务端 game_end_info.record_detail */
 export async function saveLocalGameRecord(detail) {
-  if (!detail?.record || !detail.game_id) return
-  if (isDuplicateGameRecord(detail)) return
-  const row = {
-    ...detail,
-    game_id: String(detail.game_id),
-    perspective: false,
-    saved_at: Date.now(),
-  }
-  const info = toLocalRecordInfo(row)
+  if (!detail?.record || !detail.game_id || isDuplicateGameRecord(detail)) return
   try {
-    const db = await openDb()
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction([RECORD_STORE, META_STORE], 'readwrite')
-      const records = tx.objectStore(RECORD_STORE)
-      const meta = tx.objectStore(META_STORE)
-      records.put(row)
-      const indexReq = meta.get(INDEX_KEY)
-      indexReq.onsuccess = () => {
-        const list = Array.isArray(indexReq.result) ? indexReq.result.slice() : []
-        const next = list.filter((item) => item && item.game_id !== row.game_id)
-        next.unshift(info)
-        const dropped = next.splice(LOCAL_GAME_RECORD_MAX)
-        for (const old of dropped) {
-          if (old?.game_id) records.delete(String(old.game_id))
-        }
-        meta.put(next, INDEX_KEY)
+    await replayTransaction(open, 'readwrite', async (stores) => {
+      const [row] = await saveReplayRows(stores, [{ ...detail, perspective: false, saved_at: Date.now() }])
+      const cards = (await requestResult(stores.meta.get('index'))) || []
+      const next = [toLocalRecordInfo(row), ...cards.filter((card) => card.game_id !== row.game_id)]
+      for (const old of next.splice(LOCAL_GAME_RECORD_MAX)) {
+        const ids = await requestResult(stores.aliases.index('replay_id').getAllKeys(old.game_id))
+        for (const id of ids) stores.aliases.delete(id)
+        stores.records.delete(old.game_id)
       }
-      tx.oncomplete = () => {
-        db.close()
-        resolve()
-      }
-      tx.onerror = () => {
-        db.close()
-        reject(tx.error ?? new Error('IndexedDB transaction failed'))
-      }
-      tx.onabort = () => {
-        db.close()
-        reject(tx.error ?? new Error('IndexedDB transaction aborted'))
-      }
+      stores.meta.put(next, 'index')
     })
   } catch (error) {
     console.warn('保存本地牌谱失败', error)
@@ -137,8 +53,7 @@ export async function saveLocalGameRecord(detail) {
 
 export async function listLocalGameRecords() {
   try {
-    const list = await runTx('readonly', (_records, meta) => requestToPromise(meta.get(INDEX_KEY)))
-    return (Array.isArray(list) ? list : []).filter((item) => item?.game_id)
+    return (await replayTransaction(open, 'readonly', (stores) => requestResult(stores.meta.get('index')))) || []
   } catch (error) {
     console.warn('读取本地牌谱列表失败', error)
     return []
@@ -146,12 +61,9 @@ export async function listLocalGameRecords() {
 }
 
 export async function getLocalGameRecord(gameId) {
-  const id = String(gameId || '')
-  if (!id) return null
+  if (!gameId) return null
   try {
-    const row = await runTx('readonly', (records) => requestToPromise(records.get(id)))
-    if (!row?.record) return null
-    return row
+    return await replayTransaction(open, 'readonly', (stores) => loadReplay(stores, String(gameId)))
   } catch (error) {
     console.warn('读取本地牌谱失败', error)
     return null

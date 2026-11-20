@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { normalizeTeamIcon } = require('../../services/venueIcons');
 const pool = require('../../config/database');
 const config = require('../../config/config');
 const { writeAudit } = require('../../utils/audit');
@@ -61,7 +62,7 @@ function parseUserId(value, label = '用户 ID') {
 
 async function fetchEventRow(eventId) {
   const result = await pool.query(
-    `SELECT event_id, name, description, status, kind, reopen_requested, created_by, closed_at, created_at, updated_at
+    `SELECT event_id, name, description, team_icon_url, status, kind, reopen_requested, created_by, closed_at, created_at, updated_at
      FROM events WHERE event_id = $1`,
     [eventId]
   );
@@ -98,8 +99,8 @@ async function resolveRegisteredUser(userId) {
 
 async function countEventRecords(eventId) {
   const result = await pool.query(
-    `SELECT COUNT(DISTINCT game_id)::int AS cnt
-     FROM game_player_records
+    `SELECT COUNT(DISTINCT t.replay_id)::int AS cnt
+     FROM game_player_records JOIN game_record_tables t USING(game_id)
      WHERE event_id = $1`,
     [eventId]
   );
@@ -134,7 +135,7 @@ router.get('/', async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const listRes = await pool.query(
-      `SELECT e.event_id, e.name, e.description, e.status, e.kind, e.reopen_requested, e.created_by, e.closed_at, e.created_at, e.updated_at,
+      `SELECT e.event_id, e.name, e.description, e.team_icon_url, e.status, e.kind, e.reopen_requested, e.created_by, e.closed_at, e.created_at, e.updated_at,
               owner.user_id AS owner_user_id,
               owner_u.username AS owner_username,
               (
@@ -142,7 +143,7 @@ router.get('/', async (req, res) => {
                 WHERE ea2.event_id = e.event_id AND ea2.role = 'admin'
               ) AS admin_count,
               (
-                SELECT COUNT(DISTINCT gpr.game_id)::int FROM game_player_records gpr
+                SELECT COUNT(DISTINCT t.replay_id)::int FROM game_player_records gpr JOIN game_record_tables t USING(game_id)
                 WHERE gpr.event_id = e.event_id
               ) AS record_count
        FROM events e
@@ -187,6 +188,8 @@ router.post('/', async (req, res) => {
     if (nameParsed.error) {
       return res.status(400).json({ success: false, message: nameParsed.error });
     }
+    const icon = normalizeTeamIcon(req.body?.team_icon_url);
+    if (icon.error) return res.status(400).json({success:false,message:icon.error});
     const descriptionText = String(description || '').trim();
     if (descriptionText.length > 2000) {
       return res.status(400).json({ success: false, message: '赛事介绍过长（最多 2000 字）' });
@@ -220,9 +223,9 @@ router.post('/', async (req, res) => {
       : { forbid_tourist: false, auto_approve: false, create_room_permission: 'admin', member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
-       VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb)`,
-      [eventId, nameParsed.value, descriptionText, req.admin.userId, kindValue, JSON.stringify(entryConfig)]
+      `INSERT INTO events (event_id, name, description, team_icon_url, status, created_by, kind, entry_config)
+       VALUES ($1, $2, $3, $7, 'registered', $4, $5, $6::jsonb)`,
+      [eventId, nameParsed.value, descriptionText, req.admin.userId, kindValue, JSON.stringify(entryConfig), icon.value]
     );
     if (ownerId != null) {
       await client.query(
@@ -296,7 +299,7 @@ router.put('/:eventId/profile', async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const existing = await client.query(
-      `SELECT event_id, name, description, kind FROM events WHERE event_id = $1 FOR UPDATE`,
+      `SELECT event_id, name, description, team_icon_url, kind FROM events WHERE event_id = $1 FOR UPDATE`,
       [req.params.eventId]
     );
     const before = existing.rows[0];
@@ -304,15 +307,17 @@ router.put('/:eventId/profile', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: '赛事或基地不存在' });
     }
-    if (nameParsed.value === before.name.trim() && description === String(before.description || '').trim()) {
+    const icon = normalizeTeamIcon(req.body?.team_icon_url, before.team_icon_url);
+    if(icon.error){await client.query('ROLLBACK');return res.status(400).json({success:false,message:icon.error});}
+    if (icon.value === (before.team_icon_url || '') && nameParsed.value === before.name.trim() && description === String(before.description || '').trim()) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, message: '名称与介绍均未变更' });
     }
     const result = await client.query(
-      `UPDATE events SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+      `UPDATE events SET name = $1, description = $2, team_icon_url = $4, updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $3
-       RETURNING event_id, name, description, kind, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
-      [nameParsed.value, description, req.params.eventId]
+       RETURNING event_id, name, description, team_icon_url, kind, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+      [nameParsed.value, description, req.params.eventId, icon.value]
     );
     const event = result.rows[0];
     await writeAudit({
@@ -360,7 +365,7 @@ router.post('/:eventId/close', async (req, res) => {
            reopen_requested = FALSE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [event.event_id]
     );
 
@@ -407,7 +412,7 @@ router.post('/:eventId/activate', async (req, res) => {
            reopen_requested = FALSE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [event.event_id]
     );
 
@@ -446,7 +451,7 @@ router.post('/:eventId/reject-reopen', async (req, res) => {
        SET reopen_requested = FALSE,
            updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
-       RETURNING event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
+       RETURNING event_id, name, description, team_icon_url, status, reopen_requested, created_by, closed_at, created_at, updated_at`,
       [event.event_id]
     );
 
@@ -484,20 +489,20 @@ router.delete('/:eventId', async (req, res) => {
       });
     }
 
+    await client.query('BEGIN');
     const gamesRes = await client.query(
-      `SELECT DISTINCT game_id FROM game_player_records WHERE event_id = $1`,
+      `SELECT DISTINCT t.replay_id AS game_id FROM game_player_records p JOIN game_record_tables t USING(game_id) WHERE p.event_id = $1`,
       [event.event_id]
     );
     const gameIds = gamesRes.rows.map((r) => r.game_id);
 
-    await client.query('BEGIN');
     if (gameIds.length > 0) {
       await client.query(
-        `DELETE FROM game_player_metrics WHERE game_id = ANY($1::varchar[])`,
+        `DELETE FROM game_player_metrics WHERE game_id IN (SELECT game_id FROM game_record_tables WHERE replay_id=ANY($1::varchar[]))`,
         [gameIds]
       );
       await client.query(
-        `DELETE FROM game_records WHERE game_id = ANY($1::varchar[])`,
+        `DELETE FROM game_replays WHERE game_id = ANY($1::varchar[])`,
         [gameIds]
       );
     }

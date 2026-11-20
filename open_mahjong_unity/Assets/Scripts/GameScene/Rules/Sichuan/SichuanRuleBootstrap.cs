@@ -27,6 +27,7 @@ internal static class SichuanRuleBootstrap {
             RecordDangerUsesWaitHint = true,
             FanValueText = SichuanFanText.FanValue,
             RoundName = SichuanFanText.RoundName,
+            MaxRoundText = rounds => $"{rounds * 4}副",
             ScoreboardMainFanFromRoundLabel = true,
             ScoreboardHighlightsTsumoLoss = false,
             ScoreboardFanText = SichuanFanText.ScoreboardFanText,

@@ -6,7 +6,6 @@ const { hashPassword } = require('../../utils/password');
 const { writeAudit } = require('../../utils/audit');
 const { fetchUserStatsBundle } = require('../../services/playerStats');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
-const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 const { getAccountGeography } = require('../../services/accountGeography');
 const { RENAME_CARD_COLUMNS } = require('../../services/renameCards');
 
@@ -44,7 +43,7 @@ async function fetchUserOnline(userId) {
   return { online: !!data.online, username: data.username || null };
 }
 
-const BAN_TYPES = new Set(['login', 'chat', 'match', 'full']);
+const { BAN_TYPES, ACTIVE_BAN } = require('../../utils/accountBans');
 const LADDER_PASS_FIELDS = [
   'is_beginner_qualified',
   'is_intermediate_qualified',
@@ -79,52 +78,34 @@ function normalizeBanPayload({ ban_expires_at, ban_type, ban_reason }) {
   const hasBanReason = ban_reason !== undefined;
 
   if (!hasBanType && !hasBanExpires && !hasBanReason) {
-    return { updates: [] };
+    return { fields: {} };
   }
 
   if (ban_type === null || ban_type === '') {
-    return {
-      updates: [
-        'ban_type = NULL',
-        'ban_expires_at = NULL',
-        'ban_reason = NULL',
-      ],
-      params: [],
-    };
+    return { fields: { ban_type: null, ban_expires_at: null, ban_reason: null } };
   }
 
   const type = String(ban_type).trim();
-  if (!BAN_TYPES.has(type)) {
+  if (!BAN_TYPES.includes(type)) {
     return { error: '无效的封禁类型' };
   }
 
-  const updates = [`ban_type = $IDX_TYPE`];
-  const params = [type];
-  let idx = 2;
+  const fields = { ban_type: type };
 
   if (hasBanExpires) {
     const parsed = parseBanExpiresAt(ban_expires_at);
     if (parsed?.error) {
       return { error: parsed.error };
     }
-    if (parsed.value === null) {
-      updates.push('ban_expires_at = NULL');
-    } else {
-      updates.push(`ban_expires_at = $${idx++}`);
-      params.push(parsed.value);
-    }
+    fields.ban_expires_at = parsed.value;
   }
 
   if (hasBanReason) {
     const reason = String(ban_reason || '').trim();
-    updates.push(`ban_reason = $${idx++}`);
-    params.push(reason || null);
+    fields.ban_reason = reason || null;
   }
 
-  return {
-    updates: updates.map((line, i) => (i === 0 ? `ban_type = $1` : line)),
-    params,
-  };
+  return { fields };
 }
 
 router.get('/search', async (req, res) => {
@@ -175,6 +156,38 @@ router.get('/search', async (req, res) => {
   }
 });
 
+router.get('/bans', async (req, res) => {
+  const { type = '', status = 'active', q = '' } = req.query;
+  if ((type && !BAN_TYPES.includes(type)) || !['active', 'expired', 'all'].includes(status) || typeof q !== 'string') {
+    return res.status(400).json({ success: false, message: '名单筛选条件无效' });
+  }
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const where = [`ban_type = ANY($1::text[])`];
+  const params = [type ? [type] : BAN_TYPES];
+  if (status !== 'all') where.push(status === 'active' ? ACTIVE_BAN : `NOT ${ACTIVE_BAN}`);
+  if (q.trim()) {
+    where.push("(user_id::text = $2 OR strpos(lower(username), lower($2)) > 0)");
+    params.push(q.trim());
+  }
+  const from = `FROM users WHERE ${where.join(' AND ')}`;
+  try {
+    const count = await pool.query(`SELECT count(*)::int AS total ${from}`, params);
+    const total = count.rows[0].total;
+    const currentPage = Math.min(page, Math.max(1, Math.ceil(total / limit)));
+    const result = await pool.query(
+      `SELECT user_id, username, ban_type, ban_reason, ban_expires_at, ${ACTIVE_BAN} AS active
+       ${from} ORDER BY ban_expires_at DESC NULLS FIRST, user_id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, (currentPage - 1) * limit]
+    );
+    res.json({ success: true, data: { items: result.rows, total, page: currentPage, limit } });
+  } catch (err) {
+    console.error('admin account ban list:', err);
+    res.status(500).json({ success: false, message: '读取封禁名单失败' });
+  }
+});
+
 router.get('/geography', async (req, res) => {
   try {
     res.json({ success: true, data: await getAccountGeography().distribution() });
@@ -213,11 +226,10 @@ router.get('/:userId', async (req, res) => {
         [userId]
       ),
       pool.query(
-        `SELECT gpr.game_id, gr.created_at, gpr.room_type, gpr.rule, gpr.sub_rule, gpr.match_type
-         FROM game_player_records gpr
-         JOIN game_records gr ON gr.game_id = gpr.game_id
-         WHERE gpr.user_id = $1
-         ORDER BY gr.created_at DESC NULLS LAST, gpr.game_id DESC
+        `SELECT DISTINCT r.game_id, r.created_at,gpr.room_type,gpr.rule,gpr.sub_rule,gpr.match_type
+         FROM game_player_records gpr JOIN game_record_tables t USING(game_id)
+         JOIN game_replays r ON r.game_id=t.replay_id WHERE gpr.user_id=$1
+         ORDER BY r.created_at DESC NULLS LAST,r.game_id DESC
          LIMIT 10`,
         [userId]
       ),
@@ -234,7 +246,8 @@ router.get('/:userId', async (req, res) => {
     ]);
 
     const recordCount = await pool.query(
-      `SELECT COUNT(DISTINCT game_id)::int AS cnt FROM game_player_records WHERE user_id = $1`,
+      `SELECT COUNT(DISTINCT t.replay_id)::int AS cnt FROM game_player_records
+       JOIN game_record_tables t USING(game_id) WHERE user_id = $1`,
       [userId]
     );
 
@@ -261,6 +274,8 @@ router.get('/:userId', async (req, res) => {
 });
 
 router.patch('/:userId', async (req, res) => {
+  let client;
+  let connectionError;
   try {
     const userId = parseInt(req.params.userId, 10);
     const {
@@ -283,15 +298,6 @@ router.patch('/:userId', async (req, res) => {
     };
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ success: false, message: '请填写变更原因' });
-    }
-
-    const before = await pool.query(
-      `SELECT ${USER_PATCH_SELECT_COLUMNS}
-       FROM users WHERE user_id = $1`,
-      [userId]
-    );
-    if (before.rows.length === 0) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
     }
 
     const updates = [];
@@ -330,39 +336,30 @@ router.patch('/:userId', async (req, res) => {
     if (banPatch.error) {
       return res.status(400).json({ success: false, message: banPatch.error });
     }
-    if (banPatch.updates?.length) {
-      for (const line of banPatch.updates) {
-        if (line.includes('$')) {
-          const match = line.match(/\$(\d+)/g);
-          if (match) {
-            const reindexed = line.replace(/\$\d+/g, () => `$${idx++}`);
-            updates.push(reindexed);
-          } else {
-            updates.push(line);
-          }
-        } else {
-          updates.push(line);
-        }
-      }
-      if (banPatch.params?.length) {
-        params.push(...banPatch.params);
-      }
+    for (const [column, value] of Object.entries(banPatch.fields)) {
+      const cast = column === 'ban_expires_at' ? '::timestamptz::timestamp' : '';
+      updates.push(`${column} = $${idx++}${cast}`);
+      params.push(value);
     }
 
     if (updates.length === 0) {
       return res.status(400).json({ success: false, message: '没有可更新的字段' });
     }
 
-    params.push(userId);
-    await pool.query(
-      `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${idx}`,
-      params
-    );
-
-    const after = await pool.query(
-      `SELECT ${USER_PATCH_SELECT_COLUMNS}
-       FROM users WHERE user_id = $1`,
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const before = await client.query(
+      `SELECT ${USER_PATCH_SELECT_COLUMNS} FROM users WHERE user_id = $1 FOR UPDATE`,
       [userId]
+    );
+    if (!before.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    params.push(userId);
+    const after = await client.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${idx} RETURNING ${USER_PATCH_SELECT_COLUMNS}`,
+      params
     );
 
     await writeAudit({
@@ -372,15 +369,25 @@ router.patch('/:userId', async (req, res) => {
       targetId: userId,
       payload: { before: before.rows[0], after: after.rows[0] },
       reason: String(reason).trim(),
-    });
+    }, client);
+    await client.query('COMMIT');
 
     res.json({ success: true, data: after.rows[0] });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        connectionError = rollbackError;
+      }
+    }
     if (err.code === '23505') {
       return res.status(409).json({ success: false, message: '用户名已存在' });
     }
     console.error('admin user patch:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  } finally {
+    client?.release(connectionError);
   }
 });
 
@@ -524,7 +531,6 @@ router.post('/:userId/rename', async (req, res) => {
           [newName, userId]
         );
         syncedRecordCount = records.rowCount;
-        await rewriteGameRecordSnapshots(client, userId, { newUsername: newName });
       }
       await client.query('COMMIT');
     } catch (err) {
@@ -597,7 +603,6 @@ router.post('/:userId/history-username', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(404).json({ success: false, message: '用户不存在' });
       }
-      await rewriteGameRecordSnapshots(client, userId, { oldUsername: oldName, newUsername: newName });
       const records = await client.query(
         `UPDATE game_player_records SET username = $1 WHERE user_id = $2 AND username = $3`,
         [newName, userId, oldName]

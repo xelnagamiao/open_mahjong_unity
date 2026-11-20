@@ -33,11 +33,24 @@ public partial class CreatePanel {
     private void BindTierPresets() {
         var root = transform.Find("Create_Panel/TierPresets");
         if (!root) return;
+        // Older baked panels may have fewer buttons than the current catalogue.
+        EnsureTierPresetButtons();
         for (int i = 0; i < root.childCount; i++) {
             int tier = i;
             root.GetChild(i).GetComponent<Button>().onClick.AddListener(() => {
                 if (_ruleState == "riichi") ApplyRiichiPreset(RiichiSidebarPresetIndex(tier)); else ApplyGuobiaoTierPreset(tier);
             });
+        }
+    }
+
+    private void EnsureTierPresetButtons() {
+        var root = transform.Find("Create_Panel/TierPresets");
+        int count = Math.Max(TierNames.Length, RiichiRoomRules.Presets.GroupBy(p => p.SubRule).Max(g => g.Count()));
+        while (root.childCount < count) {
+            var button = Instantiate(root.GetChild(0).GetComponent<Button>(), root);
+            button.name = "Preset_" + root.childCount;
+            button.onClick = new Button.ButtonClickedEvent();
+            button.gameObject.SetActive(false);
         }
     }
 

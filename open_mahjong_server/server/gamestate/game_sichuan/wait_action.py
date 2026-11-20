@@ -378,6 +378,8 @@ async def wait_action(self):
                     if getattr(self, "is_xueliu", False) and player.post_hu_lock:
                         refresh_waiting_tiles(self, self.current_player_index)
                     # 下雨1：摸牌加杠收未和牌每人 1 分；手牌加杠不收分（并清除待退税杠，避免杠上炮误退更早的刮风/下雨）
+                    # 先保存前一个已完成杠的情境及退税对象；登记本次加杠会覆盖 paofen_watch。
+                    # 非及时/无人付款的杠也能形成杠上炮，不能用是否有杠分代替情境判断。
                     self.jiagang_after_gang = not getattr(self, "is_xueliu", False) and self.last_action_was_gang
                     self.jiagang_previous_gang = (
                         self.paofen_watch[1] if self.jiagang_after_gang and self.paofen_watch
@@ -406,8 +408,8 @@ async def wait_action(self):
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang"
                     else:
-                        self.jiagang_previous_gang = None
                         self.jiagang_after_gang = False
+                        self.jiagang_previous_gang = None
                         self.game_status = "deal_card_after_gang"
                         await self._broadcast_kong_reveals()
                     return
@@ -641,12 +643,14 @@ async def wait_action(self):
             temp_jiagang_tile = self.jiagang_tile
             self.jiagang_tile = None
             previous_gang = self.jiagang_previous_gang
-            self.jiagang_previous_gang = None
             self.jiagang_after_gang = False
+            self.jiagang_previous_gang = None
             if action_data and action_type == "hu":
                 # 抢杠：加杠不成立 → 退回该加杠下雨分，杠回退为碰，并将牌判给抢杠者
                 refund_changes = self._refund_last_gang(self.current_player_index, temp_jiagang_tile)
                 if previous_gang is not None:
+                    # 前一个杠仍成立，但因杠上炮不得杠分；普通场退款，双打取消副末待收款。
+                    # 一炮多响在此统一处理一次，不能逐个和牌者重复退税。
                     for seat, amount in self._refund_gang_record(previous_gang).items():
                         refund_changes[seat] = refund_changes.get(seat, 0) + amount
                 self._clear_paofen_pending(self.current_player_index)

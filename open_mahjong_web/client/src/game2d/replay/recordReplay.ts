@@ -67,6 +67,9 @@ export interface RecordRound {
 }
 
 export interface PublicGameRecord {
+  cloud_saved?: boolean
+  selected_table_id?: string
+  round_meta?: Record<string, { legacy_node_map?: number[] }>
   game_id: string
   created_at: string
   rule: string
@@ -218,18 +221,20 @@ export class RecordReplay {
   readonly playerCount: number
   private get seatIndices(): number[] { return Array.from({length: this.playerCount}, (_, i) => i) }
   readonly rounds: RecordRound[]
+  readonly roundKeys: string[]
   private readonly startingScoresByOriginal: number[]
 
   constructor(detail: PublicGameRecord) {
     this.detail = detail
     this.playerCount = detail.rule === 'malaysia' || detail.record.game_title?.rule === 'malaysia' ? 3 : 4
-    this.rounds = Object.entries(detail.record.game_round || {})
+    const entries = Object.entries(detail.record.game_round || {})
       .sort((left, right) => {
         const li = int(left[1].round_index, int(left[0].match(/\d+$/)?.[0]))
         const ri = int(right[1].round_index, int(right[0].match(/\d+$/)?.[0]))
         return li - ri
       })
-      .map((entry) => entry[1])
+    this.rounds = entries.map(entry => entry[1])
+    this.roundKeys = entries.map(entry => entry[0])
     if (!this.rounds.length) throw new Error('这份牌谱没有可播放的小局')
     this.startingScoresByOriginal = this.computeStartingScores()
   }

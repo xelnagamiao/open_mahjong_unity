@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { normalizeTeamIcon } = require('../../services/venueIcons');
 const pool = require('../../config/database');
 const { requirePlayer } = require('../../middleware/requirePlayer');
 const { appendRemark, ensureHistory, withRemarkHistory } = require('../../utils/applicationRemarks');
@@ -92,8 +93,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO event_applications
          (applicant_user_id, name, description, remark, reason,
           planned_start_at, planned_end_at, status, kind,
-          organizer_name, organizer_phone, remark_history)
-       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending', $7, $8, $9, $10::jsonb)
+          organizer_name, organizer_phone, remark_history, team_icon_url)
+       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending', $7, $8, $9, $10::jsonb, $11)
        RETURNING *`,
       [
         req.player.userId,
@@ -106,6 +107,7 @@ router.post('/', async (req, res) => {
         v.organizer_name,
         v.organizer_phone,
         JSON.stringify(history),
+        v.team_icon_url || '',
       ]
     );
 
@@ -144,6 +146,8 @@ function parseApplicationBody(body) {
     name, description, remark, planned_start_at, planned_end_at, kind,
     organizer_name, organizer_phone,
   } = body || {};
+  const icon = normalizeTeamIcon(body?.team_icon_url);
+  if(icon.error) return {error:icon.error};
   const kindValue = kind === 'base' ? 'base' : 'event';
   const nameParsed = normalizeName(name, kindValue);
   if (nameParsed.error) return { error: nameParsed.error };
@@ -178,6 +182,7 @@ function parseApplicationBody(body) {
   if (organizerPhoneParsed.error) return { error: organizerPhoneParsed.error };
   return {
     value: {
+      team_icon_url: body?.team_icon_url === undefined ? null : icon.value,
       name: nameParsed.value,
       description: descParsed.value,
       remark: remarkParsed.value,
@@ -236,6 +241,7 @@ router.put('/:id', async (req, res) => {
            organizer_name = $7,
            organizer_phone = $8,
            remark_history = $9::jsonb,
+           team_icon_url = COALESCE($12, team_icon_url),
            updated_at = CURRENT_TIMESTAMP
        WHERE application_id = $10
          AND applicant_user_id = $11
@@ -253,6 +259,7 @@ router.put('/:id', async (req, res) => {
         JSON.stringify(history),
         applicationId,
         req.player.userId,
+        v.team_icon_url,
       ]
     );
     if (result.rows.length === 0) {
@@ -335,6 +342,7 @@ router.post('/:id/resubmit', async (req, res) => {
            organizer_name = $7,
            organizer_phone = $8,
            remark_history = $9::jsonb,
+           team_icon_url = COALESCE($12, team_icon_url),
            status = 'pending',
            reviewer_user_id = NULL,
            reviewed_at = NULL,
@@ -356,6 +364,7 @@ router.post('/:id/resubmit', async (req, res) => {
         JSON.stringify(history),
         applicationId,
         req.player.userId,
+        v.team_icon_url,
       ]
     );
     if (result.rows.length === 0) {

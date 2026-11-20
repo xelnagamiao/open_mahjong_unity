@@ -33,7 +33,7 @@ public partial class ConfigManager : MonoBehaviour {
     public const string PlatformHomeStatsPath = "/api/platform/home-stats";
     public const string PlatformFanStatsPath = "/api/platform/stats";
     public const string PlatformRecentRecordsPath = "/api/platform/recent-records";
-    public const string PlatformUnityRecordPath = "/api/platform/unity-record/";
+    public const string PlatformRecordPath = "/api/platform/record/";
     public const string PlatformContentPath = "/api/platform/content";
     public const string PlatformActivitiesPath = "/api/platform/activities";
     public const string PlayerLeaderboardPath = "/api/player/leaderboard";
@@ -44,24 +44,27 @@ public partial class ConfigManager : MonoBehaviour {
     public const string AndroidUpdatePath = "/api/client-updates/android";
 
     static ConfigManager() {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--local-services") >= 0) Debug = true;
+#endif
         if (Debug) {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 35; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 36; // 发行版号(验证客户端-服务器版本是否一致)
             base_version = 1; // 安卓框架基准版本(决定是否需要安装新 APK)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 35;
+            releaseVersion = 36;
             base_version = 1;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.5.89.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
-        webUrl = "https://salasasa.cn"; // 访问转到
+        clientVersion = "0.5.90.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        webUrl = Debug ? "http://localhost:5173" : "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
 #if UNITY_IOS && !UNITY_EDITOR
         mobileDownloadUrl = iosDownloadUrl;
@@ -147,6 +150,7 @@ public partial class ConfigManager : MonoBehaviour {
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
+    public static event Action GameplaySettingsChanged;
     public static bool IsEnglish => _languageMode == AppLanguage.English;
     public static AppLanguage CurrentLanguage => _languageMode;
 
@@ -238,7 +242,7 @@ public partial class ConfigManager : MonoBehaviour {
     public int VoiceVolume { get; private set; }
     public AppLanguage LanguageMode => _languageMode;
 
-    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English", "Français", "Deutsch", "Русский", "日本語" };
+    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English", "Français", "Deutsch", "Русский", "日本語", "Español" };
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
     private const int DefaultTargetFrameRate = 60;
 
@@ -466,24 +470,28 @@ public partial class ConfigManager : MonoBehaviour {
         MasterVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_MASTER_VOLUME, MasterVolume);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetMusicVolume(int volume) {
         MusicVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_MUSIC_VOLUME, MusicVolume);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetSoundEffectVolume(int volume) {
         SoundEffectVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_SOUND_EFFECT_VOLUME, SoundEffectVolume);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetVoiceVolume(int volume) {
         VoiceVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_VOICE_VOLUME, VoiceVolume);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public float GetSoundEffectVolumeRatio() {
@@ -716,6 +724,10 @@ public partial class ConfigManager : MonoBehaviour {
     public (string path, bool isCustom) GetSelectedHandBackground() {
         string path = PlayerPrefs.GetString(KEY_HAND_BG_PATH, HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, false));
         bool isCustom = PlayerPrefs.GetInt(KEY_HAND_BG_IS_CUSTOM, 0) == 1;
+        if (!isCustom && HandSurfaceStyles.FindIndex(path, false) < 0) {
+            path = HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, false);
+            SetSelectedHandBackground(path, false);
+        }
         return (path, isCustom);
     }
 
@@ -819,12 +831,14 @@ public partial class ConfigManager : MonoBehaviour {
         WhiteDragonFaceMode = Mathf.Clamp(mode, 0, 1);
         PlayerPrefs.SetInt(KEY_WHITE_DRAGON_FACE, WhiteDragonFaceMode);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetMoqieShortcutMode(int mode) {
         MoqieShortcutMode = Mathf.Clamp(mode, 0, 2);
         PlayerPrefs.SetInt(KEY_MOQIE_SHORTCUT, MoqieShortcutMode);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetAskOtherPassShortcutMode(int mode) {
@@ -832,6 +846,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_ASK_OTHER_PASS_SHORTCUT, AskOtherPassShortcutMode);
         PlayerPrefs.SetInt(KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2, 1);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     private static int LoadAskOtherPassShortcutMode() {
@@ -852,12 +867,14 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_STREAMER_MODE, enabled ? 1 : 0);
         PlayerPrefs.Save();
         StreamerModeHelper.NotifyChanged();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetRealtimeSpectateMode(int mode) {
         RealtimeSpectateMode = NormalizeRealtimeSpectateMode(mode);
         PlayerPrefs.SetInt(KEY_REALTIME_SPECTATE_MODE, RealtimeSpectateMode);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     private static int NormalizeRealtimeSpectateMode(int mode) {
@@ -871,6 +888,7 @@ public partial class ConfigManager : MonoBehaviour {
         if (HandCardSelectionController.Instance != null) {
             HandCardSelectionController.Instance.DisarmAll();
         }
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetHandSortSuitOrderMode(int mode) {
@@ -878,6 +896,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_HAND_SORT_SUIT_ORDER, HandSortSuitOrderMode);
         PlayerPrefs.Save();
         ApplyHandSortRule();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetHandSortHonorOrderMode(int mode) {
@@ -885,6 +904,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_HAND_SORT_HONOR_ORDER, HandSortHonorOrderMode);
         PlayerPrefs.Save();
         ApplyHandSortRule();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetHandSortDragonOrderMode(int mode) {
@@ -892,6 +912,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_HAND_SORT_DRAGON_ORDER, HandSortDragonOrderMode);
         PlayerPrefs.Save();
         ApplyHandSortRule();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetHandSortRiichiDragonOrderMode(int mode) {
@@ -899,6 +920,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, HandSortRiichiDragonOrderMode);
         PlayerPrefs.Save();
         ApplyHandSortRule();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetLanguageMode(int mode) {
@@ -909,6 +931,7 @@ public partial class ConfigManager : MonoBehaviour {
         _languageMode = language;
         PlatformTypography.Refresh();
         OnLanguageChanged?.Invoke();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetActionButtonColorEnabled(bool enabled) {
@@ -918,30 +941,35 @@ public partial class ConfigManager : MonoBehaviour {
         if (GameCanvas.Instance != null) {
             GameCanvas.Instance.RefreshActionButtonColors();
         }
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetGongHuSoundEnabled(bool enabled) {
         GongHuSoundEnabled = enabled;
         PlayerPrefs.SetInt(KEY_GONG_HU_SOUND_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetMatchSuccessSoundEnabled(bool enabled) {
         MatchSuccessSoundEnabled = enabled;
         PlayerPrefs.SetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetOpeningAutoBuhuaEnabled(bool enabled) {
         OpeningAutoBuhuaEnabled = enabled;
         PlayerPrefs.SetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetForcePassEnabled(bool enabled) {
         ForcePassEnabled = enabled;
         PlayerPrefs.SetInt(KEY_FORCE_PASS_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
+        GameplaySettingsChanged?.Invoke();
     }
 
     public void SetMeldSpacingEnabled(bool enabled) {
@@ -950,6 +978,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_MELD_SPACING_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
         Game3DManager.Instance?.RefreshMeldSpacing();
+        GameplaySettingsChanged?.Invoke();
     }
 
     /// <summary>统一应用标准描边；补线比例继续由 Renderer Feature 的 Inspector 控制。</summary>
@@ -975,6 +1004,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_TARGET_FRAME_RATE, TargetFrameRate);
         PlayerPrefs.Save();
         ApplyTargetFrameRate();
+        GameplaySettingsChanged?.Invoke();
     }
 
     private void ApplyTargetFrameRate() {
@@ -987,6 +1017,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_VSYNC_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
         ApplyVsync();
+        GameplaySettingsChanged?.Invoke();
     }
 
     private void ApplyVsync() {

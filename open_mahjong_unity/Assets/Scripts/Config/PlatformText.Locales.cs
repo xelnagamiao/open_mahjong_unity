@@ -28,10 +28,10 @@ public static partial class PlatformText
     static readonly Regex LocaleNumberUnit = new Regex(@"^([+−\-]?[\d,.]+)\s*(分钟|本场|人|名|场|局|副|番|翻|符|点|分|张|枚|件|秒|级|段|页|条|底|台|倍|巡|圈|组|种|项|次)$", RegexOptions.CultureInvariant);
     static readonly Regex EmbeddedQuantity = new Regex(@"([+−\-]?[\d,.]+)\s*(分钟|本场|人|名|场|局|副|番|符|点|分|张|枚|件|秒|级|段|页|条|底|台|倍|巡)", RegexOptions.CultureInvariant);
 
-    public static bool IsAdditionalLanguage(AppLanguage language) => language == AppLanguage.French || language == AppLanguage.German || language == AppLanguage.Russian;
+    public static bool IsAdditionalLanguage(AppLanguage language) => language == AppLanguage.French || language == AppLanguage.German || language == AppLanguage.Russian || language == AppLanguage.Spanish;
     // Japanese shares the catalog loader but retains the compact CJK UI layout.
     public static bool HasLocaleCatalog(AppLanguage language) => IsAdditionalLanguage(language) || language == AppLanguage.Japanese;
-    public static string LocaleCode(AppLanguage language) => language == AppLanguage.Japanese ? "ja" : language == AppLanguage.French ? "fr" : language == AppLanguage.German ? "de" : language == AppLanguage.Russian ? "ru" : language == AppLanguage.English ? "en" : language == AppLanguage.TraditionalChinese ? "zh-TW" : "zh-CN";
+    public static string LocaleCode(AppLanguage language) => language == AppLanguage.Spanish ? "es" : language == AppLanguage.Japanese ? "ja" : language == AppLanguage.French ? "fr" : language == AppLanguage.German ? "de" : language == AppLanguage.Russian ? "ru" : language == AppLanguage.English ? "en" : language == AppLanguage.TraditionalChinese ? "zh-TW" : "zh-CN";
 
     static LocaleData LoadLocale(AppLanguage language)
     {

@@ -1,3 +1,4 @@
+import { salasasaInput } from './tiles.js'
 /**
  * Botzone ↔ salasasa（国标）
  * 对齐 Botzone Chinese-Standard-Mahjong / Mahjong-GB 协议字符串。
@@ -18,7 +19,7 @@ function ensureGuobiao(title) {
 
 /** salasasa 整场 → Botzone 风格 JSON（每局一行协议数组） */
 export function salasasaToBotzone(input) {
-  const data = typeof input === 'string' ? parseJsonInput(input) : input
+  const data = salasasaInput(input)
   if (!data?.game_title || !data?.game_round) throw new Error('需要 salasasa 牌谱')
   ensureGuobiao(data.game_title)
 

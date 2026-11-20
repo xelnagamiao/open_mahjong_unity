@@ -87,6 +87,8 @@ public static class RecordWaitHintCalculator {
         if (ctx.PlayersByPosition == null) return counts;
         foreach (var entry in ctx.PlayersByPosition) {
             var player = entry.Value;
+            if (ctx.SubRule == "riichi/sanma" && player?.HuapaiTiles != null)
+                foreach (int tile in player.HuapaiTiles) Add(tile);
             if (entry.Key != "self" && WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.PublicHandTiles != null)
                 foreach (int tile in player.PublicHandTiles)
                     if (WashizuTile.IsTransparent(tile) || (tile != 0 && WashizuDoubles.ShowsTeammateHand(ctx.SubRule, ctx.DetailedConfig))) Add(tile);

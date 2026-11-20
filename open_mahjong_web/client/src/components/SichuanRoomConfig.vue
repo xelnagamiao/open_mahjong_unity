@@ -3,9 +3,9 @@
     <el-form-item label="四川子规则" class="room-sub-rule-field">
       <el-select v-model="form.sub_rule" aria-label="四川子规则">
         <el-option label="四川麻将（血战到底）" value="sichuan/standard" />
-        <el-option label="血战换三张（推广）" value="sichuan/xuezhan_exchange" />
-        <el-option label="血流成河（丢三张）" value="sichuan/xueliu" />
-        <el-option label="血流成河（换三张）" value="sichuan/xueliu_exchange" />
+        <el-option label="血战到底·换三张" value="sichuan/xuezhan_exchange" />
+        <el-option label="血流成河·弃三张" value="sichuan/xueliu" />
+        <el-option label="血流成河·换三张" value="sichuan/xueliu_exchange" />
         <el-option label="血战双打·2V2" value="sichuan/doubles" />
         <el-option label="血流双打·2V2" value="sichuan/xueliu_doubles" />
         <el-option v-if="allowPaired" label="血战双打复式" value="sichuan/doubles_duplicate" />

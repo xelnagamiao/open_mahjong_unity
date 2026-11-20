@@ -24,6 +24,19 @@ def test_contract_lock_matches_unity():
     assert check_lock(update=False) == 0
 
 
+def test_update_refuses_mismatched_unity_actions(tmp_path, monkeypatch):
+    from server.gamestate.verifier import check_contract
+
+    lock = tmp_path / "unity_contract.lock.json"
+    lock.write_text("existing", encoding="utf-8")
+    monkeypatch.setattr(check_contract, "LOCK_PATH", lock)
+    current = check_contract.build_lock()
+    current["unity_other_actions"] = current["unity_other_actions"] + ["changed_action"]
+    monkeypatch.setattr(check_contract, "build_lock", lambda: current)
+    assert check_contract.check_lock(update=True) == 1
+    assert lock.read_text(encoding="utf-8") == "existing"
+
+
 def test_contract_hash_accepts_editor_line_endings_but_detects_source_changes(tmp_path):
     source = tmp_path / "Actions.cs"
     source.write_bytes(b"class Actions {\n    public int Value = 1;\n}\n")

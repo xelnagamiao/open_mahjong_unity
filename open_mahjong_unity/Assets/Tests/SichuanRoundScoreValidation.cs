@@ -21,6 +21,7 @@ public static class SichuanRoundScoreValidation {
         };
         foreach (string rule in new[] {"sichuan/doubles", "sichuan/xueliu_doubles"}) {
             state.Initialize(snapshot, rule);
+            Check(state.Unit == "副分", "Single-table team scores use the board score unit");
             Check(state.Enabled && !state.Paired && state.Blue == 18 && state.Red == -18, "Use settled snapshot, not live personal totals");
             Check(state.Format(state.Blue) == "+18" && state.Format(state.Red) == "-18", "Signed single-table scores");
             final.round_continues = true;
@@ -58,23 +59,34 @@ public static class SichuanRoundScoreValidation {
         state.ApplySettlement(final);
         Check(state.Blue == null, "Local round end cannot reveal or invent IMP");
         state.UpdateDuplicate(new DuplicateMatchInfo { id = "pair-a", scoring = "imp", waiting = true });
-        Check(state.Caption.Contains("等待对室") && state.Blue == null, "Waiting remains visible when round label is replaced");
+        Check(state.Blue == null && state.Red == null, "Waiting for the other table does not invent scores");
         state.UpdateDuplicate(new DuplicateMatchInfo { id = "pair-b", scoring = "imp", scores = new[] {99, 2} });
         Check(state.Blue == null, "Old match status is ignored");
         var published = new DuplicateMatchInfo { id = "pair-a", scoring = "imp", status = "completed", scores = new[] {7, 4}, imp_scores = new[] {7, 4}, small_scores = new[] {35, 19} };
         state.UpdateDuplicate(published);
         Check(state.Blue == 7 && state.Red == 4 && state.Format(state.Blue) == "7", "SBR uses IMP, not small scores");
-        Check(state.Caption.Contains("全场结束"), "Final status is readable");
         published.scoring = "raw_difference";
-        state.Initialize(new GameInfo { duplicate_match = published }, "sichuan/xueliu_doubles_duplicate");
-        Check(state.Unit == "副差分" && state.Blue == 35 && state.Red == 19, "Blood-flow uses its official scoring unit");
-        published.small_scores = null;
+        published.sync_mode = false;
         published.scores = new[] {35, 19};
+        state.Initialize(new GameInfo { duplicate_match = published }, "sichuan/xueliu_doubles_duplicate");
+        Check(state.Unit == "IMP" && state.Blue == 7 && state.Red == 4, "Completed async blood-flow shows published IMP, not the official raw-difference result");
+        published.imp_scores = null;
         state.UpdateDuplicate(published);
-        Check(state.Blue == 35, "Legacy published scores stay compatible");
+        Check(state.Blue == null && state.Red == null, "Missing blood-flow IMP cannot use raw or small scores");
+        published.scoring = "imp";
+        published.scores = new[] {7, 4};
+        state.UpdateDuplicate(published);
+        Check(state.Blue == 7 && state.Red == 4, "Legacy official IMP scores stay compatible");
         published.scores = new[] {35};
         state.UpdateDuplicate(published);
         Check(state.Blue == null && state.Red == null, "Malformed scores do not retain old public scores");
+        published.sync_mode = false; published.status = "running";
+        state.UpdateDuplicate(published);
+        Check(!state.ShowScores && state.Blue == null, "live async embargo is preserved");
+        state.UpdateReplay(new MatchReplayProjection.Scores { Blue = 3, Red = 4, SettledBoards = 2 });
+        Check(state.ShowScores && state.Unit == "IMP" && state.Blue == 3 && state.Red == 4, "archive replay uses progressive IMP regardless of original sync/scoring");
+        state.UpdateReplay(new MatchReplayProjection.Scores { Reason = "牌谱未附 IMP" });
+        Check(state.Blue == null && state.Red == null && state.Format(state.Blue) == "—", "missing replay scores remain unavailable");
         foreach (string rule in new[] {"sichuan/standard", "sichuan/xueliu_exchange", "guobiao/standard", "riichi/standard", "riichi/washizu_doubles"}) {
             state.Initialize(snapshot, rule);
             Check(!state.Enabled && state.Blue == null, "Other rules keep their round display: " + rule);

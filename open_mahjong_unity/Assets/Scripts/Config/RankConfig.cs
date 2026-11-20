@@ -75,11 +75,11 @@ public static class RankConfig {
         {"mingangang", "明暗杠"},
     };
 
-    // 青雀番种英文 -> 中文
+    // MMCR 14 青雀番种字段 -> 中文，与 PlayerInfoRuleCatalog 保持一致。
     public static readonly Dictionary<string, string> QingqueFanTranslation = new Dictionary<string, string> {
         {"hepai", "和牌"}, {"tianhe", "天和"}, {"dihe", "地和"}, {"lingshangkaihua", "岭上开花"},
         {"haidilaoyue", "海底捞月"}, {"hedilaoyue", "河底捞鱼"}, {"qianggang", "抢杠"},
-        {"qidui", "七对"}, {"menqianqing", "门前清"}, {"siangang", "四暗杠"},
+        {"shisanyao", "十三幺"}, {"qidui", "七对"}, {"menqianqing", "门前清"}, {"siangang", "四暗杠"},
         {"sanangang", "三暗杠"}, {"shuangangang", "双暗杠"}, {"angang", "暗杠"},
         {"sigang", "四杠"}, {"sangang", "三杠"}, {"shuanggang", "双杠"},
         {"sianke", "四暗刻"}, {"sananke", "三暗刻"}, {"duiduihe", "对对和"},
@@ -87,7 +87,7 @@ public static class RankConfig {
         {"erdiedui", "二叠对"}, {"diedui", "叠对"}, {"ziyise", "字一色"},
         {"dasixi", "大四喜"}, {"xiaosixi", "小四喜"}, {"sixidui", "四喜对"},
         {"fengpaisanke", "风牌三刻"}, {"fengpaiqidui", "风牌七对"}, {"fengpailiudui", "风牌六对"},
-        {"fengpaiwudui", "风牌五对"}, {"fengpaisidui", "风牌四对"}, {"dasanyuan", "大三元"},
+        {"dasanyuan", "大三元"},
         {"xiaosanyuan", "小三元"}, {"sanyuanliudui", "三元六对"}, {"sanyuandui", "三元对"},
         {"fanpaisike", "番牌四刻"}, {"fanpaisanke", "番牌三刻"}, {"fanpaierke", "番牌二刻"},
         {"fanpaike", "番牌刻"}, {"fanpaiqidui", "番牌七对"}, {"fanpailiudui", "番牌六对"},

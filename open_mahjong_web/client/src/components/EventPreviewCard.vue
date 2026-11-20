@@ -7,6 +7,7 @@
       </el-tag>
       <el-tag type="warning" size="small">{{ statusLabel }}</el-tag>
     </div>
+    <img v-if="event.team_icon_url" :src="event.team_icon_url" alt="队徽" style="width:88px;height:88px;object-fit:contain;float:left;margin:0 16px 12px 0" />
     <p class="event-preview-description">{{ event.description?.trim() || (event.kind === 'base' ? '暂无基地介绍' : '暂无赛事介绍') }}</p>
     <dl class="event-preview-meta">
       <div v-if="event.planned_start_at || event.planned_end_at">

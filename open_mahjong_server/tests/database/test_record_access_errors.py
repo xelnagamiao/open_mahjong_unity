@@ -1,7 +1,7 @@
 """Cloud replay lookups distinguish locked duplicate keys from missing records."""
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -11,7 +11,13 @@ from server.database.duplicate_walls import DuplicateRecordLockedError
 
 
 def database_with_record(record):
-    cursor = Mock()
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    if record:
+        from server.records.format import build_match
+        payload = {**record['record'], 'game_round': {}}
+        body = build_match({'main': {'game_id': record['game_id'], 'record': payload}})
+        record = (record['game_id'], body, record['created_at'], 'main')
     cursor.fetchone.return_value = record
     cursor.fetchall.return_value = []
     connection = Mock()
@@ -32,9 +38,7 @@ def test_locked_record_does_not_return_record_or_player_data(rule):
         with pytest.raises(DuplicateRecordLockedError, match='密钥未解禁') as error:
             DatabaseManager.get_record_by_id(database, 'locked123')
     assert 'private-seed' not in str(error.value)
-    assert cursor.execute.call_count == 1
-    cursor.fetchall.assert_not_called()
-    cursor.close.assert_called_once()
+    cursor.__exit__.assert_called_once()
     database._put_connection.assert_called_once_with(connection)
 
 
@@ -53,7 +57,7 @@ def test_unlocked_record_still_loads_in_full():
     })
     with patch('server.database.duplicate_walls.duplicate_record_is_visible', return_value=True):
         detail = DatabaseManager.get_record_by_id(database, 'open123')
-    assert detail['record'] == record
+    assert detail['record']['tables']['main']['payload']['game_title'] == record['game_title']
     assert detail['game_id'] == 'open123'
     cursor.fetchall.assert_called_once()
     database._put_connection.assert_called_once_with(connection)

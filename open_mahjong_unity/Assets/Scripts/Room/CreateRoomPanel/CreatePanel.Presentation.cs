@@ -26,7 +26,7 @@ public partial class CreatePanel {
     private static readonly Color RoomMuted = new Color32(83, 86, 99, 255);
     private RectTransform RoomContent => transform.Find("Create_Panel/Scroll View/Viewport/Content") as RectTransform;
     private Toggle[] RoomOptionToggles => new[] {
-        tipsToggle, countTipsToggle, CuoHeheToggle, passwordToggle, TacticalCallToggle, ClaimProtectionToggle,
+        tipsToggle, countTipsToggle, CuoHeheToggle, passwordToggle, TacticalCallToggle, ClaimProtectionToggle, newChineseExchangeThreeToggle,
         TouristLimitToggle, InputHepaiLimitToggle, AllowSpectatorToggle, RedDoraToggle,
         KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle, SichuanDuplicateSyncToggle, SichuanRealTimeToggle,
         GuobiaoFlowersToggle, TianDiRenHeToggle, JinluoModeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,

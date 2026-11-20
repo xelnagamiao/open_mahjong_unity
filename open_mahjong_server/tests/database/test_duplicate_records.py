@@ -32,11 +32,11 @@ def duplicate_db(monkeypatch):
         with conn.cursor() as cursor:
             from server.database.sichuan_duplicate import ensure_tables
             ensure_tables(cursor)
+            from server.records.store import ensure_tables as ensure_match_record_tables
+            ensure_match_record_tables(cursor)
             cursor.execute("""
-                CREATE TABLE game_records (game_id VARCHAR(16) PRIMARY KEY, record JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
                 CREATE TABLE game_player_records (
-                    game_id VARCHAR(16) REFERENCES game_records(game_id), user_id BIGINT,
+                    game_id VARCHAR(16) REFERENCES game_record_tables(game_id), user_id BIGINT,
                     username TEXT, score INT, rank INT CHECK (rank BETWEEN 1 AND 4),
                     original_player_index INT, rule VARCHAR(10), sub_rule TEXT, match_type TEXT,
                     room_type TEXT, match_tier TEXT, event_id TEXT, title_used INT,
@@ -70,6 +70,16 @@ def execute(db, sql, args=(), *, fetch=False):
             with conn.cursor() as cursor:
                 cursor.execute(sql, args)
                 return cursor.fetchone() if fetch else None
+    finally:
+        db._put_connection(conn)
+
+
+def seed_table(db, game_id, record):
+    from server.records.store import publish_table
+    conn = db._get_connection()
+    try:
+        with conn, conn.cursor() as cursor:
+            publish_table(cursor, game_id, {"game_round": {}, **record}, [])
     finally:
         db._put_connection(conn)
 
@@ -117,7 +127,7 @@ def test_training_record_access_requires_persisted_pair_and_no_formal_link(dupli
                wall_source='training',duplicate_wall_type='training',duplicate_match_id=snapshot['id'],duplicate_table='open')
     record={'game_title':title,'game_round':{}}
     assert not duplicate_record_is_visible(db,record,game_id)
-    execute(db,"INSERT INTO game_records(game_id,record) VALUES(%s,%s)",(game_id,Json(record)))
+    seed_table(db, game_id, record)
     assert not duplicate_record_is_visible(db,record,game_id)
     snapshot.update(record_ids={'open':game_id},revision=1)
     store.save(snapshot,0)
@@ -203,16 +213,16 @@ def test_store_links_same_reserved_game_and_rechecks_record_lock(duplicate_db, w
         DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s", (wall_id,))
     assert DatabaseManager.get_record_by_id(db, game_id) is not None
-    execute(db, """UPDATE game_records SET record=jsonb_set(record,
-        '{game_title,duplicate_key}', '"DUP_unknown00000"') WHERE game_id=%s""", (game_id,))
+    execute(db, """UPDATE game_replays SET record=jsonb_set(record,
+        '{tables,main,payload,game_title,duplicate_key}', '"DUP_unknown00000"') WHERE game_id=%s""", (game_id,))
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
-    execute(db, "UPDATE game_records SET record=%s WHERE game_id=%s", (Json(record), game_id))
+    execute(db, "UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload}',%s) WHERE game_id=%s", (Json(record), game_id))
     execute(db, "UPDATE duplicate_walls SET is_unlocked=FALSE WHERE id=%s", (wall_id,))
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
     # Association still protects records whose old header lacks the key.
-    execute(db, "UPDATE game_records SET record=record #- '{game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
+    execute(db, "UPDATE game_replays SET record=record #- '{tables,main,payload,game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
 
@@ -224,14 +234,14 @@ def test_historical_non_guobiao_records_keep_locks_but_cannot_start_new_games(du
     game_id = "historicdupgame1"
     record = {"game_title": {"rule": rule, "sub_rule": f"{rule}/standard", "room_type": "custom",
                              "duplicate_key": "DUP_test01234567"}, "game_round": {}}
-    execute(db, "INSERT INTO game_records (game_id, record) VALUES (%s, %s)", (game_id, Json(record)))
+    seed_table(db, game_id, record)
     execute(db, "INSERT INTO duplicate_games (game_id, wall_id, ended_at) VALUES (%s, %s, NOW())", (game_id, wall_id))
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s", (wall_id,))
     assert DatabaseManager.get_record_by_id(db, game_id) is not None
     execute(db, "UPDATE duplicate_walls SET is_unlocked=FALSE WHERE id=%s", (wall_id,))
-    execute(db, "UPDATE game_records SET record=record #- '{game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
+    execute(db, "UPDATE game_replays SET record=record #- '{tables,main,payload,game_title,duplicate_key}' WHERE game_id=%s", (game_id,))
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
     with pytest.raises(ValueError, match="必须先绑定一组双打开闭室"):
@@ -299,7 +309,7 @@ def test_seed_and_full_wall_stay_locked_then_survive_public_record_read_after_de
     game_id = reserve_duplicate_game(db, wall_id)
     record = {"game_title": {"rule": "guobiao", "duplicate_key": "DUP_test01234567", "is_duplicate": True,
                              "duplicate_seed": "private-seed", "duplicate_tiles": [11, 12, 13]}}
-    execute(db, "INSERT INTO game_records (game_id,record) VALUES (%s,%s)", (game_id, Json(record)))
+    seed_table(db, game_id, record)
     with pytest.raises(DuplicateRecordLockedError, match="密钥未解禁"):
         DatabaseManager.get_record_by_id(db, game_id)
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE,unlocked_at=NOW(),deleted_at=NOW() WHERE id=%s", (wall_id,))

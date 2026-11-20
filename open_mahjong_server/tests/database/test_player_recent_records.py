@@ -11,6 +11,7 @@ import psycopg2
 from psycopg2.extras import Json
 from psycopg2.pool import ThreadedConnectionPool
 import pytest
+from server.records.store import publish_table
 
 from server.database import player_recent_records as recent
 from server.database.inventory import ensure_inventory_tables
@@ -164,7 +165,7 @@ def test_broken_round_reported_and_other_rounds_still_restored():
 
 
 @pytest.fixture
-def database():
+def database(monkeypatch):
     dsn = os.environ.get("OM_RECENT_TEST_DSN")
     if not dsn:
         pytest.skip("设置 OM_RECENT_TEST_DSN 才运行独立 PostgreSQL 集成测试")
@@ -177,12 +178,12 @@ def database():
     manager = SimpleNamespace(_get_connection=pool.getconn, _put_connection=pool.putconn)
     with connection(manager) as conn:
         with conn.cursor() as cursor:
+            from server.records.store import ensure_tables as ensure_match_records
+            ensure_match_records(cursor)
             cursor.execute("""
                 CREATE TABLE users (user_id BIGINT PRIMARY KEY, is_tourist BOOLEAN NOT NULL DEFAULT FALSE);
-                CREATE TABLE game_records (game_id VARCHAR(16) PRIMARY KEY, record JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
                 CREATE TABLE game_player_records (
-                    game_id VARCHAR(16) REFERENCES game_records(game_id), user_id BIGINT,
+                    game_id VARCHAR(16) REFERENCES game_record_tables(game_id), user_id BIGINT,
                     username TEXT, score INT, rank INT CHECK (rank BETWEEN 1 AND 4),
                     original_player_index INT, rule VARCHAR(96), sub_rule TEXT, match_type TEXT,
                     room_type TEXT, match_tier TEXT, event_id TEXT, title_used INT,
@@ -204,6 +205,13 @@ def database():
                 {','.join(key + ' INT DEFAULT 0' for key in fields)},
                 created_at TIMESTAMPTZ DEFAULT NOW(), fan_stats JSONB,
                 PRIMARY KEY(game_id,user_id))""")
+    # These tests exercise replay/statistics transactions; wallet transactions
+    # use the separate inventory integration fixture.
+    from server.database import commerce
+    from server.database.game_rewards import build_currency_reward
+    monkeypatch.setattr(commerce, "prepare_game_reward",
+        lambda cursor, record, indexed_ids, **_: build_currency_reward(record, indexed_ids, []))
+    monkeypatch.setattr(commerce, "settle_game_reward", lambda *args, **kwargs: None)
     yield manager
     pool.closeall()
     with admin.cursor() as cursor:
@@ -223,7 +231,10 @@ def connection(manager):
 
 def insert_game(manager, game_id, record, rank=1, update=True):
     with connection(manager) as conn, conn.cursor() as cursor:
-        cursor.execute("INSERT INTO game_records (game_id, record) VALUES (%s, %s)", (game_id, Json(record)))
+        from server.records.format import PAIRED_RULES
+        if record["game_title"]["sub_rule"] in PAIRED_RULES:
+            record["game_title"].update(duplicate_match_id="test-" + game_id, duplicate_table="open")
+        publish_table(cursor, game_id, record, [])
         title = record["game_title"]
         players = []
         for i in range(4):
@@ -296,6 +307,8 @@ def test_real_rule_save_entry_updates_in_same_transaction(database, rule):
     players = [SimpleNamespace(user_id=uid, username=f"u{i}", score=0, original_player_index=i,
                                record_counter=SimpleNamespace(rank_result=i + 1)) for i, uid in enumerate(uids)]
     record = replay(rule)
+    if definition["sub_rule"] in {"sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"}:
+        record["game_title"].update(duplicate_match_id="recent-fixture-" + rule, duplicate_table="open")
     game_id = save(database, record, players, "custom", record["game_title"]["match_type"])
     assert game_id
     for i, uid in enumerate(uids):
@@ -322,7 +335,7 @@ def test_incomplete_replay_is_reported_and_retried_after_repair(database):
     data = recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]
     assert len(data["placements"]) == 1 and data["big_win"] is None
     with connection(database) as conn, conn.cursor() as cursor:
-        cursor.execute("UPDATE game_records SET record = %s WHERE game_id = 'broken'", (Json(replay()),))
+        cursor.execute("UPDATE game_replays SET record = jsonb_set(record,'{tables,main,payload}',%s) WHERE game_id = 'broken'", (Json(replay()),))
     assert recent.retry_player_recent_record_errors(database) == {"processed": 1, "errors": 0, "complete": True}
     assert recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]["big_win"]["total_fan"] == 24
 
@@ -337,7 +350,7 @@ def test_invalid_added_kan_is_a_recoverable_replay_error():
 def test_record_and_summary_rollback_together(database):
     with pytest.raises(RuntimeError), connection(database) as conn, conn.cursor() as cursor:
         record = replay()
-        cursor.execute("INSERT INTO game_records (game_id, record) VALUES ('rollback', %s)", (Json(record),))
+        publish_table(cursor, "rollback", record, [])
         cursor.execute("""
             INSERT INTO game_player_records (game_id, user_id, rule, room_type, rank, match_type)
             VALUES ('rollback', %s, 'guobiao', 'custom', 1, '1/4')

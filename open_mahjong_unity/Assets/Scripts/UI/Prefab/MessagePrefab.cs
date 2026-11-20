@@ -66,10 +66,7 @@ public class MessagePrefab : MonoBehaviour {
             PlaceMessageRect(updateProgress, new Vector2(0, 0), new Vector2(1, 0),
                 new Vector2(.5f, 0), new Vector2(0, 88), new Vector2(-96, 104));
             for (int i = 0; i < 2; i++) {
-                var label = new GameObject("StageLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
-                label.layer = gameObject.layer;
-                label.transform.SetParent(updateProgress, false);
-                updateLabels[i] = label.GetComponent<TMP_Text>();
+                updateLabels[i] = DynamicTextRow.SingleLabel(updateProgress, "StageLabel");
                 updateLabels[i].font = ContentText.font;
                 updateLabels[i].fontSize = 20;
                 updateLabels[i].fontStyle = FontStyles.Normal;

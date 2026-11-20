@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>固定官方牌组的设置预览；使用明确的资源系列，避免不同规则的牌号碰撞。</summary>
-public sealed class CardFaceFamilyPreview : MonoBehaviour
+public sealed partial class CardFaceFamilyPreview : MonoBehaviour
 {
     public enum Source { Hongque, Singapore, Malaysia, Vietnamese, Duocai }
     [Serializable] public sealed class Entry {
@@ -11,11 +11,13 @@ public sealed class CardFaceFamilyPreview : MonoBehaviour
         public int id;
         public CardFacePreviewSlot slot;
         public CardFacePreviewSlot tableSlot;
+        public Vector2 handPosition, tablePosition;
     }
     public GameObject settings, previewRoot;
     public GameObject[] standardPreviewGroups;
     public RectTransform hongqueContent, expandedContent;
     public Entry[] hongqueEntries, expandedEntries;
+    public CardFacePreviewSlot hongqueHandTemplate, hongqueTableTemplate, expandedHandTemplate, expandedTableTemplate;
     public UnityEngine.UI.ScrollRect scroll;
     public UnityEngine.UI.ScrollRect tableScroll;
     public RectTransform hongqueTableContent, expandedTableContent;
@@ -38,8 +40,10 @@ public sealed class CardFaceFamilyPreview : MonoBehaviour
     void OnEnable() {
         TileFaceResolver.OnPackChanged += Refresh;
         HandSurfaceLibrary.Changed += Refresh;
+        if (readingArea) readingArea.scroll.onValueChanged.AddListener(OnPreviewScrolled);
     }
     void OnDisable() {
+        if (readingArea) readingArea.scroll.onValueChanged.RemoveListener(OnPreviewScrolled);
         TileFaceResolver.OnPackChanged -= Refresh;
         HandSurfaceLibrary.Changed -= Refresh;
         Commit();
@@ -123,10 +127,13 @@ public sealed class CardFaceFamilyPreview : MonoBehaviour
             TileFaceFit.ApplyHandArtwork(optionArtwork, optionBackground, sample, HandSurfaceLibrary.CurrentFaceLayout, editingPack);
         }
         optionBackground.preserveAspect = true;
-        foreach (var entry in family == 1 ? hongqueEntries : expandedEntries) {
-            int key = FixedFacePack.Key(entry.source, entry.id);
-            FixedFacePack.ApplyPreview(entry.slot, editingPack, key, false);
-            FixedFacePack.ApplyPreview(entry.tableSlot, editingPack, key, true);
+        if (hongqueHandTemplate && readingArea) UpdateVisibleTiles(true);
+        else {
+            foreach (var entry in family == 1 ? hongqueEntries : expandedEntries) {
+                int key = FixedFacePack.Key(entry.source, entry.id);
+                FixedFacePack.ApplyPreview(entry.slot, editingPack, key, false);
+                FixedFacePack.ApplyPreview(entry.tableSlot, editingPack, key, true);
+            }
         }
         refreshing = false;
     }

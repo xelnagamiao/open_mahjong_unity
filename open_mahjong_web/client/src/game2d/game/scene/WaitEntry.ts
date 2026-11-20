@@ -44,7 +44,7 @@ export class WaitEntry extends Container {
       },
     })
     fanText.anchor.set(0.5)
-    if (['fr', 'de', 'ru'].includes(locale.value) && fanText.width > TILE_WIDTH * 1.15) {
+    if (['fr', 'de', 'ru', 'es'].includes(locale.value) && fanText.width > TILE_WIDTH * 1.15) {
       fanText.scale.set(TILE_WIDTH * 1.15 / fanText.width)
     }
     fanText.y = TILE_HEIGHT / 2 + 150

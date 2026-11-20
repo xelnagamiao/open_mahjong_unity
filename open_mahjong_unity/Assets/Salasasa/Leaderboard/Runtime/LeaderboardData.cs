@@ -41,8 +41,8 @@ namespace Salasasa.Leaderboards
 
     public static class LeaderboardRules
     {
-        public static readonly string[] Ids = { "guobiao", "riichi", "riichi_sanma", "qingque", "sichuan", "sichuan_xueliu_exchange", "hongque" };
-        public static readonly string[] Names = { "国标麻将", "立直四人", "立直三人", "青雀", "川麻血战", "血流换三张", "虹雀" };
+        public static readonly string[] Ids = { "guobiao", "riichi", "riichi_sanma", "qingque", "sichuan", "sichuan_doubles", "sichuan_xueliu_exchange", "hongque" };
+        public static readonly string[] Names = { "国标麻将", "立直四人", "立直三人", "青雀", "川麻血战", "川麻2v2", "血流换三张", "虹雀" };
         public static bool IsGrade(int index) => index < 3;
         public static string Number(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
         public static string Score(LeaderboardEntry entry, bool grade)

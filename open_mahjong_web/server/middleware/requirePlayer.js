@@ -1,4 +1,6 @@
 const config = require('../config/config');
+const pool = require('../config/database');
+const { checkAccountSession } = require('../utils/accountBans');
 const { verifyToken } = require('../utils/jwt');
 
 function readPlayer(req) {
@@ -15,7 +17,7 @@ function readPlayer(req) {
   };
 }
 
-function requirePlayer(req, res, next) {
+async function requirePlayer(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) {
@@ -25,13 +27,28 @@ function requirePlayer(req, res, next) {
   if (!player) {
     return res.status(401).json({ success: false, message: '登录已过期，请重新登录' });
   }
+  try {
+    const account = await checkAccountSession(pool, player.userId, res);
+    if (!account) return;
+    player.activeBanType = account.active_ban_type;
+  } catch (err) {
+    return next(err);
+  }
   req.player = player;
   return next();
 }
 
-function optionalPlayer(req, _res, next) {
-  req.player = readPlayer(req);
+function optionalPlayer(req, res, next) {
+  if (readPlayer(req)) return requirePlayer(req, res, next);
+  req.player = null;
   return next();
 }
 
-module.exports = { requirePlayer, optionalPlayer };
+function requireSpeaking(req, res, next) {
+  if (req.player.activeBanType === 'chat') {
+    return res.status(403).json({ success: false, message: '账号当前已被禁言' });
+  }
+  return next();
+}
+
+module.exports = { requirePlayer, optionalPlayer, requireSpeaking };

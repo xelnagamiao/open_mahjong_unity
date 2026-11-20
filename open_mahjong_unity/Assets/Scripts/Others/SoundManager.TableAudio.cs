@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -9,9 +10,7 @@ public partial class SoundManager {
     [FormerlySerializedAs("tableVoiceSpatialBlend")]
     [SerializeField, Range(0f, 1f)] private float tableVoicePanStrength = 0.45f;
 
-    private const int ImpactSourceCount = 12;
-    private readonly AudioSource[] impactSources = new AudioSource[ImpactSourceCount];
-    private readonly double[] impactStartTimes = new double[ImpactSourceCount];
+    private readonly List<AudioSource> impactSources = new List<AudioSource>(12);
     private AudioClip discardImpactClip;
     private bool missingDiscardClipReported;
     private bool hasTableAudioFrame;
@@ -22,18 +21,21 @@ public partial class SoundManager {
     private float tableAudioPanDistance;
     private int tableAudioVersion;
 
-    /// <summary>异步调用可记录此版本；切视角、跳步或清桌后，旧事件不得发声。</summary>
+    /// <summary>异步调用可记录此版本；上下文改变后可丢弃尚未提交的旧事件，已播放的声音自然结束。</summary>
     public int CaptureTableAudioVersion() {
         SyncSeatVoicePerspective();
         return tableAudioVersion;
     }
 
-    /// <summary>只取消桌面瞬态声音，按钮、倒计时等 2D 提示音保持独立。</summary>
-    public void CancelTableAudio() {
+    /// <summary>显式停止桌面声音，仅用于音频管理器停用等生命周期结束，不用于动画或牌桌清理。</summary>
+    public void CancelTableAudio() { CancelTableAudioWithReason("external"); }
+
+    public void CancelTableAudioWithReason(string reason) {
+        TraceAudio(0, "cancel-table", reason);
         tableAudioVersion++;
         StopSeatVoices();
         foreach (AudioSource source in impactSources) {
-            if (source != null) source.Stop();
+            if (source != null) DiagnosticStop(source, "cancel-table-impact");
         }
     }
 
@@ -42,7 +44,6 @@ public partial class SoundManager {
         bool available = table != null && table.TryGetTableAudioFrame(out tableAudioCenter,
             out tableAudioRotation, out tableAudioHalfWidth, out tableAudioHalfDepth);
         if (!available) {
-            if (hasTableAudioFrame) CancelTableAudio();
             hasTableAudioFrame = false;
             return;
         }
@@ -100,14 +101,15 @@ public partial class SoundManager {
 
     /// <summary>碰击余音固定在落点，不附着于可能被鸣牌取走或回收的牌。</summary>
     public void PlayDiscardImpact(string seat, Vector3? worldPosition = null, int? expectedVersion = null) {
-        if (!isActiveAndEnabled) return;
+        long request = BeginAudioDiagnostic("discard-impact", seat);
+        if (!isActiveAndEnabled) { TraceAudio(request, "skip", "manager-inactive"); return; }
         SyncSeatVoicePerspective();
-        if (expectedVersion.HasValue && expectedVersion.Value != tableAudioVersion) return;
+        if (expectedVersion.HasValue && expectedVersion.Value != tableAudioVersion) { TraceAudio(request, "skip", "stale-table-version"); return; }
         UpdateTableAudioFrame();
-        if (expectedVersion.HasValue && expectedVersion.Value != tableAudioVersion) return;
+        if (expectedVersion.HasValue && expectedVersion.Value != tableAudioVersion) { TraceAudio(request, "skip", "stale-table-version"); return; }
         float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetSoundEffectVolumeRatio() : 1f;
-        if (volume <= 0f) return;
-        if (discardImpactClip == null) discardImpactClip = IosResourceCache.Load<AudioClip>("Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2");
+        if (volume <= 0f) { TraceAudio(request, "skip", "volume-zero"); return; }
+        if (discardImpactClip == null) discardImpactClip = LoadDiagnosticClip("Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2", request);
         if (discardImpactClip == null) {
             if (!missingDiscardClipReported) Debug.LogWarning("未找到落牌音效 Sound/Physics/SFX_UI_Click_Organic_Plastic_Select_2");
             missingDiscardClipReported = true;
@@ -116,14 +118,13 @@ public partial class SoundManager {
 
         int index = AcquireImpactSource();
         AudioSource source = impactSources[index];
-        source.Stop();
+        TraceAudio(request, "pool-acquire", "slot=" + index, source, discardImpactClip);
         ConfigureTableSource(source, false);
         source.transform.position = ResolveImpactPosition(seat, worldPosition);
         ApplyTablePan(source, discardImpactClip, TableStereoPan(source.transform.position));
         source.volume = OriginalSourceGain * volume;
-        source.clip = discardImpactClip;
-        impactStartTimes[index] = AudioSettings.dspTime;
-        source.Play();
+        // PlayOneShot 独立叠加；即使浏览器尚未开始输出，也不会覆盖先前提交的声音。
+        DiagnosticPlay(request, source, discardImpactClip, true);
     }
 
     private Vector3 ResolveImpactPosition(string seat, Vector3? worldPosition) {
@@ -143,22 +144,19 @@ public partial class SoundManager {
     }
 
     private int AcquireImpactSource() {
-        int oldest = 0;
-        for (int i = 0; i < impactSources.Length; i++) {
-            if (impactSources[i] == null) {
-                Transform child = transform.Find("TableImpact_" + i);
-                if (child == null) {
-                    child = new GameObject("TableImpact_" + i).transform;
-                    child.SetParent(transform, false);
-                }
-                AudioSource source = child.GetComponent<AudioSource>();
-                impactSources[i] = source != null ? source : child.gameObject.AddComponent<AudioSource>();
-                return i;
-            }
-            if (!impactSources[i].isPlaying) return i;
-            if (impactStartTimes[i] < impactStartTimes[oldest]) oldest = i;
+        for (int i = 0; i < impactSources.Count; i++) {
+            if (impactSources[i] != null && !impactSources[i].isPlaying) return i;
         }
-        return oldest;
+        // 忙碌时扩容，不抢占仍在播放的落牌声；空闲音源会在后续调用中复用。
+        int index = impactSources.Count;
+        Transform child = transform.Find("TableImpact_" + index);
+        if (child == null) {
+            child = new GameObject("TableImpact_" + index).transform;
+            child.SetParent(transform, false);
+        }
+        AudioSource source = child.GetComponent<AudioSource>();
+        impactSources.Add(source != null ? source : child.gameObject.AddComponent<AudioSource>());
+        return index;
     }
 
     private void UpdateTableSoundVolumes() {

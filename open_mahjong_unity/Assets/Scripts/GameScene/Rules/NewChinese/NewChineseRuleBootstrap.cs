@@ -12,12 +12,12 @@ internal static class NewChineseRuleBootstrap {
         RuleNameDictionary.WholeName[rule] = RuleNameDictionary.WholeName[sub] = "新中式麻将";
         RuleNameDictionary.ShortName[rule] = RuleNameDictionary.ShortName[sub] = "新中式";
         RuleRegistry.Register(new RuleManifest {
-            RuleId=rule, DefaultSubRule=sub, DisplayName="新中式麻将", LobbyOrder=35, LobbyHasDetailedConfig=true,
-            LobbySubRules=new[]{new RuleLobbySubRule(sub,"标准规则",Description)}, OutboundChannel=rule,
+            RuleId=rule, DefaultSubRule=sub, DisplayName="新中式麻将", LobbyName="自定义规则", LobbyOrder=35,
+            LobbySubRules=new[]{new RuleLobbySubRule(sub,"新中式麻将",Description)}, OutboundChannel=rule,
             BuildRoom=NewChineseRoomBuilder.Build, GameStateFactory=()=>new NewChineseGameState(),
-            ReplayFactory=r=>r.CreateNewChineseReplayModule(), RulebookKey=rule,
+            ReplayFactory=r=>r.CreateNewChineseReplayModule(), RulebookKey="custom",
             CreateRoomDefaults=new Dictionary<string,object> {
-                {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
+                {CreateRoomKeys.SubRule,0}, {CreateRoomKeys.ExchangeThree,false}, {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
                 {CreateRoomKeys.Tips,true}, {CreateRoomKeys.CountTips,false}, {CreateRoomKeys.PointerTips,true},
                 {CreateRoomKeys.Password,false}, {CreateRoomKeys.RandomSeed,false}, {CreateRoomKeys.TouristLimit,false}, {CreateRoomKeys.AllowSpectator,true}
             },

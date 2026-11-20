@@ -10,6 +10,7 @@
     "build": "cd client && npm run build",
     "install-all": "npm install && cd client && npm install",
     "start": "node server/index.js",
+    "test:anti-cheat": "node --test server/services/antiCheat/center/*.test.js server/services/antiCheat/engine.test.js server/services/antiCheat/time.test.js",
     "pm2:start": "pm2 start server/index.js --name salasasa-web",
     "pm2:stop": "pm2 stop salasasa-web",
     "pm2:restart": "pm2 restart salasasa-web",
@@ -33,6 +34,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^9.0.3",
     "pg": "^8.11.3",
+    "sharp": "^0.34.5",
     "socket.io": "^4.7.4"
   },
   "devDependencies": {

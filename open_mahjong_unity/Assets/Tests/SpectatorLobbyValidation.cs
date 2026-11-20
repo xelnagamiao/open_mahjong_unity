@@ -31,6 +31,14 @@ public static class SpectatorLobbyValidation {
         Check(SpectatorRoomPresentation.Tier(Ranked("riichi_sanma_intermediate_banzhuang")) == "intermediate", "sanma queue parsing");
         Check(SpectatorRoomPresentation.Priority(Ranked("future_tier")) == 0, "unknown ranked tiers remain above custom");
         Check(!SpectatorRoomPresentation.HasTeams(new SpectatorInfo { sub_rule = "sichuan/doubles" }), "missing team data never guessed");
+        foreach (string rule in new[] { "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate" }) {
+            var paired = new SpectatorInfo { sub_rule = rule, team_by_player_index = new[] { 0, 1, 0, 1 } };
+            Check(SpectatorRoomPresentation.HasTeams(paired), rule + " retains authoritative team colors");
+            Check(SpectatorRoomPresentation.Matches(paired, SpectatorRoomPresentation.RoomFilter.All, "", SpectatorRoomPresentation.FormatFilter.Doubles), rule + " appears in doubles filter");
+            Check(!SpectatorRoomPresentation.Matches(paired, SpectatorRoomPresentation.RoomFilter.All, "", SpectatorRoomPresentation.FormatFilter.Individual), rule + " excluded from individual filter");
+            paired.team_by_player_index = new[] { 0, 0, 0, 1 };
+            Check(!SpectatorRoomPresentation.HasTeams(paired), rule + " rejects invalid roster");
+        }
 
         foreach (var type in typeof(RuleRegistry).Assembly.GetTypes().Where(t => t.Name.EndsWith("RuleBootstrap")))
             type.GetMethod("Register", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.Invoke(null, null);

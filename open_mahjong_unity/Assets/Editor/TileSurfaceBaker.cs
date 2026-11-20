@@ -15,10 +15,13 @@ public static class TileSurfaceBaker {
             .Single(s => s.gameObject.scene.path == "Assets/Scenes/MainScene.unity");
         if (EditorApplication.isPlaying || settings.gameObject.scene.isDirty)
             throw new System.InvalidOperationException("Save MainScene and stop Play Mode before baking.");
-        foreach (var page in settings.bakedPages.Where(p => p.category == 2)) AddSetting(page);
-        int variant = settings.bakedPages.Single(p => p.stage == settings.stage).variant;
-        settings.controls = settings.bakedPages.Where(p => p.variant == variant)
-            .OrderBy(p => p.category).SelectMany(p => p.controls).ToArray();
+        SettingsPagePrefabBaker.EditPages(settings, page => page.category == 2, AddSetting);
+        if (!settings.UsesPagePrefabs)
+        {
+            int variant = settings.bakedPages.Single(p => p.stage == settings.stage).variant;
+            settings.controls = settings.bakedPages.Where(p => p.variant == variant)
+                .OrderBy(p => p.category).SelectMany(p => p.controls).ToArray();
+        }
         EditorUtility.SetDirty(settings);
 
         var canvas = Resources.FindObjectsOfTypeAll<GameCanvas>().Single(c => c.gameObject.scene == settings.gameObject.scene);

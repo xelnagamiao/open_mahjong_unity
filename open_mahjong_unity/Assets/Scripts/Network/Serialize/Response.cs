@@ -159,6 +159,7 @@ public class ChangshaRuleSettings {
 }
 
 public class EventListEntry {
+    public string team_icon_url;
     public string event_id;
     public string name;
     public string status;
@@ -218,6 +219,7 @@ public class EventReadyPlayer {
 }
 
 public class EventDetailInfo {
+    public string team_icon_url;
     public string event_id;
     public int created_by;
     public string name;
@@ -751,6 +753,7 @@ public class ReadyStatusInfo {
     public Dictionary<int, bool> player_to_ready; // 玩家索引到准备状态的映射 {player_index: ready}
 }
 public class PlayerRecordInfo { // 玩家对局记录信息
+    public string table_id;            // 复式比赛中的开室或闭室
     public int user_id;                 // 用户ID
     public string username;            // 用户名
     public int score;                   // 玩家分数
@@ -763,7 +766,9 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public int? voice_used;            // 使用的音色ID（可为空）
 }
 
-public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）
+public class RecordInfo {
+    [Newtonsoft.Json.JsonExtensionData] public IDictionary<string, Newtonsoft.Json.Linq.JToken> metadata;
+    public Newtonsoft.Json.Linq.JObject match_summary;
     public string game_id;              // 对局ID（base62字符串）
     public string rule;                 // 规则类型（GB/JP）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
@@ -775,6 +780,9 @@ public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4�
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
+    public Newtonsoft.Json.Linq.JObject local_table_metadata;
+    public string selected_table_id;
+    public Newtonsoft.Json.Linq.JObject legacy_cursor_map;
     public string wall_source;
     public bool is_duplicate;
     public string duplicate_key;
@@ -782,7 +790,7 @@ public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返�
     public bool cloud_saved;            // 服务端确认已保存云端；旧牌谱缺少字段时默认 false
     public string rule;                 // 规则类型（GB/JP）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
-    public Dictionary<string, object> record; // 完整的牌谱记录
+    public Newtonsoft.Json.Linq.JObject record; // 完整的比赛牌谱
     public string created_at;           // 创建时间
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
     public string match_type;           // 局数类型（本地牌谱用）
@@ -925,6 +933,9 @@ public class ServerStatsInfo { // 服务器统计信息
 }
 
 public class SpectatorInfo { // 观战信息
+    public string match_id;
+    public string table_id;
+    [Newtonsoft.Json.JsonIgnore] public SpectatorInfo[] paired_tables;
     public string rule;         // 规则类型（guobiao/qingque）
     public string sub_rule;     // 子规则类型（guobiao/standard等）
     public string player1_name; // 玩家1 用户名

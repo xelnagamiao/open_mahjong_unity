@@ -34,6 +34,13 @@ test('subrule order follows the Unity create-room panel, including variants form
     'guangdong/tuidao_mil2024', 'guangdong/mil2023', 'guangdong/mil2023-doubles',
   ]);
   assert.deepEqual(platformSubRuleOptions('hongque').map(rule => rule.label), ['虹雀²', '虹雀 W']);
+  assert.deepEqual(platformSubRuleOptions('sichuan').slice(1, 3).map(rule => rule.label), [
+    '血战到底·换三张', '血流成河·弃三张',
+  ]);
+  assert.equal(PLATFORM_RULE_GROUPS.find(group => group.value === 'new_chinese').label, '自定义规则');
+  assert.deepEqual(platformSubRuleOptions('new_chinese').map(rule => [rule.sub_rule, rule.label]), [
+    ['new_chinese/standard', '新中式麻将'],
+  ]);
   assert.equal(platformSubRuleOptions('guobiao')[0].label, '标准规(新编MCR)');
   assert.equal(PLATFORM_RULE_GROUPS.find(rule => rule.value === 'singapore').label, '新加坡四人麻将');
   assert.equal(PLATFORM_RULE_GROUPS.find(rule => rule.value === 'beijing').label, '北京');

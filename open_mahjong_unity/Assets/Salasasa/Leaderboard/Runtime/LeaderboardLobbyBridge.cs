@@ -9,18 +9,27 @@ namespace Salasasa.Leaderboards
     {
         public LeaderboardController controller;
         DataNetworkManager network;
+        UserDataManager currentUser;
         int openedUser;
         string openedWindow;
 
         void OnEnable()
         {
             controller.ServerRequest += Request;
-            controller.DataApplied += RefreshPortraits;
+            controller.DataApplied += RefreshOwnRating;
+            foreach (var view in controller.views) view.RowBound += RefreshRowPortrait;
             BindNetwork();
         }
 
         void BindNetwork()
         {
+            var user = UserDataManager.Instance;
+            if (currentUser != user)
+            {
+                if (currentUser != null) currentUser.RankDataChanged -= RefreshOwnRating;
+                currentUser = user;
+                if (currentUser != null) currentUser.RankDataChanged += RefreshOwnRating;
+            }
             var current = DataNetworkManager.Instance;
             if (network == current) return;
             if (network != null) network.LeaderboardResponseReceived -= Receive;
@@ -52,6 +61,7 @@ namespace Salasasa.Leaderboards
         void Request(string rule, string requestId)
         {
             BindNetwork();
+            RefreshOwnRating();
             if (network == null || UserDataManager.Instance == null || UserDataManager.Instance.UserId <= 0 || NetworkManager.Instance == null || !NetworkManager.Instance.IsWebSocketOpen)
             {
                 controller.ApplyServerResponse(new LeaderboardServerReply { success = false, rating_rule = rule, data_request_id = requestId });
@@ -78,18 +88,20 @@ namespace Salasasa.Leaderboards
             });
         }
 
-        void RefreshPortraits()
+        static void RefreshRowPortrait(LeaderboardView.EntryRow row)
         {
+            ApplyPortrait(row.avatar, row.entry.profile_image_id);
+        }
+
+        void RefreshOwnRating()
+        {
+            if (!controller.IsOpen || currentUser == null || currentUser.UserId <= 0
+                || currentUser.UserId != controller.RankingUserId) return;
+            var rating = currentUser.GetRating(LeaderboardRules.Ids[controller.selectedRule]);
             foreach (var view in controller.views)
             {
-                foreach (var row in view.rows)
-                    if (row.entry != null) ApplyPortrait(row.avatar, row.entry.profile_image_id);
-                var user = UserDataManager.Instance;
-                if (user != null && user.UserId > 0)
-                {
-                    view.myName.text = user.Username;
-                    ApplyPortrait(view.myAvatar, user.ProfileImageId);
-                }
+                view.SetOwnRating(currentUser.UserId, currentUser.Username, rating);
+                ApplyPortrait(view.myAvatar, currentUser.ProfileImageId);
             }
         }
 
@@ -105,8 +117,11 @@ namespace Salasasa.Leaderboards
         void OnDisable()
         {
             controller.ServerRequest -= Request;
-            controller.DataApplied -= RefreshPortraits;
+            controller.DataApplied -= RefreshOwnRating;
+            foreach (var view in controller.views) view.RowBound -= RefreshRowPortrait;
             if (network != null) network.LeaderboardResponseReceived -= Receive;
+            if (currentUser != null) currentUser.RankDataChanged -= RefreshOwnRating;
+            currentUser = null;
             network = null;
             controller.Close();
         }

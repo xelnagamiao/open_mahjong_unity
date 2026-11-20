@@ -616,11 +616,11 @@ async function calculateDecompose() {
 .actions { flex-wrap: wrap; }
 
 @media (max-width: 640px) {
-  .chinese:is(:lang(fr), :lang(de), :lang(ru)) .notation-row {
+  .chinese:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .notation-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .chinese:is(:lang(fr), :lang(de), :lang(ru)) .notation-row .row-label {
+  .chinese:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .notation-row .row-label {
     grid-column: 1 / -1;
   }
 }

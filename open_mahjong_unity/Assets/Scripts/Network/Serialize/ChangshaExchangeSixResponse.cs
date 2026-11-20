@@ -3,11 +3,14 @@ using System.Collections.Generic;
 // 换六张消息按专用类型解析；普通Response未声明state，会丢失这份局内状态。
 public sealed class ChangshaExchangeSixResponse : Response {
     public ChangshaExchangeSixState state;
+    private static readonly Newtonsoft.Json.JsonSerializerSettings LosslessRecordSettings = new Newtonsoft.Json.JsonSerializerSettings {
+        DateParseHandling = Newtonsoft.Json.DateParseHandling.None
+    };
 
     public static Response Decode(string json) {
         return Newtonsoft.Json.Linq.JObject.Parse(json).Value<string>("type") == "gamestate/changsha/exchange_six_state"
-            ? Newtonsoft.Json.JsonConvert.DeserializeObject<ChangshaExchangeSixResponse>(json)
-            : Newtonsoft.Json.JsonConvert.DeserializeObject<Response>(json);
+            ? Newtonsoft.Json.JsonConvert.DeserializeObject<ChangshaExchangeSixResponse>(json, LosslessRecordSettings)
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<Response>(json, LosslessRecordSettings);
     }
 }
 

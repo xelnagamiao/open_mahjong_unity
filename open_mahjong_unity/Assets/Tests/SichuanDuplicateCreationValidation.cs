@@ -135,7 +135,7 @@ public static class SichuanDuplicateCreationValidation {
                     Check(!Field<UnityEngine.UI.Toggle>(p, "SetRandomSeedToggle").gameObject.activeSelf, "no scene seed in paired form");
                     Check(Field<TMP_Dropdown>(p, "SichuanDuplicateRounds").gameObject.activeSelf, "board count field itself visible");
                     key.text = "";
-                    Check(key.placeholder.gameObject.activeSelf, "empty key explains automatic generation");
+                    Check(key.placeholder.gameObject.activeSelf && key.placeholder.GetComponent<LocalizedPlatformLabel>().Source == "留空自动生成", "empty key explains automatic generation");
                     foreach (int count in new[] { 1, 4, 8, 12, 16 }) foreach (bool sync in new[] { false, true }) {
                         var rounds = Field<TMP_Dropdown>(p, "SichuanDuplicateRounds");
                         rounds.SetValueWithoutNotify(Array.IndexOf(new[] { 1, 4, 8, 12, 16 }, count));

@@ -66,13 +66,13 @@ public sealed partial class SichuanSettlementPanel {
         var teams=Rect("Teams",body);
         Stretch(teams,new Vector2(0,1),Vector2.one,new Vector2(64,-236),new Vector2(-64,-156));
         for(int t=0;t<2;t++){
-            var card=Rect(t==0?"BlueTeam":"RedTeam",teams);
+            var cardLayout=DynamicTextRow.Create(teams,t==0?"BlueTeam":"RedTeam");var card=(RectTransform)cardLayout.transform;
             float from=duplicate?t*.5f:t==0?0:.65f, to=duplicate?(t+1)*.5f:t==0?.35f:1;
             Stretch(card,new Vector2(from,0),new Vector2(to,1),new Vector2(t==0?0:5,0),new Vector2(t==0?-5:0,0));
             ColorBox(card,t==0?Blue:Red);
-            var title=Text(card,"Team",32,Color.white,t==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.MidlineRight);
+            var title=Text(card,"Team",32,Color.white,t==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.MidlineRight,cardLayout);
             Stretch(title.rectTransform,new Vector2(t==0?0:1,0),new Vector2(t==0?0:1,1),new Vector2(t==0?24:-120,0),new Vector2(t==0?120:-24,0));title.text=t==0?"蓝队":"红队";
-            var value=Text(card,"Score",29,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft);
+            var value=Text(card,"Score",29,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft,cardLayout);
             Stretch(value.rectTransform,new Vector2(t==0?.26f:0,0),new Vector2(t==0?1:.74f,1),new Vector2(t==0?0:24,0),new Vector2(t==0?-24:0,0));
             value.text=BoardTeamScore(t,board.team_changes[t]);value.richText=true;value.textWrappingMode=TextWrappingModes.NoWrap;
             value.enableAutoSizing=true;value.fontSizeMin=20;value.fontSizeMax=29;teamValues[t]=value;
@@ -82,11 +82,14 @@ public sealed partial class SichuanSettlementPanel {
         Stretch(cumulative,new Vector2(.36f,0),new Vector2(.64f,1),Vector2.zero,Vector2.zero);
         var caption=Text(cumulative,"Caption",22,Muted,TextAlignmentOptions.Center);caption.text="累计比分";
         Stretch(caption.rectTransform,new Vector2(0,.55f),Vector2.one,new Vector2(0,0),new Vector2(0,-3));
-        var separator=Text(cumulative,"Separator",32,Color.white,TextAlignmentOptions.Center);separator.text=":";
-        Stretch(separator.rectTransform,new Vector2(.45f,0),new Vector2(.55f,.6f),Vector2.zero,new Vector2(0,4));
+        var totalsLayout = DynamicTextRow.Create(cumulative, "Scores");
+        var scoreLine = (RectTransform)totalsLayout.transform;
+        Stretch(scoreLine,Vector2.zero,new Vector2(1,.6f),Vector2.zero,new Vector2(0,4));
+        var separator=Text(scoreLine,"Separator",32,Color.white,TextAlignmentOptions.Center,totalsLayout);separator.text=":";
+        Stretch(separator.rectTransform,new Vector2(.45f,0),new Vector2(.55f,1),Vector2.zero,Vector2.zero);
         for(int t=0;t<2;t++){
-            var value=Text(cumulative,t==0?"BlueTotal":"RedTotal",32,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft);
-            Stretch(value.rectTransform,new Vector2(t==0?0:.55f,0),new Vector2(t==0?.45f:1,.6f),new Vector2(14,0),new Vector2(-14,4));
+            var value=Text(scoreLine,t==0?"BlueTotal":"RedTotal",32,Color.white,t==0?TextAlignmentOptions.MidlineRight:TextAlignmentOptions.MidlineLeft,totalsLayout);
+            Stretch(value.rectTransform,new Vector2(t==0?0:.55f,0),new Vector2(t==0?.45f:1,1),new Vector2(14,0),new Vector2(-14,0));
             value.richText=true;value.text=ColoredScore(board.team_totals[t]);value.textWrappingMode=TextWrappingModes.NoWrap;
             value.enableAutoSizing=true;value.fontSizeMin=20;value.fontSizeMax=32;teamTotals[t]=value;
         }

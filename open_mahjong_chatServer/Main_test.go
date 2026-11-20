@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -54,6 +55,49 @@ func TestWebSocketLoginReplacementAndSingleDelivery(t *testing.T) {
 		t.Fatal("new connection received an unexpected duplicate message")
 	} else if netError, ok := err.(net.Error); !ok || !netError.Timeout() {
 		t.Fatalf("checking duplicate delivery returned unexpected error: %v", err)
+	}
+}
+
+func TestLiveAccountRestrictions(t *testing.T) {
+	Pool = ConnectionPool{connections: make(map[string]*Client)}
+	roomManager = *newTestRoomManager("ban-test-secret")
+	var ban atomic.Value
+	ban.Store("login")
+	roomManager.lookupAccount = func(name string, uid int64) (accountAccess, error) {
+		if (uid == 0 && name != "speaker") || (uid != 0 && uid != 42) {
+			t.Errorf("unexpected chat principal name=%q uid=%d", name, uid)
+		}
+		kind := ban.Load().(string)
+		return accountAccess{UserID: 42, CanLogin: kind != "login" && kind != "full", CanSend: kind == "" || kind == "match", ProfileImageID: 2302}, nil
+	}
+	server := httptest.NewServer(http.HandlerFunc(handleWebSocket))
+	defer server.Close()
+	conn := dialTestWebSocket(t, "ws"+strings.TrimPrefix(server.URL, "http")+"/chat/ban-test")
+	defer func() { conn.Close(); waitForChatCleanup(t) }()
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	loginTestWebSocket(t, conn, "speaker", roomManager.secretKey)
+	if readResponseType(t, conn, "False").Code != "account_banned" {
+		t.Fatal("login ban was not enforced")
+	}
+	ban.Store("chat")
+	loginTestWebSocket(t, conn, "speaker", roomManager.secretKey)
+	readResponseType(t, conn, "Tips")
+	for _, kind := range []string{"chat", "match", "", "full"} {
+		ban.Store(kind)
+		if err := conn.WriteJSON(map[string]any{"type": "sendChat", "requestId": "msg", "data": map[string]any{"roomId": 0, "content": "test"}}); err != nil {
+			t.Fatal(err)
+		}
+		if kind == "chat" || kind == "full" {
+			if response := readResponseType(t, conn, "False"); response.Success || response.RequestID != "msg" {
+				t.Fatal("expected a correlated refusal")
+			}
+		} else {
+			message := readResponseType(t, conn, "Chat")
+			if message.SenderUserID != 42 || message.ProfileImageID != 2302 || message.Content != "speaker: test" {
+				t.Fatalf("incorrect sender or content in broadcast: %+v", message)
+			}
+			readResponseType(t, conn, "sendChatOk")
+		}
 	}
 }
 

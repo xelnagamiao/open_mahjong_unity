@@ -24,6 +24,7 @@ public partial class Game3DManager {
         ChangshaOpenKongRemoveHand,
         ChangshaOpenKongMeld,
         HongqueKong,
+        DuocaiDeclareKong,
     }
 
     private sealed class HandAnimOp {
@@ -156,7 +157,7 @@ public partial class Game3DManager {
     }
 
     private void StopAllHandAnimationQueues() {
-        SoundManager.Instance?.CancelTableAudio();
+        // 动画清理只取消后续动画，已经触发的短音效由 SoundManager 自然播完。
         foreach (string position in HandAnimPlayerPositions) StopHandDrawReflow(position, finish: false);
         _handAnimationGeneration++;
         // 跳转/切局会中断嵌套动画；旧协程的 finally 不得扣减新一轮播放的计数。
@@ -183,6 +184,7 @@ public partial class Game3DManager {
         }
         op.PlayerPosition = playerPosition;
         op.AfterWork = DuocaiTableIndicators.CaptureHandBacks(playerPosition);
+        if(op.Kind==HandAnimOpKind.DrawCard)op.AfterWork+=DuocaiTableIndicators.CaptureVisibleDraw(playerPosition);
         op.DuocaiPostBacks = DuocaiTableIndicators.CaptureHandBackState(playerPosition);
         _handAnimQueues[playerPosition].Enqueue(op);
         EnsureHandAnimProcessorRunning(playerPosition);
@@ -225,6 +227,9 @@ public partial class Game3DManager {
             StopHandDrawReflow(op.PlayerPosition, finish: true);
 
         switch (op.Kind) {
+            case HandAnimOpKind.DuocaiDeclareKong:
+                RenderDuocaiDeclaredKong(op.PlayerPosition,op.RemoveCount);
+                break;
             case HandAnimOpKind.WashizuOrder:
                 yield return AnimateWashizuRealtimeRow(op.PlayerPosition, panel, op.WashizuLayout);
                 break;
@@ -349,6 +354,7 @@ public partial class Game3DManager {
                 if (!HasPendingHandAnimWork(playerPosition)) {
                     PlayHandDrawReflow(playerPosition);
                     DuocaiTableIndicators.CaptureHandBacks(playerPosition)?.Invoke();
+                    DuocaiTableIndicators.CaptureVisibleDraw(playerPosition)?.Invoke();
                     return true;
                 }
                 EnqueueHandAnimOp(playerPosition, new HandAnimOp {
@@ -454,14 +460,6 @@ public partial class Game3DManager {
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.Rearrange,
         });
-    }
-
-    public void PlayExtendedKong(string playerPosition, int meldIndex, int[] mask, int[][] previousMasks,
-        int tileId, bool isMoGang) {
-        if (!IsHandAnimPlayer(playerPosition)) return;
-        StartCoroutine(ReplaceMeldGroupCoroutine(playerPosition, meldIndex, (int[])mask.Clone(), previousMasks));
-        _ankanPendingDrawByPlayer[playerPosition] = true;
-        EnqueueJiagangHandWork(playerPosition, tileId, isMoGang);
     }
 
     /// <summary>

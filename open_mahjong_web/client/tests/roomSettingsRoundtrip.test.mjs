@@ -88,6 +88,28 @@ for (const [room_rule, subRules] of Object.entries(profiles)) {
   }
 }
 
+test('Jinluo fixes qualification settings while preserving optional tips across editing and reopening', () => {
+  for (const tips of [false, true]) {
+    const form = createEventRoomForm({ room_rule: 'guobiao', room_config: {
+      jinluo_mode: true, hepai_limit: 32, open_cuohe: false, tian_di_ren_he: false, tips,
+    } })
+    const saved = roundtrip(form)
+    for (const settings of [form, saved]) {
+      assert.equal(settings.hepai_limit, 8)
+      assert.equal(settings.open_cuohe, true)
+      assert.equal(settings.tian_di_ren_he, true)
+      assert.equal(settings.tips, tips)
+    }
+    updateGuobiaoRoomConfig(form, 'tips', !tips)
+    assert.equal(roundtrip(form).tips, !tips)
+    const changedRule = { ...form }
+    updateGuobiaoRoomConfig(changedRule, 'sub_rule', 'guobiao/transparent')
+    assert.equal(roundtrip(changedRule).tips, !tips)
+    updateGuobiaoRoomConfig(form, 'jinluo_mode', false)
+    assert.equal(roundtrip(form).jinluo_mode, false)
+  }
+})
+
 test('all visible Guobiao settings keep explicit values, including opening wins and flower-mixed options', () => {
   const form = createEventRoomForm()
   Object.assign(form, { room_name: '国标设置', tian_di_ren_he: true, use_flowers: false,

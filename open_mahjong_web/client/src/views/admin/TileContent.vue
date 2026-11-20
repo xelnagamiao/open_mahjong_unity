@@ -156,9 +156,7 @@ function summaryText(row) {
   if (row.kind === 'tile_background') {
     return (meta.files || []).join('、') || '—'
   }
-  const hand = meta.format_version === 2 ? `共用牌面 ${meta.shared_count}` : (meta.hand_count != null ? `手牌 ${meta.hand_count}` : '')
-  const table = meta.format_version === 2 ? (meta.config_file || '') : (meta.table_count != null ? `3D ${meta.table_count}` : '')
-  return [hand, table].filter(Boolean).join(' / ') || '—'
+  return [`共用牌面 ${meta.shared_count || 0}`, meta.config_file || ''].filter(Boolean).join(' / ')
 }
 
 function onFilterChange() {

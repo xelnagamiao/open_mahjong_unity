@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Linq;
-using Salasasa.Chat;
 using Salasasa.Events;
 using Salasasa.Home;
 using Salasasa.Venues;
@@ -27,9 +26,8 @@ public static class VenueListPolishBaker
             foreach (var card in page.cards.Where(card => card)) BakeCard(card, page.kind);
             EditorUtility.SetDirty(page);
         }
-        var bridge = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<GraphiteChatBridge>(true)).FirstOrDefault();
         foreach (var panel in scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<EventVenuePanel>(true)))
-            BakeChatEntry(panel, bridge);
+            BakeChatEntry(panel);
     }
 
     public static void Validate(Scene scene)
@@ -74,8 +72,15 @@ public static class VenueListPolishBaker
         }
         foreach (var panel in scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<EventVenuePanel>(true)))
         {
-            if (!panel.chat) throw new InvalidOperationException("Venue chat bridge is not connected: " + panel.name);
             var view = panel.view;
+            var chat = panel.chatPage;
+            if (!chat || chat.panel != panel || chat.transform.parent != view.transform ||
+                view.pages.ElementAtOrDefault(EventVenuePanel.ChatPageIndex) != chat.gameObject ||
+                !chat.store || !chat.scroll || !chat.scroll.content || !chat.scroll.viewport ||
+                !chat.messageTemplate || chat.messageTemplate.transform.parent != chat.scroll.content ||
+                chat.messageTemplate.gameObject.activeSelf || !chat.messageTemplate.bubble || !chat.messageTemplate.author || !chat.messageTemplate.portrait ||
+                !chat.messageTemplate.body || !chat.messageTemplate.time || !chat.composer || !chat.send || !chat.status)
+                throw new InvalidOperationException("Venue chat page is not connected: " + panel.name);
             {
                 var rail = view.transform.Find("PrimaryNavigation") as RectTransform;
                 var action = rail ? rail.Find("ChatButton")?.GetComponent<EventVenueAction>() : null;
@@ -226,9 +231,8 @@ public static class VenueListPolishBaker
             throw new InvalidOperationException("Venue close button must align with its header and right inset: " + rect.name);
     }
 
-    static void BakeChatEntry(EventVenuePanel panel, GraphiteChatBridge bridge)
+    static void BakeChatEntry(EventVenuePanel panel)
     {
-        panel.chat = bridge;
         var view = panel.view;
         {
             var navigation = view.transform.Find("PrimaryNavigation") as RectTransform;
@@ -514,7 +518,7 @@ public static class VenueListPolishBaker
         if (kind == VenueKind.Base)
         {
             PlaceRight(card.metricCaption.rectTransform, left, 110, 92, 36);
-            PlaceRight(card.metric.rectTransform, left + 100, 110, 180, 36);
+            PlaceRight(card.metric.rectTransform, left + 52, 110, 180, 36);
             Fit(card.metricCaption, 20, 16, TextAlignmentOptions.Left);
             Fit(card.metric, 20, 16, TextAlignmentOptions.Left);
             SetSource(card.metricCaption, "成员");

@@ -6,8 +6,6 @@ const MAX_IMAGE_EDGE = 4096;
 const MAX_PNG_BYTES = 4 * 1024 * 1024;
 const MAX_UNCOMPRESSED = 128 * 1024 * 1024;
 const MAX_BG_PNG_BYTES = 8 * 1024 * 1024;
-const EXPECTED_FORMAT = 'om-tilepack';
-const EXPECTED_FAMILY = 'standard';
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PREVIEW_FACE_IDS = [11, 15, 19, 21, 25, 29, 31, 35, 39, 41, 45, 46, 47, 51, 105];
 
@@ -19,27 +17,6 @@ function isStandardFaceId(tileId) {
   if (suit === 4 && rank >= 1 && rank <= 7) return true;
   if (suit === 5 && rank >= 1 && rank <= 8) return true;
   return false;
-}
-
-function pathHasFolder(fullPath, folder) {
-  const full = String(fullPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  const needle = String(folder || '').replace(/^\/+|\/+$/g, '');
-  if (!full || !needle) return false;
-  const lowerFull = full.toLowerCase();
-  const lowerNeedle = needle.toLowerCase();
-  return lowerFull.startsWith(`${lowerNeedle}/`) || lowerFull.includes(`/${lowerNeedle}/`);
-}
-
-function isHandFolder(fullPath) {
-  return pathHasFolder(fullPath, 'hand') || pathHasFolder(fullPath, '手牌牌面');
-}
-
-function isTableFolder(fullPath) {
-  return (
-    pathHasFolder(fullPath, 'table')
-    || pathHasFolder(fullPath, '3D牌面')
-    || pathHasFolder(fullPath, '3d牌面')
-  );
 }
 
 function isPng(bytes) {
@@ -90,42 +67,18 @@ function isTableBgFileName(name) {
   );
 }
 
-function validateManifest(text) {
-  const raw = String(text || '').trim();
-  if (!raw) return null;
-  let manifest;
-  try {
-    manifest = JSON.parse(raw);
-  } catch {
-    return 'manifest.json 无法解析';
-  }
-  if (!manifest || typeof manifest !== 'object') return null;
-  if (manifest.format && String(manifest.format).toLowerCase() !== EXPECTED_FORMAT) {
-    return 'manifest.format 必须是 om-tilepack';
-  }
-  if (manifest.family && String(manifest.family).toLowerCase() !== EXPECTED_FAMILY) {
-    return '仅支持 family=standard 的牌面包（虹雀不可自定义）';
-  }
-  return null;
-}
-
 function pushWarning(warnings, text) {
   if (warnings.length < 40) warnings.push(text);
 }
 
-function previewName(label) {
-  return String(label).replace(/[\\/]+/g, '_');
-}
-
 function validateTileFace(zipBuffer) {
   const entries = readZip(zipBuffer, { maxUncompressed: MAX_UNCOMPRESSED });
-  const hand = new Map();
-  const table = new Map();
   const shared = new Map();
   const warnings = [];
   const previews = [];
   const configs = entries.filter((e) => /\.cfg$/i.test(fileName(e.name)));
-  if (configs.length > 1) return { error: '牌面包只能包含一个 .cfg 文件' };
+  if (configs.length !== 1 || fileName(configs[0].name).toLowerCase() !== 'tiles.cfg') return { error: '牌面包需包含一个 tiles.cfg 文件' };
+  const surfaces = new Map();
   let config = null;
   if (configs.length) {
     if (configs[0].data.length > MAX_CFG_BYTES) return { error: '牌面配置超过 64KB' };
@@ -134,23 +87,28 @@ function validateTileFace(zipBuffer) {
       config = parseTilePackConfig(text, isStandardFaceId);
     } catch (err) { return { error: err.message }; }
   }
-  const manifest = entries.find((e) => fileName(e.name).toLowerCase() === 'manifest.json');
-  if (manifest) {
-    const manifestError = validateManifest(manifest.data.toString('utf8'));
-    if (manifestError) return { error: manifestError };
-  }
-
   for (const entry of entries) {
     const full = entry.name.replace(/\\/g, '/').replace(/^\/+/, '');
     const name = fileName(full);
+    if (full.split('/').some((part) => /^(hand|table|手牌牌面|3d牌面)$/i.test(part))) {
+      return { error: '牌面包需使用一套牌号 PNG 和 tiles.cfg' };
+    }
     if (/\.cfg$/i.test(name) || name.toLowerCase() === 'manifest.json') continue;
-    if (name.toLowerCase() === 'preview.png') continue; // Accepted in legacy packages, never required.
     if (!name.toLowerCase().endsWith('.png')) {
       if (!name.startsWith('.')) pushWarning(warnings, `已忽略非 PNG: ${name}`);
       continue;
     }
-    if (entry.data.length > MAX_PNG_BYTES) {
+    const surface = /^(hand-bg|hand-back|table-bg|table-back)\.png$/i.test(name);
+    if (!surface && entry.data.length > MAX_PNG_BYTES) {
       pushWarning(warnings, `单张超过 4MB，已跳过: ${name}`);
+      continue;
+    }
+    if (surface) {
+      if (entry.data.length > MAX_BG_PNG_BYTES) return { error: `背景图片超过 8MB: ${name}` };
+      if (surfaces.has(name.toLowerCase())) return { error: `背景图片重复: ${name}` };
+      const size = readPngSize(entry.data);
+      if (!size || size.width > MAX_IMAGE_EDGE || size.height > MAX_IMAGE_EDGE) return { error: `背景 PNG 无效: ${name}` };
+      surfaces.set(name.toLowerCase(), entry.data);
       continue;
     }
     const idPart = name.replace(/\.png$/i, '');
@@ -164,35 +122,23 @@ function validateTileFace(zipBuffer) {
       pushWarning(warnings, `尺寸不合法（需 ≤4096）: ${name}`);
       continue;
     }
-    const target = isTableFolder(full) ? table : isHandFolder(full) ? hand : shared;
+    const target = shared;
     if (target.has(tileId)) return { error: `牌面代号重复: ${full}` };
     target.set(tileId, entry.data);
   }
-  const legacy = hand.size > 0 || table.size > 0;
-  // Preserve explicitly supplied legacy variants. A shared image supplies both renderers.
-  for (const [id, data] of shared) {
-    if (!hand.has(id)) hand.set(id, data);
-    if (!table.has(id)) table.set(id, data);
+  if (!shared.size) return { error: '压缩包内没有可识别的 PNG 牌面' };
+  for (const key of ['hand_background', 'hand_back', 'table_background', 'table_back']) {
+    const name = config?.appearance?.[key];
+    if (name && !surfaces.has(name)) return { error: `牌面包缺少背景图片: ${name}` };
   }
-  for (const [id, data] of hand) if (!table.has(id)) table.set(id, data);
-  for (const [id, data] of table) if (!hand.has(id)) hand.set(id, data);
-  if (!hand.size) return { error: '压缩包内没有可识别的 PNG 牌面' };
-  const missing = standardFaceIds().filter((id) => !hand.has(id)).length;
+  const missing = standardFaceIds().filter((id) => !shared.has(id)).length;
   if (missing) pushWarning(warnings, `缺 ${missing} 张，对局中将回退官方牌面`);
-  for (const id of PREVIEW_FACE_IDS) {
-    if (!legacy && shared.has(id)) {
-      previews.push({ name: `${id}.png`, label: `${id}.png`, data: shared.get(id) });
-    } else {
-      if (hand.has(id)) previews.push({ name: previewName(`hand/${id}.png`), label: `hand/${id}.png`, data: hand.get(id) });
-      if (table.has(id)) previews.push({ name: previewName(`table/${id}.png`), label: `table/${id}.png`, data: table.get(id) });
-    }
-  }
+  for (const id of PREVIEW_FACE_IDS) if (shared.has(id))
+    previews.push({ name: `${id}.png`, label: `${id}.png`, data: shared.get(id) });
   return {
     meta: {
-      format_version: legacy ? 1 : 2,
+      format_version: 2,
       shared_count: shared.size,
-      hand_count: hand.size,
-      table_count: table.size,
       config_file: configs[0] ? fileName(configs[0].name) : null,
       layout: config,
       warnings,

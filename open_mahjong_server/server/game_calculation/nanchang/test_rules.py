@@ -5,6 +5,65 @@ from . import rules as r
 NORMAL = [11,12,13,14,15,16,22,23,24,31,32,33,41,41]
 
 
+@pytest.mark.parametrize("before,melds,indicator,win,excluded", [
+    ([29,29,29,21,21,14,17,41,42,43,45,46,47], [], 29, 11, "thirteen_lan"),
+    ([46,46,16,16,16,31,33], ["k43","k24"], 46, 33, "all_triplets"),
+])
+def test_video_third_point_original_examples(before,melds,indicator,win,excluded):
+    # BV1D6Wu6gEWZ, slide visible at 26:37: 9/1 bamboo jing; green dragon jing.
+    assert excluded in r.shapes(before+[win], melds, indicator=indicator)
+    score = r.score_hand(before+[win], melds, indicator=indicator, declared_jingdiao=True)
+    assert score["shape"] == "standard"
+    assert score["fan_values"] == {"精吊": 1}
+    assert score["points"] == 31
+
+
+def test_declared_jingdiao_cannot_rearrange_into_thirteen_lan():
+    # Constructed regression fixture, not a transcription of the video.
+    before = [11]*4 + [12]*3 + list(range(41,47))
+    assert "thirteen_lan" in r.shapes(before+[47], indicator=11)
+    score = r.score_hand(before+[47], indicator=11, declared_jingdiao=True)
+    assert score["shape"] == "seven_pairs"
+    assert score["points"] == 47
+    assert r.score_hand(before+[47], indicator=11)["shape"] == "thirteen_lan"
+
+
+def test_declared_jingdiao_cannot_move_draw_into_triplet():
+    before = [11,11,11,13,13,22,23,31,31,45,47,47,47]
+    assert "all_triplets" in r.shapes(before+[13], indicator=45)
+    assert r.jingdiao_shapes(before, indicator=45) == {"standard", "seven_pairs"}
+    score = r.score_hand(before+[13], indicator=45, declared_jingdiao=True)
+    assert score["shape"] == "seven_pairs"
+    assert score["points"] == 47
+
+
+@pytest.mark.parametrize("win", [22,45,47])
+def test_jingdiao_keeps_genuine_all_triplets(win):
+    before = [11]*3+[21]*3+[31]*3+[41]*3+[45]
+    score = r.score_hand(before+[win], indicator=45, declared_jingdiao=True)
+    assert score["shape"] == "all_triplets"
+    assert score["jingdiao"]
+    assert score["german"] == (5 if win == 45 else 0)
+
+
+@pytest.mark.parametrize("other,extra", [(True,10),(False,15)])
+def test_jingdiao_natural_pairs_and_extra_payments(other,extra):
+    before = [11,11,12,12,21,21,22,22,31,31,32,32,45]
+    score = r.score_hand(before+[45], indicator=45, declared_jingdiao=True, other_has_jing=other)
+    assert score["shape"] == "seven_pairs"
+    assert score["jingdiao"]
+    assert all(p["extra"] == extra for p in score["payments"])
+
+
+def test_natural_jingdiao_tries_each_reserved_jing():
+    before = [11,12,13,21,22,23,31,32,33,45,45,45,47]
+    assert r.jingdiao_shapes(before, indicator=45, natural=True, winning_tile=47) == {"standard"}
+    assert not r.jingdiao_shapes(before, indicator=45, natural=True, winning_tile=45)
+    score = r.score_hand(before+[47], indicator=45, declared_jingdiao=True)
+    assert score["german"] == 5
+    assert score["jingdiao"]
+
+
 @pytest.mark.parametrize("tile,next_tile", [(19,11),(29,21),(39,31),(41,42),(42,43),(43,44),(44,41),(45,47),(47,46),(46,45),(11,12)])
 def test_jing_cycles(tile,next_tile):
     assert r.secondary_jing(tile) == next_tile

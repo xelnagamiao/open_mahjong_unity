@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass, field
 
 from ..response import Response
+from ..public.account_bans import RANKED_BANS
 from .rating_rules import DOUBLES_QUEUE, DOUBLES_RATING_RULE
 
 log = logging.getLogger(__name__)
@@ -315,6 +316,8 @@ class PartyManager:
             await self.server.gamestate_manager.remove_spectator_from_all_games(member)
         for member, conn in zip(p.members, conns):
             self.require(self.server.user_id_to_connection.get(member) is conn and not self.busy(member), '成员状态已变化，请重新准备')
+        self.require(not self.server.db_manager.active_account_bans(p.members, RANKED_BANS),
+                     '队伍中有成员被禁止排位')
         p.rating = sum(ratings) / 2
         p.ready.update(p.members)
         p.queued_at = time.time()
@@ -345,6 +348,11 @@ class PartyManager:
                 continue
             b = min(candidates, key=lambda p: (abs(a.rating - p.rating), p.queued_at))
             users = [a.members[0], b.members[0], a.members[1], b.members[1]]
+            banned = self.server.db_manager.active_account_bans(users, RANKED_BANS)
+            if banned:
+                for uid in banned:
+                    await self.server.match_manager.cancel_banned_queue(uid)
+                continue
             a.queued_at = b.queued_at = 0
             self.changed(a); self.changed(b)
             await self.server.match_manager._try_start_match(DOUBLES_QUEUE, users)

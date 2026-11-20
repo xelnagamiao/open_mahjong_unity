@@ -29,7 +29,7 @@
         <h3>牌面背景</h3>
         <pre class="format-help">{{ BACKGROUND_HELP }}</pre>
         <div class="rights-notice">
-          <strong>分享美术资源规约</strong>
+          <span>分享美术资源规约</span>
           <ol>
             <li>上传内容须由你拥有版权，或取得明确允许非商业使用和公开分享的许可证。</li>
             <li>没有版权或许可证的资源只能私下使用，不能上传到平台分享站。</li>
@@ -65,7 +65,12 @@
         <el-table-column label="类型" width="100">
           <template #default="{ row }">{{ kindLabel(row.kind) }}</template>
         </el-table-column>
-        <el-table-column prop="name" label="名称" min-width="120" />
+        <el-table-column label="名称" min-width="160">
+          <template #default="{ row }">
+            {{ row.name }}
+            <TilePackPreview v-if="active && row.kind === 'tile_face'" :row="row" />
+          </template>
+        </el-table-column>
         <el-table-column label="描述" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">{{ row.description || '—' }}</template>
         </el-table-column>
@@ -102,10 +107,13 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import playerApi from '@/api/playerClient'
+import TilePackPreview from '@/components/TilePackPreview.vue'
+
+defineProps({ active: Boolean })
 
 const FACE_HELP = `上传格式
 
-上传一个 .zip，直接放一套按牌面代号命名的 PNG 和一个 tiles.cfg。2D 手牌与 3D 牌面共用原图，不再需要两份图片；原有 hand/、table/ 格式仍可上传和使用。
+上传一个 .zip，直接放一套按牌面代号命名的 PNG 和一个 tiles.cfg。2D 手牌与 3D 牌面共用这套原图。
 
 PNG 保留原始比例及透明通道，不拉伸、不二次压缩。可在 tiles.cfg 分别设置 2D、3D 的整包默认位置和缩放，以及每张牌的微调。
 
@@ -113,7 +121,7 @@ PNG 保留原始比例及透明通道，不拉伸、不二次压缩。可在 til
 
 其他须知：
 
-1. PNG 单边不超过 4096 像素，单张不超过 4MB，压缩包及解压后总大小不超过 128MB；缺失牌面使用官方牌面递补。
+1. PNG 单边不超过 4096 像素，牌面单张不超过 4MB，背景和牌背单张不超过 8MB，压缩包及解压后总大小不超过 128MB；缺失牌面使用官方牌面递补。
 
 2. 配置使用 UTF-8，支持 # 整行或行末注释。[2d]、[3d] 设置整包默认值，[2d.11]、[3d.11] 设置单牌相对调整；x/y 是位置百分比（-100～100），scale 是缩放百分比（25～200）。未配置时位置 0、缩放 100；单牌设置叠加在整包设置上。
 
@@ -134,7 +142,9 @@ scale = 100
 [2d.11]
 y = 2 # 一万向上移动 2%
 [3d.11]
-scale = 95`
+scale = 95
+
+也可直接上传 Unity「牌面设计 / 卡牌设计」导出的完整牌包，保留背景、牌背、颜色和全部微调。`
 
 
 const BACKGROUND_HELP = `手牌牌面背景：用于在手牌牌面使用透明通道的情况下替换背景，默认尺寸 272*389。
@@ -341,7 +351,7 @@ onMounted(loadMine)
 .upload-block h3 {
   margin: 0 0 10px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
 }
 .format-help {

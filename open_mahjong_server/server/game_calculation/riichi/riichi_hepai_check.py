@@ -331,7 +331,7 @@ class Riichi_Hepai_Check:
             player_wind=player_wind,
             round_wind=round_wind,
             kyoutaku_number=int(context.get("kyoutaku_number", 0)),
-            tsumi_number=int(context.get("tsumi_number", 0)),
+            tsumi_number=int(context.get("tsumi_number", 0)) if context.get("honba_enabled", True) else 0,
             options=config_rules,
         )
 

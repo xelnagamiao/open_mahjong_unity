@@ -9,6 +9,24 @@ public static class NanchangClientValidation {
     public static string Run() {
         var checks=new List<string>();
         void Check(bool ok,string label) {if(!ok)throw new Exception("Nanchang: "+label);checks.Add(label);}
+        foreach(var fixture in new[]{
+            (new[]{11,11,11,11,12,12,12,41,42,43,44,45,46},47,11,47),
+            (new[]{11,11,11,13,13,22,23,31,31,45,47,47,47},13,45,47),
+            (new[]{11,11,11,21,21,21,31,31,31,41,41,41,45},22,45,79),
+            (new[]{11,11,12,12,21,21,22,22,31,31,32,32,45},45,45,158),
+            (new[]{11,12,13,21,22,23,31,32,33,45,45,45,47},47,45,62)
+        }){
+            var solver=new NanchangLocal(new List<string>(),new JObject{["indicator"]=fixture.Item3,["index"]=1,["declared_jingdiao"]=true});
+            var quote=solver.Describe(fixture.Item1.Concat(new[]{fixture.Item2}).ToList(),fixture.Item2);
+            Check((int)quote["self_draw_points"]==fixture.Item4,"jingdiao decomposition "+string.Join(",",fixture.Item1));
+        }
+        foreach(var fixture in new[]{
+            (new[]{29,29,29,21,21,14,17,41,42,43,45,46,47},new string[0],29,11),
+            (new[]{46,46,16,16,16,31,33},new[]{"k43","k24"},46,33)
+        }){
+            var solver=new NanchangLocal(fixture.Item2.ToList(),new JObject{["indicator"]=fixture.Item3,["index"]=1,["declared_jingdiao"]=true});
+            Check((int)solver.Describe(fixture.Item1.Concat(new[]{fixture.Item4}).ToList(),fixture.Item4)["self_draw_points"]==31,"video 26:37 original jingdiao example");
+        }
         NanchangRuleBootstrap.Register();
         var manifest=RuleRegistry.Resolve("nanchang","nanchang/mil2026");
         Check(manifest?.OutboundChannel=="nanchang","registered rule and network channel");

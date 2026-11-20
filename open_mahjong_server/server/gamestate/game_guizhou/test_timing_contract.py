@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from functools import partial
 from types import SimpleNamespace
 
 import pytest
@@ -167,13 +168,32 @@ def test_simultaneous_initial_declarations_have_independent_delivery_deadlines(t
         for i in (1, 2, 3):
             s.player_list[i].hand_tiles = PLAIN[:-1]
         s.open_action_window(s.opening_window())
-        sockets = connect(s, timer, (0, 1, 2, 3))
-        await s.flush_outbound_payloads()
+        sockets = connect(s, timer)
+        writing, delivered = asyncio.Queue(), asyncio.Queue()
+
+        async def gated_send(index, write, payload):
+            release = asyncio.Event()
+            writing.put_nowait((index, release))
+            await release.wait()
+            await write(payload)
+            delivered.put_nowait(index)
+
+        for i in (1, 2, 3):
+            sockets[i].send_json = partial(gated_send, i, sockets[i].send_json)
+        flush = asyncio.create_task(s.flush_outbound_payloads())
+        gates = dict([await writing.get() for _ in range(3)])
+        assert set(gates) == {1, 2, 3}
         clocks = s.live_pending_window["_clocks"]
-        assert [clocks[i].started for i in (1, 2, 3)] == [101, 103, 106]
-        assert [clocks[i].remaining() for i in (1, 2, 3)] == [20, 22, 25]
+        assert all(clocks[i].started is None for i in gates)
+        for index, delay in ((3, 1), (1, 2), (2, 3)):
+            timer.advance(delay)
+            gates[index].set()
+            assert await delivered.get() == index
+        await flush
+        assert [clocks[i].started for i in (1, 2, 3)] == [103, 106, 101]
+        assert [clocks[i].remaining() for i in (1, 2, 3)] == [22, 25, 20]
         assert not sockets[0].sent
-    asyncio.run(run())
+    asyncio.run(asyncio.wait_for(run(), 2))
 
 
 def test_response_during_own_send_is_not_restarted_by_the_delivery_callback(timer):

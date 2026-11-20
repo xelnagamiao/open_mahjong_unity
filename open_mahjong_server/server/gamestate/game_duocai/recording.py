@@ -36,6 +36,10 @@ class Recording:
         elif action in ('riichi', 'declare_kan', 'rob_kan', 'angang', 'jiagang', 'peng', 'gang', 'chi_left'):
             record.append_action_tick(self, ['duocai', 'action', event])
         else:
+            if action.startswith('hu') and self.variant == 'riichi':
+                settlement = self._latest_hu_settlement_for(actor)
+                if not settlement.get('recorded'):
+                    record.append_action_tick(self, ['duocai', 'result', dict(settlement['riichi_result'])])
             super().record_visible_action(event)
         record.append_action_tick(self, ['duocai', 'state', self.duocai_info(), [p.score for p in self.player_list]])
 

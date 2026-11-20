@@ -102,6 +102,8 @@ public class SimpleRoundPanel : MonoBehaviour {
 
     public void UpdateSichuanSettlement(ShowResultInfo info) => sichuanScores?.ApplySettlement(info);
 
+    public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => sichuanScores?.UpdateReplay(scores);
+
     public void UpdateDuplicateStatus(DuplicateMatchInfo info) {
         if (info == null) return;
         sichuanScores?.UpdateDuplicate(info);

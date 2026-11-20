@@ -6,6 +6,7 @@ from .public.ai.get_action import get_action
 from .game_zhongyong.get_action import get_action as zhongyong_get_action
 from .public.sticker import broadcast_sticker, resolve_sticker_sender
 from ..response import Response
+from ..public.account_bans import CHAT_BANS
 
 logger = logging.getLogger(__name__)
 
@@ -456,6 +457,9 @@ async def handle_send_sticker(game_server, Connect_id: str, message: dict, webso
             logger.warning(f"用户 {user_id} 不是对局玩家，拒绝发送表情包")
             return
 
+        if game_server.db_manager.active_account_bans([user_id], CHAT_BANS):
+            await websocket.send_json({"type": "tips", "success": False, "message": "账号当前已被禁言"})
+            return
         last_send_map = getattr(game_state, "sticker_last_send_mono", None)
         if last_send_map is None:
             last_send_map = {}

@@ -135,7 +135,7 @@ public sealed class PopupRefreshRuntimeValidation : MonoBehaviour {
         Check(view.GetComponentsInChildren<StaticCard>(true).Length == 1 && layout.PageIndex == 0, "changed wait set replaces old cells and resets page");
         view.SetTipsWithRecordContext(ctx, hand, waits.ToList(), cut); view.ShowTips(); yield return Settled();
         for (int i = 0; i < 3; i++) { view.HideTips(); yield return null; view.ShowTips(); yield return Settled(); }
-        Check(view.GetComponentsInChildren<StaticCard>(true).Length == waits.Count, "repeated reopening preserves all waiting tiles");
+        Check(view.GetComponentsInChildren<StaticCard>(true).Length == DuocaiHintPresentation.DisplayTiles(waits).Length, "repeated reopening preserves grouped waiting tiles");
         yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(folder, "duocai-hints.png"));
         yield return new WaitForEndOfFrame();
         view.HideTips();

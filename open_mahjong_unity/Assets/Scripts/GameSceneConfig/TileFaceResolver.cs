@@ -79,7 +79,7 @@ public static class TileFaceResolver {
             TilePackStorage.SaveImported(imported);
         }
         TilePackLayoutConfig.Register(TilePackIds.PackCustom, imported.LayoutConfig);
-        ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
+        ReplaceCustomTextures(imported.Pngs);
         if (enableFlag && ConfigManager.Instance != null) {
             ConfigManager.Instance.SetStandardTilePackId(TilePackIds.PackCustom);
         }
@@ -96,7 +96,7 @@ public static class TileFaceResolver {
         ConfigManager.Instance?.SetStandardTilePackId(id);
         diskLoaded = webGlLoadStarted = true;
         TilePackLayoutConfig.Register(id, imported.LayoutConfig);
-        ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
+        ReplaceCustomTextures(imported.Pngs);
         NotifyChanged();
     }
 
@@ -188,8 +188,8 @@ public static class TileFaceResolver {
     }
 
     /// <summary>按实际图案来源返回排版尺度；缺图回退与直接使用官方保持一致。</summary>
-    public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true, bool useManzuDefaults = true) {
-        if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTiles.Joker(tileId)?1f:TableImageScaleFor(tileId%1000,applyWhiteDragonFaceSetting,false);
+    public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true, bool usePackDefaults = true) {
+        if(DuocaiTileVisual.IsCurrent(tileId))return DuocaiTiles.Joker(tileId)?1f:TableImageScaleFor(tileId%1000,applyWhiteDragonFaceSetting,usePackDefaults);
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return 1f;
         if (SingaporeTileVisual.IsAnimal(tileId)) return 1f;
         if (MalaysiaTileVisual.Contains(tileId)) return 1f;
@@ -197,8 +197,7 @@ public static class TileFaceResolver {
         if (HongqueTileVisual.IsHongqueId(tileId)) return 1f;
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
-        // Manzu's old image-area inset is already in its visible 3D tile defaults.
-        if (useManzuDefaults && TilePackLayoutConfig.UsesVisibleManzuDefaults(packId, faceId)) return 1f;
+        if (usePackDefaults && TilePackLayoutConfig.HasTileDefaults(packId, faceId, true)) return 1f;
         if (TilePackIds.IsBuiltinPack(packId) && BuiltinTileSprites.Shared(packId, faceId) != null)
             return packId == TilePackIds.PackOfficial ? TileTextureLayout.SnowTableImageScale : TileTextureLayout.TableImageScale;
         if (TilePackIds.IsCustomPack(packId)
@@ -464,7 +463,7 @@ public static class TileFaceResolver {
             // 异步读取返回时，用户可能已切到另一套牌面。
             if (version != loadVersion || id != CurrentPackId()) return;
             TilePackLayoutConfig.Register(id, imported.LayoutConfig);
-            ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
+            ReplaceCustomTextures(imported.Pngs);
             NotifyChanged();
         }, error => {
             if (version == loadVersion && id == CurrentPackId()) Debug.LogWarning(error);
@@ -481,32 +480,16 @@ public static class TileFaceResolver {
         return tileId;
     }
 
-    private static void ReplaceCustomTextures(Dictionary<int, byte[]> handPngs, Dictionary<int, byte[]> tablePngs) {
+    private static void ReplaceCustomTextures(Dictionary<int, byte[]> pngs) {
         DestroyCustomTextures();
         ownsRuntimeTextures = true;
-        if (handPngs != null) {
-            foreach (var pair in handPngs) {
-                Texture2D texture = BytesToTexture(pair.Value, "CustomHand_" + pair.Key, false);
-                if (texture == null) {
-                    continue;
-                }
-                CustomHandTextures[pair.Key] = texture;
-                CustomHandSprites[pair.Key] = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, texture.width, texture.height),
-                    new Vector2(0.5f, 0.5f),
-                    100f, 0, SpriteMeshType.FullRect);
-            }
-        }
-        if (tablePngs != null) {
-            foreach (var pair in tablePngs) {
-                Texture2D texture = handPngs != null && handPngs.TryGetValue(pair.Key, out byte[] handBytes)
-                    && ReferenceEquals(handBytes, pair.Value) && CustomHandTextures.TryGetValue(pair.Key, out Texture2D shared)
-                    ? shared : BytesToTexture(pair.Value, "CustomTable_" + pair.Key, true);
-                if (texture != null) {
-                    CustomTableTextures[pair.Key] = texture;
-                }
-            }
+        foreach (var pair in pngs) {
+            Texture2D texture = BytesToTexture(pair.Value, "CustomFace_" + pair.Key, false);
+            if (texture == null) continue;
+            CustomHandTextures[pair.Key] = texture;
+            CustomTableTextures[pair.Key] = texture;
+            CustomHandSprites[pair.Key] = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect);
         }
     }
 

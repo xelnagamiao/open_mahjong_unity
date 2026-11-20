@@ -16,12 +16,26 @@ class MultiQueueTests(unittest.IsolatedAsyncioTestCase):
             room_manager=SimpleNamespace(rooms={}, event_seating_users=set()),
             db_manager=SimpleNamespace(get_rank_data=Mock(return_value={"guobiao_rank": "四段"}), get_user_sponsor_mcrpl=Mock(return_value={"is_beginner_qualified": True,"is_intermediate_qualified":True,"is_advanced_qualified":True,"is_mcrpl_qualified":True})),
         )
+        self.server.db_manager.active_account_bans = Mock(return_value={})
         self.manager = self.server.match_manager = MatchManager(self.server)
         self.manager._start_game = AsyncMock()
         self.a, self.b, self.c = ALL_QUEUE_TYPES[:3]
 
     async def join(self, uid, queue):
         return await self.manager.join_queue(str(uid), queue)
+
+    async def test_ban_after_join_removes_all_queues_before_commit(self):
+        await self.join(1, self.a)
+        await self.join(1, self.b)
+        self.server.db_manager.active_account_bans.side_effect = lambda users, types: {1: 'match'} if 1 in users else {}
+        for uid in (2, 3, 4):
+            await self.join(uid, self.a)
+        self.assertNotIn(1, self.manager.user_to_queues)
+        self.assertFalse(self.manager.committed_users)
+        self.assertFalse((await self.join(1, self.a)).success)
+        self.server.db_manager.active_account_bans.side_effect = None
+        self.assertTrue((await self.join(1, self.a)).success)
+        self.assertEqual(self.manager.committed_users, {1, 2, 3, 4})
 
     async def test_additive_idempotent_and_limit(self):
         for q in ALL_QUEUE_TYPES[:4]:

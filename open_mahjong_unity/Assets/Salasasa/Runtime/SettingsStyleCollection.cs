@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -63,104 +62,186 @@ namespace Salasasa.Home
         public TMP_FontAsset sans,bold;
         public CompleteLobbyController lobby;
         public SettingsBakedPage[] bakedPages;
-        public bool IsBaked=>bakedPages!=null&&bakedPages.Length==9;
+        public Transform[] themeRoots;
+        public bool UsesPagePrefabs => themeRoots != null && themeRoots.Length == 3;
+        public bool IsBaked => UsesPagePrefabs || (bakedPages != null && bakedPages.Length == 9);
+        static readonly string[] ThemeFolders = { "WarmCity", "SummerCampus", "NightTheatre" };
+        static readonly string[] CategoryNames = { "Audio", "Gameplay", "Display" };
+        public static string PageResource(int variant, int category) => $"SettingsPages/{ThemeFolders[variant]}/{CategoryNames[category]}";
         public int Variant {get;private set;}
         public int Category {get;private set;}
         public bool Ready {get;private set;}
         Vector2 measuredParent;
         bool synchronizing;
-        readonly Dictionary<string,List<SettingsStyleField>> views=new Dictionary<string,List<SettingsStyleField>>();
-        readonly Dictionary<string,int> lastValues=new Dictionary<string,int>();
+        readonly SettingsBakedPage[,] instances = new SettingsBakedPage[3,3];
+        readonly Dictionary<string,int> lastValues = new Dictionary<string,int>();
+        SettingsBakedPage currentPage;
         bool lastMeldEditable;
 
         void Awake()
         {
-            if(!IsBaked)throw new InvalidOperationException("Settings pages have not been baked into the scene.");
-            foreach(var page in bakedPages)
+            if (!IsBaked) throw new InvalidOperationException("Settings pages have not been baked.");
+            Variant = Mathf.Clamp(PlayerPrefs.GetInt(StylePreference, DefaultVariant), 0, 2);
+            if (int.TryParse(CompleteLobbyEnvironment.Value("-settings-theme"), out var choice)) Variant = Mathf.Clamp(choice, 0, 2);
+            if (int.TryParse(CompleteLobbyEnvironment.Value("-settings-page"), out var pageIndex)) Category = Mathf.Clamp(pageIndex, 0, 2);
+        }
+
+        void BindPage(SettingsBakedPage page)
+        {
+            for (int i = 0; i < page.tabs.Length; i++)
             {
-                for(int i=0;i<page.tabs.Length;i++){int n=i;page.tabs[i].onClick.AddListener(()=>SelectCategory(n));}
-                for(int i=0;i<page.variants.Length;i++){int n=i;page.variants[i].onClick.AddListener(()=>SelectVariant(n));}
-                page.close.GetComponent<Button>().onClick.AddListener(()=>lobby.OpenHome());
-                foreach(var view in page.controls)
+                int category = i;
+                page.tabs[i].onClick.AddListener(() => SelectCategory(category));
+            }
+            for (int i = 0; i < page.variants.Length; i++)
+            {
+                int variant = i;
+                page.variants[i].onClick.AddListener(() => SelectVariant(variant));
+            }
+            page.close.GetComponent<Button>().onClick.AddListener(() => lobby.OpenHome());
+            foreach (var field in page.controls)
+            {
+                if (field.slider)
+                    field.slider.onValueChanged.AddListener(value => WriteSetting(field.key, Mathf.RoundToInt(value)));
+                else
                 {
-                    if(!views.TryGetValue(view.key,out var targets)) views.Add(view.key,targets=new List<SettingsStyleField>());
-                    targets.Add(view);
-                    if(view.slider!=null)
-                        view.slider.onValueChanged.AddListener(value=>WriteSetting(view.key,Mathf.RoundToInt(value)));
-                    else
+                    field.dropdown.onValueChanged.AddListener(value => WriteSetting(field.key, value));
+                    for (int i = 0; i < field.options.Length; i++)
                     {
-                        view.dropdown.onValueChanged.AddListener(value=>WriteSetting(view.key,value));
-                        for(int i=0;i<view.options.Length;i++){int option=i;view.options[i].onClick.AddListener(()=>WriteSetting(view.key,option));}
+                        int option = i;
+                        field.options[i].onClick.AddListener(() => WriteSetting(field.key, option));
                     }
                 }
             }
-            Variant=Mathf.Clamp(PlayerPrefs.GetInt(StylePreference,DefaultVariant),0,2);
-            if(int.TryParse(CompleteLobbyEnvironment.Value("-settings-theme"),out var choice))Variant=Mathf.Clamp(choice,0,2);
-            if(int.TryParse(CompleteLobbyEnvironment.Value("-settings-page"),out var pageIndex))Category=Mathf.Clamp(pageIndex,0,2);
         }
-        IEnumerator Start(){yield return null;Ready=true;RefreshLayout();}
-        void OnEnable(){if(Ready)RefreshLayout();}
-        void LateUpdate()
+
+        void Start()
         {
-            if(stage!=null&&((RectTransform)transform).rect.size!=measuredParent)Fit();
-            if(Ready && ConfigManager.Instance)
-                foreach(var key in views.Keys)
-                    if(!lastValues.TryGetValue(key,out var value) || value!=ReadSetting(key) || (key=="MeldSpacingRow" && lastMeldEditable!=SettingEditable(key))) SyncField(key);
+            Ready = true;
+            if (isActiveAndEnabled) RefreshLayout();
         }
+
+        void OnEnable()
+        {
+            ConfigManager.GameplaySettingsChanged += SyncVisibleControls;
+            RuleRegistry.CurrentChanged += SyncVisibleControls;
+            if (Ready) RefreshLayout();
+        }
+
+        void OnDisable()
+        {
+            ConfigManager.GameplaySettingsChanged -= SyncVisibleControls;
+            RuleRegistry.CurrentChanged -= SyncVisibleControls;
+        }
+
+        void OnRectTransformDimensionsChange()
+        {
+            if (stage && ((RectTransform)transform).rect.size != measuredParent) Fit();
+        }
+
         void Fit(){measuredParent=((RectTransform)transform).rect.size;stage.localScale=Vector3.one*Mathf.Max(.01f,Mathf.Min(measuredParent.x/1600,measuredParent.y/832));}
         public void SelectVariant(int index)
-        {CloseDropdowns();Variant=Mathf.Clamp(index,0,2);PlayerPrefs.SetInt(StylePreference,Variant);RefreshLayout();}
+        {
+            CloseDropdowns();
+            Variant = Mathf.Clamp(index, 0, 2);
+            PlayerPrefs.SetInt(StylePreference, Variant);
+            if (isActiveAndEnabled && Ready) RefreshLayout();
+        }
+
         public void SelectCategory(int index)
-        {CloseDropdowns();Category=Mathf.Clamp(index,0,2);RefreshLayout();}
-        void CloseDropdowns(){foreach(var view in controls)if(view.dropdown!=null)view.dropdown.Hide();}
+        {
+            CloseDropdowns();
+            Category = Mathf.Clamp(index, 0, 2);
+            if (isActiveAndEnabled && Ready) RefreshLayout();
+        }
+
+        void CloseDropdowns()
+        {
+            if (currentPage)
+                foreach (var view in currentPage.controls)
+                    if (view.dropdown) view.dropdown.Hide();
+        }
+
         public void RefreshLayout(bool updateCanvases=true)
         {
-            if(!IsBaked)return;
-            ShowBakedPage(Variant,Category);
-            if(Ready && ConfigManager.Instance)foreach(var key in views.Keys)SyncField(key);
+            if (!IsBaked) return;
+            ShowBakedPage(Variant, Category);
+            SyncVisibleControls();
             Fit();
-            if(Application.isPlaying)handPreview?.Refresh();
-            if(updateCanvases)Canvas.ForceUpdateCanvases();
+            if (updateCanvases) Canvas.ForceUpdateCanvases();
         }
-        public void ShowBakedPage(int variant,int category)
+
+        public void ShowBakedPage(int variant, int category)
         {
-            Variant=Mathf.Clamp(variant,0,2);Category=Mathf.Clamp(category,0,2);
-            var page=bakedPages.Single(p=>p.variant==Variant&&p.category==Category);
-            foreach(var item in bakedPages)if(item.gameObject.activeSelf!=(item==page))item.gameObject.SetActive(item==page);
+            Variant = Mathf.Clamp(variant, 0, 2);
+            Category = Mathf.Clamp(category, 0, 2);
+            var page = instances[Variant, Category];
+            if (!page)
+            {
+                if (UsesPagePrefabs)
+                {
+                    var prefab = Resources.Load<GameObject>(PageResource(Variant, Category));
+                    if (!prefab) throw new InvalidOperationException($"Missing settings page {Variant}/{Category}");
+                    page = Instantiate(prefab, themeRoots[Variant], false).GetComponent<SettingsBakedPage>();
+                    page.name = prefab.name;
+                    page.GetComponent<SettingsPagePresentation>().settings = this;
+                }
+                else page = bakedPages.Single(p => p.variant == Variant && p.category == Category);
+                if (Application.isPlaying) BindPage(page);
+                instances[Variant, Category] = page;
+            }
+            if (!currentPage && !UsesPagePrefabs)
+                foreach (var item in bakedPages) if (item != page) item.gameObject.SetActive(false);
+            if (currentPage != page)
+            {
+                if (currentPage) currentPage.gameObject.SetActive(false);
+                currentPage = page;
+                lastValues.Clear();
+            }
             stage=page.stage;panel=page.panel;content=page.content;close=page.close;reviewStrip=page.reviewStrip;title=page.title;
             panelSurface=page.panelSurface;panelShadow=page.panelShadow;headerSurface=page.headerSurface;
             titleAccent=page.titleAccent;divider=page.divider;reviewSurface=page.reviewSurface;ornament=page.ornament;
-            tabs=page.tabs;variants=page.variants;sections=page.sections;
-            controls=bakedPages.Where(p=>p.variant==Variant).OrderBy(p=>p.category).SelectMany(p=>p.controls).ToArray();
-            handPreview=bakedPages.Single(p=>p.variant==Variant&&p.category==2).handPreview;
+            tabs=page.tabs;variants=page.variants;sections=page.sections;controls=page.controls;handPreview=page.handPreview;
+            if (!page.gameObject.activeSelf) page.gameObject.SetActive(true);
         }
-        void SyncField(string key)
+
+        void SyncVisibleControls()
         {
-            if(!views.TryGetValue(key,out var targets) || !ConfigManager.Instance)return;
-            int value=ReadSetting(key);bool editable=SettingEditable(key);
-            synchronizing=true;
+            if (!currentPage || !ConfigManager.Instance || synchronizing) return;
+            bool refreshPreview = false;
+            synchronizing = true;
             try
             {
-                foreach(var view in targets)
+                foreach (var view in currentPage.controls)
                 {
-                    if(view.slider!=null)
+                    int value = ReadSetting(view.key);
+                    bool editable = SettingEditable(view.key);
+                    if (lastValues.TryGetValue(view.key, out int previous) && previous == value &&
+                        (view.key != "MeldSpacingRow" || lastMeldEditable == editable)) continue;
+                    lastValues[view.key] = value;
+                    if (view.key == "MeldSpacingRow") lastMeldEditable = editable;
+                    if (view.slider)
                     {
-                        view.slider.SetValueWithoutNotify(value);view.value.text=value+"%";
+                        view.slider.SetValueWithoutNotify(value);
+                        view.value.text = value + "%";
                     }
                     else
                     {
-                        view.dropdown.SetValueWithoutNotify(value);view.dropdown.interactable=editable;
-                        if(view.UseSegments)for(int i=0;i<view.options.Length;i++)
-                        {
-                            var button=view.options[i];button.interactable=editable;
-                            view.choiceStates[(editable?0:2)+(value==i?1:0)].Apply(button);
-                        }
+                        view.dropdown.SetValueWithoutNotify(value);
+                        view.dropdown.interactable = editable;
+                        if (view.UseSegments)
+                            for (int i = 0; i < view.options.Length; i++)
+                            {
+                                var button = view.options[i];
+                                button.interactable = editable;
+                                view.choiceStates[(editable ? 0 : 2) + (value == i ? 1 : 0)].Apply(button);
+                            }
                     }
+                    refreshPreview |= view.key.StartsWith("HandSort", StringComparison.Ordinal) || view.key == "ConfigWhiteType";
                 }
-                lastValues[key]=value;
-                if(key=="MeldSpacingRow")lastMeldEditable=editable;
             }
-            finally{synchronizing=false;}
+            finally { synchronizing = false; }
+            if (refreshPreview && handPreview) handPreview.Refresh();
         }
         public static ColorBlock InteractionColors()
         {var c=ColorBlock.defaultColorBlock;c.normalColor=Color.white;c.highlightedColor=new Color(.92f,.92f,.92f,1);c.pressedColor=new Color(.8f,.8f,.8f,1);c.selectedColor=Color.white;c.disabledColor=new Color(.7f,.7f,.7f,.75f);c.fadeDuration=.08f;return c;}

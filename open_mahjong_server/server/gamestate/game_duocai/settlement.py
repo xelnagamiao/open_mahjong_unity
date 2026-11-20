@@ -3,6 +3,7 @@ from dataclasses import asdict
 from ...game_calculation.duocai import tiles as t
 from ...game_calculation.duocai.furiten import logical_waits
 from ...game_calculation.duocai.payments import exhaustive_payments, win_payments
+from ...game_calculation.duocai.scoring import riichi_shape
 from .state_machine import Phase as P
 
 
@@ -29,8 +30,8 @@ class EndOfHand:
             drawn = declarer.has_draw_slot and declarer.hand_tiles[-1] == tile
             declarer.hand_tiles.remove(tile)
             declarer.has_draw_slot = False
-            self._event('rob_kan', payer, tile=tile, is_mo_gang=drawn)
             self.pending_kong = None
+            self._event('rob_kan', payer, tile=tile, is_mo_gang=drawn)
         detail = asdict(quote)
         detail['ura_revealed'] = self.variant == 'riichi' and bool(p.riichi)
         entry = dict(winner=winner, source=source, tile=tile, discarder=payer,
@@ -38,6 +39,15 @@ class EndOfHand:
                      fan_ids=list(quote.entries), fan_names=list(quote.entries), fan_details=detail,
                      score_changes=changes, rule_version=self.rule_version, multi_ron=False,
                      recycle_discard=False, hu_order=1)
+        if self.variant == 'riichi':
+            ctx = self.context(winner, source, tile)
+            components = riichi_shape(quote.shape, ctx)
+            entry['riichi_result'] = dict(han=quote.fan, fu=quote.fu,
+                dora_indicators=list(ctx.indicators), ura_dora_indicators=list(ctx.ura_indicators),
+                aka_count=components.physical_bonus if not quote.yakuman else 0,
+                dora_count=components.dora if not quote.yakuman else 0,
+                ura_dora_count=components.ura if not quote.yakuman else 0,
+                honba=self.honba, riichi_sticks_collected=self.riichi_sticks)
         self.deferred_hu_settlements.append(entry)
         p.is_hu, p.hu_order, p.has_draw_slot = True, 1, False
         self.hu_order_counter = 1

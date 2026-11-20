@@ -2,6 +2,7 @@
 赛事/基地相关 WebSocket 消息（type 以 event/ 开头）。
 """
 import logging
+import asyncio
 from typing import Optional
 
 from ..response import Response, Record_info, Player_record_info
@@ -148,6 +149,7 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
         "created_by": event.get("created_by"),
         "name": event.get("name"),
         "description": event.get("description") or "",
+        "team_icon_url": event.get("team_icon_url") or "",
         "status": event.get("status"),
         "kind": event.get("kind") or "event",
         "created_at": _fmt_day(event.get("created_at")),
@@ -364,19 +366,13 @@ async def _handle_list_records(game_server, message, websocket):
         return
     limit = message.get("limit", 20)
     offset = message.get("offset", 0)
-    records = game_server.db_manager.list_event_records(event_id, limit=limit, offset=offset)
+    records = await asyncio.to_thread(game_server.db_manager.list_event_records, event_id, limit=limit, offset=offset)
     record_list = []
     for game_record in records:
-        players_info = []
-        for player_data in game_record.get("players") or []:
-            players_info.append(Player_record_info(
-                user_id=player_data["user_id"],
-                username=player_data["username"],
-                score=player_data["score"],
-                rank=player_data["rank"],
-                original_player_index=player_data.get("original_player_index"),
-            ))
+        players_info = [Player_record_info(**p) for p in game_record["players"]]
         record_list.append(Record_info(
+            match_summary=game_record.get("match_summary"),
+            is_favorite=None,
             game_id=game_record["game_id"],
             rule=game_record.get("rule") or "",
             sub_rule=game_record.get("sub_rule"),

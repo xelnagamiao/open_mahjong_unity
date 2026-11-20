@@ -1,6 +1,5 @@
 """MIL Hongzhong room entry, strict settings, route and persistence contracts."""
 import asyncio
-import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -116,22 +115,22 @@ def test_handler_and_result_preserve_version_and_scoring_evidence():
 
 
 def test_database_adapter_preserves_family_profile_actions_and_metrics():
+    from tests.record_writes import capture_record_write
     from ..database.taiwan.store_taiwan import store_taiwan_game_record
     from ..database.player_recent_records import RULES
     assert "hongzhong" in RULES
-    cursor = Mock()
-    connection = Mock(cursor=Mock(return_value=cursor))
-    db = SimpleNamespace(_get_connection=lambda: connection, _put_connection=Mock())
     players = [SimpleNamespace(user_id=i+100, username=str(i), score=0, original_player_index=i,
                 record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
     record = {"game_title": {"rule": "hongzhong", "sub_rule": SUB_RULE, "detailed_config": CONFIG},
               "game_round": {"round_index_1": {"action_ticks": [["hongzhong", "birds", {"tiles": [45], "hits": 1, "detail": {"joker_substitutions": [[45, 11]]}}]]}}}
-    with patch('server.database.player_recent_records.update_player_recent_records') as recent, patch('server.database.scene_stats.record_game_metrics') as metrics:
+    with capture_record_write() as (db, connection, cursor), \
+         patch('server.database.player_recent_records.update_player_recent_records') as recent, \
+         patch('server.database.scene_stats.record_game_metrics') as metrics:
         game_id = store_taiwan_game_record(db, record, players, "custom", "1/4")
         assert len(game_id) == 10
-        inserted_record = cursor.execute.call_args_list[0].args[1][1]
-        assert json.loads(inserted_record) == record
-        for call in cursor.execute.call_args_list[1:]:
+        inserted_record = cursor.published.call_args.args[2]
+        assert inserted_record == record
+        for call in cursor.execute.call_args_list:
             assert call.args[1][6:8] == ("hongzhong", SUB_RULE)
         recent.assert_called_once_with(cursor, game_id, record)
         assert metrics.call_args.args[-1]["rule"] == "hongzhong"

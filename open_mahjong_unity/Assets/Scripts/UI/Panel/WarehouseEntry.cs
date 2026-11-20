@@ -27,18 +27,20 @@ public sealed class WarehouseEntry {
         : Definition?.category == "character" || Slot == "character" ? WarehouseCategory.Character
         : Definition?.category == "cosmetic" || IsEquipment ? WarehouseCategory.Cosmetic : WarehouseCategory.Backpack;
     public bool IsDevelopmentOnly => Slot == "avatar" && ConfigManager.IsDevelopmentOnlyAvatar(Id);
-    public bool CanAct => (!IsDevelopmentOnly || Salasasa.Home.CompleteLobbyEnvironment.IsDevelopment) && Enabled && !IsCollectible && !GuestRestricted && (!IsDefault || !IsEquipped);
+    public bool IsAppearanceSelection => IsTitle || Slot == "avatar" || Slot == "avatar_frame";
+    public bool CanAct => (!IsDevelopmentOnly || Salasasa.Home.CompleteLobbyEnvironment.IsDevelopment) && Enabled && !IsCollectible && !GuestRestricted && (!IsDefault || !IsEquipped) && (!IsAppearanceSelection || !IsEquipped);
     public string ActionLabel => !Enabled ? "暂不可用" : GuestRestricted ? "游客不可使用"
         : IsCollectible ? "仅供收藏"
-        : IsDefault ? IsTitle ? "卸下" : "装配"
-        : IsEquipment ? IsEquipped ? "卸下" : IsTitle ? "佩戴" : "装配" : IsRenameCard ? "前往改名" : "使用";
+        : IsAppearanceSelection ? IsEquipped ? "使用中" : "装配"
+        : IsDefault ? "装配"
+        : IsEquipment ? IsEquipped ? "卸下" : "装配" : IsRenameCard ? "前往改名" : "使用";
     public string Badge => !Enabled ? "已停用" : IsEquipped ? "使用中" : IsEquipment ? "已拥有" : Quantity + " 件";
-    public string Glyph => IsDefault ? "无" : IsTitle ? "衔" : IsEquipment ? "饰" : IsCollectible ? "礼" : "名";
-    public int IconKind => IsDefault ? 0 : IsTitle ? 1 : IsEquipment ? 3 : 2;
+    public string Glyph => IsTitle ? "衔" : IsDefault ? "无" : IsEquipment ? "饰" : IsCollectible ? "礼" : "名";
+    public int IconKind => IsTitle ? 1 : IsDefault ? 0 : IsEquipment ? 3 : 2;
 
     public InventoryCommand CreateCommand(int quantity = 1) {
         if (!CanAct) return null;
-        if (IsTitle) return new InventoryCommand { type = "title/equip", item_id = IsEquipped ? 1 : Id };
+        if (IsTitle) return new InventoryCommand { type = "title/equip", item_id = Id };
         if (IsEquipment) return new InventoryCommand { type = "inventory/equip", slot = Slot, item_id = IsEquipped ? 0 : Id };
         if (IsRenameCard) return null; // The account page consumes it only after a successful rename.
         if (quantity < 1 || quantity > Math.Min(100, Quantity)) return null;
@@ -53,7 +55,7 @@ public sealed class WarehouseEntry {
             && Array.Exists(titles?.catalog ?? Array.Empty<TitleDefinition>(), t => t != null && t.title_id == equippedTitleId && t.is_enabled);
         result.Add(new WarehouseEntry {
             Key = "title:1", Id = 1, Name = ConfigManager.DefaultTitleName, KindLabel = "头衔",
-            Description = "",
+            Description = "暂无头衔",
             Slot = "title", Quantity = 1, IsTitle = true, IsDefault = true, IsEquipped = !validEquippedTitle, Enabled = true
         });
         var keys = new HashSet<string> { "title:1" };
@@ -79,12 +81,12 @@ public sealed class WarehouseEntry {
             bool equipment = !string.IsNullOrEmpty(item.slot);
             result.Add(new WarehouseEntry {
                 Key = key, Id = item.item_id, Name = item.name,
-                Description = item.effect == "rename_credit" ? "前往网页账号中心修改用户名，改名成功时自动消耗 1 张改名卡，无需提前使用或兑换。" : item.description ?? "", Definition = item,
-                KindLabel = equipment ? SlotLabel(item.slot) : item.effect == "collectible" ? "收藏品" : "道具", Slot = item.slot,
+                Description = item.description ?? "", Definition = item,
+                KindLabel = ItemKindLabel(item), Slot = item.slot,
                 Quantity = item.is_default ? Math.Max(1, quantity) : quantity, SortOrder = item.sort_order,
                 // Permanent availability and fallback selection are separate concepts.
-                IsDefault = item.is_default && (item.slot != "avatar_frame" || item.item_id == AvatarFrameGraphic.DefaultItemId)
-                    && (item.slot != "avatar" || item.item_id == ConfigManager.DefaultAvatarItemId), Enabled = item.use_enabled,
+                IsDefault = item.slot == "avatar_frame" ? item.item_id == AvatarFrameGraphic.DefaultItemId
+                    : item.slot == "avatar" ? item.item_id == ConfigManager.DefaultAvatarItemId : item.is_default, Enabled = item.use_enabled,
                 IsEquipped = equipment && Array.Exists(inventory?.equipment ?? Array.Empty<InventoryEquipment>(), e => e != null && e.slot == item.slot && e.item_id == item.item_id),
                 GuestRestricted = !equipment && item.effect == "rename_credit" && inventory.is_tourist
             });
@@ -99,6 +101,9 @@ public sealed class WarehouseEntry {
         });
         return result;
     }
+
+    public static string ItemKindLabel(InventoryItem item) => !string.IsNullOrEmpty(item?.slot)
+        ? SlotLabel(item.slot) : item?.effect == "collectible" ? "收藏品" : "道具";
 
     private static string SlotLabel(string slot) => slot == "character" ? "角色" : slot == "avatar" ? "头像" : slot == "avatar_frame" ? "头像框" : "装扮";
 }

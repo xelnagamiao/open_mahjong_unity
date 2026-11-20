@@ -86,6 +86,7 @@ def build_lock() -> Dict[str, Any]:
     return {
         "git_head": git_head(root),
         "sim_client_version": proto.get("sim_client_version"),
+        "protocol_sha256": sha256_file(PROTOCOL_PATH),
         "files": files,
         "unity_hand_actions": allow["hand_actions"],
         "unity_other_actions": allow["other_actions"],
@@ -101,6 +102,11 @@ def _same_list(left: List[str], right: List[str]) -> bool:
 def check_lock(*, update: bool) -> int:
     proto = load_protocol()
     current = build_lock()
+    for key, field in (("hand_actions", "AllowHandActionCheck"), ("other_actions", "allowOtherActionCheck")):
+        if current[f"unity_{key}"] != proto[key]:
+            print(f"{field} 与 sim_client/protocol.json {key} 不一致："
+                  f"unity={current[f'unity_{key}']} protocol={proto[key]}")
+            return 1
     if update:
         LOCK_PATH.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"已写入 {LOCK_PATH}")
@@ -110,24 +116,19 @@ def check_lock(*, update: bool) -> int:
         return 2
     locked = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
     errors: List[str] = []
+    if current["protocol_sha256"] != locked.get("protocol_sha256"):
+        errors.append("模拟客户端协议声明已变")
     if current["sim_client_version"] != locked.get("sim_client_version"):
         errors.append(
             f"sim_client_version {current['sim_client_version']} != lock {locked.get('sim_client_version')}"
         )
+    locked_files = locked.get("files") or {}
+    for rel in sorted(locked_files.keys() - current["files"].keys()):
+        errors.append(f"Unity 文件已从契约列表移除: {rel}")
     for rel, meta in current["files"].items():
-        old = (locked.get("files") or {}).get(rel) or {}
+        old = locked_files.get(rel) or {}
         if meta["sha256"] != old.get("sha256"):
             errors.append(f"Unity 文件已变: {rel}")
-    if not _same_list(current["unity_hand_actions"], proto["hand_actions"]):
-        errors.append(
-            "AllowHandActionCheck 与 sim_client/protocol.json hand_actions 不一致: "
-            f"unity={current['unity_hand_actions']} protocol={proto['hand_actions']}"
-        )
-    if not _same_list(current["unity_other_actions"], proto["other_actions"]):
-        errors.append(
-            "allowOtherActionCheck 与 sim_client/protocol.json other_actions 不一致: "
-            f"unity={current['unity_other_actions']} protocol={proto['other_actions']}"
-        )
     if not _same_list(current["unity_hand_actions"], locked.get("unity_hand_actions") or []):
         errors.append("手牌白名单与 lock 不一致")
     if not _same_list(current["unity_other_actions"], locked.get("unity_other_actions") or []):

@@ -1,4 +1,25 @@
 {
+  "new_chinese": {
+    "room_name": "",
+    "sub_rule": "new_chinese/standard",
+    "game_round": 4,
+    "starting_score": 0,
+    "round_timer": 20,
+    "step_timer": 5,
+    "tips": true,
+    "count_tips": false,
+    "pointer_tips": true,
+    "tourist_limit": false,
+    "allow_spectator": true,
+    "use_flowers": false,
+    "open_cuohe": false,
+    "tactical_call": false,
+    "claim_protection": false,
+    "detailed_config": {
+      "rule_version": "new-chinese-2026-11",
+      "exchange_three": false
+    }
+  },
   "beijing": {
     "room_name": "",
     "sub_rule": "beijing/chipengti",

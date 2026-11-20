@@ -17,7 +17,6 @@ internal static class DuocaiRuleBootstrap {
             LobbySubRules=new[]{new RuleLobbySubRule("duocai/guobiao","国标",Description),new RuleLobbySubRule("duocai/riichi","立直",Description)},
             BuildRoom=DuocaiRoomBuilder.Build,GameStateFactory=()=>new DuocaiGameState(),OutboundChannel="duocai",
             ReplayFactory=record=>record.CreateDuocaiReplayModule(),
-            AdjustHepaiPresentation=(request,robbed)=>{if(robbed){request.WinTileMode=HepaiWinTilePresentMode.RonInstantThenPause;request.RestoreRecordHandFromSnapshot=true;request.IsQianggang=false;}},
             CreateRoomDefaults=new Dictionary<string,object>{{CreateRoomKeys.RoundTimer,3},{CreateRoomKeys.StepTimer,1},
                 {CreateRoomKeys.Tips,true},{CreateRoomKeys.CountTips,false},{CreateRoomKeys.PointerTips,true},{CreateRoomKeys.Password,false},
                 {CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true}},
@@ -29,9 +28,10 @@ internal static class DuocaiRuleBootstrap {
             RecordVisibleMeldTiles=masks=>masks?.Where(mask=>mask!=null).SelectMany(mask=>mask.Where((tile,index)=>index%2==1&&tile>0))??Enumerable.Empty<int>(),
             LiveVisibleIndicators=()=>DuocaiTableIndicators.DisplayedInfo?.indicators??Array.Empty<int>(),
             FanNameText=(_,label)=>FanName(label),FanValueText=FanValue,
-            SettlementTotal=q=>new SettlementTotalDisplay{FanText=$"和牌 {q.HuScore}点",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}点":""},
-            ScoreboardFanText=q=>$"{q.HuScore}点",RoundIndicators=info=>DuocaiTableIndicators.FieldState(info?.duocai_info??DuocaiTableIndicators.DisplayedInfo),
-            DefaultHepaiLimit=8,HasFlowerReplacement=false,PeekAnkan=true,RonWinTileTravelsFromRiver=true,ShowsRonDangerHints=false,RulebookKey="duocai"
+            SettlementTotal=DuocaiResultPresentation.Total,
+            ScoreboardFanText=DuocaiResultPresentation.Scoreboard,
+            RoundName=RoundTextDictionary.WindNumberRoundName,RoundStatusText=info=>RoundTextDictionary.WindNumberRoundName(info.current_round),RoundIndicators=info=>DuocaiTableIndicators.FieldState(info?.duocai_info??DuocaiTableIndicators.DisplayedInfo),
+            DefaultHepaiLimit=8,HasFlowerReplacement=false,PeekAnkan=true,RonWinTileTravelsFromRiver=true,SupportsRobbedAddedKongSource=true,ShowsRonDangerHints=false,RulebookKey="duocai"
         });
         ActionWords.Register(new ActionWordSpec{Word="duocai_group:",ResolveKind=word=>word.EndsWith("chi_left")?ActionWordKind.Chi:word.EndsWith("peng")?ActionWordKind.Peng:word.EndsWith(":gang")?ActionWordKind.MingGang:ActionWordKind.Other,
             DisplayPriority=30,Label=word=>Caption(word.Substring("duocai_group:".Length)),Expand=word=>DuocaiGameState.Active?.Candidates(word)??Array.Empty<ActionCandidate>()});

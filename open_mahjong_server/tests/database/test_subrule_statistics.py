@@ -65,8 +65,7 @@ def db():
         return rows
     model.sql = execute
     metric_fields = [k for k in BASE_KEYS if k != 'total_games']
-    execute(f"""CREATE TABLE game_records(game_id varchar(16) PRIMARY KEY,record jsonb,created_at timestamptz DEFAULT NOW());
-        CREATE TABLE game_player_records(game_id varchar(16),user_id bigint,username text,rule varchar(10),sub_rule varchar(96),
+    execute(f"""CREATE TABLE game_player_records(game_id varchar(16),user_id bigint,username text,rule varchar(10),sub_rule varchar(96),
             room_type text,match_tier text,event_id text,match_type text,score int,rank int,original_player_index int,
             title_used int,character_used int,profile_used int,voice_used int,avatar_frame_used int,pt_change int,
             PRIMARY KEY(game_id,user_id));
@@ -91,6 +90,8 @@ def db():
         with conn.cursor() as cur:
             ensure_statistics_schema(cur)
             ensure_inventory_tables(cur)
+            from server.records.store import ensure_tables as ensure_match_records
+            ensure_match_records(cur)
         conn.commit()
         yield model
     finally:
@@ -107,7 +108,16 @@ def seed(db, sub, suffix='', created='2020-01-01', wins=0):
     if wins:
         record['game_round'] = {'round_index_1': {'seats':[0,1,2,3], 'start_player_index':0,
             'action_ticks': [['reset',0], *([['hu_self',0,8,['平和'],[24,-8,-8,-8]]] * wins), ['end']]}}
-    db.sql('INSERT INTO game_records VALUES(%s,%s,%s)', (gid, Json(record), created))
+    from server.records.format import PAIRED_RULES
+    from server.records.store import publish_table
+    if sub in PAIRED_RULES:
+        record["game_title"].update(duplicate_match_id="test-" + gid, duplicate_table="open")
+        record["game_round"]["round_index_1"].update(round_index=1, current_round=1)
+    conn = db._get_connection()
+    with conn, conn.cursor() as cursor:
+        publish_table(cursor, gid, record, [])
+        cursor.execute("UPDATE game_record_tables SET created_at=%s WHERE game_id=%s RETURNING replay_id", (created, gid))
+        cursor.execute("UPDATE game_replays SET created_at=%s WHERE game_id=%s", (created, cursor.fetchone()[0]))
     db.sql("INSERT INTO game_player_records(game_id,user_id,username,rule,sub_rule,room_type,match_tier,event_id,match_type,score,rank,original_player_index) VALUES(%s,10000101,'test',%s,%s,'custom',NULL,NULL,'1/4',24,1,0)", (gid,rule,sub))
     return gid, record
 

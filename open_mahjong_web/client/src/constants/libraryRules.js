@@ -263,6 +263,7 @@ export const LIBRARY_RULES = [
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf',
       },
+      { title: '血战到底·换三张（MIL 2026）', url: '/rulebooks/sbr-exchange-2026.pdf', filename: '血战换三张（推广）竞赛规则（试行2026版）.pdf' },
     ],
   },
   {

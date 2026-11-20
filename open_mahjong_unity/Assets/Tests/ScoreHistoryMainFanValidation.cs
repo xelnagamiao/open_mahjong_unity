@@ -44,6 +44,20 @@ public static class ScoreHistoryMainFanValidation {
         Higher("qingque/standard", "和牌", "清一色");
         Higher("qingque/standard", "四杠", "十二归");
         Higher("qingque/standard", "大四喜", "七连对");
+        string[] occasionalFans = {"岭上开花", "海底捞月", "河底捞鱼", "抢杠"};
+        foreach (string fan in occasionalFans) {
+            Higher("qingque/standard", "门前清", fan);
+            Higher("qingque/standard", fan, "暗杠");
+            foreach (string other in occasionalFans)
+                Check(Pick("qingque/standard", fan, other) == fan,
+                    "Qingque occasional fan ties preserve input order");
+        }
+        var qingqueNames = PlayerInfoRuleCatalog.FanNames("qingque");
+        Check(qingqueNames != null && qingqueNames.Values.ToHashSet().SetEquals(Qingque13.QingqueFanMetadata.ChineseNames.Values),
+            "Qingque statistics catalog matches MMCR 14 scoring names");
+        Check(qingqueNames.Count == RankConfig.QingqueFanTranslation.Count
+            && qingqueNames.All(pair => RankConfig.QingqueFanTranslation.TryGetValue(pair.Key, out string name) && name == pair.Value),
+            "Qingque legacy statistics translation matches the generated catalog");
         Check(FanTextDictionary.GetFanDisplayText("qingque/standard", "十二归") == "精算"
             && QingqueFanText.ScoreboardFanText(new SettlementTotalQuery {HuScore = 29.52123}) == "29.52123番",
             "Qingque settlement remains joint precise scoring");

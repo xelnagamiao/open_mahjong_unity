@@ -84,7 +84,7 @@ public partial class BoardCanvas : MonoBehaviour {
         binding.enabled = false;
         int index = key == "table.wind.east" ? 0 : key == "table.wind.south" ? 1
             : key == "table.wind.west" ? 2 : key == "table.wind.north" ? 3 : -1;
-        string initials = ConfigManager.CurrentLanguage == AppLanguage.French ? "ESON"
+        string initials = (ConfigManager.CurrentLanguage == AppLanguage.French || ConfigManager.CurrentLanguage == AppLanguage.Spanish) ? "ESON"
             : ConfigManager.CurrentLanguage == AppLanguage.German ? "OSWN"
             : ConfigManager.CurrentLanguage == AppLanguage.Russian ? "ВЮЗС" : null;
         if (index >= 0 && initials != null) label.text = initials[index].ToString();

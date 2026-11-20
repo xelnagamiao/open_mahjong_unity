@@ -29,10 +29,14 @@ def replay(definition):
     label, _ = SAMPLES.get(rule, ('平和', '平和'))
     tick = (['hu_riichi', seats[0], 'hu_self', 8, 30, [label], [0] * count]
             if rule == 'riichi' else ['hu_self', seats[0], 8, [label], [0] * count])
-    return {'game_title': {'rule': rule, 'sub_rule': definition['sub_rule'], 'room_type': 'custom',
+    result = {'game_title': {'rule': rule, 'sub_rule': definition['sub_rule'], 'room_type': 'custom',
                            **{f'p{i}_uid': 10000101 + i for i in range(count)}},
             'game_round': {'round_index_1': {'seats': seats, 'start_player_index': seats[0],
                                             'action_ticks': [['reset', seats[0]], tick, ['end']]}}}
+    if definition['sub_rule'] in {'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'}:
+        result['game_title'].update(duplicate_match_id='statistics-' + definition['key'], duplicate_table='open')
+        result['game_round']['round_index_1'].update(round_index=1, current_round=1)
+    return result
 
 
 @pytest.mark.parametrize('definition', RULES, ids=lambda row: row['sub_rule'])

@@ -1,5 +1,18 @@
 {
   "entries": [
+    {"key": "换三张", "text": "Drei Steine tauschen"},
+    {"key": "留空自动生成", "text": "Für automatische Erstellung leer lassen"},
+    {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "text": "Beide Tische verwenden dieselbe aus dem Startwert erzeugte Mauer. Es wird kein Duplikatschlüssel erstellt."},
+    {"key": "使用对应类型的复式密钥，副数跟随密钥。", "text": "Verwende einen Duplikatschlüssel des gewählten Typs. Er legt die Anzahl der Spiele fest."},
+    {"key": "广东麻将（推广）2V2 双打", "text": "Guangdong-Mahjong · 2 gegen 2"},
+    {"key": "血战到底·换三张", "text": "Blutiger Kampf mit Dreiertausch"},
+    {"key": "牌谱不可用", "text": "Aufzeichnung nicht verfügbar"},
+    {"key": "上饶麻将（飞宝）", "text": "Shangrao-Mahjong (Feibao)"},
+    {"key": "贵州麻将（MIL）", "text": "Guizhou-Mahjong (MIL)"},
+    {"key": "广东麻将（MIL 2023，花鬼）", "text": "Guangdong-Mahjong (MIL 2023, Blumenjoker)"},
+    {"key": "新加坡 · SPGG 2024", "text": "Singapur-Mahjong (SPGG 2024)"},
+    {"key": "夺彩麻将 · 国标", "text": "Duocai-Mahjong · MCR"},
+    {"key": "夺彩麻将 · 立直", "text": "Duocai-Mahjong · Riichi"},
     {
       "key": "宝牌提示",
       "text": "Dora hervorheben"
@@ -6953,11 +6966,11 @@
       "text": "Sichuan (Blutfluss, drei Ziegel ablegen)"
     },
     {
-      "key": "川麻（血战换三张）",
+      "key": "川麻（血战到底·换三张）",
       "text": "Sichuan-Kampf mit Dreiertausch"
     },
     {
-      "key": "血战换三张（推广）",
+      "key": "血战到底·换三张",
       "text": "Blutiger Kampf mit Dreiertausch"
     },
     {
@@ -25905,7 +25918,7 @@
       "text": "Sichuan-Untervariante"
     },
     {
-      "key": "血流成河（丢三张）",
+      "key": "血流成河·弃三张",
       "text": "Blutfluss (Drei ablegen)"
     },
     {
@@ -27438,7 +27451,7 @@
     },
     {
       "key": "双环铜钱",
-      "text": "Doppelrand"
+      "text": "Schlichtes Gold"
     },
     {
       "key": "平涂方孔",
@@ -27511,6 +27524,694 @@
     {
       "key": "第 {0} 页",
       "text": "Seite {0}"
+    },
+    {
+      "key": "阅览状态",
+      "text": "Wiedergabestatus"
+    },
+    {
+      "key": "切换到同牌山位置",
+      "text": "Zur selben Mauerposition wechseln"
+    },
+    {
+      "key": "独立阅览进度",
+      "text": "Getrennter Wiedergabefortschritt"
+    },
+    {
+      "key": "摸牌后",
+      "text": "Nach dem Ziehen"
+    },
+    {
+      "key": "摸牌前",
+      "text": "Vor dem Ziehen"
+    },
+    {
+      "key": "前往开室",
+      "text": "Zum offenen Raum"
+    },
+    {
+      "key": "前往闭室",
+      "text": "Zum geschlossenen Raum"
+    },
+    {
+      "key": "规则设置",
+      "text": "Regeleinstellungen"
+    },
+    {
+      "key": "玩家 ID",
+      "text": "Spieler-IDs"
+    },
+    {
+      "key": "牌山与校验信息",
+      "text": "Mauer und Prüfdaten"
+    },
+    {
+      "key": "复制完整信息",
+      "text": "Alle Angaben kopieren"
+    },
+    {
+      "key": "个人 IMP · 全场同座位比较",
+      "text": "Persönliche IMP · Vergleich aller Spieler auf demselben Platz"
+    },
+    {
+      "key": "训练牌山",
+      "text": "Trainingsmauer"
+    },
+    {
+      "key": "记录冲突",
+      "text": "Widersprüchliche Aufzeichnungen"
+    },
+    {
+      "key": "未记录",
+      "text": "Nicht aufgezeichnet"
+    },
+    {
+      "key": "当前视角尚无可验证的摸牌位置",
+      "text": "Für diesen Spieler ist noch keine Ziehposition überprüfbar."
+    },
+    {
+      "key": "经典刻纹",
+      "text": "Klassisches Relief"
+    },
+    {
+      "key": "樱花浮雕",
+      "text": "Kirschblütenrelief"
+    },
+    {
+      "key": "和风波纹",
+      "text": "Japanisches Wellenrelief"
+    },
+    {
+      "key": "邀请好友",
+      "text": "Freunde einladen"
+    },
+    {
+      "key": "邀请好友加入房间",
+      "text": "Freunde in diesen Raum einladen"
+    },
+    {
+      "key": "复制邀请",
+      "text": "Einladung kopieren"
+    },
+    {
+      "key": "请稍候…",
+      "text": "Bitte warten …"
+    },
+    {
+      "key": "Salasasa 房间{0}（{1}）：",
+      "text": "Salasasa-Raum {0} ({1}):"
+    },
+    {
+      "key": "房间解散后，邀请链接失效。",
+      "text": "Der Einladungslink verfällt, sobald der Raum geschlossen wird."
+    },
+    {
+      "key": "房间解散后链接失效；加入时仍需输入房间密码。",
+      "text": "Der Link verfällt, sobald der Raum geschlossen wird. Zum Beitreten brauchst du weiterhin das Raumpasswort."
+    },
+    {
+      "key": "已复制，发送给好友即可。",
+      "text": "Kopiert. Du kannst die Einladung jetzt an deine Freunde schicken."
+    },
+    {
+      "key": "复制失败，请选择上方文字手动复制。",
+      "text": "Kopieren fehlgeschlagen. Markiere den Einladungstext oben und kopiere ihn manuell."
+    },
+    {
+      "key": "邀请已失效，原房间已解散。请联系好友获取新的邀请链接。",
+      "text": "Der Raum wurde geschlossen. Bitte deine Freunde um einen neuen Einladungslink."
+    },
+    {
+      "key": "邀请链接不完整或格式不正确，请重新复制完整的邀请链接。",
+      "text": "Der Einladungslink ist unvollständig oder ungültig. Kopiere den gesamten Link erneut."
+    },
+    {
+      "key": "正在匹配队列中，请先取消匹配再加入房间。",
+      "text": "Du bist in der Warteschlange. Beende die Spielersuche, bevor du einem Raum beitrittst."
+    },
+    {
+      "key": "正在恢复连接，请稍后重试。",
+      "text": "Die Verbindung wird wiederhergestellt. Versuche es gleich noch einmal."
+    },
+    {
+      "key": "获取房间信息超时，请重试。",
+      "text": "Zeitüberschreitung beim Laden der Rauminformationen. Versuche es erneut."
+    },
+    {
+      "key": "加入结果尚未确认，请重试原邀请。",
+      "text": "Dein Beitritt wurde noch nicht bestätigt. Versuche es mit derselben Einladung erneut."
+    },
+    {
+      "key": "上一次加入结果尚未确认，请先重试原邀请。",
+      "text": "Dein vorheriger Beitritt wurde noch nicht bestätigt. Versuche es zuerst mit der ursprünglichen Einladung erneut."
+    },
+    {
+      "key": "连接中断，请检查网络后重试原邀请。",
+      "text": "Verbindung unterbrochen. Prüfe deine Netzwerkverbindung und versuche es mit derselben Einladung erneut."
+    },
+    {
+      "key": "房间信息尚未同步，请稍后重试。",
+      "text": "Die Rauminformationen wurden noch nicht synchronisiert. Versuche es gleich noch einmal."
+    },
+    {
+      "key": "房间正在关闭，请联系好友获取新的邀请链接。",
+      "text": "Der Raum wird geschlossen. Bitte deine Freunde um einen neuen Einladungslink."
+    },
+    {
+      "key": "该房间不允许游客加入，请使用账号登录后重试。",
+      "text": "Gäste können diesem Raum nicht beitreten. Melde dich mit einem Konto an und versuche es erneut."
+    },
+    {
+      "key": "房间密码格式不正确",
+      "text": "Ungültiges Format für das Raumpasswort"
+    },
+    {
+      "key": "继续连庄",
+      "text": "Als Geber weiterspielen"
+    },
+    {
+      "key": "结束半庄",
+      "text": "Hanchan beenden"
+    },
+    {
+      "key": "等待庄家选择是否连庄",
+      "text": "Der Geber entscheidet, ob er Geber bleibt."
+    },
+    {
+      "key": "可视队友暗牌",
+      "text": "Verdeckte Ziegel des Partners anzeigen"
+    },
+    {
+      "key": "仅适用于鹫巢双打。开启后，在桌面显示队友不透明手牌的牌面；3D牌体保持不透明，敌方暗牌仍隐藏。",
+      "text": "Nur im Washizu-Doppel. Zeigt die Vorderseiten der undurchsichtigen Handziegel deines Partners auf dem Tisch. Die 3D-Ziegel bleiben undurchsichtig, die verdeckten Ziegel der Gegner bleiben verborgen."
+    },
+    {
+      "key": "精分 {0}分  杠分 {1}分",
+      "text": "Jing: {0} Punkte  Kong: {1} Punkte"
+    },
+    {
+      "key": "本副合计 {0}分",
+      "text": "Hand gesamt: {0} Punkte"
+    },
+    {
+      "key": "本次变化 {0}分",
+      "text": "Änderung: {0} Punkte"
+    },
+    {
+      "key": "游戏内容更新",
+      "text": "Spielinhalte aktualisieren"
+    },
+    {
+      "key": "更新中…",
+      "text": "Aktualisierung läuft …"
+    },
+    {
+      "key": "当前安装包不支持内容更新，请下载安装包。",
+      "text": "Diese App-Version unterstützt keine Inhaltsupdates. Lade das Installationspaket herunter."
+    },
+    {
+      "key": "更新完成，重新启动游戏",
+      "text": "Update abgeschlossen. Das Spiel wird neu gestartet."
+    },
+    {
+      "key": "自动进入新版仅在安卓客户端中使用。",
+      "text": "Der automatische Start der neuen Version ist nur unter Android verfügbar."
+    },
+    {
+      "key": "正在检查已下载的安装包…",
+      "text": "Das heruntergeladene Installationspaket wird geprüft …"
+    },
+    {
+      "key": "安装包已保存，无需重新下载。",
+      "text": "Das Installationspaket ist gespeichert. Ein erneuter Download ist nicht nötig."
+    },
+    {
+      "key": "请在系统设置中允许本应用安装更新，完成后返回游戏。\n安装包已保存，无需重新下载。",
+      "text": "Erlaube dieser App in den Systemeinstellungen, Updates zu installieren. Kehre dann zum Spiel zurück.\nDas Installationspaket ist gespeichert. Ein erneuter Download ist nicht nötig."
+    },
+    {
+      "key": "无法打开安装程序，请重试安装或去官网下载。\n安装包已保存，无需重新下载。",
+      "text": "Das Installationsprogramm lässt sich nicht öffnen. Versuche die Installation erneut oder lade das Paket von der offiziellen Website herunter.\nDas Installationspaket ist gespeichert. Ein erneuter Download ist nicht nötig."
+    },
+    {
+      "key": "无法打开安装授权设置，请稍后重试。\n安装包已保存，无需重新下载。",
+      "text": "Die Einstellungen für die Installationsberechtigung lassen sich nicht öffnen. Versuche es später erneut.\nDas Installationspaket ist gespeichert. Ein erneuter Download ist nicht nötig."
+    },
+    {
+      "key": "内容包与已安装框架不兼容，或清单无效。",
+      "text": "Das Inhaltspaket ist mit der installierten Basisversion nicht kompatibel oder sein Manifest ist ungültig."
+    },
+    {
+      "key": "内容包签名无效。",
+      "text": "Die Signatur des Inhaltspakets ist ungültig."
+    },
+    {
+      "key": "内容包大小或校验值不符。",
+      "text": "Größe oder Prüfsumme des Inhaltspakets stimmen nicht mit den Angaben überein."
+    },
+    {
+      "key": "内容文件数量异常。",
+      "text": "Das Inhaltspaket enthält eine unerwartete Anzahl von Dateien."
+    },
+    {
+      "key": "内容包包含链接。",
+      "text": "Das Inhaltspaket enthält unzulässige Verknüpfungen."
+    },
+    {
+      "key": "解压大小超出清单。",
+      "text": "Die entpackten Daten überschreiten die im Manifest angegebene Größe."
+    },
+    {
+      "key": "解压内容不完整。",
+      "text": "Die entpackten Inhalte sind unvollständig."
+    },
+    {
+      "key": "非法内容路径。",
+      "text": "Das Inhaltspaket enthält einen ungültigen Pfad."
+    },
+    {
+      "key": "内容索引无效。",
+      "text": "Der Inhaltsindex ist ungültig."
+    },
+    {
+      "key": "内容文件损坏：{0}",
+      "text": "Beschädigte Inhaltsdatei: {0}"
+    },
+    {
+      "key": "内容索引缺少文件：{0}",
+      "text": "Datei fehlt im Inhaltsindex: {0}"
+    },
+    {
+      "key": "游戏启动失败，请重新打开游戏；如仍失败，请重新安装。",
+      "text": "Das Spiel konnte nicht gestartet werden. Öffne es erneut. Falls das Problem weiterhin auftritt, installiere es neu."
+    },
+    {
+      "key": "游戏尚未准备好，请稍后重试。",
+      "text": "Das Spiel ist noch nicht bereit. Versuche es gleich noch einmal."
+    },
+    {
+      "key": "本地游戏内容与框架不匹配。",
+      "text": "Die lokalen Spielinhalte passen nicht zur installierten Basisversion."
+    },
+    {
+      "key": "正在检查游戏更新…",
+      "text": "Spielupdates werden gesucht …"
+    },
+    {
+      "key": "基础版本已变更，请下载安装包或去官网下载。",
+      "text": "Die Basisversion hat sich geändert. Lade das Installationspaket hier oder von der offiziellen Website herunter."
+    },
+    {
+      "key": "客户端版本高于服务器，请等待服务器更新后重试。",
+      "text": "Dein Client ist neuer als der Server. Versuche es nach dem Serverupdate erneut."
+    },
+    {
+      "key": "对应游戏更新尚未完整发布，请稍后重试。",
+      "text": "Dieses Spielupdate ist noch nicht vollständig veröffentlicht. Versuche es später erneut."
+    },
+    {
+      "key": "当前已是最新版本，无需下载。",
+      "text": "Das Spiel ist auf dem neuesten Stand. Ein Download ist nicht nötig."
+    },
+    {
+      "key": "更新服务返回了无效信息。",
+      "text": "Der Updatedienst hat ungültige Daten zurückgegeben."
+    },
+    {
+      "key": "更新下载地址无效。",
+      "text": "Die Downloadadresse für das Update ist ungültig."
+    },
+    {
+      "key": "内容版本与发布清单不符。",
+      "text": "Die Inhaltsversion stimmt nicht mit dem Veröffentlichungsmanifest überein."
+    },
+    {
+      "key": "下载完成，正在安装游戏内容 {0}%\n校验、解压并检查文件…",
+      "text": "Download abgeschlossen. Spielinhalte werden installiert: {0} %\nDateien werden verifiziert, entpackt und geprüft …"
+    },
+    {
+      "key": "正在启动游戏…",
+      "text": "Spiel wird gestartet …"
+    },
+    {
+      "key": "新版游戏启动失败。",
+      "text": "Die neue Spielversion konnte nicht gestartet werden."
+    },
+    {
+      "key": "存储空间不足，请至少释放 {0} MB 后重试。",
+      "text": "Nicht genug Speicherplatz. Gib mindestens {0} MB frei und versuche es erneut."
+    },
+    {
+      "key": "无法读取安装包内的初始游戏内容。",
+      "text": "Die mitgelieferten Spielinhalte lassen sich nicht aus dem Installationspaket lesen."
+    },
+    {
+      "key": "正在下载游戏内容 {0}%\n{1} / {2} MB",
+      "text": "Spielinhalte werden heruntergeladen: {0} %\n{1} / {2} MB"
+    },
+    {
+      "key": "更新下载中断，请重试。已保存可续传的内容。",
+      "text": "Der Download wurde unterbrochen. Beim nächsten Versuch wird er an der gespeicherten Stelle fortgesetzt."
+    },
+    {
+      "key": "正在准备游戏…",
+      "text": "Spiel wird vorbereitet …"
+    },
+    {
+      "key": "去官网下载",
+      "text": "Von der offiziellen Website herunterladen"
+    },
+    {
+      "key": "关闭游戏",
+      "text": "Spiel beenden"
+    },
+    {
+      "key": "当前安装包未包含代码热更新运行环境。",
+      "text": "Dieses Installationspaket enthält keine Laufzeitumgebung für Codeupdates."
+    },
+    {
+      "key": "基础程序集元数据加载失败：{0}",
+      "text": "Die Metadaten der Basisassemblys konnten nicht geladen werden: {0}"
+    },
+    {
+      "key": "无法加载资源包：{0}",
+      "text": "Das Ressourcenpaket konnte nicht geladen werden: {0}"
+    },
+    {
+      "key": "无效的游戏启动回调索引。",
+      "text": "Ungültiger Callback-Index beim Spielstart."
+    },
+    {
+      "key": "无效的游戏启动回调：{0}",
+      "text": "Ungültiger Callback beim Spielstart: {0}"
+    },
+    {
+      "key": "下载  {0}%",
+      "text": "Download  {0} %"
+    },
+    {
+      "key": "安装  {0}%",
+      "text": "Installation  {0} %"
+    },
+    {
+      "key": "版本检查失败",
+      "text": "Versionsprüfung fehlgeschlagen"
+    },
+    {
+      "key": "您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。",
+      "text": "Deine Clientversion passt nicht zur Serverversion. Aktualisiere den Client und versuche es erneut."
+    },
+    {
+      "key": "客户端版本与服务器不匹配",
+      "text": "Client- und Serverversion stimmen nicht überein"
+    },
+    {
+      "key": "下载安装包",
+      "text": "Installationspaket herunterladen"
+    },
+    {
+      "key": "应用内安装仅支持安卓客户端。",
+      "text": "Die Installation aus der App heraus ist nur unter Android möglich."
+    },
+    {
+      "key": "商店",
+      "text": "Shop"
+    },
+    {
+      "key": "持有货币",
+      "text": "Sala-Guthaben"
+    },
+    {
+      "key": "持有货币 —",
+      "text": "Sala-Guthaben —"
+    },
+    {
+      "key": "持有货币 {0}",
+      "text": "Sala-Guthaben: {0}"
+    },
+    {
+      "key": "元",
+      "text": "Münzen"
+    },
+    {
+      "key": "收支明细",
+      "text": "Transaktionen"
+    },
+    {
+      "key": "用对局货币，添置喜欢的物品",
+      "text": "Gib deine Sala-Münzen für Gegenstände aus, die dir gefallen"
+    },
+    {
+      "key": "全部物品",
+      "text": "Alle Gegenstände"
+    },
+    {
+      "key": "四人真人对局每完成一小局，注册玩家获得 0.10 元（含连庄）",
+      "text": "Registrierte Spieler erhalten pro abgeschlossener Hand mit vier menschlichen Spielern 0,10 Münzen, auch wenn derselbe Spieler erneut Geber ist."
+    },
+    {
+      "key": "暂无上架商品",
+      "text": "Zurzeit sind keine Artikel im Angebot"
+    },
+    {
+      "key": "正在加载商品…",
+      "text": "Artikel werden geladen …"
+    },
+    {
+      "key": "永久装扮",
+      "text": "Dauerhafter kosmetischer Gegenstand"
+    },
+    {
+      "key": "已拥有 {0} 件",
+      "text": "Im Besitz: {0}"
+    },
+    {
+      "key": "购买数量",
+      "text": "Kaufmenge"
+    },
+    {
+      "key": "合计 {0}",
+      "text": "Gesamt: {0}"
+    },
+    {
+      "key": "购买",
+      "text": "Kaufen"
+    },
+    {
+      "key": "来源",
+      "text": "Herkunft"
+    },
+    {
+      "key": "金额",
+      "text": "Betrag"
+    },
+    {
+      "key": "余额",
+      "text": "Kontostand"
+    },
+    {
+      "key": "暂无收支记录",
+      "text": "Noch keine Transaktionen"
+    },
+    {
+      "key": "加载更多",
+      "text": "Mehr laden"
+    },
+    {
+      "key": "累计获得 {0}",
+      "text": "Insgesamt verdient: {0}"
+    },
+    {
+      "key": "使用对局货币购买物品",
+      "text": "Gegenstände mit Sala-Münzen kaufen"
+    },
+    {
+      "key": "正在同步货币",
+      "text": "Sala-Guthaben wird synchronisiert"
+    },
+    {
+      "key": "正在同步商店与货币…",
+      "text": "Shop und Sala-Guthaben werden synchronisiert …"
+    },
+    {
+      "key": "上次购买结果未确认，请重试原购买",
+      "text": "Dein letzter Kauf wurde noch nicht bestätigt. Wiederhole denselben Kauf."
+    },
+    {
+      "key": "购买结果未确认，请重试原购买",
+      "text": "Der Kauf wurde noch nicht bestätigt. Wiederhole denselben Kauf."
+    },
+    {
+      "key": "商店同步超时，请刷新",
+      "text": "Zeitüberschreitung beim Synchronisieren des Shops. Lade den Shop neu."
+    },
+    {
+      "key": "购买成功，物品已放入背包",
+      "text": "Kauf erfolgreich. Die Gegenstände sind jetzt in deinem Inventar."
+    },
+    {
+      "key": "游客可浏览商店；注册账号后可获得对局货币并购买物品",
+      "text": "Gäste können den Shop durchstöbern. Registriere dich, um Sala-Münzen zu verdienen und Gegenstände zu kaufen."
+    },
+    {
+      "key": "商店请求失败，请刷新",
+      "text": "Die Anfrage an den Shop ist fehlgeschlagen. Lade den Shop neu."
+    },
+    {
+      "key": "正在购买…",
+      "text": "Kauf wird bearbeitet …"
+    },
+    {
+      "key": "重试原购买",
+      "text": "Denselben Kauf wiederholen"
+    },
+    {
+      "key": "注册账号后购买",
+      "text": "Zum Kaufen registrieren"
+    },
+    {
+      "key": "货币不足或数量无效",
+      "text": "Zu wenig Sala-Münzen oder ungültige Menge"
+    },
+    {
+      "key": "对局奖励 · {0} 小局",
+      "text": "Spielprämie · {0} Hände"
+    },
+    {
+      "key": "历史奖励补发 · {0} 小局",
+      "text": "Nachgezahlte Spielprämie · {0} Hände"
+    },
+    {
+      "key": "商店购买",
+      "text": "Einkauf im Shop"
+    },
+    {
+      "key": "货币调整",
+      "text": "Korrektur des Sala-Guthabens"
+    },
+    {
+      "key": "持有货币不足",
+      "text": "Zu wenig Sala-Münzen"
+    },
+    {
+      "key": "商品已下架，请刷新商店",
+      "text": "Dieser Artikel wird nicht mehr angeboten. Lade den Shop neu."
+    },
+    {
+      "key": "商品价格已更新，请刷新商店后购买",
+      "text": "Der Preis hat sich geändert. Lade den Shop vor dem Kauf neu."
+    },
+    {
+      "key": "超过此商品单次可购买数量",
+      "text": "Die Menge überschreitet das Limit pro Kauf."
+    },
+    {
+      "key": "此物品暂不可购买",
+      "text": "Dieser Gegenstand ist zurzeit nicht erhältlich."
+    },
+    {
+      "key": "已拥有此永久物品或购买数量无效",
+      "text": "Du besitzt diesen dauerhaften Gegenstand bereits oder die Kaufmenge ist ungültig."
+    },
+    {
+      "key": "超过物品持有上限",
+      "text": "Das Besitzlimit für diesen Gegenstand ist erreicht."
+    },
+    {
+      "key": "连接已断开；重连后可重试原购买",
+      "text": "Verbindung getrennt. Stelle die Verbindung wieder her und wiederhole denselben Kauf."
+    },
+    {
+      "key": "注册账号后可获得对局货币并购买物品",
+      "text": "Registriere dich, um Sala-Münzen zu verdienen und Gegenstände zu kaufen"
+    },
+    {
+      "key": "商店服务暂不可用，请刷新或重试原购买",
+      "text": "Der Shop ist zurzeit nicht verfügbar. Lade ihn neu oder wiederhole denselben Kauf."
+    },
+    {
+      "key": "此购买编号已用于其他商品或数量",
+      "text": "Diese Kauf-ID wurde bereits für einen anderen Artikel oder eine andere Menge verwendet."
+    },
+    {
+      "key": "持有萨拉币",
+      "text": "Sala-Guthaben"
+    },
+    {
+      "key": "持有萨拉币 —",
+      "text": "Sala-Guthaben —"
+    },
+    {
+      "key": "持有萨拉币 {0}",
+      "text": "Sala-Guthaben: {0}"
+    },
+    {
+      "key": "用萨拉币，添置喜欢的物品",
+      "text": "Gib deine Sala-Münzen für Gegenstände aus, die dir gefallen"
+    },
+    {
+      "key": "使用萨拉币购买物品",
+      "text": "Gegenstände mit Sala-Münzen kaufen"
+    },
+    {
+      "key": "正在同步萨拉币",
+      "text": "Sala-Guthaben wird synchronisiert"
+    },
+    {
+      "key": "正在同步商店与萨拉币…",
+      "text": "Shop und Sala-Guthaben werden synchronisiert …"
+    },
+    {
+      "key": "游客可浏览商店；注册账号后可获得萨拉币并购买物品",
+      "text": "Gäste können den Shop durchstöbern. Registriere dich, um Sala-Münzen zu verdienen und Gegenstände zu kaufen."
+    },
+    {
+      "key": "萨拉币不足或数量无效",
+      "text": "Zu wenig Sala-Münzen oder ungültige Menge"
+    },
+    {
+      "key": "萨拉币调整",
+      "text": "Korrektur des Sala-Guthabens"
+    },
+    {
+      "key": "持有萨拉币不足",
+      "text": "Zu wenig Sala-Münzen"
+    },
+    {
+      "key": "注册账号后可获得萨拉币并购买物品",
+      "text": "Registriere dich, um Sala-Münzen zu verdienen und Gegenstände zu kaufen"
+    },
+    {
+      "key": "四人真人匹配场每完成一小局，注册玩家获得 0.10 萨拉币（含连庄）",
+      "text": "Registrierte Spieler erhalten in Partien der Spielersuche mit vier menschlichen Spielern 0,10 Sala-Münzen pro abgeschlossener Hand, auch wenn derselbe Spieler erneut Geber ist."
+    },
+    {
+      "key": "真实时间",
+      "text": "Reaktionen in Echtzeit"
+    },
+    {
+      "key": "第二等待时间",
+      "text": "Zweite Wartezeit"
+    },
+    {
+      "key": "等待下一位玩家摸牌",
+      "text": "Warten, bis der nächste Spieler zieht"
+    },
+    {
+      "key": "真实时间仅支持川麻复式",
+      "text": "Reaktionen in Echtzeit sind nur im Sichuan-Duplikat möglich."
+    },
+    {
+      "key": "第二等待时间必须为3、5、8、10、15或20秒",
+      "text": "Die zweite Wartezeit muss 3, 5, 8, 10, 15 oder 20 Sekunden betragen."
+    },
+    {
+      "key": "真实时间：其他玩家出牌后，如果下一位应由你摸牌，碰、明杠或和牌使用正常局时与步时；否则使用第二等待时间。第二等待时间结束后，牌局不再专门等待你，但本张弃牌尚未处理完时，仍可操作。第二等待时间也用于战术鸣牌的抢断询问。血战有人和牌退场后，按仍在行牌的顺序判断。",
+      "text": "Wirft ein anderer Spieler ab und bist du als Nächstes mit dem Ziehen dran, gelten für Pong, offenen Kong oder Gewinn die übliche Zugzeit und Zeitreserve. Sonst gilt die zweite Wartezeit. Danach wartet das Spiel nicht mehr auf dich. Du kannst aber noch reagieren, bis der Abwurf abgehandelt ist. Die zweite Wartezeit gilt auch für Rückfragen bei taktischen Rufen. Im Blutigen Kampf werden Spieler, die bereits gewonnen haben, in der Zugfolge übersprungen."
+    },
+    {
+      "key": "非下一位摸牌者的首次响应等待与战术鸣牌抢断询问共用此时长，不扣局时。关闭真实时间会保留所选秒数，战术鸣牌开启时继续使用。首次等待结束仍可操作；抢断询问到期后执行已确定的动作。",
+      "text": "Die zweite Wartezeit gilt für die erste Reaktion aller Spieler, die nicht als Nächstes ziehen, und für Rückfragen bei taktischen Rufen. Sie verbraucht keine Zeitreserve. Wenn du Reaktionen in Echtzeit ausschaltest, bleibt die gewählte Dauer für aktivierte taktische Rufe erhalten. Nach der ersten Wartezeit kannst du noch reagieren. Läuft die Rückfrage ab, wird der bereits feststehende Ruf ausgeführt."
     }
   ],
   "contexts": [

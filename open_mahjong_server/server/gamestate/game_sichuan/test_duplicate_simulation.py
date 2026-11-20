@@ -23,10 +23,24 @@ from ...game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, XUELIU_DU
 @pytest.mark.parametrize("training", [False, True])
 @run_async
 async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode, training):
+    await play_paired_game(sub, cls, seed, sync_mode, training)
+
+
+@pytest.mark.parametrize("sub,cls", [(SBR_DUPLICATE,SbrDuplicateGameState),(XUELIU_DUPLICATE,XueliuDuplicateGameState)])
+@run_async
+async def test_finished_table_disconnects_while_other_table_plays_final_board(sub, cls):
+    await play_paired_game(sub, cls, 1807, False, True, disconnect_finished=True)
+
+
+async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_finished=False):
     messages = []
     db = build_db_manager()
     db.store_sichuan_game_record.return_value = None
     server = build_game_server(db, messages=messages)
+    if disconnect_finished:
+        from ..gamestate_manager import GameStateManager
+        server.gamestate_manager = GameStateManager(server)
+        server.room_manager.active_game_room_ids = {}
     seed_text=format(seed,'064x') if training else str(seed)
     data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed_text,n) for n in (1,2)],seed_text,sync_mode=sync_mode)
     if training: data.update(wall_source='training',wall_type='training',wall_id=None)
@@ -46,17 +60,45 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode, tra
             room.update(wall_source='training',allow_spectator=True)
         state = cls(server,room,server.calculation_service,db,table)
         states.append(state)
-        server.gamestate_manager.gamestate_id_to_game_state[table] = state
+        if disconnect_finished:
+            server.gamestate_manager.register_game(state, room)
+        else:
+            server.gamestate_manager.gamestate_id_to_game_state[table] = state
         for uid in ids:
             conn = SimpleNamespace(user_id=uid,username=f"P{uid}",websocket=CaptureSocket(uid,messages),current_room_id=room["room_id"],Connect_id=f"conn-{uid}")
             server.players[f"conn-{uid}"] = conn
             server.user_id_to_connection[uid] = conn
             server.gamestate_manager.user_id_to_game_state[uid] = state
+    disconnected = asyncio.Event()
+    if disconnect_finished:
+        # Hold the slow table before its final board's actions. The fast table
+        # must submit durably, then all four real disconnect handlers run.
+        opening = states[1]._opening_phase
+        async def delayed_opening():
+            if states[1].current_round == 2:
+                await disconnected.wait()
+            await opening()
+        states[1]._opening_phase = delayed_opening
     install_lab_runtime(turbo=True)
-    tasks = [asyncio.create_task(s.game_loop_sichuan()) for s in states]
+    if disconnect_finished:
+        pair.start_gate.set()
+        tasks = [asyncio.create_task(server.gamestate_manager.run_game(s, s.run_game_loop)) for s in states]
+        for state, task in zip(states, tasks):
+            state.game_task = task
+    else:
+        tasks = [asyncio.create_task(s.game_loop_sichuan()) for s in states]
     seen = set()
     async def drive():
         while not all(t.done() for t in tasks):
+            if disconnect_finished and not disconnected.is_set() and pair.table_progress("open") == 2:
+                assert not pair.completed and pair.table_progress("closed") == 1
+                for player in states[0].player_list:
+                    server.user_id_to_connection.pop(player.user_id)
+                    await server.gamestate_manager.player_disconnect(player.user_id)
+                assert pair.data["status"] == "running"
+                assert all(not task.done() for task in tasks)
+                assert states[0].lifecycle_state == "running"
+                disconnected.set()
             for s in states:
                 if not sync_mode and s.duplicate_table == "closed" and states[0].current_round < 2:
                     continue
@@ -96,6 +138,13 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode, tra
     try:
         await asyncio.wait_for(drive(), 45)
         assert pair.completed, [(s.game_status,s.current_round) for s in states]
+        if disconnect_finished:
+            assert disconnected.is_set()
+            assert set(pair.data["final_records"]) == {"open", "closed"}
+            assert all(s.close_reason == "completed" for s in states)
+            assert not server.gamestate_manager.gamestate_id_to_game_state
+            assert not server.gamestate_manager.user_id_to_game_state
+            assert not server.room_manager.active_game_room_ids
         assert all(s.team_result['scores'] == dict(enumerate(pair.data['scores'])) for s in states)
         assert pair.data['completed_boards'] >= 2
         statuses = [m['message']['duplicate_match_info'] for m in messages if m.get('type','').endswith('duplicate_status')]
@@ -129,9 +178,23 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed, sync_mode, tra
         assert live
         assert all('duplicate_key' not in str(m) and 'duplicate_boards' not in str(m) for m in live)
         ends = [m['message']['game_end_info'] for m in messages if m.get('type','').endswith('game_end')]
-        assert len(ends) == 8, 'all eight clients must receive the serialized final result'
+        assert len(ends) == (4 if disconnect_finished else 8), 'every connected client must receive the serialized final result'
         if training:
             assert all(int(e['master_seed'])==seed and e['duplicate_wall_type']=='training' and e.get('record_detail') for e in ends)
+            from ...records.format import validate_match
+            from ...records.wall_alignment import locate
+            for end in ends:
+                bundle = validate_match(end['record_detail']['record'])
+                assert bundle['completeness'] == 'complete'
+                assert set(bundle['tables']) == {'open', 'closed'}
+                for name, table in bundle['tables'].items():
+                    for meta in table['round_meta'].values():
+                        assert meta['alignment_status'] == 'exact'
+                        for index, action in enumerate(meta['action_meta']):
+                            if action['wall_ref']:
+                                assert locate(table, action['wall_ref'])['node'] == index + 1
+                                sibling = bundle['tables']['closed' if name == 'open' else 'open']
+                                assert locate(sibling, action['wall_ref'])['status'] in ('EXACT', 'NOT_CONSUMED')
             for state in states:
                 title=state.game_record['game_title']
                 assert title['duplicate_seed']==seed_text and 'duplicate_key' not in title

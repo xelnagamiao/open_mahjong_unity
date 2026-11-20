@@ -36,6 +36,8 @@ def choices(state, index, *, called=None, actor=None):
         if p.riichi or not state.wall.live:
             return ()
         return call_choices(p.hand_tiles, called, next_player=index == (actor + 1) % 4, can_kong=fourth)
+    if not p.has_draw_slot:
+        return ()
     result = turn_choices(p.hand_tiles, p.melds, can_fourth=fourth, can_extend=bool(state.wall.live))
     if not p.riichi:
         return result
@@ -61,6 +63,9 @@ def choices(state, index, *, called=None, actor=None):
 
 def turn_actions(state, index, after_meld=False):
     p, result = state.player_list[index], []
+    if after_meld:
+        state.meld_choices = {index: ()}
+        return {**empty_actions(), index: ['cut'] if legal_cuts(state, index) else []}
     if not after_meld and state.can_win(index, 'self_draw', p.hand_tiles[-1]):
         result.append('hu_self')
     options = choices(state, index)

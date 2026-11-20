@@ -11,10 +11,13 @@ namespace Salasasa.Events
 {
     public sealed partial class EventVenuePanel : MonoBehaviour
     {
+        public Salasasa.Venues.VenueTeamIconPicker teamIconPicker;
         public EventDetailPanel owner;
-        public Salasasa.Chat.GraphiteChatBridge chat;
+        public EventVenueChatPage chatPage;
+        public const int ChatPageIndex = 6;
         public CreatePanel nativeCreatePanel;
         public GameObject roomPrefab,gamePrefab,recordPrefab;
+        [SerializeField] private SpectatorPrefab pairedSpectatorPrefab;
         public EventVenueView view;
         public EventVenueBinding[] bindings;
         public EventVenueAction[] actions;
@@ -33,8 +36,9 @@ namespace Salasasa.Events
         public int Page { get; private set; }
         public int Management { get; private set; }
         public int Role=>detail?.my_role=="owner"?2:detail?.is_admin==true?1:0;
-        public bool CanChat => chat && LoggedIn() && detail != null &&
+        public bool CanChat => chatPage && LoggedIn() && detail != null && !StreamerModeHelper.IsEnabled &&
             (Role > 0 || detail.created_by == UserDataManager.Instance.UserId || detail.registration?.status == "approved");
+        public bool ChatClosed => detail?.status == "closed";
         public bool Original { get; private set; } = true;
         public string EventId { get; private set; }
         EventDetailInfo detail;
@@ -62,6 +66,7 @@ namespace Salasasa.Events
         DataNetworkManager recordNetwork;
         void Awake()
         {
+            if(teamIconPicker)teamIconPicker.Changed=value=>SetDraft("team_icon_url",value);
             Design=Mathf.Clamp(PlayerPrefs.GetInt("EventVenuePalette",0),0,view.PaletteCount-1);
             view.ApplyPalette(Design);
             Original=true;
@@ -75,7 +80,12 @@ namespace Salasasa.Events
             }
             modal.SetActive(false);
         }
-        void OnEnable(){Subscribe();ConfigManager.OnLanguageChanged+=RefreshLabelsAndActions;}
+        void OnEnable(){Subscribe();ConfigManager.OnLanguageChanged+=RefreshLabelsAndActions;StreamerModeHelper.OnChanged+=RefreshChatAccess;StartCoroutine(RefreshTeamIconAfterEnable());}
+        void RefreshChatAccess()
+        {
+            if(Page==ChatPageIndex&&!CanChat)ShowPage(0);
+            else RefreshLabelsAndActions();
+        }
         void Subscribe()
         {
             if(recordNetwork!=DataNetworkManager.Instance){if(recordNetwork)recordNetwork.RecordFavoriteUpdated-=FavoriteUpdated;recordNetwork=DataNetworkManager.Instance;if(recordNetwork)recordNetwork.RecordFavoriteUpdated+=FavoriteUpdated;}
@@ -87,6 +97,7 @@ namespace Salasasa.Events
         void OnDisable()
         {
             ConfigManager.OnLanguageChanged-=RefreshLabelsAndActions;
+            StreamerModeHelper.OnChanged-=RefreshChatAccess;
             epoch++;client.Dispose();StopAllCoroutines();adminBusy=false;pendingWs="";
             recordsLoading=false;
             if(subscribed)subscribed.OnOperationCompleted-=OnOperation;subscribed=null;
@@ -104,6 +115,7 @@ namespace Salasasa.Events
         }
         void ClearState()
         {
+            if(chatPage)chatPage.ClearVenue();
             detail=null;drafts.Clear();selectedReady.Clear();notices=new JArray();registrations=new JArray();ready=new JArray();admins=new JArray();games=new JArray();entry=new JObject();settings=null;profile=null;stats=null;presetDraft=null;
             rooms=Array.Empty<RoomInfo>();records=Array.Empty<RecordInfo>();spectators=Array.Empty<SpectatorInfo>();
             recordsLoading=recordsHasMore=hasRecordPage=false;recordsLoadedOffset=0;
@@ -127,7 +139,8 @@ namespace Salasasa.Events
             notices=publicNotices;
             noticeIndex=Mathf.Clamp(noticeIndex,0,Mathf.Max(0,notices.Count-1));
             if(Role==0&&Page==5){Page=0;adminBusy=false;}
-            if(!profileDirty){drafts["name"]=value.name??"";drafts["description"]=value.description??"";}
+            if(Page==ChatPageIndex&&!CanChat)Page=0;
+            if(!profileDirty){drafts["name"]=value.name??"";drafts["description"]=value.description??"";drafts["team_icon_url"]=value.team_icon_url??"";}
             RefreshAll(true);
         }
         public void ApplyRooms(RoomInfo[] value){rooms=value??Array.Empty<RoomInfo>();RefreshAll(true);}
@@ -159,10 +172,12 @@ namespace Salasasa.Events
             recordsOffset=Mathf.Max(0,recordsOffset+Math.Sign(direction)*RecordPageSize);
             RefreshVisiblePage();
         }
-        public void ApplySpectators(SpectatorInfo[] value){spectators=(value??Array.Empty<SpectatorInfo>()).Where(v=>v!=null&&v.event_id==EventId).ToArray();RefreshAll(true);}
+        public void ApplySpectators(SpectatorInfo[] value){spectators=SpectatorRoomPresentation.GroupMatches((value??Array.Empty<SpectatorInfo>()).Where(v=>v!=null&&v.event_id==EventId));RefreshAll(true);}
         public void ShowPage(int value)
         {
-            if(value==5&&Role==0)return;Page=Mathf.Clamp(value,0,5);if(Page==5&&Role<2&&(Management==0||Management==7))Management=1;
+            value=Mathf.Clamp(value,0,view.pages.Length-1);
+            if((value==5&&Role==0) || (value==ChatPageIndex&&!CanChat))return;
+            Page=value;if(Page==5&&Role<2&&(Management==0||Management==7))Management=1;
             registrationMode=0;RefreshAll(true);RefreshVisiblePage();
         }
         public void RestoreVisiblePage()
@@ -174,6 +189,7 @@ namespace Salasasa.Events
         public void RefreshVisiblePage()
         {
             if(string.IsNullOrEmpty(EventId))return;
+            if(Page==ChatPageIndex){chatPage.Reload();return;}
             if(!Online()){loadError=true;Say("连接已断开，请连接后刷新");return;}
             if(Page<=1||detail==null){detailDeadline=Time.unscaledTime+20;EventNetworkManager.Instance.GetEventDetail(EventId);}
             if(Page==2)EventNetworkManager.Instance.ListVenueRooms(EventId);
@@ -214,7 +230,7 @@ namespace Salasasa.Events
         public void SetDraft(string key,string value)
         {
             drafts[key]=value;dirty=true;
-            if(key=="name"||key=="description"||key=="reason")profileDirty=true;
+            if(key=="name"||key=="description"||key=="reason"||key=="team_icon_url")profileDirty=true;
             if(key=="joinCode")entryDirty=true;
             if(key=="presetName")presetDirty=true;
             RefreshLabelsAndActions();
@@ -289,7 +305,7 @@ namespace Salasasa.Events
         }
         public bool IsSelected(string action,int index)=>action switch
         {
-            "page"=>Page==index,"manage"=>Management==index,"design"=>Design==index,"prefabOriginal"=>Original,"selectNotice"=>noticeIndex==index,
+            "page"=>Page==index,"chat"=>Page==ChatPageIndex,"manage"=>Management==index,"design"=>Design==index,"prefabOriginal"=>Original,"selectNotice"=>noticeIndex==index,
             "reviewFilter"=>reviewFilter==index,"preset"=>presetIndex==index,"queue"=>selectedReady.Contains(Num(ready.ElementAtOrDefault(index),"user_id")),
             "entryPermission"=>Str(entry,"create_room_permission","admin")==new[]{"all","registered","admin"}[index],"ready"=>detail?.is_ready==true,"auto"=>Automatic,_=>false
         };
@@ -299,7 +315,7 @@ namespace Salasasa.Events
             if(action=="design"||action=="prefabOriginal"||action=="modalCancel")return !adminBusy;
             if(action=="retry")return !adminBusy&&pendingWs=="";
             if(action=="page")return !adminBusy && (index!=5||Role>0);
-            if(action=="chat")return CanChat;
+            if(action=="chat")return !adminBusy&&CanChat;
             if(action=="manage")return !adminBusy&&Role>0&&(Role==2||index!=0&&index!=7);
             if(action=="modalConfirm")return !adminBusy&&confirmation!=null;
             if(adminBusy||pendingWs!="")return false;
@@ -337,6 +353,17 @@ namespace Salasasa.Events
                 if(a.gameObject.activeInHierarchy)a.Refresh();
             }
         }
+        IEnumerator RefreshTeamIconAfterEnable()
+        {
+            // Child icon components become active after the containing panel's OnEnable.
+            yield return null;
+            RefreshTeamIcon();
+        }
+        void RefreshTeamIcon()
+        {
+            if(view && view.teamIcon && view.teamIcon.isActiveAndEnabled)
+                view.teamIcon.Show(detail?.team_icon_url);
+        }
         void RefreshAll(bool rebuild=false)
         {
             if(view)
@@ -355,7 +382,10 @@ namespace Salasasa.Events
             }
             if(rebuild){RenderLists();bindings=GetComponentsInChildren<EventVenueBinding>(true);actions=GetComponentsInChildren<EventVenueAction>(true);inputs=GetComponentsInChildren<EventVenueInput>(true);}
             foreach(var input in inputs)if(input&&input.gameObject.activeInHierarchy&&!input.field.isFocused)input.field.SetTextWithoutNotify(Draft(input.key));
+            if(teamIconPicker){teamIconPicker.Write(Draft("team_icon_url"));teamIconPicker.SetEditable(Role==2&&!adminBusy&&(profile?["pending"] as JObject)==null);}
+            RefreshTeamIcon();
             RefreshLabelsAndActions();
+            if(Page==ChatPageIndex)chatPage.Refresh();
         }
         int Count(string type)=>type switch{"notice"=>notices.Count,"registration"=>Reviews().Count,"queue"=>ready.Count,"preset"=>settings==null?0:Presets.Count+1,"admin"=>admins.Count,"statPlayer"=>(stats?["players"] as JArray)?.Count??0,"room"=>rooms.Length,"game"=>spectators.Length,"record"=>Mathf.Min(records.Length,RecordPageSize),"managedGame"=>games.Count,_=>0};
         void RenderLists()
@@ -377,9 +407,19 @@ namespace Salasasa.Events
                     var skin=row.GetComponentInChildren<EventVenueNativeCard>(true);if(!skin)continue;
 
                     if(row.kind=="room")skin.GetComponent<RoomItem>().SetRoomInfo(rooms[i]);
-                    if(row.kind=="game")skin.GetComponent<SpectatorPrefab>().InitializeSpectatorItem(spectators[i]);
+                    if(row.kind=="game"){
+                        bool paired=!string.IsNullOrEmpty(spectators[i].match_id)&&pairedSpectatorPrefab;
+                        var pairCard=row.transform.Find("MatchSpectatorCard");
+                        if(paired&&pairCard==null){var card=Instantiate(pairedSpectatorPrefab,row.transform);card.name="MatchSpectatorCard";pairCard=card.transform;
+                            var rect=(RectTransform)pairCard;rect.anchorMin=Vector2.zero;rect.anchorMax=Vector2.one;rect.offsetMin=rect.offsetMax=Vector2.zero;}
+                        if(pairCard)pairCard.gameObject.SetActive(paired);
+                        skin.gameObject.SetActive(!paired);
+                        var layout=row.GetComponent<LayoutElement>();
+                        if(layout){var original=pool.template.GetComponent<LayoutElement>();layout.minHeight=layout.preferredHeight=paired?144:original.preferredHeight;}
+                        (paired?pairCard.GetComponent<SpectatorPrefab>():skin.GetComponent<SpectatorPrefab>()).InitializeSpectatorItem(spectators[i]);
+                    }
                     if(row.kind=="managedGame")skin.GetComponent<SpectatorPrefab>().InitializeSpectatorItem(GameInfo(games[i]));
-                    if(row.kind=="record"){var r=records[i];skin.GetComponent<RecordPrefab>().InitializeRecordItem(r.game_id,r.sub_rule??"",r.match_type??"",r.created_at,r.players,r.is_favorite);}
+                    if(row.kind=="record")skin.GetComponent<RecordPrefab>().BindRecord(records[i]);
                     
                 }
             }

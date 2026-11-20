@@ -1,6 +1,7 @@
 """Persist paired matches alongside the existing duplicate-wall record lock."""
 import json
 import secrets
+from copy import deepcopy
 
 from .duplicate_walls import ensure_duplicate_tables
 from ..game_calculation.sichuan.duplicate_rules import flatten_board
@@ -18,6 +19,65 @@ def ensure_tables(cursor):
         ALTER TABLE sichuan_duplicate_matches ALTER COLUMN event_id DROP NOT NULL;
         ALTER TABLE sichuan_duplicate_matches ALTER COLUMN wall_id DROP NOT NULL;
     """)
+
+
+def _checkpoint_records(data, table):
+    final = data.get("final_records", {}).get(table)
+    if final:
+        yield final
+    for field in ("checkpoints", "table_checkpoints", "pending_checkpoints"):
+        checkpoint = (data.get(field) or {}).get(table)
+        if checkpoint and checkpoint.get("game_record"):
+            yield checkpoint["game_record"]
+
+
+def compact_completed_replays(cursor, match_id=None):
+    """Retire duplicate timelines after a completed pair has two committed table IDs."""
+    cursor.execute("""SELECT id FROM sichuan_duplicate_matches
+        WHERE status='completed' AND data->'record_ids'->>'open' IS NOT NULL
+          AND data->'record_ids'->>'closed' IS NOT NULL
+          AND (%s::uuid IS NULL OR id=%s::uuid)
+          AND NOT(data ? 'round_sources') FOR UPDATE""", (match_id, match_id))
+    changed = 0
+    for mid, in cursor.fetchall():
+        cursor.execute("SELECT data FROM sichuan_duplicate_matches WHERE id=%s", (mid,))
+        data = cursor.fetchone()[0]
+        ids = data["record_ids"]
+        cursor.execute("""SELECT t.game_id,gr.record->'game_round' FROM game_record_tables t
+            JOIN game_replays r ON r.game_id=t.replay_id JOIN game_records gr ON gr.game_id=t.game_id
+            WHERE t.game_id=ANY(%s) AND r.record->>'match_id'=%s""", (list(ids.values()), str(mid)))
+        rounds = dict(cursor.fetchall())
+        if not all(ids[t] in rounds for t in ("open", "closed")):
+            continue
+        # Preserve every checkpoint field that differs from the saved result.
+        # An unmatched or unfinished record must remain available for recovery.
+        sources = {}
+        for table in ("open", "closed"):
+            for record in _checkpoint_records(data, table):
+                if isinstance(record.get("game_round"), dict) and record["game_round"] == rounds[ids[table]]:
+                    del record["game_round"]
+                    record["round_source_game_id"] = ids[table]
+                    sources[table] = ids[table]
+        if sources:
+            data["round_sources"] = sources
+            cursor.execute("UPDATE sichuan_duplicate_matches SET data=%s WHERE id=%s",
+                           (json.dumps(data, ensure_ascii=False), mid))
+            changed += 1
+    return changed
+
+
+def _load_checkpoint_rounds(cursor, data):
+    sources = data.pop("round_sources", {})
+    if sources:
+        cursor.execute("SELECT game_id,record->'game_round' FROM game_records WHERE game_id=ANY(%s)",
+                       (list(sources.values()),))
+        rounds = dict(cursor.fetchall())
+        for table in sources:
+            for record in _checkpoint_records(data, table):
+                sid = record.pop("round_source_game_id", None)
+                if sid in rounds:
+                    record["game_round"] = deepcopy(rounds[sid])
+    return data
 
 
 class PairedMatchStore:
@@ -96,6 +156,8 @@ class PairedMatchStore:
                     json.dumps(snapshot, default=str), snapshot["id"], expected_revision))
                 if cursor.rowcount != 1:
                     raise ValueError("复式比赛状态版本冲突，未覆盖已保存结果")
+                if snapshot["status"] == "completed" and all(snapshot.get("record_ids", {}).get(t) for t in ("open", "closed")):
+                    compact_completed_replays(cursor, snapshot["id"])
                 # Recovery replacements and extra boards belong to this match.
                 # Mutating the shared source here would alter later groups.
             conn.commit()
@@ -111,9 +173,10 @@ class PairedMatchStore:
             with conn.cursor() as cursor:
                 ensure_tables(cursor)
                 cursor.execute("SELECT data FROM sichuan_duplicate_matches WHERE status <> 'cancelled' AND COALESCE((data->>'rooms_deleted')::boolean,FALSE)=FALSE ORDER BY updated_at")
-                rows = cursor.fetchall()
+                rows = [_load_checkpoint_rounds(cursor, json.loads(value) if isinstance(value, str) else value)
+                        for value, in cursor.fetchall()]
             conn.commit()
-            return [json.loads(r[0]) if isinstance(r[0], str) else r[0] for r in rows]
+            return rows
         except BaseException:
             conn.rollback()
             raise

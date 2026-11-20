@@ -20,9 +20,9 @@ public class CardFaceConfigPanel : MonoBehaviour {
         + "tiles.cfg 支持 # 注释：[2d] / [3d] 设置整包默认值，[2d.11] / [3d.11] 设置单牌相对微调，参数 x、y、scale 使用百分比。\n"
         + "以上均为建议，不要求匹配指定尺寸或比例。保留原图尺寸、透明通道与完整内容；显示时等比居中，空余部分由背景或底色补齐。\n\n"
         + "牌号：万11–19、筒21–29、索31–39、字41–47、花51–58；赤宝105/205/305，纯白白板2。\n"
-        + "使用 PNG。资源上限：单边≤4096、单张≤4MiB、解压后≤128MiB。可缺少部分牌面，缺图回退官方。\n"
+        + "使用 PNG。资源上限：单边≤4096、牌面单张≤4MiB、背景和牌背单张≤8MiB、压缩包及解压后≤128MiB。可缺少部分牌面，缺图回退官方。\n"
         + "虹雀牌组固定使用官方 HQv3.1。\n"
-        + "PNG 可直接放在 ZIP 根目录，也可放在文件夹中。旧 hand/、table/ 双份格式继续兼容。\n\n"
+        + "PNG 可直接放在 ZIP 根目录，也可放在文件夹中。\n\n"
         + "示例：11.png、12.png、21.png……与 tiles.cfg；默认 x=0、y=0、scale=100，缩放范围 25–200。\n"
         + "上传后输入名称并确认保存；可保留多套，点击对应牌面包按钮切换，选中后可重命名或删除。返回不保存。\n"
         + "透明花纹可叠加牌面背景；选择“背景铺满”时保留铺满显示。\n"
@@ -153,7 +153,11 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     private void OnZipPicked(byte[] zipBytes, string fileName) {
-        if (this == null || !isActiveAndEnabled || packNameDialog != null) return;
+        ImportZip(zipBytes, fileName);
+    }
+
+    public void ImportZip(byte[] zipBytes, string fileName) {
+        if (this == null || packNameDialog != null) return;
         TilePackImporter.Result imported = TilePackImporter.Import(zipBytes);
         if (imported == null || !imported.Success) {
             string error = imported != null ? imported.Error : "导入失败";
@@ -161,21 +165,24 @@ public class CardFaceConfigPanel : MonoBehaviour {
             return;
         }
         Texture2D preview = null;
-        foreach (var image in imported.HandPngs.Values) { preview = UnityAssetIdb.ToTexture(image); break; }
+        foreach (var image in imported.Pngs.Values) { preview = UnityAssetIdb.ToTexture(image); break; }
         packNameDialog = HandSurfaceNameDialog.Open(transform, uploadButton.GetComponentInChildren<TMP_Text>(true)?.font,
-            "上传自定义牌面", HandSurfaceLibrary.SuggestedName(fileName, false), preview, (name, close, error) =>
-        TilePackLibrary.SaveNew(zipBytes, fileName, imported, entry => {
-        close();
-        if (this == null || !isActiveAndEnabled) return;
-        TileFaceResolver.ApplyLibraryPack(entry.id, imported);
-        string status = $"已应用自定义牌面（{imported.HandPngs.Count} 张）";
-        if (imported.Warnings.Count > 0) {
-            status += "。" + imported.Warnings[0];
-        }
-        SceneConfigUi.ShowTip(status);
-        RefreshCustomPackChip();
-        RefreshPreview();
-        }, error, name));
+            "导入牌包", HandSurfaceLibrary.SuggestedName(fileName, false), preview, (name, close, error) =>
+            TilePackLibrary.SaveNew(zipBytes, fileName, imported, entry => {
+                void Complete() {
+                    close();
+                    if (this == null) return;
+                    TileFaceResolver.ApplyLibraryPack(entry.id, imported);
+                    string status = $"已应用自定义牌面（{imported.Pngs.Count} 张）";
+                    if (imported.Warnings.Count > 0) status += "。" + imported.Warnings[0];
+                    SceneConfigUi.ShowTip(status);
+                    RefreshCustomPackChip();
+                    if (isActiveAndEnabled) RefreshPreview();
+                }
+                void Fail(string reason) => TilePackLibrary.Delete(entry.id, () => error(reason), cleanup => error(reason + "；" + cleanup));
+                if (imported.LayoutConfig?.Appearance != null) imported.LayoutConfig.Appearance.Apply(imported, name, Complete, Fail);
+                else Complete();
+            }, error, name));
     }
 
     private void OnRestoreClicked() {

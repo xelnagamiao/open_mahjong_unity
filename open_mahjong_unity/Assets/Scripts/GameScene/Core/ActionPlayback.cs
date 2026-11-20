@@ -63,6 +63,7 @@ public sealed class ActionPlayback {
     public void AnnounceClaim(TableAction action) {
         if (action.HasWord("jiagang") || action.HasWord("angang")) Clock.PendingAskFromJiagang = true;
         foreach (string word in action.Words) {
+            SoundManager.Instance?.TraceAudioAction(action.ActionTick, word, action.Seat, action.Silent, action.IsClaim);
             SoundManager.Instance.PlayActionSound(action.Seat, word);
             SoundManager.Instance.PlayPhysicsSound(word);
             // 和牌飘字文案由 ShowActionDisplay 按当前 RuleManifest 解析
@@ -82,6 +83,7 @@ public sealed class ActionPlayback {
             return;
         }
         foreach (string word in action.Words) {
+            SoundManager.Instance?.TraceAudioAction(action.ActionTick, word, action.Seat, action.Silent, action.IsClaim);
             Debug.Log($"执行DoAction操作: {word} (silent={action.Silent})");
             if (!action.Silent) {
                 Announce(action, word);
@@ -333,6 +335,7 @@ public sealed class ActionPlayback {
 
     private static bool AffectsVisibleTiles(string word) {
         switch (word) {
+            case "nuki":
             case "cut":
             case "chi_left":
             case "chi_mid":

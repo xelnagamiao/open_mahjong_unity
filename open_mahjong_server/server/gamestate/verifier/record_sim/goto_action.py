@@ -357,9 +357,6 @@ class RecordSim:
             player.score += int(changes[player.player_index])
 
     def _build_jiagang_mask(self, player: RecordPlayer, jiagang_tile: int, actual_jia: int) -> None:
-        if self.flags.jiagang_extends_last_meld and player.combination_masks:
-            player.combination_masks[-1] = list(player.combination_masks[-1]) + [3, actual_jia]
-            return
         idx = codec.find_combination_index(player.combination_tiles, f"k{codec.normalize_tile(jiagang_tile)}")
         if idx >= 0:
             player.combination_tiles[idx] = f"g{codec.normalize_tile(jiagang_tile)}"
@@ -424,6 +421,8 @@ class RecordSim:
                 or self.is_xueliu() or self.flags.rule_id in {"zhongyong"}):
             self._restore_taiwan_robbed_jiagang(tick)
         acting = resolve_acting_player(tick, action, self.current_player_index)
+        if action == "d" and self.flags.rule_id == "shanghai" and self.last_discard_player_index >= 0:
+            acting = self._next_player(self.last_discard_player_index)
         player = self.players[acting]
         next_player = self.current_player_index
 
@@ -512,11 +511,16 @@ class RecordSim:
         elif action == "jg":
             jiagang_tile = codec.parse_tick_int(tick, 1)
             is_mo = parse_kan_mo_gang_flag(tick)
-            removed = codec.remove_n_by_normalized(player.tile_list, jiagang_tile, 1, prefer_draw_slot_first=is_mo)
-            actual = removed[0] if removed else jiagang_tile
+            if self.flags.record_kong_has_meld_index:
+                codec.extend_hongque_meld(player.tile_list, player.combination_tiles, player.combination_masks,
+                                          tick, title_str(self.game_title, "sub_rule"))
+                actual = jiagang_tile
+            else:
+                removed = codec.remove_n_by_normalized(player.tile_list, jiagang_tile, 1, prefer_draw_slot_first=is_mo)
+                actual = removed[0] if removed else jiagang_tile
+                self._build_jiagang_mask(player, jiagang_tile, actual)
             self.last_winnable_tile_id = actual
             self.last_jiagang_player_index = acting
-            self._build_jiagang_mask(player, jiagang_tile, actual)
             if is_mo:
                 player.show_hand_draw_slot_active = False
             self._apply_gang_score(tick)

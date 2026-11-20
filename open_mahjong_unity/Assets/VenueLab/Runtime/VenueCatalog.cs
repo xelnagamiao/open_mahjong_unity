@@ -13,6 +13,7 @@ namespace Salasasa.Venues
     [Serializable]
     public sealed class VenueEntry
     {
+        public string team_icon_url;
         public string event_id, name, description, status, kind;
         public string planned_start_at, planned_end_at, created_at;
         public int member_count = -1;
@@ -108,6 +109,7 @@ namespace Salasasa.Venues
     [Serializable]
     public sealed class VenueApplication
     {
+        public string team_icon_url;
         public string kind, name, description, planned_start_at, planned_end_at, organizer_name, organizer_phone, remark;
         public string Validate()
         {

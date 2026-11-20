@@ -35,6 +35,7 @@ public static class CreateRoomKeys {
     public const string RealTime = "real_time";
     public const string TacticalGraceSeconds = "tactical_grace_seconds";
     public const string BloodBattle = "blood_battle";
+    public const string ExchangeThree = "exchange_three";
     public const string CsOpenKongCount = "cs_open_kong_count";
     public const string CsInitialSiXi = "cs_initial_si_xi";
     public const string CsInitialBanBanHu = "cs_initial_ban_ban_hu";

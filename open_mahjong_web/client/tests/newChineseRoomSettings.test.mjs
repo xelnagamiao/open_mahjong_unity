@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
-import { createEventRoomForm, buildEventRoomSettings, changeEventRoomRule } from '../src/utils/eventRoomSettings.js'
+import { createEventRoomForm, buildEventRoomSettings, changeEventRoomRule, eventRoomSettingsSummary } from '../src/utils/eventRoomSettings.js'
 import { newChineseRulebooks, NEW_CHINESE_DESCRIPTION } from '../src/constants/newChineseRulebooks.js'
 
 const require = createRequire(import.meta.url)
@@ -16,6 +16,7 @@ for (const rounds of [4,8,12,16]) {
       const form = createEventRoomForm({ room_rule:'new_chinese', room_config: {
         room_name:'新中式验收桌', game_round:rounds, detailed_config:{exchange_three:exchange} } })
       const payload = buildEventRoomSettings(form)
+      assert.equal(eventRoomSettingsSummary(payload, {new_chinese:'自定义规则'}), `新中式麻将 · ${rounds}圈 · ${exchange ? '换三张' : '不换牌'}`)
       let doc = readRoomSettings({})
       const apply = (kind, body) => {
         doc = applyRoomSettingsChange(doc, {kind, body:{revision:doc.revision,...body},userId:10001,eventStatus:'active'},

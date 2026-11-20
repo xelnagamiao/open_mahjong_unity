@@ -16,6 +16,7 @@ QUEUE = 'beginner_dongfeng'
 
 def server_fixture():
     db = MagicMock()
+    db.active_account_bans.return_value = {}
     db.get_rank_data.return_value = {'guobiao_rank': '四段', 'guobiao_score': 100}
     db.get_user_sponsor_mcrpl.return_value = {'is_mcrpl_qualified': True}
     db.get_user_settings.return_value = {}

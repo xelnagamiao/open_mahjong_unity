@@ -125,7 +125,7 @@ def test_historical_fan_repair_preserves_replays_values_modes_and_is_idempotent(
 
 def test_failed_historical_repair_rolls_back_all_changes(db):
     gid, record = seed_historical_fans(db)
-    db.sql('UPDATE game_records SET record=NULL WHERE game_id=%s', (gid,))
+    db.sql("UPDATE game_replays SET record=record #- '{tables,main,payload}' WHERE game_id=%s", (gid,))
     result = backfill(db._get_connection(), apply=True)
     assert result['errors'] and not result['applied']
     assert db.sql('SELECT COUNT(fan_stats) FROM game_player_metrics') == [(0,)]

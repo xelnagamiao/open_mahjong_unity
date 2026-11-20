@@ -4,7 +4,7 @@ using UnityEngine.UI;
 /// <summary>A narrow, softly lit cosmetic band around the portrait.</summary>
 [RequireComponent(typeof(CanvasRenderer))]
 public sealed class AvatarFrameGraphic : MaskableGraphic {
-    public const int DefaultItemId = 2201;
+    public const int DefaultItemId = InventoryAppearance.DefaultAvatarFrameId;
     public const int A1ItemId = 2201;
     public const int B1ItemId = 2202;
     private const float Thickness = 3f;

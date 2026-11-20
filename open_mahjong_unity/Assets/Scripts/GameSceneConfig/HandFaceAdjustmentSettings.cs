@@ -22,6 +22,7 @@ public static class HandFaceAdjustmentSettings
         Layouts[pack] = value; return value;
     }
     public static HandSurfaceLibrary.FaceLayout ForTile(int tileId, string pack = null, Vector2? offsetFit = null) {
+        tileId=DuocaiTileVisual.ArtworkFace(tileId);
         if (FixedFacePack.IsFixed(pack)) return TileFaceOffsetSettings.Compose(pack, tileId, false, Get(pack));
         if (pack == null && FixedFacePack.TryResolve(tileId, out var fixedPack, out int key))
             return TileFaceOffsetSettings.Compose(fixedPack, key, false, Get(fixedPack));

@@ -414,10 +414,10 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
     const listRes = await db.query(
       `WITH page AS MATERIALIZED (
          SELECT gr.game_id, gr.created_at
-         FROM game_records gr
+         FROM game_replays gr
          WHERE EXISTS (
-           SELECT 1 FROM game_player_records gpr
-           WHERE gpr.game_id = gr.game_id AND ${whereSql}
+           SELECT 1 FROM game_record_tables t JOIN game_player_records gpr USING(game_id)
+           WHERE t.replay_id = gr.game_id AND ${whereSql}
          )
          ORDER BY gr.created_at DESC, gr.game_id DESC
          LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -432,7 +432,8 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
                 MAX(gpr.match_tier) AS match_tier,
                 MAX(gpr.event_id) AS event_id
          FROM page
-         JOIN game_player_records gpr ON gpr.game_id = page.game_id
+         JOIN game_record_tables t ON t.replay_id=page.game_id
+         JOIN game_player_records gpr ON gpr.game_id=t.game_id
          WHERE ${whereSql}
          GROUP BY page.game_id, page.created_at
        ) x
@@ -444,10 +445,10 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
     const countParams = params.slice(0, -2);
     const countRes = await db.query(
       `SELECT COUNT(*)::int AS cnt
-       FROM game_records gr
+       FROM game_replays gr
        WHERE EXISTS (
-         SELECT 1 FROM game_player_records gpr
-         WHERE gpr.game_id = gr.game_id AND ${whereSql}
+         SELECT 1 FROM game_record_tables t JOIN game_player_records gpr USING(game_id)
+         WHERE t.replay_id = gr.game_id AND ${whereSql}
        )`,
       countParams
     );
@@ -456,10 +457,10 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
     const playersByGame = new Map();
     if (gameIds.length > 0) {
       const playersRes = await db.query(
-        `SELECT game_id, user_id, username, score, rank, pt_change
-         FROM game_player_records
-         WHERE game_id = ANY($1::varchar[])
-         ORDER BY rank`,
+        `SELECT t.replay_id AS game_id,t.table_id,p.user_id,p.username,p.score,p.rank,p.pt_change
+         FROM game_player_records p JOIN game_record_tables t USING(game_id)
+         WHERE t.replay_id = ANY($1::varchar[])
+         ORDER BY t.table_id,rank`,
         [gameIds]
       );
       for (const row of playersRes.rows) {
@@ -496,10 +497,11 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
 async function listPlatformEvents() {
   const result = await pool.query(
     `SELECT e.event_id, e.name, e.status, e.created_at,
-            COUNT(DISTINCT gpr.game_id)::int AS game_count
+            COUNT(DISTINCT t.replay_id)::int AS game_count
      FROM events e
      LEFT JOIN game_player_records gpr
        ON gpr.event_id = e.event_id AND gpr.room_type = 'events'
+     LEFT JOIN game_record_tables t ON t.game_id=gpr.game_id
      GROUP BY e.event_id, e.name, e.status, e.created_at
      ORDER BY
        CASE e.status WHEN 'active' THEN 0 WHEN 'registered' THEN 1 ELSE 2 END,

@@ -193,7 +193,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
   if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
-  if (form.room_rule === 'new_chinese') return `${rule} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'}`
+  if (form.room_rule === 'new_chinese') return `${eventRoomSubRuleLabel(form)} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'}`
   if (form.room_rule === 'beijing') return `${rule} · ${form.game_round}圈 · ${BEIJING_HUN_MODES[form.beijing_hun_mode]} · 庄和连庄`
   if (form.room_rule === 'duocai') return `${rule} · ${duocaiProfile(form.sub_rule)?.label || form.sub_rule} · ${duocaiProfile(form.sub_rule)?.roundLabel || ''} · 起始40000点`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
@@ -216,6 +216,7 @@ const subRuleLabels = {
   'wenzhou/mil2024': '温州 MIL 2024',
   'nanchang/mil2026': '南昌 MIL 2026',
   'shangrao/standard': '上饶麻将',
+  'new_chinese/standard': '新中式麻将',
   'hongque/v1.6': '虹雀² v1.7', 'hongque/w-v1.0': '虹雀 W v1.0',
   'beijing/chipengti': '北京麻将（吃碰提）',
   'duocai/guobiao': '夺彩·国标',
@@ -236,8 +237,8 @@ const subRuleLabels = {
   'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
   ...Object.fromEntries(riichiModes.filter(mode => mode.value !== 'riichi/standard').map(mode => [mode.value, mode.label])),
   'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
-  'sichuan/standard': '四川标准', 'sichuan/xuezhan_exchange': '血战换三张（推广）', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
-  'sichuan/xueliu':'血流成河', 'sichuan/xueliu_exchange':'血流成河（换三张）',
+  'sichuan/standard': '四川标准', 'sichuan/xuezhan_exchange': '血战到底·换三张', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
+  'sichuan/xueliu':'血流成河·弃三张', 'sichuan/xueliu_exchange':'血流成河·换三张',
   'sichuan/doubles_duplicate':'血战双打复式', 'sichuan/xueliu_doubles_duplicate':'血流双打复式',
 }
 

@@ -1,3 +1,4 @@
+const { createReplayTables, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -16,12 +17,12 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
   require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: pool };
   let server;
   try {
+    await createReplayTables(pool);
     await pool.query(`
       CREATE TABLE users(user_id bigint PRIMARY KEY, username text);
       CREATE TABLE user_settings(user_id bigint PRIMARY KEY, title_id int, profile_image_id int, character_id int, voice_id int);
       CREATE TABLE rank_data(user_id bigint, guobiao_rank text, guobiao_score numeric, updated_at timestamp);
       CREATE TABLE rule_ratings(user_id bigint, rule text, rank_name text, rank_score numeric, elo numeric, games int, updated_at timestamp);
-      CREATE TABLE game_records(game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp);
       CREATE TABLE riichi_player_game_stats(game_id text,user_id bigint,version int,stats jsonb);
       CREATE TABLE game_player_records(game_id varchar(16), user_id bigint, username text, score int, rank int,
         pt_change numeric(12,2), rule text, sub_rule text, match_type text, room_type text, match_tier text,
@@ -70,7 +71,7 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
       ['legacy','guobiao','guobiao/standard','match','beginner',null],
     ];
     for (const [id,rule,subRule,room,tier,result] of fixtures) {
-      await pool.query('INSERT INTO game_records VALUES($1,$2,$3)', [id,{game_title:{rating_result:result,duplicate_seed:'SECRET_SEED'},game_round:{tiles_list:['SECRET_WALL']}},'2026-10-04']);
+      await insertReplay(pool, [id,{game_title:{rating_result:result,duplicate_seed:'SECRET_SEED'},game_round:{tiles_list:['SECRET_WALL']}},'2026-10-04']);
       for (let i=0;i<4;i++) await pool.query(`INSERT INTO game_player_records
         (game_id,user_id,username,score,rank,pt_change,rule,sub_rule,match_type,room_type,match_tier)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
@@ -158,7 +159,7 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
       assert.ok(find('custom').every(p=>p.elo_delta===null && p.rating_rule===null));
       assert.equal(find('riichi')[0].score_before,850.5);assert.equal(find('riichi')[0].rank_after,'三段');
       assert.deepEqual(records,(await get('/api/player/records/10000101')).body.data);
-      await pool.query(`UPDATE game_records SET record=jsonb_set(record,'{game_title,rating_result,10000101,rating_rule}','"guobiao"') WHERE game_id='elo'`);
+      await pool.query(`UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,rating_result,10000101,rating_rule}','"guobiao"') WHERE game_id='elo'`);
       const malformed=(await bot('/records/10000101?tier=elo')).body.data.items[0].players[0];
       assert.equal(malformed.rating_rule,null);assert.equal(malformed.elo_delta,null);
     });
@@ -170,8 +171,7 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
         ['sichuan-base','sichuan','sichuan/standard','4/4_rank','match','elo','sichuan',4],
         ['exchange','sichuan','sichuan/xueliu_exchange','4/4_rank','match','elo','sichuan_xueliu_exchange',4],
       ]) {
-        await pool.query('INSERT INTO game_records VALUES($1,$2,$3)',
-          [id,{game_title:{rating_result:makeResult(poolId,rule==='riichi'?'grade':'elo')}},'2026-10-06']);
+        await insertReplay(pool, [id,{game_title:{rating_result:makeResult(poolId,rule==='riichi'?'grade':'elo')}},'2026-10-06']);
         for (let i=0;i<count;i++) await pool.query(`INSERT INTO game_player_records
           (game_id,user_id,username,score,rank,rule,sub_rule,match_type,room_type,match_tier)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,

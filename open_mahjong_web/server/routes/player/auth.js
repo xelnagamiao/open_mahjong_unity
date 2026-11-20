@@ -5,6 +5,7 @@ const pool = require('../../config/database');
 const config = require('../../config/config');
 const { verifyPassword, hashPassword } = require('../../utils/password');
 const { signToken } = require('../../utils/jwt');
+const { loginBanMessage } = require('../../utils/accountBans');
 const { requirePlayer } = require('../../middleware/requirePlayer');
 const { createWindowLimiter, getClientIp } = require('../../middleware/rateLimit');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
@@ -12,7 +13,6 @@ const { sendEmailBindCode, sendPasswordResetCode } = require('../../utils/mailer
 const { createPasswordResetHandlers } = require('../../utils/passwordReset');
 const { findLoginAccount } = require('../../utils/loginAccount');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
-const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 const { recordSuccessfulWebLogin } = require('../../services/loginHistory');
 const { CATALOG_LOCK, RENAME_CARD_COLUMNS, consumeRenameCard } = require('../../services/renameCards');
 
@@ -244,6 +244,8 @@ router.post('/login', async (req, res) => {
     if (!verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
+    const banMessage = loginBanMessage(user);
+    if (banMessage) return res.status(403).json({ success: false, message: banMessage });
 
     const expiresInSec = req.body.keep_logged_in === true
       ? config.playerAuth.rememberJwtExpiresSec
@@ -341,7 +343,6 @@ router.post('/rename', requirePlayer, createWindowLimiter({
       [newName, userId]
     );
     syncedRecordCount = records.rowCount;
-    await rewriteGameRecordSnapshots(client, userId, { newUsername: newName });
     await client.query('COMMIT');
   } catch (err) {
     try {

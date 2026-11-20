@@ -18,6 +18,8 @@ test('home rule statistics keep personal denominators, subrules and every scene 
   try {
     const metricKeys = BASE_KEYS.filter(key => key !== 'total_games');
     await pool.query(`CREATE TEMP TABLE game_records(game_id text PRIMARY KEY,record jsonb DEFAULT '{}');
+      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+
       CREATE TEMP TABLE game_player_records(game_id text,user_id bigint,rule text,sub_rule text,
         room_type text,match_type text,match_tier text,event_id text,rank int,PRIMARY KEY(game_id,user_id));
       CREATE TEMP TABLE riichi_player_game_stats(game_id text,user_id bigint,version int,stats jsonb,PRIMARY KEY(game_id,user_id));

@@ -13,6 +13,7 @@ public partial class ChatManager : MonoBehaviour {
     NetworkManager networkManager;
     WebSocket websocket, authenticatedGameSocket;
     bool isConnecting, loginSent, loginReady, sessionReplaced, heartbeatSupported;
+    bool welcomeShown;
     int desiredRoomId, joinedRoomId, retryAttempt;
     string username, userkey;
     float connectionDeadline, nextReconnect, nextHeartbeat, lastResponse;
@@ -208,8 +209,11 @@ public partial class ChatManager : MonoBehaviour {
                 heartbeatSupported = response.protocolVersion >= 2;
                 nextHeartbeat = lastResponse + HeartbeatInterval;
                 ChatMessageStore.Instance?.ShowChatMessage("LoginTime", 0, DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-                ChatMessageStore.Instance?.ShowChatMessage("serverMessage", 0,
-                    "欢迎使用open_mahjong_unity，在聊天室请友善交流，切勿发送侮辱性用语或非法言论。");
+                if (!welcomeShown && ChatMessageStore.Instance != null) {
+                    welcomeShown = true;
+                    ChatMessageStore.Instance.ShowChatMessage("serverMessage", 0,
+                        "欢迎使用open_mahjong_unity，在聊天室请友善交流，切勿发送侮辱性用语或非法言论。");
+                }
                 SynchronizeRoomChannel();
                 return;
             }
@@ -234,7 +238,8 @@ public partial class ChatManager : MonoBehaviour {
                 if (response.code == "not_joined") RetryConnection(websocket);
                 return;
             }
-            if (loginReady) ChatMessageStore.Instance?.ShowChatMessage(response.responseType, response.roomId, response.content);
+            if (loginReady) ChatMessageStore.Instance?.ShowChatMessage(response.responseType, response.roomId, response.content,
+                response.senderUserId, response.profileImageId);
         } catch (Exception exception) { Debug.LogWarning($"处理聊天消息失败: {exception.Message}"); }
     }
 

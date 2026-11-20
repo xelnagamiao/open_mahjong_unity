@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { createDuplicateDraft, duplicateZoneLimit, flattenDuplicateDraft, validateDuplicateDraft, moveDuplicateTile, splitDuplicateWall, duplicateRoundSeats } from '../src/utils/duplicateWalls.js'
 import { duplicateReplayWall } from '../src/utils/duplicateReplayWall.js'
-import { buildEventRoomCreation, createEventRoomCreationForm } from '../src/utils/eventRoomCreation.js'
+import { buildEventRoomCreation, createEventRoomCreationForm, sharedWallConfirmation } from '../src/utils/eventRoomCreation.js'
 import { clearUnsupportedDuplicateRoom } from '../src/utils/eventRoomSettings.js'
 import { supportsDuplicateKey } from '../src/utils/sichuanDuplicate.js'
 const require = createRequire(import.meta.url)
@@ -74,7 +74,10 @@ test('only paired Sichuan room payloads accept keys; ordinary saved forms discar
     assert.equal(payload.room_config.duplicate_key, form.duplicate_key)
     assert.equal(payload.duplicate_enabled, undefined)
     form.room_count = 3
-    assert.throws(() => buildEventRoomCreation(form), /一组/)
+    const group = buildEventRoomCreation(form)
+    assert.equal(group.room_count, 3)
+    assert.equal(group.room_config.duplicate_key, form.duplicate_key)
+    assert.match(sharedWallConfirmation(group), /相同的密钥/)
   }
   for (const sub_rule of ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles']) {
     const form = createEventRoomCreationForm({ room_rule: 'sichuan', room_config: { sub_rule, duplicate_key: 'dup_'+'a'.repeat(32) } })

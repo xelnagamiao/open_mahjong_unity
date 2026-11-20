@@ -408,13 +408,19 @@ public partial class GameCanvas : MonoBehaviour {
                 scoring = SichuanLobby.IsXueliu(subRule) ? "raw_difference" : "imp",
                 planned_boards = gameRecord.gameRound.rounds.Count,
                 status = "replay",
+                sync_mode = gameRecord.gameTitle.TryGetValue("duplicate_sync_mode", out var mode) && bool.TryParse(mode?.ToString(), out bool sync) ? sync : (bool?)null,
             };
         }
         roundPanel.UpdateRoomInfo(
             gameInfo,
             ruleForPanel,
             CommitmentSaltDisplay.ReadMasterSeedFromGameTitle(gameRecord.gameTitle));
+        var replay = GameRecordManager.Instance;
+        if (replay?.MatchSession != null && !replay.MatchSession.IsLiveSession)
+            UpdateMatchReplayScores(MatchReplayProjection.ScoreAt(replay.MatchSession, currentRoundIndex, replay.currentNode));
     }
+
+    public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => roundPanel?.UpdateMatchReplayScores(scores);
 
     private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {
         if (source == null || !source.TryGetValue(key, out object value) || value == null) {

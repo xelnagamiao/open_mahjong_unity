@@ -245,7 +245,7 @@ function createDuplicateWallService(pool) {
           ids.push(records.open, records.closed);
         }
         if (ids.length) {
-          const records = await client.query('SELECT game_id FROM game_records WHERE game_id = ANY($1::text[])', [ids]);
+          const records = await client.query('SELECT game_id FROM game_record_tables WHERE game_id = ANY($1::text[])', [ids]);
           if (new Set(ids).size !== ids.length || records.rows.length !== ids.length) fail(409, '各组两桌牌谱尚未保存完整，请稍后重试');
         }
       }
@@ -283,23 +283,32 @@ function createDuplicateWallService(pool) {
       `WITH matched_games AS (
         SELECT game_id, ended_at FROM duplicate_games WHERE wall_id = $1
         UNION ALL
-        SELECT gr.game_id, NULL::timestamptz FROM game_records gr
+        SELECT gr.game_id, NULL::timestamptz FROM game_record_metadata gr
         WHERE gr.record #>> '{game_title,duplicate_key}' = $2
           AND NOT EXISTS (SELECT 1 FROM duplicate_games dg WHERE dg.game_id = gr.game_id)
       )
-       SELECT dg.game_id, dg.ended_at, gr.created_at, dw.rule, dw.event_id, e.name AS event_name,
+       SELECT COALESCE(gr.replay_id,dg.game_id) AS game_id, dg.game_id AS source_id, gr.table_id,
+        dg.ended_at, gr.created_at, dw.rule, dw.event_id, e.name AS event_name,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id', p.user_id, 'username', p.username,
           'score', p.score, 'rank', p.rank, 'original_player_index', p.original_player_index) ORDER BY p.original_player_index)
           FROM game_player_records p WHERE p.game_id = dg.game_id), '[]'::jsonb) AS players
        FROM matched_games dg JOIN duplicate_walls dw ON dw.id = $1
        LEFT JOIN events e ON e.event_id = dw.event_id
-       LEFT JOIN game_records gr ON gr.game_id = dg.game_id
+       LEFT JOIN game_record_metadata gr ON gr.game_id = dg.game_id
        ORDER BY dg.ended_at DESC NULLS FIRST, dg.game_id`, [wall.id, wall.key]);
+    const byReplay = new Map();
+    for (const {source_id, table_id, ...game} of games.rows) {
+      const existing = byReplay.get(game.game_id);
+      const players = game.players.map(player => ({ ...player, table_id }));
+      if (existing) existing.players.push(...players);
+      else byReplay.set(game.game_id, { ...game, players });
+    }
     let pairedMatches;
     if (SICHUAN_PAIRED.has(wall.rule)) {
       const pairs = (await pool.query('SELECT id,status,data FROM sichuan_duplicate_matches WHERE wall_id=$1 ORDER BY id', [wall.id])).rows;
       pairedMatches = pairs.filter(pair => pair.status === 'completed').map(pair => ({
-        match_id: pair.id, name: pair.data.lobby?.name || '', room_ids: pair.data.room_ids,
+        match_id: pair.id, game_id: games.rows.find(g => Object.values(pair.data.record_ids || {}).includes(g.source_id))?.game_id,
+        name: pair.data.lobby?.name || '', room_ids: pair.data.room_ids,
         sync_mode: pair.data.sync_mode ?? true,
         status: pair.status, scoring: pair.data.profile.scoring, scores: pair.data.scores,
         small_scores: pair.data.small_scores, imp_scores: pair.data.imp_scores,
@@ -307,7 +316,7 @@ function createDuplicateWallService(pool) {
         boards: pair.data.results, record_ids: pair.data.record_ids,
       }));
     }
-    return { wall: wallDto(wall), games: games.rows, ...(pairedMatches ? { paired_matches: pairedMatches } : {}),
+    return { wall: wallDto(wall), games: [...byReplay.values()], ...(pairedMatches ? { paired_matches: pairedMatches } : {}),
       ...(pairedMatches?.length === 1 ? { paired_match: pairedMatches[0] } : {}) };
   }
   return { create, createBatch, getQuota, mine, manage, publicList, publicDetail };

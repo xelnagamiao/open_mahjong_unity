@@ -7,13 +7,13 @@ const GAME_LABELS = { dongfeng: '东风战', banzhuang: '半庄战', xifeng: '�
 
 function querySql(withMetrics, exclude, filterSubRules) {
   return `WITH players AS (
-      SELECT p.game_id,p.room_type,p.match_type AS mode,
+      SELECT p.game_id,g.replay_id,p.room_type,p.match_type AS mode,
              CASE WHEN p.room_type='match' THEN p.match_tier ELSE NULL END AS match_tier,
              ${statsKeySql(subRuleSql())} AS rule,${subRuleSql()} AS sub_rule,p.rank,
              ${withMetrics ? 'm.game_id IS NOT NULL' : 'FALSE'} AS has_metrics,
              ${withMetrics ? 'm.total_rounds' : 'NULL::int AS total_rounds'},
              ${METRIC_KEYS.map(key => withMetrics ? `m.${key}` : `NULL::int AS ${key}`).join(',')}
-      FROM game_player_records p JOIN game_records g USING(game_id)
+      FROM game_player_records p JOIN game_record_metadata g USING(game_id)
       ${withMetrics ? `LEFT JOIN (SELECT DISTINCT ON (game_id,user_id) * FROM game_player_metrics
         WHERE ${exclude ? 'NOT (rule=ANY($1::text[]))' : 'rule=ANY($1::text[])'} ORDER BY game_id,user_id,id DESC) m
         ON m.game_id=p.game_id AND m.user_id=p.user_id AND m.rule=p.rule` : ''}
@@ -21,13 +21,13 @@ function querySql(withMetrics, exclude, filterSubRules) {
         ${filterSubRules ? 'AND p.sub_rule=ANY($2::text[])' : ''}
         AND p.room_type IN ('match','custom','events')
     ), games AS (
-      SELECT game_id,rule,sub_rule,room_type,mode,match_tier,MAX(total_rounds) AS total_rounds,
+      SELECT replay_id,game_id,rule,sub_rule,room_type,mode,match_tier,MAX(total_rounds) AS total_rounds,
              COUNT(*)::int AS player_game_count,BOOL_AND(has_metrics) AS details_available,
              ${METRIC_KEYS.map(key => `COALESCE(SUM(${key}),0) AS ${key}`).join(',')},
              ${RANK_KEYS.map((key, i) => `COUNT(*) FILTER (WHERE rank=${i + 1}) AS ${key}`).join(',')}
-      FROM players WHERE rule IS NOT NULL GROUP BY game_id,rule,sub_rule,room_type,mode,match_tier
+      FROM players WHERE rule IS NOT NULL GROUP BY replay_id,game_id,rule,sub_rule,room_type,mode,match_tier
     )
-    SELECT rule,sub_rule,room_type,mode,match_tier,COUNT(*)::int AS total_games,
+    SELECT rule,sub_rule,room_type,mode,match_tier,COUNT(DISTINCT replay_id)::int AS total_games,
            COALESCE(SUM(total_rounds),0) AS total_rounds,SUM(player_game_count) AS player_game_count,
            BOOL_AND(details_available) AS details_available,
            ${[...METRIC_KEYS, ...RANK_KEYS].map(key => `SUM(${key}) AS ${key}`).join(',')}

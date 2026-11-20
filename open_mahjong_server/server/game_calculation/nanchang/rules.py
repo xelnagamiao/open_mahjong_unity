@@ -156,16 +156,32 @@ def is_complete(hand, melds=(), **kwargs):
 
 
 def is_jingdiao(hand, melds=(), *, indicator):
+    return bool(jingdiao_shapes(hand, melds, indicator=indicator))
+
+
+def jingdiao_shapes(hand, melds=(), *, indicator, natural=False, winning_tile=None):
+    """Shapes sharing a reserved jing + drawn tile pair (platform ruling).
+
+    Consider every possible reserved physical jing, not a single greedy choice.
+    Natural scoring also requires that pair and all remaining groups be literal.
+    """
     if not valid_hand(hand, melds, complete=False):
-        return False
+        return set()
     jing = jing_tiles(indicator)
+    result = set()
     for tile in set(hand) & set(jing):
+        if natural and tile != winning_tile:
+            continue
         remaining = list(hand)
         remaining.remove(tile)
-        counts, wild = _counts(remaining, jing)
-        if _groups(counts, wild, 4-len(melds), False) or (not melds and _pairs(counts, wild, 6)):
-            return True
-    return False
+        counts, wild = _counts(remaining, () if natural else jing)
+        if _groups(counts, wild, 4-len(melds), False):
+            result.add("standard")
+        if all(len(set(meld_tiles(m))) == 1 for m in melds) and _groups(counts, wild, 4-len(melds), False, True):
+            result.add("all_triplets")
+        if not melds and _pairs(counts, wild, 6):
+            result.add("seven_pairs")
+    return result
 
 
 @lru_cache(maxsize=4096)
@@ -230,6 +246,9 @@ def score_hand(hand, melds=(), *, indicator, winning_tile=None, self_draw=True,
     jingdiao = declared_jingdiao and self_draw and is_jingdiao(before, melds, indicator=indicator)
     if jingdiao:
         common["精吊"] = 1
+        wild_shapes = jingdiao_shapes(before, melds, indicator=indicator)
+        naturals = jingdiao_shapes(before, melds, indicator=indicator, natural=True,
+                                   winning_tile=winning_tile)
     candidates = []
     for shape in sorted(wild_shapes):
         fans, german = dict(common), 0

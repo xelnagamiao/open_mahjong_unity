@@ -112,7 +112,7 @@
         },
         {
           "sub_rule": "sichuan/xuezhan_exchange",
-          "label": "血战换三张（推广）"
+          "label": "血战到底·换三张"
         },
         {
           "sub_rule": "sichuan/xueliu",
@@ -470,11 +470,11 @@
     },
     {
       "rule": "new_chinese",
-      "label": "新中式",
+      "label": "自定义规则",
       "subRules": [
         {
           "sub_rule": "new_chinese/standard",
-          "label": "标准规则"
+          "label": "新中式麻将"
         }
       ]
     }

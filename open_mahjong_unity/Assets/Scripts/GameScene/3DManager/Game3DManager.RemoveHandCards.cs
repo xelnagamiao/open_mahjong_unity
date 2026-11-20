@@ -9,6 +9,10 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 移除3D手牌显示；skipRearrange 为 true 时仅删牌，收拢由调用方在出牌等操作完成后再执行
     private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition, int[] duocaiPostBacks = null) {
+        if(TryRemoveDuocaiDeclaredHand(cardPosition,removeCount,discardTileId,playerPosition)) {
+            if(!skipRearrange)yield return Rearrange3DCardsWithAnimation(cardPosition);
+            yield break;
+        }
         if (IsSelfCardsPosition(cardPosition)) {
             yield return RemoveSelfHandCardsCoroutine(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf, skipRearrange, playerPosition);
             yield break;
@@ -122,6 +126,10 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition) {
+        if(TryRemoveDuocaiDeclaredHand(cardPosition,removeCount,discardTileId,playerPosition)) {
+            if(!skipRearrange)yield return Rearrange3DCardsWithAnimation(cardPosition);
+            yield break;
+        }
         // 正常行牌自家由 2D 手牌展示，3D 容器为空是预期状态。
         if (cardPosition == null || cardPosition.childCount == 0) yield break;
         if (removeCount > 1 && combinationMaskForSelf != null) {

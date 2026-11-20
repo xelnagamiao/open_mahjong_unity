@@ -27,7 +27,10 @@ export function duplicateRoundSeats(round = 1, layout = 'standard') {
 
 export function duplicateRoundLabel(round, layout = 'standard') {
   if (layout === 'xueliu' || layout === 'sbr') return `第 ${round} 副`
-  return `${['东', '南', '西', '北'][Math.floor((round - 1) / 4)]}${['一', '二', '三', '四'][(round - 1) % 4]}局`
+  const number = Number(round)
+  if (!Number.isInteger(number) || number < 1 || number > 16) return `第${round}局`
+  const winds = ['东', '南', '西', '北']
+  return `${winds[Math.floor((number - 1) / 4)]}风${winds[(number - 1) % 4]}`
 }
 
 export function isDuplicateWallRule(rule) {
@@ -46,6 +49,10 @@ export function duplicateRoomLabel(room = {}) {
 }
 
 export function isDuplicateGameRecord(detail) {
+  const body = detail?.record ?? detail
+  if (body?.format === 'open_mahjong.match_record') {
+    return Object.values(body.tables || {}).some(table => table.payload && isDuplicateGameRecord(table.payload))
+  }
   const title = detail?.record?.game_title || detail?.game_title || {}
   return [detail, title].some(value => value && (value.is_duplicate === true || Boolean(value.duplicate_key) || Boolean(value.duplicate_wall_type) || Boolean(value.duplicate_wall_id)))
 }
@@ -153,7 +160,7 @@ export function duplicatePublicGroups(detail) {
     const records = games.filter(game => {
       const belongs = game.match_id != null && match.match_id != null
         ? String(game.match_id) === String(match.match_id)
-        : recordIds.has(String(game.game_id))
+        : game.game_id === match.game_id || recordIds.has(String(game.game_id))
       if (belongs) assigned.add(game)
       return belongs
     })

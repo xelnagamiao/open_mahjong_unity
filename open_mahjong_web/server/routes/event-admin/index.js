@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireEventAdmin, requireEventMembership } = require('../../middleware/requireEventAdmin');
 const { createWindowLimiter } = require('../../middleware/rateLimit');
+const { requireActiveAdminAccount } = require('../../middleware/requireActiveAdminAccount');
 
 const authRoutes = require('./auth');
 const eventsRoutes = require('./events');
@@ -27,7 +28,7 @@ router.use(eventAdminLimiter);
 router.use('/auth', authRoutes);
 
 // 以下均需赛事主/子管理员 JWT
-router.use(requireEventAdmin);
+router.use(requireEventAdmin, requireActiveAdminAccount);
 router.use('/events', eventsRoutes);
 router.use('/events/:eventId', roomSettingsRoutes);
 router.use('/events/:eventId', eventExtrasRoutes);

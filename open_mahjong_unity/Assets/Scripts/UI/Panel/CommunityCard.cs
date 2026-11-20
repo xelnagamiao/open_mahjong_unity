@@ -37,10 +37,10 @@ namespace Salasasa.Community {
         void Awake(){action.onClick.AddListener(Activate);}
         void OnDestroy(){if(action)action.onClick.RemoveListener(Activate);}
         public void Activate(){if(Entry==null)return;RefreshAvailability();if(!Entry.Available)return;
-            if(Entry.joinMode=="number"){GUIUtility.systemCopyBuffer=Entry.number;NotificationManager.Instance.ShowTip("System",true,"已复制群号");}
+            if(Entry.joinMode=="number"){ClipboardUtility.CopyAndNotify(Entry.number,"System","已复制群号");}
             else if(Entry.joinMode=="qr")owner.qrDialog.Open(Entry,owner.contentClient);
             else if(Entry.joinMode=="link"&&CommunityEntry.SafeLink(Entry.linkUrl)){
-                if(Entry.kind=="discord"){GUIUtility.systemCopyBuffer=Entry.linkUrl;NotificationManager.Instance.ShowTip("System",true,"已复制邀请链接");return;}
+                if(Entry.kind=="discord"){ClipboardUtility.CopyAndNotify(Entry.linkUrl,"System","已复制邀请链接");return;}
                 string url=Entry.linkUrl;NotificationManager.Instance.ShowConfirmation("前往社群","即将打开外部社群页面，是否继续？",()=>{if(Entry.Available&&Entry.linkUrl==url)Application.OpenURL(url);});
             }
         }

@@ -21,7 +21,7 @@
       <transition name="fade-slide" mode="out-in">
         <section :key="active.key" class="rule-section">
           <div class="rule-intro">
-            <h2>{{ active.label }}</h2>
+            <h2>{{ active.subRuleLabel || active.label }}</h2>
             <p v-if="activeDescription && active.key !== 'shangrao'">{{ activeDescription }}</p>
           </div>
 
@@ -204,7 +204,7 @@ const rules = [
   {
     key: 'sichuan',
     label: '四川麻将',
-    description: '四川麻将包含标准血战到底、血战换三张（推广）及血流成河玩法。',
+    description: '四川麻将包含标准血战到底、血战到底·换三张及血流成河玩法。',
 
     docs: [
       {
@@ -215,7 +215,7 @@ const rules = [
       },
       {
         subRule: 'sichuan/xuezhan_exchange',
-        title: '血战换三张（推广）竞赛规则（试行2026版）',
+        title: '血战到底·换三张（MIL 2026）',
         desc: '使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。',
         url: '/rulebooks/sbr-exchange-2026.pdf',
         filename: '血战换三张（推广）竞赛规则（试行2026版）.pdf'
@@ -397,7 +397,7 @@ const rules = [
     key: 'duocai', label: '夺彩麻将', short: '夺彩', categories: ['platform', 'custom'], accent: '#8b6b32',
     description: DUOCAI_DESCRIPTION, docs: duocaiRulebooks,
   },
-  { key: 'new_chinese', label: '新中式麻将', short: '新中式', categories: ['platform', 'custom'], accent: '#7b5340', description: NEW_CHINESE_DESCRIPTION, docs: newChineseRulebooks },
+  { key: 'custom', label: '自定义规则', short: '自定义', subRuleLabel: '新中式麻将', categories: ['platform', 'custom'], accent: '#7b5340', description: NEW_CHINESE_DESCRIPTION, docs: newChineseRulebooks },
   {
     key: 'beijing', label: '北京麻将（吃碰提）', short: '北京', categories: ['platform', 'local'], accent: '#925a46', description: BEIJING_DESCRIPTION, docs: beijingRulebooks,
   },

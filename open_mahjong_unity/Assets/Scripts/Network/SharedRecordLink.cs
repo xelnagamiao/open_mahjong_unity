@@ -21,6 +21,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
         new Regex(@"(?:(?:^|/)2d/record/|[?&]recordId=|salasasa://record/)([0-9A-Za-z]{1,16})(?=[/?#&]|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static SharedRecordLink _instance;
+    private static bool canonicalCursor;
+    public static string PendingTable { get; private set; }
     private static int? _pendingRound;
     private static int? _pendingNode;
     private static int? _pendingPlayer;
@@ -139,6 +141,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
     }
 
     public static void ClearPendingJump() {
+        canonicalCursor = false;
+        PendingTable = null;
         _pendingRound = null;
         _pendingNode = null;
         _pendingPlayer = null;
@@ -146,19 +150,22 @@ public sealed class SharedRecordLink : MonoBehaviour {
     }
 
     public static void ApplyPendingJumpIfAny() {
-        if (!_pendingRound.HasValue && !_pendingNode.HasValue && !_pendingPlayer.HasValue && !_pendingPlayerIndex.HasValue) return;
+        if (PendingTable == null && !_pendingRound.HasValue && !_pendingNode.HasValue && !_pendingPlayer.HasValue && !_pendingPlayerIndex.HasValue) return;
         var manager = GameRecordManager.Instance;
         if (manager == null) return;
         int round = _pendingRound ?? 1;
         int node = _pendingNode ?? 0;
         int? player = _pendingPlayer;
         int? playerIndex = _pendingPlayerIndex;
+        int target = !canonicalCursor && PendingTable == null ? manager.MapLegacyMatchNode(round, node) : node;
         ClearPendingJump();
-        manager.JumpToSharePosition(round, node);
+        manager.JumpToSharePosition(round, target);
         manager.SwitchRecordPerspectiveFromShare(player, playerIndex);
     }
 
     private static void ParsePositionQuery(string text, out int? round, out int? node, out int? player, out int? playerIndex) {
+        canonicalCursor = false;
+        PendingTable = null;
         round = null;
         node = null;
         player = null;
@@ -174,6 +181,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
             string raw = separator >= 0 ? pair.Substring(separator + 1) : "";
             name = Uri.UnescapeDataString(name);
             raw = Uri.UnescapeDataString(raw.Replace("+", " "));
+            if (name == "cursor" && raw == "v2") canonicalCursor = true;
+            if (name == "table" && (raw == "main" || raw == "open" || raw == "closed")) PendingTable = raw;
             if (!int.TryParse(raw, out int parsed)) continue;
             if (name.Equals("round", StringComparison.OrdinalIgnoreCase) && parsed >= 1) round = parsed;
             else if (name.Equals("node", StringComparison.OrdinalIgnoreCase) && parsed >= 0) node = parsed;
@@ -213,10 +222,14 @@ public sealed class SharedRecordLink : MonoBehaviour {
             yield break;
         }
 
-        string apiRoot = string.IsNullOrEmpty(ConfigManager.webApiUrl)
-            ? ""
-            : ConfigManager.webApiUrl.TrimEnd('/');
-        string endpoint = $"{apiRoot}{ConfigManager.PlatformUnityRecordPath}{UnityWebRequest.EscapeURL(gameId)}";
+        string apiRoot = ConfigManager.webApiUrl?.TrimEnd('/') ?? "";
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // The site serves /api on the same origin as its player, including Vite's local proxy.
+        if (Uri.TryCreate(Application.absoluteURL, UriKind.Absolute, out var page) &&
+            (page.Scheme == Uri.UriSchemeHttp || page.Scheme == Uri.UriSchemeHttps))
+            apiRoot = page.GetLeftPart(UriPartial.Authority);
+#endif
+        string endpoint = $"{apiRoot}{ConfigManager.PlatformRecordPath}{UnityWebRequest.EscapeURL(gameId)}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint)) {
             request.timeout = 20;
@@ -231,7 +244,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
             RecordDetail detail;
             try {
-                JObject envelope = JObject.Parse(request.downloadHandler.text);
+                JObject envelope = MatchRecordCodec.Parse(request.downloadHandler.text);
                 if (envelope.Value<bool?>("success") != true || envelope["data"] == null) {
                     throw new InvalidOperationException(
                         envelope.Value<string>("message") ?? "牌谱接口返回了无效数据"
@@ -294,10 +307,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
         RecordDetail detail;
         try {
             string json = Encoding.UTF8.GetString(_localConvertedBytes);
-            detail = JObject.Parse(json).ToObject<RecordDetail>();
-            if (detail == null || detail.record == null) {
-                throw new InvalidOperationException("本地牌谱数据无效");
-            }
+            detail = ReadLocalConverted(json);
         } catch (Exception e) {
             ClearPendingJump();
             Debug.LogError($"解析本地转换牌谱失败: {e}");
@@ -339,6 +349,20 @@ public sealed class SharedRecordLink : MonoBehaviour {
         } finally {
             _localConvertedReady = true;
         }
+    }
+
+    internal static RecordDetail ReadLocalConverted(string json) {
+        var detail = MatchRecordCodec.Parse(json).ToObject<RecordDetail>();
+        if (detail?.record == null) throw new InvalidOperationException("本地牌谱数据无效");
+        detail.game_id = LocalConvertedGameId;
+        detail.cloud_saved = false;
+        if (!MatchRecordCodec.IsUnified(detail.record)) {
+            var players = detail.players == null ? new JArray() : JArray.FromObject(detail.players);
+            detail.record = DeviceRecordMigration.ConvertSingle(LocalConvertedGameId, detail.record, players);
+            detail.legacy_cursor_map = DeviceRecordMigration.Alias(LocalConvertedGameId, "main", (JObject)detail.record["tables"]["main"]);
+            detail.selected_table_id = "main";
+        }
+        return detail;
     }
 
     private IEnumerator PlayPublicRecord(RecordDetail detail, bool localPlayback = false) {

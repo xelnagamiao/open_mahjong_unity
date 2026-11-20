@@ -2,6 +2,8 @@
 数据库管理类
 用于管理 PostgreSQL 数据库连接和操作
 """
+from .inventory_assets import DEFAULT_AVATAR_FRAME_ID
+
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
@@ -94,19 +96,13 @@ class DatabaseManager:
             from .duplicate_walls import ensure_duplicate_tables
             ensure_duplicate_tables(cursor)
 
-            # 创建表 game_records（如果不存在）
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS game_records (
-                    game_id VARCHAR(16) PRIMARY KEY,
-                    record JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
+            from ..records.store import ensure_tables as ensure_replay_tables
+            ensure_replay_tables(cursor)
 
             # 创建表 game_player_records（如果不存在）；记录字段使用 match_type，与 get_record_list 一致
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
-                    game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
+                    game_id VARCHAR(16) NOT NULL REFERENCES game_record_tables(game_id) ON DELETE CASCADE,
                     user_id BIGINT NOT NULL,
                     username VARCHAR(255) NOT NULL,
                     score INT NOT NULL,
@@ -607,6 +603,10 @@ class DatabaseManager:
                     else:
                         raise
 
+            cursor.execute("""CREATE INDEX IF NOT EXISTS idx_users_account_bans
+                              ON users (ban_type, ban_expires_at, user_id)
+                              WHERE ban_type IS NOT NULL""")
+
             # 创建通用段位数据表 rank_data
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS rank_data (
@@ -973,6 +973,10 @@ class DatabaseManager:
                 );
             """)
             self._ddl_ignore(
+                cursor, "sp_events_team_icon",
+                "ALTER TABLE events ADD COLUMN IF NOT EXISTS team_icon_url TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
                 cursor, "sp_events_description",
                 "ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT '';",
             )
@@ -1085,6 +1089,10 @@ class DatabaseManager:
                 "ALTER TABLE event_applications ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';",
             )
             self._ddl_ignore(
+                cursor, "sp_event_app_team_icon",
+                "ALTER TABLE event_applications ADD COLUMN IF NOT EXISTS team_icon_url TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
                 cursor, "sp_event_app_description",
                 "ALTER TABLE event_applications ADD COLUMN description TEXT NOT NULL DEFAULT '';",
             )
@@ -1185,6 +1193,7 @@ class DatabaseManager:
             ensure_schema(cursor)
             from .statistics_schema import ensure_statistics_schema
             ensure_statistics_schema(cursor)
+            cursor.execute(Path(__file__).with_name('application_mail.sql').read_text(encoding='utf-8'))
             cursor.execute(Path(__file__).with_name('record_indexes.sql').read_text(encoding='utf-8'))
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -1529,6 +1538,37 @@ class DatabaseManager:
         )
         return f"{salt.hex()}:{pwd_hash.hex()}"
     
+    def active_account_bans(self, user_ids, ban_types):
+        """Read current restrictions for a group in one query, including permanent bans."""
+        if not user_ids:
+            return {}
+        conn = self._get_connection()
+        try:
+            with conn, conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT user_id, ban_type, ban_expires_at, ban_reason FROM users
+                    WHERE user_id = ANY(%s) AND ban_type = ANY(%s)
+                      AND (ban_expires_at IS NULL OR ban_expires_at > LOCALTIMESTAMP)
+                """, (list(user_ids), list(ban_types)))
+                return {row['user_id']: dict(row) for row in cursor.fetchall()}
+        finally:
+            self._put_connection(conn)
+
+    def chat_account_access(self, username, user_id):
+        # Resolve the legacy name-based credential once, then follow the immutable UID.
+        column, value = ('user_id', user_id) if user_id else ('username', username)
+        conn = self._get_connection()
+        try:
+            with conn, conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(f"""SELECT u.user_id, COALESCE(s.profile_image_id, 1) AS profile_image_id,
+                                   CASE WHEN u.ban_expires_at IS NULL OR u.ban_expires_at > LOCALTIMESTAMP
+                                   THEN u.ban_type END AS active_ban FROM users u
+                                   LEFT JOIN user_settings s ON s.user_id = u.user_id
+                                   WHERE u.{column} = %s""", (value,))
+                return cursor.fetchone()
+        finally:
+            self._put_connection(conn)
+
     @staticmethod
     def format_ban_expires_at(expires_at: Optional[datetime]) -> str:
         """将封禁到期时间格式化为展示用字符串。"""
@@ -1539,36 +1579,16 @@ class DatabaseManager:
                 expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             except ValueError:
                 return expires_at
-        if expires_at.year >= 2099:
-            return '永久'
         if expires_at.tzinfo is not None:
             local = expires_at.astimezone()
         else:
             local = expires_at
         return local.strftime('%Y-%m-%d %H:%M:%S')
 
-    @staticmethod
-    def is_login_ban_active(user: Dict[str, Any], now: Optional[datetime] = None) -> bool:
+    @classmethod
+    def is_login_ban_active(cls, user: Dict[str, Any], now: Optional[datetime] = None) -> bool:
         """判断用户当前是否处于禁止登录的封禁状态。"""
-        ban_type = user.get('ban_type')
-        if not ban_type or ban_type not in LOGIN_BAN_TYPES:
-            return False
-        ban_expires_at = user.get('ban_expires_at')
-        if ban_expires_at is None:
-            return True
-        if now is None:
-            now = datetime.now(timezone.utc) if getattr(ban_expires_at, 'tzinfo', None) else datetime.now()
-        if isinstance(ban_expires_at, str):
-            try:
-                ban_expires_at = datetime.fromisoformat(ban_expires_at.replace('Z', '+00:00'))
-            except ValueError:
-                return True
-        expires = ban_expires_at
-        if getattr(expires, 'tzinfo', None) is not None and now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-        elif getattr(expires, 'tzinfo', None) is None and now.tzinfo is not None:
-            expires = expires.replace(tzinfo=now.tzinfo)
-        return expires > now
+        return user.get('ban_type') in LOGIN_BAN_TYPES and not cls.is_ban_expired(user.get('ban_expires_at'), now)
 
     @classmethod
     def build_login_ban_message(cls, user: Dict[str, Any]) -> str:
@@ -1590,14 +1610,14 @@ class DatabaseManager:
         """封禁是否已过期（ban_expires_at 为 NULL 表示永久有效）。"""
         if ban_expires_at is None:
             return False
-        if now is None:
-            now = datetime.now(timezone.utc) if getattr(ban_expires_at, 'tzinfo', None) else datetime.now()
         if isinstance(ban_expires_at, str):
             try:
                 ban_expires_at = datetime.fromisoformat(ban_expires_at.replace('Z', '+00:00'))
             except ValueError:
                 return False
         expires = ban_expires_at
+        if now is None:
+            now = datetime.now(expires.tzinfo)
         if getattr(expires, 'tzinfo', None) is not None and now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
         elif getattr(expires, 'tzinfo', None) is None and now.tzinfo is not None:
@@ -1777,123 +1797,8 @@ class DatabaseManager:
         offset: int = 0,
         favorites_only: bool = False,
     ) -> List[Dict[str, Any]]:
-        """
-        获取指定用户的最近 N 局游戏记录元数据（不含完整牌谱），按 created_at 倒序分页。
-        
-        Args:
-            user_id: 用户ID
-            limit: 返回游戏数量限制，默认20
-            offset: 跳过的局数，用于滚动加载更多
-            favorites_only: 为 True 时仅返回已收藏牌谱
-        
-        Returns:
-            游戏记录列表，每个记录包含：
-            - game_id: 游戏ID（字符串）
-            - rule: 规则类型
-            - created_at: 创建时间
-            - players: 该游戏的4个玩家信息列表（按排名排序）
-        """
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-
-            favorite_filter = " AND gpr.is_favorite = TRUE" if favorites_only else ""
-            cursor.execute(f"""
-                SELECT gpr.game_id, gr.created_at, gpr.is_favorite, gpr.note
-                FROM game_player_records gpr
-                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
-                WHERE gpr.user_id = %s{favorite_filter}
-                ORDER BY gr.created_at DESC, gpr.game_id DESC
-                LIMIT %s OFFSET %s
-            """, (user_id, limit, offset))
-            
-            id_rows = cursor.fetchall()
-            if not id_rows:
-                logger.info(f'用户 {user_id} 在 offset={offset} 处没有更多游戏记录')
-                return []
-            
-            game_ids = [row['game_id'] for row in id_rows]
-            self_meta = {
-                row['game_id']: {
-                    'is_favorite': bool(row.get('is_favorite')),
-                    'note': row.get('note') or '',
-                }
-                for row in id_rows
-            }
-            
-            placeholders = ','.join(['%s'] * len(game_ids))
-            cursor.execute(f"""
-                SELECT 
-                    gpr.game_id,
-                    gpr.user_id,
-                    gpr.username,
-                    gpr.score,
-                    gpr.rank,
-                    gpr.original_player_index,
-                    gpr.rule,
-                    gpr.sub_rule,
-                    gpr.match_type,
-                    gpr.room_type,
-                    gpr.title_used,
-                    gpr.character_used,
-                    gpr.profile_used,
-                    gpr.avatar_frame_used,
-                    gpr.voice_used,
-                    gr.created_at
-                FROM game_player_records gpr
-                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
-                WHERE gpr.game_id IN ({placeholders})
-                ORDER BY gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
-            """, game_ids)
-            
-            games_dict = {}
-            
-            for row in cursor.fetchall():
-                game_id = row['game_id']
-                
-                if game_id not in games_dict:
-                    meta = self_meta.get(game_id, {})
-                    games_dict[game_id] = {
-                        'game_id': game_id,
-                        'created_at': str(row['created_at']),
-                        'rule': row['rule'],
-                        'sub_rule': row.get('sub_rule'),
-                        'match_type': row.get('match_type'),
-                        'room_type': row.get('room_type'),
-                        'is_favorite': meta.get('is_favorite', False),
-                        'note': meta.get('note', ''),
-                        'players': []
-                    }
-                
-                games_dict[game_id]['players'].append({
-                    'user_id': row['user_id'],
-                    'username': row['username'],
-                    'score': row['score'],
-                    'rank': row['rank'],
-                    'original_player_index': row.get('original_player_index'),
-                    'title_used': row.get('title_used'),
-                    'character_used': row.get('character_used'),
-                    'profile_used': row.get('profile_used'),
-                    'avatar_frame_used': row.get('avatar_frame_used',0),
-                    'voice_used': row.get('voice_used')
-                })
-            
-            records = [games_dict[gid] for gid in game_ids if gid in games_dict]
-            
-            logger.info(
-                f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据 '
-                f'(offset={offset}, limit={limit}, favorites_only={favorites_only})'
-            )
-            return records
-            
-        except Error as e:
-            logger.error(f'获取游戏记录列表失败: {e}', exc_info=True)
-            return []
-        finally:
-            if conn:
-                cursor.close()
-                self._put_connection(conn)
+        from ..records.store import list_replays
+        return list_replays(self, user_id=user_id, limit=limit, offset=offset, favorites_only=favorites_only)
 
     MAX_RECORD_FAVORITES = 50
     MAX_RECORD_NOTE_LENGTH = 200
@@ -1912,35 +1817,34 @@ class DatabaseManager:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-            cursor.execute(
-                """
-                SELECT is_favorite FROM game_player_records
-                WHERE game_id = %s AND user_id = %s
-                """,
-                (game_id, user_id),
-            )
+            # Concurrent favorites on different games must observe the per-user cap.
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                           ("replay-favorite:" + str(user_id),))
+            cursor.execute("""
+                SELECT bool_or(COALESCE(is_favorite,FALSE)) AS current,
+                       bool_and(COALESCE(is_favorite,FALSE) = %s) AS already_set
+                FROM game_player_records
+                WHERE game_id IN (SELECT game_id FROM game_record_tables WHERE replay_id =
+                      COALESCE((SELECT replay_id FROM game_record_tables WHERE game_id=%s), %s)) AND user_id=%s
+                """, (bool(is_favorite), game_id, game_id, user_id))
             row = cursor.fetchone()
-            if not row:
+            if row["current"] is None:
+                conn.commit()
                 return {"success": False, "message": "未找到该牌谱记录", "is_favorite": False}
-
-            current = bool(row.get("is_favorite"))
-            if current == bool(is_favorite):
-                return {
-                    "success": True,
-                    "message": "收藏状态未变化",
-                    "is_favorite": current,
-                }
-
-            if is_favorite:
+            if row["already_set"]:
+                conn.commit()
+                return {"success": True, "message": "收藏状态未变化", "is_favorite": bool(is_favorite)}
+            if is_favorite and not row["current"]:
                 cursor.execute(
                     """
-                    SELECT COUNT(*) AS cnt FROM game_player_records
+                    SELECT COUNT(DISTINCT t.replay_id) AS cnt FROM game_player_records JOIN game_record_tables t USING(game_id)
                     WHERE user_id = %s AND is_favorite = TRUE
                     """,
                     (user_id,),
                 )
                 cnt = int(cursor.fetchone()["cnt"])
                 if cnt >= self.MAX_RECORD_FAVORITES:
+                    conn.commit()
                     return {
                         "success": False,
                         "message": f"收藏已达上限（{self.MAX_RECORD_FAVORITES}）",
@@ -1951,9 +1855,10 @@ class DatabaseManager:
                 """
                 UPDATE game_player_records
                 SET is_favorite = %s
-                WHERE game_id = %s AND user_id = %s
+                WHERE game_id IN (SELECT game_id FROM game_record_tables WHERE replay_id =
+                      COALESCE((SELECT replay_id FROM game_record_tables WHERE game_id=%s), %s)) AND user_id = %s
                 """,
-                (bool(is_favorite), game_id, user_id),
+                (bool(is_favorite), game_id, game_id, user_id),
             )
             conn.commit()
             return {
@@ -1997,9 +1902,10 @@ class DatabaseManager:
             cursor.execute(
                 """
                 SELECT 1 FROM game_player_records
-                WHERE game_id = %s AND user_id = %s
+                WHERE game_id IN (SELECT game_id FROM game_record_tables WHERE replay_id =
+                      COALESCE((SELECT replay_id FROM game_record_tables WHERE game_id=%s), %s)) AND user_id = %s
                 """,
-                (game_id, user_id),
+                (game_id, game_id, user_id),
             )
             if not cursor.fetchone():
                 return {"success": False, "message": "未找到该牌谱记录", "note": ""}
@@ -2008,9 +1914,10 @@ class DatabaseManager:
                 """
                 UPDATE game_player_records
                 SET note = %s
-                WHERE game_id = %s AND user_id = %s
+                WHERE game_id IN (SELECT game_id FROM game_record_tables WHERE replay_id =
+                      COALESCE((SELECT replay_id FROM game_record_tables WHERE game_id=%s), %s)) AND user_id = %s
                 """,
-                (note_text, game_id, user_id),
+                (note_text, game_id, game_id, user_id),
             )
             conn.commit()
             return {
@@ -2029,91 +1936,9 @@ class DatabaseManager:
                 self._put_connection(conn)
     
     def get_record_by_id(self, game_id: str) -> Optional[Dict[str, Any]]:
-        """
-        根据 game_id 获取完整牌谱记录和玩家信息
-        
-        Args:
-            game_id: 游戏ID（字符串）
-        
-        Returns:
-            包含完整牌谱和玩家信息的字典，找不到返回 None
+        from ..records.store import read_record
+        return read_record(self, game_id.strip())
 
-        Raises:
-            DuplicateRecordLockedError: 牌谱存在，但复式密钥尚未解禁。
-        """
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            cursor.execute("""
-                SELECT game_id, record, created_at
-                FROM game_records
-                WHERE game_id = %s
-            """, (game_id.strip(),))
-            
-            game_row = cursor.fetchone()
-            if not game_row:
-                return None
-            
-            record_data = game_row['record']
-            if isinstance(record_data, str):
-                record_data = json.loads(record_data)
-
-            from .duplicate_walls import DuplicateRecordLockedError, duplicate_record_is_visible
-            if not duplicate_record_is_visible(self, record_data, game_id.strip()):
-                raise DuplicateRecordLockedError()
-            game_title = record_data.get('game_title') or {}
-            rule = game_title.get('rule')
-            sub_rule = game_title.get('sub_rule')
-            room_type = game_title.get('room_type')
-            
-            cursor.execute("""
-                SELECT user_id, username, score, rank, original_player_index, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used, avatar_frame_used
-                FROM game_player_records
-                WHERE game_id = %s
-                ORDER BY rank, original_player_index NULLS LAST, score DESC
-            """, (game_id.strip(),))
-            
-            players = []
-            for row in cursor.fetchall():
-                if rule is None:
-                    rule = row['rule']
-                if sub_rule is None:
-                    sub_rule = row.get('sub_rule')
-                if room_type is None:
-                    room_type = row.get('room_type')
-                players.append({
-                    'user_id': row['user_id'],
-                    'username': row['username'],
-                    'score': row['score'],
-                    'rank': row['rank'],
-                    'original_player_index': row.get('original_player_index'),
-                    'title_used': row.get('title_used'),
-                    'character_used': row.get('character_used'),
-                    'profile_used': row.get('profile_used'),
-                    'avatar_frame_used': row.get('avatar_frame_used',0),
-                    'voice_used': row.get('voice_used')
-                })
-            
-            return {
-                'game_id': game_row['game_id'],
-                'rule': rule or '',
-                'sub_rule': sub_rule,
-                'room_type': room_type,
-                'record': record_data,
-                'created_at': str(game_row['created_at']),
-                'players': players
-            }
-            
-        except Error as e:
-            logger.error(f'获取牌谱记录失败 (game_id={game_id}): {e}', exc_info=True)
-            return None
-        finally:
-            if conn:
-                cursor.close()
-                self._put_connection(conn)
-    
     def get_player_stats(self, user_id: int) -> Dict[str, Any]:
         """
         获取指定用户的所有统计数据（包括各规则的 history_stats 和 fan_stats）
@@ -2230,12 +2055,12 @@ class DatabaseManager:
                     COALESCE((SELECT e.item_id FROM user_equipment e
                         JOIN item_definitions d ON d.item_id=e.item_id
                         LEFT JOIN user_inventory i ON i.user_id=e.user_id AND i.item_id=e.item_id
-                        WHERE e.user_id=us.user_id AND e.slot='avatar_frame' AND d.use_enabled AND (d.is_default OR i.quantity>0)),0) AS avatar_frame_id,
+                        WHERE e.user_id=us.user_id AND e.slot='avatar_frame' AND d.use_enabled AND (d.is_default OR i.quantity>0)),%s) AS avatar_frame_id,
                     u.username
                 FROM user_settings us
                 INNER JOIN users u ON us.user_id = u.user_id
                 WHERE us.user_id = %s
-            """, (user_id,))
+            """, (DEFAULT_AVATAR_FRAME_ID, user_id))
             settings = cursor.fetchone()
             
             if settings:
@@ -2675,7 +2500,7 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT event_id, name, description, status, kind, entry_config, room_settings,
+                SELECT event_id, name, description, team_icon_url, status, kind, entry_config, room_settings,
                        created_by, closed_at, created_at, updated_at
                 FROM events WHERE event_id = %s
                 """,
@@ -3309,74 +3134,8 @@ class DatabaseManager:
     def list_event_records(self, event_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         if not event_id:
             return []
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute(
-                """
-                SELECT DISTINCT gpr.game_id, gr.created_at
-                FROM game_player_records gpr
-                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
-                WHERE gpr.event_id = %s
-                ORDER BY gr.created_at DESC, gpr.game_id DESC
-                LIMIT %s OFFSET %s
-                """,
-                (event_id, max(1, min(50, int(limit))), max(0, int(offset))),
-            )
-            id_rows = cursor.fetchall()
-            if not id_rows:
-                return []
-            game_ids = [row["game_id"] for row in id_rows]
-            placeholders = ",".join(["%s"] * len(game_ids))
-            cursor.execute(
-                f"""
-                SELECT gpr.game_id, gpr.user_id, gpr.username, gpr.score, gpr.rank,
-                       gpr.original_player_index, gpr.rule, gpr.sub_rule, gpr.match_type,
-                       gpr.room_type, gr.created_at
-                FROM game_player_records gpr
-                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
-                WHERE gpr.game_id IN ({placeholders})
-                ORDER BY gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
-                """,
-                game_ids,
-            )
-            games_dict = {}
-            for row in cursor.fetchall():
-                game_id = row["game_id"]
-                if game_id not in games_dict:
-                    games_dict[game_id] = {
-                        "game_id": game_id,
-                        "created_at": str(row["created_at"]),
-                        "rule": row["rule"],
-                        "sub_rule": row.get("sub_rule"),
-                        "match_type": row.get("match_type"),
-                        "room_type": row.get("room_type"),
-                        "players": [],
-                    }
-                games_dict[game_id]["players"].append(
-                    {
-                        "user_id": row["user_id"],
-                        "username": row["username"],
-                        "score": row["score"],
-                        "rank": row["rank"],
-                        "original_player_index": row.get("original_player_index"),
-                    }
-                )
-            ordered = []
-            for game_id in game_ids:
-                if game_id in games_dict:
-                    ordered.append(games_dict[game_id])
-            return ordered
-        except Error as e:
-            logger.error(f'list_event_records 失败: {e}')
-            if conn:
-                conn.rollback()
-            return []
-        finally:
-            if conn:
-                cursor.close()
-                self._put_connection(conn)
+        from ..records.store import list_replays
+        return list_replays(self, event_id=event_id, limit=max(1,min(50,int(limit))), offset=max(0,int(offset)))
 
 
 # 挂载国标麻将相关方法到 DatabaseManager 类

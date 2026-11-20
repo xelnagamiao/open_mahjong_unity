@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 async function listUserEvents(userId) {
   const result = await pool.query(
-    `SELECT e.event_id, e.name, e.description, e.status, e.kind, e.reopen_requested, e.closed_at, e.created_at, e.updated_at,
+    `SELECT e.event_id, e.name, e.description, e.team_icon_url, e.status, e.kind, e.reopen_requested, e.closed_at, e.created_at, e.updated_at,
             ea.role,
             EXISTS (
               SELECT 1 FROM event_profile_change_requests pr
@@ -13,7 +13,7 @@ async function listUserEvents(userId) {
               WHERE ea2.event_id = e.event_id AND ea2.role = 'admin'
             ) AS admin_count,
             (
-              SELECT COUNT(DISTINCT gpr.game_id)::int FROM game_player_records gpr
+              SELECT COUNT(DISTINCT t.replay_id)::int FROM game_player_records gpr JOIN game_record_tables t USING(game_id)
               WHERE gpr.event_id = e.event_id
             ) AS record_count
      FROM event_admins ea

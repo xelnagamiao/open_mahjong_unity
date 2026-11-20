@@ -560,8 +560,9 @@ class SichuanGameState(RealTimeClaimMixin):
                 game_id = store(self.game_record, self.player_list, self.room_type, match_type)
         except Exception as e:
             logger.warning(f"四川对局落库跳过/失败: {e}")
-        remember_local_record_detail(self, game_id, match_type)
         self._after_record_saved(game_id)
+        await self._wait_for_match_records()
+        remember_local_record_detail(self, game_id, match_type)
 
         await self.broadcast_game_end()
         if hasattr(self, 'spectator_manager'):
@@ -571,6 +572,9 @@ class SichuanGameState(RealTimeClaimMixin):
         logger.info(f"四川对局结束清理完成 room_id={self.room_id}")
 
     def _restore_match_checkpoint(self):
+        pass
+
+    async def _wait_for_match_records(self):
         pass
 
     def _after_record_saved(self, game_id):

@@ -6,6 +6,33 @@ import {loadNanchangForm,buildNanchangRoomPayload} from '../src/utils/nanchangRo
 import {parseNanchangFan,nanchangInfoAt,nanchangWaitsAt,nanchangWaitData,nanchangHint,nanchangLedgerRows} from '../src/utils/nanchangReplay.js'
 const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/game2d/replay/recordReplay.ts',import.meta.url))],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'})
 const {RecordReplay}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'))
+const localCompiled=await build({entryPoints:[fileURLToPath(new URL('../src/game2d/calc/nanchangLocal.ts',import.meta.url))],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'})
+const {NanchangLocal}=await import('data:text/javascript;base64,'+Buffer.from(localCompiled.outputFiles[0].text).toString('base64'))
+
+test('video third point original examples do not borrow another decomposition',()=>{
+  // BV1D6Wu6gEWZ at 26:37, transcribed from the slide.
+  for(const [before,melds,indicator,win] of [
+    [[29,29,29,21,21,14,17,41,42,43,45,46,47],[],29,11],
+    [[46,46,16,16,16,31,33],['k43','k24'],46,33],
+  ]){
+    const solver=new NanchangLocal(melds,{indicator,index:1,declared_jingdiao:true})
+    assert.equal(solver.describe([...before,win],win).self_draw_points,31)
+  }
+})
+
+test('declared jingdiao quotes use the same decomposition as the server',()=>{
+  const cases=[
+    [[11,11,11,11,12,12,12,41,42,43,44,45,46],47,11,47],
+    [[11,11,11,13,13,22,23,31,31,45,47,47,47],13,45,47],
+    [[11,11,11,21,21,21,31,31,31,41,41,41,45],22,45,79],
+    [[11,11,12,12,21,21,22,22,31,31,32,32,45],45,45,158],
+    [[11,12,13,21,22,23,31,32,33,45,45,45,47],47,45,62],
+  ]
+  for(const [before,win,indicator,points] of cases){
+    const solver=new NanchangLocal([],{indicator,index:1,declared_jingdiao:true})
+    assert.equal(solver.describe([...before,win],win).self_draw_points,points)
+  }
+})
 const mm=t=>t>=11&&t<=19?0x40+t%10:t>=21&&t<=29?0x60+t%10:t>=31&&t<=39?0xc0+t%10:(0xa0+t%10)
 function replay(ticks,hands,extra={}) {
   const round={seats:[0,1,2,3],tiles_list:[11,12,13,14,15,16],start_player_index:0,nanchang:{indicator:45,secondary:47,start_scores:[0,0,0,0]},...Object.fromEntries(hands.map((h,i)=>['p'+i+'_tiles',h])),action_ticks:ticks,...extra}

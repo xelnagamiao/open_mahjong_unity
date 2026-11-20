@@ -2,7 +2,7 @@
 
   <div v-loading="loading">
 
-    <el-page-header @back="$router.push('/admin/users')" content="用户详情" />
+    <el-page-header @back="$router.push(route.query.from === 'bans' ? '/admin/account-bans' : '/admin/users')" content="用户详情" />
 
     <template v-if="detail">
 
@@ -138,13 +138,7 @@
 
             <el-select v-model="edit.ban_type" clearable placeholder="未封禁" style="width: 200px">
 
-              <el-option label="禁止登录" value="login" />
-
-              <el-option label="禁止发言" value="chat" />
-
-              <el-option label="禁止排位" value="match" />
-
-              <el-option label="全面封禁" value="full" />
+              <el-option v-for="(label, key) in BAN_TYPE_LABELS" :key="key" :label="label" :value="key" />
 
             </el-select>
 
@@ -223,6 +217,8 @@
       </el-card>
 
 
+
+      <UserWallet v-if="!detail.user.is_tourist" :key="detail.user.user_id" :user-id="detail.user.user_id" />
 
       <el-card v-if="!detail.user.is_tourist" class="block">
         <template #header>改名</template>
@@ -433,7 +429,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import UserTitlesPanel from './UserTitlesPanel.vue'
 import UserInventoryPanel from './UserInventoryPanel.vue'
+import UserWallet from '@/components/admin/UserWallet.vue'
 import { formatRoomType, formatRule, formatSubRule } from '@/utils/gameMeta'
+import { banLabels as BAN_TYPE_LABELS } from '@/utils/accountBans'
 
 import { addDays, getSponsorStatus, toPickerValue } from '@/utils/sponsor'
 
@@ -491,20 +489,6 @@ const renameForm = reactive({
 })
 
 const historyRename = reactive({ oldUsername: '', newUsername: '', reason: '' })
-
-
-
-const BAN_TYPE_LABELS = {
-
-  login: '禁止登录',
-
-  chat: '禁止发言',
-
-  match: '禁止排位',
-
-  full: '全面封禁',
-
-}
 
 
 
@@ -678,6 +662,11 @@ async function saveUser() {
 
   try {
 
+    const saved = detail.value.user
+    const banType = edit.ban_type || null
+    const banChanged = banType !== saved.ban_type
+      || (edit.ban_expires_at || null) !== toPickerValue(saved.ban_expires_at)
+      || edit.ban_reason !== (saved.ban_reason || '')
     await adminApi.patch(`/users/${route.params.userId}`, {
 
       sponsor_expires_at: edit.sponsor_expires_at,
@@ -690,11 +679,11 @@ async function saveUser() {
 
       is_mcrpl_qualified: edit.is_mcrpl_qualified,
 
-      ban_type: edit.ban_type,
-
-      ban_expires_at: edit.ban_expires_at,
-
-      ban_reason: edit.ban_reason,
+      ...(banChanged && {
+        ban_type: banType,
+        ban_expires_at: edit.ban_expires_at ? new Date(edit.ban_expires_at.replace(' ', 'T')).toISOString() : null,
+        ban_reason: edit.ban_reason,
+      }),
 
       reason: edit.reason,
 

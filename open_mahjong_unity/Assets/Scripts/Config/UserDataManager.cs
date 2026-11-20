@@ -27,11 +27,12 @@ public class UserDataManager : MonoBehaviour {
         OnWalletChanged?.Invoke();
     }
     public InventoryState Inventory { get; private set; }
-    public int AvatarFrameId { get; private set; }
+    public int AvatarFrameId { get; private set; } = AvatarFrameGraphic.DefaultItemId;
     public event Action OnInventoryChanged;
 
     public void ApplyInventoryState(InventoryState state) {
         if (state == null || state.user_id != UserId) return;
+        state.NormalizeAvatarFrame();
         Inventory = state;
         ApplyWalletState(state.wallet);
         if (state.appearance != null) {
@@ -113,7 +114,7 @@ public class UserDataManager : MonoBehaviour {
             Inventory = null;
             Wallet = null;
             OnWalletChanged?.Invoke();
-            AvatarFrameId = 0;
+            AvatarFrameId = AvatarFrameGraphic.DefaultItemId;
             OnInventoryChanged?.Invoke();
             Titles = null;
             TitleId = 1;
@@ -130,7 +131,7 @@ public class UserDataManager : MonoBehaviour {
         this.ProfileImageId = profile_image_id;
         this.CharacterId = character_id;
         this.VoiceId = voice_id;
-        this.AvatarFrameId = avatar_frame_id;
+        this.AvatarFrameId = avatar_frame_id == 0 ? AvatarFrameGraphic.DefaultItemId : avatar_frame_id;
     }
 
     // 大厅成员身份由 room 消息维护，game_start 不会改写它。
@@ -199,7 +200,7 @@ public class UserDataManager : MonoBehaviour {
         Inventory = null;
         Wallet = null;
         OnWalletChanged?.Invoke();
-        AvatarFrameId = 0;
+        AvatarFrameId = AvatarFrameGraphic.DefaultItemId;
         OnInventoryChanged?.Invoke();
         Titles = null;
         TitleId = 1;

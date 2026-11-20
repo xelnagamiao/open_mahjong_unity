@@ -11,6 +11,7 @@ public static class GameSessionGuard {
         get {
             var gsm = NormalGameStateManager.Instance;
             if (gsm != null && gsm.IsRealtimeSpectator) return true;
+            if (NetworkManager.HasMatchSpectatorSession) return true;
             if (GameRecordManager.HasPendingDelayedSpectatorSessionStatic) return true;
             var grm = GameRecordManager.Instance;
             return grm != null && grm.IsSpectating;

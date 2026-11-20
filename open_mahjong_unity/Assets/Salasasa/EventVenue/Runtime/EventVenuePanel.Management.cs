@@ -47,7 +47,7 @@ namespace Salasasa.Events
             else if(path=="/profile-change")
             {
                 profile=obj;
-                if(!profileDirty){var pending=obj["pending"] as JObject;drafts["name"]=pending==null?Str(obj,"current_name"):Str(pending,"proposed_name");drafts["description"]=pending==null?Str(obj,"current_description"):Str(pending,"proposed_description");drafts["reason"]=Str(pending,"reason");}
+                if(!profileDirty){var pending=obj["pending"] as JObject;drafts["name"]=pending==null?Str(obj,"current_name"):Str(pending,"proposed_name");drafts["description"]=pending==null?Str(obj,"current_description"):Str(pending,"proposed_description");drafts["reason"]=Str(pending,"reason");drafts["team_icon_url"]=pending==null?Str(obj,"current_team_icon_url"):((string)pending["proposed_team_icon_url"]??Str(obj,"current_team_icon_url"));}
             }
             else if(path=="/entry-config"&&!entryDirty){entry=(JObject)obj.DeepClone();drafts["joinCode"]=Str(entry,"join_code");}
             else if(path=="/room-settings")
@@ -126,7 +126,7 @@ namespace Salasasa.Events
                 case "design":ConfigureAppearance(index, true);break;
                 case "prefabOriginal":Original=true;PlayerPrefs.SetInt("EventVenueOriginalPrefabs",Original?1:0);foreach(var card in GetComponentsInChildren<EventVenueNativeCard>(true))if(card.gameObject.activeInHierarchy)card.Apply(Original);RefreshAll();break;
                 case "close":EventLobbyPanel.Instance?.ShowLobby();break;
-                case "chat":chat.OpenVenueConversation(EventId);break;
+                case "chat":ShowPage(ChatPageIndex);break;
                 case "page":ShowPage(index);break;
                 case "manage":Management=index;RefreshAll(true);RefreshVisiblePage();break;
                 case "retry":RefreshVisiblePage();break;
@@ -143,7 +143,7 @@ namespace Salasasa.Events
                 case "modalConfirm":var next=confirmation;confirmation=null;next?.Invoke();break;
                 case "profileSubmit":
                     if(string.IsNullOrWhiteSpace(Draft("name"))){Say("请填写赛事名称");break;}
-                    var profileBody=new JObject{["name"]=Draft("name").Trim(),["description"]=Draft("description"),["reason"]=Draft("reason")};
+                    var profileBody=new JObject{["name"]=Draft("name").Trim(),["description"]=Draft("description"),["reason"]=Draft("reason"),["team_icon_url"]=Draft("team_icon_url")};
                     Confirm("提交资料审核",Draft("name")+"\n\n"+Draft("description"),()=>Change("POST","/profile-change",profileBody,r=>{profileDirty=false;dirty=false;}));break;
                 case "profileCancel":Confirm("撤销申请","确认撤销当前资料修改申请？",()=>Change("POST","/profile-change/cancel",new JObject(),r=>profileDirty=false));break;
                 case "lifecycle":string operation=detail.status=="active"?"close":detail.status=="closed"?"request-reopen":"open";Confirm(Read("lifecycle",0),"确认对「"+detail.name+"」执行此操作？",()=>Change("POST","/"+operation,new JObject()));break;

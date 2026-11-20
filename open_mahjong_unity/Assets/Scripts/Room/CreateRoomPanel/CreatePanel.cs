@@ -62,6 +62,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle TacticalCallToggle;
     [SerializeField] private Toggle ClaimProtectionToggle;
     [SerializeField] private Toggle BloodBattleToggle;
+    [SerializeField] private Toggle newChineseExchangeThreeToggle;
     [SerializeField] private Toggle ChangshaInitialSiXiToggle;
     [SerializeField] private Toggle ChangshaInitialBanBanHuToggle;
     [SerializeField] private Toggle ChangshaInitialQueYiSeToggle;
@@ -371,6 +372,7 @@ public partial class CreatePanel : MonoBehaviour {
                 if (TianDiRenHeToggle != null) TianDiRenHeToggle.SetIsOnWithoutNotify((bool)value);
                 break;
             case CreateRoomKeys.BloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.ExchangeThree:  newChineseExchangeThreeToggle.isOn = (bool)value; break;
             case CreateRoomKeys.CsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
             case CreateRoomKeys.CsInitialSiXi:   if (ChangshaInitialSiXiToggle != null) ChangshaInitialSiXiToggle.isOn = (bool)value; break;
             case CreateRoomKeys.CsInitialBanBanHu: if (ChangshaInitialBanBanHuToggle != null) ChangshaInitialBanBanHuToggle.isOn = (bool)value; break;
@@ -458,6 +460,7 @@ public partial class CreatePanel : MonoBehaviour {
                 visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu && !isSichuanDoubles && GetSelectedSubRule() != SichuanLobby.SbrExchange);
         }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount) && !IsChangshaExchangeSix);
+        newChineseExchangeThreeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ExchangeThree));
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();

@@ -90,7 +90,7 @@ namespace Salasasa.Venues
         {
             var summary = value.entry_summary ?? new EventEntrySummary();
             return new VenueEntry {
-                event_id = value.event_id, name = value.name, description = value.description, status = value.status, kind = value.kind,
+                team_icon_url = value.team_icon_url, event_id = value.event_id, name = value.name, description = value.description, status = value.status, kind = value.kind,
                 created_at = value.created_at, planned_start_at = value.planned_start_at, planned_end_at = value.planned_end_at,
                 member_count = value.member_count ?? -1, is_registered = value.is_registered || !string.IsNullOrEmpty(value.role),
                 auto_approve = summary.auto_approve, has_join_code = summary.has_join_code, forbid_tourist = summary.forbid_tourist,
@@ -170,6 +170,7 @@ namespace Salasasa.Venues
             confirmationTitle.text = kind == VenueKind.Base ? "基地申请预览" : "办赛申请预览";
             confirmationBody.text = "名称\n" + value.name + "\n\n拟定日期\n" + (string.IsNullOrEmpty(value.planned_start_at) ? "未设置" : value.planned_start_at)
                 + (string.IsNullOrEmpty(value.planned_end_at) ? "" : "  —  " + value.planned_end_at)
+                + "\n\n队徽\n" + (string.IsNullOrEmpty(value.team_icon_url) ? "不显示队徽" : "已选择队徽")
                 + "\n\n介绍\n" + value.description + "\n\n负责人\n" + value.organizer_name + "   " + value.organizer_phone
                 + "\n\n备注\n" + (string.IsNullOrEmpty(value.remark) ? "无" : value.remark);
             confirmationStatus.text = applicationError;
@@ -182,6 +183,7 @@ namespace Salasasa.Venues
         void SetSubmitting(bool value)
         {
             submitting = value;
+            if(openForm && openForm.teamIcon)openForm.teamIcon.SetEditable(!value);
             submit.interactable = confirmationBack.interactable = confirmationClose.interactable = !value;
             foreach (var form in forms) form.close.interactable = form.cancel.interactable = form.preview.interactable = !value;
         }

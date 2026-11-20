@@ -330,9 +330,7 @@ public sealed class UpwardPopupLayout : MonoBehaviour {
     }
 
     TMP_Text MakeLabel(Transform parent, string name, string caption) {
-        var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        go.layer = gameObject.layer; go.transform.SetParent(parent, false);
-        var text = go.GetComponent<TextMeshProUGUI>();
+        var text = DynamicTextRow.SingleLabel(parent, name);
         text.font = labelTemplate != null ? labelTemplate.font : TMP_Settings.defaultFontAsset;
         text.text = caption; text.fontSize = 18; text.color = Color.white;
         text.alignment = TextAlignmentOptions.Center; text.raycastTarget = false;

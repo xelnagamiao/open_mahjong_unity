@@ -17,6 +17,7 @@ internal static class SichuanLobby {
     public static readonly RuleLobbySubRule[] SubRules =
         new RuleLobbySubRule[] {
             new RuleLobbySubRule("sichuan/standard", "四川麻将(血战到底)", "四川麻将（血战到底）"),
+            new RuleLobbySubRule(SbrExchange, "血战到底·换三张", "使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。"),
             new RuleLobbySubRule(
                 "sichuan/xueliu",
                 "血流成河·弃三张",
@@ -29,7 +30,6 @@ internal static class SichuanLobby {
             new RuleLobbySubRule(XueliuDoublesSubRule, "血流双打·2V2", "四川麻将（血流成河·双打）四位玩家分为两人一队，队友之间分别作为对家入座。按先后顺序和队友换三张，后换的玩家能知道先换的玩家给出的花色；定缺后可控猪，胡牌仍须清缺。和牌的时候只收对面的分数，暗杠共收4分；胡后对手点炮必胡、队友可过。牌墙摸完查叫，花猪每名对手至少32分；队分相同加副。"),
             new RuleLobbySubRule(DoublesDuplicateSubRule, "血战双打复式", DuplicateCreationMessage),
             new RuleLobbySubRule(XueliuDuplicateSubRule, "血流双打复式", DuplicateCreationMessage),
-            new RuleLobbySubRule(SbrExchange, "血战换三张（推广）", "使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。"),
         };
 
     public static Dictionary<string, object> Defaults() {

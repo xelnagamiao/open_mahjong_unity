@@ -158,7 +158,7 @@ def analyze_riichi_record(record, original_index, final_score=None, rank=None):
 
 def ensure_schema(cursor):
     cursor.execute("""CREATE TABLE IF NOT EXISTS riichi_player_game_stats (
-        game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
+        game_id VARCHAR(16) NOT NULL REFERENCES game_record_tables(game_id) ON DELETE CASCADE,
         user_id BIGINT NOT NULL, version INT NOT NULL, stats JSONB NOT NULL,
         PRIMARY KEY(game_id, user_id));
         CREATE INDEX IF NOT EXISTS riichi_player_game_stats_user ON riichi_player_game_stats(user_id);""")

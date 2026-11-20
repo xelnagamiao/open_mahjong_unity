@@ -84,7 +84,7 @@ async function guideContent(locale) {
     root: client, configFile: false, plugins: [vue()], logLevel: 'error',
     optimizeDeps: { noDiscovery: true, include: [] },
     resolve: { alias: { '@': resolve(client, 'src') } },
-    server: { middlewareMode: true, hmr: false, watch: null },
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null },
   })
   try {
     const { default: Guide } = await server.ssrLoadModule('/src/views/UsageGuide.vue')

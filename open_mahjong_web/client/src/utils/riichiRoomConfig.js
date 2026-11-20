@@ -90,6 +90,9 @@ export function buildRiichiRoomPayload(form) {
   if (form.sub_rule !== 'riichi/sanma' && (details.rank_points.startsWith('sanma_') || details.noten_penalty === 2000)) {
     throw new Error('三人顺位点和2000点不听罚符仅适用于三人立直')
   }
+  if (form.sub_rule === 'riichi/sanma' && details.noten_penalty === 'fixed_gap_2000') {
+    throw new Error('固定分差2000点不听罚符仅适用于四人立直')
+  }
   if (isWashizuCaptain(form)) Object.assign(details, captain.detailed_config)
   const room_config = Object.fromEntries(Object.keys({ ...commonDefaults, ...riichiRoomDefaults }).map(key => [key, form[key]]))
   if (isWashizuCaptain(form)) Object.assign(room_config, captain.room)

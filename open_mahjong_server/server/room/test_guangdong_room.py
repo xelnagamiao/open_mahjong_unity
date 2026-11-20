@@ -22,7 +22,8 @@ BASE = dict(room_name="广东花鬼", game_round=1, round_timer=20, step_timer=5
 def manager():
     connection = SimpleNamespace(user_id=101, username="测试玩家", current_room_id=None)
     db = SimpleNamespace(get_user_settings=Mock(return_value={"username": "测试玩家"}))
-    server = SimpleNamespace(players={"conn": connection}, db_manager=db)
+    server = SimpleNamespace(players={"conn": connection}, db_manager=db,
+                             gamestate_manager=SimpleNamespace(sichuan_duplicate_matches={}))
     result = SimpleNamespace(
         game_server=server, rooms={}, room_passwords={},
         room_validators={"guangdong": GuangdongRoomValidator},

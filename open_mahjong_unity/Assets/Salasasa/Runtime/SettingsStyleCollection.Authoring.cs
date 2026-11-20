@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.Linq;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,6 +9,40 @@ namespace Salasasa.Home
 {
     public sealed partial class SettingsStyleCollection
     {
+        public IEnumerable<SettingsBakedPage> AuthoredPages
+        {
+            get
+            {
+                if (!UsesPagePrefabs)
+                {
+                    foreach (var page in bakedPages) yield return page;
+                    yield break;
+                }
+                for (int variant = 0; variant < 3; variant++)
+                    for (int category = 0; category < 3; category++)
+                    {
+                        var resource = PageResource(variant, category);
+                        var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/" + resource + ".prefab");
+                        if (!prefab) throw new System.InvalidOperationException("Missing settings page " + resource);
+                        yield return prefab.GetComponent<SettingsBakedPage>();
+                    }
+            }
+        }
+
+        public void UsePagePrefabs(Transform[] roots)
+        {
+            themeRoots = roots;
+            bakedPages = System.Array.Empty<SettingsBakedPage>();
+            stage = panel = content = close = reviewStrip = null;
+            title = null;
+            panelSurface = panelShadow = headerSurface = titleAccent = divider = reviewSurface = null;
+            ornament = null;
+            handPreview = null;
+            tabs = variants = System.Array.Empty<Button>();
+            controls = System.Array.Empty<SettingsStyleField>();
+            sections = System.Array.Empty<SettingsStyleSection>();
+        }
+
         Palette palette;
         public SettingsChoiceAppearance[] BakeChoiceStates(SettingsStyleField view)
         {

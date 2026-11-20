@@ -52,7 +52,7 @@ const inputEl = ref(null)
 
 const suggestions = computed(() => {
   if (!query.value.trim()) return []
-  return suggestFans(query.value, props.rules, 20, ['fr', 'de', 'ru'].includes(locale.value)
+  return suggestFans(query.value, props.rules, 20, ['fr', 'de', 'ru', 'es'].includes(locale.value)
     ? fan => fan.names.map(name => translateFanName(name, locale.value, fan.rules[0])) : null)
 })
 const showSug = computed(

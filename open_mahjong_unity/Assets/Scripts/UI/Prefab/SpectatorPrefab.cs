@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Linq;
 
 public class SpectatorPrefab : MonoBehaviour {
     public enum ColorStyle { AccentRail, TierHeader, SoftCard }
@@ -18,9 +19,16 @@ public class SpectatorPrefab : MonoBehaviour {
     [SerializeField] private Image playersBackground;
     [SerializeField] private Image accentRail;
     [SerializeField] private Image[] playerTeamBackgrounds = new Image[4];
+    [SerializeField] private GameObject pairedPlayersRow;
+    [SerializeField] private TextMeshProUGUI[] closedPlayerNames = new TextMeshProUGUI[4];
+    [SerializeField] private Image[] closedTeamBackgrounds = new Image[4];
+    [SerializeField] private TextMeshProUGUI openRoomLabel;
+    [SerializeField] private TextMeshProUGUI closedRoomLabel;
     private static readonly Color OriginalCard = new Color32(82, 82, 82, 255);
 
     private string gamestate_id;
+    private string match_id;
+    private string initial_table;
 
     public void InitializeSpectatorItem(string rule, string subRule, string player1_name, string player2_name, string player3_name, string player4_name, string gamestate_id) {
         InitializeSpectatorItem(new SpectatorInfo { rule = rule, sub_rule = subRule,
@@ -29,6 +37,8 @@ public class SpectatorPrefab : MonoBehaviour {
     }
 
     public void InitializeSpectatorItem(SpectatorInfo info) {
+        match_id = info.match_id;
+        initial_table = info.table_id ?? "open";
         string displayRule = string.IsNullOrEmpty(info.sub_rule) ? info.rule : info.sub_rule;
         string ruleDisplay = RuleNameDictionary.GetWholeName(displayRule);
         if (RuleText != null) RuleText.text = ruleDisplay;
@@ -55,6 +65,30 @@ public class SpectatorPrefab : MonoBehaviour {
         ApplyColor(info);
         if (SpectateButton != null) SpectateButton.interactable = !string.IsNullOrWhiteSpace(info.gamestate_id);
         gamestate_id = info.gamestate_id;
+        if (pairedPlayersRow != null) pairedPlayersRow.SetActive(!string.IsNullOrEmpty(match_id));
+        if (!string.IsNullOrEmpty(match_id) && pairedPlayersRow != null) {
+            var available = info.paired_tables ?? new[] { info };
+            var open = available.FirstOrDefault(t => t.table_id == "open");
+            var closed = available.FirstOrDefault(t => t.table_id == "closed");
+            ApplyMatchRow(open, labels, playerTeamBackgrounds);
+            ApplyMatchRow(closed, closedPlayerNames, closedTeamBackgrounds);
+            if (openRoomLabel != null) openRoomLabel.text = "开室";
+            if (closedRoomLabel != null) closedRoomLabel.text = "闭室";
+            if (RoundProgressText != null) RoundProgressText.text = SpectatorRoomPresentation.RoundProgress(open) + "  " + SpectatorRoomPresentation.RoundProgress(closed);
+            if (GamestateIdText != null) GamestateIdText.text = "比赛 " + match_id.Substring(0, System.Math.Min(match_id.Length, 8));
+        }
+    }
+
+    private static void ApplyMatchRow(SpectatorInfo info, TextMeshProUGUI[] labels, Image[] backgrounds) {
+        var names = new[] { info?.player1_name, info?.player2_name, info?.player3_name, info?.player4_name };
+        for (int i = 0; i < 4; i++) {
+            if (i < labels.Length && labels[i] != null) { labels[i].richText = false; labels[i].text = names[i] ?? "暂不可用"; }
+            if (i < backgrounds.Length && backgrounds[i] != null) {
+                bool teams = info != null && SpectatorRoomPresentation.HasTeams(info);
+                backgrounds[i].gameObject.SetActive(teams);
+                if (teams) backgrounds[i].color = info.team_by_player_index[i] == 0 ? new Color32(38,60,83,255) : new Color32(78,40,45,255);
+            }
+        }
     }
 
     private void ApplyColor(SpectatorInfo info) {
@@ -82,6 +116,7 @@ public class SpectatorPrefab : MonoBehaviour {
     }
 
     private void OnSpectateButtonClick() {
+        if (!string.IsNullOrEmpty(match_id)) { NetworkManager.Instance?.BeginMatchSpectating(match_id, initial_table); return; }
         if (!string.IsNullOrWhiteSpace(gamestate_id) && GameStateNetworkManager.Instance != null) {
             GameStateNetworkManager.Instance.AddSpectator(gamestate_id);
         }

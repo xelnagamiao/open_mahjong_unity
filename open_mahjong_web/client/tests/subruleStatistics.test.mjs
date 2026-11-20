@@ -18,7 +18,9 @@ test('catalog exposes exactly the reviewed capabilities and all available modes'
   assert.equal(statisticsSelection('guobiao_huahun').matchmaking, false);
   assert.equal(statisticsSelection('guobiao_four_jokers').sub_rule, 'guobiao/four_jokers');
   assert.equal(statisticsSelection('guobiao_four_jokers').matchmaking, false);
-  assert.equal(STATISTICS_RULES.filter(r=>r.matchmaking).length, 8);
+  assert.deepEqual(STATISTICS_RULES.filter(r=>r.matchmaking).map(r=>r.key).sort(), [
+    'guobiao', 'hongque', 'qingque', 'riichi', 'riichi_sanma', 'sichuan', 'sichuan_doubles', 'sichuan_xueliu_exchange',
+  ]);
   assert.equal(statisticsSelection('sichuan_xuezhan_exchange').fan_stats, true);
   assert.equal(statisticsSelection('sichuan_xuezhan_exchange').matchmaking, false);
   assert.ok(STATISTICS_RULES.some(r=>r.key === 'guangdong_doubles' && !r.matchmaking && r.fan_stats));

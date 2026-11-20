@@ -42,10 +42,13 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         root.anchorMin=new Vector2(0,.055f);root.anchorMax=new Vector2(1,.945f);
         root.offsetMin=root.offsetMax=Vector2.zero;
         body=Rect("Body",root); Stretch(body); ColorBox(body,Background);
-        heading=Text(body,"Title",34,Color.white,TextAlignmentOptions.MidlineLeft);
-        Box(heading.rectTransform,64,20,620,55);
-        metadata=Text(body,"Metadata",20,Muted,TextAlignmentOptions.MidlineRight);
-        Stretch(metadata.rectTransform,new Vector2(.45f,1),Vector2.one,new Vector2(10,-75),new Vector2(-64,-20));
+        var titleRow = DynamicTextRow.Create(body, "TitleRow");
+        var titleRect = (RectTransform)titleRow.transform;
+        Stretch(titleRect, new Vector2(0,1), Vector2.one, new Vector2(0,-75), new Vector2(0,-20));
+        heading=Text(titleRect,"Title",34,Color.white,TextAlignmentOptions.MidlineLeft,titleRow);
+        Box(heading.rectTransform,64,0,620,55);
+        metadata=Text(titleRect,"Metadata",20,Muted,TextAlignmentOptions.MidlineRight,titleRow);
+        Stretch(metadata.rectTransform,new Vector2(.45f,0),Vector2.one,new Vector2(10,0),new Vector2(-64,0));
         tableArea=Rect("Ledger",body);Stretch(tableArea,Vector2.zero,Vector2.one,new Vector2(64,101),new Vector2(-64,-266));
         footer=Rect("Footer",root);Stretch(footer,new Vector2(0,0),new Vector2(1,0),new Vector2(64,18),new Vector2(-64,72));
         var detail=Button(footer,"Details","手牌详情",()=> {
@@ -143,7 +146,7 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
             Stretch(members.rectTransform,new Vector2(0,0),new Vector2(.70f,0),new Vector2(24,27),new Vector2(-6,70));
             members.text=string.Join(" · ",people.Where(v=>v.team_id==t).Select(Name));
             members.enableAutoSizing=true;members.fontSizeMin=16;members.fontSizeMax=22;
-            members.textWrappingMode=TextWrappingModes.NoWrap;AlignPlayerBaseline(members,22);
+            members.textWrappingMode=TextWrappingModes.NoWrap;
             var value=Text(card,"Score",52,Color.white,TextAlignmentOptions.MidlineRight);
             Stretch(value.rectTransform,new Vector2(.65f,.42f),Vector2.one,Vector2.zero,new Vector2(-24,-10));
             value.text=scores==null?"—":signed?Signed(scores[t]):scores[t].ToString();
@@ -171,9 +174,9 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         bool perBoard=match==null||boardDetail;
         int headerHeight=UsesTimelineLayout?84:52;
         rowHeight=Mathf.Clamp((tableArea.rect.height-reserve-headerHeight-55)/Math.Max(1,count)-1,40,perBoard?82:58);
-        headers=Rect("Headers",tableArea);Stretch(headers,new Vector2(0,1),Vector2.one,new Vector2(0,-72),Vector2.zero);
+        headers=(RectTransform)DynamicTextRow.Create(tableArea,"Headers").transform;Stretch(headers,new Vector2(0,1),Vector2.one,new Vector2(0,-72),Vector2.zero);
         headers.offsetMin=new Vector2(0,-headerHeight);Cells(headers,labels,headerHeight,true);
-        total=Rect("Totals",tableArea);Stretch(total,Vector2.zero,new Vector2(1,0),new Vector2(0,reserve),new Vector2(0,reserve+54));
+        total=(RectTransform)DynamicTextRow.Create(tableArea,"Totals").transform;Stretch(total,Vector2.zero,new Vector2(1,0),new Vector2(0,reserve),new Vector2(0,reserve+54));
         var scroll=Rect("Scroll",tableArea);Stretch(scroll,Vector2.zero,Vector2.one,new Vector2(0,reserve+55),new Vector2(0,-headerHeight-1));
         var viewport=Rect("Viewport",scroll);Stretch(viewport);viewport.gameObject.AddComponent<RectMask2D>();
         ColorBox(viewport,Background);
@@ -183,19 +186,22 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
         var sr=scroll.gameObject.AddComponent<ScrollRect>();timelineScroll=sr;sr.viewport=viewport;sr.content=rows;sr.horizontal=false;sr.vertical=true;sr.movementType=ScrollRect.MovementType.Clamped;sr.scrollSensitivity=38;
     }
     RectTransform AddRow(string[] labels,Action action=null) {
-        var row=Rect("Row_"+rows.childCount,rows);row.gameObject.AddComponent<LayoutElement>().preferredHeight=rowHeight;
+        var row=(RectTransform)DynamicTextRow.Create(rows,"Row_"+rows.childCount).transform;row.gameObject.AddComponent<LayoutElement>().preferredHeight=rowHeight;
         Cells(row,labels,rowHeight,false);
         if(action!=null){var btn=row.gameObject.AddComponent<UnityEngine.UI.Button>();btn.targetGraphic=row.GetComponentInChildren<UnityEngine.UI.Image>();btn.onClick.AddListener(()=>action());}
         return row;
     }
     void Totals(string[] labels)=>Cells(total,labels,54,true);
     void Cells(RectTransform row,string[] labels,float height,bool header) {
+        var layout = row.GetComponent<DynamicTextRow>();
         float x=0;
         for(int i=0;i<widths.Length;i++){
             var cell=Rect("Cell_"+i,row);Stretch(cell,new Vector2(x,0),new Vector2(x+widths[i],1),Vector2.zero,new Vector2(-1,-1));x+=widths[i];
             ColorBox(cell,colors[i]==0?(header?Blue:BlueCell):colors[i]==1?(header?Red:RedCell):header?Neutral:Background);
             float fontSize=(UsesTimelineLayout||match?.duplicate==true)?(header?26:24):(header?24:22);
-            var label=Text(cell,"Text",fontSize,labels[i]=="0"?Muted:Color.white,i==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.Center);
+            // Player headers and two-line cells are subdivided into their own text slots below.
+            bool ownSlot = header && (labels[i].Contains("\n") || (row == headers && UsesTimelineLayout && i >= 3));
+            var label=Text(cell,"Text",fontSize,labels[i]=="0"?Muted:Color.white,i==0?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.Center,ownSlot ? null : layout);
             Stretch(label.rectTransform,Vector2.zero,Vector2.one,new Vector2(18,4),new Vector2(-12,-4));label.text=labels[i];
             if(row!=headers&&(IsBoardView?i>=3:colors[i]>=0)&&int.TryParse(labels[i],out int score))label.color=ScoreColor(score);
             if(header&&labels[i].Contains("\n")){
@@ -261,25 +267,19 @@ public sealed partial class SichuanSettlementPanel : MonoBehaviour {
             for(int n=0;n<2;n++){
                 string room=(team==0?n==0:n!=0)?"open":"closed";
                 var ps=match.players.Where(p=>p.table==room&&p.team_id==team).OrderBy(p=>p.original_seat).ToArray();
-                var row=Rect(room,strip);Stretch(row,new Vector2(0,(1-n)*.5f),new Vector2(1,(2-n)*.5f),Vector2.zero,Vector2.zero);
-                var caption=Text(row,"Room",21,Muted,TextAlignmentOptions.Center);Stretch(caption.rectTransform,Vector2.zero,new Vector2(.10f,1),Vector2.zero,Vector2.zero);caption.text=room=="open"?"开室":"闭室";AlignPlayerBaseline(caption,24);
+                var rowLayout=DynamicTextRow.Create(strip,room);var row=(RectTransform)rowLayout.transform;Stretch(row,new Vector2(0,(1-n)*.5f),new Vector2(1,(2-n)*.5f),Vector2.zero,Vector2.zero);
+                var caption=Text(row,"Room",21,Muted,TextAlignmentOptions.Center,rowLayout);Stretch(caption.rectTransform,Vector2.zero,new Vector2(.10f,1),Vector2.zero,Vector2.zero);caption.text=room=="open"?"开室":"闭室";
                 for(int k=0;k<ps.Length;k++){
-                    var name=Text(row,"Player"+k,24,Color.white,TextAlignmentOptions.MidlineLeft);Stretch(name.rectTransform,new Vector2(.12f+k*.44f,0),new Vector2(.42f+k*.44f,1),Vector2.zero,new Vector2(-4,0));name.text=Name(ps[k]);name.textWrappingMode=TextWrappingModes.NoWrap;name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=24;AlignPlayerBaseline(name,24);
-                    var value=Text(row,"Score"+k,26,Color.white,TextAlignmentOptions.MidlineRight);Stretch(value.rectTransform,new Vector2(.42f+k*.44f,0),new Vector2(.56f+k*.44f,1),new Vector2(4,0),new Vector2(-12,0));value.text=Signed(ps[k].score);value.color=ScoreColor(ps[k].score);
-                    value.textWrappingMode=TextWrappingModes.NoWrap;value.enableAutoSizing=true;value.fontSizeMin=16;value.fontSizeMax=26;AlignPlayerBaseline(value,24);
+                    var name=Text(row,"Player"+k,24,Color.white,TextAlignmentOptions.MidlineLeft,rowLayout);Stretch(name.rectTransform,new Vector2(.12f+k*.44f,0),new Vector2(.42f+k*.44f,1),Vector2.zero,new Vector2(-4,0));name.text=Name(ps[k]);name.textWrappingMode=TextWrappingModes.NoWrap;name.enableAutoSizing=true;name.fontSizeMin=16;name.fontSizeMax=24;
+                    var value=Text(row,"Score"+k,26,Color.white,TextAlignmentOptions.MidlineRight,rowLayout);Stretch(value.rectTransform,new Vector2(.42f+k*.44f,0),new Vector2(.56f+k*.44f,1),new Vector2(4,0),new Vector2(-12,0));value.text=Signed(ps[k].score);value.color=ScoreColor(ps[k].score);
+                    value.textWrappingMode=TextWrappingModes.NoWrap;value.enableAutoSizing=true;value.fontSizeMin=16;value.fontSizeMax=26;
                 }
             }
         }
     }
-    static void AlignPlayerBaseline(TMP_Text label,float referenceSize) {
-        var face=label.font.faceInfo;
-        label.verticalAlignment=VerticalAlignmentOptions.Baseline;
-        // Use one row baseline even when a mixed-script ID is auto-sized.
-        float offset=referenceSize/face.pointSize*face.scale*(face.ascentLine+face.descentLine)*.5f;
-        label.rectTransform.anchoredPosition+=Vector2.down*offset;
-    }
-    TMP_Text Text(Transform parent,string name,float size,Color color,TextAlignmentOptions align) {
-        var r=Rect(name,parent);var t=r.gameObject.AddComponent<TextMeshProUGUI>();t.font=template.font;t.fontSharedMaterial=template.fontSharedMaterial;
+    TMP_Text Text(Transform parent,string name,float size,Color color,TextAlignmentOptions align,DynamicTextRow sharedRow=null) {
+        var t = sharedRow ? sharedRow.Member(parent, name) : DynamicTextRow.SingleLabel(parent, name);
+        t.font=template.font;t.fontSharedMaterial=template.fontSharedMaterial;
         t.fontSize=size;t.color=color;t.alignment=align;t.textWrappingMode=TextWrappingModes.Normal;t.overflowMode=TextOverflowModes.Ellipsis;t.raycastTarget=false;t.richText=false;return t;
     }
     UnityEngine.UI.Button Button(Transform parent,string name,string label,Action action,bool primary=false) {

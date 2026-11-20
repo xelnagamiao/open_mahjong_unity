@@ -218,8 +218,9 @@ public partial class EndGamePanel : MonoBehaviour {
     }
 
     private void OnCopyVerificationClick() {
-        ClipboardUtility.Copy(gameRandomSeed.text);
-        GameHost.Current.ShowTip("牌局校验", true, "已复制校验码");
+        ClipboardUtility.Copy(gameRandomSeed.text, ok => {
+            if (ok) GameHost.Current.ShowTip("牌局校验", true, "已复制校验码");
+        });
     }
 
     private void OnGoHomeButtonClick() {

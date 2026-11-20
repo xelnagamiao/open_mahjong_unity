@@ -10,22 +10,25 @@ public static class ClipboardUtility {
 #if UNITY_WEBGL && !UNITY_EDITOR
         CopyInvitationWithResult(text, receiver.name, callback);
 #else
-        string result;
-        try { Copy(text); result = "ok"; } catch (System.Exception) { result = "failed"; }
-        receiver.SendMessage(callback, result);
+        Copy(text, ok => { if (receiver) receiver.SendMessage(callback, ok ? "ok" : "failed"); });
 #endif
     }
 
+    public static void Copy(string text, System.Action<bool> completed = null) {
+        System.Action<bool> report = completed ?? (_ => { });
 #if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")]
-    private static extern void CopyToClipboard(string text);
-#endif
-
-    public static void Copy(string text) {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        CopyToClipboard(text);
+        ClipboardCopyRequest.Begin(text ?? "", report);
 #else
-        GUIUtility.systemCopyBuffer = text;
+        bool ok;
+        try { GUIUtility.systemCopyBuffer = text ?? ""; ok = true; }
+        catch (System.Exception) { ok = false; }
+        report(ok);
 #endif
+    }
+
+    public static void CopyAndNotify(string text, string title, string successMessage) {
+        Copy(text, ok => {
+            if (ok) NotificationManager.Instance?.ShowTip(title, true, successMessage);
+        });
     }
 }

@@ -54,8 +54,8 @@ namespace Salasasa.Chat
         }
 
         public void ShowFriends() { nextFriendRefresh = 0; SetSidebar(2); }
-        void FriendLanguageChanged() { if (view) Refresh(); }
-        void FriendListChanged() { RefreshList(); RefreshConversationHeader(); }
+        void FriendLanguageChanged() { if (view) { messageStyleDirty = true; Refresh(); } }
+        void FriendListChanged() { headerDirty = true; RefreshList(); }
 
         void ResetFriendScroll()
         {
@@ -66,7 +66,7 @@ namespace Salasasa.Chat
 
         void FriendListScrolled(Vector2 value)
         {
-            if (renderingFriends) return;
+            if (renderingFriends || !CanReadSelected) return;
             if (FriendsVisible) RenderFriendRows(); else RenderConversationRows();
         }
 
@@ -152,19 +152,11 @@ namespace Salasasa.Chat
 
         void SetPortrait(ChatListRow row, int profileId, string initial, float alpha = 1f)
         {
-            var portrait = profileId > 0 ? ConfigManager.GetProfileSprite(profileId) : null;
-            row.portrait.texture = portrait ? portrait.texture : null;
-            row.portrait.uvRect = new Rect(0, 0, 1, 1);
-            if (portrait)
-            {
-                Rect pixels = portrait.textureRect; Texture texture = portrait.texture;
-                row.portrait.uvRect = new Rect(pixels.x / texture.width, pixels.y / texture.height, pixels.width / texture.width, pixels.height / texture.height);
-            }
-            row.portrait.color = portrait ? new Color(1, 1, 1, alpha) : style.row;
+            bool hasPortrait = ConfigManager.SetProfilePortrait(row.portrait, profileId, style.row, alpha);
             if (row.initials)
             {
                 row.initials.text = initial ?? "";
-                row.initials.gameObject.SetActive(!portrait && !string.IsNullOrEmpty(initial));
+                row.initials.gameObject.SetActive(!hasPortrait && !string.IsNullOrEmpty(initial));
             }
         }
 

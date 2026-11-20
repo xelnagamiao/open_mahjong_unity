@@ -1,3 +1,6 @@
+import { parseReplayJSON } from '../browserRecordMigration.js'
+import { replayTableView } from '../replayTable.js'
+
 /**
  * 各平台牌面编码互转（国标 / 日麻共用基础）。
  *
@@ -196,4 +199,9 @@ export function parseJsonInput(text) {
     }
   }
   return JSON.parse(t)
+}
+
+export function salasasaInput(input) {
+  const value = typeof input === 'string' ? parseReplayJSON(input) : input
+  return replayTableView(value)?.record || value
 }

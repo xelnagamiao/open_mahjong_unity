@@ -23,6 +23,7 @@
 
       <el-table :data="items" v-loading="loading" size="small">
         <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
+        <el-table-column label="队徽" width="108"><template #default="{ row }"><img v-if="row.team_icon_url" :src="row.team_icon_url" alt="队徽" style="width:64px;height:64px;object-fit:contain" /></template></el-table-column>
         <el-table-column prop="description" label="介绍" min-width="180" show-overflow-tooltip />
         <el-table-column prop="event_id" :label="isBase ? '基地 ID' : '赛事 ID'" min-width="140" />
         <el-table-column label="状态" width="140">
@@ -85,6 +86,7 @@
             :placeholder="isBase ? '如 周末活动室' : '如 2026春季赛'"
           />
         </el-form-item>
+        <el-form-item label="队徽（可选）"><TeamIconPicker @busy="iconBusy = $event" v-model="createForm.team_icon_url" :disabled="creating" /></el-form-item>
         <el-form-item label="主管理员 ID">
           <el-input
             v-model="createForm.owner_user_id"
@@ -98,13 +100,14 @@
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="createEvent">创建</el-button>
+        <el-button type="primary" :loading="creating" :disabled="iconBusy" @click="createEvent">创建</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import TeamIconPicker from '@/components/TeamIconPicker.vue'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -118,12 +121,14 @@ const router = useRouter()
 const items = ref([])
 const loading = ref(false)
 const creating = ref(false)
+const iconBusy = ref(false)
 const createDialogVisible = ref(false)
 const statusFilter = ref('')
 const profileDialogVisible = ref(false)
 const profileEditingEvent = ref(null)
 const applicationsPanel = ref(null)
 const createForm = reactive({
+  team_icon_url: '',
   name: '',
   owner_user_id: '',
   reason: '',
@@ -169,6 +174,7 @@ async function load() {
 }
 
 async function createEvent() {
+  if (iconBusy.value || creating.value) return
   const noun = isBase.value ? '基地' : '赛事'
   if (!createForm.name.trim()) {
     ElMessage.warning(`请填写${noun}名称`)
@@ -182,6 +188,7 @@ async function createEvent() {
   try {
     const body = {
       name: createForm.name.trim(),
+      team_icon_url: createForm.team_icon_url,
       reason: createForm.reason.trim(),
       kind: venueKind.value,
     }
@@ -190,6 +197,7 @@ async function createEvent() {
     }
     const res = await adminApi.post('/events', body)
     ElMessage.success(`${noun}已创建（已注册，待开启）`)
+    createForm.team_icon_url = ''
     createForm.name = ''
     createForm.owner_user_id = ''
     createForm.reason = ''

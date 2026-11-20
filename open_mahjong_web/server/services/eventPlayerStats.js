@@ -97,7 +97,7 @@ async function fetchEventPlayerStats(eventId, query = {}) {
   const [totalsRes, playersRes, filtersRes] = await Promise.all([
     pool.query(
       `SELECT
-         COUNT(DISTINCT gpr.game_id)::int AS total_games,
+         COUNT(DISTINCT gr.replay_id)::int AS total_games,
          COUNT(DISTINCT gpr.user_id)::int AS player_count,
          COUNT(*) FILTER (WHERE gpr.rank = 1)::int AS first_place_count,
          COUNT(*) FILTER (WHERE gpr.rank = 2)::int AS second_place_count,
@@ -112,7 +112,7 @@ async function fetchEventPlayerStats(eventId, query = {}) {
       `SELECT
          gpr.user_id,
          MAX(gpr.username) AS username,
-         COUNT(*)::int AS total_games,
+         COUNT(DISTINCT gr.replay_id)::int AS total_games,
          COUNT(*) FILTER (WHERE gpr.rank = 1)::int AS first_place_count,
          COUNT(*) FILTER (WHERE gpr.rank = 2)::int AS second_place_count,
          COUNT(*) FILTER (WHERE gpr.rank = 3)::int AS third_place_count,

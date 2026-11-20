@@ -492,11 +492,12 @@ class Ready_status_info(BaseModel):
     player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
 
 class Player_record_info(BaseModel):
-    """玩家对局记录信息"""
+    """一桌内的玩家，历史未记录的结算字段可为空。"""
+    table_id: Optional[str] = None
     user_id: int  # 用户ID
-    username: str  # 用户名
-    score: int  # 玩家分数
-    rank: int  # 排名（1-4）
+    username: Optional[str] = None  # 用户名
+    score: Optional[int] = None  # 玩家分数
+    rank: Optional[int] = None  # 排名（1-4）
     original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
@@ -505,14 +506,15 @@ class Player_record_info(BaseModel):
     voice_used: Optional[int] = None  # 使用的音色ID
 
 class Record_info(BaseModel):
-    """游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）"""
+    match_summary: Optional[Dict] = None
+    """游戏记录元数据（按对局分组，包含可见桌玩家，不含完整牌谱）"""
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4_rank），用于区分全庄战、半庄战、天梯等
     match_queue_type: Optional[str] = None  # 排位队列（如 beginner_quanzhuang），来自牌谱 game_title
     created_at: str  # 创建时间
-    players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    players: List[Player_record_info]  # 该场对局的玩家信息（按桌区分）
     is_favorite: Optional[bool] = False  # 当前用户是否收藏该牌谱
     note: Optional[str] = None  # 当前用户对该牌谱的备注
 
@@ -524,8 +526,11 @@ class Record_detail(BaseModel):
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     record: Dict  # 完整的牌谱记录（JSONB）
     created_at: str  # 创建时间
-    players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    players: List[Player_record_info]  # 该场对局的玩家信息（按桌区分）
     match_type: Optional[str] = None  # 局数类型；旧客户端反序列化时忽略多余字段
+    selected_table_id: Optional[str] = None
+    legacy_cursor_map: Optional[Dict] = None
+    room_type: Optional[str] = None
 
 Game_end_info.model_rebuild()
 
@@ -621,6 +626,8 @@ class ServerStatsInfo(BaseModel):
 
 class SpectatorInfo(BaseModel):
     """观战信息"""
+    match_id: Optional[str] = None
+    table_id: Optional[str] = None
     rule: str  # 规则类型（guobiao/qingque）
     sub_rule: str  # 子规则类型（guobiao/standard 等）
     player1_name: str  # 玩家1 用户名

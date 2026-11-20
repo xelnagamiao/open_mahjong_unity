@@ -55,8 +55,12 @@ public static class MainSceneAppearanceValidation {
         Check(owner.headerNavigation.canvas.transform.IsChildOf(owner.headerNavigation.transform) && owner.leaderboard.transform.IsChildOf(overlay),"导航归属 HeaderPanel，排行榜归属全局叠层");
         Check(plans.venue.Variant==0 && !plans.pages[1].transform.Find("Venue"),"赛事基地仅保留暗底浮框");
         Check(owner.statistics.panel.playerIdInput.GetComponent<InputFieldFeedback>(),"UID输入框交互反馈已烘焙");
-        Check(plans.settings.variants.Length == 3 && plans.settings.controls.Length == 24, "三套设置及全部二十四项绑定");
-        Check(plans.settings.bakedPages.Where(p=>p.category==2).All(p=>p.controls.Any(f=>f.key=="MeldSpacingRow" && f.dropdown)) &&
+        var settingPages = plans.settings.AuthoredPages.ToArray();
+        var settingKeys = settingPages.Where(p => p.variant == 0).SelectMany(p => p.controls).Select(f => f.key).OrderBy(key => key).ToArray();
+        Check(settingPages.Length == 9 && settingKeys.Length >= 24 && settingKeys.Distinct().Count() == settingKeys.Length &&
+            settingPages.GroupBy(p => p.variant).All(theme => theme.Count() == 3 && theme.All(p => p.variants.Length == 3) &&
+            theme.SelectMany(p => p.controls).Select(f => f.key).OrderBy(key => key).SequenceEqual(settingKeys)), "三套设置完整绑定同一组可用选项");
+        Check(settingPages.Where(p=>p.category==2).All(p=>p.controls.Any(f=>f.key=="MeldSpacingRow" && f.dropdown)) &&
             !plans.settings.transform.Find("NativeSettingsBindings"), "副露间距直接接配置，不保留隐藏代理设置");
         Check(One<FriendPanel>() && !components.Any(c => c.GetType().Name == "FriendLocalPreview"), "好友页面仅使用真实列表");
         Check(Field<UnityEngine.Object>(One<EventLobbyPanel>(), "presentation"), "赛事基地接入已烘焙展示层");

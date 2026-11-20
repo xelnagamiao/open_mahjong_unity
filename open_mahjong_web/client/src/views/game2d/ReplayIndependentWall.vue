@@ -114,7 +114,7 @@ const toggleElement = ref<HTMLButtonElement | null>(null)
 const handleElement = ref<HTMLButtonElement | null>(null)
 const PANEL_TOP = 38
 const PANEL_CHROME = 44 // 30px header, 12px content padding, 2px border
-const translatedHeader = computed(() => ['fr', 'de', 'ru'].includes(locale.value))
+const translatedHeader = computed(() => ['fr', 'de', 'ru', 'es'].includes(locale.value))
 const MIN_TILE_WIDTH = 16
 let observer: ResizeObserver | null = null
 let drag: { pointerId: number, x: number, y: number, startX: number, startY: number } | null = null

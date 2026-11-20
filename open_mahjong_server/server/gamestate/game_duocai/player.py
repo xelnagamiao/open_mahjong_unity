@@ -10,6 +10,7 @@ class DuocaiPlayer(ZhongyongPlayer):
     pao_liability: dict = field(default_factory=dict)
     riichi: int = 0
     riichi_pending: bool = False
+    riichi_marker_pending: bool = False
     ippatsu: bool = False
     temporary_furiten: bool = False
     riichi_furiten: bool = False
@@ -22,4 +23,5 @@ class DuocaiPlayer(ZhongyongPlayer):
         self.melds, self.discard_riichi_flags, self.pao_liability = [], [], {}
         self.riichi = 0
         self.riichi_pending = self.ippatsu = self.temporary_furiten = self.riichi_furiten = self.after_kong = False
+        self.riichi_marker_pending = False
         self.rinshan_payer, self.draw_kind = None, ''

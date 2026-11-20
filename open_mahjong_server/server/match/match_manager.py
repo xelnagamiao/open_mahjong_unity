@@ -12,6 +12,7 @@ from .rank_calculator import (
     queue_type_to_display_name, parse_queue_type,
 )
 from ..response import Response
+from ..public.account_bans import RANKED_BANS, RANKED_MESSAGE
 from ..database.inventory_router import attach_game_frames
 from .rating_rules import QUEUES, RULES, default_rating
 
@@ -98,6 +99,9 @@ class MatchManager:
         blocked = self._join_block_reason(player, user_id)
         if blocked:
             return self._reply("join", user_id, False, blocked)
+        if self.game_server.db_manager.active_account_bans([user_id], RANKED_BANS):
+            await self.cancel_banned_queue(user_id)
+            return self._reply("join", user_id, False, RANKED_MESSAGE)
         existing = self.user_to_queues.get(user_id, [])
         if queue_type in existing:
             return self._reply("join", user_id, True, "已在此场次匹配中")
@@ -135,6 +139,22 @@ class MatchManager:
         logger.info("玩家 %s 加入匹配队列 %s", user_id, queue_type)
         await self._try_start_match(queue_type)
         return self._reply("join", user_id, True, f"已加入 {queue_type_to_display_name(queue_type)} 匹配队列")
+
+    async def cancel_banned_queue(self, user_id):
+        if user_id not in self.user_to_queues:
+            return
+        parties = getattr(self.game_server, 'party_manager', None)
+        party = parties.get(user_id) if parties else None
+        if party and party.queued_at:
+            parties.cancel_queue(party)
+            await parties.publish(party.members)
+        else:
+            self._remove_queues(user_id)
+        conn = self.game_server.user_id_to_connection.get(user_id)
+        if conn:
+            from ..gamestate.public.connection_delivery import send_bounded
+            response = self._reply('leave', user_id, True, RANKED_MESSAGE)
+            await send_bounded(conn.websocket, response.dict(exclude_none=True))
 
     def _remove_queues(self, user_id, queue_type=None):
         existing = self.user_to_queues.get(user_id, [])
@@ -241,7 +261,17 @@ class MatchManager:
 
         if QUEUES[queue_type].party_size > 1 and matched_users is None:
             return
-        matched_users = matched_users or queue[:player_count]
+        if matched_users is None:
+            # A restriction can be imposed after admission to any of the queues.
+            while len(queue) >= player_count:
+                matched_users = queue[:player_count]
+                banned = self.game_server.db_manager.active_account_bans(matched_users, RANKED_BANS)
+                if not banned:
+                    break
+                for uid in banned:
+                    await self.cancel_banned_queue(uid)
+            else:
+                return
         # Commit the whole table before the first await.
         for uid in matched_users:
             self._remove_queues(uid)

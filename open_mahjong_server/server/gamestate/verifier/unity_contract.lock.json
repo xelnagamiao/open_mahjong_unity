@@ -1,14 +1,55 @@
 {
   "git_head": "441e4888b9e9f1527082f795f54de6ecf2188c55",
   "sim_client_version": 6,
+  "protocol_sha256": "8f0fac00913b855819f58943d866f6a81c43c472b526b32223bc2dc97eb323e5",
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
-      "sha256": "a96fc05de7e7bb6c952e02e54b6424a3987f538fa1a0451dd3c70a338736f6a8",
-      "size": 58560
+      "sha256": "2984e93bbbc8985f290310283faff50c2229dd91dc4b82636d97aa7e182d47d3",
+      "size": 58958
     },
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
       "sha256": "cc0225b8d7a8a51498abbf49a03ffc0250a753cecaedfbeebe85f7c20aa4d34a",
       "size": 20624
+    },
+    "open_mahjong_unity/Assets/Scripts/Network/NetworkManager.MatchSpectator.cs": {
+      "sha256": "94717dc878479b44fa3dd254c6f9696ea8291d8e704f2c1f60d229691894ed6a",
+      "size": 8551
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchRecordCodec.cs": {
+      "sha256": "1e366ebbbe5de55ee379bdbb8c3a47a7d11678b99929b738604dfb816e499738",
+      "size": 4130
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchRecordSession.cs": {
+      "sha256": "cfbb086cd73180a806a937202538588f689289b0e0114878686de313970b6325",
+      "size": 21828
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MatchReplayProjection.cs": {
+      "sha256": "cfbd9ff9301a6a89a4ea46d61bb3dbf66c7f8136f10aebfa866f5931f7cde921",
+      "size": 5476
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.Match.cs": {
+      "sha256": "f9facccf7304215a4d8acc39f5cfcf5b59f80c9a7c22241dea9bafba8e6d813f",
+      "size": 11704
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Core/TurnClock.cs": {
+      "sha256": "991ee5e82f65913c4d11488da09a2f8c6794e3d75fc956c3d86153506cda19fc",
+      "size": 13303
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanClaimWaitClock.cs": {
+      "sha256": "3457dbf81f3f9f8932278d0bc1e433a0bae7e770a6a07b6bda26bc9a86e9ec33",
+      "size": 1931
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Shanghai/ShanghaiReplay.cs": {
+      "sha256": "bbeff087a7a590f9a1ed8bc52966b5b54c1a8d00c0a36b5764608e6b2d8b1f7b",
+      "size": 3460
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Hongque/HongqueReplayKong.cs": {
+      "sha256": "eface98c2591d8f2258f7b6cfb4c4bfdbbf9137944e6ecd93cc6f6b7e30fb44a",
+      "size": 1040
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Hongque/HongqueDisplayOrder.cs": {
+      "sha256": "72dce32b6808ecc4d9318f3d8a8a7e941159f3efff336de86a21296aa7b27c57",
+      "size": 6536
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs": {
       "sha256": "2f786adf3a4bc82233dfbed89e67d157ef7033027dc56d87bce3c7e418ac7300",
@@ -19,8 +60,8 @@
       "size": 22624
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/GameSceneUI/Result/Panels/EndResultPanel.cs": {
-      "sha256": "ca0f2288fcf2c91c75d02f2dee384cbd4ae1c1fe7fc20ee1a94579ffefbc76c2",
-      "size": 67112
+      "sha256": "1b2a8ef5b59ca32e124cb48022b228c2f3fe2bcac85f4879c20d79ae391ad9ae",
+      "size": 67120
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs": {
       "sha256": "16f91f73a01eb956984884da7c8217b95ca3c97657cc311d2e76fe8b5b731947",
@@ -71,12 +112,12 @@
       "size": 17781
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanReplay.cs": {
-      "sha256": "2bfb4ea1e4c5581786f7ad4b3c0e9907aef207ac1eb720446d6221f5422bd828",
-      "size": 28093
+      "sha256": "15bff3e7a2199385c9b92cff8f44373ef80b567550e15f9198fb709430efd2d6",
+      "size": 29378
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.cs": {
-      "sha256": "c90ab8c8932b7e49971b2d35bf5fbbedcb38f3536a90c89c96f85bb1779f3ef1",
-      "size": 130677
+      "sha256": "216c6693e51dc0389edb6ffbda68a0fee2c9c42905946e10ba8e20f3e6e98143",
+      "size": 130236
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.ChongHint.cs": {
       "sha256": "d2c9d151bd06176c45a6e71e025d8607e270c324b26ffc132e3370b98a5ec520",

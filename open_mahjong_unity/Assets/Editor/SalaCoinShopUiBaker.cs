@@ -59,33 +59,7 @@ public static class SalaCoinShopUiBaker {
             alignment.lastButtons = owner.artwork.pages.Select(p => (RectTransform)p.transform.Find("MetroBottomNavigation/CityDockleaderboard")).ToArray();
             EditorUtility.SetDirty(alignment);
         }
-        var plans = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<InterfacePlansController>(true)).Single();
-        var pageRoot = plans.pages[0].transform;
-        float top = pageRoot.Cast<RectTransform>().Where(t => t.gameObject.activeSelf && t.name != "SalaCoin").Select(t => -t.anchoredPosition.y + t.sizeDelta.y).DefaultIfEmpty(0).Max();
-        var group = plans.choices.FirstOrDefault(g => g.option == DesignOption.SalaCoin);
-        if (group == null) {
-            var row = FinalSettlementUiBaker.Rect("SalaCoin", pageRoot); FinalSettlementUiBaker.Top(row, 24, top + 4, 552, 104);
-            var sourceTitle = pageRoot.Find("EntrancePalette/Title").GetComponent<TMP_Text>();
-            var title = UnityEngine.Object.Instantiate(sourceTitle, row, false); title.name = "Title";
-            FinalSettlementUiBaker.Top(title.rectTransform, 0, 2, 552, 36); FinalSettlementUiBaker.SetLabel(title, "萨拉币图标");
-            var sourceButton = plans.choices.First(g => g.buttons.Length > 0).buttons[0];
-            group = new DesignChoiceGroup { option = DesignOption.SalaCoin, values = new[] { 0, 1, 2, 3 }, buttons = new Button[4] };
-            for (int i = 0; i < 4; i++) {
-                var button = UnityEngine.Object.Instantiate(sourceButton, row, false); button.name = "Style" + i;
-                FinalSettlementUiBaker.Top((RectTransform)button.transform, i * 138, 42, 132, 52);
-                button.onClick = new Button.ButtonClickedEvent(); UnityEventTools.AddIntPersistentListener(button.onClick, plans.SelectSalaCoin, i);
-                var caption = button.GetComponentInChildren<TMP_Text>(true); FinalSettlementUiBaker.Top(caption.rectTransform, 43, 0, 85, 52);
-                caption.fontSize = 16; caption.fontSizeMin = 13; caption.fontSizeMax = 16; caption.enableAutoSizing = true;
-                FinalSettlementUiBaker.SetLabel(caption, SalaCoinAppearance.Names[i]);
-                var iconRect = FinalSettlementUiBaker.Rect("Coin", button.transform); FinalSettlementUiBaker.Top(iconRect, 5, 10, 32, 32);
-                var image = iconRect.gameObject.AddComponent<Image>(); image.sprite = SalaCoinAppearance.SpriteAt(i); image.preserveAspect = true; image.raycastTarget = false;
-                group.buttons[i] = button;
-            }
-            plans.choices = plans.choices.Concat(new[] { group }).ToArray();
-        }
-        FinalSettlementUiBaker.Top((RectTransform)pageRoot.Find("SalaCoin"), 24, top + 4, 552, 104);
-        plans.pageHeights[0] = top + 4 + 104 + 128;
-        plans.presetDefaults = InterfacePlansController.RestorableDesignOptions.Select(option => new DesignPresetChoice { option = option, value = plans.DefaultDesignValue(option) }).ToArray();
+        BakeStyles(scene);
         foreach (var label in owner.shop.GetComponentsInChildren<LocalizedPlatformLabel>(true).Concat(owner.developerOptions.GetComponentsInChildren<LocalizedPlatformLabel>(true))) {
             if (string.IsNullOrEmpty(label.key) || !label.key.Contains("货币")) continue;
             label.SetSource(label.key.Replace("对局货币", "萨拉币").Replace("货币", "萨拉币")); EditorUtility.SetDirty(label);
@@ -93,6 +67,43 @@ public static class SalaCoinShopUiBaker {
         var rule = owner.shop.transform.Find("ShopWindow/RewardRule").GetComponent<LocalizedPlatformLabel>();
         if (rule) rule.SetSource(ShopPanel.RewardRuleText);
         GameEndRewardsUiBaker.BakeShop(owner);
+        EditorSceneManager.MarkSceneDirty(scene);
+    }
+
+    public static void BakeStyles(Scene scene) {
+        var plans = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<InterfacePlansController>(true)).Single();
+        var pageRoot = plans.pages[0].transform;
+        float top = pageRoot.Cast<RectTransform>().Where(t => t.gameObject.activeSelf && t.name != "SalaCoin").Select(t => -t.anchoredPosition.y + t.sizeDelta.y).DefaultIfEmpty(0).Max();
+        var row = FinalSettlementUiBaker.Rect("SalaCoin", pageRoot);
+        float height = 42 + Mathf.CeilToInt(SalaCoinAppearance.Names.Length / 4f) * 60;
+        FinalSettlementUiBaker.Top(row, 24, top + 4, 552, height);
+        var title = row.Find("Title")?.GetComponent<TMP_Text>();
+        if (!title) { title = UnityEngine.Object.Instantiate(pageRoot.Find("EntrancePalette/Title").GetComponent<TMP_Text>(), row, false); title.name = "Title"; }
+        FinalSettlementUiBaker.Top(title.rectTransform, 0, 2, 552, 36); FinalSettlementUiBaker.SetLabel(title, "萨拉币图标");
+        var group = plans.choices.FirstOrDefault(g => g.option == DesignOption.SalaCoin);
+        if (group == null) {
+            group = new DesignChoiceGroup { option = DesignOption.SalaCoin };
+            plans.choices = plans.choices.Concat(new[] { group }).ToArray();
+        }
+        var sourceButton = plans.choices.First(g => g.buttons != null && g.buttons.Length > 0).buttons[0];
+        group.values = Enumerable.Range(0, SalaCoinAppearance.Names.Length).ToArray();
+        group.buttons = new Button[group.values.Length];
+        for (int i = 0; i < group.values.Length; i++) {
+            var button = row.Find("Style" + i)?.GetComponent<Button>();
+            if (!button) { button = UnityEngine.Object.Instantiate(sourceButton, row, false); button.name = "Style" + i; }
+            FinalSettlementUiBaker.Top((RectTransform)button.transform, (i % 4) * 138, 42 + (i / 4) * 60, 132, 52);
+            button.onClick = new Button.ButtonClickedEvent(); UnityEventTools.AddIntPersistentListener(button.onClick, plans.SelectSalaCoin, i);
+            var caption = button.GetComponentInChildren<TMP_Text>(true); FinalSettlementUiBaker.Top(caption.rectTransform, 43, 0, 85, 52);
+            caption.fontSize = 16; caption.fontSizeMin = 13; caption.fontSizeMax = 16; caption.enableAutoSizing = true;
+            caption.fontStyle = FontStyles.Normal; caption.fontWeight = FontWeight.Regular;
+            FinalSettlementUiBaker.SetLabel(caption, SalaCoinAppearance.Names[i]);
+            var iconRect = FinalSettlementUiBaker.Rect("Coin", button.transform); FinalSettlementUiBaker.Top(iconRect, 5, 10, 32, 32);
+            var image = iconRect.GetComponent<Image>() ?? iconRect.gameObject.AddComponent<Image>();
+            image.sprite = SalaCoinAppearance.SpriteAt(i); image.preserveAspect = true; image.raycastTarget = false;
+            group.buttons[i] = button;
+        }
+        plans.pageHeights[0] = top + 4 + height + 128;
+        plans.presetDefaults = InterfacePlansController.RestorableDesignOptions.Select(option => new DesignPresetChoice { option = option, value = plans.DefaultDesignValue(option) }).ToArray();
         EditorUtility.SetDirty(plans); EditorSceneManager.MarkSceneDirty(scene);
     }
 
@@ -118,7 +129,7 @@ public static class SalaCoinShopUiBaker {
             throw new InvalidOperationException("Shop must not dim or block the surrounding lobby.");
         var plans = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<InterfacePlansController>(true)).Single();
         var group = plans.choices.Single(g => g.option == DesignOption.SalaCoin);
-        if (group.buttons.Length != 4 || !group.values.SequenceEqual(new[] { 0, 1, 2, 3 }) || Enumerable.Range(0, 4).Any(i => !SalaCoinAppearance.SpriteAt(i)))
+        if (group.buttons.Length != SalaCoinAppearance.Names.Length || !group.values.SequenceEqual(Enumerable.Range(0, SalaCoinAppearance.Names.Length)) || group.values.Any(i => !SalaCoinAppearance.SpriteAt(i)))
             throw new InvalidOperationException("Sala Coin styles have not been baked.");
     }
 }

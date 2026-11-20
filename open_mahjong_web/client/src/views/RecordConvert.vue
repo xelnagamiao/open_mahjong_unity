@@ -131,6 +131,7 @@
 </template>
 
 <script setup>
+import { parseReplayJSON } from '@/utils/browserRecordMigration.js'
 import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -336,7 +337,7 @@ onBeforeUnmount(() => { sharedRequest += 1; revision += 1 })
 
 function openIn2d() {
   try {
-    const gameId = saveLocalReplayRecord(JSON.parse(outputText.value))
+    const gameId = saveLocalReplayRecord(parseReplayJSON(outputText.value))
     router.push(`/2d/record/${encodeURIComponent(gameId)}`)
   } catch (cause) {
     ElMessage.error(cause?.message || '无法打开 2D 牌谱')
@@ -345,7 +346,7 @@ function openIn2d() {
 
 function openIn3d() {
   try {
-    saveLocalReplayRecord(JSON.parse(outputText.value))
+    saveLocalReplayRecord(parseReplayJSON(outputText.value))
     window.location.assign(`/game-unity?recordId=${encodeURIComponent(UNITY_LOCAL_REPLAY_ID)}`)
   } catch (cause) {
     ElMessage.error(cause?.message || '无法打开 3D 牌谱')

@@ -95,7 +95,7 @@ public static class TileSurfaceValidation {
         } finally { UnityEngine.Object.DestroyImmediate(root); }
 
         var settings = Resources.FindObjectsOfTypeAll<Salasasa.Home.SettingsStyleCollection>().Single(s=>s.gameObject.scene.IsValid());
-        foreach(var page in settings.bakedPages.Where(p=>p.category==2)) {
+        foreach(var page in settings.AuthoredPages.Where(p=>p.category==2)) {
             var row=page.controls.Single(f=>f.key=="DoraHintsRow"); var neighbor=page.controls.Single(f=>f.key=="TileCornerLabelsRow");
             Check(row.options.All(b=>b.transform.IsChildOf(row.root)) && row.dropdown.transform.IsChildOf(row.root),"theme " + page.variant + " dora controls own references");
             Check(row.UseSegments,"theme " + page.variant + " dora setting paints its segmented selection");

@@ -248,10 +248,12 @@ def prepare_packet(state, payload, viewer_index=None):
 async def send_game_packet(state, websocket, payload, viewer_index=None):
     """Bind every game message to its originating table before delivery."""
     packet = _packet(payload)
-    if packet.get('game_end_info'):
+    gid = getattr(state, "gamestate_id", None)
+    packet_gid = packet.get("gamestate_id")
+    same_table = not packet_gid or packet_gid == str(gid)
+    if same_table and packet.get("game_end_info"):
         from ...database.game_rewards import attach_currency_to_end_packet
         packet = attach_currency_to_end_packet(state, packet)
-    gid = getattr(state, "gamestate_id", None)
     if gid and (packet.get("type", "").startswith("gamestate/")
                 or packet.get("type") in ("switch_seat", "refresh_player_tag_list")):
         # Copy the envelope: cached/per-viewer payloads must remain reusable.
@@ -261,7 +263,7 @@ async def send_game_packet(state, websocket, payload, viewer_index=None):
     if origin and origin.get("round_id") != _scope(state):
         return
     kind = packet.get("type", "").rsplit("/", 1)[-1]
-    if kind in (*RESULT_FIELDS, "ready_status", "game_start", "reconnect") or "hongque_state" in packet:
+    if same_table and (kind in (*RESULT_FIELDS, "ready_status", "game_start", "reconnect") or "hongque_state" in packet):
         if viewer_index is None:
             viewer_index = _viewer(state, websocket)
         packet = prepare_packet(state, packet, viewer_index)

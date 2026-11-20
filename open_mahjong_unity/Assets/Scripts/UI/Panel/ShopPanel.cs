@@ -44,7 +44,7 @@ public sealed class ShopPanel : MonoBehaviour {
     private bool IsPurchase => pending != null && pending.type == "shop/purchase";
     private ShopOffer Selected => Array.Find(offers, offer => offer != null && offer.offer_id == selectedId);
     public static string Money(long minor) => (minor / 100m).ToString("0.00", CultureInfo.InvariantCulture);
-    public static string Kind(InventoryItem item) => !string.IsNullOrEmpty(item?.slot) ? "永久装扮" : item?.effect == "collectible" ? "收藏品" : "消耗品";
+    public static string Kind(InventoryItem item) => WarehouseEntry.ItemKindLabel(item);
 
     private void Awake() {
         fade = GetComponent<Salasasa.Home.BakedModalFade>();
@@ -219,7 +219,11 @@ public sealed class ShopPanel : MonoBehaviour {
         if (selected == null) return;
         var item = selected.item;
         detailName.text = PlatformText.Get(item.name); detailKind.text = PlatformText.Get(Kind(item));
-        detailDescription.text = PlatformText.Get(item.description ?? ""); descriptionScroll.verticalNormalizedPosition = 1;
+        detailDescription.text = PlatformText.Get(item.description ?? "");
+        // Resolve wrapping and auto-hiding before resetting a newly selected item's scroll position.
+        Canvas.ForceUpdateCanvases();
+        descriptionScroll.StopMovement();
+        descriptionScroll.verticalNormalizedPosition = 1;
         detailIcon.sprite = ConfigManager.GetInventoryIcon(item); detailIcon.enabled = detailIcon.sprite != null;
         if (item.slot == "avatar_frame") AvatarFrameGraphic.Apply(detailIcon, item.item_id);
         detailArtwork.gameObject.SetActive(!detailIcon.enabled); detailArtwork.SetKind(string.IsNullOrEmpty(item.slot) ? 2 : 3);

@@ -10,11 +10,14 @@ public static class WebGLAudioUnlock {
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern void InstallWebGLAudioUnlock();
+    [DllImport("__Internal")]
+    private static extern void InstallOMAudioDiagnostics();
 #endif
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Initialize() {
 #if UNITY_WEBGL && !UNITY_EDITOR
+        InstallOMAudioDiagnostics();
         InstallWebGLAudioUnlock();
 #endif
     }

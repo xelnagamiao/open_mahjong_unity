@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9746861f3d1ce334688777136829d4e8, type: 3}
   m_Name: PlatformTypography
   m_EditorClassIdentifier: Assembly-CSharp::PlatformTypography
+  baselineReferenceFont: {fileID: 0}
+  baselineFontAdjustments: []
   mixedFonts:
   - latin: {fileID: 11400000, guid: 19567a3535823f743a8a4d01195f483a, type: 2}
     chinese: {fileID: 11400000, guid: d37bcd4a46a48cc4dac7459c02949faf, type: 2}

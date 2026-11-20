@@ -59,7 +59,7 @@ public static class CommunityUiBaker {
         panel.status=Text("StatusText",frame,"",18,C("#CBD0D6"));var st=panel.status.rectTransform;st.anchorMin=Vector2.zero;st.anchorMax=Vector2.right;st.pivot=Vector2.zero;st.offsetMin=new Vector2(28,4);st.offsetMax=new Vector2(-28,36);
         panel.empty=Text("EmptyText",viewport,"暂无社群",24,C("#CBD0D6"));panel.empty.alignment=TextAlignmentOptions.Center;panel.empty.gameObject.SetActive(false);
         var template=CreateCard(items);Directory.CreateDirectory("Assets/Prefabs/Community");
-        var asset=PrefabUtility.SaveAsPrefabAsset(template.gameObject,"Assets/Prefabs/Community/CommunityItem.prefab");panel.itemTemplate=asset.GetComponent<CommunityCard>();
+        var asset=PrefabBaselineBaker.Save(template.gameObject,"Assets/Prefabs/Community/CommunityItem.prefab");panel.itemTemplate=asset.GetComponent<CommunityCard>();
         UnityEngine.Object.DestroyImmediate(template.gameObject);
         var doc=PlatformContentClient.Parse(client.bundledContent.text);panel.bakedCards=new CommunityCard[doc.communities.Length];
         for(int i=0;i<doc.communities.Length;i++){

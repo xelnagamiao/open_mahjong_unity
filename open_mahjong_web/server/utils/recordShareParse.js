@@ -16,6 +16,8 @@ function parseQueryPosition(text) {
   const roundRaw = Number(roundText);
   const nodeRaw = Number(nodeText);
   return {
+    ...(['main','open','closed'].includes(query.get('table')) && { table: query.get('table') }),
+    ...(query.get('cursor') === 'v2' && { cursor: 'v2' }),
     player: shareInteger(query.get('player')),
     playerIndex: shareInteger(query.get('playerIndex'), 0, 3),
     round: roundText != null && roundText !== '' && Number.isFinite(roundRaw) && roundRaw >= 1
@@ -35,10 +37,7 @@ function parseOneRecordShare(raw) {
   const position = parseQueryPosition(text);
   return {
     game_id: gameId,
-    round: position.round,
-    node: position.node,
-    player: position.player,
-    playerIndex: position.playerIndex,
+    ...position,
   };
 }
 
@@ -55,25 +54,29 @@ function parseRecordShareInput(raw) {
   return null;
 }
 
-function replayQuery(round, node, player, playerIndex) {
+function replayQuery(round, node, player, playerIndex, table, cursor) {
   const params = new URLSearchParams();
   if (round != null) params.set('round', String(round));
   if (node != null) params.set('node', String(node));
   if (shareInteger(player) != null) params.set('player', String(player));
   if (shareInteger(playerIndex, 0, 3) != null) params.set('playerIndex', String(playerIndex));
+  if (table) params.set('table', table);
+  if (cursor) params.set('cursor', cursor);
   const query = params.toString();
   return query ? `?${query}` : '';
 }
 
 function classicReplayLinks(item) {
   const id = encodeURIComponent(item.game_id);
-  const query = replayQuery(item.round, item.node, item.protagonist_user_id, item.protagonist_player_index);
+  const query = replayQuery(item.round, item.node, item.protagonist_user_id, item.protagonist_player_index, item.table, item.cursor);
   const unityQuery = new URLSearchParams();
   unityQuery.set('recordId', item.game_id);
   if (item.round != null) unityQuery.set('round', String(item.round));
   if (item.node != null) unityQuery.set('node', String(item.node));
   if (shareInteger(item.protagonist_user_id) != null) unityQuery.set('player', String(item.protagonist_user_id));
   if (shareInteger(item.protagonist_player_index, 0, 3) != null) unityQuery.set('playerIndex', String(item.protagonist_player_index));
+  if (item.table) unityQuery.set('table', item.table);
+  if (item.cursor) unityQuery.set('cursor', item.cursor);
   return {
     url_2d: `/2d/record/${id}${query}`,
     url_3d: `/game-unity?${unityQuery.toString()}`,

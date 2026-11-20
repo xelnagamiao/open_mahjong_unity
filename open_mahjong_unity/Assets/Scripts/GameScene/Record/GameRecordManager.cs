@@ -319,6 +319,7 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private List<Round> _roundsListForInspector;
 
     public void HideGameRecord() {
+        if (!loadingMatchTable) ClearMatchRecord();
         HideRecordMatchResult();
         StopRecordAutoPlay();
         InvalidateRecordDelayedAdvances();
@@ -334,6 +335,12 @@ public partial class GameRecordManager : MonoBehaviour {
     public void LoadRecord(string recordJson, PlayerRecordInfo[] players_info = null, string shareGameId = null) {
         // 已在延时观战内的刷新（如对局结束重载完整牌谱）仍允许；其它互斥会话下禁止覆盖 UI
         if (!IsSpectating && GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) return;
+        if (!loadingMatchTable) {
+            ClearMatchRecord();
+            InfoPopup?.ResetDocument();
+            gameInfoDocument = null;
+            comparisonArrival = null;
+        }
 
         StopRecordAutoPlay();
         InvalidateRecordDelayedAdvances();
@@ -382,7 +389,7 @@ public partial class GameRecordManager : MonoBehaviour {
         else if (CurrentMode == RecordManagerMode.Record) {
             if (spectatingPanel != null) spectatingPanel.SetActive(false);
             if (showGameInfoButton != null) showGameInfoButton.gameObject.SetActive(true);
-            if (showGameInfoButtonLabel != null) TableText.Set(showGameInfoButtonLabel, "游戏信息");
+            if (showGameInfoButtonLabel != null) TableText.Set(showGameInfoButtonLabel, "对局信息");
             ExitButtonManager.Instance?.ShowForRecord();
         }
         UpdateRecordAutoPlayButtonVisibility();
@@ -418,6 +425,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 if (player == null) continue;
                 PlayerSetting setting = new PlayerSetting {
                     userId = player.user_id,
+                    originalPlayerIndex = player.original_player_index ?? -1,
                     title_used = player.title_used ?? 1,
                     profile_used = player.profile_used ?? 1,
                     avatar_frame_used = player.avatar_frame_used ?? 0,
@@ -431,6 +439,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             // 根据玩家信息确定玩家原始位置
             foreach (var PlayerSetting in playersSettings){
+                if (PlayerSetting.originalPlayerIndex >= 0 && PlayerSetting.originalPlayerIndex < RecordPlayerCount) continue;
                 if (PlayerSetting.userId == Convert.ToInt32(gameRecord.gameTitle["p0_uid"])){
                     PlayerSetting.originalPlayerIndex = 0;
                 }
@@ -831,7 +840,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 仅刷新四角玩家面板的玩家名（牌谱匿名玩家等纯昵称切换用，不重绘牌面 / 操作区）。
     /// </summary>
     public void RefreshRecordPlayerPanelNames() {
-        if (GameCanvas.Instance == null || recordPlayerList == null || userIdToUsername == null) return;
+        if (GameCanvas.Instance == null || recordPlayerList == null) return;
         if (indexToPosition == null) return;
 
         foreach (var recordPlayer in recordPlayerList) {
@@ -845,29 +854,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             if (targetPanel == null) continue;
 
-            PlayerInfo playerInfo = new PlayerInfo {
-                user_id = recordPlayer.userId,
-                username = userIdToUsername.TryGetValue(recordPlayer.userId, out string name) ? name : $"玩家{recordPlayer.userId}",
-                player_index = recordPlayer.playerIndex,
-                original_player_index = recordPlayer.originalPlayerIndex,
-                title_used = recordPlayer.title_used,
-                profile_used = recordPlayer.profile_used,
-                avatar_frame_used = recordPlayer.avatar_frame_used,
-                character_used = recordPlayer.character_used,
-                voice_used = recordPlayer.voice_used,
-                hand_tiles_count = 0,
-                hand_tiles = new int[0],
-                discard_tiles = new int[0],
-                discard_origin_tiles = new int[0],
-                combination_tiles = new string[0],
-                combination_mask = new int[0][],
-                huapai_list = new int[0],
-                remaining_time = 0,
-                score = 0,
-                score_history = new string[0],
-                tag_list = new string[0]
-            };
-            targetPanel.SetPlayerInfo(playerInfo, "record");
+            targetPanel.RefreshPlayerName();
         }
     }
 
@@ -907,6 +894,14 @@ public partial class GameRecordManager : MonoBehaviour {
             } else {
                 SoundManager.Instance.PlayPhysicsSound(displayAction);
             }
+        }
+        if (action == "ca") {
+            // 未最终执行的战术鸣牌申请也要独立报声、飘字，但不能改变轮次、手牌或弃牌。
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, displayAction, roomRule);
+            currentNode++;
+            UpdateCurrentXunmuText();
+            return;
         }
         int nextPlayerIndex = currentPlayerIndex;
         bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
@@ -1014,11 +1009,6 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, action == "nuki" ? "nuki" : "buhua", IsRiichiRuleRecord() ? "riichi" : null);
             nextPlayerIndex = actingPlayerIndex;
-        }
-        else if (action == "ca") {
-            TryGetActiveRecordRuleContext(out string roomRule, out _);
-            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, displayAction, roomRule);
-            nextPlayerIndex = currentPlayerIndex;
         }
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
@@ -1281,6 +1271,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
+        ConsumeDuocaiTrailingSnapshots(roundData);
         // Rule presentation hooks can update dynamic reserves (e.g. Fuzhou).
         // Resolve them before the wall, remaining count and draw forecast.
         if (isRuleStateAction) RefreshRecordRulePlayerTags();
@@ -1379,6 +1370,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
         TableText.Set(currentXunmuText, $"{xunmu}巡");
+        RefreshReplayPresentation();
     }
 
     private string FormatRoundText(string rule, int roundNo) {
@@ -1473,23 +1465,25 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 生成游戏信息文案，有什么信息就展示什么，因为不同规则可能有不同牌谱头配置（规则、局数、玩家ID、选项等）
+    /// 生成对局信息文案，有什么信息就展示什么，因为不同规则可能有不同牌谱头配置（规则、局数、玩家ID、选项等）
     /// </summary>
     private string BuildGameInfoString() {
-        if (gameRecord?.gameTitle == null) return "暂无游戏信息";
+        if (gameRecord?.gameTitle == null) return "暂无对局信息";
         var gt = gameRecord.gameTitle;
         string ruleKey = ReadGameTitleString(gt, "rule", "").ToLowerInvariant();
         string subRule = ReadGameTitleString(gt, "sub_rule", "");
         string rule = RuleNameDictionary.GetWholeName(!string.IsNullOrEmpty(subRule) ? subRule : ruleKey);
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("【游戏信息】");
+        sb.AppendLine("【对局信息】");
         sb.AppendLine($"规则: {rule}");
         if (!string.IsNullOrEmpty(subRule)) sb.AppendLine($"子规则: {subRule}");
         AppendGameTitleOptionLines(sb, gt, ruleKey, gameRecord);
         AppendPlayerEntryOrderLine(sb, gt);
         int p0 = ReadGameTitleInt(gt, "p0_uid", 0), p1 = ReadGameTitleInt(gt, "p1_uid", 0), p2 = ReadGameTitleInt(gt, "p2_uid", 0), p3 = ReadGameTitleInt(gt, "p3_uid", 0);
-        if (p0 != 0 || p1 != 0 || p2 != 0 || p3 != 0) {
+        if (MatchSession?.Table("open") != null || MatchSession?.Table("closed") != null) {
+            AppendMatchPlayers(sb);
+        } else if (p0 != 0 || p1 != 0 || p2 != 0 || p3 != 0) {
             string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : ReadGameTitleString(gt, "p0_name", p0.ToString());
             string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : ReadGameTitleString(gt, "p1_name", p1.ToString());
             string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : ReadGameTitleString(gt, "p2_name", p2.ToString());
@@ -1521,6 +1515,7 @@ public partial class GameRecordManager : MonoBehaviour {
             string roomTypeLabel = roomType switch {
                 "custom" => "自定义房",
                 "match" => "匹配房",
+                "events" => "赛事场",
                 _ => roomType,
             };
             sb.AppendLine($"房间类型: {roomTypeLabel}");
@@ -1530,7 +1525,9 @@ public partial class GameRecordManager : MonoBehaviour {
             maxRound = Mathf.Max(1, record.gameRound.rounds?.Count ?? 0);
         }
         if (ReadGameTitleBool(gt, "unlimited_rounds", false)) sb.AppendLine("局数: 无固定时限");
-        else if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
+        else if (maxRound > 0) sb.AppendLine(ruleKey == "sichuan"
+            ? $"局制: {ReadGameTitleInt(gt, "duplicate_round_count", maxRound * 4)} 副"
+            : "局制: " + RoundTextDictionary.GetMaxRoundText(ruleKey, maxRound));
         if (gt.ContainsKey("hepai_limit")) {
             sb.AppendLine($"起和番: {ReadGameTitleInt(gt, "hepai_limit", 0)}{(ruleKey == "riichi" ? "（不含宝牌）" : "")}");
         }
@@ -1547,9 +1544,10 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         if (gt.ContainsKey("open_cuohe")) sb.AppendLine($"错和: {(ReadGameTitleBool(gt, "open_cuohe", false) ? "开" : "关")}");
         if (gt.ContainsKey("tips")) sb.AppendLine($"提示: {(ReadGameTitleBool(gt, "tips", false) ? "开" : "关")}");
-        sb.AppendLine($"手摸切显示: {(RequireGameTitleBool(gt, "show_moqie_hint") ? "开" : "关")}");
+        if (gt.ContainsKey("show_moqie_hint")) sb.AppendLine($"手摸切显示: {(ReadGameTitleBool(gt, "show_moqie_hint", false) ? "开" : "关")}");
         bool trainingWall = ReadGameTitleString(gt, "wall_source", "") == "training";
-        if (gt.ContainsKey("is_player_set_random_seed") && !trainingWall) {
+        bool paired = SichuanLobby.IsDuplicate(ReadGameTitleString(gt, "sub_rule", ""));
+        if (gt.ContainsKey("is_player_set_random_seed") && !trainingWall && !paired) {
             bool isSetSeed = ReadGameTitleBool(gt, "is_player_set_random_seed", false);
             sb.AppendLine($"场景复现: {(isSetSeed ? "开" : "关")}");
         }
@@ -1620,26 +1618,7 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// 生成当前局信息文案（局序号、当前圈、种子、手牌数、行动数等）
-    /// </summary>
-    private string BuildRoundInfoString() {
-        if (gameRecord?.gameRound?.rounds == null) return "暂无局信息";
-        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)) {
-            return $"当前局索引 {currentRoundIndex} 无数据";
-        }
-        int handCount = (round.p0Tiles?.Count ?? 0) + (round.p1Tiles?.Count ?? 0) + (round.p2Tiles?.Count ?? 0) + (round.p3Tiles?.Count ?? 0);
-        int actionCount = round.actionTicks?.Count ?? 0;
-        int tileWallCount = round.tilesList?.Count ?? 0;
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("【局信息】");
-        sb.AppendLine($"局数序号: {round.roundIndex}");
-        sb.AppendLine($"当前局数: {round.currentRound}");
-        sb.AppendLine($"牌山张数: {tileWallCount}");
-        sb.AppendLine($"行动总数: {actionCount}");
-        sb.AppendLine($"当前行动: {currentNode} / {actionCount}");
-        return sb.ToString();
-    }
+    private string BuildRoundInfoString() => BuildReplayStatus();
 
     private int ParseTickInt(List<string> tick, int index) {
         if (index >= tick.Count) return 0;
@@ -1824,6 +1803,7 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
 
+        if(RecordRuleManifest?.RuleId=="duocai")riichiExtras=DuocaiRecordResultExtras();
         _recordHuPresentationCoroutine = StartCoroutine(CoShowRecordResultWithPresentation(
             huClass, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
             hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras,
@@ -2353,7 +2333,7 @@ public partial class GameRecordManager : MonoBehaviour {
     private bool IsRecordSilentTick(List<string> tick) {
         if (tick == null || tick.Count == 0) return true;
         string action = tick[0];
-        return action == "reset" || action == "ask_hand" || action == "ask_other" || action == "ca"
+        return action == "reset" || action == "ask_hand" || action == "ask_other"
             || (RecordReplay.IsSilentTick?.Invoke(tick) ?? RecordReplay.SilentActions.Contains(action));
     }
 
@@ -2374,6 +2354,17 @@ public partial class GameRecordManager : MonoBehaviour {
             // 声明仍不占独立操作步；仅顺序播放报声，GotoAction 的状态重建保持静音。
             RecordReplay.AnnounceAfterSilentAction?.Invoke(roundData.actionTicks[currentNode]);
             currentNode++;
+        }
+    }
+
+    private void ConsumeDuocaiTrailingSnapshots(Round roundData) {
+        if(RecordRuleManifest?.RuleId!="duocai"||roundData?.actionTicks==null)return;
+        while(currentNode<roundData.actionTicks.Count) {
+            var tick=roundData.actionTicks[currentNode];
+            bool snapshot=tick?.Count>1&&tick[0]=="duocai"&&(tick[1]=="state"||tick[1]=="waits");
+            bool ask=tick?.Count>0&&(tick[0]=="ask_hand"||tick[0]=="ask_other");
+            if(!snapshot&&!ask)break;
+            ApplyRecordSilentTick(tick);currentNode++;
         }
     }
 

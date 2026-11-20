@@ -8,6 +8,15 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour, UnityEngine.UI.ILayoutGroup {
+    [Header("结算文字基线")]
+    [SerializeField, Tooltip("明细模式第二行显示的列。")] private TMP_Text detailLineColumn;
+    [SerializeField, Range(0, 1), Tooltip("从容器顶部量起，0 使普通行贴合顶部留白。")]
+    private float inlineBaseline;
+    [SerializeField, Range(0, 1), Tooltip("明细首行从容器顶部量起的相对位置。")]
+    private float breakdownMainBaseline;
+    [SerializeField, Range(0, 1), Tooltip("明细次行从容器顶部量起的相对位置，自动保留最小行距。")]
+    private float breakdownDetailBaseline;
+    [SerializeField, Min(0)] private float detailGap = 10f;
     private readonly List<TMP_Text> columns = new List<TMP_Text>(4);
     private readonly List<Metrics> metrics = new List<Metrics>(4);
     private readonly Dictionary<TMP_Text, string> sourceTexts = new Dictionary<TMP_Text, string>();
@@ -19,17 +28,12 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
     private RectOffset padding;
     private Vector2 standardAnchorMin, standardAnchorMax, standardPivot, standardPosition, standardSize;
     private SettlementTotalDisplay.LayoutKind layoutKind;
-    private TMP_Text detail, score;
+    private TMP_Text fuColumn, score;
     private bool initialized;
 
     private struct Metrics {
         public TMP_Text Text;
         public float Width, Ascender, Descender;
-    }
-
-    public static SettlementTotalLayout Ensure(GameObject container) {
-        var layout = container.GetComponent<SettlementTotalLayout>();
-        return layout != null ? layout : container.AddComponent<SettlementTotalLayout>();
     }
 
     public void Show(SettlementTotalDisplay display, TMP_Text fan, TMP_Text fu, TMP_Text points, TMP_Text limit) {
@@ -64,7 +68,7 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
             }
         }
         layoutKind = display.Layout;
-        detail = fu;
+        fuColumn = fu;
         score = points;
         columns.Clear();
         sourceTexts.Clear();
@@ -83,7 +87,7 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
     private void Add(TMP_Text label, string text) {
         if (label == null) return;
         sourceTexts[label] = text;
-        TableText.Set(label, label == detail ? TableText.FuValue(text) : text);
+        TableText.Set(label, label == fuColumn ? TableText.FuValue(text) : text);
         label.gameObject.SetActive(!string.IsNullOrEmpty(text));
         // 顺序属于显示模型，不再依赖 MainScene 中历史遗留的 sibling 顺序。
         label.transform.SetAsLastSibling();
@@ -94,7 +98,7 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
         if (typography) { typography.preserveAuthoredTypeface = true; typography.Apply(); }
         else label.font = font;
         label.fontSize = layoutKind == SettlementTotalDisplay.LayoutKind.Breakdown
-            ? (label == detail ? 34f : label == score ? 54f : 42f) : fontSize;
+            ? (label == detailLineColumn ? 34f : label == score ? 54f : 42f) : fontSize;
         label.enableAutoSizing = false;
         label.textWrappingMode = TextWrappingModes.NoWrap;
         label.overflowMode = TextOverflowModes.Overflow;
@@ -114,10 +118,16 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
     }
     private void RefreshLanguage() {
         foreach (var pair in sourceTexts) if (pair.Key)
-            TableText.Set(pair.Key, pair.Key == detail ? TableText.FuValue(pair.Value) : pair.Value);
+            TableText.Set(pair.Key, pair.Key == fuColumn ? TableText.FuValue(pair.Value) : pair.Value);
         MarkDirty();
     }
     protected override void OnRectTransformDimensionsChange() { base.OnRectTransformDimensionsChange(); MarkDirty(); }
+#if UNITY_EDITOR
+    protected override void OnValidate() {
+        base.OnValidate();
+        if (isActiveAndEnabled) MarkDirty();
+    }
+#endif
     private void MarkDirty() { UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(Rect); }
     public void SetLayoutHorizontal() { Arrange(); }
     public void SetLayoutVertical() { Arrange(); }
@@ -168,7 +178,9 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
             descent = Mathf.Max(descent, item.Descender);
         }
         float scale = Fit(width, ascent + descent, Rect.rect.width - padding.horizontal, Rect.rect.height - padding.vertical);
-        float x = padding.left, baseline = -padding.top - ascent * scale;
+        float x = padding.left;
+        float baseline = -Mathf.Clamp(inlineBaseline * Rect.rect.height,
+            padding.top + ascent * scale, Rect.rect.height - padding.bottom - descent * scale);
         foreach (Metrics item in metrics) {
             Place(item, x, baseline, scale);
             x += (item.Width + spacing) * scale;
@@ -176,20 +188,30 @@ public sealed class SettlementTotalLayout : UnityEngine.EventSystems.UIBehaviour
     }
 
     private void ArrangeBreakdown() {
-        float bodyWidth = 0, scoreWidth = 0, ascent = 0, descent = 0, detailAscent = 0, detailDescent = 0;
+        float mainWidth = 0, detailWidth = 0, scoreWidth = 0, ascent = 0, descent = 0, detailAscent = 0, detailDescent = 0;
+        bool hasDetail = false;
         foreach (Metrics item in metrics) {
             if (item.Text == score) scoreWidth = item.Width;
-            else bodyWidth = Mathf.Max(bodyWidth, item.Width);
-            if (item.Text == detail) { detailAscent = item.Ascender; detailDescent = item.Descender; }
+            else if (item.Text == detailLineColumn) detailWidth = item.Width;
+            else mainWidth += (mainWidth > 0 ? spacing : 0) + item.Width;
+            if (item.Text == detailLineColumn) { hasDetail = true; detailAscent = item.Ascender; detailDescent = item.Descender; }
             else { ascent = Mathf.Max(ascent, item.Ascender); descent = Mathf.Max(descent, item.Descender); }
         }
-        const float detailGap = 10f;
-        float height = ascent + descent + detailGap + detailAscent + detailDescent;
-        float scale = Fit(bodyWidth + spacing + scoreWidth, height, Rect.rect.width, Rect.rect.height);
+        float gap = hasDetail && metrics.Count > 1 ? detailGap : 0;
+        float height = ascent + descent + gap + detailAscent + detailDescent;
+        float bodyWidth = Mathf.Max(mainWidth, detailWidth);
+        float width = bodyWidth + (scoreWidth > 0 && bodyWidth > 0 ? spacing : 0) + scoreWidth;
+        float scale = Fit(width, height, Rect.rect.width, Rect.rect.height);
+        float first = Mathf.Clamp(breakdownMainBaseline * Rect.rect.height, ascent * scale,
+            Rect.rect.height - (descent + gap + detailAscent + detailDescent) * scale);
+        float second = Mathf.Clamp(breakdownDetailBaseline * Rect.rect.height, first + (descent + gap + detailAscent) * scale,
+            Rect.rect.height - detailDescent * scale);
+        float mainX = 0;
         foreach (Metrics item in metrics) {
-            float x = item.Text == score ? Rect.rect.width - scoreWidth * scale : 0f;
-            float baseline = item.Text == detail ? -(ascent + descent + detailGap + detailAscent) * scale : -ascent * scale;
-            Place(item, x, baseline, scale);
+            bool secondLine = item.Text == detailLineColumn;
+            float x = item.Text == score ? Rect.rect.width - scoreWidth * scale : secondLine ? 0 : mainX;
+            Place(item, x, secondLine ? -second : -first, scale);
+            if (item.Text != score && !secondLine) mainX += (item.Width + spacing) * scale;
         }
     }
 

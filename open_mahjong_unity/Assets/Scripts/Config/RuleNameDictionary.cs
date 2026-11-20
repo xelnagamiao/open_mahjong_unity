@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 /// <summary>
 /// 规则/子规则显示名映射，供记录列表、牌谱等 UI 使用。直接使用 sub_rule 作为 key 查找。
@@ -25,7 +26,7 @@ public static class RuleNameDictionary {
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
         { "classical/standard", "古典麻雀" },
         { "sichuan/standard", "四川麻将(血战到底)" },
-        { "sichuan/xuezhan_exchange", "血战换三张（推广）" },
+        { "sichuan/xuezhan_exchange", "血战到底·换三张" },
         { "sichuan/doubles", "血战双打·2V2" },
         { "sichuan/xueliu", "血流成河·弃三张" },
         { "sichuan/xueliu_exchange", "血流成河·换三张" },
@@ -36,6 +37,7 @@ public static class RuleNameDictionary {
         { "changsha/classic_double_bird", "长沙麻将(经典双鸟)" },
         { "changsha/exchange_six", "长沙麻将(换六张)" },
         { "guangdong", "广东麻将" },
+        { "guangdong/mil2023-doubles", "广东麻将（推广）2V2 双打" },
         { "guangdong/tuidao_mil2024", "推倒和（MIL 2024）" },
         { "hongkong", "香港麻将" },
         { "hongkong/qingzhang", "香港清章十三张" },
@@ -85,7 +87,7 @@ public static class RuleNameDictionary {
         { "qingque/standard", "青雀" },
         { "classical/standard", "古典" },
         { "sichuan/standard", "四川" },
-        { "sichuan/xuezhan_exchange", "血战换三张" },
+        { "sichuan/xuezhan_exchange", "血战到底·换三张" },
         { "sichuan/doubles", "血战双打" },
         { "sichuan/xueliu", "血流弃三张" },
         { "sichuan/xueliu_exchange", "血流换三张" },
@@ -127,6 +129,52 @@ public static class RuleNameDictionary {
 
     public static string GetWholeName(string subRule) {
         return subRule != null && WholeName.TryGetValue(subRule, out string name) ? name : subRule ?? "";
+    }
+
+    public static string GetRecordName(string rule, string subRule) {
+        string key = string.IsNullOrWhiteSpace(subRule) ? rule?.Trim() : subRule.Trim();
+        if (string.IsNullOrEmpty(key)) return "未知规则";
+        string id = key.ToLowerInvariant();
+        if (id == "gb") id = "guobiao";
+        if (id == "jp") id = "riichi";
+        if (WholeName.TryGetValue(id, out string name)) return name;
+        var manifest = RuleRegistry.Resolve(id, id);
+        if (manifest != null) {
+            if (manifest.RuleId == id) return manifest.LobbyName ?? manifest.DisplayName ?? key;
+            if (manifest.LobbySubRules != null) {
+                foreach (var entry in manifest.LobbySubRules)
+                    if (entry?.Key == id && !string.IsNullOrEmpty(entry.DisplayName)) return entry.DisplayName;
+            }
+        }
+        return key;
+    }
+
+    public static (string rule, string subRule) RecordKeys(RecordDetail detail) {
+        if (detail == null) return (null, null);
+        return RecordKeys(detail.rule, detail.sub_rule, detail.record, detail.selected_table_id);
+    }
+
+    public static (string rule, string subRule) RecordKeys(string rule, string subRule, JObject match,
+        string tableId = null) {
+        void Read(JObject source) {
+            if (source == null) return;
+            if (string.IsNullOrWhiteSpace(rule)) rule = (string)(source["rule"] as JValue);
+            if (string.IsNullOrWhiteSpace(subRule)) subRule = (string)(source["sub_rule"] as JValue);
+        }
+        bool Incomplete() => string.IsNullOrWhiteSpace(rule) || string.IsNullOrWhiteSpace(subRule);
+        if (Incomplete()) Read(match);
+        if (Incomplete()) Read(match?["game_title"] as JObject);
+        if (Incomplete() && match?["tables"] is JObject tables) {
+            void ReadTable(string id) {
+                if (string.IsNullOrEmpty(id) || !(tables[id] is JObject table)) return;
+                if (table["payload"] is JObject payload) Read(payload["game_title"] as JObject);
+            }
+            ReadTable(tableId);
+            if (Incomplete()) ReadTable("main");
+            if (Incomplete()) ReadTable("open");
+            if (Incomplete()) ReadTable("closed");
+        }
+        return (rule?.Trim(), subRule?.Trim());
     }
 
     public static string GetShortName(string subRule) {

@@ -17,8 +17,13 @@ public partial class CreatePanel {
     }
 
     private void ReflowJinluoWeather() {
-        if (!JinluoWeatherPanel || !RoomContent) return;
-        ((RectTransform)JinluoWeatherPanel.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, RoomContent.rect.width);
+        if (!JinluoWeatherDropdown) return;
+        // 外层由内容区布局管理；控件止于半行，左边缘与普通下拉框一致。
+        var field = (RectTransform)JinluoWeatherDropdown.transform;
+        field.anchorMin = Vector2.zero;
+        field.anchorMax = new Vector2(.5f, 1);
+        field.offsetMin = new Vector2(128, 10);
+        field.offsetMax = new Vector2(0, -10);
     }
 
     private void RefreshJinluoControls() {
@@ -63,12 +68,11 @@ public partial class CreatePanel {
         RoomStyleDropdown(JinluoWeatherDropdown, stepTimer.captionText.fontSizeMax);
         var title = JinluoWeatherPanel.GetComponentsInChildren<TMP_Text>(true).First(label => !label.GetComponentInParent<TMP_Dropdown>(true));
         TableText.Set(title, "七对天气", "guobiao");
-        // 天气包含较长的规则说明，使用内容区整行，避免挤进原有多列选择栏。
+        // 保留独立行，仅在左半行显示天气控件。
         JinluoWeatherPanel.transform.SetParent(RoomContent, false);
         JinluoWeatherPanel.transform.SetSiblingIndex(JinluoModeToggle.transform.parent.GetSiblingIndex() + 1);
         RoomHeight((RectTransform)JinluoWeatherPanel.transform, 76);
-        RoomFill((RectTransform)JinluoWeatherDropdown.transform, 200, 10, 24, 10);
-        RoomBox(title.rectTransform, 24, 10, 160, 56);
+        RoomBox(title.rectTransform, 0, 10, 120, 56);
         ReflowJinluoWeather();
         foreach (var label in JinluoWeatherPanel.GetComponentsInChildren<TMP_Text>(true).Concat(new[] { toggleLabel })) {
             label.fontStyle &= ~FontStyles.Bold;

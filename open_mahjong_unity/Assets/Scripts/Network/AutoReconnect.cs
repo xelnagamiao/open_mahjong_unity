@@ -391,6 +391,7 @@ public static class AutoReconnect {
     }
 
     private static void OnSucceeded(bool skipAllTips = false) {
+        NetworkManager.Instance?.ResumeMatchSpectator();
         bool abandonedSpectator = _abandonedSpectatorSession;
         _state = State.Idle;
         ExpectGameRestore = false;
@@ -410,6 +411,10 @@ public static class AutoReconnect {
     /// 只清本地观战互斥状态，不向服务端发退出（断线后连接已失效，服务端已在 disconnect 时移除）。
     /// </summary>
     private static void AbandonLocalSpectatorSession() {
+        if (NetworkManager.HasMatchSpectatorSession) {
+            NetworkManager.Instance.SuspendMatchSpectator();
+            return;
+        }
         NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
         if (GameRecordManager.Instance != null) {
             GameRecordManager.Instance.ResetForSessionEnd();

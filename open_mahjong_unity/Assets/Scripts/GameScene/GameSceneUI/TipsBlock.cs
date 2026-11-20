@@ -26,7 +26,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         var sourceHand = new List<int>(selfHandTiles);
         combinationTiles = new List<string>(combinationTiles);
         string subRule = GameSession.Current.SubRule;
-        int actualDraw = GuobiaoGameState.Active?.BuildHintTiming().DrawTile ?? 0;
+        int actualDraw = DuocaiGameState.Active?.Hints.CurrentDrawTile ?? GuobiaoGameState.Active?.BuildHintTiming().DrawTile ?? 0;
         bool currentGuobiaoHand = actualDraw > 0
             && selfHandTiles.Count + combinationTiles.Count * 3 == (subRule == GuobiaoGameState.SixteenSubRule ? 17 : 14);
         if (currentGuobiaoHand && !selfHandTiles.Remove(actualDraw)) currentGuobiaoHand = false;
@@ -43,7 +43,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
         });
         // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0 && (!currentGuobiaoHand || waitingTiles.Contains(WashizuTile.Face(actualDraw)))){
+        if (waitingTiles.Count > 0 && (!currentGuobiaoHand || waitingTiles.Contains(DuocaiGameState.Active!=null?actualDraw:WashizuTile.Face(actualDraw)))){
             var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);
             TipsContainer.Instance.CacheTenpaiTips(selfHandTiles, waitingList);

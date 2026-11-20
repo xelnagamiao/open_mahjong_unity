@@ -95,7 +95,6 @@ public sealed partial class InventoryPanel {
         quantityInput.textComponent=(TextMeshProUGUI)value;quantityInput.textViewport=(RectTransform)quantityInput.transform;quantityInput.contentType=TMP_InputField.ContentType.IntegerNumber;quantityInput.characterLimit=3;
         quantityInput.customCaretColor=true;quantityInput.caretColor=WarehouseInk;quantityInput.selectionColor=WarehouseColor("287DA5",.25f);quantityInput.gameObject.SetActive(false);
         actionButton=WarehouseButton(root,"Action",1132,642,310,48,"使用",font,WarehouseAccent);actionLabel=actionButton.GetComponentInChildren<TMP_Text>();actionLabel.color=Color.white;
-        statusText=WarehouseLabel(root,"Status",204,700,884,32,"",18,WarehouseMuted,font);
         WarehouseBorder(root,"WindowBorder",1488,780,1,WarehouseColor("287DA5",.45f));
         foreach(var text in GetComponentsInChildren<TMP_Text>(true))text.richText=false;
         gameObject.SetActive(false);
@@ -128,7 +127,7 @@ public sealed partial class InventoryPanel {
             throw new InvalidOperationException("仓库场景面板应命名为 StorePanel，请重新烘焙仓库 UI。");
         if (categoryButtons == null || categoryButtons.Length != CategoryNames.Length || !content || !rowTemplate || !preview || !previewArtwork
             || !detailName || !detailType || !detailCount || !detailRule || !emptyText || !quantityInput
-            || !actionButton || !actionLabel || !details || !previewGlyph || !statusText || !closeButton
+            || !actionButton || !actionLabel || !details || !previewGlyph || !closeButton
             || !decreaseButton || !increaseButton)
             throw new InvalidOperationException(name + " 仓库引用缺失，请烘焙仓库 UI。");
         foreach (var button in categoryButtons)

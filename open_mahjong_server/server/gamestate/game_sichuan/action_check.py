@@ -138,6 +138,8 @@ def _build_way_tokens(self, player_index, hepai_type, is_get_gang_tile=False):
     way = []
     if hepai_type == "qianggang":
         way.append("抢杠")
+        # SBR 2025 第21页：开杠后再次加杠的牌也属于杠上炮。
+        # 当前加杠尚待确认，必须读取加杠前的状态，不能使用已被置真的 last_action_was_gang。
         if not getattr(self, "is_xueliu", False) and getattr(self, "jiagang_after_gang", False):
             way.append("杠上炮")
     elif hepai_type == "handgot":

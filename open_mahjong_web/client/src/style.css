@@ -19,6 +19,21 @@ body {
 
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
+}
+
+/* Give horizontal table scrollbars their own strip below the row viewport. */
+.el-table--scrollable-x > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar {
+  box-sizing: border-box;
+  padding-bottom: 16px;
+}
+
+.el-table--scrollable-x > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar > .el-scrollbar__bar.is-horizontal {
+  bottom: 5px;
+}
+
+.el-table--scrollable-x > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar > .el-scrollbar__bar.is-vertical {
+  bottom: 18px;
 }
 
 ::-webkit-scrollbar-track {

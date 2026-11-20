@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 1626286037702773163}
   - component: {fileID: 3397894230021139891}
   - component: {fileID: 4484047372193218822}
+  - component: {fileID: 3658223755652892169}
   m_Layer: 12
   m_Name: HistoryText
   m_TagString: Untagged
@@ -157,3 +158,18 @@ MonoBehaviour:
   styleCaptured: 1
   preserveAuthoredTypeface: 0
   preserveAuthoredChineseFace: 0
+--- !u!114 &3658223755652892169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2516486127994730824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  row: {fileID: 0}
+  designSize: 0

@@ -12,7 +12,7 @@ public static partial class HandSurfaceLibrary
         public float x, y, scale;
         public static FaceLayout Default => new FaceLayout { scale = 1f };
         public FaceLayout Normalized => new FaceLayout {
-            x = Finite(x, -.5f, .5f, 0), y = Finite(y, -.5f, .5f, 0),
+            x = Finite(x, -1f, 1f, 0), y = Finite(y, -1f, 1f, 0),
             scale = Finite(scale, .25f, 2f, 1) };
         static float Finite(float v, float min, float max, float fallback) =>
             float.IsNaN(v) || float.IsInfinity(v) || (min > 0 && v <= 0) ? fallback : Mathf.Clamp(v, min, max);

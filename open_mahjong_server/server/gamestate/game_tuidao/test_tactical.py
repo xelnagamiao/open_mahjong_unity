@@ -189,7 +189,8 @@ def test_room_broadcast_and_reconnect_sync_use_server_effective_switch():
         room = dict(room_rule='guangdong', sub_rule='guangdong/tuidao_mil2024', room_id='123456',
                     player_list=[101,2], seat_list=[101,2,-1,-1], tactical_call=True)
         manager = SimpleNamespace(rooms={'123456': room}, _sync_room_host=lambda _: None,
-            game_server=SimpleNamespace(players={'unit': player}, user_id_to_connection={101: SimpleNamespace(websocket=socket)}))
+            game_server=SimpleNamespace(players={'unit': player}, user_id_to_connection={101: SimpleNamespace(websocket=socket)},
+                                        gamestate_manager=SimpleNamespace(sichuan_duplicate_matches={})))
         await RoomManager._broadcast_room_info(manager, '123456')
         assert socket.messages[-1]['room_info']['tactical_call'] is False
         room['tactical_call'] = True

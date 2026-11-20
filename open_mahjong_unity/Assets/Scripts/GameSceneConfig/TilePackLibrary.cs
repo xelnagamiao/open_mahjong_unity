@@ -28,8 +28,8 @@ public static class TilePackLibrary {
         bool hasLegacy = !string.IsNullOrEmpty(legacyName)
             || (ConfigManager.Instance != null && ConfigManager.Instance.StandardTilePackId == TilePackIds.PackCustom);
 #if !UNITY_WEBGL || UNITY_EDITOR
-        hasLegacy |= Directory.Exists(TilePackStorage.HandDirectory)
-            && Directory.GetFiles(TilePackStorage.HandDirectory,"*.png").Length > 0;
+        hasLegacy |= Directory.Exists(TilePackStorage.FaceDirectory)
+            && Directory.GetFiles(TilePackStorage.FaceDirectory,"*.png").Length > 0;
 #endif
         if (hasLegacy && !entries.Exists(e => e.id == TilePackIds.PackCustom))
             entries.Insert(0, new Entry { id = TilePackIds.PackCustom, fileName = legacyName });
@@ -76,10 +76,9 @@ public static class TilePackLibrary {
         try {
             if (id == TilePackIds.PackCustom) {
                 // Only legacy PNGs owned by this feature; never recursively remove a user folder.
-                foreach (string directory in new[] { TilePackStorage.HandDirectory, TilePackStorage.TableDirectory })
-                    if (Directory.Exists(directory))
-                        foreach (string file in Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly))
-                            File.Delete(file);
+                if (Directory.Exists(TilePackStorage.FaceDirectory))
+                    foreach (string file in Directory.GetFiles(TilePackStorage.FaceDirectory, "*.png", SearchOption.TopDirectoryOnly))
+                        File.Delete(file);
             } else File.Delete(FilePath(id));
         } catch (Exception e) { fail("删除牌面失败：" + e.Message); return; }
         complete();
@@ -122,8 +121,8 @@ public static class TilePackLibrary {
             TilePackLibraryRequest.Load(id, import, onError);
 #else
             var legacy = new TilePackImporter.Result();
-            TilePackStorage.LoadPngsFromDisk(legacy.HandPngs, legacy.TablePngs);
-            string cfg = Path.Combine(TilePackStorage.HandDirectory, "tiles.cfg");
+            TilePackStorage.LoadPngsFromDisk(legacy.Pngs);
+            string cfg = Path.Combine(TilePackStorage.FaceDirectory, "tiles.cfg");
             if (File.Exists(cfg)) {
                 try { legacy.ConfigText = File.ReadAllText(cfg); legacy.LayoutConfig = TilePackLayoutConfig.Parse(legacy.ConfigText); }
                 catch (Exception e) { onError?.Invoke(e.Message); return; }

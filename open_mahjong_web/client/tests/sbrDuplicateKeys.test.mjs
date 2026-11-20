@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { createDuplicateDraft, duplicateRoundLabel, duplicateRoundSeats, duplicateDealerSeat, duplicateWallLayout, duplicateRuleWithFlowers, duplicateZoneLimit, flattenDuplicateDraft, splitDuplicateWall, validateDuplicateDraft, moveDuplicateTile, isDuplicateWallRule } from '../src/utils/duplicateWalls.js'
-import { createEventRoomCreationForm, buildEventRoomCreation } from '../src/utils/eventRoomCreation.js'
+import { createEventRoomCreationForm, buildEventRoomCreation, sharedWallConfirmation } from '../src/utils/eventRoomCreation.js'
 const require = createRequire(import.meta.url)
 const { catalog, normalizeInput, fullWall, wallDto } = require('../../server/services/duplicateWalls.js')
 const rule = catalog().rules.find(item => item.rule === 'sichuan/sbr')
@@ -94,7 +94,10 @@ test('both paired rules default automatic and validate switching to existing key
     form.duplicate_key = 'dup_' + 'b'.repeat(32)
     assert.equal(buildEventRoomCreation(form).room_config.duplicate_key, form.duplicate_key)
     form.room_count = 3
-    assert.throws(() => buildEventRoomCreation(form), /一组/)
+    const group = buildEventRoomCreation(form)
+    assert.equal(group.room_count, 3)
+    assert.equal(group.room_config.duplicate_key, form.duplicate_key)
+    assert.match(sharedWallConfirmation(group), /相同的密钥/)
     form.duplicate_key_source = 'auto'
     assert.equal(buildEventRoomCreation(form).room_config.duplicate_key, undefined, 'automatic never sends a stale key')
     assert.equal(buildEventRoomCreation(form).room_count, 3)

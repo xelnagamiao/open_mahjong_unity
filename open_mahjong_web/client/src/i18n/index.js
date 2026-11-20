@@ -41,7 +41,7 @@ export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale =
   const index = Math.max(0, Math.trunc(number) - 1)
   const prevailingWind = ROUND_WINDS[Math.floor(index / 4) % 4]
   const handIndex = index % 4
-  return ['en', 'fr', 'de', 'ru'].includes(targetLocale) || format === 'round-number'
+  return ['en', 'fr', 'de', 'ru', 'es'].includes(targetLocale) || format === 'round-number'
     ? `${prevailingWind}${ROUND_NUMBERS[handIndex]}局`
     : `${prevailingWind}风${ROUND_WINDS[handIndex]}`
 }
@@ -60,7 +60,7 @@ export function setLocale(value) {
 export function tr(source, params = {}, targetLocale = locale.value) {
   if (source == null) return ''
   const raw = String(source)
-  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+  if (['fr', 'de', 'ru', 'es'].includes(targetLocale)) {
     const quantity = raw.match(/^\{(\w+)\}\s*(分钟|本场|人|名|场|局|副|番|翻|符|点|分|张|枚|件|秒|级|段|页|条|底|台|倍|巡|圈|组|种|项|次)$/)
     if (quantity && Object.prototype.hasOwnProperty.call(params, quantity[1])) {
       const formatted = formatLocaleQuantity(params[quantity[1]], quantity[2], targetLocale)

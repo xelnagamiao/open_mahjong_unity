@@ -10,7 +10,7 @@ namespace Salasasa.Home
 
         public void SelectHintStyle(int index)
         {
-            foreach (var page in bakedPages)
+            foreach (var page in instances)
                 if (page && page.TryGetComponent<SettingsPagePresentation>(out var presentation))
                     presentation.ApplyHintStyle(0);
         }

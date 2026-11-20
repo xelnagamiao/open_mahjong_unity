@@ -129,7 +129,7 @@ function closedHandIds(hand) {
 }
 
 function recordGameId(item, record) {
-  return String(item?.game_id || record?.game_id || record?.game_title?.game_id || '')
+  return String(item?.table_record_id || item?.game_id || record?.game_id || record?.game_title?.game_id || '')
 }
 
 /**

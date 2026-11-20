@@ -12,6 +12,7 @@ using System;
 [Serializable] public class InventoryBalance { public int item_id, quantity; }
 [Serializable] public class InventoryEquipment { public string slot; public int item_id; }
 [Serializable] public class InventoryAppearance {
+    public const int DefaultAvatarFrameId = 2201;
     public int user_id, character_id, voice_id, profile_image_id, avatar_frame_id;
 }
 [Serializable] public class InventoryState {
@@ -22,6 +23,19 @@ using System;
     public InventoryEquipment[] equipment;
     public InventoryAppearance appearance;
     public WalletState wallet;
+
+    // Normalize legacy servers/saves once, before any UI observes the state.
+    public void NormalizeAvatarFrame() {
+        var slots = new System.Collections.Generic.List<InventoryEquipment>(equipment ?? Array.Empty<InventoryEquipment>());
+        var frame = slots.Find(e => e != null && e.slot == "avatar_frame");
+        if (frame == null) {
+            frame = new InventoryEquipment { slot = "avatar_frame", item_id = InventoryAppearance.DefaultAvatarFrameId };
+            slots.Add(frame);
+        }
+        if (frame.item_id == 0) frame.item_id = InventoryAppearance.DefaultAvatarFrameId;
+        equipment = slots.ToArray();
+        if (appearance != null) appearance.avatar_frame_id = frame.item_id;
+    }
 }
 [Serializable] public class InventoryCommand {
     public string type, request_id, slot;

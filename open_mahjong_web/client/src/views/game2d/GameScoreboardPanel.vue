@@ -274,11 +274,11 @@ const rows = computed(() => {
 }
 .scoreboard-table__empty { height: 88px !important; color: #444; }
 
-.scoreboard-panel:is(:lang(fr), :lang(de), :lang(ru)) { max-height: min(100%, 660px); }
-.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) { min-width: 920px; }
-.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) .scoreboard-table__fan { width: 210px; }
-.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) th,
-.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru)) td {
+.scoreboard-panel:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) { max-height: min(100%, 660px); }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) { min-width: 920px; }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) .scoreboard-table__fan { width: 210px; }
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) th,
+.scoreboard-table:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) td {
   padding: 5px 6px;
   line-height: 1.35;
   white-space: normal;
@@ -286,6 +286,6 @@ const rows = computed(() => {
 }
 
 @media (max-width: 860px) {
-  .scoreboard-layer:is(:lang(fr), :lang(de), :lang(ru)) { position: fixed; }
+  .scoreboard-layer:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) { position: fixed; }
 }
 </style>

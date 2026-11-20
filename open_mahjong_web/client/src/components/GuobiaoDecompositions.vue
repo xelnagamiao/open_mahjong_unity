@@ -112,13 +112,13 @@ defineProps({ decompositions: { type: Array, required: true } })
 }
 .decomp-fans { display: flex; flex-wrap: wrap; gap: 4px; }
 
-.decomp-fans:is(:lang(fr), :lang(de), :lang(ru)) :deep(.el-tag) {
+.decomp-fans:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) :deep(.el-tag) {
   max-width: 100%;
   height: auto;
   min-height: 20px;
 }
 
-.decomp-fans:is(:lang(fr), :lang(de), :lang(ru)) :deep(.el-tag__content) {
+.decomp-fans:is(:lang(fr), :lang(de), :lang(ru), :lang(es)) :deep(.el-tag__content) {
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.4;

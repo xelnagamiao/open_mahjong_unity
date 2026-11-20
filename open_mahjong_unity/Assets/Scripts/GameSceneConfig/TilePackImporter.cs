@@ -5,30 +5,20 @@ using System.IO.Compression;
 using System.Text;
 using UnityEngine;
 
-/// <summary>解析标准麻将自定义牌面 zip（一套 PNG + .cfg，兼容旧双目录）。</summary>
 public static class TilePackImporter {
     public const int MaxImageEdge = 4096;
     public const int MaxPngBytes = 4 * 1024 * 1024;
+    public const int MaxSurfaceBytes = 8 * 1024 * 1024;
     public const int MaxUncompressedBytes = 128 * 1024 * 1024;
-    public const string ExpectedFormat = "om-tilepack";
-    public const string ExpectedFamily = "standard";
 
     public sealed class Result {
-        public readonly Dictionary<int, byte[]> HandPngs = new Dictionary<int, byte[]>();
-        public readonly Dictionary<int, byte[]> TablePngs = new Dictionary<int, byte[]>();
-        public readonly Dictionary<int, byte[]> SharedPngs = new Dictionary<int, byte[]>();
+        public readonly Dictionary<int, byte[]> Pngs = new Dictionary<int, byte[]>();
+        public readonly Dictionary<string, byte[]> Surfaces = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> Warnings = new List<string>();
         public string Error;
         public string ConfigText;
         public TilePackLayoutConfig LayoutConfig;
-        public bool Success => string.IsNullOrEmpty(Error) && HandPngs.Count > 0 && TablePngs.Count > 0;
-    }
-
-    [Serializable]
-    private class Manifest {
-        public string format;
-        public int version;
-        public string family;
+        public bool Success => string.IsNullOrEmpty(Error) && Pngs.Count > 0;
     }
 
     public static Result Import(byte[] zipBytes) {
@@ -59,15 +49,6 @@ public static class TilePackImporter {
                     }
                 }
 
-                ZipArchiveEntry manifestEntry = FindManifest(archive);
-                if (manifestEntry != null) {
-                    string manifestError = ValidateManifest(ReadUtf8(manifestEntry));
-                    if (!string.IsNullOrEmpty(manifestError)) {
-                        result.Error = manifestError;
-                        return result;
-                    }
-                }
-
                 foreach (ZipArchiveEntry entry in archive.Entries) {
                     ImportEntry(entry, result, ref decodeProbe);
                     if (!string.IsNullOrEmpty(result.Error)) {
@@ -91,29 +72,24 @@ public static class TilePackImporter {
             }
         }
 
-        // A single set is shared by both displays. Legacy hand/table packages still retain
-        // their explicitly supplied variants, and missing counterparts use the available PNG.
-        foreach (var pair in result.SharedPngs) {
-            if (!result.HandPngs.ContainsKey(pair.Key)) result.HandPngs[pair.Key] = pair.Value;
-            if (!result.TablePngs.ContainsKey(pair.Key)) result.TablePngs[pair.Key] = pair.Value;
-        }
-        var handIds = new List<int>(result.HandPngs.Keys);
-        var tableIds = new List<int>(result.TablePngs.Keys);
-        foreach (int id in handIds) if (!result.TablePngs.ContainsKey(id)) result.TablePngs[id] = result.HandPngs[id];
-        foreach (int id in tableIds) if (!result.HandPngs.ContainsKey(id)) result.HandPngs[id] = result.TablePngs[id];
-        if (result.HandPngs.Count == 0) {
+        if (result.Pngs.Count == 0) {
             result.Error = "压缩包内没有可识别的 PNG 牌面";
         }
         else {
             int missing = 0;
             foreach (int id in TilePackIds.StandardFaceIds) {
-                if (!result.HandPngs.ContainsKey(id) && !result.TablePngs.ContainsKey(id)) {
+                if (!result.Pngs.ContainsKey(id)) {
                     missing++;
                 }
             }
             if (missing > 0) {
                 result.Warnings.Add($"缺 {missing} 张，对局中将回退官方牌面");
             }
+        }
+        if (result.ConfigText == null) result.Error = "牌面包缺少 tiles.cfg";
+        if (result.LayoutConfig?.Appearance != null) {
+            foreach (string name in result.LayoutConfig.Appearance.Images)
+                if (!result.Surfaces.ContainsKey(name)) result.Error = "牌面包缺少背景图片: " + name;
         }
         return result;
     }
@@ -127,15 +103,23 @@ public static class TilePackImporter {
             return;
         }
         string fileName = Path.GetFileName(full);
+        foreach (string part in full.Split('/')) {
+            if (part.Equals("hand", StringComparison.OrdinalIgnoreCase) || part.Equals("table", StringComparison.OrdinalIgnoreCase)
+                || part == "手牌牌面" || part.Equals("3d牌面", StringComparison.OrdinalIgnoreCase)) {
+                result.Error = "牌面包需使用一套牌号 PNG 和 tiles.cfg";
+                return;
+            }
+        }
         if (fileName.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)
             || fileName.Equals("preview.png", StringComparison.OrdinalIgnoreCase)) {
             return;
         }
         if (fileName.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase)) {
+            if (!fileName.Equals("tiles.cfg", StringComparison.OrdinalIgnoreCase)) { result.Error = "牌面配置须命名为 tiles.cfg"; return; }
             if (result.ConfigText != null) { result.Error = "牌面包只能包含一个 .cfg 文件"; return; }
             if (entry.Length > TilePackLayoutConfig.MaxBytes) { result.Error = "牌面配置超过 64KB"; return; }
             try {
-                using (var reader = new StreamReader(entry.Open(), new UTF8Encoding(false, true), true))
+                using (var reader = new StreamReader(entry.Open(), new UTF8Encoding(false, true), false))
                     result.ConfigText = reader.ReadToEnd();
                 result.LayoutConfig = TilePackLayoutConfig.Parse(result.ConfigText);
             } catch (Exception e) { result.Error = e.Message; }
@@ -147,11 +131,23 @@ public static class TilePackImporter {
             }
             return;
         }
-        if (entry.Length > MaxPngBytes) {
+        if (!CardPackAppearance.IsSurface(fileName) && entry.Length > MaxPngBytes) {
             result.Warnings.Add("单张超过 4MB，已跳过: " + fileName);
             return;
         }
 
+        if (CardPackAppearance.IsSurface(fileName)) {
+            if (entry.Length > MaxSurfaceBytes) { result.Error = "背景图片超过 8MB: " + fileName; return; }
+            if (result.Surfaces.ContainsKey(fileName)) { result.Error = "背景图片重复: " + fileName; return; }
+            using (var input = entry.Open()) using (var buffer = new MemoryStream()) {
+                input.CopyTo(buffer);
+                byte[] surface = buffer.ToArray();
+                if (!TryReadPngSize(surface, out int sw, out int sh) || sw > MaxImageEdge || sh > MaxImageEdge
+                    || !CanDecodePng(surface, sw, sh, ref decodeProbe)) { result.Error = "背景 PNG 无效: " + fileName; return; }
+                result.Surfaces[fileName] = surface;
+            }
+            return;
+        }
         string idPart = Path.GetFileNameWithoutExtension(fileName);
         if (!int.TryParse(idPart, out int tileId) || tileId.ToString(System.Globalization.CultureInfo.InvariantCulture) != idPart || !TilePackIds.IsStandardFaceId(tileId)) {
             result.Warnings.Add("无法识别的牌面文件名: " + fileName);
@@ -175,14 +171,11 @@ public static class TilePackImporter {
             return;
         }
 
-        bool isTable = TilePackIds.IsTableFolder(full);
-        bool isHand = TilePackIds.IsHandFolder(full);
         if (!CanDecodePng(png, width, height, ref decodeProbe)) {
             result.Warnings.Add("PNG 数据损坏，已跳过: " + fileName);
             return;
         }
-        // 保留原文件，避免重复导入时重采样、拉伸、裁切或把透明区域烘成底色。
-        Dictionary<int, byte[]> target = isTable ? result.TablePngs : isHand ? result.HandPngs : result.SharedPngs;
+        Dictionary<int, byte[]> target = result.Pngs;
         if (target.ContainsKey(tileId)) { result.Error = "牌面代号重复: " + full; return; }
         target[tileId] = png;
     }
@@ -195,48 +188,6 @@ public static class TilePackImporter {
         }
         catch {
             return false;
-        }
-    }
-
-    private static ZipArchiveEntry FindManifest(ZipArchive archive) {
-        foreach (ZipArchiveEntry entry in archive.Entries) {
-            string name = Path.GetFileName(entry.FullName);
-            if (name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)) {
-                return entry;
-            }
-        }
-        return null;
-    }
-
-    private static string ValidateManifest(string json) {
-        if (string.IsNullOrWhiteSpace(json)) {
-            return null;
-        }
-        Manifest manifest;
-        try {
-            manifest = JsonUtility.FromJson<Manifest>(json);
-        }
-        catch {
-            return "manifest.json 无法解析";
-        }
-        if (manifest == null) {
-            return null;
-        }
-        if (!string.IsNullOrEmpty(manifest.format)
-            && !string.Equals(manifest.format, ExpectedFormat, StringComparison.OrdinalIgnoreCase)) {
-            return "manifest.format 必须是 om-tilepack";
-        }
-        if (!string.IsNullOrEmpty(manifest.family)
-            && !string.Equals(manifest.family, ExpectedFamily, StringComparison.OrdinalIgnoreCase)) {
-            return "仅支持 family=standard 的牌面包（虹雀不可自定义）";
-        }
-        return null;
-    }
-
-    private static string ReadUtf8(ZipArchiveEntry entry) {
-        using (Stream stream = entry.Open())
-        using (var reader = new StreamReader(stream, Encoding.UTF8, true)) {
-            return reader.ReadToEnd();
         }
     }
 

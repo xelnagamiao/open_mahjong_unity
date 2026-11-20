@@ -27,7 +27,9 @@ from .database.db_manager import DatabaseManager
 from .public.client_ip import get_client_ip_from_websocket
 from .public.ip_registration_limiter import IpRegistrationLimiter
 from .public.username_validation import normalize_username, validate_username
+from .public.account_bans import enforce_online_bans
 from .chat_server.chat_server import ChatServer
+from .chat_server.access import register_chat_access
 from .chat_server.conversation_router import handle_conversation_message
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
@@ -194,6 +196,7 @@ async def lifespan(app: FastAPI):
         logging.exception("机器人执行器预热失败，服务将继续启动并在首次使用时重试")
     reset_task = asyncio.create_task(_daily_ip_limit_reset_loop())
     sampler_task = asyncio.create_task(_online_sampler_loop())
+    ban_task = asyncio.create_task(enforce_online_bans(game_server))
     stats_task = asyncio.create_task(_daily_stats_loop())
     restore_task = asyncio.create_task(_daily_stats_startup_restore())
     qingque_recovery_task = asyncio.create_task(recovery_loop(db_manager))
@@ -202,10 +205,11 @@ async def lifespan(app: FastAPI):
     await game_server.event_auto_matcher.stop()
     reset_task.cancel()
     sampler_task.cancel()
+    ban_task.cancel()
     stats_task.cancel()
     restore_task.cancel()
     qingque_recovery_task.cancel()
-    await asyncio.gather(reset_task, sampler_task, stats_task, restore_task,
+    await asyncio.gather(reset_task, sampler_task, stats_task, restore_task, ban_task,
                          qingque_recovery_task, return_exceptions=True)
     await shutdown_bot_executor()
     # 关闭时执行（如果需要清理资源，在这里添加）
@@ -504,11 +508,14 @@ from .webapi.admin_game import register_admin_game_routes
 from .webapi.admin_event_room import register_admin_event_room_routes
 from .webapi.admin_room import register_admin_room_routes
 register_calc_routes(app, game_server)
+register_chat_access(app, game_server)
 register_admin_message_routes(app, game_server)
 register_admin_user_routes(app, game_server)
 register_inventory_routes(app, game_server)
 register_commerce_routes(app, game_server)
 register_mail_routes(app, game_server)
+from .database.player_account_router import register_player_account_routes
+register_player_account_routes(app, game_server)
 register_redemption_routes(app, game_server)
 register_admin_game_routes(app, game_server)
 register_admin_event_room_routes(app, game_server)
@@ -674,6 +681,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 await handle_event_message(game_server, Connect_id, message, websocket)
 
             # 检查是否是游戏状态相关消息（type 字段以 "gamestate/" 开头）
+            elif message.get("type", "").startswith("spectator/"):
+                from .records.spectator import handle_message as handle_match_spectator
+                await handle_match_spectator(game_server, Connect_id, message, websocket)
+
             elif message.get("type", "").startswith("gamestate/"):
                 # 游戏状态相关消息，交由游戏状态路由处理器处理
                 await handle_gamestate_message(game_server, Connect_id, message, websocket)

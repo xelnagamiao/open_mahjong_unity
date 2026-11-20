@@ -1,5 +1,5 @@
 const archiver = require('archiver');
-const { visibleRecordSql } = require('./duplicateRecordAccess');
+const { readGameRecords } = require('./publicGameRecord');
 
 const RECORD_BATCH_SIZE = 20;
 const DOWNLOAD_CANCELLED = 'RECORD_DOWNLOAD_CANCELLED';
@@ -36,7 +36,7 @@ async function waitForDrain(archive, res, signal) {
   signal.throwIfAborted();
 }
 
-async function streamRecordZip(db, gameIds, userId, res) {
+async function streamRecordZip(db, gameIds, filename, res) {
   const controller = new AbortController();
   const { signal } = controller;
   const archive = archiver('zip', { zlib: { level: 5 }, highWaterMark: 64 * 1024 });
@@ -57,25 +57,20 @@ async function streamRecordZip(db, gameIds, userId, res) {
       signal.throwIfAborted();
       await waitForDrain(archive, res, signal);
       const ids = gameIds.slice(offset, offset + RECORD_BATCH_SIZE);
-      const result = await db.query(
-        `SELECT game_id, record FROM game_records gr
-         WHERE game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
-        [ids]
-      );
+      const byGame = await readGameRecords(db, ids);
       // pool.query releases its connection normally. A disconnect can leave
       // this one bounded query in flight, but never starts the next batch.
       signal.throwIfAborted();
-      const byGame = new Map(result.rows.map((row) => [row.game_id, row.record]));
       if (!piped) {
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', `attachment; filename="player_${userId}_records.zip"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         archive.pipe(res);
         piped = true;
       }
       for (const gameId of ids) {
-        const raw = byGame.get(gameId);
-        if (raw === undefined || raw === null) continue;
-        const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
+        const result = byGame.get(gameId);
+        if (result?.status !== 200) continue;
+        const body = JSON.stringify(result.data.record);
         // Only one record enters the compressor at a time; do not enqueue
         // all batches while archiver is still holding their JSON buffers.
         await waitForEvent(archive, 'entry', signal, () => {

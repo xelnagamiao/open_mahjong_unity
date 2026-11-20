@@ -58,7 +58,7 @@ function memoryPool() {
     if (sql.startsWith('SELECT * FROM duplicate_walls WHERE id')) return { rows: walls.filter((r) => String(r.id) === String(params[0]) && !r.deleted_at).map((r) => ({ ...r })) };
     if (sql.startsWith('SELECT 1 FROM duplicate_games')) return { rows: linked.has(String(params[0])) ? [{}] : [] };
     if (sql.startsWith('SELECT status, data FROM sichuan_duplicate_matches')) return { rows: pairs.has(String(params[0])) ? [pairs.get(String(params[0]))].flat() : [] };
-    if (sql.startsWith('SELECT game_id FROM game_records')) return { rows: params[0].filter(id => records.has(id)).map(game_id => ({ game_id })) };
+    if (sql.startsWith('SELECT game_id FROM game_record_tables')) return { rows: params[0].filter(id => records.has(id)).map(game_id => ({ game_id })) };
     if (sql.startsWith('UPDATE duplicate_walls')) {
       const row = walls.find((r) => String(r.id) === String(params[0]));
       if (sql.includes('deleted_at =')) row.deleted_at = new Date();
@@ -426,11 +426,16 @@ test('sharing a Python training export resolves cloud_game_id and verifies the c
   const queries = [];
   const db = { async query(sql, args) {
     queries.push({ sql, args });
+    if (sql.includes('WHERE gr.replay_id IN')) {
+      assert.deepEqual(args, ['trainingCloud', record.game_title.duplicate_match_id]);
+      return { rows: [] };
+    }
     assert.match(sql, /gr\.record = \$2::jsonb/);
     assert.match(sql, /sichuan_duplicate_matches/);
     return { rows: args[0] === 'trainingCloud' && args[1] === JSON.stringify(record) ? [{}] : [] };
   } };
   assert.equal(await sharedSourceIsLocked(db, record), false);
+  assert.equal(queries.length, 2);
   assert.deepEqual(queries[0].args, ['trainingCloud', JSON.stringify(record)]);
   assert.equal(await sharedSourceIsLocked(db, { ...record, game_round: { injected: [] } }), true);
 });

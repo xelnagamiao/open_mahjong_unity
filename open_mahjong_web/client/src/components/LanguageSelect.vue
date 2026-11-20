@@ -25,6 +25,7 @@
       <option value="fr">Français</option>
       <option value="de">Deutsch</option>
       <option value="ru">Русский</option>
+      <option value="es">Español</option>
     </select>
   </label>
 </template>

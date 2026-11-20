@@ -406,14 +406,31 @@
       "values": [
         0,
         2000,
-        3000
+        3000,
+        "fixed_gap_2000"
       ],
       "choices": [
         "无",
         "场上2000点（三麻默认）",
-        "场上3000点（四麻默认）"
+        "场上3000点（四麻默认）",
+        "固定分差2000点（MIL四麻）"
       ],
-      "help": "听牌者均分总额，不听者均摊支付。三麻默认2000点，四麻默认3000点；全听或全不听不支付。"
+      "help": "场上总额模式：听牌者均分总额，不听者均摊支付。三麻默认2000点，四麻默认3000点。MIL四麻固定分差2000点：一听+1500／三家各-500，二听各+1000／二家各-1000，三听各+500／一家-1500。全听或全不听不支付。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "honba_enabled",
+      "label": "本场",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "无本场",
+        "有本场"
+      ],
+      "help": "开启时，连庄或荒牌流局累计本场；每本场自摸各家多付100点，荣和四麻多付300点、三麻多付200点。关闭时不累计本场，也不增加和牌或包牌支付；立直供托仍正常结算。"
     },
     {
       "section": "终局与顺位",
@@ -768,7 +785,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       }
     },
     {
@@ -829,7 +847,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       }
     },
     {
@@ -890,7 +909,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       }
     },
     {
@@ -951,7 +971,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "all",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       }
     },
     {
@@ -1012,7 +1033,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1074,7 +1096,8 @@
         "nuki_rinshan": true,
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1136,7 +1159,70 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "show_teammate_hand": false
+        "show_teammate_hand": false,
+        "honba_enabled": true
+      }
+    },
+    {
+      "id": "mil",
+      "label": "MIL规",
+      "source": "国际麻将联盟（MIL）《立直麻将（RCR）竞赛规则》，正文2023年试行，第一章；用户提供PDF",
+      "room": {
+        "game_round": 2,
+        "starting_score": 30000,
+        "red_dora": false,
+        "allow_kuikae": false,
+        "open_xiru": false,
+        "open_tobi": false,
+        "hepai_way": "head_bump",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": false,
+        "multiple_yakuman": false,
+        "kiriage_mangan": false,
+        "kazoe_limit": "sanbaiman",
+        "yakuman_limit": 1,
+        "double_wind_pair_fu": 4,
+        "kan_dora_timing": "immediate",
+        "kokushi_ankan_ron": false,
+        "riichi_kan_rule": "wait",
+        "riichi_min_live_tiles": 1,
+        "furiten_clear": "discard",
+        "kyuushu_abort": false,
+        "four_winds_abort": false,
+        "four_riichi_abort": false,
+        "four_kan_abort": false,
+        "nagashi_mangan": false,
+        "nagashi_allow_calls": true,
+        "noten_penalty": "fixed_gap_2000",
+        "tenpai_renchan": true,
+        "agari_yame": false,
+        "tenpai_yame": false,
+        "target_score": 0,
+        "extension_rounds": 4,
+        "return_score": 30000,
+        "rank_points": "5_15",
+        "tie_break": "shared",
+        "end_deposits": "discard",
+        "pao": true,
+        "pao_suukantsu": false,
+        "pao_scope": "liable",
+        "pao_honba": "liable",
+        "chombo_penalty": "penalty_20000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true,
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed",
+        "show_teammate_hand": false,
+        "honba_enabled": false
       }
     }
   ]

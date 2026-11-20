@@ -263,7 +263,7 @@ export class Display extends Container {
         this.addText(`fan${i}`, translateFanName(fans[i], locale.value, rule),
           left ? -0.4 : 0.4,
           -0.58 + lineSpace * (left ? i + 0.5 : i - Math.ceil(fans.length / 2) + 0.5),
-          0, textSize, false, 0x000000, true, ['fr', 'de', 'ru'].includes(locale.value) ? 2.2 : 5.1)
+          0, textSize, false, 0x000000, true, ['fr', 'de', 'ru', 'es'].includes(locale.value) ? 2.2 : 5.1)
       }
       finalY = -0.54 + lineSpace * Math.ceil(fans.length / 2)
     }
@@ -437,7 +437,7 @@ export class TempLabel extends Container {
       style: { fontFamily: getGameFontFamily(), fontSize: 270, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
-    if (['fr', 'de', 'ru'].includes(locale.value) && label.width > TILE_HEIGHT * 0.84) {
+    if (['fr', 'de', 'ru', 'es'].includes(locale.value) && label.width > TILE_HEIGHT * 0.84) {
       label.scale.set(TILE_HEIGHT * 0.84 / label.width)
     }
     this.addChild(label)

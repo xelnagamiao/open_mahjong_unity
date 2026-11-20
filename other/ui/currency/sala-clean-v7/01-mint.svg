@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="256" height="256" role="img">
+  <title>萨拉币 · 铸金素面</title>
+  <desc>暖金素面，保留原有的边缘明暗。 币面朝右上，短轴为长轴的 66%。</desc>
+  <defs><clipPath id="face"><circle r="55.5"/></clipPath><clipPath id="opening"><path d="M-20.5 -20.5H20.5V20.5H-20.5Z"/></clipPath></defs>
+  <g transform="matrix(0.78231 0.00851 0.32525 0.84719 67.04337 60.77219)" stroke-linejoin="round">
+    <path d="M34.511 49.082 A60 60 0 0 1 -34.511 -49.082 L-45.505 -41.351 A60 60 0 0 0 23.516 56.812 Z" fill="#845337" stroke="#573B31" stroke-width="1.7"/>
+    <path d="M-45.505 -41.351 A60 60 0 0 0 23.516 56.812" stroke="#70462F" stroke-width="2" fill="none"/>
+    <g clip-path="url(#opening)"><path d="M-90 -90H90V90H-90Z M-20.5 -20.5H20.5V20.5H-20.5Z" transform="translate(-10.994 7.730)" fill="#8F603C" fill-rule="evenodd"/>
+      <path d="M9.506 -12.770V28.230" stroke="#573B31" stroke-width="1.5" fill="none"/></g>
+    <path d="M-60 0 A60 60 0 1 0 60 0 A60 60 0 1 0 -60 0Z M-20.5 -20.5H20.5V20.5H-20.5Z" fill="#CD9250" fill-rule="evenodd" stroke="#573B31" stroke-width="1.55"/>
+    <path d="M-59.1 0 A59.1 59.1 0 1 0 59.1 0 A59.1 59.1 0 1 0 -59.1 0Z M-55.75 0 A55.75 55.75 0 1 0 55.75 0 A55.75 55.75 0 1 0 -55.75 0Z" fill="#EAC083" fill-rule="evenodd"/>
+    <path d="M-58 11 A59 59 0 0 1 7 -58.6" fill="none" stroke="#F9D497" stroke-width="1.5"/>
+    <path d="M56.4 -6 A56.7 56.7 0 0 1 1 56.7" fill="none" stroke="#AF723E" stroke-width="2"/>
+    <g clip-path="url(#face)"><path d="M-59 15 Q-39 39 -7 46 Q26 52 51 32 A60 60 0 0 1 -59 15Z" fill="#B57841"/>
+<path d="M-48 -27 A55 55 0 0 1 6 -55" fill="none" stroke="#F4C683" stroke-width="2.5"/>
+</g>
+    <path d="M-23.8 -23.8H23.8V23.8H-23.8Z M-20.5 -20.5H20.5V20.5H-20.5Z" fill="#E5B77D" fill-rule="evenodd"/>
+    <path d="M-21.5 21.5 V-21.5 H21.5" fill="none" stroke="#8F603C" stroke-width="2.3"/>
+  </g>
+</svg>

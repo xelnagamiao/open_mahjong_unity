@@ -1,6 +1,7 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import patch
 import pytest
+from tests.record_writes import capture_record_write
 
 from .test_state import make_state
 from ...game_calculation.singapore import rules as r
@@ -17,9 +18,12 @@ def test_net_points_include_marriages_and_kongs_but_fan_statistics_disabled(rota
         state=make_state();state.current_round=4
         for p in state.player_list:
             p.user_id=11000001+p.original_player_index
-            p.original_player_index=(p.player_index+rotation)%4
         from ..public.game_record_manager import init_game_record,init_game_round
-        init_game_record(state);init_game_round(state)
+        init_game_record(state)
+        for p in state.player_list:
+            p.player_index=(p.original_player_index-rotation)%4
+        state.player_list.sort(key=lambda player: player.player_index)
+        init_game_round(state)
         state._pay_instant(0,2,'暗杠')
         state.pending_winners=[state._build_pending_winner(1,'discard','hu_first',r.detail([('动物',1)]),25,0)]
         await state._settle_hand({i:400 for i in range(4)})
@@ -38,10 +42,9 @@ def test_net_points_include_marriages_and_kongs_but_fan_statistics_disabled(rota
             assert row[-1] is None and row[25]==p.score-400
         return state
     state=asyncio.run(run())
-    conn=Mock();cursor=conn.cursor.return_value;db=Mock();db._get_connection.return_value=conn
-    cursor.fetchone.side_effect=[(state.game_record,None)]+[([],None)]*4
-    cursor.fetchall.return_value=[(p.user_id,r.RULE,'custom',p.record_counter.rank_result,'1/4',r.SUB_RULE) for p in state.player_list]
-    game_id=store_taiwan_game_record(db,state.game_record,state.player_list,'custom','1/4')
+    with capture_record_write() as (db, conn, cursor), \
+         patch("server.database.player_recent_records.update_player_recent_records"):
+        game_id=store_taiwan_game_record(db,state.game_record,state.player_list,'custom','1/4')
     assert game_id and conn.commit.call_count==1 and not conn.rollback.called
     metric_rows=[call for call in cursor.execute.call_args_list if 'INSERT INTO game_player_metrics' in call.args[0]]
     assert len(metric_rows)==4

@@ -9,5 +9,6 @@ public partial class ConfigManager {
         PlayerPrefs.SetInt(DoraHintsKey, enabled ? 1 : 0);
         PlayerPrefs.Save();
         DoraTileSheen.RefreshAll();
+        GameplaySettingsChanged?.Invoke();
     }
 }

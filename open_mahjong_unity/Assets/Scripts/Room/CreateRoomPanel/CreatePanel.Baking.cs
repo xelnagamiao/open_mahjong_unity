@@ -31,7 +31,7 @@ public partial class CreatePanel {
     public void BakeFixedRoomUi() {
         if (!roomPresentationBaked) throw new InvalidOperationException("Create room layout must be authored first.");
         RestoreDeferredPanelsForBaking();
-        BakeTierPresetButtons();
+        EnsureTierPresetButtons();
         BakeClaimProtectionControl();
         EnsureHintToggles(); EnsureDuplicateWallControls(); EnsureGuobiaoFlowerControls(); EnsureTianDiRenHeControls(); EnsureJokerMultiWaitControls(); EnsureHuahunControls();
         BakeSichuanDuplicateControls();
@@ -43,7 +43,7 @@ public partial class CreatePanel {
         BakeFilipinoDetailsPanel();
         BakeShangraoDetailsPanel();
         BakeBeijingDetailsPanel();
-        BakeRegionalDetailsPanel("new_chinese","新中式麻将");
+        BakeNewChineseExchangeThreeControl();
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
         BakeGuangdongRoomControls();
@@ -68,15 +68,14 @@ public partial class CreatePanel {
         RefreshVisibility(); RefreshSubRuleDescription(); ReflowRoomPresentation();
     }
 
-    private void BakeTierPresetButtons() {
-        var root = transform.Find("Create_Panel/TierPresets");
-        int count = Math.Max(TierNames.Length, RiichiRoomRules.Presets.GroupBy(p => p.SubRule).Max(g => g.Count()));
-        while (root.childCount < count) {
-            var button = Instantiate(root.GetChild(0).GetComponent<Button>(), root);
-            button.name = "Preset_" + root.childCount;
-            button.onClick = new Button.ButtonClickedEvent();
-            button.gameObject.SetActive(false);
-        }
+    public void BakeNewChineseExchangeThreeControl() {
+        newChineseExchangeThreeToggle = EnsureClonedToggle(tipsToggle, newChineseExchangeThreeToggle, "NewChineseExchangeThree", "换三张", false);
+        newChineseExchangeThreeToggle.group = null;
+        newChineseExchangeThreeToggle.onValueChanged = new Toggle.ToggleEvent();
+        TableText.Set(GetToggleLabel(newChineseExchangeThreeToggle), "换三张", NewChineseGameState.RuleId);
+        RoomGet<CreateRoomHelpTrigger>(newChineseExchangeThreeToggle.gameObject).Configure(this, "");
+        newChineseExchangeThreeToggle.gameObject.SetActive(false);
+        UnityEditor.EditorUtility.SetDirty(this);
     }
 
     public void BakeClaimProtectionControl() {

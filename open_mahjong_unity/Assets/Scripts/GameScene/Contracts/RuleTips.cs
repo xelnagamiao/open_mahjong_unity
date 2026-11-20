@@ -23,6 +23,8 @@ public sealed class TingpaiQuery {
 /// </summary>
 public sealed class WaitHintQuery {
     public int HepaiTile;
+    public int? PendingCutTileId;
+    public int[] WaitingVariants;
     /// <summary>手牌 + 和牌张。</summary>
     public List<int> HandWithWin;
     public List<string> Melds;

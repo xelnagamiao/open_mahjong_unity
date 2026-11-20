@@ -1245,7 +1245,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// <summary>总计栏只负责摆字：读 <see cref="SettlementTotalDisplay"/>，null 字段即隐藏该栏。</summary>
     private void ShowTotalPanel(SettlementTotalDisplay display) {
         FanCountTotalPanel.SetActive(true);
-        SettlementTotalLayout.Ensure(FanCountTotalPanel).Show(display, TotalFan, TotalFu, TotalScore, TotalLimitDisplay);
+        FanCountTotalPanel.GetComponent<SettlementTotalLayout>().Show(display, TotalFan, TotalFu, TotalScore, TotalLimitDisplay);
     }
 
     private void ConfigureNanchangSettlement(string rule, NanchangInfo info, int winner) {

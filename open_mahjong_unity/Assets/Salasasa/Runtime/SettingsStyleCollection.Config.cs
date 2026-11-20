@@ -76,9 +76,6 @@ namespace Salasasa.Home
                 case "FrameRateLimit": config.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[Mathf.Clamp(value, 0, ConfigManager.TargetFrameRateOptions.Length - 1)]); break;
                 default: throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown settings field");
             }
-            SyncField(key);
-            if (key.StartsWith("HandSort") || key == "ConfigWhiteType")
-                foreach (var page in bakedPages) if (page.handPreview) page.handPreview.Refresh();
         }
     }
 }

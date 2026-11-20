@@ -54,8 +54,9 @@ public partial class CreatePanel {
     private void CopySichuanTrainingSeed() {
         if (MasterSeedInputValidator.TryNormalizeHex(SichuanTrainingSeedInput.text, out string seed, out string error)
             && seed != new string('0', MasterSeedInputValidator.HexLength)) {
-            GUIUtility.systemCopyBuffer = seed;
-            ShowRoomHelp("训练随机种子已复制。");
+            ClipboardUtility.Copy(seed, ok => {
+                if (ok && this) ShowRoomHelp("训练随机种子已复制。");
+            });
         } else ShowRoomHelp(error ?? "训练随机种子不能全为零");
     }
 
@@ -96,7 +97,7 @@ public partial class CreatePanel {
             SetRandomSeedPanel.SetActive(false);
         } else SetRandomSeedToggle.gameObject.SetActive(true);
         if (DuplicateKeyInput && DuplicateKeyInput.placeholder is TMP_Text placeholder) {
-            TableText.Set(placeholder, paired ? SelectedSichuanWallSource == "key" ? "留空自动生成，或输入已有密钥" : "输入" + DuplicateWallDisplay.TypeName(SelectedSichuanWallSource) + "密钥" : "牌山密钥", _ruleState);
+            TableText.Set(placeholder, paired ? SelectedSichuanWallSource == "key" ? "留空自动生成" : "输入" + DuplicateWallDisplay.TypeName(SelectedSichuanWallSource) + "密钥" : "牌山密钥", _ruleState);
             if (paired) placeholder.gameObject.SetActive(string.IsNullOrEmpty(DuplicateKeyInput.text));
         }
     }
@@ -235,11 +236,13 @@ public partial class CreatePanel {
                 var label = toggle.GetComponentInChildren<TMP_Text>(true);
                 TableText.Set(label, DuplicateWallDisplay.TypeName(SichuanWallSources[i]), "sichuan");
                 label.fontStyle = FontStyles.Normal;
-                var help = toggle.GetComponent<CreateRoomHelpTrigger>();
-                if (help) help.Configure(this, i == 0 ? "按随机种子生成两室相同牌山，不创建复式密钥。训练默认允许观战，可以关闭。" : "使用对应类型的复式密钥，副数跟随密钥，禁止观战。");
                 toggle.gameObject.SetActive(true);
                 SichuanWallSourceToggles[i] = toggle;
             }
+        }
+        for (int i = 0; i < SichuanWallSourceToggles.Length; i++) {
+            var help = SichuanWallSourceToggles[i].GetComponent<CreateRoomHelpTrigger>();
+            if (help) help.Configure(this, i == 0 ? "按随机种子生成两室相同牌山，不创建复式密钥。" : "使用对应类型的复式密钥，副数跟随密钥。");
         }
         SichuanWallSourcePanel.transform.SetSiblingIndex(RoomContent.Find("ChioceDropdown").GetSiblingIndex());
         if (!SichuanTrainingSeedPanel) {

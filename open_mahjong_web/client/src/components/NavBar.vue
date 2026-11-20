@@ -60,11 +60,14 @@
             aria-label="账户菜单"
           >
             <span :data-no-translate="username ? '' : null">{{ displayName }}</span>
+            <span v-if="assets.unread" class="nav-mail-count" :aria-label="`${assets.unread} 封未读邮件`">{{ assets.unread > 99 ? '99+' : assets.unread }}</span>
             <el-icon class="auth-caret"><arrow-down /></el-icon>
           </button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="account">进入账户面板</el-dropdown-item>
+              <el-dropdown-item command="account">个人资料</el-dropdown-item>
+              <el-dropdown-item command="inventory">物品栏</el-dropdown-item>
+              <el-dropdown-item command="mail">邮件<span v-if="assets.unread">（{{ assets.unread }} 未读）</span></el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -82,11 +85,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { usePlayerAssetsStore } from '@/stores/playerAssets'
 import { useMobile } from '@/composables/useMobile'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -94,6 +98,7 @@ import { ArrowDown } from '@element-plus/icons-vue'
 const route = useRoute()
 const router = useRouter()
 const auth = usePlayerAuthStore()
+const assets = usePlayerAssetsStore()
 const { username, userId, loaded } = storeToRefs(auth)
 const isLoggedIn = computed(() => auth.isLoggedIn)
 const displayName = computed(() => username.value || (userId.value != null ? `用户${userId.value}` : '账户'))
@@ -144,6 +149,10 @@ function onCalcCommand(to) {
 
 function onAuthCommand(command) {
   closeMenu()
+  if (command === 'mail' || command === 'inventory') {
+    router.push(`/account#sec-${command}`)
+    return
+  }
   if (command === 'account') {
     if (route.path !== '/account') router.push('/account')
     return
@@ -171,9 +180,16 @@ watch(() => route.path, () => {
   menuOpen.value = false
 })
 
+function refreshMail() { if (auth.isLoggedIn && !document.hidden) assets.refreshSummary().catch(() => {}) }
+watch(() => auth.userId, () => { assets.syncOwner(); refreshMail() }, { immediate: true })
+let summaryTimer
 onMounted(() => {
+  summaryTimer = setInterval(refreshMail, 30000)
+  window.addEventListener('focus', refreshMail)
+  document.addEventListener('visibilitychange', refreshMail)
   if (!loaded.value) auth.fetchMe()
 })
+onBeforeUnmount(() => { clearInterval(summaryTimer); window.removeEventListener('focus', refreshMail); document.removeEventListener('visibilitychange', refreshMail) })
 </script>
 
 <style scoped>
@@ -269,6 +285,7 @@ onMounted(() => {
   font-size: 12px;
   transition: transform 0.15s ease;
 }
+.nav-mail-count { margin-left:6px; padding:1px 6px; border-radius:10px; font-size:11px; line-height:17px; color:#dff1e4; background:#365e45; font-weight:400; }
 
 .auth-dropdown:hover .auth-caret,
 .auth-dropdown:focus-within .auth-caret {

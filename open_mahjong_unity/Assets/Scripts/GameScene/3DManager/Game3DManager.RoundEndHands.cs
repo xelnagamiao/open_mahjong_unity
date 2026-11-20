@@ -293,6 +293,8 @@ public partial class Game3DManager {
     /// </summary>
     public void SyncRecordLastDiscardForRon(string sourcePlayerPosition, int expectedTileId) {
         if (expectedTileId < 10 || string.IsNullOrEmpty(sourcePlayerPosition)) return;
+        var declaredKong=DuocaiDeclaredKongSource(sourcePlayerPosition,expectedTileId);
+        if(declaredKong!=null){RegisterLastJiagang(sourcePlayerPosition,declaredKong,expectedTileId);return;}
         if (ResolveLastDiscardObject(sourcePlayerPosition, expectedTileId) != null) {
             return;
         }
@@ -316,8 +318,9 @@ public partial class Game3DManager {
             $"SyncRecordLastDiscardForRon: 无法为荣和建立登记 source={sourcePlayerPosition}, tile={expectedTileId}");
     }
     private GameObject TryTakeLastDiscardObjectForRon(int expectedTileId, string discardPlayerPosition) {
-        GameObject obj = ResolveLastDiscardObject(discardPlayerPosition, expectedTileId);
-        bool fromRegisteredRiver = obj != null;
+        GameObject obj = DuocaiDeclaredKongSource(discardPlayerPosition,expectedTileId);
+        bool fromRegisteredRiver = false;
+        if(obj==null){obj=ResolveLastDiscardObject(discardPlayerPosition,expectedTileId);fromRegisteredRiver=obj!=null;}
         if (obj == null) {
             obj = TryResolveJiagangSourceObject(discardPlayerPosition, expectedTileId);
         }

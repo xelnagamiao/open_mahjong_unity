@@ -253,6 +253,10 @@ public partial class GameRecordManager {
     private IEnumerator CoPlaySichuanMidGameHuRecord(
         string action, int hepaiPlayerIndex, int hepaiTile, bool multiRon,
         int? ronDiscarderIndex, bool recycleDiscard, bool isQianggang) {
+        int presentationGeneration = _recordPlaybackGeneration;
+        int presentationRound = currentRoundIndex;
+        // NextAction 启动本协程时尚未执行公共收尾的 currentNode++。
+        int nextNode = currentNode + 1;
         _recordHuPresentationActive = true;
         try {
             string discardPos = ResolveRecordRonDiscarderPosition(ronDiscarderIndex);
@@ -273,6 +277,22 @@ public partial class GameRecordManager {
         } finally {
             EndRecordHuPresentation();
         }
+
+        // 只在正常播完后衔接终局结算；取消演出不推进，观战仍由其播放循环驱动。
+        if (IsSpectatorSession || !IsSichuanRecord()
+            || presentationGeneration != _recordPlaybackGeneration
+            || presentationRound != currentRoundIndex || currentNode != nextNode
+            || gameRecord?.gameRound?.rounds == null
+            || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)
+            || round.actionTicks == null) yield break;
+        int nextVisibleNode = currentNode;
+        while (nextVisibleNode < round.actionTicks.Count && IsRecordSilentTick(round.actionTicks[nextVisibleNode])) {
+            nextVisibleNode++;
+        }
+        if (nextVisibleNode >= round.actionTicks.Count) yield break;
+        string nextAction = round.actionTicks[nextVisibleNode][0];
+        // 局中摸打或同一炮的后续和牌仍需手动步进，不能因播完一次和牌就自动续打。
+        if (nextAction == "liuju" || nextAction == "blood") NextAction();
     }
 
     /// <summary>跳转推演：只改分数，不播结算动画、不自动步进。</summary>

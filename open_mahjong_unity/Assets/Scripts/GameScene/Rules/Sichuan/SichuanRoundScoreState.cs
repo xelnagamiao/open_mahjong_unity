@@ -7,8 +7,7 @@ public sealed class SichuanRoundScoreState {
     public bool Enabled { get; private set; }
     public bool Paired { get; private set; }
     public bool ShowScores { get; private set; } = true;
-    public string Unit { get; private set; } = "队分";
-    public string Caption { get; private set; } = "";
+    public string Unit => Paired ? "IMP" : "副分";
     public long? Blue { get; private set; }
     public long? Red { get; private set; }
     private int[] teams;
@@ -24,8 +23,6 @@ public sealed class SichuanRoundScoreState {
         matchId = info?.duplicate_match?.id;
         Blue = Red = null;
         ShowScores = true;
-        Unit = Paired ? (SichuanLobby.IsXueliu(subRule) ? "副差分" : "IMP") : "队分";
-        Caption = Paired ? $"总 {Unit} · 未公开" : "";
         if (!Enabled) return;
         if (Paired) { UpdateDuplicate(info?.duplicate_match); return; }
         var scores = info?.sichuan_teams?.settled_scores;
@@ -39,24 +36,26 @@ public sealed class SichuanRoundScoreState {
         if (!Enabled || !Paired || info == null) return;
         if (!string.IsNullOrEmpty(matchId) && !string.IsNullOrEmpty(info.id) && matchId != info.id) return;
         if (!string.IsNullOrEmpty(info.id)) matchId = info.id;
+        if (info.status == "replay") {
+            UpdateReplay(new MatchReplayProjection.Scores { Reason = "牌谱未附 IMP" });
+            return;
+        }
         if (info.sync_mode == false && info.status != "completed") {
             ShowScores = false;
             Blue = Red = null;
-            Caption = info.waiting_for == "match" ? "等待另一桌结束" : "非同步模式 · 全场结束后公布";
             return;
         }
         ShowScores = true;
-        if (!string.IsNullOrEmpty(info.scoring)) Unit = info.sync_mode == true || info.scoring == "imp" ? "IMP" : "副差分";
         // Missing cross-table scores are not zero and must never fall back to this table's raw scores.
-        int[] scores = Unit == "IMP" ? info.imp_scores ?? (info.scoring == "imp" ? info.scores : null) : info.small_scores ?? info.scores;
+        int[] scores = info.imp_scores ?? (info.scoring == "imp" ? info.scores : null);
         Blue = scores?.Length == 2 ? scores[0] : (long?)null;
         Red = scores?.Length == 2 ? scores[1] : (long?)null;
-        string status = info.status == "completed" ? "全场结束"
-            : info.status == "interrupted" ? "等待赛务"
-            : info.waiting ? "等待对室"
-            : info.status == "replay" && !Blue.HasValue ? "牌谱未附对室分"
-            : Blue.HasValue ? "已结算" : "未公开";
-        Caption = $"总 {Unit} · {status}";
+    }
+
+    public void UpdateReplay(MatchReplayProjection.Scores scores) {
+        if (!Enabled || !Paired || scores == null) return;
+        ShowScores = true;
+        Blue = scores.Blue; Red = scores.Red;
     }
 
     public void ApplySettlement(ShowResultInfo info) {

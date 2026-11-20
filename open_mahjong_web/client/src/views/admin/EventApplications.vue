@@ -117,6 +117,7 @@
       <el-button size="small" :loading="profileLoading" @click="loadProfileChanges">刷新</el-button>
     </div>
     <el-table :data="profileItems" v-loading="profileLoading" stripe>
+      <el-table-column label="拟用队徽" width="100"><template #default="{ row }"><img v-if="row.proposed_team_icon_url" :src="row.proposed_team_icon_url" alt="拟用队徽" style="width:64px;height:64px;object-fit:contain" /><span v-else>无队徽</span></template></el-table-column>
       <el-table-column prop="request_id" label="ID" width="70" />
       <el-table-column :label="isBase ? '基地' : '赛事'" min-width="160">
         <template #default="{ row }">
@@ -300,6 +301,7 @@ function previewProfileChange(row) {
   previewEvent.value = {
     name: row.proposed_name,
     description: row.proposed_description,
+    team_icon_url: row.proposed_team_icon_url ?? row.current_team_icon_url,
     requester_username: row.requester_username,
   }
   previewStatusLabel.value = isBase.value ? '基地资料修改后预览' : '赛事资料修改后预览'

@@ -46,6 +46,7 @@ namespace Salasasa.Leaderboards
             if (initialized) return;
             initialized = true;
             controller.DataApplied += ApplyColors;
+            view.RowBound += ApplyBoundRow;
             RestoreAndApply();
         }
         public void RestoreAndApply()
@@ -102,21 +103,28 @@ namespace Salasasa.Leaderboards
                 if (target.muted) fill = Color.Lerp(background, fill, .72f);
                 target.text.color = fill;
             }
-            Color ink = colors[(int)ColorSlot.Text], accent = colors[(int)ColorSlot.Accent], mine = colors[(int)ColorSlot.Mine];
-            int myId = controller.RankingUserId;
             for (int i = 0; i < view.rows.Length; i++)
-            {
-                var row = view.rows[i];
-                row.normalFill = colors[(int)(i % 2 == 0 ? ColorSlot.Row : ColorSlot.Alternate)]; row.ownFill = mine;
-                bool isMine = row.entry != null && myId > 0 && row.entry.user_id == myId;
-                row.surface.color = isMine ? mine : row.normalFill;
-                Color background = row.surface.color;
-                row.position.color = i < 3 ? Readable(accent, background) : Color.Lerp(background, Readable(ink, background), .8f);
-                row.username.color = row.detail.color = Readable(ink, background);
-                if (row.uid) row.uid.color = Color.Lerp(background, Readable(ink, background), .8f);
-                row.score.color = Readable(accent, background);
-            }
+                ApplyRowColors(view.rows[i], view.rows[i].listIndex >= 0 ? view.rows[i].listIndex : i);
             ColorsApplied?.Invoke();
+        }
+
+        void ApplyBoundRow(LeaderboardView.EntryRow row)
+        {
+            if (colors != null) ApplyRowColors(row, row.listIndex);
+        }
+
+        void ApplyRowColors(LeaderboardView.EntryRow row, int index)
+        {
+            Color ink = colors[(int)ColorSlot.Text], accent = colors[(int)ColorSlot.Accent];
+            row.normalFill = colors[(int)(index % 2 == 0 ? ColorSlot.Row : ColorSlot.Alternate)];
+            row.ownFill = colors[(int)ColorSlot.Mine];
+            int myId = controller.RankingUserId;
+            Color background = row.entry != null && myId > 0 && row.entry.user_id == myId ? row.ownFill : row.normalFill;
+            row.surface.color = background;
+            row.position.color = index < 3 ? Readable(accent, background) : Color.Lerp(background, Readable(ink, background), .8f);
+            row.username.color = row.detail.color = Readable(ink, background);
+            if (row.uid) row.uid.color = Color.Lerp(background, Readable(ink, background), .8f);
+            row.score.color = Readable(accent, background);
         }
 
         Color[] ReadPreset(int index)

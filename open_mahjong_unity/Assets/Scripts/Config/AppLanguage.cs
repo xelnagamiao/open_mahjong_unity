@@ -11,6 +11,7 @@ public enum AppLanguage {
     German = 4,
     Russian = 5,
     Japanese = 6,
+    Spanish = 7,
 }
 
 /// <summary>

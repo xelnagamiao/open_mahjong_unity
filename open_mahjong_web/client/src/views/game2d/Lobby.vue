@@ -156,7 +156,7 @@
               class="leaderboard-table"
               @row-click="openPlayer"
             >
-              <el-table-column prop="rank_position" label="排名" :width="['fr', 'de', 'ru'].includes(locale) ? 118 : 56" align="center" />
+              <el-table-column prop="rank_position" label="排名" :width="['fr', 'de', 'ru', 'es'].includes(locale) ? 118 : 56" align="center" />
               <el-table-column prop="username" label="玩家" show-overflow-tooltip>
                 <template #default="{ row }"><span data-no-translate>{{ row.username }}</span></template>
               </el-table-column>

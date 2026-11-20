@@ -92,7 +92,7 @@ test('account rename consumes inventory cards transactionally in PostgreSQL', { 
       assert.deepEqual((await pool.query('SELECT username,rename_count FROM users WHERE user_id=101')).rows[0],
         { username: 'NewName', rename_count: 7 });
       assert.equal((await pool.query('SELECT username FROM game_player_records')).rows[0].username, 'NewName');
-      assert.equal((await pool.query('SELECT record FROM game_records')).rows[0].record.game_title.p0_name, 'NewName');
+      assert.equal((await pool.query('SELECT record FROM game_records')).rows[0].record.game_title.p0_name, 'OldName');
       assert.deepEqual((await pool.query('SELECT item_id,delta,quantity_after FROM inventory_ledger')).rows,
         [{ item_id: 3001, delta: -1, quantity_after: 1 }]);
       assert.equal((await pool.query('SELECT action,result FROM inventory_operations')).rows[0].action, 'rename');

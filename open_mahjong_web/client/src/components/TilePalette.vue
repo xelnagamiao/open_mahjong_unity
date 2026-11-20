@@ -92,4 +92,20 @@ const onPick = (id) => emit('pick', id)
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
+
+.tile-palette:lang(es) .row-label {
+  width: 9em;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .tile-palette:lang(es) .palette-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .tile-palette:lang(es) .row-label { width: auto; }
+  .tile-palette:lang(es) .palette-tiles { flex: none; }
+}
 </style>

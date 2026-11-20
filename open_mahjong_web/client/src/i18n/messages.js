@@ -1820,11 +1820,12 @@ for (const [language, target] of Object.entries({ en, fr, ja })) {
   Object.assign(target, renameCardMessages[language])
 }
 Object.assign(fr, extendedMessages.fr)
-export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr, de: extendedMessages.de, ru: extendedMessages.ru }
+export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr, de: extendedMessages.de, ru: extendedMessages.ru, es: extendedMessages.es }
 
 export const textPatterns = {
   de: extendedPatterns.de,
   ru: extendedPatterns.ru,
+  es: extendedPatterns.es,
   fr: [...extendedPatterns.fr, ...renameCardTextPatterns('fr'), ...frTextPatterns, ...game2dTextPatterns('fr'), ...calculatorTextPatterns('fr', fr)],
   en: [
     ...renameCardTextPatterns('en'),

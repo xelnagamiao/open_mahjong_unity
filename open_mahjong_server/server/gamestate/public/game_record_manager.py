@@ -2,6 +2,7 @@ import json
 import logging
 import secrets
 import string
+import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from copy import deepcopy
@@ -225,6 +226,14 @@ def build_round_header_data(gs) -> Dict[str, Any]:
         if hasattr(gs.tiles_list, "common"):
             round_data["duplicate_wall_layout"] = "xueliu"
             round_data["duplicate_common_wall"] = list(gs.tiles_list.common)
+    pair = getattr(gs, "duplicate_match", None)
+    if pair is not None:
+        from ...records.format import ensure_board_instances, identity
+        descriptor = ensure_board_instances(pair.data)[gs.current_round - 1]
+        instance = descriptor["board_instance_id"]
+        round_data["board_instance_id"] = instance
+        round_data["board_attempt"] = descriptor["attempt"]
+        round_data["table_round_id"] = identity("round", pair.data["id"], gs.duplicate_table, instance)
     extra = getattr(gs, "build_record_round_fields", None)
     if callable(extra):
         round_data.update(extra())
@@ -259,11 +268,17 @@ def build_score_changes_dict(player_list, scores_before: Dict[int, int]) -> Dict
 def append_action_tick(gs, tick: list) -> None:
     """落库牌谱并同步观战增量（单一数据源，格式完全一致）。"""
     gs.player_action_tick += 1
-    gs.game_record["game_round"][f"round_index_{gs.round_index}"]["action_ticks"].append(tick)
+    round_data = gs.game_record["game_round"][f"round_index_{gs.round_index}"]
+    round_data["action_ticks"].append(tick)
+    times = round_data.setdefault("action_times_ms", [])
+    while len(times) < len(round_data["action_ticks"]) - 1:
+        times.append(None)
+    recorded_at = time.time()
+    times.append(int(recorded_at * 1000))
     spectator = getattr(gs, "spectator_manager", None)
     if spectator is not None and getattr(spectator, "enabled", False):
         spectator_filter = getattr(gs, "spectator_record_tick", None)
-        spectator.record_tick(spectator_filter(tick) if spectator_filter else tick)
+        spectator.record_tick(spectator_filter(tick) if spectator_filter else tick, timestamp=recorded_at)
 
 
 def resolve_hepai_tile_for_record(gs, hu_class: str, hepai_player_index: int):
@@ -649,21 +664,39 @@ def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Opt
     from .match_result import attach_match_result
     attach_match_result(record, gs.player_list)
     cloud_saved = bool(game_id)
-    if not game_id:
-        game_id = generate_local_only_game_id()
     title = record.get("game_title") or {}
     created_at = format_record_created_at(title.get("end_time") or title.get("start_time"))
     if not match_type:
         match_type = f"{getattr(gs, 'max_round', 1)}/4"
+    from ...records.format import build_match, identity
+    from ...records.store import canonical_game_id
+    players = build_player_record_infos(gs.player_list)
+    pair = getattr(gs, "duplicate_match", None)
+    table_id = getattr(gs, "duplicate_table", "main") if pair else "main"
+    def local_table_id(side):
+        return "L" + identity("local-table", pair.data["id"], side).replace("-", "")[:15]
+
+    if not game_id:
+        game_id = local_table_id(table_id) if pair else generate_local_only_game_id()
+    sources = {table_id: {"record": jsonable_game_record(record), "game_id": game_id,
+                          "players": [p.model_dump() for p in players]}}
+    if pair:
+        for sibling, payload in pair.data.get("final_records", {}).items():
+            if sibling != table_id:
+                sources[sibling] = {"record": jsonable_game_record(payload),
+                    "game_id": pair.data.get("record_ids", {}).get(sibling) or local_table_id(sibling),
+                    "players": pair.data.get("final_players", {}).get(sibling, [])}
+    bundle = build_match(sources, match_id=pair.data["id"] if pair else None, snapshot=pair.data if pair else None)
     return Record_detail(
-        game_id=game_id,
+        game_id=canonical_game_id(bundle),
         cloud_saved=cloud_saved,
         rule=title.get("rule") or getattr(gs, "room_rule", "") or "",
         sub_rule=title.get("sub_rule") or getattr(gs, "sub_rule", None),
-        record=jsonable_game_record(record),
+        record=bundle,
         created_at=created_at,
-        players=build_player_record_infos(gs.player_list),
+        players=[{**p, "table_id": side} for side, table in bundle["tables"].items() for p in table["players"]],
         match_type=match_type,
+        selected_table_id=table_id,
     )
 
 

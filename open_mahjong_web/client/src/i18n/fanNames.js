@@ -61,7 +61,7 @@ export function translateFanName(value, targetLocale = locale.value, context = '
   if (!source || targetLocale === 'zh-CN') return source
   const contextual = contextualMessage(source, targetLocale, String(context).split('/')[0])
   if (contextual != null) return contextual
-  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+  if (['fr', 'de', 'ru', 'es'].includes(targetLocale)) {
     const valued = source.match(/^(.+?)[（(]\s*([\d.]+)\s*番\s*[）)]$/)
     if (valued) return `${translateFanName(valued[1], targetLocale, context)} (${formatFanCount(valued[2], targetLocale, context)})`
     const badge = source.match(/^(.+?)\s+([\d.]+)\s*番$/)
@@ -81,7 +81,7 @@ export function translateRuleText(value, targetLocale = locale.value, context = 
   context = String(context || '').split('/')[0]
   const interpolate = text => text.replace(/\{(\w+)\}/g, (token, key) => Object.hasOwn(params, key) ? String(params[key]) : token)
   const expanded = interpolate(source)
-  if (['fr', 'de', 'ru'].includes(targetLocale)) {
+  if (['fr', 'de', 'ru', 'es'].includes(targetLocale)) {
     const whole = expanded.match(/^([+−\-]?[\d,.]+)\s*(番|翻|符|副|点|分|台|倍)$/)
     if (whole) return formatLocaleQuantity(whole[1], whole[2], targetLocale, context) || tr(source, params, targetLocale)
     const selfDrawn = expanded.match(/^自摸\s*([+−\-]?[\d,.]+)\s*(番|分)$/)

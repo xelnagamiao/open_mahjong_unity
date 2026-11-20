@@ -9,6 +9,9 @@ public sealed class LanguageSelector : MonoBehaviour
     void Awake()
     {
         dropdown = GetComponent<TMP_Dropdown>();
+        // Move roughly one and a half 40-unit language rows per wheel step.
+        if (dropdown.template && dropdown.template.TryGetComponent<UnityEngine.UI.ScrollRect>(out var scroll))
+            scroll.scrollSensitivity = 60f;
         KeepLoginLanguageAccessible();
         dropdown.ClearOptions();
         dropdown.AddOptions(new List<string>(ConfigManager.LanguageOptionLabels));

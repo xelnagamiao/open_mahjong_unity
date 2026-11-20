@@ -113,6 +113,29 @@ public static class SettlementTotalLayoutValidation {
                     }
                 }
             }
+            var authored = clone.GetComponent<SettlementTotalLayout>();
+            Check(authored != null, "总计容器自带布局组件");
+            var settings = new UnityEditor.SerializedObject(authored);
+            Check(settings.FindProperty("detailLineColumn").objectReferenceValue == root.Find("TotalFu").GetComponent<TMP_Text>(),
+                "场景将符数列绑定到明细次行");
+            show.Invoke(panel, new object[] { riichi });
+            root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 220f);
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+            var points = (RectTransform)root.Find("TotalScore");
+            float before = points.anchoredPosition.y;
+            settings.FindProperty("inlineBaseline").floatValue = .7f;
+            settings.ApplyModifiedPropertiesWithoutUndo();
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+            Check(points.anchoredPosition.y < before - 10f, "调整普通行基线会移动文字");
+            var fanColumn = root.Find("TotalFan").GetComponent<TMP_Text>();
+            var fuColumn = root.Find("TotalFu").GetComponent<TMP_Text>();
+            settings.FindProperty("detailLineColumn").objectReferenceValue = fanColumn;
+            settings.ApplyModifiedPropertiesWithoutUndo();
+            show.Invoke(panel, new object[] { breakdown });
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+            Check(fanColumn.rectTransform.anchoredPosition.y < points.anchoredPosition.y &&
+                Mathf.Abs(fuColumn.rectTransform.anchoredPosition.y - points.anchoredPosition.y) < .01f,
+                "更换明细次行绑定后其余列仍共用首行");
             return new { passed = true, checks, cases, maxBaselineDifference };
         } finally {
             UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(preview);

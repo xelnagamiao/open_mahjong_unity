@@ -3,7 +3,7 @@ import logging
 import asyncio
 import uuid
 from copy import deepcopy
-from .public.lifecycle import all_humans_offline, cancel_auxiliary_tasks, cancel_game_task
+from .public.lifecycle import should_close_when_offline, cancel_auxiliary_tasks, cancel_game_task
 from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
@@ -351,12 +351,15 @@ class GameStateManager:
                     try:
                         await state.player_disconnect(user_id)
                     finally:
-                        if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
+                        if should_close_when_offline(state):
                             await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         await self.remove_spectator_from_all_games(user_id)
     
     async def remove_spectator_from_all_games(self, user_id: int):
         """从所有进行中对局的延时观战列表移除用户（退出观战、加入匹配等场景）。"""
+        hub = getattr(self, "match_spectator_hub", None)
+        if hub is not None:
+            await hub.remove(user_id)
         for game_state in list(self.gamestate_id_to_game_state.values()):
             if hasattr(game_state, "remove_spectator"):
                 await game_state.remove_spectator(user_id)
@@ -397,7 +400,7 @@ class GameStateManager:
                 try:
                     await state.player_disconnect(user_id)
                 finally:
-                    if all_humans_offline(state) and not getattr(state, 'finish_round_when_offline', False):
+                    if should_close_when_offline(state):
                         await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
         room_manager = self.game_server.room_manager
         room = room_manager.rooms.get(state.room_id)
@@ -572,6 +575,8 @@ class GameStateManager:
                     # 虹雀的 max_round 已是副数；其他规则保存圈数，三麻每圈三副。
                     total_rounds = max_round if rule == "hongque" else max_round * required_players
                 spectator_info = SpectatorInfo(
+                    match_id=getattr(getattr(game_state, "duplicate_match", None), "data", {}).get("id"),
+                    table_id=getattr(game_state, "duplicate_table", None),
                     rule=rule,
                     sub_rule=sub_rule,
                     player1_name=player1_name,

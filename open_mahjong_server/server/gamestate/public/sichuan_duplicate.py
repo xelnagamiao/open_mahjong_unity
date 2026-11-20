@@ -4,6 +4,9 @@ from copy import deepcopy
 import hashlib
 import json
 import secrets
+import uuid
+
+from ...records.format import ensure_board_instances
 
 from ...game_calculation.sichuan.duplicate_rules import make_board, score_board, score_totals, rule_profile, board_from_tiles, flatten_board, XUELIU_DUPLICATE
 
@@ -11,10 +14,12 @@ from ...game_calculation.sichuan.duplicate_rules import make_board, score_board,
 class PairedMatch:
     def __init__(self, snapshot, persist):
         self.data = deepcopy(snapshot)
+        ensure_board_instances(self.data)
         self.persist = persist
         self.lock = asyncio.Lock()
         self.events = {}
         self.start_gate = asyncio.Event()
+        self.final_record_event = asyncio.Event()
         self.states = {}
         self.ready = {}
         self.board_ready = {}
@@ -43,6 +48,7 @@ class PairedMatch:
         return deepcopy(self.data["boards"][number - 1])
 
     def save(self, candidate):
+        ensure_board_instances(candidate)
         candidate["revision"] = self.data["revision"] + 1
         self.persist(candidate, self.data["revision"])
         self.data = candidate
@@ -193,7 +199,12 @@ class PairedMatch:
         for n in range(number, last_exposed + 1):
             candidate.setdefault("voided_boards", []).append({"number": n,
                 "board": candidate["boards"][n - 1], "pending": pending.get(str(n), {}),
+                "board_instance_id": candidate["board_instances"][n - 1]["board_instance_id"],
                 "reason": candidate.get("interruption", "interrupted")})
+            previous = candidate["board_instances"][n - 1]
+            candidate["board_instances"][n - 1] = {
+                "board_instance_id": str(uuid.uuid4()), "board_no": n,
+                "attempt": (previous.get("attempt") or 0) + 1}
             if candidate.get("wall_source") != "training":
                 candidate["boards"][n - 1] = make_board(secrets.token_hex(32), n, layout=candidate["profile"].get("wall_layout", "standard"))
         candidate.update(status="waiting", pending={}, pending_checkpoints={}, pending_boards={},
@@ -212,9 +223,11 @@ def new_match(match_id, sub_rule, room_ids, boards, seed, *, sync_mode=False):
         raise ValueError("复式同步模式必须为布尔值")
     profile = rule_profile(sub_rule)
     boards = [board_from_tiles(flatten_board(b), b["number"], layout=profile["wall_layout"]) for b in boards]
-    return {"id": match_id, "profile": profile, "room_ids": room_ids, "sync_mode": sync_mode,
+    data = {"id": match_id, "profile": profile, "room_ids": room_ids, "sync_mode": sync_mode,
             "boards": deepcopy(boards), "seed": seed, "planned_boards": len(boards),
             "completed_boards": 0, "table_completed_boards": {"open": 0, "closed": 0},
             "scores": [0, 0], "small_scores": [0, 0], "imp_scores": [0, 0],
             "results": [], "pending": {}, "pending_boards": {},
             "status": "waiting", "revision": 0, "members": {}}
+    ensure_board_instances(data)
+    return data

@@ -62,8 +62,13 @@ def test_delayed_entry_round_ticks_and_final_record_match_saved_replay():
         with patch("server.gamestate.public.spectator_manager.time.time", return_value=1181):
             record_cut(game, game.players[0], "AX5", False)
         assert manager._get_new_updates(201, 1180) is None
+        previous = manager._build_spectator_record(1180)["game_round"]["round_index_1"]
+        assert previous["action_ticks"] == [] and not previous.get("action_times_ms")
         updates = manager._get_new_updates(201, 1181)
-        assert updates[0]["new_ticks"] == game.game_record["game_round"]["round_index_1"]["action_ticks"]
+        saved = game.game_record["game_round"]["round_index_1"]
+        assert updates[0]["new_ticks"] == saved["action_ticks"]
+        assert manager._build_spectator_record(1181)["game_round"]["round_index_1"] == saved
+        assert saved["action_times_ms"] == [1181000]
         await manager.send_final_record_and_close()
         final = watcher.websocket.send_json.call_args.args[0]
         assert final["type"] == "spectator/record_complete"

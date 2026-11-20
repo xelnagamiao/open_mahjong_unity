@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mcrSeoPlugin } from './scripts/vite-mcr-seo.mjs'
 import { cloudflareAnalyticsPlugin } from './scripts/cloudflare-analytics.mjs'
+import { rulePublicationPlugin } from './scripts/rule-publication.mjs'
 import { resolve, dirname, join, relative, isAbsolute } from 'path'
 import { fileURLToPath } from 'url'
 import {
@@ -73,7 +74,7 @@ function skipManualGamePackages() {
 }
 
 export default defineConfig({
-  plugins: [vue(), skipManualGamePackages(), mcrSeoPlugin(), cloudflareAnalyticsPlugin()],
+  plugins: [vue(), skipManualGamePackages(), rulePublicationPlugin(), mcrSeoPlugin(), cloudflareAnalyticsPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

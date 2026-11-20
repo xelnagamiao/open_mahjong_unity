@@ -295,6 +295,9 @@ function normalizeBaseRoomConfig(rule, raw) {
     if (config.sub_rule !== 'riichi/sanma' && (config.detailed_config.rank_points.startsWith('sanma_') || config.detailed_config.noten_penalty === 2000)) {
       throw new SettingsError(400, '三人顺位点和2000点不听罚符仅适用于三人立直');
     }
+    if (config.sub_rule === 'riichi/sanma' && config.detailed_config.noten_penalty === 'fixed_gap_2000') {
+      throw new SettingsError(400, '固定分差2000点不听罚符仅适用于四人立直');
+    }
     if (!['multi_ron', 'three_ron_abort', 'head_bump'].includes(config.hepai_way)) throw new SettingsError(400, '无效的多家荣和方式');
     if (config.sub_rule === washizuCaptain.sub_rule) {
       Object.assign(config, washizuCaptain.room);

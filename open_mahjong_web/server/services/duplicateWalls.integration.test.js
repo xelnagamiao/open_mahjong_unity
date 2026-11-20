@@ -1,3 +1,4 @@
+const { createReplayTables, insertReplay, insertPairedTable } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -14,16 +15,20 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
   const admin = new Pool({ connectionString });
   await admin.query(`CREATE SCHEMA ${schema}`);
   const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 25 });
+  const dbModule = require.resolve('../config/database');
+  const originalDb = require.cache[dbModule];
+  require.cache[dbModule] = { id: dbModule, filename: dbModule, loaded: true, exports: pool };
   try {
     await ensureDuplicateTables(pool);
     await ensureDuplicateTables(pool); // The startup migration is idempotent.
+    await createReplayTables(pool);
     await pool.query(`
-      CREATE TABLE users (user_id bigint PRIMARY KEY, username text);
+      CREATE TABLE users (user_id bigint PRIMARY KEY, username text, ban_type text, ban_reason text, ban_expires_at timestamp);
       CREATE TABLE events (event_id varchar(32) PRIMARY KEY, name text, kind text, status text);
       CREATE TABLE event_admins (event_id varchar(32), user_id bigint);
-      CREATE TABLE game_records (game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp DEFAULT NOW());
       CREATE TABLE game_player_records (game_id varchar(16), user_id bigint, username text, score int, rank int, original_player_index int,
-        title_used int, character_used int, profile_used int, voice_used int, rule text, sub_rule text, room_type text, match_type text);
+        title_used int, character_used int, profile_used int, voice_used int, rule text, sub_rule text, room_type text, match_type text, event_id text);
+      INSERT INTO users (user_id, username) VALUES (101,'Venue admin'),(102,'Co-admin'),(901,'Owner'),(902,'Other player');
       INSERT INTO events VALUES ('event-a','Test event','event','active');
       INSERT INTO events VALUES ('registered-a','Approved application','event','registered'), ('closed-a','Closed event','event','closed'), ('pending-a','Unapproved status','event','pending'), ('base-a','Test base','base','active');
       INSERT INTO event_admins VALUES ('event-a', 101), ('event-a', 102);
@@ -43,11 +48,10 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       for (const [index, pair] of pairs.entries()) {
         await pool.query('INSERT INTO sichuan_duplicate_matches(id,wall_id,status,data) VALUES($1,$2,$3,$4)',
           [pair.id, wall.id, index === 0 ? 'completed' : 'running', pair]);
-        for (const game_id of Object.values(pair.record_ids)) {
+        for (const [side, game_id] of Object.entries(pair.record_ids)) {
           await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', [game_id, wall.id]);
           if (game_id === 'multi2closed') continue;
-          await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [game_id,
-            { game_title: { is_duplicate: true, duplicate_key: wall.key, duplicate_match_id: pair.id } }]);
+          await insertPairedTable(pool, 'P' + (index + 1), pair, side, { is_duplicate: true, duplicate_key: wall.key });
         }
       }
       const ids = pairs.flatMap(pair => Object.values(pair.record_ids));
@@ -55,14 +59,22 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       assert.deepEqual(await accessibleGameIds(pool, ids), []);
       await pool.query("UPDATE sichuan_duplicate_matches SET status='completed' WHERE id=$1", [pairs[1].id]);
       await assert.rejects(service.manage(88001, wall.id, { is_unlocked: true }), { status: 409 });
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', ['multi2closed',
-        { game_title: { is_duplicate: true, duplicate_key: wall.key, duplicate_match_id: pairs[1].id } }]);
+      await insertPairedTable(pool, 'P2', pairs[1], 'closed', { is_duplicate: true, duplicate_key: wall.key });
       await assert.rejects(service.manage(88002, wall.id, { is_unlocked: true }), { status: 403 });
       await service.manage(88001, wall.id, { is_unlocked: true });
       assert.deepEqual([...(await accessibleGameIds(pool, ids))].sort(), [...ids].sort());
       const detail = await service.publicDetail(wall.key);
       assert.equal(detail.paired_match, undefined);
-      assert.equal(detail.games.length, 4);
+      assert.equal(detail.games.length, 2);
+      assert.ok(detail.games.every(game => game.players.length === 8));
+      const { getPublicGameRecord, downloadableReplayIds } = require('./publicGameRecord');
+      for (const id of ['P2','multi2open','multi2closed']) {
+        const replay = await getPublicGameRecord(id, pool);
+        assert.equal(replay.data.game_id, 'P2');
+        assert.equal(replay.data.players.length, 8);
+        assert.equal(replay.data.selected_table_id, id.endsWith('closed') ? 'closed' : 'open');
+      }
+      assert.deepEqual(await downloadableReplayIds(pool, ['multi2closed','P2','multi2open'], {userId: 200}), ['P2']);
       assert.equal(detail.paired_matches.length, 2);
       for (const pair of pairs) {
         const result = detail.paired_matches.find(item => item.match_id === pair.id);
@@ -72,6 +84,15 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       const quota = await service.getQuota(88001, 'personal');
       assert.equal(quota.created_today, 1);
       assert.equal(quota.stored, 1);
+      // The converter serves a saved file as a whole. Its permission must be
+      // rechecked for both tables when a historical file is opened later.
+      const saved = await getPublicGameRecord('multi2open', pool);
+      const oldOpen = saved.data.record.tables.open.payload;
+      assert.equal(await sharedSourceIsLocked(pool, oldOpen), false);
+      const otherWall = await service.create(88003, body);
+      await pool.query('UPDATE duplicate_games SET wall_id=$1 WHERE game_id=$2', [otherWall.wall.id, 'multi2closed']);
+      assert.equal(await sharedSourceIsLocked(pool, oldOpen), true);
+      assert.equal(await sharedSourceIsLocked(pool, saved.data), true);
     });
 
     await t.test('real HTTP routes enforce player JWT, ownership and public key locks', async () => {
@@ -133,14 +154,12 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         const internal = (await pool.query('SELECT seed,tiles FROM duplicate_walls WHERE id=$1', [wall.id])).rows[0];
         const record = { game_title: { rule: 'guobiao', is_duplicate: true, duplicate_key: wall.key,
           duplicate_seed: internal.seed, duplicate_tiles: internal.tiles }, game_round: {} };
-        await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', ['HttpSecretWall', record]);
+        await insertReplay(pool, ['HttpSecretWall', record]);
         await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', ['HttpSecretWall', wall.id]);
         const publicUrl = `http://127.0.0.1:${server.address().port}/public`;
-        for (const route of ['record', 'unity-record']) {
-          const lockedRecord = await fetch(`${publicUrl}/${route}/HttpSecretWall`);
-          assert.equal(lockedRecord.status, 403);
-          assert.equal((await lockedRecord.text()).includes(internal.seed), false);
-        }
+        const lockedRecord = await fetch(publicUrl + '/record/HttpSecretWall');
+        assert.equal(lockedRecord.status, 403);
+        assert.equal((await lockedRecord.text()).includes(internal.seed), false);
         assert.equal((await request(`/public/${wall.key}`)).status, 404);
         assert.equal((await request(`/${wall.id}`, 'PATCH', token(902), { is_unlocked: true })).status, 403);
         assert.equal((await request(`/${wall.id}`, 'DELETE')).status, 401);
@@ -153,12 +172,13 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         assert.equal(unlocked.status, 200);
         const publicWall = (await unlocked.json()).data.wall;
         assert.equal('seed' in publicWall, false);
-        for (const route of ['record', 'unity-record']) {
-          const publicRecord = await fetch(`${publicUrl}/${route}/HttpSecretWall`);
-          assert.equal(publicRecord.status, 200);
-          assert.equal(publicRecord.headers.get('cache-control'), 'no-store');
-          assert.deepEqual((await publicRecord.json()).data.record, record);
-        }
+        assert.equal((await fetch(publicUrl + '/unity-record/HttpSecretWall')).status, 404);
+        const publicRecord = await fetch(publicUrl + '/record/HttpSecretWall');
+        assert.equal(publicRecord.status, 200);
+        assert.equal(publicRecord.headers.get('cache-control'), 'no-store');
+        const { data } = await publicRecord.json();
+        assert.equal(data.selected_table_id, 'main');
+        assert.deepEqual(data.record.tables.main.payload, record);
         const repeated = await request(`/${wall.id}`, 'PATCH', token(901), { is_unlocked: true });
         assert.equal(repeated.status, 200);
         assert.equal((await repeated.json()).data.wall.unlocked_at, publicWall.unlocked_at);
@@ -171,7 +191,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         const deletedDto = (await deletedPublic.json()).data.wall;
         assert.equal(deletedDto.is_deleted, true);
         assert.ok(deletedDto.deleted_at && deletedDto.created_at && deletedDto.unlocked_at);
-        assert.deepEqual((await (await fetch(`${publicUrl}/record/HttpSecretWall`)).json()).data.record, record);
+        assert.deepEqual((await (await fetch(`${publicUrl}/record/HttpSecretWall`)).json()).data.record.tables.main.payload, record);
         const noFlowers = await request('', 'POST', token(901), { ...body, wall_type: 'seed', use_flowers: false, seed: 'public-known-text' });
         assert.equal(noFlowers.status, 201);
         const noFlowerDto = (await noFlowers.json()).data.wall;
@@ -279,11 +299,11 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
     await t.test('unlock permanently enables direct, batch, shared and public reads even after wall deletion', async () => {
       const { wall } = await service.create(301, { ...body, wall_type: 'seed', seed: 'same-wall' });
       const record = { game_title: { duplicate_key: wall.key, is_duplicate: true, duplicate_seed: 'same-wall', duplicate_tiles: fullWall('guobiao') } };
-      await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', ['game-locked', record]);
-      await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', ['game-title', record]);
-      await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', ['game-normal', { game_title: {} }]);
-      await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', ['game-link', { game_title: {} }]);
-      await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', ['game-missing', { game_title: { duplicate_key: 'missing-wall' } }]);
+      await insertReplay(pool, ['game-locked', record]);
+      await insertReplay(pool, ['game-title', record]);
+      await insertReplay(pool, ['game-normal', { game_title: {} }]);
+      await insertReplay(pool, ['game-link', { game_title: {} }]);
+      await insertReplay(pool, ['game-missing', { game_title: { duplicate_key: 'missing-wall' } }]);
       await pool.query('INSERT INTO duplicate_games VALUES ($1,$2,NOW())', ['game-locked', wall.id]);
       await pool.query('INSERT INTO duplicate_games VALUES ($1,$2,NOW())', ['game-link', wall.id]);
       await pool.query('UPDATE duplicate_walls SET ended_at = NOW() WHERE id = $1', [wall.id]);
@@ -345,7 +365,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       for (let index = 0; index < markers.length; index++) {
         const gameId = `orphan${index}`;
         const record = { game_id: gameId, game_title: markers[index] };
-        await pool.query('INSERT INTO game_records (game_id,record) VALUES ($1,$2)', [gameId, record]);
+        await insertReplay(pool, [gameId, record]);
         assert.equal(await recordIsLocked(pool, gameId), true);
         assert.equal(await sharedSourceIsLocked(pool, record), true);
         assert.equal(await sharedSourceIsLocked(pool, { game_title: markers[index] }), true);
@@ -380,7 +400,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       [legacyKey, JSON.stringify(fullWall('guobiao/lanshi'))]);
       const id = result.rows[0].id;
       await ensureDuplicateTables(pool); // The migration must not automatically unlock any legacy wall.
-      await pool.query('INSERT INTO game_records (game_id, record) VALUES ($1,$2)', ['legacyRiichi', { game_title: { rule: 'riichi', duplicate_key: legacyKey } }]);
+      await insertReplay(pool, ['legacyRiichi', { game_title: { rule: 'riichi', duplicate_key: legacyKey } }]);
       await pool.query('INSERT INTO duplicate_games VALUES ($1,$2,NOW())', ['legacyRiichi', id]);
       const mine = await service.mine(401);
       assert.equal(mine.items[0].rule, 'riichi');
@@ -406,7 +426,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         const gameId = `series${count}`;
         const record = { game_title: { is_duplicate: true, duplicate_key: wall.key, duplicate_seed: saved.seed,
           duplicate_round_count: count, duplicate_round_tiles: saved.round_tiles } };
-        await pool.query('INSERT INTO game_records (game_id, record) VALUES ($1,$2)', [gameId, record]);
+        await insertReplay(pool, [gameId, record]);
         await pool.query('INSERT INTO duplicate_games VALUES ($1,$2,NOW())', [gameId, wall.id]);
         assert.equal(await recordIsLocked(pool, gameId), true);
         await assert.rejects(service.publicDetail(wall.key), { status: 404 });
@@ -420,7 +440,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       }
     });
     await t.test('public results identify the creator or owning event without games and preserve the source after deletion', async () => {
-      await pool.query("INSERT INTO users VALUES (80000081, '复式创建者')");
+      await pool.query("INSERT INTO users (user_id, username) VALUES (80000081, '复式创建者')");
       await pool.query("INSERT INTO events VALUES ('source-event', '复式来源赛事', 'event', 'registered')");
       await pool.query("INSERT INTO event_admins VALUES ('source-event', 80000081)");
       const personal = (await service.create(80000081, body)).wall;
@@ -464,7 +484,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         duplicate_table: 'open', sub_rule: 'sichuan/doubles_duplicate' }, round_records: [] };
       await pool.query(`INSERT INTO sichuan_duplicate_matches(id,wall_id,event_id,status,data)
         VALUES($1,NULL,'event-a','completed',$2)`, [matchId, JSON.stringify({ wall_source: 'training', record_ids: { open: 'training-open', closed: 'training-closed' } })]);
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', ['training-open', JSON.stringify(training)]);
+      await insertReplay(pool, ['training-open', JSON.stringify(training)]);
       assert.equal(await recordIsLocked(pool, 'training-open'), false);
       assert.deepEqual(await accessibleGameIds(pool, ['training-open']), ['training-open']);
       assert.equal(await sharedSourceIsLocked(pool, training), false);
@@ -481,6 +501,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       assert.equal(await sharedSourceIsLocked(pool, training), true);
     });
   } finally {
+    if (originalDb) require.cache[dbModule] = originalDb; else delete require.cache[dbModule];
     await pool.end();
     await admin.query(`DROP SCHEMA ${schema} CASCADE`);
     await admin.end();

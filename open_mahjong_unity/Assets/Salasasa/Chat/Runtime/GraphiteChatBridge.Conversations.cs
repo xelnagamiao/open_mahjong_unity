@@ -136,13 +136,13 @@ namespace Salasasa.Chat
             pendingRemoval.RemoveWhere(key => !source.Conversations.Any(item => item.key == key));
             if (!ChatConversationListModel.IsFixed(SelectedConversationKey) && SelectedConversation == null)
                 SelectConversation(ChatConversationListModel.LobbyKey, true);
-            else { RefreshConversationHeader(); RefreshList(); RenderMessages(false); UpdateComposer(); MarkSelectedRead(); }
+            else { Refresh(); MarkSelectedRead(); }
         }
 
         void VenuesChanged()
         {
             venuesLoaded = true;
-            RefreshConversationHeader();
+            headerDirty = true;
             if (SidebarTab == 1) RefreshList();
         }
 
@@ -161,8 +161,7 @@ namespace Salasasa.Chat
             if (message == null) return;
             ConfirmConversationSend();
             bool selected = message.conversation_key == SelectedConversationKey;
-            bool bottom = view.messageScroll.verticalNormalizedPosition < .08f;
-            if (selected) { RenderMessages(bottom); MarkSelectedRead(); }
+            if (selected) { QueueIncomingMessage(); MarkSelectedRead(); }
             RefreshList();
         }
 
@@ -326,7 +325,7 @@ namespace Salasasa.Chat
         static string VenueInitial(string kind) => FirstCharacter(PlatformText.Get(kind=="base"?"基地":"赛事"));
         Message ToDisplayMessage(ConversationChatMessage message) => new Message {
             author = message.sender_name ?? "", text = message.content ?? "", time = ChatConversationListModel.TimeText(message.sent_at),
-            type = "Conversation", room = -1, conversationKey = message.conversation_key, senderUserId = message.sender_user_id,
+            type = "Conversation", room = -1, conversationKey = message.conversation_key, senderUserId = message.sender_user_id, profileImageId = message.profile_image_id,
             mine = message.sender_user_id == UserDataManager.Instance?.UserId, sourceContent = (message.sender_name ?? "") + ": " + (message.content ?? "")
         };
     }

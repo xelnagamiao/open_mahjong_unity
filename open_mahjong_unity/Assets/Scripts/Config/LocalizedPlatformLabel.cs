@@ -43,8 +43,9 @@ public sealed class LocalizedPlatformLabel : MonoBehaviour
                 extraOriginalSize=label.fontSize;extraOriginalMin=label.fontSizeMin;extraOriginalMax=label.fontSizeMax;
                 extraSizingApplied=true;
             }
-            if(extra&&!label.enableAutoSizing){
-                label.fontSizeMax=label.fontSize;
+            if(extra&&(!label.enableAutoSizing||ConfigManager.CurrentLanguage==AppLanguage.Spanish)){
+                label.fontSizeMax=ConfigManager.CurrentLanguage==AppLanguage.Spanish
+                    ? (extraOriginalAuto?extraOriginalMax:extraOriginalSize) : label.fontSize;
                 label.fontSizeMin=Mathf.Min(label.fontSize,Mathf.Min(minimumSize,14));
                 label.enableAutoSizing=true;
             }else if(!extra&&extraSizingApplied){

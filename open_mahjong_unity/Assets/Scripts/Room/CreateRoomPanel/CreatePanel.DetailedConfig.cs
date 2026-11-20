@@ -52,7 +52,7 @@ public partial class CreatePanel {
     private readonly Dictionary<string, DetailedConfigState> _detailedConfigStates =
         new Dictionary<string, DetailedConfigState>();
 
-    private static readonly string[] DetailedRules = { "taiwan", "filipino", "shangrao", "beijing", "new_chinese", "hongque", "vietnamese", "riichi" };
+    private static readonly string[] DetailedRules = { "taiwan", "filipino", "shangrao", "beijing", "hongque", "vietnamese", "riichi" };
 
     private DetailedConfigState GetDetailedConfigState(string ruleKey) {
         if (string.IsNullOrEmpty(ruleKey)) return null;
@@ -577,6 +577,8 @@ public partial class CreatePanel {
     }
 
     private Dictionary<string, object> BuildDetailedConfigValues(string ruleKey) {
+        if (ruleKey == NewChineseGameState.RuleId)
+            return new Dictionary<string, object> { { CreateRoomKeys.ExchangeThree, newChineseExchangeThreeToggle.isOn } };
         if(ruleKey==FuzhouGameState.RuleId) return FuzhouConfigValues();
         DetailedConfigState state = GetDetailedConfigState(ruleKey);
         var result = new Dictionary<string, object>();

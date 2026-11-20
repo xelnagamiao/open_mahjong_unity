@@ -239,7 +239,8 @@ def test_all_room_options_roundtrip(rounds, switch):
 
 def fake_room_manager():
     connection = SimpleNamespace(user_id=101, username="tester", current_room_id=None)
-    manager = SimpleNamespace(game_server=SimpleNamespace(players={"c": connection}, db_manager=SimpleNamespace(
+    manager = SimpleNamespace(game_server=SimpleNamespace(players={"c": connection},
+        gamestate_manager=SimpleNamespace(sichuan_duplicate_matches={}), db_manager=SimpleNamespace(
         get_user_settings=Mock(return_value={"username": "tester", "voice_id": 2}))),
         _reject_room_entry_conflicts=Mock(return_value=None), _normalize_event_id=lambda x: x,
         _validate_event_for_room=Mock(return_value=None), _generate_room_id=lambda: 123456,

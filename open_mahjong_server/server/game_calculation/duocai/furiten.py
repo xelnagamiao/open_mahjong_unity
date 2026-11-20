@@ -1,17 +1,35 @@
+from collections import Counter
 from functools import lru_cache
 
 from . import tiles as t
 from .evaluation import evaluate, iter_scores
 from .scoring import Context, conditions
-from .solver import Meld, structural_win
+from .solver import Meld, iter_shapes, structural_win
 
 
 @lru_cache(maxsize=2048)
 def logical_waits(hand, melds=(), variant='riichi'):
+    hand, melds = tuple(hand), tuple(Meld.read(m) for m in melds)
     result = set()
     for value in t.PHYSICAL:
         if not t.joker(value) and t.face(value) not in result and structural_win(hand + (value,), melds, variant):
             result.add(t.face(value))
+    # A normal incoming tile can replace any joker interpretation unless all four physical copies are held.
+    physical = hand + tuple(v for meld in melds for v in meld.physical)
+    used = Counter(t.face(v) for v in physical if not t.joker(v))
+    missing = {face for face, count in used.items() if count == 4} - result
+    if missing and sum(t.joker(v) for v in physical) < 8:
+        for value in sorted(t.JOKERS, key=lambda v: -len(t.DOMAIN[v])):
+            if value in physical or not missing.intersection(t.DOMAIN[value]):
+                continue
+            for shape in iter_shapes(hand + (value,), melds, variant):
+                if shape.winning_face in missing:
+                    result.add(shape.winning_face)
+                    missing.remove(shape.winning_face)
+                    if not missing:
+                        break
+            if not missing:
+                break
     return frozenset(result)
 
 

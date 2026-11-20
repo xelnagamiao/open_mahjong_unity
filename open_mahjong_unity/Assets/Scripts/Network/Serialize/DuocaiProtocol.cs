@@ -12,7 +12,7 @@ public sealed class DuocaiMeld {
 [Serializable]
 public sealed class DuocaiInfo {
     public string rule_version,variant,phase;
-    public int base_hand_tiles=13,hand_number,honba,riichi_sticks,deck,opening;
+    public int base_hand_tiles=13,hand_number,honba,riichi_sticks,deck,opening,wall_layout_version;
     public int[] start_scores,seat_to_original,dice,indicators,ura_indicators,reserves;
     public int[][] retired;
     public bool match_finishing,self_has_draw_slot;
@@ -20,6 +20,12 @@ public sealed class DuocaiInfo {
     public JObject ledger;
     public double? clock_remaining_ms,clock_step_remaining_ms;
     public bool? clock_active;
+    public DuocaiPendingKong pending_kong;
+}
+[Serializable]
+public sealed class DuocaiPendingKong {
+    public int player,meld_index,tile;
+    public bool is_mo_gang;
 }
 [Serializable]
 public sealed class DuocaiWallTile {

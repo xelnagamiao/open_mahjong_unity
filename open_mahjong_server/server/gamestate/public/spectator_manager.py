@@ -72,7 +72,7 @@ class SpectatorManager:
         }
         self.round_ticks[round_idx] = []
 
-    def record_tick(self, tick):
+    def record_tick(self, tick, *, timestamp=None):
         """记录一条带时间戳的观战 tick（由 append_action_tick 或 ask 事件调用）。"""
         if not self.enabled:
             return
@@ -80,7 +80,7 @@ class SpectatorManager:
         if round_idx not in self.round_ticks:
             self.round_ticks[round_idx] = []
         self.round_ticks[round_idx].append({
-            "timestamp": time.time(),
+            "timestamp": time.time() if timestamp is None else timestamp,
             "tick": tick,
         })
 
@@ -272,6 +272,18 @@ class SpectatorManager:
         finally:
             await self.cleanup()
 
+    def _round_record(self, index, target_time=None):
+        ticks, times = [], []
+        for entry in self.round_ticks.get(index, []):
+            if target_time is not None and entry["timestamp"] > target_time:
+                break
+            ticks.append(entry["tick"])
+            times.append(int(entry["timestamp"] * 1000))
+        data = {**self.round_headers[index]["data"], "action_ticks": ticks}
+        if times:
+            data["action_times_ms"] = times
+        return data
+
     def _build_spectator_record(self, target_time: float) -> Optional[dict]:
         if not self.game_title or not self.round_headers:
             return None
@@ -288,13 +300,7 @@ class SpectatorManager:
             if header["timestamp"] > target_time:
                 break
 
-            round_data = {**header["data"], "action_ticks": []}
-            for entry in self.round_ticks.get(ri, []):
-                if entry["timestamp"] <= target_time:
-                    round_data["action_ticks"].append(entry["tick"])
-                else:
-                    break
-            record["game_round"][f"round_index_{ri}"] = round_data
+            record["game_round"][f"round_index_{ri}"] = self._round_record(ri, target_time)
             found_any = True
 
         return record if found_any else None
@@ -312,11 +318,7 @@ class SpectatorManager:
         }
         apply_game_title_end_fields(self.gamestate, record["game_title"])
         for ri in sorted(self.round_headers.keys()):
-            header = self.round_headers[ri]
-            round_data = {**header["data"], "action_ticks": []}
-            for entry in self.round_ticks.get(ri, []):
-                round_data["action_ticks"].append(entry["tick"])
-            record["game_round"][f"round_index_{ri}"] = round_data
+            record["game_round"][f"round_index_{ri}"] = self._round_record(ri)
         final_record = getattr(self.gamestate, "game_record", None) or {}
         if final_record.get("match_result") is not None:
             from copy import deepcopy
@@ -335,10 +337,7 @@ class SpectatorManager:
             header = self.round_headers[ri]
 
             if ri > progress["round_index"] and header["timestamp"] <= target_time:
-                round_data = {**header["data"], "action_ticks": []}
-                for entry in self.round_ticks.get(ri, []):
-                    if entry["timestamp"] <= target_time:
-                        round_data["action_ticks"].append(entry["tick"])
+                round_data = self._round_record(ri, target_time)
                 updates.append({"type": "new_round", "round_index": ri, "round_data": round_data})
                 progress["round_index"] = ri
                 progress["tick_index"] = len(round_data["action_ticks"])

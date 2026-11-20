@@ -37,6 +37,7 @@ public class RecordTipsContext {
 }
 
 public class RecordTipsPlayerVisible {
+    public List<int> HuapaiTiles;
     public List<int> PublicHandTiles;
     public List<int> DiscardTiles;
     public List<string> CombinationTiles;

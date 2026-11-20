@@ -9,6 +9,9 @@ import (
 
 func newTestRoomManager(secret string) *RoomManager {
 	return &RoomManager{
+		lookupAccount: func(string, int64) (accountAccess, error) {
+			return accountAccess{UserID: 1, CanLogin: true, CanSend: true}, nil
+		},
 		secretKey:      secret,
 		uuidToUsername: make(map[string]string),
 		usernameToUUID: make(map[string]string),

@@ -18,16 +18,15 @@ public static class MailBatchLayoutBaker
             throw new InvalidOperationException("Open MainScene before baking the login language selector.");
         var roots = scene.GetRootGameObjects();
         var settings = roots.SelectMany(r => r.GetComponentsInChildren<SettingsStyleCollection>(true)).Single();
-        var source = settings.bakedPages.SelectMany(p => p.controls).First(f => f.key == "LanguageRow").dropdown;
-        if (!source || !source.template) throw new InvalidOperationException("The settings language dropdown is missing.");
-
-        var selectors = new HashSet<TMP_Dropdown> { source };
         foreach (var collection in roots.SelectMany(r => r.GetComponentsInChildren<SettingsStyleCollection>(true)))
         {
-            foreach (var page in collection.bakedPages)
-                foreach (var field in page.controls.Where(f => f.key == "LanguageRow")) selectors.Add(field.dropdown);
+            SettingsPagePrefabBaker.EditPages(collection, p => p.controls.Any(f => f.key == "LanguageRow"), page =>
+            {
+                foreach (var field in page.controls.Where(f => f.key == "LanguageRow")) BindLanguage(field.dropdown);
+            });
         }
-        foreach (var dropdown in selectors.Where(d => d)) BindLanguage(dropdown);
+        var source = settings.AuthoredPages.SelectMany(p => p.controls).First(f => f.key == "LanguageRow").dropdown;
+        if (!source || !source.template) throw new InvalidOperationException("The settings language dropdown is missing.");
 
         var login = roots.SelectMany(r => r.GetComponentsInChildren<LoginPanel>(true)).Single();
         var existing = login.transform.Find("LanguageSelector");

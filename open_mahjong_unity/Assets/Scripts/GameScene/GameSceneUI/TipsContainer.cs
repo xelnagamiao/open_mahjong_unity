@@ -323,11 +323,14 @@ public partial class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         waitingTiles.Sort();
         GuobiaoHintTiming guobiaoTiming = pendingCutTileId.HasValue ? null : GuobiaoGameState.Active?.BuildHintTiming();
+        bool duocai = gameManager.roomRule == "duocai";
         var sbrWindow = pendingCutTileId.HasValue ? null : SichuanGameState.Active?.ExchangeWindow;
-        int actualDraw = sbrWindow?.draw == true ? sbrWindow.tile : guobiaoTiming?.DrawTile ?? 0;
+        int actualDraw = pendingCutTileId.HasValue ? 0 : sbrWindow?.draw == true ? sbrWindow.tile
+            : DuocaiGameState.Active?.Hints.CurrentDrawTile ?? guobiaoTiming?.DrawTile ?? 0;
         var displayedWaiting = actualDraw > 0
-            ? waitingTiles.Where(tile => WashizuTile.Face(tile) == WashizuTile.Face(actualDraw)).ToList() : waitingTiles;
-        PrepareHintRows(gameManager.subRule, displayedWaiting);
+            ? waitingTiles.Where(tile => duocai?tile==actualDraw:WashizuTile.Face(tile)==WashizuTile.Face(actualDraw)).ToList() : waitingTiles;
+        var displayTiles=duocai?DuocaiHintPresentation.DisplayTiles(displayedWaiting):displayedWaiting.ToArray();
+        PrepareHintRows(gameManager.subRule, displayTiles);
         var visibleHand = new List<int>(handTiles);
         if (actualDraw > 0) visibleHand.Add(actualDraw);
         BuildVisibleTileCounts(gameManager, visibleHand);
@@ -363,8 +366,7 @@ public partial class TipsContainer : MonoBehaviour
         }
         var (allDiscards, allCombinations) = CollectTableFromLiveGame(gameManager);
         // 遍历每一张和牌张
-        foreach (int hepaiTile in waitingTiles) {
-            if (actualDraw > 0 && WashizuTile.Face(hepaiTile) != WashizuTile.Face(actualDraw)) continue;
+        foreach (int hepaiTile in displayTiles) {
             int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
                 hepaiTile, allDiscards, allCombinations, _pendingCutTileId, strictCombinationMatch: false);
             List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
@@ -381,6 +383,8 @@ public partial class TipsContainer : MonoBehaviour
 
             RenderWaitingTile(RuleRegistry.Current, new WaitHintQuery {
                 HepaiTile = hepaiTile,
+                PendingCutTileId = pendingCutTileId,
+                WaitingVariants = duocai?DuocaiHintPresentation.Variants(displayedWaiting,hepaiTile):null,
                 HandWithWin = handList,
                 Melds = combinationList,
                 MeldMasks = selfInfo.combination_masks,
@@ -419,10 +423,10 @@ public partial class TipsContainer : MonoBehaviour
         if (hint == null && !ShowCountTips && !defer) return;
         GameObject fanObject = InstantiateTipsFan();
         if (defer) {
-            SetTipsFanCount(fanObject, null, query.HepaiTile);
+            fanObject.GetComponent<TipsFanCount>().SetHint(null,GetWaitingQueryRemaining(query),ShowFanTips,ShowCountTips);
             _pendingFanHints.Enqueue(new PendingFanHint {
                 Manifest = manifest, Query = query, View = fanObject.GetComponent<TipsFanCount>(),
-                Remaining = GetWaitingTileRemaining(query.HepaiTile), ShowFan = ShowFanTips, ShowCount = ShowCountTips,
+                Remaining = GetWaitingQueryRemaining(query), ShowFan = ShowFanTips, ShowCount = ShowCountTips,
             });
             if (_fanHintRoutine == null) {
                 _fanHintHost = WindowsManager.Instance;
@@ -430,7 +434,7 @@ public partial class TipsContainer : MonoBehaviour
             }
             return;
         }
-        SetTipsFanCount(fanObject, hint, query.HepaiTile);
+        fanObject.GetComponent<TipsFanCount>().SetHint(hint,GetWaitingQueryRemaining(query),ShowFanTips,ShowCountTips);
     }
 
     /// <summary>牌谱/延时观战：基于 RecordTipsContext 展示听牌与番数提示。</summary>
@@ -440,12 +444,20 @@ public partial class TipsContainer : MonoBehaviour
         _recordTipsContext = ctx;
         _pendingCutTileId = pendingCutTileId;
 
-        PrepareHintRows(ctx.SubRule, waitingTiles.OrderBy(tile => tile).ToArray());
+        bool duocai=ctx.RoomRule=="duocai";
+        int actualDraw=duocai&&!pendingCutTileId.HasValue?GameRecordManager.Instance?.DuocaiRecordCurrentDrawTile(ctx.SelfPlayerIndex)??0:0;
+        var physicalWaiting=actualDraw>0?waitingTiles.Where(tile=>tile==actualDraw).ToList():waitingTiles;
+        var displayTiles=duocai?DuocaiHintPresentation.DisplayTiles(physicalWaiting):physicalWaiting.OrderBy(tile=>tile).ToArray();
+        PrepareHintRows(ctx.SubRule, displayTiles);
 
-        BuildVisibleTileCountsFromRecord(ctx, handTiles);
+        var visibleHand=new List<int>(handTiles);
+        if(actualDraw>0)visibleHand.Add(actualDraw);
+        BuildVisibleTileCountsFromRecord(ctx, visibleHand);
 
         RuleRegistry.TryResolve(ctx.RoomRule, ctx.SubRule, out RuleManifest manifest);
-        foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, handTiles, waitingTiles, _pendingCutTileId)) {
+        foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, handTiles, displayTiles.ToList(), _pendingCutTileId)) {
+            query.PendingCutTileId=pendingCutTileId;
+            query.WaitingVariants=duocai?DuocaiHintPresentation.Variants(physicalWaiting,query.HepaiTile):null;
             RenderWaitingTile(manifest, query);
         }
 
@@ -509,6 +521,10 @@ public partial class TipsContainer : MonoBehaviour
                     AddVisibleTile(tile, roomRule);
                 }
             }
+            // 拔北存于花牌区，仍占用北的四张供给；自家手牌此时已移除该牌。
+            if (GameSession.Current.SubRule == "riichi/sanma" && playerInfo.huapai_list != null) {
+                foreach (int tile in playerInfo.huapai_list) AddVisibleTile(tile, roomRule);
+            }
             if (WashizuTile.UsesTransparentHands(GameSession.Current.SubRule) && playerInfo.combination_masks != null) {
                 foreach (var mask in playerInfo.combination_masks)
                     foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) AddVisibleTile(tile, roomRule);
@@ -565,6 +581,8 @@ public partial class TipsContainer : MonoBehaviour
                 break;
         }
     }
+
+    private int GetWaitingQueryRemaining(WaitHintQuery query)=>(query.WaitingVariants??new[]{query.HepaiTile}).Sum(GetWaitingTileRemaining);
 
     private int GetWaitingTileRemaining(int waitingTile) {
         int key = GetVisibleCountKey(waitingTile, _recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule);

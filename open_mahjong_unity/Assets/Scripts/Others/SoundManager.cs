@@ -28,32 +28,35 @@ public partial class SoundManager : MonoBehaviour {
     }
 
     public void PlayActionButtonAppearSound() {
-        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Effects/mixkit-modern-technology-select-3124");
+        long request = BeginAudioDiagnostic("action-button");
+        AudioClip soundToPlay = LoadDiagnosticClip("Sound/Effects/mixkit-modern-technology-select-3124", request);
         if (soundToPlay == null) {
             Debug.LogWarning("未找到操作按钮显示音效: Sound/Effects/mixkit-modern-technology-select-3124");
             return;
         }
         float volume = ConfigManager.Instance.GetSoundEffectVolumeRatio();
-        audioSource.PlayOneShot(soundToPlay, volume);
+        DiagnosticPlay(request, audioSource, soundToPlay, true, volume);
     }
 
     /// <summary>对局倒计时剩余 3/2/1 秒时的提示音效。</summary>
     public void PlayCountdownTickSound() {
-        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Effects/Timer02-0.1s");
+        long request = BeginAudioDiagnostic("countdown");
+        AudioClip soundToPlay = LoadDiagnosticClip("Sound/Effects/Timer02-0.1s", request);
         if (soundToPlay == null) {
             Debug.LogWarning("未找到倒计时音效: Sound/Effects/Timer02-0.1s");
             return;
         }
         float volume = ConfigManager.Instance.GetSoundEffectVolumeRatio();
-        audioSource.PlayOneShot(soundToPlay, volume);
+        DiagnosticPlay(request, audioSource, soundToPlay, true, volume);
     }
 
     // 播放操作音效的方法
     public void PlayActionSound(string playerPosition, string actionType, int? voiceIdOverride = null) {
+        long request = BeginAudioDiagnostic(actionType, playerPosition);
         // Draw/discard and other unvoiced actions have no voice mapping; they are not missing clips.
         // Resolve the rule hook first so custom rules can still provide a voice for any action.
         string voiceKey = ResolveActionVoiceKey(actionType);
-        if (voiceKey == null) return;
+        if (voiceKey == null) { TraceAudio(request, "skip", "unvoiced-action"); return; }
 
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = ResolvePlayerVoiceId(playerPosition, voiceIdOverride);
@@ -66,7 +69,7 @@ public partial class SoundManager : MonoBehaviour {
 
         if (soundToPlay != null) {
             float volume = ConfigManager.Instance.GetVoiceVolumeRatio();
-            PlaySeatVoice(playerPosition, soundToPlay, volume, voiceKey);
+            PlaySeatVoice(playerPosition, soundToPlay, volume, voiceKey, request);
             Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");
@@ -102,7 +105,7 @@ public partial class SoundManager : MonoBehaviour {
     private AudioClip LoadVoiceClipWithFallback(string voicePath, string voiceKey, out string loadedTarget) {
         foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
             string target = $"Sound/{voicePath}/{key}";
-            AudioClip clip = IosResourceCache.Load<AudioClip>(target);
+            AudioClip clip = LoadDiagnosticClip(target, audioRequestSequence);
             if (clip != null) {
                 loadedTarget = target;
                 return clip;
@@ -110,7 +113,7 @@ public partial class SoundManager : MonoBehaviour {
         }
         foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
             string target = $"Sound/{voiceIdToPath[1]}/{key}";
-            AudioClip clip = IosResourceCache.Load<AudioClip>(target);
+            AudioClip clip = LoadDiagnosticClip(target, audioRequestSequence);
             if (clip != null) {
                 loadedTarget = target;
                 return clip;
@@ -132,52 +135,59 @@ public partial class SoundManager : MonoBehaviour {
     /// 播放立直宣告语音；按指定方位玩家的音色挑选 riichi 资源，加载失败时回退默认音色。
     /// </summary>
     public void PlayRiichiVoice(string playerPosition, int? voiceIdOverride = null) {
+        long request = BeginAudioDiagnostic("riichi", playerPosition);
         int voiceId = ResolvePlayerVoiceId(playerPosition, voiceIdOverride);
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
-        AudioClip clip = IosResourceCache.Load<AudioClip>($"Sound/{voicePath}/riichi");
-        if (clip == null) clip = IosResourceCache.Load<AudioClip>($"Sound/{voiceIdToPath[1]}/riichi");
+        AudioClip clip = LoadDiagnosticClip($"Sound/{voicePath}/riichi", request);
+        if (clip == null) clip = LoadDiagnosticClip($"Sound/{voiceIdToPath[1]}/riichi", request);
         if (clip == null) {
             Debug.LogWarning("未找到立直音效资源 Sound/<voice>/riichi");
             return;
         }
         float volume = ConfigManager.Instance.GetVoiceVolumeRatio();
-        PlaySeatVoice(playerPosition, clip, volume);
+        PlaySeatVoice(playerPosition, clip, volume, null, request);
     }
 
     public void PlayGameStartSound() {
+        long request = BeginAudioDiagnostic("game-start");
         if (ConfigManager.Instance != null && !ConfigManager.Instance.MatchSuccessSoundEnabled) {
+            TraceAudio(request, "skip", "match-success-disabled");
             return;
         }
-        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Physics/gamestart");
+        AudioClip soundToPlay = LoadDiagnosticClip("Sound/Physics/gamestart", request);
         if (soundToPlay == null) {
             Debug.LogWarning("未找到匹配成功音效: Sound/Physics/gamestart");
             return;
         }
         float volume = ConfigManager.Instance.GetSoundEffectVolumeRatio();
-        audioSource.PlayOneShot(soundToPlay, volume * 0.4f);
+        DiagnosticPlay(request, audioSource, soundToPlay, true, volume * 0.4f);
     }
 
     public void PlayPhysicsSound(string actionType){
+        long request = BeginAudioDiagnostic("physics/" + actionType);
         string fileName;
         if (actionType == "cut") {
             // 旧调用保留桌心兜底；正常出牌在原播放时机传入即将落牌的槽位。
+            TraceAudio(request, "delegate", "discard-impact");
             PlayDiscardImpact(null);
             return;
         } else if (actionType == "Gong_hu") {
             if (ConfigManager.Instance != null && !ConfigManager.Instance.GongHuSoundEnabled) {
+                TraceAudio(request, "skip", "gong-disabled");
                 return;
             }
             fileName = "Gong_hu";
         } else {
+            TraceAudio(request, "skip", "unmapped-physics");
             return;
         }
-        AudioClip soundToPlay = IosResourceCache.Load<AudioClip>("Sound/Physics/" + fileName);
+        AudioClip soundToPlay = LoadDiagnosticClip("Sound/Physics/" + fileName, request);
         if (soundToPlay == null) {
             Debug.LogWarning($"未找到物理音效文件: {actionType}");
             return;
         }
         float volume = ConfigManager.Instance.GetSoundEffectVolumeRatio();
-        audioSource.PlayOneShot(soundToPlay, volume);
+        DiagnosticPlay(request, audioSource, soundToPlay, true, volume);
         Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
     }
 }

@@ -167,15 +167,15 @@ open_mahjong_unity/
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
 - **赞助**: q1448826180
-- **其他**: 苏南上海杭州的岗位或定制开发及合作可联系qq或微信
+- **其他**: 苏南上海杭州的岗位或定制麻将规则、平台私有部署等其他合作可联系qq或微信
 
 ### 5.鸣谢
 
-开发团队：Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe、ShiauLo(bug修复)  salasasa数据bot(PCX1078)  大海(k麻计分)  插件开发(新手求教)
+开发团队：Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe、ShiauLo(bug修复)  PCX1078(salasasa数据bot)  大海(k麻计分)  新手求教(插件开发)
 
 自定义规则设计：莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)
 
-地方规则考据：上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)
+地方规则考据：上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)  越南麻将(Bridget Young)  芋蔗(九江麻将)
 
 直播宣传：Cloud980Ti  轻轻的飘  等候1234  立直喵  Ce/Est1al  鬼头刀鱼fish  神源之心  方片杰克  Ni9e_9  大柠劳斯  大口啃排骨
 
@@ -189,4 +189,4 @@ open_mahjong_unity/
 
 以及游玩salasasa平台的所有玩家！
 
-*最后更新：2026年11月3日 dev ver 0.5.87.0*
+*最后更新：2026年11月20日 dev ver 0.5.90.0*

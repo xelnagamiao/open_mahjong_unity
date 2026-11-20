@@ -70,7 +70,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// 4. 处理来自客户端的消息
-	authenticated := false
+	var accountID int64
+	done := make(chan struct{})
+	defer close(done)
 	for {
 		_, message, err := client.ReadMessage()
 		if err != nil {
@@ -126,7 +128,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		switch jsonMsg.Type {
 		// 登录游戏大厅
 		case "login":
-			if authenticated {
+			if accountID != 0 {
 				if err := reply(ChatResponse{
 					ResponseType: "False",
 					TargetRoomID: 0,
@@ -143,7 +145,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			// 登录游戏大厅 发送登录大厅结果
 			result := roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey)
-			authenticated = result.Success
+			if result.Success {
+				accountID = result.UserID
+				go roomManager.watchAccount(client, accountID, done)
+			}
 			if result.Success && result.ReplacedConnectionID != "" {
 				if oldClient, exists := Pool.Get(result.ReplacedConnectionID); exists {
 					kickout := ChatResponse{
@@ -206,7 +211,24 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				continue
 			}
-			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, &Pool) {
+			access, err := roomManager.lookupAccount("", accountID)
+			if err != nil || !access.CanLogin || !access.CanSend {
+				code, message := "chat_banned", "账号当前已被禁言"
+				if err != nil {
+					code, message = "access_unavailable", "暂时无法验证聊天权限，请稍后重试"
+				} else if !access.CanLogin {
+					code, message = "account_banned", "账号已被禁止登录"
+				}
+				if reply(ChatResponse{ResponseType: "False", TargetRoomID: sendChatMsg.RoomId, Content: message, Code: code}) != nil {
+					return
+				}
+				if err == nil && !access.CanLogin {
+					client.CloseWithReason(websocket.ClosePolicyViolation, code)
+					return
+				}
+				continue
+			}
+			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, access, &Pool) {
 				// 聊天成功，向客户端发送聊天成功消息
 				resp := ChatResponse{ResponseType: "sendChatOk", TargetRoomID: sendChatMsg.RoomId, Content: sendChatMsg.Content} // 发送接受到的聊天信息原句
 				if err := reply(resp); err != nil {
@@ -235,6 +257,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	roomManager.secretKey = GetSecretKey()
+	roomManager.lookupAccount = gameAccountLookup(roomManager.secretKey)
 
 	// 设置路由处理函数
 	http.HandleFunc("/chat/", handleWebSocket) // 匹配所有 /chat/ 开头的路径

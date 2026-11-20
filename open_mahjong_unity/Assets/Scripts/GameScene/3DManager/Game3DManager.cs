@@ -691,6 +691,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false) {
         var refreshBacks = DuocaiTableIndicators.CaptureHandBacks(PlayerPosition);
+        if(actionType=="GetCard")refreshBacks+=DuocaiTableIndicators.CaptureVisibleDraw(PlayerPosition);
         var postBacks = DuocaiTableIndicators.CaptureHandBackState(PlayerPosition);
         return CompleteTileChange(Change3DTileCore(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile, concealedDiscard, postBacks), refreshBacks);
     }
@@ -933,6 +934,9 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 清除3D手牌
     public void Clear3DTile(){
+        DuocaiTableIndicators.ResetPendingWallDraws();
+        ClearDuocaiWall();
+        ClearDuocaiDeclaredKongs();
         ClearSichuanWall();
         ClearWashizuPresentation();
         ClearChangshaOpenKongTilesImmediate();

@@ -23,12 +23,14 @@ def _entry(cursor, row):
     for reward in cursor.fetchall():
         item = _public(reward)
         rewards.append(dict(item_id=reward['item_id'], quantity=reward['quantity'],
-                            name=reward['name'], icon_path=item.get('icon_path', '')))
+                            name=reward['name'], icon_path=item.get('icon_path', ''),
+                            category=item.get('category'), effect=item.get('effect'),
+                            slot=item.get('slot'), frame_color=item.get('frame_color')))
     return dict(mail_id=row['mail_id'], title=row['title'], content=row['content'],
                 sender=row['sender'], created_at=row['created_at'].isoformat(),
                 expires_at=row['expires_at'].isoformat() if row['expires_at'] else None,
                 is_read=row['read_at'] is not None, claimed=row['claimed_at'] is not None,
-                expired=bool(row['expired']), rewards=rewards)
+                expired=bool(row['expired']), rewards=rewards, action_path=row.get('action_path'))
 
 
 def _mail(cursor, user_id, mail_id, lock=False):
@@ -47,13 +49,43 @@ def _unread(cursor, user_id):
     return cursor.fetchone()['count']
 
 
-def list_mail(db, user_id):
+def _summary(cursor, user_id):
+    cursor.execute('''SELECT COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE read_at IS NULL AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)) AS unread_count,
+        COUNT(*) FILTER (WHERE claimed_at IS NULL AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
+            AND EXISTS (SELECT 1 FROM player_mail_rewards r WHERE r.mail_id=m.mail_id)) AS claimable_count
+        FROM player_mail m WHERE user_id=%s''', (user_id,))
+    return dict(cursor.fetchone())
+
+
+def mail_summary(db, user_id):
     _int(user_id, '用户 ID', 11, 9223372036854775807)
+    return _read(db, lambda cursor: _summary(cursor, user_id))
+
+
+def list_mail(db, user_id, *, limit=None, offset=0, filter_by='all'):
+    _int(user_id, '用户 ID', 11, 9223372036854775807)
+    filters = {
+        'all': '',
+        'unread': ' AND read_at IS NULL AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)',
+        'rewards': ''' AND claimed_at IS NULL AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
+            AND EXISTS (SELECT 1 FROM player_mail_rewards r WHERE r.mail_id=m.mail_id)''',
+    }
+    if filter_by not in filters:
+        raise InventoryError('邮件筛选参数无效')
+    if limit is not None:
+        _int(limit, '分页大小', 1, 100)
+        _int(offset, '分页位置', 0, 2000000)
     def work(cursor):
+        summary = _summary(cursor, user_id)
+        where = ' WHERE user_id=%s' + filters[filter_by]
+        cursor.execute('SELECT COUNT(*) AS total FROM player_mail m' + where, (user_id,))
+        total = cursor.fetchone()['total']
         cursor.execute('''SELECT *,expires_at IS NOT NULL AND expires_at<=CURRENT_TIMESTAMP AS expired
-            FROM player_mail WHERE user_id=%s ORDER BY mail_id DESC''', (user_id,))
+            FROM player_mail m''' + where + ' ORDER BY mail_id DESC' + (' LIMIT %s OFFSET %s' if limit is not None else ''),
+                       (user_id, limit, offset) if limit is not None else (user_id,))
         rows = cursor.fetchall()
-        return dict(mails=[_entry(cursor, row) for row in rows], unread_count=_unread(cursor, user_id))
+        return dict(summary, mails=[_entry(cursor, row) for row in rows], total=total)
     return _read(db, work)
 
 
@@ -86,6 +118,7 @@ def claim_mail(db, user_id, mail_id):
             if not cursor.fetchone():
                 raise InventoryError('用户不存在', 404)
             row = _mail(cursor, user_id, mail_id, True)
+            already_claimed = row['claimed_at'] is not None
             if row['claimed_at'] is None:
                 if row['expired']:
                     raise InventoryError('邮件已过期', 409)
@@ -113,7 +146,7 @@ def claim_mail(db, user_id, mail_id):
                     (operation, mail_id))
             row = _mail(cursor, user_id, mail_id)
             result = dict(mail=_entry(cursor, row), unread_count=_unread(cursor, user_id),
-                          inventory_state=_state(cursor, user_id), message='物品已放入背包')
+                          inventory_state=_state(cursor, user_id), message='物品已放入背包', already_claimed=already_claimed)
             cursor.execute('SELECT result FROM inventory_operations WHERE operation_id=%s', (row['claim_operation_id'],))
             operation = cursor.fetchone()
             if operation and operation['result'].get('reward_receipt'):

@@ -45,12 +45,35 @@ test('all detailed option values survive the browser and Node boundaries', () =>
   for (const option of catalog.options) for (const value of option.values) {
     const form = createEventRoomForm({ room_rule: 'riichi' })
     applyRiichiPreset(form, 'sanma_tenhou')
+    if (option.key === 'noten_penalty' && value === 'fixed_gap_2000') applyRiichiPreset(form, 'mil')
     form.riichi_detailed_config[option.key] = value
     if (option.key === 'minimum_win_score') form.minimum_win_score = value
     const payload = buildEventRoomSettings(form)
     const doc = readRoomSettings({})
     const stored = applyRoomSettingsChange(doc, { kind: 'manual', body: { ...payload, revision: doc.revision }, userId: 10001, eventStatus: 'active' }).settings.manual
     assert.equal(stored.room_config.detailed_config[option.key], value, option.key)
+  }
+})
+
+test('MIL payments remain independent of sanma total-2000 and legacy defaults', () => {
+  const form = createEventRoomForm({ room_rule: 'riichi' })
+  assert.equal(form.riichi_detailed_config.honba_enabled, true)
+  assert.equal(form.riichi_detailed_config.noten_penalty, 3000)
+  applyRiichiPreset(form, 'mil')
+  const config = buildEventRoomSettings(form).room_config
+  assert.equal(config.starting_score, 30000)
+  assert.equal(config.detailed_config.honba_enabled, false)
+  assert.equal(config.detailed_config.noten_penalty, 'fixed_gap_2000')
+  form.sub_rule = 'riichi/sanma'
+  assert.throws(() => buildEventRoomSettings(form), /固定分差/)
+  const doc = readRoomSettings({})
+  assert.throws(() => applyRoomSettingsChange(doc, { kind: 'manual', body: {
+    room_rule: 'riichi', room_config: { ...config, sub_rule: 'riichi/sanma' }, revision: doc.revision,
+  }, userId: 10001, eventStatus: 'active' }), /固定分差/)
+  for (const bad of [0, 'false', null]) {
+    applyRiichiPreset(form, 'mil')
+    form.riichi_detailed_config.honba_enabled = bad
+    assert.throws(() => buildEventRoomSettings(form), /本场/)
   }
 })
 

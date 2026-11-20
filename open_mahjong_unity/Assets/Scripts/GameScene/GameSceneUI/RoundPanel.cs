@@ -116,6 +116,8 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
         matchInfo?.RefreshLayout();
     }
 
+    public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => simpleRoundPanel?.UpdateMatchReplayScores(scores);
+
     public void UpdateDuplicateStatus(DuplicateMatchInfo info) => simpleRoundPanel?.UpdateDuplicateStatus(info);
 
     public void UpdateSichuanSettlement(ShowResultInfo info) => simpleRoundPanel?.UpdateSichuanSettlement(info);

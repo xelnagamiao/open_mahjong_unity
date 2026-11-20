@@ -1,3 +1,4 @@
+import { parseReplayJSON } from '../../utils/browserRecordMigration.js'
 import type {
   ConnectionStatus,
   SalasasaLoginInfo,
@@ -141,7 +142,11 @@ class SalasasaClient {
 
       socket.onmessage = (event) => {
         let message: SalasasaResponse
-        try { message = JSON.parse(event.data) as SalasasaResponse }
+        try {
+          const parse = typeof event.data === 'string' && event.data.includes('"record_detail"')
+            ? parseReplayJSON : JSON.parse
+          message = parse(event.data) as SalasasaResponse
+        }
         catch { return }
         message.received_monotonic_ms = performance.now()
         const loginKickedOut = message.type === 'message' && message.message === 'login_kickout'

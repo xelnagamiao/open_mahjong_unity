@@ -26,7 +26,8 @@ public static class InterfaceDesignPresetsBaker
             UnityEventTools.AddIntPersistentListener(button.onClick, plans.SelectSettings, value);
             Label(button.GetComponentInChildren<TMP_Text>(true), SettingsStyleCollection.StyleNames[value]);
         }
-        foreach (var page in plans.settings.bakedPages)
+        SettingsPagePrefabBaker.EditPages(plans.settings, page => true, page =>
+        {
             for (int id = 0; id < page.variants.Length; id++)
             {
                 var button = page.variants[id];
@@ -34,7 +35,8 @@ public static class InterfaceDesignPresetsBaker
                 Place((RectTransform)button.transform, 6 + position * 190, 5, 184, 38);
                 Label(button.GetComponentInChildren<TMP_Text>(true), SettingsStyleCollection.StyleNames[id]);
             }
-        plans.settings.ShowBakedPage(SettingsStyleCollection.DefaultVariant, 0);
+        });
+        if (!plans.settings.UsesPagePrefabs) plans.settings.ShowBakedPage(SettingsStyleCollection.DefaultVariant, 0);
 
         var restore = plans.restorePresetsButton;
         restore.onClick = new Button.ButtonClickedEvent();
@@ -99,7 +101,9 @@ public static class InterfaceDesignPresetsBaker
         foreach (var group in plans.choices)
             if (!plans.presetDefaults.Any(p => p.option == group.option))
                 throw new InvalidOperationException("No restore default for design option " + group.option);
-        if (!Application.isPlaying)
+        if (plans.settings.UsesPagePrefabs)
+            SettingsPagePrefabBaker.Validate(scene);
+        else if (!Application.isPlaying)
         {
             var visible = plans.settings.bakedPages.Where(p => p.gameObject.activeSelf).ToArray();
             if (visible.Length != 1 || visible[0].variant != SettingsStyleCollection.DefaultVariant)

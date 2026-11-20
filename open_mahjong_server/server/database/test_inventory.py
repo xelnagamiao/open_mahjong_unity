@@ -77,7 +77,7 @@ class InventoryDatabaseTests(unittest.TestCase):
         self.assertEqual(self.sql('SELECT name FROM titles ORDER BY title_id'),[('最初的初段',),('冠绝一世',),('千恋万花',)])
         self.assertEqual(self.qty(1002,103),0)
         self.assertEqual(get_inventory(self.db,103)['appearance']['voice_id'],2)
-        self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar','item_id':2301}])
+        self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar','item_id':2301},{'slot':'avatar_frame','item_id':DEFAULT_AVATAR_FRAME_ID}])
         self.assertEqual(get_inventory(self.db,103)['owned'],[{'item_id':iid,'quantity':1} for iid in (2201,2202,2301,2302,2303)])
         self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(0,)])
 
@@ -120,12 +120,13 @@ class InventoryDatabaseTests(unittest.TestCase):
             with self.assertRaises(InventoryError): self.call('grant',iid)
         self.call('grant',3001)
         with self.assertRaises(InventoryError): self.call('equip',3001,slot='character')
-        self.assertEqual(get_inventory(self.db,101)['equipment'],[{'slot':'avatar','item_id':2301}])
+        self.assertEqual(get_inventory(self.db,101)['equipment'],[{'slot':'avatar','item_id':2301},{'slot':'avatar_frame','item_id':DEFAULT_AVATAR_FRAME_ID}])
 
     def test_builtin_frames_default_switch_persist_and_reset(self):
         for uid in (101,102):
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
             self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
+            self.assertIn({'slot':'avatar_frame','item_id':DEFAULT_AVATAR_FRAME_ID}, get_inventory(self.db,uid)['equipment'])
             self.assertEqual(self.qty(A1_AVATAR_FRAME_ID,uid),1)
             self.assertEqual(self.qty(B1_AVATAR_FRAME_ID,uid),1)
             self.call('equip',B1_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
@@ -140,8 +141,8 @@ class InventoryDatabaseTests(unittest.TestCase):
             self.ensure_schema()
             self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],A1_AVATAR_FRAME_ID)
             self.call('equip',DEFAULT_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
-            self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],0)
-            self.assertEqual(self.sql("SELECT COUNT(*) FROM user_equipment WHERE user_id=%s AND slot='avatar_frame'",(uid,)),[(0,)])
+            self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
+            self.assertEqual(self.sql("SELECT item_id FROM user_equipment WHERE user_id=%s AND slot='avatar_frame'",(uid,)),[(DEFAULT_AVATAR_FRAME_ID,)])
             self.assertEqual(get_ledger(self.db,uid),[])
 
     def test_default_avatars_are_owned_and_only_change_the_avatar(self):
@@ -242,18 +243,20 @@ class InventoryDatabaseTests(unittest.TestCase):
 
     def test_every_persisted_rule_keeps_the_equipped_frame_snapshot(self):
         from importlib import import_module
+        from server.records.store import ensure_tables as ensure_match_record_tables
         from server.database.player_recent_records import ensure_schema
         from server.database.commerce import get_wallet
         from server.database.statistics_catalog import BY_SUB_RULE
-        self.sql("""CREATE TABLE game_records(game_id varchar(16) PRIMARY KEY,record jsonb,created_at timestamp DEFAULT NOW());
-            CREATE TABLE game_player_records(game_id varchar(16),user_id bigint,username text,score int,rank int,
+        self.sql("""CREATE TABLE game_player_records(game_id varchar(16),user_id bigint,username text,score int,rank int,
             original_player_index int,rule text,sub_rule text,match_type text,room_type text,match_tier text,event_id text,
             title_used int,character_used int,profile_used int,voice_used int,avatar_frame_used int,pt_change numeric(12,2));
             CREATE TABLE riichi_player_game_stats(game_id varchar(16),user_id bigint,version int,stats jsonb,PRIMARY KEY(game_id,user_id));
             INSERT INTO users(user_id,is_tourist) VALUES(104,FALSE);""")
         connection=self.pool.getconn()
         try:
-            with connection.cursor() as cursor: ensure_schema(cursor)
+            with connection.cursor() as cursor:
+                ensure_match_record_tables(cursor)
+                ensure_schema(cursor)
             connection.commit()
         finally: self.pool.putconn(connection)
         subrules={'guobiao':'guobiao/standard','riichi':'riichi/standard','qingque':'qingque/standard',
@@ -270,7 +273,7 @@ class InventoryDatabaseTests(unittest.TestCase):
             game_id=writer(self.db,record,participants,'custom',BY_SUB_RULE[sub]['custom_modes'][0])
             self.assertIsNotNone(game_id,family)
             self.assertEqual(self.sql('SELECT avatar_frame_used FROM game_player_records WHERE game_id=%s ORDER BY user_id',(game_id,)),[(A1_AVATAR_FRAME_ID,)]*4)
-        self.assertEqual(get_wallet(self.db,101)['wallet_state']['balance_minor'],90)
+        self.assertEqual(get_wallet(self.db,101)['wallet_state']['balance_minor'],0)
         self.assertEqual(get_wallet(self.db,102)['wallet_state']['balance_minor'],0)
 
 

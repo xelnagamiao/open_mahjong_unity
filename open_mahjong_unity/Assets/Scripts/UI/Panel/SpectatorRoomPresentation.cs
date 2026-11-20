@@ -1,8 +1,21 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>Presentation of public spectator metadata; never infers teams from seating.</summary>
 public static class SpectatorRoomPresentation {
+    public static SpectatorInfo[] GroupMatches(IEnumerable<SpectatorInfo> source) {
+        var all = (source ?? Array.Empty<SpectatorInfo>()).Where(item => item != null).ToArray();
+        foreach (var item in all) item.paired_tables = null;
+        return all.GroupBy(item => string.IsNullOrEmpty(item.match_id) ? "game:" + item.gamestate_id : "match:" + item.match_id)
+            .Select(group => {
+                var ordered = group.OrderBy(item => item.table_id == "open" ? 0 : 1).ToArray();
+                var first = ordered[0];
+                if (!string.IsNullOrEmpty(first.match_id)) first.paired_tables = ordered;
+                return first;
+            }).ToArray();
+    }
     public enum RoomFilter { All, Custom, Ranked }
     public enum FormatFilter { All, Individual, Doubles }
     public static readonly string[] TierKeys = { "", "mcrpl", "advanced", "intermediate", "beginner", "elo" };
@@ -48,7 +61,8 @@ public static class SpectatorRoomPresentation {
     }
 
     public static bool IsDoubles(SpectatorInfo info) => info != null &&
-        (info.sub_rule == "sichuan/doubles" || info.sub_rule == "sichuan/xueliu_doubles");
+        (info.sub_rule == "sichuan/doubles" || info.sub_rule == "sichuan/xueliu_doubles" ||
+         info.sub_rule == "sichuan/doubles_duplicate" || info.sub_rule == "sichuan/xueliu_doubles_duplicate");
 
     public static bool HasTeams(SpectatorInfo info) {
         if (!IsDoubles(info) || info.team_by_player_index == null || info.team_by_player_index.Length != 4) return false;

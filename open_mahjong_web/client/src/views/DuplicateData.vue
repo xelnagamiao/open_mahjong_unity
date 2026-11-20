@@ -44,7 +44,6 @@
           <h2 v-else-if="matchGroups.some(item => item.match)">其他关联对局</h2>
         <el-table :data="group.games" :empty-text="group.match ? '本组暂无公开牌谱记录' : '该密钥还没有对局记录'">
           <el-table-column prop="game_id" label="对局编号" min-width="140" />
-          <el-table-column v-if="group.match" label="房间" width="80"><template #default="{ row }">{{ group.match.record_ids?.open === row.game_id ? '开室' : group.match.record_ids?.closed === row.game_id ? '闭室' : '—' }}</template></el-table-column>
           <el-table-column label="所属赛事" min-width="150"><template #default="{ row }"><router-link v-if="row.event_id" :to="`/events/${encodeURIComponent(row.event_id)}`">{{ row.event_name || row.event_id }}</router-link><span v-else>个人对局</span></template></el-table-column>
           <el-table-column label="玩家" min-width="240"><template #default="{ row }">{{ playerNames(row) }}</template></el-table-column>
           <el-table-column label="结束时间" min-width="180"><template #default="{ row }">{{ duplicateDate(row.ended_at || row.end_time || row.created_at) }}</template></el-table-column>

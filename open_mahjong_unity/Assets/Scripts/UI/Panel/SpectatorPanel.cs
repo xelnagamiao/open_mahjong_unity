@@ -9,6 +9,7 @@ public class SpectatorPanel : MonoBehaviour {
     public static SpectatorPanel Instance { get; private set; }
 
     [SerializeField] private SpectatorPrefab SpectatorPrefab;
+    [SerializeField] private SpectatorPrefab pairedSpectatorPrefab;
     [SerializeField] private Transform contentTransform;
     [SerializeField] private Button RefreshButton;
     [SerializeField] private Button OverviewButton;
@@ -138,9 +139,9 @@ public class SpectatorPanel : MonoBehaviour {
         }
 
         if (spectatorList != null) {
-            foreach (var spectator in spectatorList.Where(item => item != null)
+            foreach (var spectator in SpectatorRoomPresentation.GroupMatches(spectatorList)
                 .OrderByDescending(SpectatorRoomPresentation.Priority).ThenBy(item => item.gamestate_id, StringComparer.Ordinal)) {
-                SpectatorPrefab item = Instantiate(SpectatorPrefab, contentTransform);
+                SpectatorPrefab item = Instantiate(!string.IsNullOrEmpty(spectator.match_id) && pairedSpectatorPrefab != null ? pairedSpectatorPrefab : SpectatorPrefab, contentTransform);
                 item.InitializeSpectatorItem(spectator);
                 _items.Add(new SpectatorEntry { Item = item, IsGuobiao = IsGuobiao(spectator), Info = spectator });
             }
