@@ -5,8 +5,8 @@ using UnityEngine;
 public partial class RoundPanel {
     private readonly Dictionary<TMP_Text, TableLabelLayout> languageLayouts = new();
     private TMP_Text[] statusLabels;
-    private TMP_Text simpleSeedHint, riichiSeedHint, riichiDuplicateSeedHint;
-    private float riichiSeedHeight;
+    private TMP_Text simpleSeedHint, indicatorSeedHint, indicatorDuplicateSeedHint;
+    private float indicatorSeedHeight;
     private bool languageLayoutCaptured, englishLayoutApplied;
 
     private void OnEnable() {
@@ -19,17 +19,17 @@ public partial class RoundPanel {
             statusLabels = new[] { FindLabel("SimpleRoundPanel/Content/Tips"),
                 FindLabel("SimpleRoundPanel/Content/Cuohe"), FindLabel("SimpleRoundPanel/Content/Fushi") };
             simpleSeedHint = FindLabel("SimpleRoundPanel/Content/RandomorFushi");
-            riichiSeedHint = FindLabel("RiichiRoundPanel/Content/RandomSeed");
-            if (riichiSeedHint) riichiSeedHeight = riichiSeedHint.rectTransform.rect.height;
-            riichiDuplicateSeedHint = FindLabel("RiichiRoundPanel/RandomorFushi");
+            indicatorSeedHint = FindLabel("IndicatorRoundPanel/Content/RandomSeed");
+            if (indicatorSeedHint) indicatorSeedHeight = indicatorSeedHint.rectTransform.rect.height;
+            indicatorDuplicateSeedHint = FindLabel("IndicatorRoundPanel/RandomorFushi");
             foreach (var label in statusLabels) Capture(label);
-            Capture(simpleSeedHint); Capture(riichiSeedHint); Capture(riichiDuplicateSeedHint);
+            Capture(simpleSeedHint); Capture(indicatorSeedHint); Capture(indicatorDuplicateSeedHint);
             languageLayoutCaptured = true;
         }
         bool english = ConfigManager.CurrentLanguage == AppLanguage.English || PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage);
         if (!english) {
             if (englishLayoutApplied) foreach (var item in languageLayouts)
-                item.Value.Restore(System.Array.IndexOf(statusLabels, item.Key) >= 0);
+                item.Value.Restore(item.Key == indicatorSeedHint || System.Array.IndexOf(statusLabels, item.Key) >= 0);
             englishLayoutApplied = false;
             return;
         }
@@ -58,13 +58,13 @@ public partial class RoundPanel {
             TableText.Set(simpleSeedHint, "table.round.seed_hint");
             Constrain(simpleSeedHint, 16, 14, TextAlignmentOptions.Midline);
         }
-        if (riichiSeedHint) {
-            TableText.Set(riichiSeedHint, "table.round.seed_short");
-            riichiSeedHint.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
-                PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage) ? 22 : riichiSeedHeight);
-            Constrain(riichiSeedHint, 12, 11, TextAlignmentOptions.MidlineLeft);
+        if (indicatorSeedHint) {
+            TableText.Set(indicatorSeedHint, "table.round.seed_short");
+            indicatorSeedHint.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                PlatformText.HasLocaleCatalog(ConfigManager.CurrentLanguage) ? 22 : indicatorSeedHeight);
+            Constrain(indicatorSeedHint, 12, 11, TextAlignmentOptions.MidlineLeft);
         }
-        if (riichiDuplicateSeedHint) riichiDuplicateSeedHint.enabled = false;
+        if (indicatorDuplicateSeedHint) indicatorDuplicateSeedHint.enabled = false;
     }
 
     private TMP_Text FindLabel(string path) => transform.Find(path)?.GetComponent<TMP_Text>();

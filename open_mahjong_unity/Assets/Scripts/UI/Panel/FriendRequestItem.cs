@@ -56,7 +56,7 @@ public class FriendRequestItem : MonoBehaviour {
     private void LoadAvatar(int profileImageId) {
         if (avatar == null) return;
         Sprite sprite = ConfigManager.GetProfileSprite(profileImageId);
-        if (sprite != null) avatar.sprite = sprite;
+        if (sprite != null) AvatarPortraitBackground.SetSprite(avatar, sprite, profileImageId);
     }
 
     private void OnAccept() {

@@ -29,13 +29,9 @@ public static class TableSurfaceColorLibrary
     {
         if (ready) { done?.Invoke(); return; }
 #if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.EnsureReady(() => {
-            if (!ready) {
-                foreach (string id in UnityAssetIdb.KeysWithPrefix(Prefix)) Read(id, UnityAssetIdb.GetCached(id));
-                ready = true;
-            }
-            done?.Invoke();
-        });
+        UnityAssetIdb.ReadDirectory(Prefix, 4097, (key, bytes) => {
+            if (bytes != null && bytes.Length <= 4096) Read(key, bytes);
+        }, () => { ready = true; done?.Invoke(); }, reason => Debug.LogWarning(reason));
 #else
         try {
             if (Directory.Exists(DirectoryPath))
@@ -47,7 +43,7 @@ public static class TableSurfaceColorLibrary
         done?.Invoke();
 #endif
     }
-    static void Read(string expectedId, byte[] bytes)
+    internal static void Read(string expectedId, byte[] bytes)
     {
         try {
             var entry = JsonUtility.FromJson<Entry>(Encoding.UTF8.GetString(bytes));
@@ -105,7 +101,7 @@ public static class TableSurfaceColorLibrary
             byte[] bytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(entry));
 #if UNITY_WEBGL && !UNITY_EDITOR
             UnityAssetIdb.Put(entry.id, bytes, () => { entries.Add(entry); done?.Invoke(entry); }, error => {
-                UnityAssetIdb.StagePendingWrite(entry.id, null); failed?.Invoke(error);
+                failed?.Invoke(error);
             });
 #else
             try { Directory.CreateDirectory(DirectoryPath); File.WriteAllBytes(FilePath(entry.id), bytes); }
@@ -118,7 +114,7 @@ public static class TableSurfaceColorLibrary
     {
         if (!ValidId(id)) { failed?.Invoke("无效的颜色预设"); return; }
 #if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.Delete(id, () => { entries.RemoveAll(e => e.id == id); done?.Invoke(); });
+        UnityAssetIdb.Delete(id, () => { entries.RemoveAll(e => e.id == id); done?.Invoke(); }, failed);
 #else
         try { if (File.Exists(FilePath(id))) File.Delete(FilePath(id)); }
         catch (Exception error) { failed?.Invoke(error.Message); return; }

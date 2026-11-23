@@ -72,9 +72,10 @@ public partial class Game3DManager {
         Vector3 centerOffset = TileBodyAt(Vector3.zero, rotation).MultiplyPoint3x4(tileBodyBounds.center);
         Vector3 candidate = point - Vector3.ProjectOnPlane(centerOffset, normal);
         position = TileSurfacePlacement.PlaceOnPlane(candidate, tileBodyBounds, TileBodyAt(candidate, rotation),
-            point, normal, tileSurfaceClearance);
+            point, normal, ScaledTileSurfaceClearance);
         float top = TileSurfacePlacement.MaximumProjection(tileBodyBounds, TileBodyAt(position, rotation), normal);
-        clickPosition = point + normal * (top - Vector3.Dot(point, normal) + 0.04f);
+        clickPosition = point + normal * (top - Vector3.Dot(point, normal)
+            + TableWorldScaleProfile.Length(0.04f));
         clickRotation = tabletop * Quaternion.Euler(90f, 0f, 0f);
         clickSize = new Vector2(widthSpacing, heightSpacing);
         return true;
@@ -107,7 +108,8 @@ public partial class Game3DManager {
         size = Vector2.zero;
         normal.Normalize();
         // 描边贴合场景平面，不能使用牌中心的高度；略微抬起避免与桌布闪烁。
-        position = center + normal * (Vector3.Dot(planePoint - center, normal) + Mathf.Max(0.04f, tileSurfaceClearance));
+        position = center + normal * (Vector3.Dot(planePoint - center, normal)
+            + Mathf.Max(TableWorldScaleProfile.Length(0.04f), ScaledTileSurfaceClearance));
         Vector3 right = Vector3.ProjectOnPlane(RightDirection, normal).normalized;
         if (right.sqrMagnitude < 0.001f) return false;
         Vector3 back = Vector3.Cross(normal, right);

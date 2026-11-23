@@ -9,6 +9,7 @@ from ..hongkong.solver import _partitions, parse_meld
 
 SUB_RULE = "new_chinese/standard"
 RULE_VERSION = "new-chinese-2026-11"
+EXCHANGE_FAN_LIMIT = 15
 DESCRIPTION = "新中式麻将是融合了立直麻将，国标麻将和东北麻将的宝牌衍生出的一种玩法，取精华去糟粕，已有十年以上的实战验证基础，兼具竞技性与娱乐性，牌型难度和对应的番数做过大量优化使其合理，欢迎加入，微信15513635592"
 CATALOG = json.loads(Path(__file__).with_name("catalog.json").read_text(encoding="utf-8"))
 VALUES = {row["name"]: row["fan"] for row in CATALOG}
@@ -33,6 +34,12 @@ def normalize_config(value=None):
     if value.get("rule_version", RULE_VERSION) != RULE_VERSION or type(value.get("exchange_three", False)) is not bool:
         raise ValueError("无效的新中式麻将版本或换三张设置")
     return {"rule_version": RULE_VERSION, "exchange_three": value.get("exchange_three", False)}
+
+
+def room_fan_limit(value, exchange_three):
+    if type(value) is not int or not 0 <= value <= 2_147_483_647:
+        raise ValueError("起和番须为非负的32位整数")
+    return EXCHANGE_FAN_LIMIT if exchange_three else value
 
 
 @lru_cache(maxsize=8192)
@@ -113,15 +120,15 @@ def _shape_fans(before, codes, tile, shape, self_obtained):
         if condition:
             flags.add(name)
 
-    add("大四喜之十八罗汉", set(WINDS) <= kongs)
-    add("十八罗汉", n_kongs == 4)
+    if n_kongs == 4:
+        flags.add("大四喜之十八罗汉" if kongs == set(WINDS) else "十八罗汉")
     add("三杠", n_kongs == 3)
     add("双杠", n_kongs == 2)
     add("杠", n_kongs == 1)
     add("四暗刻单骑救主", dark == 4 and single)
-    add("四暗刻", dark == 4)
-    add("三暗刻", dark >= 3)
-    add("双暗刻", dark >= 2)
+    add("四暗刻", dark == 4 and not single)
+    add("三暗刻", dark == 3)
+    add("双暗刻", dark == 2)
     add("清幺九", faces <= ORPHANS and not honors)
     add("混幺九", faces <= ORPHANS and bool(honors and suits))
     add("字一色", not suits)
@@ -139,7 +146,6 @@ def _shape_fans(before, codes, tile, shape, self_obtained):
     add("小三元", dragon_sets == 2 and shape.pair in DRAGONS or seven and set(DRAGONS) <= faces)
     add("双箭刻", dragon_sets >= 2)
     add("全带幺", standard and shape.pair in ORPHANS and all(not ORPHANS.isdisjoint(m.tiles) for m in melds))
-    add("门清", closed)
     add("一色三同顺", any(n >= 3 for n in sequences.values()))
     add("一色四同顺", 4 in sequences.values())
     add("三同刻", any(all(s * 10 + rank in pungs for s in (1, 2, 3)) for rank in range(1, 10)))
@@ -147,6 +153,7 @@ def _shape_fans(before, codes, tile, shape, self_obtained):
 
     pure_gates = not exposed and len(suits) == 1 and not honors and all(
         counts[suit * 10 + r] >= (3 if r in (1, 9) else 1) for suit in suits for r in range(1, 10))
+    add("门清", closed and standard and dark < 4 and not pure_gates)
     if pure_gates:
         base = {r: (3 if r in (1, 9) else 1) for r in range(1, 10)}
         exact = Counter(t % 10 for t in before) == base
@@ -162,18 +169,21 @@ def _shape_fans(before, codes, tile, shape, self_obtained):
                 flags.add("暗中一条龙")
     if shape.kind == "orphans":
         flags.add("国士无双十三面" if len(set(before)) == 13 else "十三幺")
-    add("四归一", undeclared == 1)
-    add("八归", undeclared == 2)
-    add("十二归", undeclared == 3)
+    add("四归一", not seven and undeclared == 1)
+    add("八归", not seven and undeclared == 2)
+    add("十二归", not seven and undeclared == 3)
     if seven:
         add("七福星", faces == set(HONORS))
         run = _run_length(faces)
         for n, name in ((4, "连四对"), (5, "连五对"), (6, "连六对"), (7, "连七对")):
-            add(name, run >= n)
+            add(name, run == n)
         if undeclared:
             flags.add(("龙七对", "双龙七对", "三龙七对")[undeclared - 1])
             if undeclared >= 2 and before.count(tile) == 1:
                 flags.add("双龙七对单骑救主" if undeclared == 2 else "三龙七对单骑救主")
+    if {"五门齐", "全带幺", "三色三同顺"} <= flags:
+        flags.difference_update(("五门齐", "全带幺", "三色三同顺"))
+        flags.add("精五门")
     if "大四喜混幺九" in flags:
         flags.difference_update(("大四喜", "混幺九"))
     if "大四喜字一色" in flags:
@@ -216,16 +226,24 @@ def _analysis(before, codes):
     return candidates, qualified, waits, nine
 
 
-def waits(hand, codes=(), *, structural=False, self_draw=None):
+def waits(hand, codes=(), *, structural=False, self_draw=None, hepai_limit=0, exchange_three=False,
+          visible=None, chain=0, after_kong=False):
     before, codes = tuple(sorted(hand)), tuple(codes)
     candidates, qualified, legal, _ = _analysis(before, codes)
     if structural:
         counts = Counter(before)
         counts.update(t for m in _external(codes) for t in m.tiles)
         return {t for t in candidates if counts[t] < 4}
-    if self_draw is None:
-        return set(legal)
-    return {t for t in legal if (t, self_draw) in qualified}
+    if not hepai_limit and not exchange_three:
+        return set(legal) if self_draw is None else {t for t in legal if (t, self_draw) in qualified}
+    sources = ("self_draw", "discard") if self_draw is None else ("self_draw" if self_draw else "discard",)
+    visible = visible or {}
+    eligible = set()
+    for tile in legal:
+        if any(score(before, codes, tile, source, hepai_limit=hepai_limit, exchange_three=exchange_three,
+                     chain=chain, after_kong=after_kong, visible=visible.get(tile, 0)) for source in sources):
+            eligible.add(tile)
+    return eligible
 
 
 def _base(shape, before, codes, source, tile):
@@ -244,12 +262,14 @@ def _base(shape, before, codes, source, tile):
 
 
 def score(hand, codes, winning_tile, source, *, after_kong=False, chain=0, visible=0,
-          dealer=False, payer_dealer=False):
+          dealer=False, payer_dealer=False, hepai_limit=0, exchange_three=False):
     if source not in BASE or winning_tile not in TILES:
         return None
     before, codes = tuple(sorted(hand)), tuple(codes)
     _, qualified, legal, nine = _analysis(before, codes)
     self_obtained = source in ("self_draw", "bao_seen", "bao_draw")
+    minimum_fan = EXCHANGE_FAN_LIMIT if exchange_three else hepai_limit
+    last_copy_in_pair = visible + before.count(winning_tile) == 3
     best, best_key = None, None
     for tile in sorted(legal if source == "bao_draw" else legal.intersection((winning_tile,))):
         for shape in qualified.get((tile, self_obtained), ()):
@@ -257,18 +277,23 @@ def score(hand, codes, winning_tile, source, *, after_kong=False, chain=0, visib
             if "九宝莲灯之准灯高挂" not in fans:
                 if nine:
                     fans["准听九"] = VALUES["准听九"]
+                    fans.pop("门清", None)
                 elif len(legal) in WAIT_FANS:
                     name = WAIT_FANS[len(legal)]
                     fans[name] = VALUES[name]
-            if visible >= 3:
+            if visible >= 3 or (last_copy_in_pair and tile == winning_tile
+                                and shape.kind != "orphans" and shape.winning_component < 0):
                 fans["绝张"] = VALUES["绝张"]
             if after_kong and source in ("self_draw", "bao_draw"):
                 fans["杠上开花"] = VALUES["杠上开花"]
-            for minimum, name in ((2, "杠上杠"), (3, "三连杠"), (4, "连四杠")):
+            for minimum, name in ((4, "连四杠"), (3, "三连杠"), (2, "杠上杠")):
                 if chain >= minimum:
                     fans[name] = VALUES[name]
+                    break
             total = sum(fans.values())
             base = _base(shape, before, codes, source, tile)
+            if total < minimum_fan and not (exchange_three and base in (2, 3)):
+                continue
             high, low = BASE[source][base]
             if source == "black":
                 points = (high if dealer or payer_dealer else low) + total * (3 if dealer else 2)

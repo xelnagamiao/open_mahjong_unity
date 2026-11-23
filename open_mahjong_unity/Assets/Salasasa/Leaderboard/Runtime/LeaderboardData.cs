@@ -37,6 +37,7 @@ namespace Salasasa.Leaderboards
         public bool success;
         public string rating_rule, data_request_id, message;
         public LeaderboardEntry[] leaderboard_list;
+        public int leaderboard_self_position;
     }
 
     public static class LeaderboardRules

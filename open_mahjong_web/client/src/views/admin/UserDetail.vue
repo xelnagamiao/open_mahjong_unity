@@ -2,7 +2,7 @@
 
   <div v-loading="loading">
 
-    <el-page-header @back="$router.push(route.query.from === 'bans' ? '/admin/account-bans' : '/admin/users')" content="用户详情" />
+    <el-page-header @back="backToList" content="用户详情" />
 
     <template v-if="detail">
 
@@ -84,33 +84,55 @@
 
               <el-button size="small" @click="extendSponsor(365)">+365 天</el-button>
 
-              <el-button size="small" type="danger" plain @click="clearSponsor">清除赞助</el-button>
+              <el-button size="small" type="danger" plain @click="clearSponsor">清除到期时间</el-button>
 
             </div>
 
           </el-descriptions-item>
 
+          <el-descriptions-item label="赞助金额" :span="2">
+            <el-input-number
+              v-model="edit.sponsor_amount"
+              :min="0"
+              :precision="2"
+              :step="10"
+              controls-position="right"
+              style="width: 220px"
+            />
+            <span class="sponsor-meta">有赞助金额或到期时间的玩家会出现在赞助名单中。</span>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="玩家注释" :span="2">
+            <el-input
+              v-model="edit.admin_note"
+              type="textarea"
+              :rows="3"
+              maxlength="2000"
+              show-word-limit
+              placeholder="仅管理员可见"
+              style="max-width: 520px"
+            />
+          </el-descriptions-item>
+
           <el-descriptions-item label="特许入场" :span="2">
             <div class="ladder-pass-list">
-              <label class="ladder-pass-item">
-                <el-switch v-model="edit.is_beginner_qualified" />
-                <span>初级场</span>
-              </label>
-              <label class="ladder-pass-item">
-                <el-switch v-model="edit.is_intermediate_qualified" />
-                <span>中级场</span>
-              </label>
-              <label class="ladder-pass-item">
-                <el-switch v-model="edit.is_advanced_qualified" />
-                <span>高级场</span>
-              </label>
-              <label class="ladder-pass-item">
-                <el-switch v-model="edit.is_mcrpl_qualified" />
-                <span>MCRPL</span>
+              <label v-for="pass in ladderPassOptions" :key="pass.key" class="ladder-pass-item">
+                <el-switch v-model="edit[pass.key]" :aria-label="pass.label" />
+                <span>{{ pass.label }}</span>
               </label>
             </div>
             <p class="rename-hint ladder-pass-hint">
-              初级/中级/高级特许可突破该场次最低段位，与赞助状态无关；中级场七段及以上上限仍生效。MCRPL 仅凭此项资格进入。
+              初级/中级/高级/MCRPL特许可突破该场次最低段位，与赞助状态无关；中级场七段及以上上限仍生效。
+            </p>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="特殊设定" :span="2">
+            <el-switch v-model="hasSpecialSettings" :disabled="requiresSpecialSettings" aria-label="保留个人入场特许" />
+            <span class="sponsor-meta">保留个人入场特许</span>
+            <p class="rename-hint ladder-pass-hint">
+              {{ requiresSpecialSettings
+                ? '非赞助玩家的入场特许属于特殊设定。清空入场特许后可关闭此项。'
+                : '开启后会列入特殊设定名单。统一修改赞助权限时，默认保留个人设定。' }}
             </p>
           </el-descriptions-item>
 
@@ -422,7 +444,8 @@
 
 import { computed, onMounted, reactive, ref } from 'vue'
 
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { returnToAdminList } from '@/composables/useAdminListState'
 
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -433,11 +456,15 @@ import UserWallet from '@/components/admin/UserWallet.vue'
 import { formatRoomType, formatRule, formatSubRule } from '@/utils/gameMeta'
 import { banLabels as BAN_TYPE_LABELS } from '@/utils/accountBans'
 
-import { addDays, getSponsorStatus, toPickerValue } from '@/utils/sponsor'
+import { addDays, getSponsorStatus, ladderPassOptions, toPickerValue } from '@/utils/sponsor'
 
 
 
 const route = useRoute()
+const router = useRouter()
+function backToList() {
+  returnToAdminList(router, route.query.from === 'bans' ? '/admin/account-bans' : '/admin/users')
+}
 
 const loading = ref(true)
 
@@ -456,9 +483,15 @@ const detail = ref(null)
 const newPassword = ref('')
 const passwordReadonly = ref(true)
 
+const specialSettingsChoice = ref(null)
+
 const edit = reactive({
 
   sponsor_expires_at: null,
+
+  sponsor_amount: 0,
+
+  admin_note: '',
 
   is_beginner_qualified: false,
 
@@ -534,7 +567,23 @@ function banTypeLabel(type) {
 
 
 
-const sponsorStatus = computed(() => getSponsorStatus(detail.value?.user?.sponsor_expires_at))
+const sponsorStatus = computed(() => getSponsorStatus(detail.value?.user?.sponsor_expires_at, detail.value?.user?.sponsor_amount))
+
+const changedLadderPasses = computed(() => ladderPassOptions.filter(
+  ({ key }) => edit[key] !== !!detail.value?.user?.[key]
+))
+
+const requiresSpecialSettings = computed(() => !edit.sponsor_expires_at
+  && !Number(edit.sponsor_amount)
+  && ladderPassOptions.some(({ key }) => edit[key]))
+
+const hasSpecialSettings = computed({
+  get() {
+    if (requiresSpecialSettings.value) return true
+    return specialSettingsChoice.value ?? (changedLadderPasses.value.length > 0 || !!detail.value?.user?.has_special_settings)
+  },
+  set: value => { specialSettingsChoice.value = value },
+})
 
 
 
@@ -556,10 +605,11 @@ function syncEditFromDetail() {
 
     : null
 
-  edit.is_beginner_qualified = !!detail.value.user.is_beginner_qualified
-  edit.is_intermediate_qualified = !!detail.value.user.is_intermediate_qualified
-  edit.is_advanced_qualified = !!detail.value.user.is_advanced_qualified
-  edit.is_mcrpl_qualified = !!detail.value.user.is_mcrpl_qualified
+  edit.sponsor_amount = Number(detail.value.user.sponsor_amount || 0)
+  edit.admin_note = detail.value.user.admin_note || ''
+
+  for (const { key } of ladderPassOptions) edit[key] = !!detail.value.user[key]
+  specialSettingsChoice.value = null
 
   edit.ban_type = detail.value.user.ban_type || null
 
@@ -667,27 +717,29 @@ async function saveUser() {
     const banChanged = banType !== saved.ban_type
       || (edit.ban_expires_at || null) !== toPickerValue(saved.ban_expires_at)
       || edit.ban_reason !== (saved.ban_reason || '')
-    await adminApi.patch(`/users/${route.params.userId}`, {
-
-      sponsor_expires_at: edit.sponsor_expires_at,
-
-      is_beginner_qualified: edit.is_beginner_qualified,
-
-      is_intermediate_qualified: edit.is_intermediate_qualified,
-
-      is_advanced_qualified: edit.is_advanced_qualified,
-
-      is_mcrpl_qualified: edit.is_mcrpl_qualified,
-
+    const changes = {
+      ...Object.fromEntries(changedLadderPasses.value.map(({ key }) => [key, edit[key]])),
       ...(banChanged && {
         ban_type: banType,
         ban_expires_at: edit.ban_expires_at ? new Date(edit.ban_expires_at.replace(' ', 'T')).toISOString() : null,
         ban_reason: edit.ban_reason,
       }),
-
-      reason: edit.reason,
-
-    })
+    }
+    if ((edit.sponsor_expires_at || null) !== toPickerValue(saved.sponsor_expires_at)) {
+      changes.sponsor_expires_at = edit.sponsor_expires_at || null
+    }
+    if (Number(edit.sponsor_amount || 0) !== Number(saved.sponsor_amount || 0)) {
+      changes.sponsor_amount = edit.sponsor_amount || 0
+    }
+    if (edit.admin_note !== (saved.admin_note || '')) changes.admin_note = edit.admin_note
+    if (specialSettingsChoice.value !== null || changedLadderPasses.value.length) {
+      changes.has_special_settings = hasSpecialSettings.value
+    }
+    if (!Object.keys(changes).length) {
+      ElMessage.info('账号设置没有变化')
+      return
+    }
+    await adminApi.patch(`/users/${route.params.userId}`, { ...changes, reason: edit.reason })
 
     ElMessage.success('已保存')
 
@@ -1004,7 +1056,7 @@ async function deleteTourist() {
 
     ElMessage.success('已删除')
 
-    history.back()
+    backToList()
 
   } catch (e) {
 

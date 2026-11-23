@@ -1,4 +1,5 @@
 """在隔离 PostgreSQL schema 中验证血流评分和战绩。"""
+from server.records.test_seed import seed_single
 from concurrent.futures import ThreadPoolExecutor
 
 from psycopg2.extras import Json
@@ -56,13 +57,13 @@ def test_exchange_record_list_and_metrics_preserve_both_lengths_and_separate_oth
                      max_round=rounds // 4)
         record = {'game_title': title, 'game_round': {f'round_index_{i}': {'action_ticks': [['end']]}
                   for i in range(1, rounds + 1)}}
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid, Json(record)))
+        seed_single(db,gid,record)
         mode = f'{rounds // 4}/4' + ('_rank' if room == 'match' else '')
         db.sql("INSERT INTO game_player_records(game_id,user_id,rule,sub_rule,room_type,match_type,rank) VALUES(%s,%s,'sichuan',%s,%s,%s,1)",
                (gid, USERS[0], sub, room, mode))
         db.sql("INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,total_rounds) VALUES(%s,%s,'sichuan',%s,%s,%s,%s)",
                (gid, USERS[0], sub or 'sichuan/standard', room, mode, rounds))
-    old_record = db.sql("SELECT record FROM game_records WHERE game_id='exchange-old'")[0][0]
+    old_record = db.sql("SELECT record #> '{tables,main,payload}' FROM game_replays WHERE game_id='exchange-old'")[0][0]
     records = {r['game_id']: r for r in get_rank_record_list(db, rule=POOL)}
     assert set(records) == {'exchange-old', 'exchange-new'}
     assert records['exchange-old']['match_type'] == '4/4_rank'
@@ -83,5 +84,5 @@ def test_exchange_record_list_and_metrics_preserve_both_lengths_and_separate_oth
     recent = get_player_recent_records(db, USERS[0])
     assert {r['game_id'] for r in recent[POOL]['match']['placements']} == {'exchange-old', 'exchange-new'}
     assert {r['game_id'] for r in recent['sichuan']['match']['placements']} == {'standard', 'legacy-null', 'legacy-empty'}
-    assert db.sql("SELECT record FROM game_records WHERE game_id='exchange-old'")[0][0] == old_record
+    assert db.sql("SELECT record #> '{tables,main,payload}' FROM game_replays WHERE game_id='exchange-old'")[0][0] == old_record
     assert old_record['game_title']['max_round'] == 4 and len(old_record['game_round']) == 16

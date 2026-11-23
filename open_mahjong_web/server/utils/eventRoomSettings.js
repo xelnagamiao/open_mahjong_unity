@@ -117,7 +117,7 @@ function defaultConfig(rule = 'guobiao') {
   if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1,
     red_dora: true, allow_kuikae: false, open_xiru: true, open_tobi: true,
     hepai_way: 'multi_ron', open_cuohe: false, claim_protection:false, detailed_config: {} };
-  if (rule === 'sichuan') return { ...common, tactical_call:true, claim_protection:true, blood_battle:true, hepai_limit:0 };
+  if (rule === 'sichuan') return { ...common, tactical_call:true, claim_protection:true, blood_battle:true, hepai_limit:0, real_time:false, tactical_grace_seconds:5 };
   if (rule === 'qingque') return { ...common, tactical_call:true, claim_protection:true };
   if (rule === 'taiwan') return { ...common, open_cuohe:false, cuohe_type:0, detailed_config:{} };
   if (rule === 'changsha') return { ...common, ...Object.fromEntries(Object.entries(changshaOptions).map(([key, option]) => [key, option.default])) };
@@ -187,7 +187,7 @@ function normalizeBaseRoomConfig(rule, raw) {
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
   // Keep the accepted fields and switch validation in sync with each rule's defaults.
   const defaults = defaultConfig(rule);
-  const allowed = [...Object.keys(defaults), 'duplicate_key', ...(rule === 'changsha' ? ['exchange_selection_seconds'] : [])];
+  const allowed = [...Object.keys(defaults), 'duplicate_key', ...(rule === 'sichuan' ? ['wall_source', 'reuse_training_room', 'duplicate_round_count', 'duplicate_sync_mode', 'random_seed'] : []), ...(rule === 'changsha' ? ['exchange_selection_seconds'] : [])];
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new SettingsError(400, `不支持的对局设置字段：${key}`);
   }
@@ -214,16 +214,31 @@ function normalizeBaseRoomConfig(rule, raw) {
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
     : rule === 'changsha' ? ['changsha/classic_double_bird', 'changsha/exchange_six'].includes(config.sub_rule)
     : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime', washizuCaptain.sub_rule].includes(config.sub_rule)
-    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
+    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
+  const duplicate = config.sub_rule === 'sichuan/doubles_duplicate' || config.sub_rule === 'sichuan/xueliu_doubles_duplicate';
+  const doubles = config.sub_rule === 'sichuan/doubles' || config.sub_rule === 'sichuan/xueliu_doubles';
+  if (rule === 'sichuan') {
+    if (!has(raw, 'round_timer')) config.round_timer = duplicate ? 120 : doubles ? 30 : config.round_timer;
+    if (!has(raw, 'step_timer')) config.step_timer = duplicate || doubles ? 10 : config.step_timer;
+    if (!has(raw, 'pointer_tips') && duplicate) config.pointer_tips = false;
+  }
   if (rule === 'taiwan') {
     config.detailed_config = normalizeTaiwanDetails(config.detailed_config, SettingsError);
     integerField(config, 'cuohe_type', 0, 1, '错和形式');
   }
   if (rule === 'sichuan') {
     integerField(config, 'hepai_limit', 0, 64, '起和番');
+    if (!Number.isSafeInteger(config.tactical_grace_seconds) || ![3, 5, 8, 10, 15, 20].includes(config.tactical_grace_seconds)) throw new SettingsError(400, '第二等待时间必须为 3、5、8、10、15 或 20 秒');
+    if (typeof config.real_time !== 'boolean') throw new SettingsError(400, '真实时间必须是布尔值');
+    if (config.real_time && !duplicate) throw new SettingsError(400, '真实时间仅支持川麻双打复式');
+    if (!duplicate && config.tactical_grace_seconds !== 5) throw new SettingsError(400, '第二等待时间仅支持川麻双打复式');
+    if (duplicate && config.wall_source !== undefined && !['training', 'key', 'seed', 'manual'].includes(config.wall_source)) throw new SettingsError(400, '牌山来源无效');
+    if (duplicate && config.reuse_training_room !== undefined && typeof config.reuse_training_room !== 'boolean') throw new SettingsError(400, '重复使用必须是布尔值');
+    if (duplicate && config.duplicate_sync_mode !== undefined && typeof config.duplicate_sync_mode !== 'boolean') throw new SettingsError(400, '复式同步模式必须是布尔值');
+    if (duplicate && config.duplicate_round_count !== undefined && ![1, 4, 8, 12, 16].includes(config.duplicate_round_count)) throw new SettingsError(400, '复式副数必须为 1、4、8、12 或 16');
     if (config.sub_rule.includes('doubles')) { config.hepai_limit = 0; config.blood_battle = !config.sub_rule.includes('xueliu'); }
     if (config.sub_rule === 'sichuan/xuezhan_exchange') config.blood_battle = true;
   }

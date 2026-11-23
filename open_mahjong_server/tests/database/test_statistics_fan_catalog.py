@@ -105,7 +105,7 @@ def seed_historical_fans(db, sub='sichuan/standard'):
 def test_historical_fan_repair_preserves_replays_values_modes_and_is_idempotent(db):
     gid, record = seed_historical_fans(db)
     before = db.sql('SELECT to_jsonb(m)-\'fan_stats\' FROM game_player_metrics m ORDER BY user_id')
-    replay_before = db.sql('SELECT * FROM game_records')
+    replay_before = db.sql('SELECT * FROM game_replays')
     participants = db.sql('SELECT * FROM game_player_records ORDER BY user_id')
     conn = db._get_connection()
     assert backfill(conn)['changed'] == 4
@@ -113,7 +113,7 @@ def test_historical_fan_repair_preserves_replays_values_modes_and_is_idempotent(
     result = backfill(conn, apply=True)
     assert result['changed'] == 4 and result['applied']
     assert db.sql('SELECT to_jsonb(m)-\'fan_stats\' FROM game_player_metrics m ORDER BY user_id') == before
-    assert db.sql('SELECT * FROM game_records') == replay_before
+    assert db.sql('SELECT * FROM game_replays') == replay_before
     assert db.sql('SELECT * FROM game_player_records ORDER BY user_id') == participants
     history = get_rule_history(db, 10000101, 'sichuan', 'match')
     assert [(row['mode'], row['fan_stats']) for row in history] == [('4/4_rank', {'清一色': 1})]

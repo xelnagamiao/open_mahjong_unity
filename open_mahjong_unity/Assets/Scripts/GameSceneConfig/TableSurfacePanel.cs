@@ -20,7 +20,6 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
         public string Preview;
         public object Revision;
         public bool Custom;
-        public byte[] Bytes;
         public TableSurfaceColorLibrary.Entry Color;
         public string Key => (Custom ? "custom:" : "builtin:") + Path;
     }
@@ -29,6 +28,7 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
         public GameObject Item;
         public Sprite Sprite;
         public Texture2D OwnedTexture;
+        public Texture2D BuiltinPreviewTexture;
         public object Revision;
     }
 
@@ -36,6 +36,7 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
     private readonly Dictionary<string, Row> rows = new Dictionary<string, Row>(StringComparer.Ordinal);
     private Coroutine loading;
     private UnityWebRequest customRequest;
+    private Action abandonPendingPreview;
     private bool requested;
     private bool scrollToNewColor;
 
@@ -102,6 +103,8 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
     {
         if (loading != null) StopCoroutine(loading);
         loading = null;
+        abandonPendingPreview?.Invoke();
+        abandonPendingPreview = null;
         if (customRequest != null)
         {
             customRequest.Abort();
@@ -171,8 +174,7 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
             });
         foreach (string key in UnityAssetIdb.KeysWithPrefix(IsCloth ? UnityAssetIdb.PrefixTablecloth : UnityAssetIdb.PrefixTableEdge))
         {
-            byte[] bytes = UnityAssetIdb.GetCached(key);
-            sources.Add(new Source { Path = key, Revision = bytes, Bytes = bytes, Custom = true });
+            sources.Add(new Source { Path = key, Revision = UnityAssetIdb.Revision(key), Custom = true });
         }
 #else
         AddFileSources(sources);
@@ -215,15 +217,20 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
                 else if (!source.Custom)
                 {
                     var request = Resources.LoadAsync<Texture2D>(source.Preview);
+                    // An abandoned load can finish after the gallery closes.
+                    abandonPendingPreview = () => request.completed += _ =>
+                    {
+                        var abandoned = request.asset as Texture2D;
+                        if (abandoned != null) Resources.UnloadAsset(abandoned);
+                    };
                     yield return request;
+                    abandonPendingPreview = null;
                     texture = request.asset as Texture2D;
                 }
+#if !UNITY_WEBGL || UNITY_EDITOR
                 else
                 {
                     Texture2D original = null;
-#if UNITY_WEBGL && !UNITY_EDITOR
-                    original = UnityAssetIdb.ToTexture(source.Bytes);
-#else
                     customRequest = UnityWebRequestTexture.GetTexture(new Uri(source.Path).AbsoluteUri, true);
                     yield return customRequest.SendWebRequest();
                     if (customRequest.result == UnityWebRequest.Result.Success)
@@ -231,7 +238,6 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
                     else Debug.LogWarning("无法读取桌面预览: " + source.Path + ": " + customRequest.error);
                     customRequest.Dispose();
                     customRequest = null;
-#endif
                     if (original != null)
                     {
                         try { texture = CreateSmallPreview(original); }
@@ -240,6 +246,9 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
                     }
                 }
                 if (texture == null) continue;
+#else
+                if (texture == null && !source.Custom) continue;
+#endif
                 row = CreateRow(source, texture);
                 rows.Add(source.Key, row);
                 row.Item.transform.SetSiblingIndex(sibling++);
@@ -291,8 +300,10 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
         var row = new Row
         {
             Item = Instantiate(ItemPrefab, Content),
-            Sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect),
+            Sprite = texture == null ? null : Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect),
             OwnedTexture = source.Custom ? texture : null,
+            BuiltinPreviewTexture = !source.Custom && source.Color == null
+                && !(IsCloth && TableClothStyles.IsSolid(source.Path)) ? texture : null,
             Revision = source.Revision
         };
         Image image;
@@ -311,6 +322,9 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
             image = item.tableEdgeImage;
         }
         image.sprite = row.Sprite;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (texture == null && source.Custom) WebAssetThumbnail.Bind(image, source.Path);
+#endif
         image.color = Color.white;
         if (source.Color != null)
         {
@@ -350,9 +364,9 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
         else row.Item.GetComponent<TableEdge>().RefreshSelection();
     }
 
-    private static Texture2D CreateSmallPreview(Texture2D original)
+    internal static Texture2D CreateSmallPreview(Texture2D original, int maxEdge = 256)
     {
-        float scale = Mathf.Min(1f, 256f / Mathf.Max(original.width, original.height));
+        float scale = Mathf.Min(1f, (float)maxEdge / Mathf.Max(original.width, original.height));
         int width = Mathf.Max(1, Mathf.RoundToInt(original.width * scale));
         int height = Mathf.Max(1, Mathf.RoundToInt(original.height * scale));
         var preview = SceneConfigTextureCapture.Copy(original, width, height, readable: false);
@@ -374,16 +388,42 @@ public abstract partial class TableSurfacePanel : MonoBehaviour
     protected void ClearGallery()
     {
         requested = false;
+        ReleaseGalleryPreviews();
+    }
+
+    internal void ReleaseGalleryPreviews()
+    {
         StopLoading();
+        if (rows.Count == 0) return;
+        if (DeleteButton != null)
+        {
+            DeleteButton.onClick.RemoveAllListeners();
+            DeleteButton.gameObject.SetActive(false);
+        }
         foreach (string key in new List<string>(rows.Keys)) RemoveRow(key);
+    }
+
+    internal void FinishCustomFileDelete()
+    {
+        // IndexedDB can finish after the original row was destroyed on settings exit.
+        if (this != null && isActiveAndEnabled) LoadGallery();
     }
 
     private void RemoveRow(string key)
     {
         Row row = rows[key];
         rows.Remove(key);
-        if (row.Item != null) { row.Item.SetActive(false); Destroy(row.Item); }
+        if (row.Item != null)
+        {
+            if (row.Sprite != null)
+                foreach (var image in row.Item.GetComponentsInChildren<Image>(true))
+                    if (image.sprite == row.Sprite) image.sprite = null;
+            row.Item.SetActive(false);
+            Destroy(row.Item);
+        }
         if (row.Sprite != null) Destroy(row.Sprite);
         if (row.OwnedTexture != null) Destroy(row.OwnedTexture);
+        if (row.BuiltinPreviewTexture != null)
+            Resources.UnloadAsset(row.BuiltinPreviewTexture);
     }
 }

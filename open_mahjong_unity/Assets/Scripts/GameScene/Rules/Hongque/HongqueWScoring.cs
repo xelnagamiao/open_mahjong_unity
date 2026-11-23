@@ -10,7 +10,7 @@ public static class HongqueWScoring {
         {"清一色",18},{"混一色",12},{"清双色",9},{"混双色",6},{"三色",3},
         {"清一数",18},{"二数",12},{"三数",6},{"四数",3},{"全带幺",2},
         {"天和",18},{"海底",2},{"门清",1},{"对对和",12},{"碰碰和",2},{"平和",1},
-        {"金龙",6},{"二金",3},{"三金",1},{"彩虹",6},{"双虹会",12}
+        {"金龙",6},{"二金",3},{"三金",1},{"彩虹",3},{"双虹会",12}
     };
     private static readonly Dictionary<string, List<List<int>>> GroupCache = new Dictionary<string, List<List<int>>>();
     private static readonly Dictionary<string, HongqueWinScore> ScoreCache = new Dictionary<string, HongqueWinScore>();

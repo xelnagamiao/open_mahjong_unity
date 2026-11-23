@@ -11,7 +11,7 @@ public sealed class FriendInviteRow : MonoBehaviour {
     FriendInvitePanel owner;
     public void Bind(FriendInvitePanel panel, FriendInfo info) {
         owner = panel; Info = info; username.text = info.username;
-        avatar.sprite = ConfigManager.GetProfileSprite(info.profile_image_id);
+        ConfigManager.SetProfilePortrait(avatar, info.profile_image_id);
         action.onClick.AddListener(() => owner.Invite(Info)); Refresh();
     }
     public void Refresh() {

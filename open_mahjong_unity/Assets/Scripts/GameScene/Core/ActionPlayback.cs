@@ -167,6 +167,7 @@ public sealed class ActionPlayback {
         string seat = action.Seat;
         bool horizontal = action.IsRiichiHorizontal;
         bool playPhysics = !action.Silent;
+        bool ghostDiscard = playPhysics && IsGuangdongGhostDiscard(action, cutTiles);
         int claimedOrLastCutTile = action.CutTile ?? cutTiles[cutTiles.Length - 1];
         Mirror.LastCutCardID = action.ConcealedDiscard ? 0 : claimedOrLastCutTile;
         Mirror.LastDiscardPlayerPosition = seat;
@@ -196,6 +197,17 @@ public sealed class ActionPlayback {
             Mirror.Info(seat).hand_tiles_count -= cutTiles.Length;
             Game3DManager.Instance.Change3DDiscardTiles(cutTiles, seat, action.CutClass, horizontal, playCutPhysicsSound: playPhysics, concealedDiscard: action.ConcealedDiscard);
         }
+        if (ghostDiscard) SoundManager.Instance.PlayActionSound(seat, "ghost_discard");
+    }
+
+    private static bool IsGuangdongGhostDiscard(TableAction action, IReadOnlyCollection<int> cutTiles) {
+        if (GameSession.Current == null || GameSession.Current.RoomRule != "guangdong"
+            || !GuangdongMilRules.IsMil(GameSession.Current.SubRule)) return false;
+        if (action.CutTile.HasValue && GuangdongMilRules.IsGhost(action.CutTile.Value)) return true;
+        foreach (int tile in cutTiles) {
+            if (GuangdongMilRules.IsGhost(tile)) return true;
+        }
+        return false;
     }
 
     /// <summary>补花。</summary>

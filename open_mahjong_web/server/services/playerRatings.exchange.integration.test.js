@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Client } = require('pg');
@@ -17,7 +18,7 @@ test('exchange-three ranked metrics preserve old full games beside new eight-han
       game_id text, user_id bigint, rule text, sub_rule text, room_type text, match_type text,
       ${fields.map(field => `${field} int DEFAULT 0`).join(', ')}
     )`);
-    await db.query(`CREATE TEMP TABLE game_records (game_id text);
+    await db.query(`${replayDDL(true)};
       CREATE TEMP TABLE game_player_records (game_id text, user_id bigint, rule text, room_type text, match_type text, rank int);
       CREATE TEMP TABLE riichi_player_game_stats (game_id text, user_id bigint, version int, stats jsonb)`);
     let game = 0;
@@ -30,7 +31,7 @@ test('exchange-three ranked metrics preserve old full games beside new eight-han
     ]) {
       const id = `game-${++game}`;
       const mode = `${rounds / 4}/4${room === 'match' ? '_rank' : ''}`;
-      await db.query('INSERT INTO game_records VALUES ($1)', [id]);
+      await insertReplay(db,[id,{}]);
       await db.query(`INSERT INTO game_player_records VALUES ($1,$2,'sichuan',$3,$4,1)`, [id, user, room, mode]);
       await db.query(`INSERT INTO game_player_metrics
         (game_id, user_id, rule, sub_rule, room_type, match_type, total_rounds)

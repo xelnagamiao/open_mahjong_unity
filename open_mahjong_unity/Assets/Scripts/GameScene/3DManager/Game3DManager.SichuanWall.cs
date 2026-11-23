@@ -3,7 +3,7 @@ using UnityEngine;
 
 public partial class Game3DManager {
     private const int SichuanWallSlots = 14;
-    private const float SichuanSingleRowInset = 15f;
+    private const float AuthoredSichuanSingleRowInset = 15f;
     private const int SichuanWallFullMask = (1 << SichuanWallSlots) - 1;
     private Transform sichuanWallRoot;
     private bool sichuanWallSingleRow;
@@ -78,13 +78,14 @@ public partial class Game3DManager {
         GetTileSurface(out Vector3 surfacePoint, out Vector3 normal);
         // Longer single rows must clear the lower-left player badge and the self hand.
         Vector3 rowOffset = sichuanWallSingleRow
-            ? (surfacePoint - WallSlotPosition(position, 0)) * (SichuanSingleRowInset / TableWallRadius)
+            ? (surfacePoint - WallSlotPosition(position, 0))
+                * (TableWorldScaleProfile.Length(AuthoredSichuanSingleRowInset) / TableWallRadius)
             : Vector3.zero;
         for (int slot = 0; slot < SichuanWallSlots; slot++) {
             GameObject tile = MahjongObjectPool.Instance.CreatePresentationTile(2);
             if (tile == null) continue;
             tile.name = $"Wall_{originalSeat}_{slot}";
-            tile.transform.SetParent(sichuanWallRoot, true);
+            TableWorldObjectMount.AttachPreservingWorld(tile.transform, sichuanWallRoot);
             SetWallTileScale(tile.transform, TableWallScale);
             tile.transform.rotation = faceUp;
             Tile3D state = MahjongObjectPool.GetTile3D(tile);
@@ -101,9 +102,9 @@ public partial class Game3DManager {
             float centeredSlot = sichuanWallSingleRow ? (SichuanWallSlots - 1) * .5f - slot : 3 - slot / 2;
             int layer = !sichuanWallSingleRow && slot % 2 == 0 ? 1 : 0;
             Vector3 candidate = WallSlotPosition(position, centeredSlot) + rowOffset;
-            Vector3 plane = surfacePoint + normal * (layer * (thickness + tileSurfaceClearance));
+            Vector3 plane = surfacePoint + normal * (layer * (thickness + ScaledTileSurfaceClearance));
             tile.transform.position = TileSurfacePlacement.PlaceOnPlane(candidate, tileBodyBounds,
-                Matrix4x4.Translate(candidate) * body, plane, normal, tileSurfaceClearance);
+                Matrix4x4.Translate(candidate) * body, plane, normal, ScaledTileSurfaceClearance);
             sichuanWallTiles[originalSeat, slot] = tile;
         }
     }

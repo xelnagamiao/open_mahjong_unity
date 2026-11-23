@@ -286,7 +286,7 @@ class ClassicalGameState:
 
     async def cleanup_game_state(self):
         await self.spectator_manager.cleanup()
-        if self.game_task and not self.game_task.done():
+        if self.game_task and self.game_task is not asyncio.current_task() and not self.game_task.done():
             self.game_task.cancel()
             try:
                 await self.game_task

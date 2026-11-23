@@ -189,7 +189,7 @@ def main(argv=None):
     parser.add_argument("--input", type=Path, help="Unity LocalRecords directory, or exported IndexedDB JSON")
     parser.add_argument("--backup", type=Path, help="External recovery directory for desktop file replacement")
     parser.add_argument("--output", type=Path, help="Destination for converted browser JSON")
-    parser.add_argument("--receipt-out", type=Path, help="Write verified unchanged single-table fingerprints after a full PostgreSQL rehearsal")
+    parser.add_argument("--receipt-out", type=Path, help="Write verified fingerprints for a PostgreSQL rehearsal (native V2: every table)")
     parser.add_argument("--receipt", type=Path, help="Reuse a completed rehearsal; PostgreSQL rechecks each source and archive fingerprint")
     parser.add_argument("--dry-run", action="store_true", help="Preview derived data changes from recompute")
     args = parser.parse_args(argv)

@@ -480,7 +480,7 @@ public sealed class FreeGameState : GameStateBase {
 
     private void EnsureHud() {
         if (hud != null || GameCanvas.Instance == null) return;
-        FreeModeHud prefab = Resources.Load<FreeModeHud>("UI/FreeModeHud");
+        FreeModeHud prefab = Resources.Load<GameObject>("UI/FreeModeHud")?.GetComponent<FreeModeHud>();
         if (prefab == null) {
             Debug.LogError("自由模式面板预制体缺失：Resources/UI/FreeModeHud");
             return;
@@ -495,7 +495,7 @@ public sealed class FreeGameState : GameStateBase {
 
     private void EnsureActivityPanel() {
         if (activityPanel != null || GameCanvas.Instance == null) return;
-        FreeModeActivityPanel prefab = Resources.Load<FreeModeActivityPanel>("UI/FreeModeActivityPanel");
+        FreeModeActivityPanel prefab = Resources.Load<GameObject>("UI/FreeModeActivityPanel")?.GetComponent<FreeModeActivityPanel>();
         if (prefab == null) {
             Debug.LogError("自由模式消息面板预制体缺失：Resources/UI/FreeModeActivityPanel");
             return;

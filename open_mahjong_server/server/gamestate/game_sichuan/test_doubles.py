@@ -123,6 +123,9 @@ def test_multi_ron_keeps_third_winner_after_two_same_team():
     assert sum(p.is_hu for p in state.player_list) == 3
     assert [p.score for p in state.player_list] == [1, -2, 1, 0]
     assert len(state.deferred_hu_settlements) == 3
+    for winner in (0, 2, 3):
+        marker = _build_players_info(state, None)[winner]
+        assert (marker["blood_hu_tile"], marker["blood_hu_source"], marker["blood_hu_multi"]) == (25, 1, True)
 
 
 def test_opposing_first_two_continue_and_team_internal_payment_cancels():
@@ -147,6 +150,11 @@ def test_mid_hu_has_no_hand_or_fan_for_teammate_and_snapshot_is_private():
                 assert result["hepai_tile"] == 0
     info = GameInfo(**{**_base_game_info(state), "players_info": _build_players_info(state, 101)})
     assert info.players_info[2].hand_tiles is None
+    assert info.players_info[0].blood_hu_zimo
+    assert info.players_info[0].blood_hu_tile == 25
+    other = _build_players_info(state, state.player_list[1].user_id)[0]
+    assert other["blood_hu_tile"] == 0 and other["hand_tiles"] is None
+    assert other["hand_tiles_count"] == len(state.player_list[0].hand_tiles) - 1
     assert info.players_info[2].team_id == 0
     assert info.sichuan_teams["team_by_player_index"] == [0,1,0,1]
 

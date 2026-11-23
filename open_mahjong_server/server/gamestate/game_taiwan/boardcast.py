@@ -624,6 +624,7 @@ def _build_do_action_payload(
     cut_from_player=None,
     is_timeout_action=False,
     is_claim=False,
+    is_riichi_horizontal=None,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -653,6 +654,7 @@ def _build_do_action_payload(
         # 鸣牌（吃/碰/明杠）真正认走的打牌者座位；仅 meld 帧由 wait_action 显式传入，
         # 客户端据此精确移除对应玩家牌河的弃牌，彻底消除乱序/双同牌歧义。cut 帧等无需此字段。
         "cut_from_player": cut_from_player,
+        "is_riichi_horizontal": is_riichi_horizontal,
     }
     payload.update(self.build_private_do_action_info(action_player, viewer_index))
     return payload
@@ -696,8 +698,13 @@ async def broadcast_do_action(
     cut_from_player: int = None,
     is_timeout_action: bool = False,
     is_claim: bool = False,
+    is_riichi_horizontal: bool = None,
     ):
     if not is_claim:
+        if is_riichi_horizontal is None and action_list and action_list[0] == "cut" and cut_tile is not None:
+            horizontal_hook = getattr(self, "is_riichi_horizontal_discard", None)
+            if callable(horizontal_hook):
+                is_riichi_horizontal = bool(horizontal_hook(action_player, cut_tile))
         update_hand_draw_source(self, action_list, action_player)
         if getattr(self, "_tactical_silent_action", False):
             silent = True
@@ -737,6 +744,7 @@ async def broadcast_do_action(
                 cut_from_player=cut_from_player,
                 is_timeout_action=is_timeout_action,
                 is_claim=is_claim,
+                is_riichi_horizontal=is_riichi_horizontal,
             )
 
             if current_player.user_id in self.game_server.user_id_to_connection:

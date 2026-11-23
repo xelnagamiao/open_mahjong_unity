@@ -5,12 +5,20 @@ using Newtonsoft.Json;
 
 public partial class GameRecordManager {
     internal NewChineseInfo NewChineseRecordInfo {get; private set;}
+    private const string NewChineseRecordChoicePhase = "showing_exchange_choices";
+    private bool newChineseRecordShowingChoices;
 
     internal RuleReplayModule CreateNewChineseReplayModule() => new RuleReplayModule("new_chinese") {
         Reset = () => {
-            NewChineseRecordInfo = gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var round) ? round.newChinese : null;
+            GameCanvas.Instance?.FinishNewChineseExchangeChoices();
+            GameCanvas.Instance?.FinishNewChineseReceipt();
+            SetNewChineseRecordInfo(gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var round) ? round.newChinese : null);
         },
-        Clear = () => { NewChineseRecordInfo=null; RefreshNewChineseRecord(); },
+        Clear = () => { GameCanvas.Instance?.FinishNewChineseReceipt(); SetNewChineseRecordInfo(null); RefreshNewChineseRecord(); },
+        IsSilentTick = IsNewChineseSilentRecordTick,
+        AfterSilentMutation = tick => {
+            if (!newChineseRecordShowingChoices) GameCanvas.Instance?.FinishNewChineseExchangeChoices();
+        },
         ApplyBeforeMutation=ApplyNewChineseTick, RefreshAfterSeek=RefreshNewChineseRecord,
         RefreshAfterAction=RefreshNewChineseRecord, RefreshPlayerTags=RefreshNewChineseRecord,
         ConsumeWallTile=action=>action=="gd",
@@ -19,13 +27,42 @@ public partial class GameRecordManager {
                 SoundManager.Instance.PlayActionSound(seat, "riichi", voice);
         },
         AfterVisibleMutation=tick=>{
-            if(tick.Count>1 && tick[0]=="new_chinese" && (tick[1]=="exchange" || tick[1]=="rob_kan")) Game3DManager.Instance?.RefreshRecordHandDisplay();
+            if (tick.Count < 2 || tick[0] != "new_chinese" || (tick[1] != "exchange" && tick[1] != "rob_kan")) return;
+            GameCanvas.Instance?.FinishNewChineseExchangeChoices();
+            Game3DManager.Instance?.RefreshRecordHandDisplay();
+            if (tick[1] == "exchange" && recordPlayer_to_info.TryGetValue("self", out var player) &&
+                NewChineseRecordInfo?.exchange_packets is int[][] packets && packets.Length == 4 && player.playerIndex >= 0 && player.playerIndex < 4 &&
+                packets[player.playerIndex]?.Length == 3) {
+                for (int offset = 1; offset < 4; offset++) {
+                    var incoming = packets[(player.playerIndex - offset + 4) % 4];
+                    if (incoming?.Length != 3) continue;
+                    GameCanvas.Instance?.ShowSbrReceived(incoming, 0);
+                    break;
+                }
+            }
         }
     };
+
+    private static bool IsNewChineseSilentRecordTick(IReadOnlyList<string> tick) {
+        if (tick[0] != "new_chinese") return false;
+        if (tick.Count < 2) return true;
+        if (tick[1] == "exchange") return false;
+        return tick[1] != "state" || tick.Count < 3 || !tick[2].Contains("\"" + NewChineseRecordChoicePhase + "\"");
+    }
+
+    private void SetNewChineseRecordInfo(NewChineseInfo info) {
+        NewChineseRecordInfo = info;
+        newChineseRecordShowingChoices = info?.phase == NewChineseRecordChoicePhase && info.exchange_choices?.Length == 4;
+    }
 
     private void RefreshNewChineseRecord() {
         int viewer = recordPlayer_to_info.TryGetValue("self",out var p) ? p.playerIndex : -1;
         GameCanvas.Instance?.ShowNewChineseStatus(NewChineseRecordInfo,indexToPosition,viewer);
+        if (newChineseRecordShowingChoices)
+            GameCanvas.Instance?.ShowNewChineseExchangeChoices(NewChineseRecordInfo, indexToPosition,
+                viewer >= 0 && viewer < (NewChineseRecordInfo.exchange_packets?.Length ?? 0) ? NewChineseRecordInfo.exchange_packets[viewer] : null);
+        else
+            GameCanvas.Instance?.FinishNewChineseExchangeChoices();
     }
 
     private bool ApplyNewChineseTick(IReadOnlyList<string> tick) {
@@ -62,8 +99,9 @@ public partial class GameRecordManager {
             player.tileList.Add(int.Parse(tick[3]));
             player.showHandDrawSlotActive=true;
         }
-        else if (tick[1]=="state" && tick.Count>2) NewChineseRecordInfo=JsonConvert.DeserializeObject<NewChineseInfo>(tick[2]);
+        else if (tick[1]=="state" && tick.Count>2) SetNewChineseRecordInfo(JsonConvert.DeserializeObject<NewChineseInfo>(tick[2]));
         else if (tick[1]=="exchange" && tick.Count>2) {
+            newChineseRecordShowingChoices = false;
             var hands=JsonConvert.DeserializeObject<Dictionary<int,List<int>>>(tick[2]);
             foreach(var item in hands)
                 if(indexToPosition.TryGetValue(item.Key,out var pos) && recordPlayer_to_info.TryGetValue(pos,out var player))

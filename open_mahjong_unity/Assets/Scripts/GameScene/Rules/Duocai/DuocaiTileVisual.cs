@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public static class DuocaiTileVisual {
+    // The 40 joker PNGs share this authored canvas. Their GPU textures are square for block compression.
+    public const float JokerArtworkAspect = 307f / 425f;
     private static readonly Dictionary<int,Sprite> sprites=new Dictionary<int,Sprite>();
     private static readonly Dictionary<string,Sprite> colored=new Dictionary<string,Sprite>();
     private static readonly Dictionary<string,Sprite> bodies=new Dictionary<string,Sprite>();
@@ -22,9 +24,11 @@ public static class DuocaiTileVisual {
         string key=tile+":"+source.GetInstanceID();
         if(colored.TryGetValue(key,out var result)&&result)return result;
         var shader=Resources.Load<Shader>("Duocai/InkColor");if(!shader)return source;
-        var material=new Material(shader);var rect=source.textureRect;
+        var material=new Material(shader);var rect=source.rect;
+        var mapping=Tile3D.ComputeSpriteTiling(source);
+        material.SetVector("_Bounds",UnityEngine.Sprites.DataUtility.GetOuterUV(source));
         material.SetColor("_Ink",tile<2000?new Color(.72f,.48f,.06f):tile<3000?new Color(.42f,.48f,.55f):new Color(.82f,.06f,.1f));
-        material.SetVector("_Rect",new Vector4(rect.x/source.texture.width,rect.y/source.texture.height,rect.width/source.texture.width,rect.height/source.texture.height));
+        material.SetVector("_Rect",new Vector4(mapping.z,mapping.w,mapping.x,mapping.y));
         var target=RenderTexture.GetTemporary((int)rect.width,(int)rect.height,0,RenderTextureFormat.ARGB32);
         var previous=RenderTexture.active;
         Graphics.Blit(source.texture,target,material);RenderTexture.active=target;

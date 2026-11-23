@@ -22,6 +22,7 @@ from .three_tile_opening import ThreeTileOpening
 
 class XueliuGameState(ThreeTileOpening, SichuanGameState):
     is_xueliu = True
+    exchange_animation_seconds = 2.75
 
     def _configure_rule(self):
         if not is_xueliu_sub_rule(self.sub_rule):
@@ -37,6 +38,8 @@ class XueliuGameState(ThreeTileOpening, SichuanGameState):
 
     async def _opening_phase(self):
         await self._xueliu_throw_three_phase()
+        if getattr(self, "lifecycle_state", "running") != "running":
+            return
         for player in self.player_list:
             refresh_waiting_tiles(self, player.player_index, is_first_action=player.player_index == self.dealer_index)
         # 回放从开局选牌完成后的手牌开始；弃置牌另存，避免以 13/14 张回放。
@@ -46,9 +49,12 @@ class XueliuGameState(ThreeTileOpening, SichuanGameState):
         }
         if self.xueliu_exchange:
             self.game_record['game_round'][f'round_index_{self.round_index}']['xueliu_exchange_direction'] = self.xueliu_exchange_direction
+            self.game_status = "xueliu_exchange_received"
+            self.exchange_receipt_deadline = time.monotonic() + .75
         await self.broadcast_game_start()
         if self.xueliu_exchange:
             # 先同步换回的手牌，再让四家独立选定缺；弃三张只要求和牌缺门。
+            await asyncio.sleep(max(0, self.exchange_receipt_deadline - time.monotonic()))
             await self._dingque_phase()
             await broadcast_dingque_done(self)
             self.game_record['game_round'][f'round_index_{self.round_index}']['dingque_suits'] = {
@@ -61,16 +67,52 @@ class XueliuGameState(ThreeTileOpening, SichuanGameState):
         """同时选三张同花牌；弃牌版移出对局，换牌版统一按随机方向交换。"""
         await self._collect_xueliu_selection(range(4))
         if self.xueliu_exchange:
-            self._exchange_selected_tiles()
+            direction = self._opening_exchange_direction()
+            self.xueliu_exchange_direction = direction
+            await self._show_exchange_animation()
+            if getattr(self, "lifecycle_state", "running") != "running":
+                return
+            self._exchange_selected_tiles(direction)
         self.waiting_players_list = []
 
-    def _exchange_selected_tiles(self):
+    async def _show_exchange_animation(self):
+        from .boardcast import broadcast_xueliu_exchange_animation
+        self.game_status = "xueliu_exchange_animation"
+        self.server_action_tick += 1
+        self.action_dict = {i: [] for i in range(4)}
+        self.exchange_animation_deadline = time.time() + self.exchange_animation_seconds
+        await broadcast_xueliu_exchange_animation(self)
+        await asyncio.sleep(max(0, self.exchange_animation_deadline - time.time()))
+
+    def _opening_exchange_direction(self):
         # 使用本局种子独立派生，选牌全收齐后才发牌，不改牌墙或影响洗牌序列。
-        direction = random.Random(f'{self.round_random_seed}:exchange_three').choice((1, 2, 3))
+        return random.Random(f'{self.round_random_seed}:exchange_three').choice((1, 2, 3))
+
+    def _consume_xueliu_throw_tiles(self, player_index, chosen):
+        if self.xueliu_exchange:
+            self.player_list[player_index].xueliu_throw_tiles = list(chosen)
+        else:
+            super()._consume_xueliu_throw_tiles(player_index, chosen)
+
+    def _exchange_selected_tiles(self, direction=None):
+        direction = direction if direction is not None else self._opening_exchange_direction()
         self.xueliu_exchange_direction = direction
-        outgoing = [list(player.xueliu_throw_tiles) for player in self.player_list]
-        for index, tiles in enumerate(outgoing):
-            self.player_list[(index + direction) % 4].hand_tiles.extend(tiles)
+        for index, player in enumerate(self.player_list):
+            for tile in player.xueliu_throw_tiles:
+                player.hand_tiles.remove(tile)
+            player.hand_tiles.extend(self.player_list[(index - direction) % 4].xueliu_throw_tiles)
+
+    def exchange_view(self, index):
+        if not self.xueliu_exchange:
+            return None
+        outgoing = self.player_list[index].xueliu_throw_tiles
+        if self.game_status == "waiting_xueliu_throw" and outgoing:
+            return dict(selection_done=True, outgoing_tiles=list(outgoing), active_players=list(range(4)))
+        if self.game_status != "xueliu_exchange_animation":
+            return None
+        return dict(animating=True, direction=self.xueliu_exchange_direction,
+                    active_players=list(range(4)), outgoing_tiles=list(outgoing),
+                    animation_seconds=max(0, self.exchange_animation_deadline - time.time()))
 
     def _xueliu_all_tiles(self, player: SichuanPlayer) -> List[int]:
         """Return logical tiles for missing-suit/flower-pig checks."""

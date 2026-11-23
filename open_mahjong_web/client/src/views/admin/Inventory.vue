@@ -10,7 +10,7 @@
       <el-table-column label="分类" width="80"><template #default="{ row }">{{ inventoryCategoryLabel(row.category) }}</template></el-table-column>
       <el-table-column prop="code" label="编码" min-width="160" />
       <el-table-column prop="description" label="说明" min-width="220" />
-      <el-table-column label="状态" width="150"><template #default="{ row }"><el-tag v-if="row.is_default">默认可用</el-tag><el-tag v-else :type="row.use_enabled ? 'success' : 'info'">{{ !row.use_enabled ? '已停用' : row.effect === 'collectible' ? '仅供收藏' : '可使用' }}</el-tag><div v-if="!row.grant_enabled" class="hint">停止发放</div></template></el-table-column>
+      <el-table-column label="状态" width="150"><template #default="{ row }"><el-tag v-if="row.is_default && row.use_enabled">默认可用</el-tag><el-tag v-else :type="row.use_enabled ? 'success' : 'info'">{{ !row.use_enabled ? '已停用' : row.effect === 'collectible' ? '仅供收藏' : '可使用' }}</el-tag><div v-if="!row.grant_enabled" class="hint">停止发放</div></template></el-table-column>
       <el-table-column label="操作" width="85"><template #default="{ row }"><el-button link type="primary" @click="editItem(row)">编辑</el-button></template></el-table-column>
     </el-table>
     <el-dialog v-model="visible" class="inventory-catalog-dialog" top="6vh" :title="editingId ? '编辑物品' : '新增物品'" width="640px" :close-on-click-modal="!saving" :before-close="closeDialog">
@@ -20,7 +20,7 @@
         <el-form-item label="资源 / 效果" required><el-select v-model="form.asset_key" :disabled="!!editingId" filterable style="width:100%"><el-option v-for="asset in assets" :key="asset.asset_key" :value="asset.asset_key" :label="`${inventoryCategoryLabel(asset.category)} · ${asset.label}`" /></el-select></el-form-item>
         <el-form-item label="说明"><el-input v-model="form.description" type="textarea" :rows="2" maxlength="300" show-word-limit /></el-form-item>
         <el-form-item label="允许发放"><el-switch v-model="form.grant_enabled" /></el-form-item>
-        <el-form-item :label="selectedAsset?.effect === 'collectible' ? '启用收藏品' : '允许使用'"><el-switch v-model="form.use_enabled" :disabled="form.is_default" /></el-form-item>
+        <el-form-item :label="selectedAsset?.effect === 'collectible' ? '启用收藏品' : '允许使用'"><el-switch v-model="form.use_enabled" :disabled="form.is_default && items.some(item => item.item_id === editingId && item.use_enabled)" /></el-form-item>
         <el-form-item label="排序"><el-input-number v-model="form.sort_order" :min="-1000000" :max="1000000" /></el-form-item>
         <el-form-item label="变更原因" required><el-input v-model="form.reason" maxlength="500" /></el-form-item>
       </el-form>

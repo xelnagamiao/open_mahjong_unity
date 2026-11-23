@@ -99,6 +99,9 @@ public partial class SoundManager : MonoBehaviour {
         if (actionType == "peng") {
             return "peng";
         }
+        if (actionType == "ghost_discard") {
+            return "dagui";
+        }
         return null;
     }
 

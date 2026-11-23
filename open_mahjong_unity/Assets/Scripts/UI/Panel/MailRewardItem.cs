@@ -9,7 +9,7 @@ public sealed class MailRewardItem : MonoBehaviour
     public void Bind(MailReward reward)
     {
         title.text = reward.name; quantity.text = "×" + reward.quantity;
-        icon.sprite = ConfigManager.GetInventoryIcon(new InventoryItem { item_id = reward.item_id, icon_path = reward.icon_path });
+        ConfigManager.SetInventoryIcon(icon, new InventoryItem { item_id = reward.item_id, icon_path = reward.icon_path });
         icon.enabled = icon.sprite;
     }
     public void Apply(MailPalette p) { surface.color = p.selected; title.color = p.ink; quantity.color = p.accent; }

@@ -99,7 +99,7 @@ public partial class GameSceneMouseInputController : MonoBehaviour {
 
     private void Update() {
         // 对局/牌谱挂后台回到主菜单等非游戏窗口时，禁止任何快捷键，避免右键摸切/双击/滚轮误触。
-        if (!IsGameSceneForeground()) {
+        if (ReplayFrameLoader.Busy || !IsGameSceneForeground()) {
             CancelRecordScreenHold();
             return;
         }

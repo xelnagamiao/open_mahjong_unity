@@ -37,6 +37,7 @@ public class SichuanGameState : TurnBasedGameState {
     private int lastXueliuWinTick;
     private int lastXueliuGangTick;
     private int snapshotActionTick;
+    private int sbrClosedThroughTick = -1;
     private bool dingquePresentationShown;
     private readonly SichuanClaimWaitClock claimWaitClock = new SichuanClaimWaitClock();
 
@@ -50,6 +51,7 @@ public class SichuanGameState : TurnBasedGameState {
         RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
         ExchangeWindow = null;
         snapshotActionTick = gameInfo?.action_tick ?? 0;
+        sbrClosedThroughTick = gameInfo?.sbr_exchange_direction > 0 ? snapshotActionTick : snapshotActionTick - 1;
         if (Session.IsDuplicate) Clock.LastAskActionTick = snapshotActionTick;
         RestoreDuplicateWall(gameInfo);
         SelfDingqueSuit = 0;
@@ -68,6 +70,14 @@ public class SichuanGameState : TurnBasedGameState {
         foreach (PlayerInfo p in gameInfo.players_info) {
             if (p == null) continue;
             map[p.player_index] = p.dingque_suit;
+            if (SichuanLobby.IsDoubles(Session.SubRule) && p.is_hu == true && p.blood_hu_tile.HasValue) {
+                Game3DManager.Instance.RestoreBloodBattleWinMarker(Mirror.SeatOf(p.player_index), p.blood_hu_tile.Value,
+                    p.blood_hu_zimo == true, p.blood_hu_multi == true);
+            }
+            if (p.player_index == Session.SelfIndex && (Session.SubRule == SichuanLobby.SbrExchange || SichuanLobby.IsExchange(Session.SubRule)))
+                GameCanvas.Instance.ShowSbrReceived(p.sbr_received_tiles, gameInfo.sbr_exchange_direction,
+                    gameInfo.exchange_receipt_seconds ?? .75f, holdForDingque: p.dingque_suit <= 0 &&
+                        !Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating);
         }
         if (map.Count > 0) {
             GameCanvas.Instance.UpdatePlayerDingque(map);
@@ -111,25 +121,40 @@ public class SichuanGameState : TurnBasedGameState {
     protected override void OnAskHandAction(Response response) {
         AskHandActionGBInfo info = response.ask_hand_action_info;
         if (info == null || claimWaitClock.IsStaleAsk(info.action_tick, Clock.LastAskActionTick)) return;
+        bool tableExchange = Session.SubRule == SichuanLobby.SbrExchange || SichuanLobby.IsExchange(Session.SubRule);
+        if (tableExchange && info.action_tick > 0 &&
+            info.action_tick <= sbrClosedThroughTick) return;
         ExchangeWindow = info.sbr_window;
         if (Clock.IsRetainedClaimAsk) Clock.Clear("sichuanHandAsk");
         if (info?.xueliu_exchange != null) {
             if (info.action_tick < Clock.LastAskActionTick) return;
+            if (info.xueliu_exchange.animating && GameCanvas.Instance.HasExchangePresentation(info.action_tick)) return;
+            if (!info.xueliu_exchange.animating && !info.xueliu_exchange.selection_done &&
+                GameCanvas.Instance.IsSbrChoosingOrWaiting && info.action_tick == Clock.LastAskActionTick) return;
             Clock.LastAskActionTick = info.action_tick;
             Manager.AskHandAction(info.remaining_time, info.player_index, System.Array.Empty<string>(), null, 0);
-            if (!GameCanvas.Instance.ShowXueliuExchangePresentation(info)) return;
-            if (!Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating && info.player_index == Session.SelfIndex)
+            if (info.xueliu_exchange.animating || info.xueliu_exchange.selection_done) GameCanvas.Instance.StopTimeRunning();
+            if (info.xueliu_exchange.stage == 0 && info.xueliu_exchange.selection_done && !info.xueliu_exchange.animating) {
+                if (info.player_index == Session.SelfIndex && !Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating)
+                    GameCanvas.Instance.RestoreSbrWaiting(info.xueliu_exchange.outgoing_tiles);
+                return;
+            }
+            if (!GameCanvas.Instance.ShowXueliuExchangePresentation(info, Session.SubRule == SichuanLobby.SbrExchange)) return;
+            if (Session.SubRule != SichuanLobby.SbrExchange && !Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating && info.player_index == Session.SelfIndex)
                 GameCanvas.Instance.ShowXueliuTeamExchange(info);
             return;
         }
         if (info != null && info.action_list != null &&
             (System.Array.IndexOf(info.action_list, "xueliu_throw_three") >= 0 || System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0)) {
+            if (tableExchange && (info.action_tick < Clock.LastAskActionTick ||
+                (GameCanvas.Instance.IsSbrChoosingOrWaiting && info.action_tick == Clock.LastAskActionTick))) return;
             Clock.LastAskActionTick = info.action_tick;
             Manager.AskHandAction(info.remaining_time, info.player_index,
                 System.Array.Empty<string>(), info.deal_tile_type, info.step_remaining ?? -1);
             if (!Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating &&
                 info.player_index == Session.SelfIndex) {
-                GameCanvas.Instance.ShowXueliuThrowThreeSelection(info.remaining_time, System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0);
+                GameCanvas.Instance.ShowXueliuThrowThreeSelection(info.remaining_time, System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0,
+                    sbr: tableExchange);
             }
             return;
         }
@@ -191,25 +216,32 @@ public class SichuanGameState : TurnBasedGameState {
     /// 必须同步 LastAskActionTick，否则 SendAction("dingque") 会因旧 tick 被服务端丢弃，表现为定缺卡死。
     /// </summary>
     private void OnAskDingque(Response response) {
-        GameCanvas.Instance.ClearXueliuExchangePresentation();
         Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
         if (response.ask_hand_action_info != null) {
             Clock.LastAskActionTick = response.ask_hand_action_info.action_tick;
         }
-        if (Session.IsRealtimeSpectator) return;
-        if (GameRecordManager.Instance.IsSpectating) return;
+        if (Session.IsRealtimeSpectator || GameRecordManager.Instance.IsSpectating) {
+            if (!SichuanLobby.IsExchange(Session.SubRule) && Session.SubRule != SichuanLobby.SbrExchange)
+                GameCanvas.Instance.ClearXueliuExchangePresentation();
+            return;
+        }
         AskHandActionGBInfo info = response.ask_hand_action_info;
         int remaining = Mathf.Max(1, info?.remaining_time ?? 10);
-        Manager.AskHandAction(remaining, info?.player_index ?? Session.SelfIndex,
-            System.Array.Empty<string>(), null, 0);
-        GameCanvas.Instance.ClearActionButton();
-        GameCanvas.Instance.ShowDingqueSelection(remaining);
+        void Show(int seconds) {
+            Manager.AskHandAction(seconds, info?.player_index ?? Session.SelfIndex,
+                System.Array.Empty<string>(), null, 0);
+            GameCanvas.Instance.ClearActionButton();
+            GameCanvas.Instance.ClearXueliuExchangePresentation();
+            GameCanvas.Instance.ShowDingqueSelection(seconds);
+        }
+        GameCanvas.Instance.ShowDingqueAfterReceipt(remaining, Show);
     }
 
     /// <summary>定缺完成广播，按 player_to_dingque 同步各家头像旁的定缺标记。</summary>
     private void OnDingqueDone(Response response) {
         Debug.Log($"收到定缺完成: {response.show_result_info?.player_to_dingque}");
         if (response.show_result_info == null) return;
+        GameCanvas.Instance.ClearXueliuExchangePresentation();
         GameCanvas.Instance.HideDingqueSelection();
         var suits = response.show_result_info.player_to_dingque;
         if (suits == null || suits.Count == 0) return;
@@ -619,6 +651,7 @@ public class SichuanGameState : TurnBasedGameState {
         GameCanvas.Instance?.RefreshDuplicateRemainingTiles();
         Game3DManager.Instance?.ClearSichuanWall();
         snapshotActionTick = 0;
+        sbrClosedThroughTick = -1;
         lastXueliuWinTick = 0;
         lastXueliuGangTick = 0;
         SelfDingqueSuit = 0;

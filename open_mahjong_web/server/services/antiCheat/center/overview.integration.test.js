@@ -1,4 +1,5 @@
 "use strict";
+const { replayDDL, insertReplay } = require('../../testFixtures/replay');
 const test=require("node:test"),assert=require("node:assert/strict");
 const {Pool,Client}=require("pg");
 const {createCenter}=require("./service"),{SCHEMA:S}=require("./database");
@@ -9,7 +10,7 @@ test("summary overview skips quality and relationship scans while retaining stal
  const db="om_ac_overview_test_"+require("crypto").randomUUID().replaceAll("-","");
  const admin=new Client({...config,database:"postgres"});await admin.connect();await admin.query(`CREATE DATABASE "${db}"`);
  const pool=new Pool({...config,database:db});t.after(async()=>{await pool.end();assert.match(db,/^om_ac_overview_test_[a-f0-9]+$/);await admin.query(`DROP DATABASE "${db}"`);await admin.end();});
- await pool.query("CREATE TABLE game_records(game_id text PRIMARY KEY); INSERT INTO game_records VALUES('one'),('two')");
+ await pool.query(replayDDL()); await insertReplay(pool,['one',{}]); await insertReplay(pool,['two',{}]);
  const queries=[],wrapped={query:(sql,args)=>{queries.push(sql);return pool.query(sql,args);},connect:()=>pool.connect()};
  let launched=0;const center=createCenter({pool:wrapped,launch:()=>launched++});await center.ready();
  // Unscanned raw games are not silently assumed to belong to the ranked scope.

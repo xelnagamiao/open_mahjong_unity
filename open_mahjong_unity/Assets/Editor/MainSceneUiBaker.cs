@@ -151,7 +151,7 @@ public sealed class MainSceneUiBuildCheck : IProcessSceneWithReport {
     public int callbackOrder => 1;
     public void OnProcessScene(Scene scene, BuildReport report) {
         // Play Mode has already initialized the UI; authored inactive-state checks apply to player builds.
-        if ((report == null && !AndroidContentBuild.BuildingContentBundles) || scene.path == "Assets/AndroidUpdate/AndroidBootstrap.unity") return;
+        if ((report == null && !BundledGameBuild.PackingScenes) || scene.path == "Assets/AndroidUpdate/AndroidBootstrap.unity" || scene.path == WebTextureProfileBuild.BootScene) return;
         try { RuleSupportTableBaker.Bake(scene); MainSceneUiBaker.Validate(scene); }
         catch (Exception error) { throw new BuildFailedException(error.Message); }
     }

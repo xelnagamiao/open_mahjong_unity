@@ -734,6 +734,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 real_time = SichuanLobby.IsDuplicate(config.SubRule) ? config.RealTime : (bool?)null,
                 tactical_grace_seconds = SichuanLobby.IsDuplicate(config.SubRule) ? config.TacticalGraceSeconds : (int?)null,
                 wall_source = config.WallSource,
+                reuse_training_room = config.ReuseTrainingRoom,
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,

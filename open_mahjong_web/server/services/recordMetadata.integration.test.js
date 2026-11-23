@@ -216,7 +216,7 @@ test('record metadata is public while locked content remains protected', {
         await assert.rejects(withRecordMetadataQuery(single,(db)=>db.query('SELECT pg_sleep(6)')), {code:'57014'});
         assert.equal((await single.query('SHOW statement_timeout')).rows[0].statement_timeout,before);
         await assert.rejects(withRecordMetadataQuery(single,(db)=>db.query('DELETE FROM game_replays')), {code:'25006'});
-        assert.equal((await single.query('SELECT count(*)::int AS count FROM game_records')).rows[0].count,7);
+        assert.equal((await single.query('SELECT count(*)::int AS count FROM game_record_tables')).rows[0].count,7);
       } finally {await single.end();}
     });
 

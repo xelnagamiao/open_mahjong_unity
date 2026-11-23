@@ -16,10 +16,15 @@ public sealed class CardDesignImageOption : MonoBehaviour
         caption.text = entry.name;
         if (path == entry.path) return;
         Release(); path = entry.path;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        surface.color = Color.white; surface.sprite = null; picture.preserveAspect = true;
+        WebAssetThumbnail.Bind(picture, entry.path);
+#else
         texture = CardDesignImageLibrary.LoadTexture(entry.path);
         if (texture != null) sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(.5f,.5f), 100, 0, SpriteMeshType.FullRect);
         surface.color = Color.white; surface.sprite = null;
         picture.sprite = sprite; picture.preserveAspect = true; picture.enabled = sprite != null;
+#endif
     }
     public void SetSolid(Color color) { caption.text = "纯色"; surface.sprite = null; surface.color = color; picture.enabled = false; }
     public void SetSelected(bool selected) => selection.SetSelected(selected);

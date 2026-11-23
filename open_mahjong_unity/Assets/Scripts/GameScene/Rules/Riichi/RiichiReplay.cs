@@ -155,20 +155,13 @@ public partial class GameRecordManager {
     }
 
     /// <summary>将推演后的宝牌/本场/场供同步到 RoundPanel。</summary>
-    private void RefreshRecordRiichiRoundPanel() {
+    private void RefreshRecordRiichiIndicators() {
         DoraTileSheen.RefreshAll();
         if (!IsRiichiRuleRecord() || RoundPanel.Instance == null) return;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return;
 
         int honba = roundData.riichi?.honba ?? 0;
-        var initialDora = new List<int>();
-        var kanDora = new List<int>();
-        if (recordRiichiDoraIndicators.Count > 0) {
-            initialDora.Add(recordRiichiDoraIndicators[0]);
-            for (int i = 1; i < recordRiichiDoraIndicators.Count; i++) {
-                kanDora.Add(recordRiichiDoraIndicators[i]);
-            }
-        }
-        RoundPanel.Instance.RefreshRiichi(honba, recordRiichiSticks, initialDora, kanDora);
+        RoundPanel.Instance.RefreshIndicators(RiichiGameState.RuleId,
+            RoundIndicatorDisplay.Riichi(honba, recordRiichiSticks, recordRiichiDoraIndicators));
     }
 }

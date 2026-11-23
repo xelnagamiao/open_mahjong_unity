@@ -4,3 +4,12 @@ export const newChineseRulebooks = [
   { title: '新中式麻将规则说明书', url: '/rulebooks/new_chinese/rules.html', filename: '新中式麻将规则说明书.html' },
   { title: '新中式麻将规则说明书原件', url: '/rulebooks/new_chinese/新中式麻将规则说明书.docx', filename: '新中式麻将规则说明书.docx' },
 ]
+
+export const SANHUA_DESCRIPTION = '散花天才麻将是一群热血少年的原创四人麻将变体，使用136 张无花标准麻将牌，融合皮子‑癞子‑红中特殊杠体系、配对差异化算分、报清机制、多重牌型，是一套规则密度很高、策略博弈极强的自定义麻将玩法。'
+export const customRulebooks = [
+  { subRule: 'new_chinese/standard', label: '新中式麻将', description: NEW_CHINESE_DESCRIPTION, docs: newChineseRulebooks },
+  { subRule: 'new_chinese/sanhua', label: '散花天才麻将', description: SANHUA_DESCRIPTION, docs: [
+    { title: '散花天才麻将规则说明书', url: '/rulebooks/sanhua/rules.html', filename: '散花天才麻将规则说明书.html' },
+    { title: '散花天才麻将规则说明书（含补充）', url: '/rulebooks/sanhua/散花天才麻将规则说明书.docx', filename: '散花天才麻将规则说明书.docx' },
+  ] },
+]

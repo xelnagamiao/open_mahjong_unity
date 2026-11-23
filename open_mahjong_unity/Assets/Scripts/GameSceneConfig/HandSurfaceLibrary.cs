@@ -70,21 +70,11 @@ public static partial class HandSurfaceLibrary
         if (done != null) waiters.Add(done);
         if (loading) return;
         loading = true;
-        UnityAssetIdb.EnsureReady(() =>
-        {
-            entries.Clear();
+        entries.Clear();
 #if UNITY_WEBGL && !UNITY_EDITOR
-            foreach (string id in UnityAssetIdb.KeysWithPrefix(Prefix)) ReadEntry(id);
-#else
-            try
-            {
-                if (Directory.Exists(DirectoryPath))
-                    foreach (string file in Directory.GetFiles(DirectoryPath, "*.hsi", SearchOption.TopDirectoryOnly))
-                        ReadEntry(Prefix + Path.GetFileNameWithoutExtension(file));
-            }
-            catch (Exception e) { Debug.LogWarning("读取手牌图库失败：" + e.Message); }
+        void Failed(string reason) { loading = false; waiters.Clear(); Debug.LogWarning(reason); }
 #endif
-            ReadFaceLayouts();
+        void Complete() {
             Ready = true; loading = false;
             MigrateLegacy(false, () => MigrateLegacy(true, () =>
             {
@@ -92,11 +82,30 @@ public static partial class HandSurfaceLibrary
                 foreach (var callback in callbacks) callback?.Invoke();
                 PublishChange();
             }));
-        });
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.ReadDirectory(Prefix, 8 + 4096 + 1, ReadEntryHeader,
+            () => UnityAssetIdb.ReadDirectory(LayoutPrefix, 4097, ReadLayout, Complete, Failed), Failed);
+#else
+        try
+        {
+            if (Directory.Exists(DirectoryPath))
+                foreach (string file in Directory.GetFiles(DirectoryPath, "*.hsi", SearchOption.TopDirectoryOnly))
+                    ReadEntry(Prefix + Path.GetFileNameWithoutExtension(file));
+        }
+        catch (Exception e) { Debug.LogWarning("读取手牌图库失败：" + e.Message); }
+        ReadFaceLayouts();
+        Complete();
+#endif
     }
     static void ReadEntry(string id)
     {
         try { if (IsId(id) && Unpack(Read(id), out var entry, out _) && entry.id == id) entries[id] = entry; }
+        catch (Exception e) { Debug.LogWarning("跳过损坏的手牌图库记录：" + e.Message); }
+    }
+    static void ReadEntryHeader(string id, byte[] data)
+    {
+        try { if (IsId(id) && TryReadHeader(data, out var entry, out _) && entry.id == id) entries[id] = entry; }
         catch (Exception e) { Debug.LogWarning("跳过损坏的手牌图库记录：" + e.Message); }
     }
     static byte[] Read(string id)
@@ -138,12 +147,15 @@ public static partial class HandSurfaceLibrary
         if (NameExists(name, current.back, id)) { error?.Invoke("已存在同名" + (current.back ? "牌背" : "手牌背景") + "，请换一个名称"); return; }
         if (!ReserveName(name, current.back)) { error?.Invoke("同名图片正在保存，请稍候"); return; }
         if (!busy.Add(id)) { ReleaseName(name, current.back); error?.Invoke("正在保存，请稍候"); return; }
-        byte[] image;
-        try { if (!Unpack(Read(id), out _, out image)) throw new IOException("图片记录损坏"); }
-        catch (Exception e) { busy.Remove(id); ReleaseName(name, current.back); error?.Invoke(e.Message); return; }
-        var renamed = Clone(current); renamed.name = name;
-        Write(id, Pack(renamed, image), () => { entries[id] = renamed; busy.Remove(id); ReleaseName(name, current.back); PublishChange(); done?.Invoke(); },
-            reason => { busy.Remove(id); ReleaseName(name, current.back); error?.Invoke(reason); });
+        void Fail(string reason) { busy.Remove(id); ReleaseName(name, current.back); error?.Invoke(reason); }
+        UnityAssetIdb.WithAssets(new[] { id }, () => {
+            byte[] image;
+            try { if (!Unpack(Read(id), out _, out image)) throw new IOException("图片记录损坏"); }
+            catch (Exception e) { busy.Remove(id); ReleaseName(name, current.back); error?.Invoke(e.Message); return; }
+            var renamed = Clone(current); renamed.name = name;
+            Write(id, Pack(renamed, image), () => { entries[id] = renamed; busy.Remove(id); ReleaseName(name, current.back); PublishChange(); done?.Invoke(); },
+                Fail);
+        }, Fail);
     }
     public static void Delete(string id, Action done, Action<string> error)
     {
@@ -171,8 +183,7 @@ public static partial class HandSurfaceLibrary
     static void Write(string id, byte[] data, Action done, Action<string> error)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        byte[] previous = UnityAssetIdb.GetCached(id);
-        UnityAssetIdb.Put(id, data, done, reason => { UnityAssetIdb.StagePendingWrite(id, previous); error?.Invoke("保存失败：" + reason); });
+        UnityAssetIdb.Put(id, data, done, reason => error?.Invoke("保存失败：" + reason));
 #else
         string path = FilePath(id), temporary = path + ".pending";
         try
@@ -195,14 +206,21 @@ public static partial class HandSurfaceLibrary
     }
     static bool Unpack(byte[] data, out Entry entry, out byte[] image)
     {
-        entry = null; image = null;
+        image = null;
+        if (!TryReadHeader(data, out entry, out int length)) return false;
+        image = new byte[data.Length - 8 - length];
+        Buffer.BlockCopy(data, 8 + length, image, 0, image.Length);
+        return true;
+    }
+    static bool TryReadHeader(byte[] data, out Entry entry, out int length)
+    {
+        entry = null; length = 0;
         if (data == null || data.Length < 12 || data.Length > UnityAssetIdb.MaxImageBytes || BitConverter.ToInt32(data, 0) != 0x31495348) return false;
-        int length = BitConverter.ToInt32(data, 4);
+        length = BitConverter.ToInt32(data, 4);
         if (length < 2 || length > 4096 || length >= data.Length - 8) return false;
         entry = JsonUtility.FromJson<Entry>(Encoding.UTF8.GetString(data, 8, length));
         if (entry == null || entry.version != 1 || !IsId(entry.id) || !TryName(entry.name, out _)
             || entry.width <= 0 || entry.height <= 0 || entry.width > 4096 || entry.height > 4096) return false;
-        image = new byte[data.Length - 8 - length]; Buffer.BlockCopy(data, 8 + length, image, 0, image.Length);
         return true;
     }
     static void MigrateLegacy(bool back, Action done)
@@ -210,28 +228,31 @@ public static partial class HandSurfaceLibrary
         string marker = "HandSurfaceMigrationV1." + (back ? "back" : "background");
         if (PlayerPrefs.GetInt(marker, 0) != 0) { done(); return; }
         string legacy = back ? CardBackManager.HandBackFilePath : CardBackManager.HandBgFilePath;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        legacy = back ? UnityAssetIdb.KeyHandBack : UnityAssetIdb.KeyHandBg;
+        UnityAssetIdb.Read(legacy, Migrate, reason => { Debug.LogWarning(reason); done(); });
+#else
         byte[] bytes = null;
         try
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            legacy = back ? UnityAssetIdb.KeyHandBack : UnityAssetIdb.KeyHandBg;
-            bytes = UnityAssetIdb.GetCached(legacy);
-#else
             if (File.Exists(legacy) && new FileInfo(legacy).Length < UnityAssetIdb.MaxImageBytes) bytes = File.ReadAllBytes(legacy);
-#endif
         }
         catch (Exception e) { Debug.LogWarning("保留旧手牌图片，迁移暂未完成：" + e.Message); done(); return; }
-        // 空缓存也可能是 IndexedDB 暂时不可用，不能把“未读取到”记成“已迁移”。
-        if (bytes == null || bytes.Length == 0) { done(); return; }
-        SaveNew(bytes, back ? "原有上传牌背" : "原有上传背景", back, entry =>
-        {
-            PlayerPrefs.SetInt(marker, 1); PlayerPrefs.Save();
-            if (ConfigManager.Instance != null)
+        Migrate(bytes);
+#endif
+        void Migrate(byte[] image) {
+            // 空缓存也可能是 IndexedDB 暂时不可用，不能把“未读取到”记成“已迁移”。
+            if (image == null || image.Length == 0) { done(); return; }
+            SaveNew(image, back ? "原有上传牌背" : "原有上传背景", back, entry =>
             {
-                var selected = back ? ConfigManager.Instance.GetSelectedHandBack() : ConfigManager.Instance.GetSelectedHandBackground();
-                if (selected.isCustom && selected.path == legacy) CardBackManager.SelectUploadedHandSurface(entry.id, back, true);
-            }
-            done();
-        }, reason => { Debug.LogWarning("旧手牌图片仍保留：" + reason); done(); });
+                PlayerPrefs.SetInt(marker, 1); PlayerPrefs.Save();
+                if (ConfigManager.Instance != null)
+                {
+                    var selected = back ? ConfigManager.Instance.GetSelectedHandBack() : ConfigManager.Instance.GetSelectedHandBackground();
+                    if (selected.isCustom && selected.path == legacy) CardBackManager.SelectUploadedHandSurface(entry.id, back, true);
+                }
+                done();
+            }, reason => { Debug.LogWarning("旧手牌图片仍保留：" + reason); done(); });
+        }
     }
 }

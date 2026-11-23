@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public sealed partial class CenterBoardSkin
 {
-    bool IsGraphiteImage => StyleId == CenterDisplayStyles.GraphiteImage || StyleId == CenterDisplayStyles.GraphiteImage2;
+    bool IsGraphiteImage => StyleId == CenterDisplayStyles.GraphiteImage2;
     RawImage graphiteBackground;
     Material graphiteEastMaterial;
     static readonly int EastCorners = Shader.PropertyToID("_EastCorners");
@@ -29,14 +29,14 @@ public sealed partial class CenterBoardSkin
             graphiteBackground.color = Color.white;
             graphiteBackground.raycastTarget = false;
         }
-        graphiteBackground.texture = Resources.Load<Texture2D>("image/Board/CenterDisplay/" + StyleId + "_background");
+        graphiteBackground.texture = Resources.Load<Texture2D>("image/Board/CenterDisplay/" + CenterDisplayStyles.GraphiteImage2 + "_background");
         graphiteBackground.gameObject.SetActive(true);
-        if (StyleId == CenterDisplayStyles.GraphiteImage2 && !graphiteEastMaterial)
+        if (!graphiteEastMaterial)
         {
             var shader = Resources.Load<Shader>("image/Board/CenterDisplay/CenterEastTint");
             if (shader) graphiteEastMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
         }
-        graphiteBackground.material = StyleId == CenterDisplayStyles.GraphiteImage2 ? graphiteEastMaterial : null;
+        graphiteBackground.material = graphiteEastMaterial;
         UpdateGraphiteEast();
         if (!graphiteFont) graphiteFont = Resources.Load<TMP_FontAsset>("font/CenterDisplay/GraphiteHeitiStatic");
         ConfigureRect(middle, Vector2.zero, new Vector2(25, 25));
@@ -60,7 +60,7 @@ public sealed partial class CenterBoardSkin
 
     void UpdateGraphiteEast()
     {
-        if (!graphiteEastMaterial || StyleId != CenterDisplayStyles.GraphiteImage2) return;
+        if (!graphiteEastMaterial) return;
         var corners = Vector4.zero;
         for (int i = 0; i < winds.Length; i++)
         {

@@ -128,7 +128,7 @@ def test_zero_settlement_still_has_all_players_and_confirmation():
 
 @pytest.mark.parametrize('synchronous', [False, True])
 def test_duplicate_final_contains_both_tables_only_after_both_finish(synchronous):
-    paired, _ = pair(count=1, sync_mode=synchronous)
+    paired = pair(count=1, sync_mode=synchronous)
     opened, open_messages = make_state()
     closed, closed_messages = make_state()
     for player in closed.player_list:
@@ -139,15 +139,14 @@ def test_duplicate_final_contains_both_tables_only_after_both_finish(synchronous
     open_board = finish(opened, open_messages)
     close_board = finish(closed, closed_messages)
     opened.duplicate_match = closed.duplicate_match = paired
+    paired.states.update(open=opened, closed=closed)
     assert match_summary(opened) is None
 
     async def complete():
-        first = asyncio.create_task(paired.submit('open', 1, open_board['team_changes'], [0,0], {},
-                                    {'game_record': deepcopy(opened.game_record)}))
+        first = asyncio.create_task(paired.submit('open', 1, open_board['team_changes'], [0,0], {}))
         await asyncio.sleep(0)
         assert match_summary(closed) is None
-        await paired.submit('closed', 1, close_board['team_changes'], [0,0], {},
-                            {'game_record': deepcopy(closed.game_record)})
+        await paired.submit('closed', 1, close_board['team_changes'], [0,0], {})
         await first
     asyncio.run(complete())
     public = paired.public_info()

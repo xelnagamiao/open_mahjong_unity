@@ -6,8 +6,47 @@ from unittest.mock import patch
 import pytest
 
 from .test_xueliu_doubles import make_state
+from .test_xueliu_exchange import exchange_state, EXCHANGE_WIN
 from .test_action_window import submit
-from .boardcast import broadcast_xueliu_exchange_animation, reconnected_send_pending_ask
+from .boardcast import broadcast_game_start, broadcast_xueliu_exchange_animation, reconnected_send_pending_ask, _build_players_info
+
+
+@pytest.mark.parametrize('direction', [1, 2, 3])
+def test_solo_exchange_animates_authoritative_direction_then_receives_private_tiles(direction):
+    async def scenario():
+        state, messages = exchange_state()
+        for i, player in enumerate(state.player_list):
+            player.hand_tiles = list(EXCHANGE_WIN if i == 0 else EXCHANGE_WIN[:-1])
+        choices = [[11, 12, 13], [14, 15, 16], [21, 22, 23], [24, 25, 26]]
+        state.exchange_animation_seconds = 0
+        async def choose(current):
+            for seat, chosen in enumerate(choices):
+                await submit(state, seat, 'xueliu_exchange_three', selected_tiles=chosen)
+        async def animate(current):
+            assert not any(current.action_dict.values())
+            for i, player in enumerate(current.player_list):
+                await reconnected_send_pending_ask(current, player.user_id)
+                info = messages[-1]['message']['ask_hand_action_info']
+                assert info['action_list'] == []
+                assert info['xueliu_exchange'] == dict(animating=True, direction=direction,
+                    active_players=[0,1,2,3], outgoing_tiles=choices[i], animation_seconds=0)
+                assert [p['hand_tiles_count'] for p in _build_players_info(current, player.user_id)] == [14,13,13,13]
+        async def receive():
+            messages.clear()
+            await broadcast_game_start(state)
+            for i, player in enumerate(state.player_list):
+                snapshot = next(item['message']['game_info'] for item in messages if item['user_id'] == player.user_id)
+                assert snapshot['sbr_exchange_direction'] == direction and 0 < snapshot['exchange_receipt_seconds'] <= .75
+                view = snapshot['players_info']
+                assert [p.get('sbr_received_tiles') for p in view] == [
+                    choices[(i-direction)%4] if seat == i else None for seat in range(4)]
+        with patch.object(state, '_opening_exchange_direction', return_value=direction), \
+             patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', choose), \
+             patch(__package__+'.boardcast.broadcast_xueliu_exchange_animation', animate), \
+             patch.object(state, 'broadcast_game_start', receive), patch.object(state, '_dingque_phase'), \
+             patch(__package__+'.XueliuGameState.broadcast_dingque_done'):
+            await state._opening_phase()
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize('round_number', [1, 2, 3, 4])
@@ -46,6 +85,12 @@ def test_both_selections_then_animation_then_next_pair(round_number):
                         await asyncio.sleep(.001)
                     assert state.player_list[group[0]].xueliu_throw_tiles
                     assert animations.empty(), '一人完成就抢先播放了动画'
+                    if stage == 2:
+                        receiver = (group[0] + 2) % 4
+                        await reconnected_send_pending_ask(state, state.player_list[receiver].user_id)
+                        view = messages[-1]['message']['ask_hand_action_info']['xueliu_exchange']
+                        assert view['teammate_suit'] == 0
+                        assert view['outgoing_tiles'] == state.player_list[receiver].xueliu_throw_tiles
                     assert state.exchange_view(group[0])['active_players'] == group
                     assert state.exchange_view(group[1])['active_players'] == group
                     assert state.game_status == 'waiting_xueliu_throw'
@@ -69,6 +114,8 @@ def test_both_selections_then_animation_then_next_pair(round_number):
                         assert not info['action_list'] and info['remaining_time'] == 0
                         incoming = state.player_list[(index+2)%4].xueliu_throw_tiles
                         assert view['teammate_suit'] == (incoming[0]//10 if incoming else 0)
+                        assert view['direction'] == 2 and 'dice' not in view
+                        assert view['outgoing_tiles'] == state.player_list[index].xueliu_throw_tiles
                         assert 'tiles' not in view and 'hand_tiles' not in view
                     finish[stage].set()
                 await asyncio.wait_for(task, 2)

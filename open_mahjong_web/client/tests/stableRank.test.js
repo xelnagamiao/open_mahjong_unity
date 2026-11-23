@@ -160,7 +160,7 @@ test('settlement rounding matches authoritative Python round before averaging', 
   }
 })
 
-test('every supported room and format stays separate and MCRPL shows qualification requirements', () => {
+test('every supported room and format stays separate and MCRPL uses the seventh-dan threshold with a qualification override', () => {
   const source = STABLE_RANK_TIERS.flatMap((tier) => STABLE_RANK_FORMATS.flatMap((format) =>
     samples([1, 1, 1, 1], tier.value, format.value)))
   const result = calculateStableRank(source)
@@ -170,7 +170,9 @@ test('every supported room and format stays separate and MCRPL shows qualificati
   assert.equal(result.defaultKey, 'advanced')
   for (const group of result.groups) assert.equal(group.sampleCount, 12)
   for (const group of result.formatGroups) assert.equal(group.sampleCount, 4)
-  assert.ok(result.groups.filter((group) => group.tier === 'mcrpl').every((group) => group.admissionLimited))
+  const mcrpl = STABLE_RANK_TIERS.find((tier) => tier.value === 'mcrpl')
+  assert.equal(mcrpl.minRankIndex, 16)
+  assert.equal(mcrpl.qualificationOverride, true)
 })
 
 test('tied places average already rounded PT and remain one observation with the real competition rank', () => {

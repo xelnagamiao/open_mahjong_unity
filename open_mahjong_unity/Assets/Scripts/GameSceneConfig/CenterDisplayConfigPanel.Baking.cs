@@ -11,6 +11,9 @@ public sealed partial class CenterDisplayConfigPanel
 {
     public void BakeLayout()
     {
+        // Old scenes baked preview textures directly onto each RawImage.
+        foreach (var option in options)
+            if (option != null && option.preview) option.preview.texture = null;
         if (HasBakedUi) return;
         PrepareMinimalLayout(); EnsureCatalogOptions(); EnsureScrollableOptions();
         fixedUiBaked = true;
@@ -69,7 +72,6 @@ public sealed partial class CenterDisplayConfigPanel
             }
             option.nameText.text = entry.Name;
             option.nameText.gameObject.SetActive(false);
-            option.preview.texture = CenterDisplayStyles.GetPreview(entry.Id);
             ordered.Add(option);
             retainedButtons.Add(option.button);
         }
@@ -84,6 +86,12 @@ public sealed partial class CenterDisplayConfigPanel
             ordered[i].button.transform.SetSiblingIndex(i);
         }
         options = ordered.ToArray();
+    }
+
+    internal Texture2D GetEditorPreview(RawImage image)
+    {
+        var option = Array.Find(options, item => item != null && item.preview == image);
+        return option != null ? CenterDisplayStyles.GetPreview(option.id) : null;
     }
 
     // Keep card dimensions; only overflowing rows become scrollable inside the gallery area.

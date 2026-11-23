@@ -39,10 +39,12 @@ CREATE TABLE IF NOT EXISTS duplicate_games (
   wall_id BIGINT NOT NULL REFERENCES duplicate_walls(id),
   ended_at TIMESTAMPTZ NULL
 );
+ALTER TABLE duplicate_games ADD COLUMN IF NOT EXISTS paired_match_id UUID;
+CREATE INDEX IF NOT EXISTS idx_duplicate_games_paired ON duplicate_games(paired_match_id) WHERE paired_match_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_duplicate_games_wall ON duplicate_games(wall_id);
--- Record visibility also verifies training against the authoritative paired match.
--- Keep this schema compatible with the Python paired-match store, including when
--- the Web service starts before the game service on an existing installation.
+ALTER TABLE IF EXISTS game_record_tables ADD COLUMN IF NOT EXISTS training_match_id UUID;
+-- Record visibility also verifies legacy training against the authoritative paired match.
+-- Older published records still use this relation for their paired identity.
 CREATE TABLE IF NOT EXISTS sichuan_duplicate_matches (
   id UUID PRIMARY KEY, wall_id BIGINT NULL REFERENCES duplicate_walls(id),
   event_id VARCHAR(32) NULL, status VARCHAR(20) NOT NULL,

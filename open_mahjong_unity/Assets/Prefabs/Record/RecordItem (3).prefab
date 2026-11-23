@@ -701,9 +701,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 616298615774706154}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.5176471, g: 0.5882353, b: 0.6901961, a: 1}
   m_RaycastTarget: 0
@@ -1159,9 +1159,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 742274970182323828}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.23137255, g: 0.3529412, b: 0.5058824, a: 1}
   m_RaycastTarget: 1
@@ -1189,7 +1189,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 742274970182323828}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 6ad6d421058b4e7fbbb1866dda1936fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -1298,9 +1298,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 987337297461985168}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.68235296, g: 0.73333335, b: 0.8156863, a: 1}
   m_RaycastTarget: 0
@@ -1598,9 +1598,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1516736818576650637}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.18431373, g: 0.27450982, b: 0.4117647, a: 1}
   m_RaycastTarget: 1
@@ -2102,9 +2102,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2267984101362411353}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.8156863, g: 0.85490197, b: 0.9098039, a: 1}
   m_RaycastTarget: 1
@@ -2132,7 +2132,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2267984101362411353}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 6ad6d421058b4e7fbbb1866dda1936fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -2224,9 +2224,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2364965809747687611}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.8156863, g: 0.85490197, b: 0.9098039, a: 1}
   m_RaycastTarget: 1
@@ -2254,7 +2254,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2364965809747687611}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 6ad6d421058b4e7fbbb1866dda1936fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -2544,9 +2544,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2775174603470379041}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.5176471, g: 0.5882353, b: 0.6901961, a: 1}
   m_RaycastTarget: 0
@@ -3288,9 +3288,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4098110425081275220}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.9647059, g: 0.972549, b: 0.98039216, a: 0.6}
   m_RaycastTarget: 0
@@ -3593,7 +3593,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1474, y: 210}
+  m_SizeDelta: {x: 0, y: 210}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &1895159861291716458
 CanvasRenderer:
@@ -4272,9 +4272,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4404994203203437499}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0}
   m_RaycastTarget: 1
@@ -4322,7 +4322,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 4404994203203437499}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 6ad6d421058b4e7fbbb1866dda1936fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
   m_Navigation:
@@ -4611,9 +4611,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4684209562861779486}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.8156863, g: 0.85490197, b: 0.9098039, a: 1}
   m_RaycastTarget: 1
@@ -4641,7 +4641,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 4684209562861779486}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: 6ad6d421058b4e7fbbb1866dda1936fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -5090,9 +5090,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 5003613314105888405}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -6867,9 +6867,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6929655925619669319}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.9098039, g: 0.92941177, b: 0.9607843, a: 1}
   m_RaycastTarget: 1
@@ -7121,9 +7121,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 7559239173556036802}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -7714,9 +7714,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 8440140193303435504}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.68235296, g: 0.73333335, b: 0.8156863, a: 1}
   m_RaycastTarget: 0
@@ -8487,9 +8487,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 9134525673803471351}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 2bf562e0442244ab948a7544a6be40f5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: Assembly-CSharp::RecordCardImage
   m_Material: {fileID: 0}
   m_Color: {r: 0.5176471, g: 0.5882353, b: 0.6901961, a: 1}
   m_RaycastTarget: 0

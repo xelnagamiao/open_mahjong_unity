@@ -22,7 +22,7 @@ def should_close_when_offline(state):
     if pair is not None:
         # A completed table still owns its waiting task and final-record hook.
         # Keep it until the sibling submits, even if nobody remains connected.
-        # Use durable progress, not current_round or the ready/UI status: an
+        # Use submitted board progress, not current_round or the ready/UI status: an
         # unsubmitted final board must still follow ordinary offline cleanup.
         if pair.completed:
             return False

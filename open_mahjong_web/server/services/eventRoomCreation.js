@@ -29,6 +29,8 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
       fail(400, '真实时间与第二等待时间仅支持川麻双打复式');
     }
     const training = paired && roomConfig.wall_source === 'training';
+    if (roomConfig.reuse_training_room !== undefined && typeof roomConfig.reuse_training_room !== 'boolean') fail(400, '重复使用必须为布尔值');
+    if (roomConfig.reuse_training_room && !training) fail(400, '重复使用仅支持训练牌山');
     if (!paired && roomConfig.wall_source !== undefined) fail(400, '牌山来源仅支持川麻双打复式');
     if ((paired && !training) || roomConfig.duplicate_key || body.auto_duplicate) roomConfig.allow_spectator = false;
     if (rule === 'sichuan' && !paired && (roomConfig.duplicate_key || body.duplicate_enabled || body.auto_duplicate)) {
@@ -44,8 +46,14 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
       if (body.auto_duplicate || body.duplicate_enabled) fail(400, '川麻双打复式请使用牌山来源设置');
       if (training) {
         if (roomConfig.duplicate_key) fail(400, '训练牌山不能同时使用复式密钥');
-        roomConfig.random_seed = normalizeSceneSeed(roomConfig.random_seed, RoomSourceError);
-        if (!roomConfig.random_seed) fail(400, '请输入训练牌山随机种子');
+        const seed = normalizeSceneSeed(roomConfig.random_seed, RoomSourceError);
+        if (roomConfig.reuse_training_room) {
+          if (seed) fail(400, '重复使用训练房时不能指定随机种子');
+          delete roomConfig.random_seed;
+        } else {
+          if (!seed) fail(400, '请输入训练牌山随机种子');
+          roomConfig.random_seed = seed;
+        }
         if (roomConfig.allow_spectator !== undefined && typeof roomConfig.allow_spectator !== 'boolean') fail(400, '允许观战必须为布尔值');
         roomConfig.allow_spectator ??= true;
         delete roomConfig.duplicate_key;

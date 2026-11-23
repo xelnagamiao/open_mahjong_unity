@@ -87,6 +87,7 @@ def build_room_data(
 def build_db_manager() -> MagicMock:
     db = MagicMock()
     db.get_rank_data.return_value = None
+    db.store_sichuan_pair_records.return_value = {}
     db.store_guobiao_game_record.return_value = None
     db.store_guobiao_game_stats.return_value = None
     db.store_guobiao_fan_stats.return_value = None

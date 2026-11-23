@@ -26,7 +26,7 @@ def duplicate_db(monkeypatch):
     with admin.cursor() as cursor:
         cursor.execute(f'CREATE SCHEMA "{schema}"')
     pool = ThreadedConnectionPool(1, 4, dsn=dsn, options=f"-c search_path={schema}")
-    db = SimpleNamespace(_get_connection=pool.getconn, _put_connection=pool.putconn)
+    db = SimpleNamespace(pool=pool, _get_connection=pool.getconn, _put_connection=pool.putconn)
     conn = pool.getconn()
     with conn:
         with conn.cursor() as cursor:
@@ -91,37 +91,18 @@ def insert_wall(db, rule="guobiao"):
         (rule, Json([11] * 4)), fetch=True)[0]
 
 
-def training_pair(db):
-    from server.database.sichuan_duplicate import PairedMatchStore
+def training_pair():
     from server.gamestate.public.sichuan_duplicate import new_match
     from server.game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, make_board
     seed='0123456789abcdef'*4
     snapshot=new_match(str(uuid4()),SBR_DUPLICATE,{'open':'1','closed':'2'},[make_board(seed,1)],seed)
     snapshot.update(wall_source='training',wall_type='training')
-    store=PairedMatchStore(db)
-    store.create(snapshot,event_id='training_event',owner_id=10000001,name='training')
-    return snapshot,store
+    return snapshot
 
 
-def test_training_migration_persists_seed_snapshot_without_keys_or_quota(duplicate_db):
+def test_legacy_training_record_access_requires_trusted_pair_and_no_formal_link(duplicate_db):
     db=duplicate_db
-    snapshot,store=training_pair(db)
-    assert snapshot['wall_id'] is None and 'key' not in snapshot
-    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
-    assert execute(db,"SELECT COUNT(*) FROM duplicate_games",fetch=True)==(0,)
-    assert execute(db,"""SELECT is_nullable FROM information_schema.columns
-        WHERE table_schema=current_schema() AND table_name='sichuan_duplicate_matches' AND column_name='wall_id'""",fetch=True)==('YES',)
-    snapshot.update(revision=1,status='interrupted')
-    store.save(snapshot,0)
-    recovered=store.unfinished()[0]
-    assert recovered['seed']==snapshot['seed'] and recovered['boards']==snapshot['boards']
-    assert recovered['wall_source']=='training' and recovered['wall_id'] is None
-    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
-
-
-def test_training_record_access_requires_persisted_pair_and_no_formal_link(duplicate_db):
-    db=duplicate_db
-    snapshot,store=training_pair(db)
+    snapshot=training_pair()
     game_id='TrainingGame0001'
     title=dict(rule='sichuan',sub_rule='sichuan/doubles_duplicate',is_duplicate=True,
                wall_source='training',duplicate_wall_type='training',duplicate_match_id=snapshot['id'],duplicate_table='open')
@@ -130,7 +111,8 @@ def test_training_record_access_requires_persisted_pair_and_no_formal_link(dupli
     seed_table(db, game_id, record)
     assert not duplicate_record_is_visible(db,record,game_id)
     snapshot.update(record_ids={'open':game_id},revision=1)
-    store.save(snapshot,0)
+    execute(db, "INSERT INTO sichuan_duplicate_matches(id, status, data) VALUES(%s, 'completed', %s)",
+            (snapshot['id'], Json(snapshot)))
     assert duplicate_record_is_visible(db,record,game_id)
     assert not duplicate_record_is_visible(db,record,'forgedgame')
     wall_id=insert_wall(db)
@@ -141,28 +123,60 @@ def test_training_record_access_requires_persisted_pair_and_no_formal_link(dupli
     assert not duplicate_record_is_visible(db,record,game_id)
 
 
-def test_training_record_saves_bot_table_without_formal_event_statistics(duplicate_db,monkeypatch):
+@pytest.mark.parametrize("formal", [False, True])
+def test_two_table_publication_is_atomic_idempotent_and_uses_no_room_snapshot(duplicate_db, monkeypatch, formal):
     from unittest.mock import Mock
-    from server.database.sichuan.store_sichuan import store_sichuan_game_record
-    db=duplicate_db
-    snapshot,store=training_pair(db)
-    metrics=Mock()
-    monkeypatch.setattr('server.database.scene_stats.record_game_metrics',metrics)
-    record={'game_title':dict(rule='sichuan',sub_rule='sichuan/doubles_duplicate',room_type='events',
-        event_id='training_event',is_duplicate=True,wall_source='training',duplicate_wall_type='training',
-        duplicate_match_id=snapshot['id'],duplicate_table='open',max_round=1,duplicate_round_count=1,
-        game_instance_id='training-instance'), 'game_round':{}}
-    players=[SimpleNamespace(user_id=10000001 if i==0 else i,username=f'p{i}',score=0,original_player_index=i,
-        record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
-    game_id=store_sichuan_game_record(db,record,players,'events','normal')
-    assert game_id
-    assert execute(db,"SELECT room_type,event_id FROM game_player_records WHERE game_id=%s",(game_id,),fetch=True)==('custom',None)
-    assert execute(db,"SELECT COUNT(*) FROM duplicate_games",fetch=True)==(0,)
-    assert execute(db,"SELECT COUNT(*) FROM duplicate_walls",fetch=True)==(0,)
-    metrics.assert_not_called()
-    snapshot.update(record_ids={'open':game_id},revision=1)
-    store.save(snapshot,0)
-    assert DatabaseManager.get_record_by_id(db,game_id) is not None
+    from server.database.sichuan_duplicate import attach_paired_wall
+    from server.database.record_persistence import store_sichuan_pair_records
+    from server.records import store
+    db = duplicate_db
+    match = training_pair()
+    if formal:
+        match.update(wall_source="key", wall_type="key")
+        attach_paired_wall(db, match, event_id="training_event", owner_id=10000001, name="formal")
+    metrics = Mock()
+    monkeypatch.setattr("server.database.scene_stats.record_game_metrics", metrics)
+    tables = {}
+    for side in ("open", "closed"):
+        title = dict(rule="sichuan", sub_rule=match["profile"]["sub_rule"], room_type="events",
+                     event_id="training_event", is_duplicate=True, wall_source=match["wall_source"],
+                     duplicate_wall_type=match["wall_type"], duplicate_match_id=match["id"],
+                     duplicate_table=side, max_round=1, duplicate_round_count=1, game_instance_id=side)
+        if formal:
+            title.update(duplicate_key=match["key"], duplicate_game_id=match["table_record_ids"][side])
+        players = [SimpleNamespace(user_id=10000001 if i==0 else i, username=f"p{i}", score=0,
+                   original_player_index=i, record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
+        tables[side] = ({"game_title": title, "game_round": {}}, players, "events", "normal")
+    original = store.publish_table
+    def fail_second(cursor, gid, payload, players, **kwargs):
+        if payload["game_title"]["duplicate_table"] == "closed":
+            raise ValueError("second table failed")
+        return original(cursor, gid, payload, players, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "publish_table", fail_second)
+        with pytest.raises(ValueError, match="second table failed"):
+            store_sichuan_pair_records(db, match, tables)
+    assert execute(db, "SELECT COUNT(*) FROM game_record_tables", fetch=True) == (0,)
+    assert execute(db, "SELECT COUNT(*) FROM game_player_records", fetch=True) == (0,)
+    ids = store_sichuan_pair_records(db, match, tables)
+    assert len(set(ids.values())) == 2
+    assert store_sichuan_pair_records(db, match, tables) == ids
+    assert execute(db, "SELECT COUNT(*) FROM game_record_tables", fetch=True) == (2,)
+    assert execute(db, "SELECT COUNT(*) FROM game_replays", fetch=True) == (1,)
+    assert execute(db, "SELECT COUNT(*) FROM sichuan_duplicate_matches", fetch=True) == (0,)
+    assert execute(db, "SELECT COUNT(*) FROM game_player_records", fetch=True) == (2,)
+    if formal:
+        assert execute(db, "SELECT COUNT(*) FROM duplicate_games WHERE ended_at IS NOT NULL", fetch=True) == (2,)
+        assert not duplicate_record_is_visible(db, tables["open"][0], ids["open"])
+    else:
+        assert execute(db, "SELECT COUNT(*) FROM duplicate_games", fetch=True) == (0,)
+        assert execute(db, "SELECT COUNT(*) FROM duplicate_walls", fetch=True) == (0,)
+        assert execute(db, "SELECT COUNT(*) FROM game_record_tables WHERE training_match_id=%s",
+                       (match["id"],), fetch=True) == (2,)
+        for side, gid in ids.items():
+            assert duplicate_record_is_visible(db, tables[side][0], gid)
+            assert DatabaseManager.get_record_by_id(db, gid) is not None
+        metrics.assert_not_called()
 
 
 @pytest.mark.parametrize("count", [1, 4, 8, 12, 16])
@@ -332,3 +346,51 @@ def test_duplicate_marker_without_key_fails_closed_until_association_is_unlocked
     assert duplicate_record_is_visible(db, record, game_id) is False
     execute(db, "UPDATE duplicate_walls SET is_unlocked=TRUE WHERE id=%s", (wall_id,))
     assert duplicate_record_is_visible(db, record, game_id) is True
+
+@pytest.mark.parametrize("training", [True, False])
+def test_completed_eight_player_game_publishes_both_playable_tables(duplicate_db, training):
+    import asyncio
+    from server.gamestate.game_sichuan.test_duplicate_simulation import play_paired_game
+    from server.gamestate.game_sichuan.DuplicateGameState import SbrDuplicateGameState
+    ids = asyncio.run(play_paired_game("sichuan/doubles_duplicate", SbrDuplicateGameState, 1807,
+                                      False, training, replay_db=duplicate_db))
+    assert set(ids) == {"open", "closed"} and all(ids.values())
+    record, = execute(duplicate_db, "SELECT record FROM game_replays", fetch=True)
+    assert record["completeness"] == "complete"
+    for side, table in record["tables"].items():
+        assert table["table_record_id"] == ids[side]
+        assert len(table["payload"]["game_round"]) == 4
+        assert table["payload"]["duplicate_match"]["status"] == "completed"
+    assert execute(duplicate_db, "SELECT COUNT(*) FROM sichuan_duplicate_matches", fetch=True) == (0,)
+
+
+def test_completed_pair_publishes_once_when_pool_capacity_returns(duplicate_db):
+    import asyncio
+    from server.gamestate.game_sichuan.DuplicateGameState import SbrDuplicateGameState, _pending_writes
+    from server.gamestate.game_sichuan.test_duplicate_simulation import play_paired_game
+
+    async def run():
+        pool = duplicate_db.pool
+        held = [pool.getconn() for _ in range(pool.maxconn)]
+        try:
+            ids = await play_paired_game("sichuan/doubles_duplicate", SbrDuplicateGameState,
+                                         1807, False, True, replay_db=duplicate_db)
+            assert ids == {"open": None, "closed": None}
+            retry, = _pending_writes
+            with held[0] as conn, conn.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM game_record_tables")
+                assert cursor.fetchone() == (0,)
+            pool.putconn(held.pop())
+            await asyncio.wait_for(retry, timeout=20)
+            assert retry not in _pending_writes
+        finally:
+            for conn in held:
+                pool.putconn(conn)
+
+    asyncio.run(run())
+    assert execute(duplicate_db, "SELECT COUNT(*) FROM game_replays WHERE record->>'completeness'='complete'",
+                   fetch=True) == (1,)
+    assert execute(duplicate_db, "SELECT array_agg(table_id ORDER BY table_id) FROM game_record_tables",
+                   fetch=True) == (["closed", "open"],)
+    assert execute(duplicate_db, "SELECT COUNT(*),COUNT(DISTINCT user_id) FROM game_player_records",
+                   fetch=True) == (8, 8)

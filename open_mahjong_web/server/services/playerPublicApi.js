@@ -1,3 +1,4 @@
+const { tableTitles, filteredTables } = require('./replayTables');
 const { statisticsSelection, subRuleSql, statsKeySql, normalizeMatchType } = require('./statisticsCatalog');
 const { aggregatePlayerRows, fetchMetricRows, allPlayerRuleStats } = require('./subrulePlayerStats');
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
@@ -188,7 +189,7 @@ async function fetchPlayerInfo(userId) {
       [userId]
     ),
     pool.query(
-      `SELECT ${statsKeySql(subRuleSql('p','g'))} AS rule,COUNT(*)::int AS total_games FROM game_player_records p JOIN game_record_metadata g USING(game_id) WHERE user_id=$1 GROUP BY 1`,
+      `SELECT ${statsKeySql(subRuleSql('p','g'))} AS rule,COUNT(*)::int AS total_games FROM game_player_records p JOIN ${tableTitles} g USING(game_id) WHERE user_id=$1 GROUP BY 1`,
       [userId]
     ),
     allPlayerRuleStats(pool, userId),
@@ -242,7 +243,7 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     const pageSql = `
       SELECT gr.replay_id AS game_id, MAX(gr.created_at) AS created_at, COUNT(*) OVER() AS total
       FROM game_player_records gpr
-      JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+      JOIN ${filteredTables(conditions)} gr ON gr.game_id = gpr.game_id
       WHERE ${conditions.join(' AND ')}
       GROUP BY gr.replay_id
       ORDER BY MAX(gr.created_at) DESC, gr.replay_id DESC
@@ -257,7 +258,7 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
       const countResult = await db.query(
         `SELECT COUNT(DISTINCT gr.replay_id)::int AS total
          FROM game_player_records gpr
-         JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+         JOIN ${filteredTables(conditions)} gr ON gr.game_id = gpr.game_id
          WHERE ${conditions.join(' AND ')}`,
         pageParams.slice(0, -2),
       );
@@ -385,7 +386,7 @@ async function fetchPlayerScopeCounts(userId, query) {
         COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'elo')::int AS elo,
         COUNT(*) FILTER (WHERE gpr.room_type = 'events')::int AS events
       FROM game_player_records gpr
-      JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+      JOIN ${filteredTables(conditions)} gr ON gr.game_id = gpr.game_id
       WHERE ${conditions.join(' AND ')}
     `, params);
     return result.rows[0];

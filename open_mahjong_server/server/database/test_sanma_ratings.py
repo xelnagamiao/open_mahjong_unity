@@ -1,4 +1,5 @@
 """Real PostgreSQL tests use the existing disposable-schema fixture."""
+from server.records.test_seed import seed_single
 from concurrent.futures import ThreadPoolExecutor
 import pytest
 from psycopg2.extras import Json
@@ -92,7 +93,7 @@ def test_three_and_four_player_records_statistics_and_fans_are_separate(db):
         ('three','riichi/sanma','1/4_sanma_rank','match',1),
         ('four','riichi/standard','1/4_rank','match',10),
         ('custom','riichi/sanma','1/4_sanma','custom',100)):
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)',(gid,Json({})))
+        seed_single(db,gid,{})
         db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)',(gid,USERS[0],'test','riichi',sub_rule,mode,room_type))
         db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,fan_stats) VALUES(%s,%s,%s,%s,%s,%s,%s)',(gid,USERS[0],'riichi',sub_rule,mode,room_type,Json({'riichi':games})))
         db.sql('INSERT INTO riichi_player_game_stats VALUES(%s,%s,%s,%s)',(gid,USERS[0],VERSION,Json({'total_games':games,'fan_stats':{'riichi':games}})))
@@ -116,15 +117,15 @@ def test_recent_placement_trends_filter_three_and_four_before_limit(db):
     # More recent four-player records must not evict the older Sanma trend.
     for i in range(12):
         gid=f'four-{i:02}'
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)',(gid,Json({})))
+        seed_single(db,gid,{})
         db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,4,0,%s,%s,%s,%s)',
             (gid,USERS[0],'test','riichi','riichi/standard','1/4_rank','match'))
     for gid,room in [('three','match'),('three-custom','custom')]:
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)',(gid,Json({})))
+        seed_single(db,gid,{})
         db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,3,0,%s,%s,%s,%s)',
             (gid,USERS[0],'test','riichi','riichi/sanma','1/4_sanma' if room=='custom' else '1/4_sanma_rank',room))
-    db.sql("UPDATE game_records SET created_at='2026-01-01' WHERE game_id='three'")
-    db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,rank,created_at) SELECT p.game_id,p.user_id,p.rule,p.sub_rule,p.match_type,p.room_type,p.rank,g.created_at FROM game_player_records p JOIN game_records g USING(game_id)')
+    db.sql("UPDATE game_record_tables SET created_at='2026-01-01' WHERE game_id='three'")
+    db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,rank,created_at) SELECT p.game_id,p.user_id,p.rule,p.sub_rule,p.match_type,p.room_type,p.rank,g.created_at FROM game_player_records p JOIN game_record_tables g USING(game_id)')
     result=get_player_recent_records(db,USERS[0])
     assert [r['game_id'] for r in result['riichi_sanma']['match']['placements']]==['three']
     assert [r['rank'] for r in result['riichi']['match']['placements']]==[4]*10

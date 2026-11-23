@@ -89,19 +89,44 @@ _FINGERPRINT = """encode(sha256(convert_to(jsonb_build_array(r.record,r.content_
 
 
 def migrate_database(conn, *, apply=False, batch_size=32, progress=None, receipt=None, receipt_out=None):
-    from .store import canonical_game_id, create_projection, create_replay_table, summarize_match
+    from .store import canonical_game_id, create_replay_table, summarize_match
+    from .native_schema import retire_projections, verify_sources
     if not 1 <= batch_size <= 1000:
         raise ValueError("batch_size must be between 1 and 1000")
     try:
+        # Inspect outside the conversion snapshot. Freeze native writers BEFORE
+        # acquiring the repeatable-read snapshot so a just-committed table is
+        # included even when a rehearsal receipt is being reused.
+        freeze_native = False
+        if apply:
+            with conn.cursor() as probe:
+                probe.execute("""SELECT to_regclass('game_record_tables') IS NOT NULL
+                                    AND to_regclass('game_replays') IS NOT NULL,
+                    to_regclass('game_records') IS NOT NULL OR to_regclass('game_record_metadata') IS NOT NULL
+                    OR to_regprocedure('replay_table_payload(jsonb)') IS NOT NULL""")
+                native, pending = probe.fetchone()
+                freeze_native = native and pending
+            conn.rollback()
         with conn.cursor() as cur:
             cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            if freeze_native:
+                cur.execute("SET LOCAL lock_timeout='5s'")
+                cur.execute("LOCK TABLE game_replays,game_record_tables IN SHARE MODE")
             kind = relation_kind(cur, "game_records")
-            if kind == "v":
+            if kind in (None, "v") and all(relation_kind(cur,n) == "r" for n in ("game_record_tables","game_replays")):
+                cur.execute("SET LOCAL lock_timeout='5s'")
                 stats = inspect_canonical(cur)
-                conn.rollback()
-                if apply:
-                    stats["locator_storage"] = reclaim_locator_storage(conn)
-                return {**stats, "status": "already_unified"}
+                proofs = {} if receipt_out else None
+                if not apply or freeze_native or proofs is not None:
+                    stats["verified_sources"] = verify_sources(conn, progress=progress, receipt=receipt, proofs=proofs)
+                    if stats["verified_sources"] != stats["tables"]:
+                        raise RecordConflict("Incomplete source verification")
+                retired = retire_projections(cur, preview=not apply)
+                conn.commit() if apply else conn.rollback()
+                if receipt_out:
+                    write_json(receipt_out, {"format":"omu.verified-native-tables.1","tables":proofs,"sha256":digest(proofs)})
+                return {**stats, "status": ("applied" if apply else "ready") if retired else "already_unified",
+                        "retired" if apply else "would_retire": retired}
             if kind != "r" or relation_kind(cur, "game_record_tables") or relation_kind(cur, "game_replays"):
                 raise RecordConflict("Expected a legacy game_records table with no partial cutover")
             old = ("record_aliases", "match_record_heads", "match_records", "record_migration_runs")
@@ -279,13 +304,8 @@ def migrate_database(conn, *, apply=False, batch_size=32, progress=None, receipt
                     ADD UNIQUE(replay_id,table_id), ADD CHECK(table_id IN ('main','open','closed'))""")
                 if inspect_canonical(cur) != {"matches": counts["matches"], "tables": counts["tables"]}:
                     raise RecordConflict("Staged replay and locator verification failed")
-                create_projection(cur)
-                # Compare the actual SQL projection, including transport prompts, against EVERY
-                # source while both are still available and protected by this transaction.
-                cur.execute("""SELECT count(*) FROM game_record_tables old LEFT JOIN game_records restored USING(game_id)
-                               WHERE restored.record IS DISTINCT FROM old.record""")
-                if cur.fetchone()[0]:
-                    raise RecordConflict("The SQL playback projection differs from an original table")
+                if verify_sources(conn, original_column=True, progress=progress) != counts["tables"]:
+                    raise RecordConflict("Incomplete original source coverage")
                 cur.execute("ALTER TABLE game_record_tables DROP COLUMN record")
                 for name in existing:
                     cur.execute(sql.SQL("DROP TABLE {}").format(sql.Identifier(name)))

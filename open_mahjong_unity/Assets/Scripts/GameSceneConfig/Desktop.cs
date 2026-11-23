@@ -15,6 +15,7 @@ public class Desktop : MonoBehaviour
         public Texture2D OwnedTexture;
         // Never use Material.mainTexture as the cloth source: it may be our GPU composite.
         public Texture2D SourceTexture;
+        public bool ResourceLoaded;
         public Color? SolidColor;
         public string Path;
         public bool Custom;
@@ -30,11 +31,13 @@ public class Desktop : MonoBehaviour
     [SerializeField] private TableFrameRenderer tableFrame;
     private bool disposed;
     private readonly TableSeamComposer seamComposer = new TableSeamComposer();
-    private readonly Texture2D[] seamCache = new Texture2D[TableSurfaceNames.SeamStyleCount];
-    private Texture2D selectedSeamTexture;
-    private int selectedSeam = int.MinValue;
-    private int seamVersion;
-    private bool seamPending, compositeWarning;
+    // Full-size seam sources belong exclusively to the active table. Share one pending
+    // load across scene lifetimes so an old callback cannot unload a newer table's asset.
+    private static bool seamLoadPending;
+    private Texture2D displayedSeamTexture;
+    private int displayedSeam = -1;
+    private int requestedSeam = -1;
+    private bool compositeWarning;
     private Color? clothPreviewColor, edgePreviewColor;
 
     public void PreviewSurfaceColor(bool isCloth, Color? color)
@@ -117,6 +120,9 @@ public class Desktop : MonoBehaviour
             (isCloth ? ConfigManager.Instance.GetSelectedTableCloth() : ConfigManager.Instance.GetSelectedTableEdge());
         string path = selected.Item1 ?? "";
         bool custom = selected.Item2;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (custom && !CardBackManager.AppearanceVisible) return;
+#endif
         Texture2D fallback = isCloth ? defaultTableclothTexture : defaultTableEdgeTexture;
         if (!isCloth && !custom) {
             path = TableFrameRenderer.NormalizeSelection(path, false);
@@ -139,10 +145,25 @@ public class Desktop : MonoBehaviour
         surface.Applied = false;
         if (TableSurfaceColorLibrary.IsId(path))
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!TableSurfaceColorLibrary.TryGet(path, isCloth, out _)) {
+                surface.Pending = true;
+                UnityAssetIdb.Read(path, data => {
+                    if (this == null || disposed || surface.Version != version) return;
+                    surface.Pending = false;
+                    if (data != null && data.Length <= 4096) TableSurfaceColorLibrary.Read(path, data);
+                    if (TableSurfaceColorLibrary.TryGet(path, isCloth, out var entry))
+                        Apply(surface, Texture2D.whiteTexture, false, true, entry.DisplayColor);
+                    else Apply(surface, fallback, false, false);
+                }, reason => { if (surface.Version == version) surface.Pending = false; Debug.LogWarning(reason); }, 4097);
+                return;
+            }
+#else
             if (!TableSurfaceColorLibrary.IsReady) {
                 TableSurfaceColorLibrary.EnsureReady(()=>{if(this!=null&&!disposed)RefreshAppearance();});
                 return;
             }
+#endif
             if (TableSurfaceColorLibrary.TryGet(path,isCloth,out var color)) {
                 Apply(surface,Texture2D.whiteTexture,false,true,color.DisplayColor);
                 return;
@@ -164,15 +185,17 @@ public class Desktop : MonoBehaviour
         if (custom)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            if (!UnityAssetIdb.IsReady)
-            {
-                if (surface.Material.mainTexture == null) Apply(surface, fallback, false, false);
-                UnityAssetIdb.EnsureReady(() => { if (this != null && !disposed) Refresh(surface, isCloth); });
-                return;
-            }
-#endif
+            surface.Pending = true;
+            UnityAssetIdb.Read(path, bytes => {
+                if (this == null || disposed || surface.Version != version) return;
+                surface.Pending = false;
+                var loaded = LoadCustomTexture(path, bytes);
+                Apply(surface, loaded != null ? loaded : fallback, loaded != null, loaded != null);
+            }, reason => { if (surface.Version == version) surface.Pending = false; Debug.LogWarning(reason); });
+#else
             Texture2D texture = LoadCustomTexture(path);
             Apply(surface, texture != null ? texture : fallback, texture != null, texture != null);
+#endif
             return;
         }
 
@@ -189,15 +212,19 @@ public class Desktop : MonoBehaviour
 
     private void CompleteBuiltinLoad(Surface surface, int version, Texture2D texture, Texture2D fallback)
     {
-        if (this == null || disposed || surface.Version != version) return;
+        if (this == null || disposed || surface.Version != version)
+        {
+            if (texture != null) Resources.UnloadAsset(texture);
+            return;
+        }
         surface.Pending = false;
-        Apply(surface, texture != null ? texture : fallback, false, texture != null);
+        Apply(surface, texture != null ? texture : fallback, false, texture != null, resourceLoaded: texture != null);
     }
 
     private static object CustomRevision(string path)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return UnityAssetIdb.GetCached(path);
+        return UnityAssetIdb.Revision(path);
 #else
         try
         {
@@ -208,15 +235,15 @@ public class Desktop : MonoBehaviour
 #endif
     }
 
-    private static Texture2D LoadCustomTexture(string path)
+    private static Texture2D LoadCustomTexture(string path, byte[] bytes = null)
     {
         Texture2D texture = null;
         try
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            byte[] bytes = UnityAssetIdb.GetCached(path);
+            if (!LocalAssetImportLimits.ValidImage(bytes)) return null;
 #else
-            byte[] bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
+            bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
 #endif
             if (bytes == null) return null;
             // Table sampling keeps mipmaps; only gallery thumbnails omit them.
@@ -230,37 +257,47 @@ public class Desktop : MonoBehaviour
 
     private void RefreshSeam()
     {
-        int requested = ConfigManager.Instance == null ? TableSurfaceNames.DefaultSeam : ConfigManager.Instance.GetSelectedTableSeam();
-        requested = TableSurfaceNames.NormalizeSeamStyle(requested);
-        if (requested == selectedSeam && (requested == -1 || selectedSeamTexture != null || seamPending)) return;
-        selectedSeam = requested;
-        selectedSeamTexture = null;
-        seamPending = false;
-        int version = ++seamVersion;
-        if (requested == -1)
-        {
-            ApplyClothOutput();
-            return;
-        }
-        if (seamCache[requested] != null)
-        {
-            selectedSeamTexture = seamCache[requested];
-            ApplyClothOutput();
-            return;
-        }
-        seamPending = true;
-        var request = Resources.LoadAsync<Texture2D>("image/Board/TableSeams/Seam_" + requested.ToString("00"));
-        request.completed += _ => CompleteSeamLoad(requested, version, request.asset as Texture2D);
+        int style = ConfigManager.Instance == null ? TableSurfaceNames.DefaultSeam : ConfigManager.Instance.GetSelectedTableSeam();
+        requestedSeam = TableSurfaceNames.NormalizeSeamStyle(style);
+        ApplyRequestedSeam();
     }
 
-    private void CompleteSeamLoad(int requested, int version, Texture2D texture)
+    private void ApplyRequestedSeam()
     {
-        if (this == null || disposed) return;
-        if (texture != null) seamCache[requested] = texture;
-        if (seamVersion != version) return;
-        seamPending = false;
-        selectedSeamTexture = texture;
+        if (requestedSeam == displayedSeam) return;
+        if (requestedSeam == -1)
+        {
+            SetDisplayedSeam(-1, null);
+            return;
+        }
+        if (seamLoadPending) return;
+        int style = requestedSeam;
+        var request = Resources.LoadAsync<Texture2D>("image/Board/TableSeams/Seam_" + style.ToString("00"));
+        seamLoadPending = true;
+        request.completed += _ => CompleteSeamLoad(style, request.asset as Texture2D);
+    }
+
+    private static void CompleteSeamLoad(int style, Texture2D texture)
+    {
+        seamLoadPending = false;
+        var table = Instance;
+        if (table != null && !table.disposed && table.requestedSeam == style)
+        {
+            if (texture != null) table.SetDisplayedSeam(style, texture);
+            return;
+        }
+        // A later selection superseded this load. Only that latest selection needs loading.
+        if (texture != null) Resources.UnloadAsset(texture);
+        if (table != null && !table.disposed) table.ApplyRequestedSeam();
+    }
+
+    private void SetDisplayedSeam(int style, Texture2D texture)
+    {
+        var previous = displayedSeamTexture;
+        displayedSeam = style;
+        displayedSeamTexture = texture;
         ApplyClothOutput();
+        if (previous != null && previous != texture) Resources.UnloadAsset(previous);
     }
 
     private void ApplyClothOutput()
@@ -270,7 +307,7 @@ public class Desktop : MonoBehaviour
         {
             var config = ConfigManager.Instance;
             Color? solid=clothPreviewColor ?? cloth.SolidColor;
-            cloth.Material.mainTexture = seamComposer.Compose(solid.HasValue ? Texture2D.whiteTexture : cloth.SourceTexture, selectedSeamTexture,
+            cloth.Material.mainTexture = seamComposer.Compose(solid.HasValue ? Texture2D.whiteTexture : cloth.SourceTexture, displayedSeamTexture,
                 config != null ? config.GetSelectedTableShadow() : TableLightingPresets.DefaultShadow,
                 config != null ? config.GetSelectedTableLight() : TableLightingPresets.DefaultLight, solid);
             compositeWarning = false;
@@ -284,9 +321,13 @@ public class Desktop : MonoBehaviour
         }
     }
 
-    private void Apply(Surface surface, Texture2D texture, bool owned, bool success, Color? solidColor = null)
+    private void Apply(Surface surface, Texture2D texture, bool owned, bool success, Color? solidColor = null,
+        bool resourceLoaded = false)
     {
+        var previous = surface.SourceTexture;
+        bool releaseBuiltin = previous != null && previous != texture && surface.OwnedTexture == null && surface.ResourceLoaded;
         surface.SourceTexture = texture;
+        surface.ResourceLoaded = resourceLoaded;
         surface.SolidColor = solidColor;
         if (ReferenceEquals(surface, cloth)) ApplyClothOutput();
         else surface.Material.mainTexture = texture;
@@ -294,6 +335,16 @@ public class Desktop : MonoBehaviour
         surface.OwnedTexture = owned ? texture : null;
         surface.Applied = success;
         if (ReferenceEquals(surface, edge)) RefreshFrame();
+        if (releaseBuiltin) Resources.UnloadAsset(previous);
+    }
+
+    private static void ReleaseBuiltinTexture(Surface surface, Texture2D defaultTexture)
+    {
+        if (surface == null || surface.OwnedTexture != null || !surface.ResourceLoaded) return;
+        Texture2D texture = surface.SourceTexture;
+        if (texture == null || texture == defaultTexture || texture == Texture2D.whiteTexture) return;
+        Resources.UnloadAsset(texture);
+        surface.ResourceLoaded = false;
     }
 
     private void OnDestroy()
@@ -301,7 +352,6 @@ public class Desktop : MonoBehaviour
         disposed = true;
         ++cloth.Version;
         ++edge.Version;
-        ++seamVersion;
         if (meshRenderer != null && originalMaterials != null)
         {
             var current = meshRenderer.sharedMaterials;
@@ -312,8 +362,11 @@ public class Desktop : MonoBehaviour
             meshRenderer.sharedMaterials = current;
         }
         seamComposer.Dispose();
+        if (displayedSeamTexture != null) Resources.UnloadAsset(displayedSeamTexture);
         if (cloth.OwnedTexture != null) DestroyOwned(cloth.OwnedTexture);
         if (edge.OwnedTexture != null) DestroyOwned(edge.OwnedTexture);
+        ReleaseBuiltinTexture(cloth, defaultTableclothTexture);
+        ReleaseBuiltinTexture(edge, defaultTableEdgeTexture);
         if (cloth.Material != null) DestroyOwned(cloth.Material);
         if (edge.Material != null) DestroyOwned(edge.Material);
         // Resources assets can also be referenced by defaults or other renderers.

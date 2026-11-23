@@ -17,7 +17,13 @@ public class RoomListPanel : MonoBehaviour {
     [SerializeField] private Button refreshButton;     // 刷新按钮
     [SerializeField] private Button JoinRoomButton;        // 加入房间按钮
     private int _joinInputBoundUserId = int.MinValue;
-    private readonly Dictionary<string, RoomItem> roomItems = new Dictionary<string, RoomItem>();
+    private ViewportCardList<string, RoomItem> cards;
+    private float rowHeight, duplicateHeight;
+    private RoomInfo[] latest = System.Array.Empty<RoomInfo>();
+    private List<(RoomInfo room, int color)> rows = new();
+    private readonly List<string> keys = new();
+    private readonly HashSet<string> seen = new();
+    private bool pageVisible, presenting;
     private void Start() {
         createButton.onClick.AddListener(OpenCreatePanel);
         refreshButton.onClick.AddListener(RefreshRoomList);
@@ -28,6 +34,17 @@ public class RoomListPanel : MonoBehaviour {
         if (Instance == null) {
             Instance = this;
             ConfigureRoomListLayout();
+            var content = (RectTransform)roomListContent;
+            var prefab = roomItemPrefab.GetComponent<RoomItem>();
+            var layout = prefab.GetComponent<LayoutElement>();
+            duplicateHeight = prefab.DuplicateHeight;
+            rowHeight = layout != null && layout.preferredHeight > 0 ? layout.preferredHeight : ((RectTransform)prefab.transform).rect.height;
+            foreach (Transform child in content) {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+            cards = new ViewportCardList<string, RoomItem>(content.GetComponentInParent<ScrollRect>(true), content,
+                _ => Instantiate(prefab, content), (item, index) => item.SetRoomInfo(rows[index].room, rows[index].color));
         } else if (Instance != this) {
             Debug.LogWarning($"发现重复的RoomListPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
@@ -35,16 +52,19 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
-        if (NetworkManager.Instance != null && NetworkManager.Instance.isActiveAndEnabled)
-            NetworkPollingManager.Instance?.StartRoomListPolling();
         RefreshJoinInputForCurrentUser();
+        UpdateVisibility();
     }
 
     /// <summary>登出/重登后清掉加入房间号输入，避免带到下一个账号。</summary>
     public void ResetSessionCaches() {
         _joinInputBoundUserId = int.MinValue;
         if (RoomIdInput != null) RoomIdInput.text = "";
-        ClearRoomListContent();
+        SetPageVisible(false);
+        latest = System.Array.Empty<RoomInfo>();
+        rows.Clear();
+        keys.Clear();
+        cards?.SetRows(keys, _ => 0, _ => rowHeight, resetScroll: true);
     }
 
     private void RefreshJoinInputForCurrentUser() {
@@ -54,8 +74,30 @@ public class RoomListPanel : MonoBehaviour {
         if (RoomIdInput != null) RoomIdInput.text = "";
     }
 
-    private void OnDisable() {
-        NetworkPollingManager.Existing?.StopRoomListPolling();
+    public void SetPageVisible(bool visible) {
+        pageVisible = visible;
+        UpdateVisibility();
+    }
+
+    private void UpdateVisibility() {
+        bool show = pageVisible && isActiveAndEnabled && cards != null;
+        if (show == presenting) return;
+        presenting = show;
+        if (show) {
+            ApplySnapshot(true);
+            if (NetworkManager.Instance != null && NetworkManager.Instance.isActiveAndEnabled)
+                NetworkPollingManager.Instance?.StartRoomListPolling();
+        } else {
+            NetworkPollingManager.Existing?.StopRoomListPolling();
+            cards?.Hide();
+        }
+    }
+
+    private void LateUpdate() { if (presenting) cards.Tick(); }
+    private void OnDisable() => SetPageVisible(false);
+    private void OnDestroy() {
+        cards?.Dispose();
+        if (Instance == this) Instance = null;
     }
 
     private void OpenCreatePanel() {
@@ -110,51 +152,39 @@ public class RoomListPanel : MonoBehaviour {
         layout.padding = new RectOffset(4, 4, 4, 4);
     }
 
-    private void ClearRoomListContent() {
-        if (roomListContent == null) return;
-        for (int i = roomListContent.childCount - 1; i >= 0; i--) {
-            roomListContent.GetChild(i).gameObject.SetActive(false);
-            Destroy(roomListContent.GetChild(i).gameObject);
-        }
-        roomItems.Clear();
-    }
-
-    public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List){
+    public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List) {
         if (!success) {
             Debug.LogError($"获取房间列表失败: {message}");
             return;
         }
+        latest = room_List ?? System.Array.Empty<RoomInfo>();
+        if (presenting) ApplySnapshot(false);
+    }
 
-        if (roomListContent == null || roomItemPrefab == null) return;
-        // 首次响应移除编辑器示例。后续按 ID 更新，保留悬浮详情和滚动位置。
-        if (roomItems.Count == 0) ClearRoomListContent();
-        var retained = new HashSet<string>();
-        if (room_List != null) {
-            foreach (var entry in room_List.Where(r => r != null)
-                .GroupBy(r => string.IsNullOrEmpty(r.duplicate_match_id) ? "room:" + r.room_id : "pair:" + r.duplicate_match_id)
-                .SelectMany((g, index) => g.OrderBy(r => r.duplicate_table == "closed" ? 1 : 0).Select(r => new { Room = r, ColorIndex = index }))) {
-                var roomData = entry.Room;
-                if (roomData == null || string.IsNullOrEmpty(roomData.room_id) || !retained.Add(roomData.room_id)) continue;
-                if (!roomItems.TryGetValue(roomData.room_id, out RoomItem item) || item == null) {
-                    var instance = Instantiate(roomItemPrefab, roomListContent);
-                    instance.SetActive(true);
-                    item = instance.GetComponent<RoomItem>();
-                    roomItems[roomData.room_id] = item;
-                }
-                item.SetRoomInfo(roomData, entry.ColorIndex);
-                item.gameObject.SetActive(true);
-                item.transform.SetSiblingIndex(retained.Count - 1);
+    private void ApplySnapshot(bool reopening) {
+        var next = new List<(RoomInfo room, int color)>(latest.Length);
+        seen.Clear();
+        keys.Clear();
+        bool reorder = reopening;
+        // A paired match keeps adjacent open/closed rooms in the same group color.
+        var groups = latest.Where(r => r != null && !string.IsNullOrEmpty(r.room_id))
+            .GroupBy(r => string.IsNullOrEmpty(r.duplicate_match_id) ? "room:" + r.room_id : "pair:" + r.duplicate_match_id);
+        int color = 0;
+        foreach (var group in groups) {
+            foreach (var room in group.OrderBy(r => r.duplicate_table == "closed" ? 1 : 0)) {
+                if (!seen.Add(room.room_id)) continue;
+                int index = next.Count;
+                if (index >= rows.Count || rows[index].room.room_id != room.room_id ||
+                    RoomItem.IsEightPlayerLobby(rows[index].room) != RoomItem.IsEightPlayerLobby(room)) reorder = true;
+                next.Add((room, color));
+                keys.Add(room.room_id);
+                if (cards.TryGetVisible(room.room_id, out var item) && item.UpdateSnapshot(room, color))
+                    cards.Invalidate(room.room_id);
             }
+            color++;
         }
-        var removed = new List<string>();
-        foreach (var pair in roomItems) {
-            if (retained.Contains(pair.Key)) continue;
-            if (pair.Value != null) {
-                pair.Value.gameObject.SetActive(false);
-                Destroy(pair.Value.gameObject);
-            }
-            removed.Add(pair.Key);
-        }
-        foreach (string id in removed) roomItems.Remove(id);
+        reorder |= rows.Count != next.Count;
+        rows = next;
+        if (reorder) cards.SetRows(keys, _ => 0, i => RoomItem.IsEightPlayerLobby(rows[i].room) ? duplicateHeight : rowHeight);
     }
 }

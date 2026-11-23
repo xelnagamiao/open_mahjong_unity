@@ -12,12 +12,15 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="search" :loading="loading">搜索</el-button>
+          <el-button type="primary" native-type="submit" :loading="loading">搜索</el-button>
           <AccountGeography />
           <el-button @click="$router.push('/admin/account-bans')">封禁名单</el-button>
+          <el-button @click="$router.push('/admin/sponsors')">赞助玩家和特殊设定</el-button>
         </el-form-item>
       </el-form>
-      <el-table :data="items" v-loading="loading" style="margin-top: 16px">
+      <el-alert v-if="error" type="error" :title="error" :closable="false" />
+      <el-table row-key="user_id" :data="items" v-loading="loading" style="margin-top: 16px"
+        :empty-text="error ? '请重新搜索' : searched ? '未找到符合条件的用户' : '输入用户 ID、用户名或邮箱后搜索'">
         <el-table-column prop="user_id" label="ID" width="120" />
         <el-table-column prop="username" label="用户名" min-width="120" />
         <el-table-column label="邮箱" min-width="180">
@@ -61,7 +64,13 @@
         <el-table-column prop="created_at" label="注册时间" width="180">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="管理员备注" min-width="230">
+          <template #default="{ row }">
+            <AdminNoteEditor :key="row.user_id" v-model="row.admin_note"
+              :endpoint="`/users/${row.user_id}`" :label="`用户 ${row.user_id} 的备注`" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="$router.push(`/admin/users/${row.user_id}`)">
               详情
@@ -74,13 +83,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { useAdminListState } from '@/composables/useAdminListState'
+import AdminNoteEditor from '@/components/admin/AdminNoteEditor.vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import { getSponsorStatus } from '@/utils/sponsor'
 import AccountGeography from '@/components/admin/AccountGeography.vue'
 
-const query = ref('10000001')
+const { saved, remember } = useAdminListState()
+const query = ref(saved.q ?? '10000001')
+const searched = ref(false)
+const error = ref('')
+let latest = 0
 const items = ref([])
 const loading = ref(false)
 
@@ -90,7 +105,7 @@ function formatDate(v) {
 }
 
 function sponsorOf(row) {
-  return getSponsorStatus(row.sponsor_expires_at)
+  return getSponsorStatus(row.sponsor_expires_at, row.sponsor_amount)
 }
 
 const BAN_TYPE_LABELS = {
@@ -119,17 +134,26 @@ async function search() {
     ElMessage.warning('请输入搜索关键词')
     return
   }
+  const q = query.value.trim()
+  remember({ q })
+  const request = ++latest
+  error.value = ''
   loading.value = true
   try {
-    const res = await adminApi.get('/users/search', { params: { q: query.value.trim() } })
+    const res = await adminApi.get('/users/search', { params: { q } })
+    if (request !== latest) return
+    searched.value = true
     items.value = res.data.data.items
-    if (items.value.length === 0) ElMessage.info('未找到用户')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '搜索失败')
+    if (request !== latest) return
+    items.value = []
+    error.value = e.response?.data?.message || '搜索失败，请重试'
   } finally {
-    loading.value = false
+    if (request === latest) loading.value = false
   }
 }
+
+onMounted(() => { if (saved.q) search() })
 </script>
 
 <style scoped>

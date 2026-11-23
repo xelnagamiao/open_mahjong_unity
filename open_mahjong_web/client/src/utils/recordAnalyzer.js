@@ -17,6 +17,7 @@ import {
   guobiaoXunmuOnClaim,
 } from './guobiaoXunmu.js'
 import { analyzeRiichiRecords } from './riichiRecordStats.js'
+import { guangdongScoreChanges, isGuangdongDoublesRecord } from './guangdongReplay.js'
 import { sichuanScoreChanges } from './sichuanReplay.js'
 import { recordWinValues } from './recordWinValues.js'
 
@@ -396,6 +397,7 @@ function computeFinalScore(record, originalIndex) {
   if (originalIndex < 0) return 0;
   const gameRound = record?.game_round;
   if (!gameRound || typeof gameRound !== 'object') return 0;
+  const readsDeferredScores = record.game_title?.rule === 'sichuan' || isGuangdongDoublesRecord({ record });
   let total = 0;
   for (const key of Object.keys(gameRound)) {
     if (!key.startsWith('round_index_')) continue;
@@ -405,9 +407,9 @@ function computeFinalScore(record, originalIndex) {
     const mySeat = seatForOriginal(seats, originalIndex);
     for (const tick of sourceRound.action_ticks || []) {
       if (isExchangeSix(record.game_title) && tick[0] === 'changsha_exchange_six_draw_scores') { total += Number(tick[1][mySeat]) || 0; continue; }
-      const sichuanChanges = record?.game_title?.rule === 'sichuan' ? sichuanScoreChanges(tick) : null;
-      if (sichuanChanges) {
-        total += sichuanChanges[mySeat] || 0;
+      const ledger = guangdongScoreChanges(tick) ?? (readsDeferredScores ? sichuanScoreChanges(tick) : null);
+      if (ledger) {
+        total += ledger[mySeat] || 0;
         continue;
       }
       const hu = parseHuTick(tick);

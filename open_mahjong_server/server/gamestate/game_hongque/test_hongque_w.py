@@ -48,6 +48,27 @@ def test_invalid_groups(hand):
     assert rules.classify_meld(codes(hand)) is None
 
 
+@pytest.mark.parametrize("groups,fan", [
+    (["BX2 DX2 GX2", "AX2 BX2 CX2 EX2"], "双同刻"),
+    (["AX9 CX9 EX9", "AX9 BX9 FX9", "DX9 FX9 GX9"], "三同刻"),
+    (["BX5 DX5 GX5", "AX5 DX5 FX5", "AX5 EX5 GX5", "CX5 EX5 FX5"], "四同刻"),
+])
+def test_v11_coloured_triplet_examples(groups, fan):
+    partition = [codes(group) for group in groups]
+    hand = [tile for group in partition for tile in group]
+    expected = sorted(tuple(sorted(group)) for group in partition)
+    assert any(sorted(groups) == expected for groups, _ in rules.winning_partitions(hand))
+    assert fan_map(score_partition(partition))[fan] == FAN_VALUES[fan]
+
+
+def test_v11_single_rainbow_is_three_fan():
+    group = codes("AX5 BX5 CX5 DX5 EX5 FX5 GX5")
+    assert fan_map(score_partition([group]))["彩虹"] == 3
+    double = score_partition([group * 2])
+    assert fan_map(double)["双虹会"] == 12
+    assert "彩虹" not in fan_map(double)
+
+
 def test_pair_and_all_pairs_paths_and_inventory():
     assert rules.is_winning_hand(codes("AX1 AX2 AX3 HX5 HX5"))
     assert rules.is_winning_hand(codes("AX1 AX1 BX5 BX5 HX9 HX9"))

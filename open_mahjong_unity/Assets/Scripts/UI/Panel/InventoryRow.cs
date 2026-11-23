@@ -41,7 +41,7 @@ public sealed class InventoryRow : MonoBehaviour {
     public void Bind(WarehouseEntry entry, System.Action<string> select) {
         Key = entry.Key; ItemId = entry.Id; onSelect = select;
         isEquipped = entry.IsEquipped;
-        icon.sprite = ConfigManager.GetInventoryIcon(entry.Definition);
+        ConfigManager.SetInventoryIcon(icon, entry.Definition);
         icon.enabled = icon.sprite != null;
         AvatarFrameGraphic.Apply(icon, entry.Slot == "avatar_frame" ? entry.Id : -1);
         artwork.gameObject.SetActive(!icon.enabled); artwork.SetKind(entry.IconKind);

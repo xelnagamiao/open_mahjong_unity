@@ -104,7 +104,7 @@ async function fetchEventPlayerStats(eventId, query = {}) {
          COUNT(*) FILTER (WHERE gpr.rank = 3)::int AS third_place_count,
          COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count
        FROM game_player_records gpr
-       JOIN game_records gr ON gr.game_id = gpr.game_id
+       JOIN game_record_tables gr ON gr.game_id = gpr.game_id
        WHERE ${whereSql}${playerFilterSql}`,
       params
     ),
@@ -119,7 +119,7 @@ async function fetchEventPlayerStats(eventId, query = {}) {
          COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count,
          COALESCE(SUM(gpr.score), 0)::bigint AS total_score
        FROM game_player_records gpr
-       JOIN game_records gr ON gr.game_id = gpr.game_id
+       JOIN game_record_tables gr ON gr.game_id = gpr.game_id
        WHERE ${whereSql}${playerFilterSql}
        GROUP BY gpr.user_id
        ORDER BY first_place_count DESC, total_games DESC, gpr.user_id ASC`,
@@ -136,7 +136,7 @@ async function fetchEventPlayerStats(eventId, query = {}) {
            ARRAY_AGG(DISTINCT gpr.match_type ORDER BY gpr.match_type)
              FILTER (WHERE gpr.match_type IS NOT NULL AND gpr.match_type <> '') AS match_types
          FROM game_player_records gpr
-         JOIN game_records gr ON gr.game_id = gpr.game_id
+         JOIN game_record_tables gr ON gr.game_id = gpr.game_id
          WHERE ${filterConds.join(' AND ')}`,
         filterParams
       );

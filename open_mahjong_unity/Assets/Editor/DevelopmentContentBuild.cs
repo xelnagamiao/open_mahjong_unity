@@ -20,7 +20,7 @@ public sealed class DevelopmentContentSceneBuild : IProcessSceneWithReport
 
     public void OnProcessScene(Scene scene, BuildReport report)
     {
-        if (report == null && !AndroidContentBuild.BuildingContentBundles) return;
+        if (report == null && !BundledGameBuild.PackingScenes) return;
         foreach (var receiver in scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<CardBackEditorDragReceiver>(true)))
             UnityEngine.Object.DestroyImmediate(receiver);
         if (KeepDevelopmentContent(report))
@@ -118,7 +118,7 @@ public sealed class DevelopmentExpressionBuild : IPreprocessBuildWithReport, IPo
 
     public void OnPreprocessBuild(BuildReport report)
     {
-        if (AndroidContentBuild.BuildingBootstrapPlayer) return;
+        if (BundledGameBuild.BuildingBootstrap) return;
         RestoreStagedResources();
         if (DevelopmentContentSceneBuild.KeepDevelopmentContent(report)) return;
         if (!AssetDatabase.IsValidFolder(Source)) return; // Optional local artwork is absent in a fresh checkout.
@@ -140,12 +140,12 @@ public sealed class DevelopmentExpressionBuild : IPreprocessBuildWithReport, IPo
     }
 
     public void OnPostprocessBuild(BuildReport report) {
-        if (!AndroidContentBuild.BuildingBootstrapPlayer) RestoreStagedResources();
+        if (!BundledGameBuild.BuildingBootstrap) RestoreStagedResources();
     }
 
     static void RecoverWhenIdle()
     {
-        if (AndroidContentBuild.BuildingBootstrapPlayer || recoveryFailed || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(RecoveryFile)) return;
+        if (BundledGameBuild.BuildingBootstrap || recoveryFailed || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(RecoveryFile)) return;
         try { RestoreStagedResources(); }
         catch (Exception error)
         {

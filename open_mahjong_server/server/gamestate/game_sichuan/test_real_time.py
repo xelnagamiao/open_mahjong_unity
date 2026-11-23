@@ -24,7 +24,7 @@ def make_state(sub_rule, *, enabled=True, tactical=False, seconds=5):
     messages = []
     db = build_db_manager()
     server = build_game_server(db, messages=messages)
-    match, _ = pair(sub_rule, count=1)
+    match = pair(sub_rule, count=1)
     server.gamestate_manager.sichuan_duplicate_matches = {"timing": match}
     room = build_room_data(seed=17, room_id="12345")
     room.update(room_rule="sichuan", sub_rule=sub_rule, team_by_seat=[0, 1, 0, 1],

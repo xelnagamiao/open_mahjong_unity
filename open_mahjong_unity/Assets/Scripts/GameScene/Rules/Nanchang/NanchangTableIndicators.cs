@@ -3,13 +3,12 @@ using System.Collections.Generic;
 
 public static class NanchangTableIndicators {
     public static NanchangInfo DisplayedInfo { get; private set; }
-    public static RoundIndicatorDisplay FieldState(NanchangInfo value) => value==null
-        ? new RoundIndicatorDisplay {Caption="未翻精"}
-        : new RoundIndicatorDisplay {Tiles=new[]{value.indicator,value.secondary},Caption="",Counter="四人单打 · 六番封顶"};
+    public static RoundIndicatorDisplay FieldState(NanchangInfo value) => new RoundIndicatorDisplay(new[] {
+        new RoundIndicatorTile(value?.indicator, "正"), new RoundIndicatorTile(value?.secondary, "副")
+    }, "四人单打 · 六番封顶");
     public static void Refresh(NanchangInfo value, IReadOnlyDictionary<int, string> positions = null) {
         DisplayedInfo=value;
-        RoundPanel.Instance?.RefreshRuleIndicators(FieldState(value));
-        if (value == null) NanchangRoundLayout.Restore(); else NanchangRoundLayout.Apply();
+        RoundPanel.Instance?.RefreshIndicators(NanchangGameState.RuleId, FieldState(value));
         GameCanvas.Instance?.SetNanchangDeclaredPlayers(value, positions ?? TableMirror.Current.IndexToPosition);
         if(GameCanvas.Instance!=null)
             foreach(var card in GameCanvas.Instance.GetComponentsInChildren<TileCard>(true)) RuleTileBadge.Apply(card,card.tileId);

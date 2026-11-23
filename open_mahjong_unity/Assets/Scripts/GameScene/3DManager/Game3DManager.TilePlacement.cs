@@ -9,6 +9,7 @@ public partial class Game3DManager {
     [SerializeField, Min(0)] private int tileSurfaceSubMesh;
     [Tooltip("世界单位。保留极小间隙避免数值穿插；牌宽约 12，默认间隙为 0.02。")]
     [SerializeField, Min(0f)] private float tileSurfaceClearance = 0.02f;
+    private float ScaledTileSurfaceClearance => TableWorldScaleProfile.Length(tileSurfaceClearance);
 
     private MeshFilter tileBodyMesh;
     private Bounds tileBodyBounds;
@@ -38,7 +39,7 @@ public partial class Game3DManager {
         }
         tileBodyBounds = tileBodyMesh.sharedMesh.bounds;
         tileBodyFromRoot = tile3DPrefab.transform.worldToLocalMatrix * tileBodyMesh.transform.localToWorldMatrix;
-        tileWorldScale = tile3DPrefab.transform.lossyScale;
+        tileWorldScale = TableWorldScaleProfile.RuntimeAssetScale(tile3DPrefab.transform.lossyScale);
         ResolveTableSurfaceMesh();
         placementInitialized = true;
     }
@@ -73,7 +74,8 @@ public partial class Game3DManager {
 
     // Shared live-wall layout: Duocai and Sichuan use the same table-centered
     // radius, tile scale and stack spacing. Each rule supplies its own slot order.
-    private const float TableWallRadius = 120f;
+    private const float AuthoredTableWallRadius = 120f;
+    private float TableWallRadius => TableWorldScaleProfile.Length(AuthoredTableWallRadius);
     private const float TableWallScale = .82f;
 
     private Vector3 WallSlotPosition(string seat, float centeredStack) {
@@ -100,7 +102,7 @@ public partial class Game3DManager {
         if (!placementInitialized) return candidate;
         GetTileSurface(out Vector3 point, out Vector3 normal);
         return TileSurfacePlacement.PlaceOnPlane(candidate, tileBodyBounds, TileBodyAt(candidate, worldRotation),
-            point, normal, tileSurfaceClearance);
+            point, normal, ScaledTileSurfaceClearance);
     }
 
     private Vector3 KeepMovingTileAboveTable(Transform tile, Vector3 candidate, Quaternion worldRotation) {
@@ -113,7 +115,7 @@ public partial class Game3DManager {
             : parent.localToWorldMatrix * Matrix4x4.TRS(parent.InverseTransformPoint(candidate),
                 Quaternion.Inverse(parent.rotation) * worldRotation, tile.localScale);
         Matrix4x4 matrix = rootMatrix * tileBodyFromRoot;
-        return TileSurfacePlacement.KeepAbovePlane(candidate, tileBodyBounds, matrix, point, normal, tileSurfaceClearance);
+        return TileSurfacePlacement.KeepAbovePlane(candidate, tileBodyBounds, matrix, point, normal, ScaledTileSurfaceClearance);
     }
 
     private void BeginHandSurfacePlacement(PosPanel3D panel) {
@@ -189,7 +191,7 @@ public partial class Game3DManager {
                         - TileSurfacePlacement.MinimumProjection(tileBodyBounds, matrix, normal);
                     hasSupport = true;
                 }
-                float delta = Vector3.Dot(normal, point) + tileSurfaceClearance + support - Vector3.Dot(normal, tile.position);
+                float delta = Vector3.Dot(normal, point) + ScaledTileSurfaceClearance + support - Vector3.Dot(normal, tile.position);
                 tile.position += normal * delta;
             }
             // 先投影实际末帧再停止；Animator只写Cube，不会覆盖子牌最终局部位置。

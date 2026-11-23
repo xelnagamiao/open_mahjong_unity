@@ -172,13 +172,15 @@ internal static class DeviceRecordMigration {
             ? MatchRecordCodec.Identity("single", id) : (string)title["duplicate_match_id"];
     }
 
-    static string LocateMatch(string id, IDictionary<string, string> store, JObject catalogAliases) {
+    static string LocateMatch(string id, IDictionary<string, string> store, JObject catalogAliases, out bool unified) {
+        unified = false;
         if (catalogAliases[id] is JObject catalogEntry)
             return (string)catalogEntry["match_id"];
         Require(store.TryGetValue(id, out var original), "索引引用缺失的本地牌谱：" + id);
         var entry = ReadOriginal(id, original);
         var body = (JObject)entry["record"];
-        return MatchIdentity(id, body, MatchRecordCodec.IsUnified(body) ? body : entry["match_record"] as JObject);
+        unified = MatchRecordCodec.IsUnified(body);
+        return MatchIdentity(id, body, unified ? body : entry["match_record"] as JObject);
     }
 
     static List<JObject> LoadMatch(string match, List<string> sourceIds, IDictionary<string, string> store,
@@ -363,7 +365,9 @@ internal static class DeviceRecordMigration {
 
     // WebGL collects temporary managed allocations between frames. Keep only source
     // IDs across matches and defer every write until all matches have been verified.
-    internal static IEnumerator PrepareSteps(IDictionary<string, string> store, Plan plan) {
+    internal static IEnumerator PrepareSteps(IDictionary<string, string> store, Plan plan, bool stream = false) {
+        if (stream) foreach (var key in new[] { Index, Aliases, Catalog })
+            if (store.ContainsKey(key)) yield return key;
         var index = store.TryGetValue(Index, out var indexText) ? JArray.Parse(indexText) : new JArray();
         var aliases = store.TryGetValue(Aliases, out var aliasText) ? MatchRecordCodec.Parse(aliasText) : new JObject();
         var catalog = store.TryGetValue(Catalog, out var meta) ? MatchRecordCodec.Parse(meta) : null;
@@ -371,26 +375,45 @@ internal static class DeviceRecordMigration {
         var catalogAliases = catalog?["aliases"] as JObject ?? new JObject();
         var groups = new Dictionary<string, List<string>>();
         var order = indexRows.Keys.Concat(store.Keys.Where(k => !k.StartsWith("__", StringComparison.Ordinal)))
-            .Concat(catalogAliases.Properties().Select(p => p.Name)).Distinct();
+            .Concat(catalogAliases.Properties().Select(p => p.Name)).Distinct().ToArray();
+        bool needsMigration = !store.ContainsKey(Index) || !store.ContainsKey(Aliases) ||
+            store.Keys.Any(k => k.StartsWith("__match_v2", StringComparison.Ordinal));
         foreach (string sourceId in order) {
-            var match = LocateMatch(sourceId, store, catalogAliases);
+            bool readOriginal = stream && !(catalogAliases[sourceId] is JObject) && store.ContainsKey(sourceId);
+            if (readOriginal) yield return sourceId;
+            var match = LocateMatch(sourceId, store, catalogAliases, out bool unified);
+            if (!unified) needsMigration = true;
             Require(!string.IsNullOrEmpty(match), "比赛身份缺失");
             if (!groups.TryGetValue(match, out var ids))
                 groups[match] = ids = new List<string>();
             ids.Add(sourceId);
+            if (readOriginal) store[sourceId] = null;
             // An uncatalogued record was parsed to discover its identity.
             if (!(catalogAliases[sourceId] is JObject))
                 yield return null;
         }
+        if (!needsMigration) yield break;
         yield return null;
         var rows = new Dictionary<string, JObject>();
         var oldIds = new Dictionary<string, string>();
         var verifiedArchives = new HashSet<string>();
         foreach (var group in groups) {
+            var inputs = new List<string>();
+            if (stream) {
+                inputs.AddRange(group.Value.Where(store.ContainsKey));
+                var archive = (string)catalog?["matches"]?[group.Key];
+                if (archive != null && store.ContainsKey("__match_v2/" + archive)) inputs.Add("__match_v2/" + archive);
+                foreach (var key in inputs) yield return key;
+            }
             var entries = LoadMatch(group.Key, group.Value, store, catalog, catalogAliases, indexRows, verifiedArchives);
             yield return null;
             ConvertMatch(group.Key, entries, rows, oldIds, aliases, plan);
             entries = null;
+            if (stream) {
+                foreach (var key in inputs) store[key] = null;
+                foreach (var output in plan.Writes) yield return output;
+                plan.Writes.Clear();
+            }
             yield return null;
         }
         var updated = new JArray();
@@ -433,9 +456,11 @@ internal static class DeviceRecordMigration {
         var files = new HashSet<string>((catalog?["matches"] as JObject ?? new JObject()).Properties().Select(p => "__match_v2/" + (string)p.Value));
         foreach (var key in store.Keys.Where(k => k.StartsWith("__match_v2/", StringComparison.Ordinal)))
             Require(files.Contains(key), "存在未核对的旧归档：" + key);
-        foreach (var run in store.Where(p => p.Key.StartsWith("__match_v2_run/", StringComparison.Ordinal))) {
-            var status = (string)MatchRecordCodec.Parse(run.Value)["status"];
-            Require(status == "published" || status == "rolled_back", "旧浏览器迁移仍在进行：" + run.Key);
+        foreach (var runKey in store.Keys.Where(k => k.StartsWith("__match_v2_run/", StringComparison.Ordinal)).ToArray()) {
+            if (stream) yield return runKey;
+            var status = (string)MatchRecordCodec.Parse(store[runKey])["status"];
+            if (stream) store[runKey] = null;
+            Require(status == "published" || status == "rolled_back", "旧浏览器迁移仍在进行：" + runKey);
         }
         plan.Deletes.AddRange(store.Keys.Where(k => k == Catalog || files.Contains(k) || k.StartsWith("__match_v2_run/", StringComparison.Ordinal)));
     }

@@ -4,77 +4,106 @@ using UnityEngine;
 
 public partial class GameRecordManager {
     internal int RecordNavigationVersion => _recordPlaybackGeneration;
-    private Coroutine _recordBuhuaContinuation;
-    private int _recordBuhuaInputTargetNode;
-    internal bool HasPendingRecordBuhuaContinuation => _recordBuhuaContinuation != null;
-    internal int RecordStepInputTargetNode => HasPendingRecordBuhuaContinuation ? _recordBuhuaInputTargetNode : currentNode;
+    private Coroutine _pendingRecordStepInput;
+    private int _pendingRecordStepTargetNode;
+    internal bool HasPendingRecordStepInput => _pendingRecordStepInput != null;
+    internal int RecordStepInputTargetNode => HasPendingRecordStepInput ? _pendingRecordStepTargetNode : currentNode;
 
     private void InitializeRecordStepButtons() {
         nextStepButton.onClick.AddListener(() => StepRecordFromInput(true));
         backStepButton.onClick.AddListener(() => StepRecordFromInput(false));
     }
 
+    private bool BuffersRecordStepInput() {
+        if ((IsSpectatorSession && IsLiveSpectatorMode) || gameRecord?.gameTitle == null) return false;
+        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
+        return IsDuplicateReplay || SichuanRoundScoreState.Supports(subRule) || WashizuDoubles.IsEnabled(subRule);
+    }
+
     public bool CanUseRecordStepInput(bool forward) {
-        if (!isActiveAndEnabled || BlocksRecordNavigation || _pendingRecordDelayedAdvanceCount > 0
+        if (ReplayFrameLoader.Busy || !isActiveAndEnabled || (forward && IsRecordMatchResultVisible) || IsAwaitingRecordResult
             || gameRecord?.gameRound?.rounds == null
             || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)
             || round.actionTicks == null) return false;
+        if ((_recordHuPresentationActive || _pendingRecordDelayedAdvanceCount > 0)
+            && !BuffersRecordStepInput()) return false;
         string window = GameHost.Current.CurrentWindow;
         if (window != "game" && window != "recordscene") return false;
-        return forward ? currentNode < round.actionTicks.Count : currentNode > 0;
+        if (!forward) return currentNode > 0;
+        return currentNode < round.actionTicks.Count
+            || (AtMatchEnd && gameRecord.matchResult != null && BuffersRecordStepInput() && !IsSpectatorSession);
     }
 
-    public void StepRecordFromInput(bool forward, bool continueBuhua = false) {
+    public void StepRecordFromInput(bool forward, bool continueBuhua = false) =>
+        HandleRecordStepInput(forward, continueBuhua, allowDeferredInput: true);
+
+    internal void HandleRecordStepInput(bool forward, bool continueBuhua, bool allowDeferredInput) {
         StopRecordAutoPlay();
-        if (!forward) CancelRecordBuhuaContinuation();
+        if (!forward) CancelPendingRecordStepInput();
         if (!CanUseRecordStepInput(forward)) return;
-        if (forward) {
-            if (HasPendingRecordBuhuaContinuation) return;
-            if (continueBuhua && TryContinueRecordBuhuaFromInput()) return;
-            NextStep();
+        if (!forward) {
+            BackStep();
+            return;
         }
-        else BackStep();
+        if (HasPendingRecordStepInput) {
+            if (allowDeferredInput && BuffersRecordStepInput()) {
+                var ticks = gameRecord.gameRound.rounds[currentRoundIndex].actionTicks;
+                int next = Mathf.Max(currentNode, _pendingRecordStepTargetNode);
+                while (next < ticks.Count && IsRecordSilentTick(ticks[next])) next++;
+                if (next < ticks.Count) _pendingRecordStepTargetNode = next + 1;
+            }
+            return;
+        }
+        if (AtMatchEnd) {
+            NextStep();
+            return;
+        }
+        if (!TryGetNextRecordStep(out Round round, out int node, out int actor)) {
+            NextStep();
+            return;
+        }
+        bool allowBuhuaDraw = continueBuhua && IsContinuingRecordBuhua(round, node, actor);
+        if (CanAdvanceRecordStepNow(allowBuhuaDraw)) {
+            AdvanceRecordStep(allowBuhuaDraw);
+        } else if (BuffersRecordStepInput() ? allowDeferredInput : allowBuhuaDraw) {
+            _pendingRecordStepTargetNode = node + 1;
+            _pendingRecordStepInput = StartCoroutine(WaitForRecordStepInput(currentRoundIndex, currentNode,
+                RecordNavigationVersion, allowBuhuaDraw, Game3DManager.Instance.RecordHandAnimationVersion));
+        }
     }
 
-    private bool TryContinueRecordBuhuaFromInput() {
-        if (!TryGetNextRecordStep(out Round round, out int node, out int actor)
-            || round.actionTicks[node][0] != "bd"
+    private bool IsContinuingRecordBuhua(Round round, int node, int actor) {
+        if (round.actionTicks[node][0] != "bd"
             || !indexToPosition.TryGetValue(actor, out string position)
             || !Game3DManager.Instance.HasRecordBuhuaAnimation(position)) return false;
-
         int previous = currentNode - 1;
         while (previous >= 0 && IsRecordSilentTick(round.actionTicks[previous])) previous--;
-        if (previous < 0 || round.actionTicks[previous][0] != "bh"
-            || GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(round.actionTicks[previous], "bh", currentPlayerIndex) != actor) return false;
-
-        if (CanAnimateNextRecordStep(allowBuhuaDraw: true)) {
-            AdvanceRecordStep(allowBuhuaDraw: true);
-        } else {
-            // 只接住本次补摸，重复点击不堆积后续节点，也不需要判断连点间隔。
-            _recordBuhuaInputTargetNode = node + 1;
-            _recordBuhuaContinuation = StartCoroutine(ContinueRecordBuhuaFromInput(
-                currentRoundIndex, currentNode, RecordNavigationVersion, Game3DManager.Instance.RecordHandAnimationVersion));
-        }
-        return true;
+        return previous >= 0 && round.actionTicks[previous][0] == "bh"
+            && GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(round.actionTicks[previous], "bh", currentPlayerIndex) == actor;
     }
 
-    private IEnumerator ContinueRecordBuhuaFromInput(int roundIndex, int node, int navigationVersion, int animationVersion) {
-        while (CanUseRecordStepInput(true) && !IsRecordAutoPlaying
-            && currentRoundIndex == roundIndex && currentNode == node && RecordNavigationVersion == navigationVersion
-            && Game3DManager.Instance != null && Game3DManager.Instance.RecordHandAnimationVersion == animationVersion) {
-            if (CanAnimateNextRecordStep(allowBuhuaDraw: true)) {
-                _recordBuhuaContinuation = null;
-                AdvanceRecordStep(allowBuhuaDraw: true);
-                yield break;
+    private bool CanAdvanceRecordStepNow(bool allowBuhuaDraw) =>
+        !BlocksRecordNavigation && _pendingRecordDelayedAdvanceCount == 0 && CanAnimateNextRecordStep(allowBuhuaDraw);
+
+    private IEnumerator WaitForRecordStepInput(int roundIndex, int node, int generation, bool allowBuhuaDraw, int animationVersion) {
+        yield return null;
+        while (currentRoundIndex == roundIndex && currentNode < _pendingRecordStepTargetNode && RecordNavigationVersion == generation
+            && CanUseRecordStepInput(true) && !IsRecordAutoPlaying && !(IsSpectatorSession && IsLiveSpectatorMode)
+            && Game3DManager.Instance != null
+            && (!allowBuhuaDraw || Game3DManager.Instance.RecordHandAnimationVersion == animationVersion)) {
+            bool continueBuhua = allowBuhuaDraw && currentNode == node;
+            if (CanAdvanceRecordStepNow(continueBuhua)) {
+                AdvanceRecordStep(continueBuhua);
+                if (currentNode >= _pendingRecordStepTargetNode) break;
             }
             yield return null;
         }
-        _recordBuhuaContinuation = null;
+        _pendingRecordStepInput = null;
     }
 
-    private void CancelRecordBuhuaContinuation() {
-        if (_recordBuhuaContinuation != null) StopCoroutine(_recordBuhuaContinuation);
-        _recordBuhuaContinuation = null;
+    private void CancelPendingRecordStepInput() {
+        if (_pendingRecordStepInput != null) StopCoroutine(_pendingRecordStepInput);
+        _pendingRecordStepInput = null;
     }
 
     private bool TryGetNextRecordStep(out Round round, out int node, out int actor) {

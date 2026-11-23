@@ -54,9 +54,12 @@ public partial class CardFaceBackgroundPanel
         var selection = back ? ConfigManager.Instance.GetSelectedHandBack() : ConfigManager.Instance.GetSelectedHandBackground();
         var entry = selection.isCustom ? HandSurfaceLibrary.Find(selection.path) : null;
         if (entry == null) return;
-        handNameDialog = HandSurfaceNameDialog.Open(transform, HandFont, back ? "重命名手牌牌背" : "重命名手牌背景", entry.name,
-            HandSurfaceLibrary.LoadTexture(entry.id, back), (name, close, error) => HandSurfaceLibrary.Rename(entry.id, name, () =>
-            { close(); if (this != null && isActiveAndEnabled) RefreshHandPreviews(); }, error));
+        UnityAssetIdb.WithAssets(new[] { entry.id }, () => {
+            if (this == null || !isActiveAndEnabled || handNameDialog != null) return;
+            handNameDialog = HandSurfaceNameDialog.Open(transform, HandFont, back ? "重命名手牌牌背" : "重命名手牌背景", entry.name,
+                HandSurfaceLibrary.LoadTexture(entry.id, back), (name, close, error) => HandSurfaceLibrary.Rename(entry.id, name, () =>
+                { close(); if (this != null && isActiveAndEnabled) RefreshHandPreviews(); }, error));
+        }, SceneConfigUi.ShowTip);
     }
     void DeleteHandSurface(bool back)
     {

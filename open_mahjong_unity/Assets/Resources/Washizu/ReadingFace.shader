@@ -3,7 +3,9 @@ Shader "Custom/WashizuReadingFace"
     Properties
     {
         _FrontTex ("Front Texture (牌面)", 2D) = "white" {}
+        _MipMapBias ("Front Artwork Mip Bias", Float) = -1
         _FrontColor ("Front Tint", Color) = (1,1,1,1)
+        _FrontAtlasBounds ("Atlas UV bounds", Vector) = (0,0,1,1)
         _FrontTilingOffset ("Front Tiling & Offset", Vector) = (1,1,0,0)
 
         // 3D 牌面背景：可由「牌面背景」页上传；前景花纹（_FrontTex）按 alpha 叠加在上面。
@@ -74,10 +76,12 @@ Shader "Custom/WashizuReadingFace"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)
             float _TableFaceImageScale;
+            float _MipMapBias;
             float _FrontTexContain;
         CBUFFER_END
         TEXTURE2D(_FrontTex); SAMPLER(sampler_FrontTex);
         UNITY_INSTANCING_BUFFER_START(TilePerInstance)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _FrontAtlasBounds)
             UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
             UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkLayout)
             UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkBaseline)
@@ -118,8 +122,10 @@ Shader "Custom/WashizuReadingFace"
             float2 canvas=(adjusted-baseline.xy)/max(scale*baseline.zw,.025)+.5;
             half inside=step(0,canvas.x)*step(canvas.x,1)*step(0,canvas.y)*step(canvas.y,1);
             float2 uv=canvas*mapping.xy+mapping.zw;
-            half4 art=SAMPLE_TEXTURE2D(_FrontTex,sampler_FrontTex,uv);
+            half4 art = SAMPLE_TEXTURE2D_BIAS(_FrontTex, sampler_FrontTex, uv, _MipMapBias);
             half contained=step(0,uv.x)*step(uv.x,1)*step(0,uv.y)*step(uv.y,1);
+            float4 bounds=UNITY_ACCESS_INSTANCED_PROP(TilePerInstance,_FrontAtlasBounds);
+            inside *= all(uv>=bounds.xy) && all(uv<=bounds.zw);
             coverage=inside*lerp(1.0h,contained,saturate(_FrontTexContain))*art.a;
             return art;
         }

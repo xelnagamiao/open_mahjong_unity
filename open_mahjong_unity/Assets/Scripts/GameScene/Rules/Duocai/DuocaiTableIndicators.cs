@@ -31,12 +31,14 @@ public static class DuocaiTableIndicators {
         return (WallRingIndex(position)-WallRingIndex(info.opening)+144)%144;
     }
     private static int WallRingIndex(int position)=>((4-position/36)%4)*36+(position%36/2)*2+(position%2==1?0:1);
-    public static RoundIndicatorDisplay FieldState(DuocaiInfo info)=>info==null?new RoundIndicatorDisplay():new RoundIndicatorDisplay {
-        Tiles=info.indicators??Array.Empty<int>(),Caption=$"第{info.hand_number}副 · {(info.deck==0?"红":"蓝")}牌组"+(info.variant=="riichi"?"":"\n待选赖子"),CaptionAboveTiles=info.variant=="riichi",
-        Counter=info.variant=="riichi"?$"{info.honba}本场 · {info.riichi_sticks}供托":ReserveCaption(info)
-    };
-    private static string ReserveCaption(DuocaiInfo info)=>info.reserves?.Length==2
-        ?$"红背{info.reserves[1]} · 蓝背{info.reserves[0]}":"";
+    public static RoundIndicatorDisplay FieldState(DuocaiInfo info, string subRule) {
+        bool riichi = info?.variant == "riichi" || (string.IsNullOrEmpty(info?.variant) && subRule == "duocai/riichi");
+        string status = info == null ? "" : $"第{info.hand_number}副 · {(info.deck == 0 ? "红" : "蓝")}牌组";
+        if (riichi)
+            return RoundIndicatorDisplay.Riichi(info?.honba ?? 0, info?.riichi_sticks ?? 0, info?.indicators, status: status);
+        if (info?.reserves?.Length == 2) status += $"\n待选赖子 红背{info.reserves[1]} · 蓝背{info.reserves[0]}";
+        return new RoundIndicatorDisplay(Array.Empty<RoundIndicatorTile>(), status);
+    }
     public static int[] CaptureHandBackState(string seat)=>Players?.FirstOrDefault(p=>SeatOf(p.player_index)==seat)?.duocai_hand_backs?.ToArray();
     public static Action CaptureHandBacks(string seat) {
         var info=DisplayedInfo;
@@ -55,7 +57,9 @@ public static class DuocaiTableIndicators {
             handVersion++;pendingWallDraws.Clear();wallDraws.Clear();
         }
         DisplayedInfo=info;if(players!=null||info==null)Players=players;
-        RoundPanel.Instance?.RefreshRuleIndicators(FieldState(info));
+        string subRule = info?.variant == "riichi" || (string.IsNullOrEmpty(info?.variant) && RuleRegistry.CurrentSubRule == "duocai/riichi")
+            ? "duocai/riichi" : DuocaiGameState.SubRule;
+        RoundPanel.Instance?.RefreshIndicators(subRule, FieldState(info, subRule));
         var manager=Game3DManager.Instance;if(manager==null)return;
         var host=manager.GetComponent<DuocaiTableOverlay>()??manager.gameObject.AddComponent<DuocaiTableOverlay>();
         host.Dirty=true;
@@ -121,7 +125,7 @@ public partial class Game3DManager {
             var rotation=RiverTileWorldRotation(seat);
             if(created) {
                 obj=MahjongObjectPool.Instance.SpawnPresentationTile(face,WallSlotPosition(seat,stack),rotation);
-                if(obj==null)continue;obj.name="DuocaiWall_"+tile.position;obj.transform.SetParent(duocaiWallRoot,true);duocaiWall[tile.position]=obj;
+                if(obj==null)continue;obj.name="DuocaiWall_"+tile.position;TableWorldObjectMount.AttachPreservingWorld(obj.transform,duocaiWallRoot);duocaiWall[tile.position]=obj;
             } else if(faceChanged)MahjongObjectPool.Instance.SetPresentationFace(obj,face);
             var state=MahjongObjectPool.GetTile3D(obj);
             if(moved||faceChanged) {
@@ -131,13 +135,15 @@ public partial class Game3DManager {
                 bool upper=info.wall_layout_version>=2?tile.layer==1:tile.layer==0;
                 if(pair&&!upper) {
                     GetTileSurface(out Vector3 center,out _);
-                    position+=(center-position).normalized*(cardHeight*TableWallScale+tileSurfaceClearance);
+                    position += (center - position).normalized
+                        * (cardHeight * TableWallScale + ScaledTileSurfaceClearance);
                 }
                 obj.transform.SetPositionAndRotation(position,rotation);
                 state.SetConcealedFaceDown(!tile.tile.HasValue);
                 obj.transform.position=KeepMovingTileAboveTable(obj.transform,position,obj.transform.rotation);
                 var renderer=obj.GetComponentInChildren<Renderer>();
-                if(upper&&!pair&&renderer!=null)obj.transform.position+=Vector3.up*(renderer.bounds.size.y+tileSurfaceClearance);
+                if (upper && !pair && renderer != null) obj.transform.position += Vector3.up
+                    * (renderer.bounds.size.y + ScaledTileSurfaceClearance);
             }
             if(created||!known||previous.back!=tile.back||faceChanged)state.SetRuleBackColor(DuocaiTileVisual.BackColor(tile.back));
             if(moved||faceChanged) {

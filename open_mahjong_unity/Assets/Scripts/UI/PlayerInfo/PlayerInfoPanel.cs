@@ -253,7 +253,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
                 currentAvatarFrameId = user.AvatarFrameId;
             }
         }
-        profileImage.sprite = ConfigManager.GetProfileSprite(currentProfileImageId);
+        ConfigManager.SetProfilePortrait(profileImage, currentProfileImageId);
         AvatarFrameGraphic.Apply(profileImage, currentAvatarFrameId);
     }
 

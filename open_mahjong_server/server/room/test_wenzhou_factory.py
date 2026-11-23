@@ -83,7 +83,7 @@ class WenzhouFactoryRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.server.room_manager.active_game_room_ids, {})
         self.server.room_manager.finish_custom_game_room.assert_awaited_once_with(
             state.room_id, expected_gamestate_id=state.gamestate_id,
-            expected_instance_id="factory-room-instance")
+            expected_instance_id="factory-room-instance", departed_users=set())
 
     async def test_cut_route_commits_real_physical_transition(self):
         self.open_turn()

@@ -3,13 +3,15 @@ using UnityEngine;
 
 public partial class GameRecordManager
 {
-    public void GotoAction(int actionIndex){
+    public void GotoAction(int actionIndex) => ReplayFrameLoader.Finish(SeekRecord(actionIndex));
+
+    private System.Collections.IEnumerable SeekRecord(int actionIndex) {
         HideRecordMatchResult();
         CancelRecordHuPresentation();
         ClearPendingRecordCuoheContinue();
         // 获取当前局数的node列表
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) || roundData.actionTicks == null) {
-            return;
+            yield break;
         }
         int safeActionIndex = Mathf.Clamp(actionIndex, 0, roundData.actionTicks.Count);
         if (EndResultPanel.Instance?.IsSichuanBoardVisible == true) ClearRecordRoundEndPanels();
@@ -64,14 +66,17 @@ public partial class GameRecordManager
         for (int i = 0; i < safeActionIndex; i++) {
             ApplyActionToRecordState(roundData.actionTicks[i]);
             currentNode++;
+            if ((currentNode & 7) == 0) yield return null;
         }
 
+        yield return null;
         // 重建当前目标节点画面
         Game3DManager.Instance.Clear3DTile();
-        GameCanvas.Instance.ChangeHandCards("InitHandCardsFromRecord", 0, recordPlayer_to_info["self"].tileList.ToArray(), null);
+        foreach (var step in GameCanvas.Instance.BuildRecordSelfHand(recordPlayer_to_info["self"].tileList.ToArray())) yield return step;
 
-        Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
-        RebuildRecord3DTableWithoutAnimation();
+        yield return null;
+        foreach (var step in Game3DManager.Instance.BuildRecordHands()) yield return step;
+        foreach (var step in RestoreRecordTable()) yield return step;
         RestoreChangshaRecordOpenKongBatch(roundData.actionTicks, safeActionIndex);
         if (IsBloodBattleRecord() && bloodRecordRevealedHands != null) {
             Game3DManager.Instance.RevealSichuanLiujuAllHands(bloodRecordRevealedHands);
@@ -83,7 +88,7 @@ public partial class GameRecordManager
         RecordReplay.RefreshAfterSeek?.Invoke();
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         RefreshTileListViewIfVisible();
-        RefreshRecordRiichiRoundPanel();
+        RefreshRecordRiichiIndicators();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
@@ -303,7 +308,7 @@ public partial class GameRecordManager
             MarkRecordPlayerHu(hepaiPlayerIndex);
             ApplyRecordRonHuToHandState(tick, action);
             CaptureBloodBattleRecordWin(tick, action, removeRiver: true);
-            if (IsSichuanRecord()) nextPlayerIndex = NextRecordPlayerIndex(hepaiPlayerIndex);
+            nextPlayerIndex = RecordTurnAfterWin(hepaiPlayerIndex, nextPlayerIndex);
             if (!RecordHuTickFollowsShuhewei()) {
                 int[] sc = ParseTickScoreChanges(tick, 4);
                 if (sc != null && sc.Length >= RecordPlayerCount) {
@@ -373,7 +378,9 @@ public partial class GameRecordManager
         currentPlayerIndex = nextPlayerIndex;
     }
 
-    private void RebuildRecord3DTableWithoutAnimation() {
+    private void RebuildRecord3DTableWithoutAnimation() => ReplayFrameLoader.Finish(RestoreRecordTable());
+
+    private System.Collections.IEnumerable RestoreRecordTable() {
         foreach (var kv in recordPlayer_to_info) {
             string position = kv.Key;
             RecordPlayer player = kv.Value;
@@ -382,6 +389,7 @@ public partial class GameRecordManager
                 bool moqie = i < player.discardIsMoqie.Count && player.discardIsMoqie[i];
                 bool horizontal = i < player.discardRiichiFlags.Count && player.discardRiichiFlags[i];
                 Game3DManager.Instance.Change3DTile("SetRecordDiscardWithoutAnimation", player.discardTiles[i], 0, position, moqie, null, horizontal);
+                if ((i & 3) == 3) yield return null;
             }
             // 跳转回放：已立直的玩家立刻放置立直棒（不播放飞行动画）
             if (player.isRiichi){
@@ -391,7 +399,6 @@ public partial class GameRecordManager
                 Game3DManager.Instance.Change3DTile("SetBuhuacardWithoutAnimation", tileId, 0, position, false, null);
             }
 
-            RestoreBloodBattleReplayMarker(position, player);
             for (int i = 0; i < player.combinationTiles.Count && i < player.combinationMasks.Count; i++) {
                 string combinationStr = player.combinationTiles[i];
                 int[] combinationMask = player.combinationMasks[i];
@@ -418,6 +425,9 @@ public partial class GameRecordManager
                     Game3DManager.Instance.RunMeldRebuildImmediate(position, "None", combinationMask, i);
                 }
             }
+        }
+        foreach (var kv in recordPlayer_to_info) {
+            RestoreBloodBattleReplayMarker(kv.Key, kv.Value);
         }
     }
 }

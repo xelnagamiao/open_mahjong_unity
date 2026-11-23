@@ -10,7 +10,6 @@ using System;
     public int leader_user_id, capacity = 2;
     public long revision;
     public double queued_at, team_elo = 1500;
-    public int search_range = 100;
     public LobbyPartyMember[] members = Array.Empty<LobbyPartyMember>();
 }
 [Serializable] public sealed class LobbyFriendInvite {

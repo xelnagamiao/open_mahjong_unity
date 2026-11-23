@@ -21,23 +21,26 @@
         <el-button type="danger" link @click="onLogout">退出</el-button>
       </el-header>
       <el-main class="admin-main">
-        <router-view />
+        <div ref="content"><router-view :key="route.fullPath" /></div>
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAdminNotificationsStore } from '@/stores/adminNotifications'
 import { useMobile } from '@/composables/useMobile'
+import { useAdminScroll } from '@/composables/useAdminScroll'
 import { usePanelViewportLock } from '@/composables/usePanelViewportLock'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAdminAuthStore()
+const content = ref(null)
+useAdminScroll(content)
 const notifications = useAdminNotificationsStore()
 let notificationTimer
 function refreshNotifications() {
@@ -65,6 +68,7 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 const menuItems = [
   { index: '/admin', label: '仪表盘' },
   { index: '/admin/users', label: '用户' },
+  { index: '/admin/sponsors', label: '赞助玩家和特殊设定' },
   { index: '/admin/account-bans', label: '账号封禁名单' },
   { index: '/admin/chat-history', label: '聊天记录' },
   { index: '/admin/titles', label: '头衔' },
@@ -92,6 +96,7 @@ const menuItems = [
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin/users')) return '/admin/users'
+  if (route.path.startsWith('/admin/sponsors')) return '/admin/sponsors'
   if (route.path.startsWith('/admin/bases')) return '/admin/bases'
   if (route.path.startsWith('/admin/events')) return '/admin/events'
   if (route.path.startsWith('/admin/ip-bans')) return '/admin/ip-bans'
@@ -187,6 +192,10 @@ function onLogout() {
     height: 44px;
     line-height: 44px;
     font-size: 13px;
+  }
+  .admin-menu :deep(.el-menu-item > span) {
+    white-space: normal;
+    line-height: 1.4;
   }
   .admin-main {
     padding: 10px;

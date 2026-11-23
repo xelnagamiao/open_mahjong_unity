@@ -60,7 +60,7 @@ public static class CardDesignImageLibrary
     public static bool CanRead(string path)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return UnityAssetIdb.GetCached(path) != null;
+        return UnityAssetIdb.Contains(path);
 #else
         return !string.IsNullOrEmpty(path) && File.Exists(path);
 #endif
@@ -112,16 +112,23 @@ public static class CardDesignImageLibrary
         // Presets may still refer to these immutable files; removing a choice does not invalidate them.
         Write(catalog);
     }
-    public static void Select(Entry entry)
+    static readonly int[] selectionRequests = new int[2];
+    internal static void CancelPendingSelections() { selectionRequests[0]++; selectionRequests[1]++; }
+    public static void Select(Entry entry, Action applied = null)
     {
         if (entry == null || ConfigManager.Instance == null) return;
-        if (!CanRead(entry.path)) { SceneConfigUi.ShowTip("图片文件无法读取，已保留当前设置"); return; }
-        if (!CardBackManager.SelectSurfaceImage(entry.path, entry.back)) { SceneConfigUi.ShowTip("图片文件无法读取，已保留当前设置"); return; }
-        Changed?.Invoke();
+        int side = entry.back ? 1 : 0;
+        int request = ++selectionRequests[side];
+        UnityAssetIdb.WithAssets(new[] { entry.path }, () => {
+            if (selectionRequests[side] != request) return;
+            if (!CardBackManager.SelectSurfaceImage(entry.path, entry.back)) { SceneConfigUi.ShowTip("图片文件无法读取，已保留当前设置"); return; }
+            Changed?.Invoke(); applied?.Invoke();
+        }, SceneConfigUi.ShowTip);
     }
     public static void SelectSolid(bool back, bool clearSelection = false)
     {
         if (ConfigManager.Instance == null) return;
+        selectionRequests[back ? 1 : 0]++;
         if (back || clearSelection) CardBackManager.SelectSurfaceImage("", back);
         else CardBackManager.SetTableFaceSolidColorEnabled(true);
         Changed?.Invoke();

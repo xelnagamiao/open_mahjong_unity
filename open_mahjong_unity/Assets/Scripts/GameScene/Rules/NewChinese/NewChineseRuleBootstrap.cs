@@ -13,11 +13,11 @@ internal static class NewChineseRuleBootstrap {
         RuleNameDictionary.ShortName[rule] = RuleNameDictionary.ShortName[sub] = "新中式";
         RuleRegistry.Register(new RuleManifest {
             RuleId=rule, DefaultSubRule=sub, DisplayName="新中式麻将", LobbyName="自定义规则", LobbyOrder=35,
-            LobbySubRules=new[]{new RuleLobbySubRule(sub,"新中式麻将",Description)}, OutboundChannel=rule,
+            LobbySubRules=new[]{new RuleLobbySubRule(sub,"新中式麻将",Description), new RuleLobbySubRule(SanhuaGameState.SubRule,"散花天才麻将",SanhuaGameState.Description)}, OutboundChannel=rule,
             BuildRoom=NewChineseRoomBuilder.Build, GameStateFactory=()=>new NewChineseGameState(),
-            ReplayFactory=r=>r.CreateNewChineseReplayModule(), RulebookKey="custom",
+            ReplayFactory=r=>r.CreateNewChineseReplayModule(), RulebookKey="custom", RulebookPath=(s,c)=>"/rulebook/custom?sub_rule="+Uri.EscapeDataString(s ?? sub),
             CreateRoomDefaults=new Dictionary<string,object> {
-                {CreateRoomKeys.SubRule,0}, {CreateRoomKeys.ExchangeThree,false}, {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
+                {CreateRoomKeys.SubRule,0}, {CreateRoomKeys.ExchangeThree,false}, {CreateRoomKeys.HepaiLimit,0}, {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
                 {CreateRoomKeys.Tips,true}, {CreateRoomKeys.CountTips,false}, {CreateRoomKeys.PointerTips,true},
                 {CreateRoomKeys.Password,false}, {CreateRoomKeys.RandomSeed,false}, {CreateRoomKeys.TouristLimit,false}, {CreateRoomKeys.AllowSpectator,true}
             },
@@ -92,10 +92,22 @@ internal static class NewChineseRuleBootstrap {
         int visible = info.visible?.TryGetValue(tile,out int n)==true ? n : 0;
         bool discardWindow = info.payer.HasValue && info.payer != i && info.phase=="waiting_action_after_cut";
         if ((discardWindow || info.rob_from_discard) && info.cut_tile == tile) visible = Math.Max(0,visible-1);
+        if (q.PendingCutTileId == tile) visible++;
         bool afterKong = i >= 0 && i < (info.after_kongs?.Length ?? 0) ? info.after_kongs[i] : info.after_kong;
-        var self = level < 4 && (level < 3 || bao) ? hand.Score(tile,bao?"bao_draw":"self_draw",i==0,false,chain,afterKong,visible+(bao?1:0)) : null;
+        int dealer = q.Record?.DealerIndex ?? GameSession.Current.DealerIndex;
+        int minimumFan = q.Record?.HepaiLimit ?? q.HepaiLimit;
+        bool exchange = (q.Record == null || minimumFan > 0) &&
+            NewChinese_Create_RoomConfig.UsesExchange(q.Record?.DetailedConfig ?? q.DetailedConfig);
+        bool belowMinimum = false;
+        NewChineseHand.Result Price(string source, bool payerDealer, bool kong, int seen) {
+            var price = hand.Score(tile,source,i==dealer,payerDealer,chain,kong,seen,minimumFan,exchange);
+            if (price == null && (exchange || minimumFan > 0) && !belowMinimum)
+                belowMinimum = hand.Score(tile,source,i==dealer,payerDealer,chain,kong,seen) != null;
+            return price;
+        }
+        var self = level < 4 && (level < 3 || bao) ? Price(bao?"bao_draw":"self_draw",false,afterKong,visible+(bao?1:0)) : null;
         if (info.phase == "waiting_tongbao" && info.acting == i && bao && level < 4) {
-            var natural = hand.Score(tile, "bao_seen", i == 0, false, chain, false, visible);
+            var natural = Price("bao_seen",false,false,visible);
             if (natural != null) return WaitTileHint.TsumoOnly($"通宝\n{natural.Points}点");
         }
         var prices = new List<int>();
@@ -103,11 +115,11 @@ internal static class NewChineseRuleBootstrap {
             for (int payer=0; payer<4; payer++) {
                 if (payer == i || info.payer.HasValue && info.payer != payer) continue;
                 string mode = info.phase=="waiting_action_qianggang" || !IsReady(info,payer) ? "black" : "discard";
-                var ron = hand.Score(tile,mode,i==0,payer==0,chain,false,visible);
+                var ron = Price(mode,payer==dealer,false,visible);
                 if (ron != null) prices.Add(ron.Points);
             }
         }
         if (prices.Count > 0) return WaitTileHint.Ron(prices.Min()==prices.Max()?$"{prices[0]}点":$"{prices.Min()}–{prices.Max()}点");
-        return self != null ? WaitTileHint.TsumoOnly($"仅自摸\n{self.Points}点") : WaitTileHint.None("未满足");
+        return self != null ? WaitTileHint.TsumoOnly($"仅自摸\n{self.Points}点") : WaitTileHint.None(belowMinimum ? "未起和" : "未满足");
     }
 }

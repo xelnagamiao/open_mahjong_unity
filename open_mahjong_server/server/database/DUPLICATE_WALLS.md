@@ -13,7 +13,7 @@ Web 的 `open_mahjong_web/server/utils/duplicateTables.js` 与游戏服务的 `d
 - 日额度以北京时间自然日计算，零点刷新。软删除释放存储额度，但保留创建记录，因此不恢复当天额度。
 - 创建事务先取得个人账户或比赛范围的 PostgreSQL advisory transaction lock，再读取两项额度并写入，避免并发超额。
 
-`duplicate_games(game_id, wall_id, ended_at)` 在开局时登记一条关联。`game_id` 与既有 `game_records.game_id` 一致；没有对 `game_records` 的外键，以支持先开局、后入库。牌谱入库与关联结束时间在同一事务内更新。牌墙 `ended_at` 表示最近一场已结束对局的时间；没有结束对局时为空，不是自动解除锁定时间。
+`duplicate_games(game_id, wall_id, ended_at)` 在开局时登记一条关联。`game_id` 是原桌号，与结算后写入的 `game_record_tables.game_id` 对应；没有指向定位表的外键，以支持先开局、后入库。牌谱入库与关联结束时间在同一事务内更新。牌墙 `ended_at` 表示最近一场已结束对局的时间；没有结束对局时为空，不是自动解除锁定时间。
 
 ## 牌墙来源与格式
 

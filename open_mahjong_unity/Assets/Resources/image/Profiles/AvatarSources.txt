@@ -15,10 +15,10 @@ Permission statement: Licenses/Taisei-COPYING.txt
 License text: Licenses/CC-BY-4.0.txt
 License URL: https://creativecommons.org/licenses/by/4.0/
 
-Changes: square head-and-shoulders crops, proportionally downsampled to 512 x 512 with high-quality bicubic filtering. Original artwork, colors and transparency retained; no repainting or generated elements. The crop composition matches the previous full-portrait Sprite rectangles.
+Changes: square portrait crops selected in the avatar studio and downsampled to 512 x 512 using bicubic filtering. Original colors and transparency are retained. The UI draws a separate charcoal (#303030) background for these two avatars.
 Original-image coordinates (bottom-left origin):
-Reimu, 1912 x 3072: Rect(180, 1910, 1120, 1120).
-Cirno, 2168 x 3072: Rect(430, 1940, 1050, 1050).
+Reimu, 1912 x 3072: Rect(391, 2157, 740, 740). Top-left (391, 175).
+Cirno, 2168 x 3072: Rect(515, 2076, 740, 740). Top-left (515, 256).
 Each shipped PNG is now 512 x 512, with a full-image Sprite rectangle.
 Reserve versions for all 11 current characters are stored outside the Unity project in other/AvatarPortraits/Taisei and are not included in the player build.
 

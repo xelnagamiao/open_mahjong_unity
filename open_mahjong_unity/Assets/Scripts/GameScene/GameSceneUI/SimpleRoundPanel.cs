@@ -64,13 +64,13 @@ public class SimpleRoundPanel : MonoBehaviour {
         if (slash >= 0) {
             baseRule = roomType.Substring(0, slash);
         }
-        TableText.Set(GameRoundText, RuleRegistry.Resolve(baseRule)?.MaxRoundInfoText?.Invoke(gameInfo)
+        TableText.Set(GameRoundText, RuleRegistry.Resolve(baseRule, gameInfo.sub_rule)?.MaxRoundInfoText?.Invoke(gameInfo)
             ?? RoundTextDictionary.GetMaxRoundText(baseRule, gameInfo.max_round));
         if (gameInfo.is_duplicate) TableText.Set(GameRoundText, $"复式 {Mathf.Max(1, gameInfo.duplicate_round_count)} 局");
-        TableText.Set(roomNowRoundText, RuleRegistry.Resolve(baseRule)?.RoundStatusText?.Invoke(gameInfo)
+        TableText.Set(roomNowRoundText, RuleRegistry.Resolve(baseRule, gameInfo.sub_rule)?.RoundStatusText?.Invoke(gameInfo)
             ?? RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round));
 
-        TableText.Set(isCuoheOpenText, RuleRegistry.Resolve(baseRule)?.RoundSupplementText?.Invoke(gameInfo)
+        TableText.Set(isCuoheOpenText, RuleRegistry.Resolve(baseRule, gameInfo.sub_rule)?.RoundSupplementText?.Invoke(gameInfo)
             ?? (gameInfo.open_cuohe ? "错和:开" : "错和:关"));
         TableText.Set(isTipsOpenText, gameInfo.tips ? "提示:开" : "提示:关");
         TableText.Set(isSetRandomSeedText, gameInfo.is_duplicate

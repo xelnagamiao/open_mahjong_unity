@@ -160,6 +160,8 @@ public sealed class TableFrameRenderer : MonoBehaviour
         if (sourceFilter != null && originalFlatMesh != null && sourceFilter.sharedMesh == clothOnlyMesh)
             sourceFilter.sharedMesh = originalFlatMesh;
         if (frameRenderer != null) frameRenderer.enabled = false;
+        if (runtimeMaterial != null) runtimeMaterial.mainTexture = null;
+        CurrentSourceTexture = null;
     }
 
     private void OnEnable()

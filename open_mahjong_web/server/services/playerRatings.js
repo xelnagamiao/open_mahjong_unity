@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const { getScoreBounds, getPromotionProgress } = require('../utils/rankNames');
 
 const RATED_RULES = ['guobiao', 'riichi', 'qingque', 'sichuan', 'riichi_sanma', 'sichuan_xueliu_exchange', 'hongque'];
@@ -60,8 +61,8 @@ async function queryRecordRatings(db, playerRows) {
   // Read only the saved settlement fragment for this page, never return replay JSON or wall data.
   // rating_settlements.game_id is a runtime game ID, not the random cloud replay ID.
   const { rows } = await db.query(`
-    SELECT game_id, record #> '{game_title,rating_result}' AS rating_result
-    FROM game_record_metadata WHERE game_id = ANY($1::varchar[])
+    SELECT game_id, title->'rating_result' AS rating_result
+    FROM ${tableTitles} t WHERE game_id = ANY($1::varchar[])
   `, [gameIds]);
   return new Map(rows.map(row => [row.game_id, row.rating_result]));
 }

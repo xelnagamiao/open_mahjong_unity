@@ -13,6 +13,14 @@
       </el-select>
     </el-form-item>
     <RoomTimerFields :form="form" />
+    <el-form-item v-if="isDuplicate" label="真实时间">
+      <el-switch v-model="form.real_time" aria-label="真实时间" />
+    </el-form-item>
+    <el-form-item v-if="isDuplicate && form.real_time" label="第二等待时间（秒）">
+      <el-select v-model="form.tactical_grace_seconds" aria-label="第二等待时间（秒）">
+        <el-option v-for="seconds in [3, 5, 8, 10, 15, 20]" :key="seconds" :label="String(seconds)" :value="seconds" />
+      </el-select>
+    </el-form-item>
     <el-form-item label="战术鸣牌">
       <el-switch v-model="form.tactical_call" aria-label="战术鸣牌" />
     </el-form-item>
@@ -28,11 +36,24 @@
   </div>
 </template>
 <script setup>
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import RoomTimerFields from '@/components/RoomTimerFields.vue'
 import { isSichuanDuplicate } from '@/utils/sichuanDuplicate'
 const props = defineProps({ form: { type: Object, required: true }, allowPaired: Boolean })
+const isDuplicate = computed(() => isSichuanDuplicate(props.form.sub_rule))
+let previousSubRule = props.form.sub_rule
 watch(() => props.form.sub_rule, value => {
   if (!['sichuan/standard', 'sichuan/xuezhan_exchange', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(value) && !(props.allowPaired && isSichuanDuplicate(value))) props.form.sub_rule = 'sichuan/standard'
+  if (value !== previousSubRule && isSichuanDuplicate(value)) {
+    props.form.round_timer = 120
+    props.form.step_timer = 10
+    props.form.pointer_tips = false
+    props.form.real_time = false
+    props.form.tactical_grace_seconds = 5
+  } else if (value !== previousSubRule && (value === 'sichuan/doubles' || value === 'sichuan/xueliu_doubles')) {
+    props.form.round_timer = 30
+    props.form.step_timer = 10
+  }
+  previousSubRule = value
 }, { immediate: true })
 </script>

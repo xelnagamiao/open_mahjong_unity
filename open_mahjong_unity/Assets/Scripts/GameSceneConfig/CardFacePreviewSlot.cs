@@ -12,6 +12,12 @@ public partial class CardFacePreviewSlot : MonoBehaviour {
     private bool standaloneHand;
     private float tableImageScale = TileTextureLayout.TableImageScale;
 
+    public void ClearArtwork() {
+        if (image != null) image.sprite = null;
+        if (overlay != null) overlay.sprite = null;
+        if (tableBackgroundLayer != null) tableBackgroundLayer.sprite = null;
+    }
+
     public void ApplyTable(Sprite sprite, Sprite background, Color baseColor, bool dimMissingCustom,
         float imageScale = TileTextureLayout.TableImageScale) {
         showingTable = true;

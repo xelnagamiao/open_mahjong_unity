@@ -44,11 +44,12 @@ class SbrExchangeGameState(ThreeTileOpening, SichuanGameState):
         red = self.exchange_dice[0]
         direction = 1 + (red - 1) // 2
         self.exchange_direction = direction
-        self.game_status = "xueliu_exchange_animation"
-        self.server_action_tick += 1
-        self.exchange_deadline = time.monotonic() + 1.4
-        await broadcast_xueliu_exchange_animation(self)
-        await asyncio.sleep(max(0, self.exchange_deadline - time.monotonic()))
+        for phase, seconds in (("sbr_exchange_dice", 2.35), ("xueliu_exchange_animation", 1.90)):
+            self.game_status = phase
+            self.server_action_tick += 1
+            self.exchange_deadline = time.monotonic() + seconds
+            await broadcast_xueliu_exchange_animation(self)
+            await asyncio.sleep(max(0, self.exchange_deadline - time.monotonic()))
         for seat, player in enumerate(self.player_list):
             for tile in player.xueliu_throw_tiles:
                 player.hand_tiles.remove(tile)
@@ -59,18 +60,25 @@ class SbrExchangeGameState(ThreeTileOpening, SichuanGameState):
         rd.update(exchange_start_hands=before, deal_dice=self.deal_dice, exchange_dice=list(self.exchange_dice),
                   xueliu_exchange_direction=direction,
                   xueliu_throw_tiles={p.player_index: list(p.xueliu_throw_tiles) for p in self.player_list})
+        self.game_status = "sbr_exchange_received"
         await self.broadcast_game_start()
+        await asyncio.sleep(0.75)
         await self._dingque_phase()
         rd["dingque_suits"] = {p.player_index: p.dingque_suit for p in self.player_list}
         await broadcast_dingque_done(self)
 
     def exchange_view(self, seat):
+        outgoing = list(self.player_list[seat].xueliu_throw_tiles)
+        if self.game_status == "waiting_xueliu_throw" and outgoing:
+            return dict(selection_done=True, outgoing_tiles=outgoing)
+        if self.game_status == "sbr_exchange_dice":
+            return dict(dice=list(self.exchange_dice), direction=0, active_players=[],
+                        outgoing_tiles=outgoing, animating=True,
+                        animation_seconds=max(0, self.exchange_deadline - time.monotonic()))
         if self.game_status != "xueliu_exchange_animation":
             return None
-        outgoing = self.player_list[seat].xueliu_throw_tiles
-        incoming = self.player_list[(seat - self.exchange_direction) % 4].xueliu_throw_tiles
-        return dict(active_players=list(range(4)), outgoing_suit=outgoing[0] // 10,
-                    teammate_suit=incoming[0] // 10, direction=self.exchange_direction,
+        return dict(active_players=list(range(4)), outgoing_tiles=outgoing, outgoing_suit=0,
+                    teammate_suit=0, direction=self.exchange_direction, cards_face_down=True,
                     animating=True, animation_seconds=max(0, self.exchange_deadline - time.monotonic()))
 
     def hint_window(self, seat, tile=None):

@@ -61,12 +61,19 @@ def best_win_key(win):
 
 def update_player_recent_records(cursor, game_id, record=None):
     """调用方的牌谱事务内更新；只读取实际写入的玩家行，不自行提交。"""
-    cursor.execute("SELECT record, created_at FROM game_records WHERE game_id = %s", (game_id,))
+    if record is None:
+        cursor.execute("""SELECT r.record->'tables'->t.table_id, t.created_at FROM game_record_tables t
+            JOIN game_replays r ON r.game_id=t.replay_id WHERE t.game_id=%s""", (game_id,))
+    else:
+        cursor.execute("SELECT NULL, created_at FROM game_record_tables WHERE game_id=%s", (game_id,))
     row = cursor.fetchone()
     if row is None:
         return
     stored_record, created_at = row
-    record = record if record is not None else stored_record
+    if record is None:
+        # Best-win action_index links use the original source timeline, not the playback cursor.
+        from ..records.format import restore_source
+        record = restore_source(stored_record)
     cursor.execute("""
         SELECT user_id, rule, room_type, rank, match_type, sub_rule
         FROM game_player_records WHERE game_id = %s ORDER BY user_id, rule, room_type

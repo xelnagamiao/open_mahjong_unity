@@ -66,7 +66,6 @@
           <span>等候区</span><span v-for="waiter in card.waiters" :key="waiter.id" data-no-translate>{{ waiter.name }}</span>
         </div>
         <footer class="room-card-actions">
-          <el-button v-if="allowRestart && card.room.duplicate_status === 'interrupted' && (card.room.duplicate_table === 'open' || card.room.duplicate_lobby)" size="small" type="warning" plain :disabled="group.cards.some(c => c.room.is_game_running)" @click="$emit('restart-pair', card.room)">重开未完成副</el-button>
           <el-button size="small" type="primary" plain @click="selectedRoomId = card.room.room_id">
             <el-icon><Setting /></el-icon><span>查看配置</span>
           </el-button>
@@ -109,11 +108,11 @@ const props = defineProps({
   rooms: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   ruleLabels: { type: Object, default: () => ({}) },
-  allowRestart: { type: Boolean, default: false },
+
   allowBots: { type: Boolean, default: false },
   busyRoomId: { type: String, default: '' },
 })
-defineEmits(['delete', 'restart-pair', 'add-bot'])
+defineEmits(['delete', 'add-bot'])
 
 function botsDisabled(group) {
   return Boolean(props.busyRoomId) || group.cards.some(({ room }) => room.is_game_running || room.admin_closing || room.event_seating_pending ||

@@ -13,6 +13,31 @@ public class TipStackController : MonoBehaviour {
     [SerializeField] private float repositionDuration = 0.2f;
 
     private readonly List<TipItem> _activeTips = new List<TipItem>(); // 索引 0 = 最老（最上），末尾 = 最新（最下）
+    private readonly Vector3[] _headerCorners = new Vector3[4];
+    private RectTransform _anchor;
+    private Vector2 _initialPosition;
+    private bool _needsReflow;
+
+    private void Awake() {
+        _anchor = (RectTransform)transform;
+        _initialPosition = _anchor.anchoredPosition;
+    }
+
+    private void LateUpdate() {
+        if (_activeTips.Count == 0) return;
+        Vector2 position = _initialPosition;
+        var header = WindowsManager.Instance?.VisibleTopLobbyHeader;
+        if (header && _anchor.parent is RectTransform parent) {
+            header.GetWorldCorners(_headerCorners);
+            float bottom = parent.InverseTransformPoint(_headerCorners[0]).y;
+            position.y += Mathf.Min(0f, bottom - parent.rect.yMax);
+        }
+        if (_anchor.anchoredPosition != position) _anchor.anchoredPosition = position;
+        if (_needsReflow) {
+            _needsReflow = false;
+            RepositionAll();
+        }
+    }
 
     /// <summary>
     /// 将新 tip 加入堆栈底部，并设置初始 anchoredPosition。
@@ -20,16 +45,20 @@ public class TipStackController : MonoBehaviour {
     public void Push(TipItem tip) {
         _activeTips.Add(tip);
         tip.OnDismissed += OnTipDismissed;
+        tip.OnHeightChanged += RequestReflow;
         RectTransform rt = tip.GetComponent<RectTransform>();
-        rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, CalcTargetY(_activeTips.Count - 1, rt));
+        rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, CalcTargetY(_activeTips.Count - 1));
     }
 
     private void OnTipDismissed(TipItem tip) {
         tip.OnDismissed -= OnTipDismissed;
+        tip.OnHeightChanged -= RequestReflow;
         int index = _activeTips.IndexOf(tip);
         if (index >= 0) _activeTips.RemoveAt(index);
-        RepositionAll();
+        RequestReflow();
     }
+
+    private void RequestReflow() => _needsReflow = true;
 
     /// <summary>全部 tip 重新计算目标 Y 并平滑移动。</summary>
     private void RepositionAll() {
@@ -37,7 +66,7 @@ public class TipStackController : MonoBehaviour {
             TipItem item = _activeTips[i];
             if (item == null) continue;
             RectTransform rt = item.GetComponent<RectTransform>();
-            float targetY = CalcTargetY(i, rt);
+            float targetY = CalcTargetY(i);
             if (!Mathf.Approximately(rt.anchoredPosition.y, targetY)) {
                 item.AnimateToPosition(new Vector2(rt.anchoredPosition.x, targetY), repositionDuration);
             }
@@ -48,7 +77,7 @@ public class TipStackController : MonoBehaviour {
     /// 计算第 index 条 tip 的目标 Y。容器锚点在屏幕顶部，tip 的 pivot 建议设为 (0.5, 1)。
     /// 索引 0 紧贴容器顶部(y=0)，后续依次向下偏移(负方向)。
     /// </summary>
-    private float CalcTargetY(int index, RectTransform rt) {
+    private float CalcTargetY(int index) {
         float y = 0f;
         for (int i = 0; i < index; i++) {
             RectTransform prev = _activeTips[i].GetComponent<RectTransform>();

@@ -124,8 +124,7 @@ def test_no_double_subtraction(mode, expected):
 def pair(sub=SBR_DUPLICATE, count=1, *, sync_mode=False):
     data = new_match("id", sub, {"open":"1","closed":"2"}, [make_board("seed", i+1) for i in range(count)], "seed", sync_mode=sync_mode)
     data["status"] = "running"
-    saved = []
-    return PairedMatch(data, lambda candidate, revision: saved.append((deepcopy(candidate), revision))), saved
+    return PairedMatch(data)
 
 
 @pytest.mark.parametrize('table,number,scores,adjustments',[
@@ -135,25 +134,11 @@ def pair(sub=SBR_DUPLICATE, count=1, *, sync_mode=False):
 ])
 @run_async
 async def test_invalid_submission_never_mutates_pair(table,number,scores,adjustments):
-    p,saved=pair();before=deepcopy(p.data)
+    p = pair();before=deepcopy(p.data)
     with pytest.raises(ValueError): await p.submit(table,number,scores,adjustments,{})
-    assert p.data==before and saved==[]
+    assert p.data==before
 
 
-def test_checkpoint_restores_personal_history_without_aliasing():
-    from .DuplicateGameState import DuplicateMixin
-    p,_=pair(count=4)
-    checkpoint={'game_record':{'game_round':{}},'team_round_history':[{'score_changes':[4,-4]}],
-                'scores':[1,-2,3,-2],'score_history':[['+1'],['-2'],['+3'],['-2']],
-                'round_number_history':[[1],[1],[1],[1]]}
-    p.data.update(completed_boards=1,checkpoints={'open':checkpoint})
-    s=SimpleNamespace(duplicate_match=p,duplicate_table='open',player_list=state().player_list)
-    DuplicateMixin._restore_match_checkpoint(s)
-    assert [v.score for v in s.player_list]==checkpoint['scores']
-    assert [v.score_history for v in s.player_list]==checkpoint['score_history']
-    assert s.current_round==s.round_index==2 and s.dealer_index==1
-    s.player_list[0].score_history.append('9')
-    assert checkpoint['score_history'][0]==['+1']
 
 
 def test_rule_validation_rejects_unknown_profile_table_and_scoring():
@@ -171,7 +156,7 @@ def test_rule_validation_rejects_unknown_profile_table_and_scoring():
 
 @run_async
 async def test_pending_conflict_and_failed_interrupt_unblock_and_cancel():
-    p,_=pair(count=4, sync_mode=True)
+    p = pair(count=4, sync_mode=True)
     with pytest.raises(ValueError):p.board(0)
     assert p.board(1)==p.data['boards'][0]
     pending=asyncio.create_task(p.submit('open',1,[2,-2],[0,0],{}));await asyncio.sleep(0)
@@ -179,21 +164,19 @@ async def test_pending_conflict_and_failed_interrupt_unblock_and_cancel():
     sleeper=asyncio.create_task(asyncio.Event().wait())
     p.states={'open':SimpleNamespace(game_task=sleeper)}
     revision=p.data['revision']
-    def failure(*_):raise OSError('DB offline')
-    p.persist=failure
-    with pytest.raises(OSError):p.interrupt('failure')
-    assert p.data['status']=='interrupted' and p.data['revision']==revision
+    p.interrupt('failure')
+    assert p.data['status']=='interrupted' and p.data['revision']==revision+1
     with pytest.raises(RuntimeError):await pending
     with pytest.raises(asyncio.CancelledError):await sleeper
     p.interrupt('again')
-    with pytest.raises(ValueError):pair()[0].restart_unfinished_board()
+    assert p.data['revision'] == revision + 1
 
 
 @run_async
 async def test_engine_start_gate_stays_closed_and_propagates_failure():
     from .DuplicateGameState import DuplicateMixin
     from unittest.mock import AsyncMock
-    p,_=pair();p.data['status']='interrupted';p.start_gate.set()
+    p = pair();p.data['status']='interrupted';p.start_gate.set()
     s=SimpleNamespace(duplicate_match=p,game_loop_sichuan=AsyncMock(side_effect=ValueError('loop failed')))
     await DuplicateMixin.run_game_loop(s);s.game_loop_sichuan.assert_not_awaited()
     p.data['status']='running'
@@ -202,15 +185,13 @@ async def test_engine_start_gate_stays_closed_and_propagates_failure():
     s.duplicate_table='open';s.player_list=state().player_list
     for player in s.player_list:player.team_id=0
     with pytest.raises(ValueError):DuplicateMixin._shuffle_players(s,None)
-    p.data['completed_boards']=1
-    with pytest.raises(ValueError):DuplicateMixin._restore_match_checkpoint(s)
 
 
 @run_async
 @pytest.mark.parametrize("first", ["open", "closed"])
 @pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
 async def test_barrier_privacy_and_idempotency(first, sub):
-    p, saved = pair(sub)
+    p = pair(sub)
     second = "closed" if first == "open" else "open"
     task = asyncio.create_task(p.submit(first,1,[20,-20],[0,0],{"test":1}))
     await asyncio.sleep(0)
@@ -220,16 +201,16 @@ async def test_barrier_privacy_and_idempotency(first, sub):
     await task
     assert p.completed
     assert p.data["scores"] == ([5,0] if sub == SBR_DUPLICATE else [12,0])
-    revisions = len(saved)
+    revisions = p.data["revision"]
     await p.submit(first,1,[20,-20],[0,0],{"test":1})
-    assert len(saved) == revisions
+    assert p.data["revision"] == revisions
     with pytest.raises(ValueError, match="冲突"):
         await p.submit(first,1,[21,-21],[0,0],{"test":1})
 
 
 @run_async
 async def test_xueliu_tie_adds_same_board_for_both_tables():
-    p, _ = pair(XUELIU_DUPLICATE)
+    p = pair(XUELIU_DUPLICATE)
     await asyncio.gather(p.submit("open",1,[20,-20],[0,0],{}), p.submit("closed",1,[-20,20],[0,0],{}))
     assert not p.completed and len(p.data["boards"]) == 2
     assert p.board(2) == make_board("seed",2,layout="xueliu")
@@ -239,7 +220,7 @@ async def test_xueliu_tie_adds_same_board_for_both_tables():
 
 @run_async
 async def test_legacy_sbr_pair_penalty_adjustment_remains_readable_and_tie_is_draw():
-    p, _ = pair()
+    p = pair()
     await asyncio.gather(p.submit("open",1,[-12,0],[0,12],{}), p.submit("closed",1,[12,-12],[0,0],{}))
     assert p.completed and p.data["scores"] == [0,0]
     assert p.data["results"][0]["tables"]["open"]["adjustments"] == [0,12]
@@ -247,27 +228,18 @@ async def test_legacy_sbr_pair_penalty_adjustment_remains_readable_and_tie_is_dr
 
 @run_async
 async def test_imp_converts_each_board_before_sum():
-    p, _ = pair(count=2)
+    p = pair(count=2)
     for n in (1,2):
         await asyncio.gather(p.submit("open",n,[3,-3],[0,0],{}), p.submit("closed",n,[0,0],[0,0],{}))
     assert p.data["scores"] == [4,0]  # IMP(3)+IMP(3), not IMP(6)
     assert sum(imp(x) for x in [3,3]) == 4 and imp(6) == 3
 
 
-@run_async
-async def test_failed_persist_does_not_publish_or_release():
-    p, _ = pair()
-    def fail(*_):
-        raise OSError("database unavailable")
-    p.persist = fail
-    with pytest.raises(OSError):
-        await p.submit("open",1,[1,-1],[0,0],{})
-    assert p.data["pending"] == {} and p.data["revision"] == 0
 
 
 @run_async
 async def test_interruption_releases_waiter_without_zero_result():
-    p, _ = pair()
+    p = pair()
     task = asyncio.create_task(p.submit("open",1,[1,-1],[0,0],{}))
     await asyncio.sleep(0)
     p.interrupt("test")

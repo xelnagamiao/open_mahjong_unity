@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -151,13 +152,13 @@ async function readClassicRoster(db, ids) {
       SELECT req.id,gr.*,link.table_id AS original_side
       FROM unnest($1::varchar[]) req(id)
       LEFT JOIN game_record_tables link ON link.game_id=req.id
-      JOIN game_record_metadata gr ON gr.replay_id=COALESCE(link.replay_id,req.id)
+      JOIN ${tableTitles} gr ON gr.replay_id=COALESCE(link.replay_id,req.id)
     ) SELECT gr.id,gr.game_id,gr.table_id,gr.created_at,gr.original_side,
       ${visibleReplayTableSql('gr')} AS allowed,
       (SELECT jsonb_agg(jsonb_build_object('user_id',p.user_id,'username',p.username,'score',p.score,
           'rank',p.rank,'rule',p.rule,'original_player_index',p.original_player_index) ORDER BY p.rank)
         FROM game_player_records p WHERE p.game_id=gr.game_id) AS players,
-      (SELECT jsonb_object_agg(k,v) FROM jsonb_each(gr.record->'game_title') f(k,v)
+      (SELECT jsonb_object_agg(k,v) FROM jsonb_each(gr.title) f(k,v)
         WHERE k IN ('rule','player_count') OR k ~ '^p[0-3]_(uid|name)$') AS title
     FROM requested gr`, [ids]);
   const byId = new Map();
@@ -174,8 +175,8 @@ async function readClassicPositions(db, requests) {
   const {rows} = await db.query(`WITH permitted AS MATERIALIZED (
       SELECT q.*,gr.replay_id,gr.table_id
       FROM jsonb_to_recordset($1::jsonb) q(idx int, id text, source_id text, rk text, node int, legacy boolean)
-      JOIN game_record_metadata gr ON gr.game_id=q.source_id
-      LEFT JOIN game_record_metadata link ON link.game_id=q.id
+      JOIN ${tableTitles} gr ON gr.game_id=q.source_id
+      LEFT JOIN ${tableTitles} link ON link.game_id=q.id
       WHERE ${visibleReplayTableSql('gr')}
         AND (link.game_id IS NULL OR link.game_id=gr.game_id OR ${visibleReplayTableSql('link')})
     ), round_keys AS MATERIALIZED (

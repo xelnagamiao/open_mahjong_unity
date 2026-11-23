@@ -310,9 +310,9 @@ class MatchManager:
         try:
             await asyncio.sleep(self.MATCH_FOUND_DELAY_SECONDS)
 
-            # A disconnect during the countdown has no GameState to notify yet.
-            # Apply the same all-offline cleanup policy before creating the game.
-            if not any(uid in self.game_server.user_id_to_connection for uid in user_ids):
+            # A closing connection can remain in the login map after its seat-disconnect notification.
+            online_users = {uid for uid in user_ids if self.game_server.room_manager.is_room_member_online(uid)}
+            if not online_users:
                 for uid in user_ids:
                     self.committed_users.discard(uid)
                     self.winning_queues.pop(uid, None)
@@ -403,7 +403,7 @@ class MatchManager:
                 from .sanma_rank_calculator import SANMA_PT_ALGORITHM
                 game_state.match_rating_algorithm = SANMA_PT_ALGORITHM if QUEUES[queue_type].player_count == 3 else RIICHI_PT_ALGORITHM
             for player in game_state.player_list:
-                if player.user_id not in self.game_server.user_id_to_connection:
+                if player.user_id not in online_users:
                     if room_data['room_rule'] == 'hongque':
                         player.online = False
                     else:

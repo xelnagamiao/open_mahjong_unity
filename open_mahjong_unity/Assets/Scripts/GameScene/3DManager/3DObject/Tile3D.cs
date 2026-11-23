@@ -35,6 +35,7 @@ public class Tile3D : MonoBehaviour
     private int currentPoolTileId = -1;
     private int currentVisibleFaceTileId = -1;
     private MaterialPropertyBlock propBlock;
+    private Vector4 frontBounds = new Vector4(0, 0, 1, 1);
     private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
     private float backRotation;
     private Color baseFrontColor = Color.white;
@@ -173,7 +174,10 @@ public class Tile3D : MonoBehaviour
         return cardRenderer.GetComponent<BoxCollider>();
     }
 
+    private void OnDestroy() => TileInstances<Tile3D>.Unregister(this);
+
     private void Awake() {
+        TileInstances<Tile3D>.Register(this);
         InitializeComponents();
     }
 
@@ -256,6 +260,7 @@ public class Tile3D : MonoBehaviour
         }
         propBlock.Clear();
         // MPB 中只放 Shader 声明为 instanced 的属性，否则 Unity 会拆散 GPU Instancing。
+        propBlock.SetVector("_FrontAtlasBounds", frontBounds);
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
         var art = TableFaceLayoutSettings.ForTile(currentVisibleFaceTileId);
         propBlock.SetVector(ArtworkLayoutId, new Vector4(art.x, art.y, art.scale, 0));
@@ -279,6 +284,16 @@ public class Tile3D : MonoBehaviour
     }
 
     public void RefreshArtworkLayout() => ApplyPropertyBlock();
+
+    internal int VisibleFaceTileId => currentVisibleFaceTileId;
+
+    internal void ReleasePooledFace(int poolId) {
+        RestoreAtlasMaterial();
+        if (glassInkRenderer != null) glassInkRenderer.sharedMaterial = null;
+        currentVisibleFaceTileId = -1;
+        usesUnifiedArtwork = false;
+        SetTileIds(poolId, poolId);
+    }
 
     /// <summary>
     /// 设置牌面纹理（使用缓存的Sprite）
@@ -308,21 +323,19 @@ public class Tile3D : MonoBehaviour
 
         sharedTileMaterial.SetFloat("_FrontTexContain", 0f);
         instanceTableImageScale = TileTextureLayout.SnowTableImageScale;
+        frontBounds = UnityEngine.Sprites.DataUtility.GetOuterUV(sprite);
         frontTilingOffset = ComputeSpriteTiling(sprite);
         ApplyPropertyBlock();
     }
 
     /// <summary>完整官方画布的图集区域，由正式牌和模型预览共用。</summary>
     public static Vector4 ComputeSpriteTiling(Sprite sprite) {
-        Rect uvRect = sprite.textureRect;
-        Texture2D atlasTexture = sprite.texture;
-
-        float tilingX = uvRect.width / atlasTexture.width;
-        float tilingY = uvRect.height / atlasTexture.height;
-        float offsetX = uvRect.x / atlasTexture.width;
-        float offsetY = uvRect.y / atlasTexture.height;
-
-        return new Vector4(tilingX, tilingY, offsetX, offsetY);
+        var uv = UnityEngine.Sprites.DataUtility.GetOuterUV(sprite);
+        var padding = UnityEngine.Sprites.DataUtility.GetPadding(sprite);
+        var size = sprite.rect.size;
+        float x = (uv.z - uv.x) / Mathf.Max(1f, size.x - padding.x - padding.z);
+        float y = (uv.w - uv.y) / Mathf.Max(1f, size.y - padding.y - padding.w);
+        return new Vector4(x * size.x, y * size.y, uv.x - x * padding.x, uv.y - y * padding.y);
     }
 
     public static Vector2 ComputeSpriteCanvasFit(Sprite sprite) {
@@ -336,7 +349,7 @@ public class Tile3D : MonoBehaviour
     /// </summary>
     public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false,
         float imageScale = 1f) {
-        float authoredAspect = VietnameseTileVisual.IsCurrentRuleTile(tileId) ? VietnameseTileVisual.ArtworkAspect : 0f;
+        FixedFacePack.TryGetArtworkAspect(tileId, null, true, out float authoredAspect);
         SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain, authoredAspect), contain, imageScale);
     }
 
@@ -358,6 +371,7 @@ public class Tile3D : MonoBehaviour
         var sharedFace = TileFaceResolver.LoadSharedTableSprite(tileId);
         usesUnifiedArtwork = sharedFace != null && sharedFace.texture == texture;
         atlasArtworkFit = usesUnifiedArtwork ? ComputeSpriteCanvasFit(sharedFace) : Vector2.one;
+        frontBounds = usesUnifiedArtwork ? UnityEngine.Sprites.DataUtility.GetOuterUV(sharedFace) : new Vector4(0,0,1,1);
         frontTilingOffset = usesUnifiedArtwork ? ComputeSpriteTiling(sharedFace) : tiling;
         // Contain the sprite before sampling its atlas region, so neighboring tiles never enter its margins.
         if (usesUnifiedArtwork) faceMaterial.SetFloat("_FrontTexContain", 0f);
@@ -495,6 +509,15 @@ public class Tile3D : MonoBehaviour
     /// <summary>
     /// 应用牌背颜色与牌背贴图：颜色走实例 MPB，贴图写共享材质（所有牌共享同一张背图）。
     /// </summary>
+    public void ApplyAppearanceColors(Color back, Color side, Color backEdge, Color frontEdge) {
+        InitializeComponents();
+        instanceBackColor = baseBackColor = back;
+        instanceSideColor = baseSideColor = side;
+        instanceBackEdgeColor = baseBackEdgeColor = backEdge;
+        instanceFrontEdgeColor = baseFrontEdgeColor = frontEdge;
+        ApplyPropertyBlock();
+    }
+
     public void ApplyBackVisual(Color backColor, Texture2D backTexture) {
         InitializeComponents();
         if (cardRenderer == null || tileMaterialIndex < 0) return;

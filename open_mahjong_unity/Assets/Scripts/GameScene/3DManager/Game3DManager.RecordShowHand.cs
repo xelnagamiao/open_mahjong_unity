@@ -99,8 +99,8 @@ public partial class Game3DManager {
         player.showHandDrawSlotActive = false;
     }
 
-    private void LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles, bool pinLastAsDraw, bool ronPresentationCopy) {
-        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) return;
+    private System.Collections.IEnumerable LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles, bool pinLastAsDraw, bool ronPresentationCopy) {
+        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
         // 摸牌巡(showHandDrawSlotActive)时，真正的摸入张是 tileList 的最后一个元素（d/gd/bd 行动 Add 入尾），
         // 不能随主列一起排序——否则排序后的末张会被误当作摸入张，导致自摸和牌张错位（如摸 2m 却把 9s 钉到摸牌区）。
@@ -127,10 +127,11 @@ public partial class Game3DManager {
         for (int i = 0; i < mainCount; i++) {
             GameObject cardObj = MahjongObjectPool.Instance.Spawn(mainTiles[i], mainPositions[i], rotation);
             if (cardObj == null) continue;
-            cardObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
+            TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, showCardsPosition);
             cardObj.name = $"RecordShow_{i}";
 
             Card3DHoverManager.Instance.RegisterCard(cardObj, mainTiles[i]);
+            yield return null;
 
         }
 
@@ -140,7 +141,7 @@ public partial class Game3DManager {
                 ? MahjongObjectPool.Instance.SpawnPresentationTile(drawTileId, drawPosition.Value, rotation)
                 : MahjongObjectPool.Instance.Spawn(drawTileId, drawPosition.Value, rotation);
             if (drawObj != null) {
-                drawObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(drawObj.transform, showCardsPosition);
                 drawObj.name = "RecordGet_Draw";
                 Tile3D drawTile3D = drawObj.GetComponent<Tile3D>();
                 if (drawTile3D != null) {
@@ -168,7 +169,7 @@ public partial class Game3DManager {
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, spawnPosition, rotation);
         if (cardObj == null) yield break;
 
-        cardObj.transform.SetParent(showCards, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, showCards);
         cardObj.name = "RecordGet_Draw";
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) {
@@ -379,7 +380,7 @@ public partial class Game3DManager {
         }
         if (winObj == null) yield break;
 
-        winObj.transform.SetParent(showCards, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(winObj.transform, showCards);
         winObj.name = "RecordGet_Draw";
 
         Tile3D tile3D = winObj.GetComponent<Tile3D>();

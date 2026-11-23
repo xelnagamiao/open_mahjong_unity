@@ -127,8 +127,8 @@ public sealed class DoraTileSheen : MonoBehaviour {
     }
 
     public static void RefreshAll() {
-        foreach (var card in Object.FindObjectsByType<TileCard>(UnityEngine.FindObjectsSortMode.None)) Apply(card.transform, card.tileId);
-        foreach (var card in Object.FindObjectsByType<StaticCard>(UnityEngine.FindObjectsSortMode.None)) Apply(card.transform, card.TileId);
-        foreach (var tile in Object.FindObjectsByType<Tile3D>(UnityEngine.FindObjectsSortMode.None)) tile.RefreshRuleBadge();
+        TileInstances<TileCard>.ForEach(card => Apply(card.transform, card.tileId));
+        TileInstances<StaticCard>.ForEach(card => Apply(card.transform, card.TileId));
+        TileInstances<Tile3D>.ForEach(tile => tile.RefreshRuleBadge());
     }
 }

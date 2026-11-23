@@ -21,13 +21,47 @@ public class SpectatorPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown formatFilterDropdown;
 
     private enum ListFilter { Overview, Guobiao, Other }
-    private struct SpectatorEntry {
-        public SpectatorPrefab Item;
-        public bool IsGuobiao;
-        public SpectatorInfo Info;
+    private sealed class SpectatorEntry {
+        public readonly SpectatorInfo Info;
+        public readonly SpectatorInfo[] Tables;
+        public readonly string Key;
+
+        public SpectatorEntry(SpectatorInfo info) {
+            Info = info;
+            // The event lobby groups the same packet independently and replaces paired_tables.
+            Tables = info.paired_tables;
+            Key = string.IsNullOrEmpty(info.match_id) ? "game:" + info.gamestate_id : "match:" + info.match_id;
+        }
+
+        public bool SameDisplay(SpectatorEntry previous) {
+            if (!SameTable(Info, previous.Info)) return false;
+            if (Tables == null || previous.Tables == null) return Tables == previous.Tables;
+            if (Tables.Length != previous.Tables.Length) return false;
+            for (int i = 0; i < Tables.Length; i++)
+                if (!SameTable(Tables[i], previous.Tables[i])) return false;
+            return true;
+        }
+
+        private static bool SameTable(SpectatorInfo a, SpectatorInfo b) {
+            return a.gamestate_id == b.gamestate_id && a.table_id == b.table_id && a.match_id == b.match_id &&
+                a.current_round == b.current_round && a.total_rounds == b.total_rounds &&
+                a.rule == b.rule && a.sub_rule == b.sub_rule && a.room_type == b.room_type &&
+                a.match_queue_type == b.match_queue_type && a.match_tier == b.match_tier &&
+                a.player1_name == b.player1_name && a.player2_name == b.player2_name &&
+                a.player3_name == b.player3_name && a.player4_name == b.player4_name &&
+                (a.team_by_player_index == b.team_by_player_index ||
+                 a.team_by_player_index != null && b.team_by_player_index != null &&
+                 a.team_by_player_index.SequenceEqual(b.team_by_player_index));
+        }
     }
 
-    private readonly List<SpectatorEntry> _items = new List<SpectatorEntry>();
+    private SpectatorEntry[] entries = Array.Empty<SpectatorEntry>();
+    private readonly Dictionary<string, SpectatorEntry> previousEntries = new();
+    private readonly List<SpectatorEntry> filteredEntries = new();
+    private readonly List<string> filteredKeys = new();
+    private readonly HashSet<string> dirty = new();
+    private ViewportCardList<string, SpectatorPrefab> cards;
+    private float normalHeight, pairedHeight;
     private ListFilter _filter;
 
     private void Awake() {
@@ -49,14 +83,36 @@ public class SpectatorPanel : MonoBehaviour {
             spectatorScrollRect.elasticity = .12f;
             spectatorScrollRect.inertia = true;
         }
-        ApplyFilter();
+        normalHeight = CardHeight(SpectatorPrefab);
+        pairedHeight = pairedSpectatorPrefab ? CardHeight(pairedSpectatorPrefab) : normalHeight;
+        cards = new ViewportCardList<string, SpectatorPrefab>(spectatorScrollRect, (RectTransform)contentTransform,
+            kind => Instantiate(kind == 1 ? pairedSpectatorPrefab : SpectatorPrefab, contentTransform),
+            (card, index) => {
+                var entry = filteredEntries[index];
+                card.InitializeSpectatorItem(entry.Info, entry.Tables);
+            });
+    }
+
+    private static float CardHeight(SpectatorPrefab prefab) {
+        var layout = prefab.GetComponent<LayoutElement>();
+        return layout != null && layout.preferredHeight > 0 ? layout.preferredHeight : ((RectTransform)prefab.transform).rect.height;
     }
 
     private void OnEnable() {
-        RefreshSpectatorList();
+        if (cards == null) return;
+        var games = GameStateNetworkManager.Instance;
+        if (games != null) {
+            SetSnapshot(games.LatestSpectatorList, true);
+            RefreshSpectatorList();
+        }
     }
 
+    private void LateUpdate() => cards?.Tick();
+
+    private void OnDisable() => cards?.Hide();
+
     private void OnDestroy() {
+        cards?.Dispose();
         if (RefreshButton != null) RefreshButton.onClick.RemoveListener(RefreshSpectatorList);
         if (OverviewButton != null) OverviewButton.onClick.RemoveListener(ShowOverview);
         if (GuobiaoButton != null) GuobiaoButton.onClick.RemoveListener(ShowGuobiao);
@@ -76,8 +132,9 @@ public class SpectatorPanel : MonoBehaviour {
     private void ShowOther() { SetFilter(ListFilter.Other); }
 
     private void SetFilter(ListFilter filter) {
+        if (_filter == filter) return;
         _filter = filter;
-        ApplyFilter();
+        ApplyFilter(true);
     }
 
     private void OnRoomFilterChanged(int value) {
@@ -86,33 +143,29 @@ public class SpectatorPanel : MonoBehaviour {
             if (custom) tierFilterDropdown.SetValueWithoutNotify(0);
             tierFilterDropdown.interactable = !custom;
         }
-        ApplyFilter();
+        ApplyFilter(true);
     }
 
-    private void OnDropdownChanged(int value) { ApplyFilter(); }
+    private void OnDropdownChanged(int value) { ApplyFilter(true); }
 
-    private void ApplyFilter(float? preservedPosition = null) {
+    private int CardKind(int index) => filteredEntries[index].Tables != null && pairedSpectatorPrefab != null ? 1 : 0;
+
+    private void ApplyFilter(bool resetScroll) {
+        if (!isActiveAndEnabled || cards == null) return;
         var room = (SpectatorRoomPresentation.RoomFilter)(roomFilterDropdown != null ? roomFilterDropdown.value : 0);
         var format = (SpectatorRoomPresentation.FormatFilter)(formatFilterDropdown != null ? formatFilterDropdown.value : 0);
         int tierIndex = tierFilterDropdown != null ? tierFilterDropdown.value : 0;
         string tier = SpectatorRoomPresentation.TierKeys[Mathf.Clamp(tierIndex, 0, SpectatorRoomPresentation.TierKeys.Length - 1)];
-        int count = 0;
-        foreach (var entry in _items) {
-            bool visible = (_filter == ListFilter.Overview ||
-                (_filter == ListFilter.Guobiao ? entry.IsGuobiao : !entry.IsGuobiao)) &&
-                SpectatorRoomPresentation.Matches(entry.Info, room, tier, format);
-            entry.Item.gameObject.SetActive(visible);
-            if (visible) count++;
+        filteredKeys.Clear();
+        filteredEntries.Clear();
+        foreach (var entry in entries) {
+            if (_filter != ListFilter.Overview && (_filter == ListFilter.Guobiao) != IsGuobiao(entry.Info)) continue;
+            if (!SpectatorRoomPresentation.Matches(entry.Info, room, tier, format)) continue;
+            filteredKeys.Add(entry.Key);
+            filteredEntries.Add(entry);
         }
-        if (contentTransform is RectTransform content) LayoutRebuilder.ForceRebuildLayoutImmediate(content);
-        if (spectatorScrollRect != null) {
-            // Resolve the content/viewport bounds before restoring the scroll position.
-            // A refresh must not continually pull a reader back to the first row.
-            Canvas.ForceUpdateCanvases();
-            spectatorScrollRect.StopMovement();
-            spectatorScrollRect.verticalNormalizedPosition = count == 0 || !preservedPosition.HasValue
-                ? 1f : Mathf.Clamp01(preservedPosition.Value);
-        }
+        cards.SetRows(filteredKeys, CardKind, index => CardKind(index) == 1 ? pairedHeight : normalHeight, dirty, resetScroll);
+        dirty.Clear();
     }
 
     private static bool IsGuobiao(SpectatorInfo spectator) {
@@ -129,23 +182,26 @@ public class SpectatorPanel : MonoBehaviour {
             return;
         }
 
-        // Capture before removing rows; an empty list has no meaningful scroll position.
-        float? position = _items.Count > 0 && spectatorScrollRect != null
-            ? spectatorScrollRect.verticalNormalizedPosition : (float?)null;
-        _items.Clear();
-        foreach (Transform child in contentTransform) {
-            child.gameObject.SetActive(false);
-            Destroy(child.gameObject);
-        }
+        if (isActiveAndEnabled && cards != null) SetSnapshot(spectatorList, false);
+    }
 
-        if (spectatorList != null) {
-            foreach (var spectator in SpectatorRoomPresentation.GroupMatches(spectatorList)
-                .OrderByDescending(SpectatorRoomPresentation.Priority).ThenBy(item => item.gamestate_id, StringComparer.Ordinal)) {
-                SpectatorPrefab item = Instantiate(!string.IsNullOrEmpty(spectator.match_id) && pairedSpectatorPrefab != null ? pairedSpectatorPrefab : SpectatorPrefab, contentTransform);
-                item.InitializeSpectatorItem(spectator);
-                _items.Add(new SpectatorEntry { Item = item, IsGuobiao = IsGuobiao(spectator), Info = spectator });
-            }
+    private void SetSnapshot(SpectatorInfo[] snapshot, bool reopening) {
+        var next = SpectatorRoomPresentation.GroupMatches(snapshot)
+            .OrderByDescending(SpectatorRoomPresentation.Priority)
+            .ThenBy(item => item.gamestate_id, StringComparer.Ordinal)
+            .Select(info => new SpectatorEntry(info)).ToArray();
+        bool changed = next.Length != entries.Length;
+        dirty.Clear();
+        for (int i = 0; i < next.Length; i++) {
+            var entry = next[i];
+            if (i >= entries.Length || entry.Key != entries[i].Key) changed = true;
+            if (!previousEntries.TryGetValue(entry.Key, out var old) || !entry.SameDisplay(old))
+                dirty.Add(entry.Key);
         }
-        ApplyFilter(position);
+        if (!changed && dirty.Count == 0 && !reopening) return;
+        entries = next;
+        previousEntries.Clear();
+        foreach (var entry in next) previousEntries.Add(entry.Key, entry);
+        ApplyFilter(false);
     }
 }

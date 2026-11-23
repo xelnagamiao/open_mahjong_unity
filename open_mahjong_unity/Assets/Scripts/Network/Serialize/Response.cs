@@ -396,6 +396,9 @@ public sealed class SbrExchangeWindow {
 }
 
 public class XueliuExchangeInfo {
+    public int[] outgoing_tiles;
+    public int[] dice;
+    public bool cards_face_down;
     public int direction;
     public int stage;
     public int[] active_players;
@@ -593,6 +596,7 @@ public class PlayerInfo {
     public int? win_count;
     public bool? post_hu_lock;          // 血流：和后仅允许摸切
     public int[] xueliu_throw_tiles;    // 血流：开局甩掉的三张
+    public int[] sbr_received_tiles;
 }
 
 public class WashizuDoublesInfo {
@@ -603,6 +607,7 @@ public class WashizuDoublesInfo {
 
 public class GameInfo {
     public NewChineseInfo new_chinese;
+    public SanhuaInfo sanhua;
     public bool real_time;
     public int tactical_grace_seconds = 5;
     public bool unlimited_rounds;
@@ -702,6 +707,8 @@ public class GameInfo {
     public ShowResultInfo blood_battle_result;
     public bool? blood_battle;          // 四川麻将：是否开启血战到底
     public Dictionary<string, object> xueliu_rule_profile;
+    public int sbr_exchange_direction;
+    public float? exchange_receipt_seconds;
     public int? open_kong_replacement_count;
     public bool? initial_hu_si_xi;
     public bool? initial_hu_ban_ban_hu;
@@ -756,8 +763,8 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public string table_id;            // 复式比赛中的开室或闭室
     public int user_id;                 // 用户ID
     public string username;            // 用户名
-    public int score;                   // 玩家分数
-    public int rank;                    // 排名（1-4）
+    public int? score;                  // 旧牌谱可能没有结算分数
+    public int? rank;                   // 旧牌谱可能没有名次
     public int? original_player_index;  // 开局原始风位 0东1南2西3北
     public int? title_used;             // 使用的称号ID（可为空）
     public int? character_used;        // 使用的角色ID（可为空）
@@ -767,7 +774,7 @@ public class PlayerRecordInfo { // 玩家对局记录信息
 }
 
 public class RecordInfo {
-    [Newtonsoft.Json.JsonExtensionData] public IDictionary<string, Newtonsoft.Json.Linq.JToken> metadata;
+    [Newtonsoft.Json.JsonIgnore] public Newtonsoft.Json.Linq.JObject metadata;
     public Newtonsoft.Json.Linq.JObject match_summary;
     public string game_id;              // 对局ID（base62字符串）
     public string rule;                 // 规则类型（GB/JP）
@@ -775,8 +782,9 @@ public class RecordInfo {
     public string match_type;           // 局数类型（如 1/4、2/4、4/4_rank），用于区分全庄战、半庄战、天梯等
     public string match_queue_type;     // 排位队列（如 beginner_quanzhuang），可选
     public string created_at;           // 创建时间
-    public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
+    public PlayerRecordInfo[] players;  // 对局玩家信息
     public bool is_favorite;            // 当前用户是否收藏
+    public string note;                 // 当前用户的牌谱备注
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
@@ -1344,6 +1352,7 @@ public class Response {
     public int[] dora_indicators; // update_dora 顶层字段：初始宝牌指示牌
     public int[] kan_dora_indicators; // update_dora 顶层字段：杠宝牌指示牌
     public LeaderboardEntry[] leaderboard_list; // 国标段位排行榜
+    public int leaderboard_self_position;
     public StickerInfo sticker_info; // 对局表情包广播
     public UnlimitedRoundInfo unlimited_info;
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步

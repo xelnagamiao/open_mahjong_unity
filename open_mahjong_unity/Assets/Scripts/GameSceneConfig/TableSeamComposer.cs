@@ -83,6 +83,7 @@ public sealed class TableSeamComposer : IDisposable
             material.SetVector(ClothUvRectId, TableLightingPresets.ClothUvRect);
             if (light == 1 && sourceLight == null)
                 sourceLight = Resources.Load<Texture2D>("image/Board/TableLighting/OriginalLight");
+            if (light != 1) ReleaseSourceLight();
             material.SetTexture(SourceLightId, sourceLight);
             material.SetFloat(UseSourceLightId, light == 1 && sourceLight != null ? 1f : 0f);
             Graphics.Blit(cloth, output, material, 0);
@@ -109,7 +110,17 @@ public sealed class TableSeamComposer : IDisposable
         lastSeam = null;
         lastShadow = lastLight = -1;
         ReleaseOutput();
+        ReleaseSourceLight();
         if (material != null) { material.mainTexture = null; material.SetTexture(SeamTextureId, null); }
+    }
+
+    private void ReleaseSourceLight()
+    {
+        if (sourceLight == null) return;
+        var released = sourceLight;
+        sourceLight = null;
+        if (material != null) material.SetTexture(SourceLightId, null);
+        Resources.UnloadAsset(released);
     }
 
     private void ReleaseOutput()

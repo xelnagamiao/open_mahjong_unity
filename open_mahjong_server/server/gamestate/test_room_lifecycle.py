@@ -185,6 +185,28 @@ def test_bot_uid_ten_does_not_keep_game_alive():
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("rule", ["sichuan", "classical", "changsha", "riichi"])
+def test_game_task_completes_its_own_cleanup(rule):
+    async def run():
+        server = make_server(USERS)
+        gm = server.gamestate_manager
+        room = make_room(USERS, rule)
+        server.room_manager.rooms["1"] = room
+
+        async def finish_from_loop(state):
+            await gm.cleanup_game_state_complete(gamestate_id=state.gamestate_id)
+
+        with patch.object(RULES[rule], "run_game_loop", finish_from_loop):
+            assert await gm.start_game(str(USERS[0]), "1") is None
+            state = gm.get_game_state_by_room_id("1")
+            await asyncio.wait_for(state.game_task, timeout=2)
+        assert state.lifecycle_state == "closed"
+        assert not gm.gamestate_id_to_game_state
+        assert not room["is_game_running"]
+
+    asyncio.run(run())
+
+
 def test_old_cleanup_preserves_replaced_indexes_and_new_room():
     async def run():
         async with game() as (server, room, old):
@@ -242,7 +264,9 @@ def test_stale_connection_cannot_disconnect_new_session():
         async with game() as (server, room, state):
             old = server.user_id_to_connection[USERS[0]]
             server.user_id_to_connection[USERS[0]] = SimpleNamespace(websocket=SimpleNamespace(send_json=AsyncMock()))
-            await server.gamestate_manager.player_disconnect(USERS[0], connection=old)
+            gm = server.gamestate_manager
+            assert await gm.player_reconnect(USERS[0])
+            await gm.player_disconnect(USERS[0], connection=old)
             assert "offline" not in state.player_list[0].tag_list
     asyncio.run(run())
 

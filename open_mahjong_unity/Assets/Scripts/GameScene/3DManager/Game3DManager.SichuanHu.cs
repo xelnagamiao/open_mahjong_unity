@@ -2,15 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 /// <summary>
-/// 四川血战中途和牌：和牌张从手牌/河牌 Lerp 移入补花区（简短动画，不重整手牌）。
+/// 血战中途和牌张的移动与重建。广东推广双打按出牌者定位点和牌。
 /// </summary>
 public partial class Game3DManager {
     private const int SichuanBuhuaCardsPerRow = 4;
-    private static bool IsGuobiaoOrNanqueBloodTable {
+    private static bool UsesRobbedKongMeldSource {
         get {
             GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
             return subRule == GuobiaoGameState.BloodBattleSubRule
-                || subRule == NanqueGameState.BloodBattleSubRule || subRule == GuangdongMilRules.Doubles;
+                || subRule == NanqueGameState.BloodBattleSubRule || subRule == GuangdongMilRules.Doubles || SichuanLobby.IsDoubles(subRule);
         }
     }
 
@@ -130,11 +130,12 @@ public partial class Game3DManager {
         if (gsm != null && gsm.player_to_info.TryGetValue(playerPosition, out PlayerInfoClass info)) {
             info.hand_tiles_count = Mathf.Max(0, info.hand_tiles_count - 1);
         }
-        Transform handPosition = IsRecordShowCardsModeActive() ? panel.ShowCardsPosition : panel.cardsPosition;
+        Transform handPosition = SichuanWinHandRow(panel, playerPosition);
         GameObject handTile = TryTakeLastHandTileObject(handPosition);
         if (handTile == null) {
             Debug.LogWarning($"[SichuanHu] 他家自摸取末张手牌失败 winner={playerPosition}，fallback spawn");
-            handTile = SpawnSichuanBuhuaWinTileObject(panel, playerPosition, 0, true, false);
+            handTile = SpawnSichuanBuhuaWinTileObject(panel, playerPosition, tileId, true, false);
+            if (handTile != null) handTile.name = "SichuanHu_Restored";
             yield break;
         }
         PrepareTileForBuhuaMove(handTile, panel.buhuaPosition, playerPosition);
@@ -153,7 +154,7 @@ public partial class Game3DManager {
             ? MahjongObjectPool.Instance.Spawn(tileId, pos, rotation)
             : MahjongObjectPool.Instance.SpawnBlankTile(pos, rotation);
         if (cardObj == null) return null;
-        cardObj.transform.SetParent(buhuaParent, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, buhuaParent);
         cardObj.transform.SetPositionAndRotation(pos, rotation);
         RegisterSichuanHuCard(cardObj, tileId, dimmed: false);
         return cardObj;
@@ -163,9 +164,9 @@ public partial class Game3DManager {
         int tileId = request.HepaiTile;
         PosPanel3D winnerPanel = GetPosPanel(winnerPos);
         if (winnerPanel == null || winnerPanel.buhuaPosition == null) yield break;
-        GameObject riverTile = DetachRonSourceObject(request.DiscardPlayerPosition, tileId, IsGuobiaoOrNanqueBloodTable && request.IsQianggang);
+        GameObject riverTile = DetachRonSourceObject(request.DiscardPlayerPosition, tileId, UsesRobbedKongMeldSource && request.IsQianggang);
         if (riverTile != null) {
-            if (IsGuobiaoOrNanqueBloodTable && request.IsQianggang) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
+            if (UsesRobbedKongMeldSource && request.IsQianggang) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
             else TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
             yield return CoAnimateTileToBuhua(riverTile, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: false, null, request.DiscardPlayerPosition);
         } else {
@@ -207,8 +208,8 @@ public partial class Game3DManager {
             GameObject obj = TryResolveJiagangSourceObject(request.DiscardPlayerPosition, tileId);
             if (obj != null) {
                 ClearLastJiagangIfMatches(request.DiscardPlayerPosition, obj);
-                obj.transform.SetParent(null, worldPositionStays: true);
-                if (IsGuobiaoOrNanqueBloodTable) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
+                TableWorldObjectMount.AttachDetached(obj.transform, true);
+                if (UsesRobbedKongMeldSource) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
                 else TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
                 MahjongObjectPool.Instance.Return(-1, obj);
             }
@@ -236,7 +237,7 @@ public partial class Game3DManager {
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         tile3D?.ResetConcealedState();
         Quaternion finalRot = GetMeldVerticalWorldRotation(playerPosition);
-        cardObj.transform.SetParent(buhuaParent, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, buhuaParent);
         cardObj.transform.rotation = finalRot;
     }
     private IEnumerator CoAnimateTileToBuhua(
@@ -249,11 +250,11 @@ public partial class Game3DManager {
         Quaternion finalRot = faceDown
             ? GetMeldVerticalWorldRotation(playerPosition)
             : ComputeSichuanBuhuaSlotRotation(panel.buhuaPosition, playerPosition);
-        GuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref endPos, ref finalRot);
+        bool besideHand = TryApplyGuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref endPos, ref finalRot);
         if (faceDown) {
             PrepareTileForBuhuaMove(cardObj, panel.buhuaPosition, playerPosition);
         } else {
-            cardObj.transform.SetParent(panel.buhuaPosition, worldPositionStays: true);
+            TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, panel.buhuaPosition);
         }
         Vector3 startPos = explicitStartPos ?? cardObj.transform.position;
         Quaternion startRot = faceDown ? finalRot : cardObj.transform.rotation;
@@ -262,8 +263,12 @@ public partial class Game3DManager {
             RegisterSichuanHuCard(cardObj, tileId, dimmed);
         }
         yield return CoLerpTransform(cardObj.transform, startPos, startRot, endPos, finalRot, HepaiRevealTiming.TravelSeconds);
+        if (besideHand && playerPosition == "self")
+            TryApplyGuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref endPos, ref finalRot);
         cardObj.transform.SetPositionAndRotation(endPos, finalRot);
-        if (faceDown) {
+        if (faceDown && besideHand) {
+            RegisterSichuanHuCard(cardObj, MahjongObjectPool.GetTile3D(cardObj).GetTileId(), dimmed);
+        } else if (faceDown) {
             ApplyConcealedFaceDownLikeMeld(cardObj, tileId, dimmed);
         } else if (dimmed) {
             ApplySichuanHuCardDim(cardObj);
@@ -273,7 +278,7 @@ public partial class Game3DManager {
     private static GameObject TryTakeLastHandTileObject(Transform cardsPosition) {
         if (cardsPosition == null || cardsPosition.childCount == 0) return null;
         GameObject obj = cardsPosition.GetChild(cardsPosition.childCount - 1).gameObject;
-        obj.transform.SetParent(null, worldPositionStays: true);
+        TableWorldObjectMount.AttachDetached(obj.transform, true);
         return obj;
     }
     private GameObject TryDetachSelfHandTileById(Transform cardPosition, int tileId) {
@@ -283,7 +288,7 @@ public partial class Game3DManager {
             Tile3D t3 = child.GetComponent<Tile3D>();
             if (t3 != null && t3.GetTileId() == tileId) {
                 GameObject obj = child.gameObject;
-                obj.transform.SetParent(null, worldPositionStays: true);
+                TableWorldObjectMount.AttachDetached(obj.transform, true);
                 return obj;
             }
         }
@@ -318,7 +323,7 @@ public partial class Game3DManager {
                 $"DetachRonSourceObject: 未认到河牌/加杠牌，放弃取牌 discarder={discarderPos}, tile={expectedTileId}");
             return null;
         }
-        obj.transform.SetParent(null, worldPositionStays: true);
+        TableWorldObjectMount.AttachDetached(obj.transform, true);
         if (fromRegisteredRiver) {
             OnLastDiscardTaken(discarderPos);
         } else {
@@ -336,10 +341,10 @@ public partial class Game3DManager {
         PosPanel3D panel, string playerPosition, int tileId, bool faceDown, bool dimmed, string sourcePosition = null) {
         ComputeSichuanBuhuaSlot(panel.buhuaPosition, playerPosition, out Vector3 pos, out Quaternion rotation);
         if (faceDown) rotation = GetMeldVerticalWorldRotation(playerPosition);
-        GuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref pos, ref rotation);
+        bool besideHand = TryApplyGuangdongWinPose(panel, playerPosition, sourcePosition, faceDown, ref pos, ref rotation);
         GameObject cardObj;
         if (faceDown) {
-            if (playerPosition == "self" && tileId >= 10) {
+            if ((playerPosition == "self" || (besideHand && SichuanWinHandRow(panel, playerPosition) == panel.ShowCardsPosition)) && tileId >= 10) {
                 cardObj = MahjongObjectPool.Instance.Spawn(tileId, pos, rotation);
             } else {
                 cardObj = MahjongObjectPool.Instance.SpawnBlankTile(pos, rotation);
@@ -353,31 +358,214 @@ public partial class Game3DManager {
                 : MahjongObjectPool.Instance.Spawn(spawnId, pos, rotation);
         }
         if (cardObj == null) return null;
-        cardObj.transform.SetParent(panel.buhuaPosition, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, panel.buhuaPosition);
         cardObj.transform.SetPositionAndRotation(pos, rotation);
-        if (faceDown) {
+        if (faceDown && !besideHand) {
             ApplyConcealedFaceDownLikeMeld(cardObj, tileId, dimmed);
         } else {
-            RegisterSichuanHuCard(cardObj, tileId, dimmed);
+            RegisterSichuanHuCard(cardObj, MahjongObjectPool.GetTile3D(cardObj).GetTileId(), dimmed);
         }
         return cardObj;
     }
-    private void GuangdongWinPose(PosPanel3D panel, string seat, string source, bool selfDraw, ref Vector3 pos, ref Quaternion rotation) {
+    private Transform SichuanWinHandRow(PosPanel3D panel, string seat) {
+        var shown = panel.ShowCardsPosition;
+        return seat != "self" && IsRecordShowCardsModeActive() && shown != null && shown.childCount > 0
+            ? shown : panel.cardsPosition;
+    }
+
+    private bool TryApplyGuangdongWinPose(PosPanel3D panel, string seat, string source, bool faceDown, ref Vector3 pos, ref Quaternion rotation) {
         GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
-        if (subRule != GuangdongMilRules.Doubles) return;
-        var row = IsRecordShowCardsModeActive() ? panel.ShowCardsPosition : panel.cardsPosition;
-        if (row == null) return;
+        if (subRule != GuangdongMilRules.Doubles) return false;
+        var row = SichuanWinHandRow(panel, seat);
+        if (row == null) return false;
         string[] ring = { "self", "right", "top", "left" };
-        int distance = (System.Array.IndexOf(ring, seat) - System.Array.IndexOf(ring, source) + 4) % 4;
+        int from = System.Array.IndexOf(ring, source);
+        if (!faceDown && from < 0) return false;
+        int distance = (System.Array.IndexOf(ring, seat) - from + 4) % 4;
         GetRecordHandLayoutDirections(seat, out var width, out var depth);
         var origin = HandRowOrigin(row, width);
-        float size = LayoutSlotWidth(false, true);
-        float span = size * Mathf.Max(0, row.childCount - 1);
-        var point = selfDraw || distance == 3 ? origin + width * (span + 1.4f * size)
-            : distance == 1 ? origin - width * (1.4f * size)
-            : origin + width * (span * .5f) - depth * (2 * size);
-        rotation = Quaternion.AngleAxis(90, Vector3.up) * rotation;
+        var record = GameRecordManager.Instance;
+        int groups = record != null && record.gameObject.activeInHierarchy && record.recordPlayer_to_info.TryGetValue(seat, out var player)
+            ? player.combinationTiles.Count : TableMirror.Current.Info(seat).combination_tiles.Count;
+        int handCount = Mathf.Max(1, 13 - 3 * groups);
+        Quaternion upright = RiverTileWorldRotation(seat);
+        if (faceDown) {
+            var last = row.childCount > 0 ? row.GetChild(row.childCount - 1) : null;
+            var hudCamera = seat == "self" ? Camera.main : null;
+            var handRotation = hudCamera != null ? hudCamera.transform.rotation
+                : last != null ? last.rotation : RecordHandTileRotation(seat);
+            rotation = handRotation * Quaternion.AngleAxis(-90f, Vector3.forward);
+            var lastPos = last != null ? last.position : PlaceTileOnTable(origin + width * ((handCount - 1) * handStep), handRotation);
+            var handBody = TileBodyAt(lastPos, handRotation);
+            pos = PlaceTileOnTable(lastPos, rotation);
+            var winBody = TileBodyAt(pos, rotation);
+            pos += width * (TileSurfacePlacement.MaximumProjection(tileBodyBounds, handBody, width)
+                - TileSurfacePlacement.MinimumProjection(tileBodyBounds, winBody, width) + HandColumnGap);
+            pos += depth * (TileSurfacePlacement.MaximumProjection(tileBodyBounds, handBody, depth)
+                - TileSurfacePlacement.MaximumProjection(tileBodyBounds, winBody, depth));
+            if (hudCamera != null && GameCanvas.Instance != null
+                && GameCanvas.Instance.TryGetHandScreenBounds(handCount, out var hud)) {
+                float gapPixels = hud.width / handCount * HandColumnGap / (handStep - HandColumnGap);
+                var target = new Vector3(hud.xMax + gapPixels, hud.yMin, 0f);
+                pos += HandScreenAlignment(hudCamera, target, TileBodyAt(pos, rotation), -depth, false, -1);
+                pos += HandScreenAlignment(hudCamera, target, TileBodyAt(pos, rotation), width, true, -1);
+            }
+            return true;
+        }
+        rotation = distance != 3 ? Quaternion.AngleAxis(90, Vector3.up) * upright : upright;
+        Vector3 handCenter = GetDoublesHandBounds(row, handCount, origin, width, upright, out float left, out float right);
+        var body = TileBodyAt(origin, rotation);
+        float nearEdge = TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, width);
+        float farEdge = TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, width);
+        float gap = .55f * handStep;
+        Vector3 point;
+        if (distance == 2) {
+            point = origin + width * ((left + right - nearEdge - farEdge) * .5f) - depth * (2.25f * handStep);
+        } else {
+            point = origin + width * (distance == 1 ? left - gap - farEdge : right + gap - nearEdge);
+        }
         pos = PlaceTileOnTable(point, rotation);
+        var camera = Camera.main;
+        Vector2? singleCenter = null;
+        if (camera != null) {
+            var placed = TileBodyAt(pos, rotation);
+            Vector3 center = placed.MultiplyPoint3x4(tileBodyBounds.center);
+            if (seat == "self" && GameCanvas.Instance != null &&
+                GameCanvas.Instance.TryGetHandScreenBounds(handCount, out var hud)) {
+                if (handCount == 1) singleCenter = hud.center;
+                Vector3 target = camera.WorldToScreenPoint(center);
+                int edge = 0;
+                if (distance == 2) {
+                    target.x = hud.center.x;
+                } else {
+                    bool onRight = distance == 3;
+                    float uiGap = .55f * hud.width / handCount;
+                    target.x = onRight ? hud.xMax + uiGap : hud.xMin - uiGap;
+                    edge = onRight ? -1 : 1;
+                }
+                pos += HandScreenAlignment(camera, target, placed, width, true, edge);
+                if (edge != 0) {
+                    // 两侧玩家的长副露可能延伸到自家手牌旁，向桌边让开并保持屏幕间距。
+                    var adjacent = edge > 0 ? leftPosPanel : rightPosPanel;
+                    Vector3 clear = ClearWinTileOfMelds(adjacent, pos, rotation, width, depth);
+                    if (clear != pos) pos = clear + HandScreenAlignment(camera, target, TileBodyAt(clear, rotation), width, true, edge);
+                }
+            } else if (handCount == 1 && row.childCount == 1) {
+                var mesh = row.GetChild(0).GetComponentInChildren<MeshFilter>();
+                if (mesh != null && mesh.sharedMesh != null)
+                    singleCenter = TileScreenCenter(camera, mesh.sharedMesh.bounds, mesh.transform.localToWorldMatrix);
+            } else if (distance == 2) {
+                pos += HandScreenAlignment(camera, camera.WorldToScreenPoint(handCenter), placed, width, seat == "top" || seat == "self");
+            }
+        }
+        pos = ClearWinTileOfMelds(panel, pos, rotation, width, -depth);
+        if (singleCenter.HasValue) {
+            bool opposite = distance == 2;
+            bool horizontal = (seat == "self" || seat == "top") == opposite;
+            Vector3 axis = opposite ? width : depth;
+            Vector3 outward = opposite ? -depth : distance == 1 ? -width : width;
+            pos = AlignSingleHandCenter(camera, singleCenter.Value, pos, rotation, axis, horizontal);
+            var clear = ClearWinTileOfMelds(panel, pos, rotation, axis, outward);
+            if (seat == "self" && !opposite) {
+                var adjacent = distance == 1 ? leftPosPanel : rightPosPanel;
+                clear = ClearWinTileOfMelds(adjacent, clear, rotation, axis, outward);
+            }
+            if (clear != pos) pos = AlignSingleHandCenter(camera, singleCenter.Value, clear, rotation, axis, horizontal);
+        }
+        return true;
+    }
+
+    private Vector3 GetDoublesHandBounds(Transform row, int handCount, Vector3 origin, Vector3 width, Quaternion upright,
+        out float left, out float right) {
+        left = float.PositiveInfinity;
+        right = float.NegativeInfinity;
+        Vector3 leftCenter = origin, rightCenter = origin;
+        int count = 0;
+        foreach (Transform tile in row) {
+            var state = tile.GetComponent<Tile3D>();
+            if (state == null || state.isRecordDrawSlotPinned) continue;
+            var mesh = tile.GetComponentInChildren<MeshFilter>();
+            if (mesh == null || mesh.sharedMesh == null) continue;
+            var bounds = mesh.sharedMesh.bounds;
+            var matrix = mesh.transform.localToWorldMatrix;
+            float lo = TileSurfacePlacement.MinimumProjection(bounds, matrix, width);
+            float hi = TileSurfacePlacement.MaximumProjection(bounds, matrix, width);
+            var center = matrix.MultiplyPoint3x4(bounds.center);
+            if (lo < left) { left = lo; leftCenter = center; }
+            if (hi > right) { right = hi; rightCenter = center; }
+            count++;
+        }
+        if (count == handCount) return (leftCenter + rightCenter) * .5f;
+        // 自家手牌由 2D 绘制，重连时 3D 手牌也可能尚未建齐。
+        var first = TileBodyAt(PlaceTileOnTable(origin, upright), upright);
+        left = TileSurfacePlacement.MinimumProjection(tileBodyBounds, first, width);
+        float span = (handCount - 1) * handStep;
+        right = TileSurfacePlacement.MaximumProjection(tileBodyBounds, first, width) + span;
+        return first.MultiplyPoint3x4(tileBodyBounds.center) + width * (.5f * span);
+    }
+
+    private static Vector2 TileScreenCenter(Camera camera, Bounds bounds, Matrix4x4 body) {
+        var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        Vector3 lo = bounds.min, hi = bounds.max;
+        for (int i = 0; i < 8; i++) {
+            var corner = new Vector3((i & 1) == 0 ? lo.x : hi.x, (i & 2) == 0 ? lo.y : hi.y,
+                (i & 4) == 0 ? lo.z : hi.z);
+            Vector2 point = camera.WorldToScreenPoint(body.MultiplyPoint3x4(corner));
+            min = Vector2.Min(min, point);
+            max = Vector2.Max(max, point);
+        }
+        return (min + max) * .5f;
+    }
+
+    private Vector3 AlignSingleHandCenter(Camera camera, Vector2 target, Vector3 pos, Quaternion rotation,
+        Vector3 axis, bool horizontal) {
+        // 透视下，牌身投影轮廓的中点会随落点变化。
+        for (int i = 0; i < 3; i++) {
+            var body = TileBodyAt(pos, rotation);
+            Vector2 delta = target - TileScreenCenter(camera, tileBodyBounds, body);
+            if (Mathf.Abs(horizontal ? delta.x : delta.y) < .05f) break;
+            Vector2 pivot = camera.WorldToScreenPoint(body.MultiplyPoint3x4(tileBodyBounds.center));
+            pos += HandScreenAlignment(camera, pivot + delta, body, axis, horizontal);
+        }
+        return pos;
+    }
+
+    private Vector3 HandScreenAlignment(Camera camera, Vector3 screen, Matrix4x4 body, Vector3 width, bool horizontal, int edge = 0) {
+        var axis = horizontal ? camera.transform.up : camera.transform.right;
+        Ray sight = camera.ScreenPointToRay(screen);
+        Vector3 normal = Vector3.Cross(sight.direction, axis);
+        float slope = Vector3.Dot(normal, width);
+        if (Mathf.Abs(slope) < .0001f) return Vector3.zero;
+        normal /= slope;
+        float support = edge < 0 ? TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, normal)
+            : edge > 0 ? TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, normal)
+            : Vector3.Dot(normal, body.MultiplyPoint3x4(tileBodyBounds.center));
+        return width * (Vector3.Dot(normal, sight.origin) - support);
+    }
+
+    private Vector3 ClearWinTileOfMelds(PosPanel3D panel, Vector3 position, Quaternion rotation, Vector3 across, Vector3 inward) {
+        var body = TileBodyAt(position, rotation);
+        float left = TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, across);
+        float right = TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, across);
+        float back = TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, inward);
+        float front = TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, inward);
+        float shift = 0f;
+        foreach (var group in panel.combination3DObjects) {
+            if (group == null) continue;
+            foreach (Transform tile in group) {
+                var mesh = tile.GetComponentInChildren<MeshFilter>();
+                if (mesh == null || mesh.sharedMesh == null) continue;
+                var bounds = mesh.sharedMesh.bounds;
+                var matrix = mesh.transform.localToWorldMatrix;
+                if (TileSurfacePlacement.MinimumProjection(bounds, matrix, across) >= right ||
+                    TileSurfacePlacement.MaximumProjection(bounds, matrix, across) <= left ||
+                    TileSurfacePlacement.MinimumProjection(bounds, matrix, inward) >= front) continue;
+                float extent = TileSurfacePlacement.MaximumProjection(bounds, matrix, inward);
+                if (extent > back) shift = Mathf.Max(shift, extent - back + ScaledTileSurfaceClearance);
+            }
+        }
+        return position + inward * shift;
     }
 
     private void ComputeSichuanBuhuaSlot(Transform target, string playerPosition, out Vector3 pos, out Quaternion rotation, int? slot = null) {

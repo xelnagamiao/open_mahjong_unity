@@ -21,6 +21,9 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public Image FaceArtwork => tileImage;
     public Image FaceTexture => tableBackground;
 
+    private void Awake() => TileInstances<StaticCard>.Register(this);
+    private void OnDestroy() => TileInstances<StaticCard>.Unregister(this);
+
     private void OnEnable() {
         if (tileId >= 0) RefreshVisual();
     }

@@ -11,8 +11,10 @@ public static class CardPackExporter
     {
         string pack = TableFaceLayoutSettings.SelectedPack;
         void Build(TilePackImporter.Result source) {
-            try { done(Create(pack, source), SingleTileAdjustmentPanel.PackName(pack) + ".zip"); }
-            catch (Exception e) { error?.Invoke("导出失败：" + e.Message); }
+            UnityAssetIdb.WithAssets(CardBackManager.SelectedAssetKeys(), () => {
+                try { done(Create(pack, source), SingleTileAdjustmentPanel.PackName(pack) + ".zip"); }
+                catch (Exception e) { error?.Invoke("导出失败：" + e.Message); }
+            }, error);
         }
         if (TilePackIds.IsCustomPack(pack)) TilePackLibrary.Load(pack, Build, error);
         else Build(null);

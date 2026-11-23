@@ -9,6 +9,7 @@ public sealed class RoomCreationInput {
     public bool UnlimitedRounds;
     public int DuplicateRoundCount = 8;
     public bool DuplicateSyncMode;
+    public bool ReuseTrainingRoom;
     public bool RealTime;
     public int TacticalGraceSeconds = 5;
     public bool JinluoMode;

@@ -12,6 +12,8 @@ export const eventFieldDefinitions = {
   tips: { label: '提示', default: false },
   count_tips: { label: '剩余张数提示', default: false },
   pointer_tips: { label: '指针提示', default: true },
+  real_time: { label: '真实时间', default: false },
+  tactical_grace_seconds: { label: '第二等待时间', min: 3, max: 20, default: 5 },
   tourist_limit: { label: '限制游客', default: false },
   allow_spectator: { label: '允许观战', default: true },
   tactical_call: { label: '战术鸣牌', default: true },
@@ -47,6 +49,7 @@ export function loadEventRoomExtensions(form, config = {}) {
   form.scene_reproduction = Boolean(form.random_seed)
   if (form.sub_rule === 'guobiao/standard' && form.jinluo_mode) Object.assign(form, jinluoRequiredSettings)
   loadSichuanWallSource(form, config)
+  if (form.room_rule === 'sichuan' && isSichuanDuplicate(form.sub_rule) && config.pointer_tips === undefined) form.pointer_tips = false
   if (isPairedRoom(form) && form.wall_source) form.scene_reproduction = false
   if (form.room_rule === 'taiwan') {
     form.taiwan_details = { ...Object.fromEntries(taiwan.options.map(o => [o.key, o.default])), ...config.detailed_config }
@@ -67,8 +70,13 @@ export function extendEventRoomPayload(form, payload) {
   if (isPairedRoom(form) && form.wall_source && !SICHUAN_WALL_SOURCES.some(item => item.value === form.wall_source)) throw new Error('请选择有效的牌山来源')
   if (isTrainingWall(form)) {
     config.wall_source = 'training'
-    config.random_seed = normalizeSceneSeed(form.random_seed)
-    if (!config.random_seed) throw new Error('请输入训练牌山随机种子')
+    if (form.reuse_training_room) {
+      config.reuse_training_room = true
+      delete config.random_seed
+    } else {
+      config.random_seed = normalizeSceneSeed(form.random_seed)
+      if (!config.random_seed) throw new Error('请输入训练牌山随机种子')
+    }
     delete config.duplicate_key
   } else if (form.scene_reproduction) {
     config.random_seed = normalizeSceneSeed(form.random_seed)
@@ -76,6 +84,11 @@ export function extendEventRoomPayload(form, payload) {
     if (duplicateRoomActive(form)) throw new Error('场景复现与复式不能同时使用，请在普通房间填写随机种子')
   }
   if (isPairedRoom(form) && form.wall_source) config.wall_source = form.wall_source
+  if (form.room_rule === 'sichuan' && isSichuanDuplicate(form.sub_rule)) {
+    if (!Number.isInteger(form.tactical_grace_seconds) || ![3, 5, 8, 10, 15, 20].includes(form.tactical_grace_seconds)) throw new Error('第二等待时间须为 3、5、8、10、15 或 20 秒')
+    config.real_time = form.real_time === true
+    config.tactical_grace_seconds = form.tactical_grace_seconds
+  }
   if (duplicateRoomActive(form) && !isTrainingWall(form)) config.allow_spectator = false
   if (form.room_rule === 'sichuan' && form.sub_rule.includes('doubles')) {
     config.hepai_limit = 0
@@ -101,13 +114,15 @@ export function extendEventRoomPayload(form, payload) {
 }
 
 export function eventExtensionRows(form) {
-  const rows = supplementFields(form.room_rule).filter(key => key !== 'password' && eventFieldDefinitions[key]).map(key => {
+  const rows = supplementFields(form.room_rule).filter(key => key !== 'password' && eventFieldDefinitions[key]
+    && (!['real_time', 'tactical_grace_seconds'].includes(key) || duplicateRoomActive(form))).map(key => {
     const value = form[key]
     return { label:eventFieldDefinitions[key].label, value:typeof value === 'boolean' ? value ? '开启' : '关闭' : key === 'jinluo_weather' ? jinluoWeathers.find(w=>w.value===value)?.label || value : String(value) }
   })
   if (isPairedRoom(form)) rows.push({ label:'牌山来源', value:SICHUAN_WALL_SOURCES.find(item => item.value === form.wall_source)?.label || '已有复式牌山' })
   else rows.push({ label:'场景复现', value:form.scene_reproduction ? '开启' : '关闭' })
-  if (form.scene_reproduction || isTrainingWall(form)) rows.push({ label:'随机种子', value:form.random_seed })
+  if (isTrainingWall(form)) rows.push({ label: '重复使用', value: form.reuse_training_room ? '开启' : '关闭' })
+  if (form.scene_reproduction || (isTrainingWall(form) && !form.reuse_training_room)) rows.push({ label:'随机种子', value:form.random_seed })
   if (form.room_rule === 'taiwan') {
     for (const option of taiwan.options) rows.push({ label:option.label, value:option.choices[option.values.indexOf(form.taiwan_details[option.key])] })
     for (const [key,value] of Object.entries(form.taiwan_fan_overrides)) rows.push({ label:`自定义台值 · ${taiwan.fans.find(f=>f.key===key)?.label || key}`, value:`${value}台` })

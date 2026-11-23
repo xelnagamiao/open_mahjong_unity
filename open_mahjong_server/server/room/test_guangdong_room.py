@@ -11,7 +11,7 @@ from .guangdong_room import (
     create_guangdong_room, handle_create_guangdong_room,
 )
 from .tuidao_room import CONFIG as TUIDAO_CONFIG, TuidaoRoomValidator
-from ..game_calculation.guangdong.config import SUB_RULE, DEFAULT_CONFIG
+from ..game_calculation.guangdong.config import SUB_RULE, DOUBLES_SUB_RULE, DEFAULT_CONFIG
 from ..game_calculation.tuidao.rules import SUB_RULE as TUIDAO_SUB_RULE
 from ..response import Response
 
@@ -59,6 +59,28 @@ def test_selector_preserves_legacy_default_and_selects_new_profile_explicitly():
 def test_new_validator_cannot_be_used_to_coerce_a_different_profile():
     with pytest.raises(ValueError):
         GuangdongMilRoomValidator(**BASE, sub_rule=TUIDAO_SUB_RULE)
+
+
+@pytest.mark.parametrize("rounds", [1, 2, 3, 4])
+@pytest.mark.parametrize("sub_rule", [SUB_RULE, DOUBLES_SUB_RULE])
+def test_mil_profiles_accept_all_public_hand_lengths(rounds, sub_rule):
+    config = GuangdongRoomValidator(**{**BASE, "game_round": rounds}, sub_rule=sub_rule)
+    assert config.game_round == rounds
+
+
+@pytest.mark.parametrize("rounds", [0, 5])
+def test_mil_profiles_reject_hand_lengths_outside_four_to_sixteen(rounds):
+    with pytest.raises(ValueError):
+        GuangdongRoomValidator(**{**BASE, "game_round": rounds}, sub_rule=SUB_RULE)
+
+
+def test_mil_direct_creation_defaults_to_eight_hands_without_changing_tuidao():
+    m = manager()
+    mil = asyncio.run(create_guangdong_room(m, "conn", room_name="花鬼", sub_rule=SUB_RULE))
+    assert mil.success and mil.room_info["game_round"] == 2
+    m = manager()
+    tuidao = asyncio.run(create_guangdong_room(m, "conn", room_name="推倒和"))
+    assert tuidao.success and tuidao.room_info["game_round"] == 4
 
 
 @pytest.mark.parametrize("overrides", [

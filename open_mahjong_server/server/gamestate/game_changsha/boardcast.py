@@ -379,7 +379,7 @@ async def reconnected_send_pending_ask_for_viewer(
     player = self.player_list[view_player_index]
     exchange_flow = getattr(self, "exchange_six", None)
     if exchange_flow is not None:
-        await exchange_flow.send_snapshot(connection_user_id, view_player_index)
+        await exchange_flow.send_snapshot(connection_user_id, view_player_index, restoring=True)
         if self.game_status == "waiting_changsha_exchange_six":
             return
     remaining_sent, step_sent = _reconnect_clock(self, player)

@@ -110,40 +110,55 @@ public static class MatchSpectatorUiBaker {
         var parent = step.transform.parent;
         var bar = parent.Find("MatchTableControls") as RectTransform;
         if (bar == null) bar = new GameObject("MatchTableControls",typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();
-        bar.SetParent(parent,false); bar.anchorMin = bar.anchorMax = new Vector2(.5f,.5f); bar.pivot = new Vector2(.5f,.5f);
-        bar.sizeDelta = new Vector2(1040,64); bar.anchoredPosition = new Vector2(0,80);
+        bar.SetParent(parent,false); bar.anchorMin = bar.anchorMax = new Vector2(.5f,.5f); bar.pivot = new Vector2(1,.5f);
+        bar.sizeDelta = new Vector2(1040,64); bar.anchoredPosition = new Vector2(520,80);
         bar.GetComponent<Image>().color = new Color32(28,32,36,244);
-        Button MakeButton(string name,string caption,float x) {
+        Button MakeButton(string name,string caption,float x, float width) {
             var existing = bar.Find(name); var button = existing ? existing.GetComponent<Button>() : UnityEngine.Object.Instantiate(template,bar);
             button.name=name; button.onClick=new Button.ButtonClickedEvent(); button.gameObject.SetActive(true);
-            Place((RectTransform)button.transform,x,150,48);
+            Place((RectTransform)button.transform,x,width,48);
             var label=button.GetComponentInChildren<TMP_Text>(true); label.text=caption; Normal(label); label.fontSize=25; label.fontSizeMin=22;label.fontSizeMax=25;
             return button;
         }
-        var open = MakeButton("GoOpen","前往开室",-450);
-        var closed = MakeButton("GoClosed","前往闭室",-316);
-        Place((RectTransform)open.transform,-450,124,48);
-        Place((RectTransform)closed.transform,-316,124,48);
+        var open = MakeButton("GoOpen","前往开室",-450,124);
+        var closed = MakeButton("GoClosed","前往闭室",-316,124);
         var toggleRect = bar.Find("CompareWall") as RectTransform;
         if (toggleRect == null) toggleRect=new GameObject("CompareWall",typeof(RectTransform),typeof(Toggle)).GetComponent<RectTransform>();
-        toggleRect.SetParent(bar,false);Place(toggleRect,-109,270,48);
+        toggleRect.SetParent(bar,false);Place(toggleRect,-142,204,48);
         var toggle = toggleRect.GetComponent<Toggle>(); toggle.onValueChanged=new Toggle.ToggleEvent();
-        var box = ChildImage(toggleRect,"Background",new Color32(62,74,84,255));Place(box.rectTransform,0,270,48);
-        var check = ChildImage(box.transform,"Checkmark",new Color32(59,108,146,255));Place(check.rectTransform,0,270,48);
+        var box = ChildImage(toggleRect,"Background",new Color32(62,74,84,255));Place(box.rectTransform,0,204,48);
+        var check = ChildImage(box.transform,"Checkmark",new Color32(59,108,146,255));Place(check.rectTransform,0,204,48);
         check.raycastTarget=false;
         toggle.targetGraphic=box;toggle.graphic=check;
         var textSource=template.GetComponentInChildren<TextMeshProUGUI>(true);
-        var toggleLabel=Label(toggleRect,"Label",textSource,"切换到同牌山位置");Place(toggleLabel.rectTransform,0,258,44);toggleLabel.fontSize=23;toggleLabel.fontSizeMin=18;toggleLabel.fontSizeMax=23;toggleLabel.color=Color.white;toggleLabel.transform.SetAsLastSibling();
-        var independent = MakeButton("IndependentProgress","独立阅览进度",138);
-        Place((RectTransform)independent.transform,138,204,48);
+        var toggleLabel=Label(toggleRect,"Label",textSource,"切换到同牌山位置");Stretch(toggleLabel.rectTransform,Vector2.zero,Vector2.one,8,-8);toggleLabel.fontSize=23;toggleLabel.fontSizeMin=18;toggleLabel.fontSizeMax=23;toggleLabel.color=Color.white;toggleLabel.transform.SetAsLastSibling();
+        var independent = MakeButton("IndependentProgress","独立阅览进度",53,166);
         independent.GetComponentInChildren<TMP_Text>(true).color = Color.white;
         var phase = bar.Find("ComparePhase")?.GetComponent<TMP_Dropdown>() ?? UnityEngine.Object.Instantiate(dropdownTemplate,bar);
-        phase.name="ComparePhase";Place((RectTransform)phase.transform,305,110,48); phase.gameObject.SetActive(true);
+        if (!(phase is MatchReplayPhaseDropdown)) {
+            var phaseObject = phase.gameObject;
+            var dropdownFields = new SerializedObject(phase);
+            dropdownFields.FindProperty("m_Script").objectReferenceValue = AssetDatabase.LoadAssetAtPath<MonoScript>(
+                "Assets/Scripts/GameScene/Record/MatchReplayPhaseDropdown.cs");
+            dropdownFields.ApplyModifiedPropertiesWithoutUndo();
+            phase = phaseObject.GetComponent<MatchReplayPhaseDropdown>();
+        }
+        phase.name="ComparePhase";Place((RectTransform)phase.transform,265.5f,239,48); phase.gameObject.SetActive(true);
         phase.onValueChanged=new TMP_Dropdown.DropdownEvent();phase.ClearOptions();phase.AddOptions(new System.Collections.Generic.List<string>{"摸牌后","摸牌前"});
         foreach(var t in phase.GetComponentsInChildren<TMP_Text>(true)){Normal(t);t.fontSize=24;t.fontSizeMin=20;t.fontSizeMax=24;t.enableAutoSizing=true;}
-        var status=Label(bar,"MatchStatus",textSource,"开室 · 1 副\n已暂停");Place(status.rectTransform,441,142,52);status.fontSize=20;status.fontSizeMin=16;status.fontSizeMax=20;status.enableAutoSizing=true;status.color=Color.white;
+        var oldStatus = bar.Find("MatchStatus");
+        if (oldStatus) UnityEngine.Object.DestroyImmediate(oldStatus.gameObject);
+        var fold = MakeButton("ToggleMatchControls","收起",-66.5f,117);
+        fold.GetComponentInChildren<TMP_Text>(true).color = open.GetComponentInChildren<TMP_Text>(true).color;
+        var foldColors = open.colors;
+        var disabledColor = foldColors.disabledColor;
+        disabledColor.a = 1f;
+        foldColors.disabledColor = disabledColor;
+        fold.colors = foldColors;
+        var foldRect = (RectTransform)fold.transform;
+        foldRect.anchorMin = foldRect.anchorMax = new Vector2(1,.5f);
         Assign(fields,"matchTableControls",bar.gameObject);Assign(fields,"goOpenTableButton",open);Assign(fields,"goClosedTableButton",closed);
-        Assign(fields,"compareWallToggle",toggle);Assign(fields,"comparePhaseDropdown",phase);Assign(fields,"matchTableStatus",status);
+        Assign(fields,"compareWallToggle",toggle);Assign(fields,"comparePhaseDropdown",phase);Assign(fields,"collapseMatchControlsButton",fold);
         Assign(fields,"independentProgressButton",independent);
         fields.ApplyModifiedProperties();bar.gameObject.SetActive(false);
         foreach(var text in bar.GetComponentsInChildren<TMP_Text>(true))BindTypography(text);

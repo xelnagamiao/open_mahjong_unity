@@ -33,6 +33,10 @@ public partial class CreatePanel {
             return "key";
         }
     }
+    [SerializeField] private Toggle SichuanTrainingReuseToggle;
+    private const string TrainingReuseHelp = "重复使用：开启以后每次对局都会随机不一样的训练牌山，避免重复创建房间带来的麻烦。";
+    private bool CanReuseTrainingRoom => IsVenueMode && IsSichuanTraining;
+    private bool ReuseTrainingRoom => CanReuseTrainingRoom && ReadRoomToggle(SichuanTrainingReuseToggle);
     private bool IsSichuanTraining => IsSichuanDuplicate && SelectedSichuanWallSource == "training";
 
     private void ResetSichuanWallSource() {
@@ -41,6 +45,7 @@ public partial class CreatePanel {
         if (SichuanWallSourceToggles != null)
             for (int i = 0; i < SichuanWallSourceToggles.Length; i++)
                 if (SichuanWallSourceToggles[i]) SichuanWallSourceToggles[i].SetIsOnWithoutNotify(i == 1);
+        if (SichuanTrainingReuseToggle) SichuanTrainingReuseToggle.SetIsOnWithoutNotify(false);
         if (SichuanTrainingSeedInput) SichuanTrainingSeedInput.SetTextWithoutNotify("");
     }
 
@@ -70,7 +75,15 @@ public partial class CreatePanel {
         bool paired = IsSichuanDuplicate;
         bool training = IsSichuanTraining;
         if (SichuanWallSourcePanel) SichuanWallSourcePanel.SetActive(paired);
+        if (SichuanTrainingReuseToggle) SichuanTrainingReuseToggle.gameObject.SetActive(CanReuseTrainingRoom);
         if (SichuanTrainingSeedPanel) SichuanTrainingSeedPanel.SetActive(training);
+        if (SichuanTrainingSeedInput) {
+            SichuanTrainingSeedInput.interactable = training && !ReuseTrainingRoom;
+            if (training && SichuanTrainingSeedInput.placeholder is TMP_Text seedHint)
+                TableText.Set(seedHint, ReuseTrainingRoom ? "开启重复使用后每局自动随机生成" : "粘贴64位十六进制种子，或点击随机生成", "sichuan");
+        }
+        if (SichuanTrainingGenerateButton) SichuanTrainingGenerateButton.interactable = training && !ReuseTrainingRoom;
+        if (SichuanTrainingCopyButton) SichuanTrainingCopyButton.interactable = training && !ReuseTrainingRoom;
         if (paired && DuplicateWallPanel) DuplicateWallPanel.SetActive(!training);
         if (SichuanDuplicateRounds) {
             SichuanDuplicateRounds.transform.parent.gameObject.SetActive(paired);
@@ -118,14 +131,16 @@ public partial class CreatePanel {
                 RefreshRoomPresentation();
                 RebuildCreateRoomLayoutHierarchy();
             });
+        if (SichuanTrainingReuseToggle) SichuanTrainingReuseToggle.onValueChanged.AddListener(reuse => {
+            if (reuse && CanReuseTrainingRoom) SichuanTrainingSeedInput.SetTextWithoutNotify("");
+            RefreshSichuanDuplicateControls();
+        });
         if (SichuanTrainingGenerateButton) SichuanTrainingGenerateButton.onClick.AddListener(GenerateSichuanTrainingSeed);
         if (SichuanTrainingCopyButton) SichuanTrainingCopyButton.onClick.AddListener(CopySichuanTrainingSeed);
     }
 
 #if UNITY_EDITOR
     public void BakeSichuanDuplicateControls() {
-        BakeSichuanRealTimeControls();
-        BakeSichuanWallSourceControls();
         if (!SichuanDuplicateRounds) {
             var row = Instantiate(roundTimer.transform.parent.gameObject, roundTimer.transform.parent.parent);
             row.name = "SichuanDuplicateRounds";
@@ -154,6 +169,8 @@ public partial class CreatePanel {
             if (help) help.Configure(this, "同步模式：两室每副同时开始。非同步模式：各室可连续进行，全部结束后公开最终比分。");
             SichuanDuplicateSyncToggle.gameObject.SetActive(false);
         }
+        BakeSichuanRealTimeControls();
+        BakeSichuanWallSourceControls();
         if (!creationHeader) {
             creationHeader = transform.Find("HeaderPanel").GetComponent<UnityEngine.UI.Image>();
             ordinaryHeaderColor = creationHeader.color;
@@ -282,12 +299,48 @@ public partial class CreatePanel {
             SichuanTrainingGenerateButton = MakeButton("Generate", "随机生成");
             SichuanTrainingCopyButton = MakeButton("Copy", "复制");
         }
+        BakeTrainingReuseControl();
         SichuanTrainingSeedPanel.transform.SetSiblingIndex(RoomContent.Find("InputToggleValue").GetSiblingIndex() + 1);
         foreach (var panel in new[] { SichuanWallSourcePanel, SichuanTrainingSeedPanel }) {
             var title = panel.transform.Find("Title").GetComponent<TMP_Text>();
             title.color = RoomMuted;
         }
         SichuanWallSourcePanel.SetActive(false); SichuanTrainingSeedPanel.SetActive(false);
+    }
+    public void BakeTrainingReuseControl() {
+        var realTime = SichuanRealTimeToggle.transform;
+        if (!SichuanTrainingReuseToggle) {
+            SichuanTrainingReuseToggle = Instantiate(DuplicateWallToggle, realTime.parent);
+            SichuanTrainingReuseToggle.name = "ReuseTrainingRoom";
+            SichuanTrainingReuseToggle.group = null;
+            SichuanTrainingReuseToggle.onValueChanged = new Toggle.ToggleEvent();
+            SichuanTrainingReuseToggle.SetIsOnWithoutNotify(false);
+        }
+        var reuse = SichuanTrainingReuseToggle.transform;
+        reuse.SetParent(realTime.parent, false);
+        reuse.SetAsLastSibling();
+        reuse.SetSiblingIndex(realTime.GetSiblingIndex() + 1);
+        var label = SichuanTrainingReuseToggle.GetComponentInChildren<TMP_Text>(true);
+        TableText.Set(label, "重复使用", "sichuan");
+        label.fontStyle = FontStyles.Normal;
+        label.fontWeight = FontWeight.Regular;
+        RoomHeight((RectTransform)SichuanTrainingReuseToggle.transform, 64);
+        RoomGet<CreateRoomHelpTrigger>(SichuanTrainingReuseToggle.gameObject).Configure(this, TrainingReuseHelp);
+        SichuanTrainingReuseToggle.gameObject.SetActive(false);
+        SichuanTrainingSeedInput.interactable = true;
+        foreach (var button in new[] { SichuanTrainingGenerateButton, SichuanTrainingCopyButton }) {
+            var text = button.GetComponentInChildren<TMP_Text>(true);
+            RoomFill(text.rectTransform, 8, 0, 8, 0);
+            text.fontStyle = FontStyles.Normal;
+            text.fontWeight = FontWeight.Regular;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 20;
+            text.fontSizeMax = 30;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            var size = RoomHeight((RectTransform)button.transform, 64);
+            size.minWidth = size.preferredWidth = button == SichuanTrainingGenerateButton ? 180 : 106;
+        }
+        UnityEditor.EditorUtility.SetDirty(this);
     }
 #endif
 }

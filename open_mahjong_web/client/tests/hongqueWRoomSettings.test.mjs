@@ -94,11 +94,11 @@ test('invalid or incompatible room options cannot be silently persisted', () => 
   for (const bad of [null, [], 'hongque', { ...w, starting_score: 25000 }, { ...w, tactical_call: false }, { ...w, open_cuohe: true }, { ...w, unknown: true }, { sub_rule: 'hongque/v1.6', hongque_colourless: true }, JSON.parse('{"__proto__":{}}')]) assert.throws(() => normalizeHongqueRoomConfig(bad, SettingsError))
 })
 
-test('W uses the supplied introduction and original downloadable rulebook', () => {
-  assert.equal(HONGQUE_W_DESCRIPTION, '虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。')
+test('W uses the supplied introduction and updated downloadable rulebook', () => {
+  assert.equal(HONGQUE_W_DESCRIPTION, '虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。')
   assert.equal(hongqueRulebook(w.sub_rule).description, HONGQUE_W_DESCRIPTION)
   assert.ok(hongqueRulebook('hongque/v1.6').description.length > 0)
   assert.equal(hongqueRulebooks.length, 2)
-  const pdf = readFileSync(new URL('../public/rulebooks/hongque-w-v1.0.pdf', import.meta.url))
-  assert.equal(createHash('sha256').update(pdf).digest('hex'), '948af9e6bd3a1b7a6accbaa8fa1ff62c3f550f1f00424f39d8e4d4180f5112d7')
+  const pdf = readFileSync(new URL('../public/rulebooks/hongque-w-v1.1.pdf', import.meta.url))
+  assert.equal(createHash('sha256').update(pdf).digest('hex'), '8a06601c88b69a645e6b5ccd5ba6fe44b423fdd2691310c3f636c5192e13f7c3')
 })

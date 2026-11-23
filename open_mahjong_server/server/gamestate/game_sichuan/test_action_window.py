@@ -455,6 +455,7 @@ def test_dingque_fast_response_remains_valid(mode):
 def test_opening_fast_response_preserves_tile_counts(mode):
     async def run():
         state, _ = make_state(mode)
+        state.exchange_animation_seconds = 0
         try:
             before = Counter(t for p in state.player_list for t in p.hand_tiles)
             for seat in range(4):

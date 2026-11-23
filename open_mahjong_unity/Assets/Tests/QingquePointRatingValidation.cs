@@ -43,7 +43,8 @@ public static class QingquePointRatingValidation {
         yield return new WaitForSecondsRealtime(.3f);
         var help=Field<GameObject>(lobby,"eloHelp").GetComponent<RankedEloHelp>();
         var policy=Field<RankPolicyPanel>(help,"policyPanel");
-        Check(entries.All(card=>Field<RankPolicyPanel>(card,"policyPanel")==policy)&&!policy.gameObject.activeInHierarchy,"Header and both Qingque cards share the closed production policy panel");
+        var queuePanel=Field<MatchDescribePanel>(entries[0],"describePanel");
+        Check(queuePanel&&entries.All(card=>Field<MatchDescribePanel>(card,"describePanel")==queuePanel)&&!policy.gameObject.activeInHierarchy,"Both Qingque cards use the queue description panel");
         Click(help.GetComponent<UnityEngine.UI.Button>());
         yield return null;
         var description=Field<GameObject>(policy,"eloContent").GetComponent<TMP_Text>();
@@ -61,8 +62,9 @@ public static class QingquePointRatingValidation {
         foreach(var card in entries){
             Click(Field<UnityEngine.UI.Button>(card,"infoButton"));
             yield return null;
-            Check(policy.gameObject.activeInHierarchy&&Field<GameObject>(policy,"eloContent").activeSelf&&description.text==PlatformText.Get(RankedRules.QingqueEloDescription),"Card click preserves Qingque points and stop-after-hand explanation: "+card.QueueType);
-            Click(Field<UnityEngine.UI.Button>(policy,"closeButton"));
+            var copy=Field<TMP_Text>(queuePanel,"contentText").text;
+            Check(queuePanel.gameObject.activeInHierarchy&&!policy.gameObject.activeInHierarchy&&copy.Contains("净素点")&&copy.Contains("时间限制：20+5")&&copy.Contains("结束方式：")==card.QueueType.EndsWith("_unlimited"),"Card opens its own Qingque settings: "+card.QueueType);
+            Click(Field<UnityEngine.UI.Button>(queuePanel,"closeButton"));
             yield return null;
         }
         GameHost.Current.SwitchWindow("game");

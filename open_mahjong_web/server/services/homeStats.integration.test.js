@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -17,8 +18,7 @@ test('home rule statistics keep personal denominators, subrules and every scene 
   delete require.cache[servicePath];
   try {
     const metricKeys = BASE_KEYS.filter(key => key !== 'total_games');
-    await pool.query(`CREATE TEMP TABLE game_records(game_id text PRIMARY KEY,record jsonb DEFAULT '{}');
-      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+    await pool.query(`${replayDDL(true)};
 
       CREATE TEMP TABLE game_player_records(game_id text,user_id bigint,rule text,sub_rule text,
         room_type text,match_type text,match_tier text,event_id text,rank int,PRIMARY KEY(game_id,user_id));
@@ -34,7 +34,7 @@ test('home rule statistics keep personal denominators, subrules and every scene 
       mode = '1/4', tier = null, count = 4, rounds = 2, wins = [1,1,0,0],
       declarations = [1,1,0,0], fulu = [0,1,0,1], winPoints = [6000,6000,0,0],
       winTurns = [6,6,0,0], net = null, version = RIICHI_STATS_VERSION, missing = [], metrics = false } = {}) {
-      await pool.query('INSERT INTO game_records(game_id) VALUES($1)', [id]);
+      await insertReplay(pool,[id,{}]);
       for (let seat = 0; seat < count; seat += 1) {
         await pool.query('INSERT INTO game_player_records VALUES($1,$2,$3,$4,$5,$6,$7,NULL,$8)',
           [id, 101 + seat, rule, subRule, room, mode, tier, seat + 1]);
@@ -82,7 +82,7 @@ test('home rule statistics keep personal denominators, subrules and every scene 
     await seed('shanghai-qinghunpeng', { rule: 'shanghai', subRule: 'shanghai/qinghunpeng', metrics: true, rounds: 6, wins: [2,1,0,0] });
     await seed('shanghai-old-default', { rule: 'shanghai', subRule: null, metrics: true, rounds: 2, wins: [0,1,0,0] });
     await seed('shanghai-header-only', { rule: 'shanghai', subRule: null, metrics: true, rounds: 1, wins: [0,0,1,0] });
-    await pool.query("UPDATE game_records SET record=$1 WHERE game_id='shanghai-header-only'", [{ game_title: { rule: 'shanghai', sub_rule: 'shanghai/qinghunpeng' } }]);
+    await pool.query("UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload}',$1::jsonb) WHERE game_id='shanghai-header-only'", [{ game_title: { rule: 'shanghai', sub_rule: 'shanghai/qinghunpeng' } }]);
     await pool.query("INSERT INTO riichi_history_stats(mode,total_games,total_rounds,win_count) VALUES('1/4_rank',999,999,999)");
     await pool.query("INSERT INTO qingque_history_stats(mode,total_games,total_rounds) VALUES('4/4_rank',4,16)");
     // A legacy mixed accumulator is not an independent source of platform games.

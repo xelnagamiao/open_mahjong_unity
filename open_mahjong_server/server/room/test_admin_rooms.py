@@ -105,7 +105,7 @@ def test_admin_close_pair_removes_both_rooms_and_cancels_pair():
         from ..gamestate.public.sichuan_duplicate import PairedMatch, new_match
         from ..game_calculation.sichuan.duplicate_rules import make_board
         data = new_match("pair", "sichuan/doubles_duplicate", {"open": "1", "closed": "2"}, [make_board(42, 1)], 42)
-        pair = PairedMatch(data, lambda *_: None)
+        pair = PairedMatch(data)
         server.gamestate_manager.sichuan_duplicate_matches["pair"] = pair
         assert await close_admin_room(server.room_manager, "1", "open") == ["1", "2"]
         assert not server.room_manager.rooms and pair.data["rooms_deleted"]
@@ -131,7 +131,7 @@ def test_admin_close_running_pair_cancels_both_loops_and_all_eight_memberships()
                         server.user_id_to_connection[uid].current_room_id = rid
                     assert await gm.start_game(str(users[0]), rid) is None
                     states.append(gm.get_game_state_by_room_id(rid))
-                pair = PairedMatch(new_match("pair", "sichuan/doubles_duplicate", {"open": "1", "closed": "2"}, [make_board(42, 1)], 42), lambda *_: None)
+                pair = PairedMatch(new_match("pair", "sichuan/doubles_duplicate", {"open": "1", "closed": "2"}, [make_board(42, 1)], 42))
                 gm.sichuan_duplicate_matches["pair"] = pair
                 for table, state in zip(("open", "closed"), states):
                     manager.rooms[state.room_id]["duplicate_match_id"] = "pair"

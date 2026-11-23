@@ -1,11 +1,11 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// 轮数面板总控制器（1 管 3）：
-/// - SimpleRoundPanel / RiichiRoundPanel：常规局况，二选一显示
+/// - SimpleRoundPanel / IndicatorRoundPanel：普通局况或有公开翻牌的局况
 /// - CommitmentSaltDetailPanel：点击本面板区域后淡入展示承诺值与盐，3 秒后隐藏
 /// </summary>
 public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
@@ -13,7 +13,8 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
 
     [Header("子面板引用")]
     [SerializeField] private SimpleRoundPanel simpleRoundPanel;
-    [SerializeField] private RiichiRoundPanel riichiRoundPanel;
+    [FormerlySerializedAs("riichiRoundPanel")]
+    [SerializeField] private IndicatorRoundPanel indicatorRoundPanel;
     [SerializeField] private CommitmentSaltDetailPanel commitmentSaltDetailPanel;
 
     [SerializeField] private TableHudMatchInfo matchInfo;
@@ -21,7 +22,9 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
     private string _cachedCommitment = "";
     private string _cachedSalt = "";
     private string _cachedMasterSeed = "";
-    private bool usesRuleIndicators;
+    private RuleManifest displayedManifest;
+    private GameInfo displayedInfo;
+    private string displayedRule;
     private bool pairedDuplicate;
 
     private void Awake() {
@@ -31,7 +34,7 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
         }
         Instance = this;
         RegisterClickRelay(simpleRoundPanel != null ? simpleRoundPanel.gameObject : null);
-        RegisterClickRelay(riichiRoundPanel != null ? riichiRoundPanel.gameObject : null);
+        RegisterClickRelay(indicatorRoundPanel != null ? indicatorRoundPanel.gameObject : null);
     }
 
     private const float CommitmentSaltDisplaySeconds = 3f;
@@ -42,7 +45,7 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
     }
 
     /// <summary>
-    /// 初始化轮数面板：根据房间规则切换 Simple / Riichi。
+    /// 初始化轮数面板。规则只提供本局已知的牌、待翻槽及局况数据。
     /// </summary>
     public void UpdateRoomInfo(GameInfo gameInfo, string roomRule, string masterSeed = null) {
         if (string.IsNullOrEmpty(roomRule)) roomRule = !string.IsNullOrEmpty(gameInfo?.sub_rule) ? gameInfo.sub_rule : gameInfo?.room_rule ?? "";
@@ -53,18 +56,11 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
         _cachedMasterSeed = masterSeed ?? "";
         commitmentSaltDetailPanel?.SetContent(_cachedCommitment, _cachedSalt, _cachedMasterSeed);
 
-        bool useRiichi = IsRiichiLayout(gameInfo, roomRule);
-        usesRuleIndicators = ResolveManifest(gameInfo, roomRule)?.RoundIndicators != null;
-        if (simpleRoundPanel != null) simpleRoundPanel.gameObject.SetActive(!useRiichi);
-        if (riichiRoundPanel != null) riichiRoundPanel.gameObject.SetActive(useRiichi);
-
-        if (useRiichi) {
-            riichiRoundPanel?.UpdateRoomInfo(gameInfo, roomRule);
-        } else {
-            simpleRoundPanel?.UpdateRoomInfo(gameInfo, roomRule);
-        }
+        displayedInfo = gameInfo;
+        displayedRule = roomRule;
+        displayedManifest = ResolveManifest(gameInfo, roomRule);
+        ShowIndicators(displayedManifest?.RoundIndicators?.Invoke(gameInfo), initialize: true);
         matchInfo?.RefreshInfo(gameInfo);
-        RefreshLocalizedLayout();
     }
 
     public void OnPointerClick(PointerEventData eventData) {
@@ -98,22 +94,25 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
     }
 
     /// <summary>
-    /// 立直房间的场况刷新（本场、立直棒、宝牌指示牌）。
-    /// 杠宝牌指示追加到 doraIndicators 末尾即可。
+    /// 实战、重连、牌谱推演使用同一入口；切换规则后忽略上一规则的清理通知。
     /// </summary>
-    public void RefreshRiichi(int honba, int riichiSticks, List<int> doraIndicators, List<int> kanDoraIndicators) {
-        if (usesRuleIndicators || riichiRoundPanel == null || !riichiRoundPanel.gameObject.activeSelf) return;
-        var merged = doraIndicators != null ? new List<int>(doraIndicators) : new List<int>();
-        if (kanDoraIndicators != null) merged.AddRange(kanDoraIndicators);
-        riichiRoundPanel.RefreshFieldState(honba, riichiSticks, merged);
-        RefreshLocalizedLayout();
+    public void RefreshIndicators(string sourceRule, RoundIndicatorDisplay display) {
+        if (displayedManifest?.RoundIndicators == null ||
+            (sourceRule != displayedInfo?.sub_rule && sourceRule != displayedManifest.RuleId)) return;
+        ShowIndicators(display, initialize: false);
     }
 
-    public void RefreshRuleIndicators(RoundIndicatorDisplay display) {
-        if (!usesRuleIndicators || riichiRoundPanel == null) return;
-        riichiRoundPanel.RefreshRuleIndicators(display);
+    private void ShowIndicators(RoundIndicatorDisplay display, bool initialize) {
+        bool hasTiles = display != null && display.Tiles.Count > 0;
+        if (initialize || (indicatorRoundPanel && indicatorRoundPanel.gameObject.activeSelf != hasTiles)) {
+            if (simpleRoundPanel) simpleRoundPanel.gameObject.SetActive(!hasTiles);
+            if (indicatorRoundPanel) indicatorRoundPanel.gameObject.SetActive(hasTiles);
+            if (hasTiles) indicatorRoundPanel?.UpdateRoomInfo(displayedInfo, displayedRule, displayedManifest);
+            else simpleRoundPanel?.UpdateRoomInfo(displayedInfo, displayedRule);
+        }
+        if (hasTiles) indicatorRoundPanel?.RefreshIndicators(display);
+        matchInfo?.SetStatus(display?.Status);
         RefreshLocalizedLayout();
-        matchInfo?.RefreshLayout();
     }
 
     public void UpdateMatchReplayScores(MatchReplayProjection.Scores scores) => simpleRoundPanel?.UpdateMatchReplayScores(scores);
@@ -129,15 +128,9 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
         }
     }
 
-    private static bool IsRiichiLayout(GameInfo gameInfo, string roomRule) {
-        // roomRule 参数可能是 "riichi/xxx" 这种子规则串，也按前缀解析
-        RuleManifest manifest = ResolveManifest(gameInfo, roomRule);
-        return manifest != null && (manifest.RiichiRoundLayout || manifest.RoundIndicators != null);
-    }
-
-    private static RuleManifest ResolveManifest(GameInfo gameInfo, string roomRule) =>
-        RuleRegistry.Resolve(roomRule, roomRule)
-        ?? (gameInfo != null ? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule) : null);
+    internal static RuleManifest ResolveManifest(GameInfo gameInfo, string roomRule) =>
+        (!string.IsNullOrEmpty(gameInfo?.sub_rule) ? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule) : null)
+        ?? RuleRegistry.Resolve(roomRule, roomRule);
 }
 
 /// <summary>

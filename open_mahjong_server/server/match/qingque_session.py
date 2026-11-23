@@ -101,7 +101,8 @@ def finish_checkpoint(db, game_id):
             record['game_title']['rating_result'] = result
             match_type = f'{"unlimited" if spec.unlimited_rounds else spec.rounds}/4_rank'
             # A crash after the replay commit must not create a second replay.
-            cur.execute("SELECT game_id FROM game_records WHERE record->'game_title'->>'rating_game_id'=%s LIMIT 1", (str(game_id),))
+            cur.execute("""SELECT t.game_id FROM game_record_tables t JOIN game_replays r ON r.game_id=t.replay_id
+                WHERE r.record->'tables'->t.table_id->'payload'->'game_title'->>'rating_game_id'=%s LIMIT 1""", (str(game_id),))
             existing = cur.fetchone()
             cloud_id = existing[0] if existing else None
             if cloud_id is None:

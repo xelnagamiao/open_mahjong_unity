@@ -80,7 +80,7 @@ public static class TableHudClarityBaker {
         var plans = roots.SelectMany(r => r.GetComponentsInChildren<InterfacePlansController>(true)).Single();
         RemoveRetiredChoice(plans);
         foreach (var rule in roots.SelectMany(r => r.GetComponentsInChildren<RoundPanel>(true))
-            .SelectMany(r => new[] { r.transform.Find("SimpleRoundPanel/Header/Rule"), r.transform.Find("RiichiRoundPanel/Header/Rule") }))
+            .SelectMany(r => new[] { r.transform.Find("SimpleRoundPanel/Header/Rule"), r.transform.Find("IndicatorRoundPanel/Header/Rule") }))
             if (rule) rule.GetComponent<TMP_Text>().color = Color.black;
         foreach (var component in scores.GetComponentsInChildren<Component>(true)) if (component) EditorUtility.SetDirty(component);
         foreach (var button in buttons)

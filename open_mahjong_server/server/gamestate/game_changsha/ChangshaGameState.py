@@ -419,7 +419,7 @@ class ChangshaGameState:
         await self.spectator_manager.cleanup()
 
         # 取消游戏循环任务
-        if self.game_task and not self.game_task.done():
+        if self.game_task and self.game_task is not asyncio.current_task() and not self.game_task.done():
             self.game_task.cancel()
             try:
                 await self.game_task

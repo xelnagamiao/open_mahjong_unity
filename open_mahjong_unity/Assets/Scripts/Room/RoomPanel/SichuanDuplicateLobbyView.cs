@@ -51,8 +51,7 @@ public sealed class SichuanDuplicateLobbyView : MonoBehaviour {
     }
 
     public static bool CanStart(RoomInfo info) {
-        return info?.duplicate_lobby?.can_edit == true && (info.duplicate_status == "waiting"
-                || (info.duplicate_status == "interrupted" && string.IsNullOrEmpty(info.event_id)))
+        return info?.duplicate_lobby?.can_edit == true && info.duplicate_status == "waiting"
             && info.seat_list?.Length == 8 && info.seat_list.All(uid => uid >= 0)
             && (info.duplicate_lobby.waiting?.Length ?? 0) == 0
             && info.seat_list.Where(uid => uid > 10).All(uid => uid == info.host_user_id || (info.ready_list?.Contains(uid) ?? false));

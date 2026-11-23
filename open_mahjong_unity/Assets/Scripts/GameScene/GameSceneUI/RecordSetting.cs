@@ -91,6 +91,8 @@ public class RecordSetting : MonoBehaviour {
     private void ToggleShowCardsMode() {
         isShowCardsMode = !isShowCardsMode;
         RefreshUI();
+        var record = GameRecordManager.Instance;
+        if (record != null && record.TryRefreshGuangdongWinDisplay()) return;
         Game3DManager.Instance.RefreshRecordHandDisplay();
     }
 

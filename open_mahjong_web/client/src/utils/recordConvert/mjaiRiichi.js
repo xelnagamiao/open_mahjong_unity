@@ -52,7 +52,7 @@ function kyokuIndex(currentRound) {
 }
 
 /** salasasa → MJAI 事件数组（整场） */
-export function salasasaToMjaiRecord(input) {
+export function salasasaToMjaiRecord(input, { onRoundEvent } = {}) {
   const data = salasasaInput(input)
   if (!data?.game_title || !data?.game_round) throw new Error('需要 salasasa 牌谱')
   ensureRiichi(data.game_title)
@@ -82,8 +82,12 @@ export function salasasaToMjaiRecord(input) {
     const roundScores = Array.isArray(round.scores) && round.scores.length === 4
       ? round.scores.map(Number)
       : scores
-    events.push(...convertRoundToMjai(round, title, originalBySeat.map(original => roundScores[original]))
-      .map(event => mapEventPlayers(event, originalBySeat, seats)))
+    const seatScores = originalBySeat.map(original => roundScores[original])
+    convertRoundToMjai(round, title, seatScores, (event, node) => {
+      const mapped = mapEventPlayers(event, originalBySeat, seats)
+      events.push(mapped)
+      onRoundEvent?.(key, node, mapped)
+    })
     events.push({ type: 'end_kyoku' })
     // 用最后 hu/ryuukyoku 的 deltas 更新 scores
     for (let i = events.length - 1; i >= 0; i--) {
@@ -107,8 +111,10 @@ export function salasasaToMjaiRecord(input) {
   }
 }
 
-function convertRoundToMjai(round, title, scoresIn) {
-  const events = []
+function convertRoundToMjai(round, title, scoresIn, emit) {
+  // Replay cursors count completed source ticks. A single tick can emit multiple MJAI events.
+  let node = 0
+  const push = event => emit(event, node)
   const honba = round.riichi?.honba ?? 0
   const kyotaku = round.riichi?.riichi_sticks ?? 0
   const bakaze = bakazeFromRound(round.current_round, title.max_round)
@@ -137,7 +143,7 @@ function convertRoundToMjai(round, title, scoresIn) {
     doraMarker = tileToMjai(firstDora[1])
   }
 
-  events.push({
+  push({
     type: 'start_kyoku',
     bakaze,
     dora_marker: doraMarker,
@@ -152,7 +158,7 @@ function convertRoundToMjai(round, title, scoresIn) {
   // 庄家第 14 张
   const oyaTiles = round[`p${oya}_tiles`] || []
   if (oyaTiles.length >= 14) {
-    events.push({ type: 'tsumo', actor: oya, pai: tileToMjai(oyaTiles[13]) })
+    push({ type: 'tsumo', actor: oya, pai: tileToMjai(oyaTiles[13]) })
   }
 
   const ticks = round.action_ticks || []
@@ -167,7 +173,7 @@ function convertRoundToMjai(round, title, scoresIn) {
     const deltas = [0, 0, 0, 0]
     deltas[actor] = -1000
     scores = scores.map((score, index) => score + deltas[index])
-    events.push({ type: 'reach_accepted', actor, deltas, scores: [...scores] })
+    push({ type: 'reach_accepted', actor, deltas, scores: [...scores] })
     acceptedReach.add(actor)
   }
   // d/c tick 不带座位。按日麻回合推进推断：普通弃牌后轮到下家，鸣牌后由鸣牌者先打，杠后摸岭上牌。
@@ -176,6 +182,7 @@ function convertRoundToMjai(round, title, scoresIn) {
   const ponTiles = new Map()
 
   for (let i = 0; i < ticks.length; i++) {
+    node = i + 1
     const t = ticks[i]
     const code = t[0]
     if (code === 'd') {
@@ -183,14 +190,14 @@ function convertRoundToMjai(round, title, scoresIn) {
       const actor = meldActor ?? turnActor
       // 杠后的摸牌仍由杠牌者执行；本次摸牌后等待其切牌。
       meldActor = null
-      events.push({ type: 'tsumo', actor, pai: tileToMjai(t[1]) })
+      push({ type: 'tsumo', actor, pai: tileToMjai(t[1]) })
       continue
     }
     if (code === 'gd') {
       lastWinnableTile = t[1]
       const actor = meldActor ?? turnActor
       meldActor = null
-      events.push({ type: 'tsumo', actor, pai: tileToMjai(t[1]) })
+      push({ type: 'tsumo', actor, pai: tileToMjai(t[1]) })
       continue
     }
     if (code === 'c') {
@@ -198,10 +205,10 @@ function convertRoundToMjai(round, title, scoresIn) {
       const actor = meldActor ?? turnActor
       const tsumogiri = t[2] === 'T'
       if ((reachPending === actor || t[3] === 'H') && !declaredReach.has(actor)) {
-        events.push({ type: 'reach', actor })
+        push({ type: 'reach', actor })
         declaredReach.add(actor)
       }
-      events.push({
+      push({
         type: 'dahai',
         actor,
         pai: tileToMjai(t[1]),
@@ -223,14 +230,14 @@ function convertRoundToMjai(round, title, scoresIn) {
       continue
     }
     if (code === 'dora') {
-      events.push({ type: 'dora', dora_marker: tileToMjai(t[1]) })
+      push({ type: 'dora', dora_marker: tileToMjai(t[1]) })
       continue
     }
     if (code === 'cl' || code === 'cm' || code === 'cr') {
       const actor = t[2]
       const pai = tileToMjai(t[1])
       const consumed = [tileToMjai(t[3]), tileToMjai(t[4])]
-      events.push({
+      push({
         type: 'chi',
         actor,
         target: lastDiscardActor ?? (actor + 3) % 4,
@@ -245,7 +252,7 @@ function convertRoundToMjai(round, title, scoresIn) {
     if (code === 'p') {
       const actor = t[2]
       ponTiles.set(`${actor}/${normalTile(t[1])}`, [t[1], t[3], t[4]])
-      events.push({
+      push({
         type: 'pon',
         actor,
         target: lastDiscardActor ?? (actor + 3) % 4,
@@ -259,7 +266,7 @@ function convertRoundToMjai(round, title, scoresIn) {
     }
     if (code === 'g') {
       const actor = t[2]
-      events.push({
+      push({
         type: 'daiminkan',
         actor,
         target: lastDiscardActor ?? (actor + 3) % 4,
@@ -277,7 +284,7 @@ function convertRoundToMjai(round, title, scoresIn) {
         t.length >= 7
           ? [t[3], t[4], t[5], t[6]].map(tileToMjai)
           : [tile, tile, tile, tile]
-      events.push({ type: 'ankan', actor, consumed })
+      push({ type: 'ankan', actor, consumed })
       turnActor = actor
       meldActor = actor
       continue
@@ -287,7 +294,7 @@ function convertRoundToMjai(round, title, scoresIn) {
       const actualTile = Number.isInteger(t[3]) && t[3] >= 11 ? t[3] : t[1]
       const normal = normalTile(t[1])
       const consumed = ponTiles.get(`${actor}/${normal}`) || [normal, normal, normal]
-      events.push({
+      push({
         type: 'kakan',
         actor,
         pai: tileToMjai(actualTile),
@@ -302,7 +309,7 @@ function convertRoundToMjai(round, title, scoresIn) {
       const tile = tileToMjai(t[2])
       const kind = t[4] === 'angang' ? 'ankan' : 'kakan'
       const consumed = Array.isArray(t[5]) ? t[5].map(tileToMjai) : Array(kind === 'ankan' ? 4 : 3).fill(tile)
-      events.push(kind === 'ankan' ? { type: kind, actor, consumed } : { type: kind, actor, pai: tile, consumed })
+      push(kind === 'ankan' ? { type: kind, actor, consumed } : { type: kind, actor, pai: tile, consumed })
       lastDiscardActor = actor
       lastWinnableTile = t[2]
       turnActor = actor
@@ -320,7 +327,7 @@ function convertRoundToMjai(round, title, scoresIn) {
       scores = scores.map((s, idx) => s + (deltas[idx] || 0))
       const target =
         huClass === 'hu_self' ? actor : discarderFromHuClass(actor, huClass) ?? lastDiscardActor
-      events.push({
+      push({
         type: 'hora',
         actor,
         target,
@@ -338,7 +345,7 @@ function convertRoundToMjai(round, title, scoresIn) {
     if (code === 'ryuukyoku') {
       const deltas = [...(t[2] || [0, 0, 0, 0])]
       scores = scores.map((s, idx) => s + (deltas[idx] || 0))
-      events.push({
+      push({
         type: 'ryukyoku',
         reason: t[3] || 'fanpai',
         tenpais: t[1] || [0, 0, 0, 0],
@@ -348,8 +355,6 @@ function convertRoundToMjai(round, title, scoresIn) {
       continue
     }
   }
-
-  return events
 }
 
 /** MJAI NDJSON / 事件数组 → salasasa */

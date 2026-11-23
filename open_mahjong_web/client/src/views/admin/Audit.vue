@@ -45,10 +45,12 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import { onMounted, reactive, ref } from 'vue'
 import adminApi from '@/api/adminClient'
 
-const filters = reactive({ admin_id: '10000001', action: '' })
+const { saved, remember } = useAdminListState()
+const filters = reactive(saved.filters ?? { admin_id: '10000001', action: '' })
 const items = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -64,6 +66,7 @@ function showPayload(row) {
 }
 
 async function load() {
+  remember({ filters: { ...filters } })
   loading.value = true
   try {
     const params = { limit: 50 }

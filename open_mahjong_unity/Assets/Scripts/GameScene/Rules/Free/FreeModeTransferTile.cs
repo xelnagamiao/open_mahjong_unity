@@ -60,15 +60,15 @@ public sealed class FreeModeTransferTile : MonoBehaviour {
         MahjongObjectPool pool = MahjongObjectPool.Instance;
         if (pool == null) return null;
         // Unknown tiles never bind the real face, including their hover target.
-        GameObject tile = pool.CreatePresentationTile(item.face_down ? ConfigManager.BlankFaceImageId : item.tile);
+        GameObject tile = pool.CreatePresentationTile(item.face_down ? ConfigManager.BlankFaceImageId : item.tile, table.transform);
         if (tile == null) return null;
         tile.GetComponent<Tile3D>()?.SetConcealedFaceDown(item.face_down);
         tile.name = "FreeModeTransferTile" + item.slot;
-        SceneManager.MoveGameObjectToScene(tile, table.gameObject.scene);
         if (!item.face_down) Card3DHoverManager.Instance?.RegisterCard(tile, item.tile);
         var root = new GameObject("FreeModeTransferTake" + item.slot, typeof(RectTransform), typeof(Canvas),
             typeof(GraphicRaycaster), typeof(Image), typeof(FreeModeTransferTileHitTarget));
         SceneManager.MoveGameObjectToScene(root, table.gameObject.scene);
+        TableWorldObjectMount.AttachRuntime(root.transform, true);
         Canvas canvas = root.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
         Canvas board = BoardCanvas.Instance != null ? BoardCanvas.Instance.GetComponent<Canvas>() : null;

@@ -5449,8 +5449,8 @@
       "text": "Desde 4.º dan"
     },
     {
-      "key": "Salasasa七段及以上或职业五段及以上并实名注册",
-      "text": "Desde 7.º dan de Salasasa o 5.º dan profesional, con registro de identidad real"
+      "key": "Salasasa七段及以上",
+      "text": "Desde 7.º dan de Salasasa"
     },
     {
       "key": "10级－3级",
@@ -11551,10 +11551,6 @@
     {
       "key": "蓝灰窄框",
       "text": "Marco estrecho azul grisáceo"
-    },
-    {
-      "key": "灰色凹槽",
-      "text": "Relieve gris"
     },
     {
       "key": "单框",
@@ -20453,16 +20449,16 @@
       "text": "MCR: Avanzado\nRequisito de acceso: rango 4.º dan o superior\npt ganados: 105\npt perdidos: según rango\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, victorias falsas, llamadas tácticas\nTiempo: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior, o profesional 5.º dan o superior, con registro de nombre real\npt ganados: 135*0.49\npt perdidos: según rango*0.49\nReparto: +0.8+0.2-0.3-0.7\nSin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior\npt ganados: 135*0.49\npt perdidos: según rango*0.49\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior, o profesional 5.º dan o superior, con registro de nombre real\npt ganados: 135*0.7\npt perdidos: según rango*0.7\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior\npt ganados: 135*0.7\npt perdidos: según rango*0.7\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior, o profesional 5.º dan o superior, con registro de nombre real\npt ganados: 135\npt perdidos: según rango\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nRequisito de acceso: rango Salasasa 7.º dan o superior\npt ganados: 135\npt perdidos: según rango\nReparto: +0.8+0.2-0.3-0.7\nConfiguración: sin ayudas, sin indicación del puntero, victorias falsas, llamadas tácticas\nTiempo: 20+5"
     },
     {
       "key": "10分",
@@ -21245,7 +21241,7 @@
       "text": "Hongque es un juego de mesa de tipo rummy y temática de arcoíris diseñado por Null. Usa fichas de mahjong de catorce colores y nueve números, con un ejemplar de cada uno. Gana la mano quien antes agrupe todas sus fichas en secuencias o grupos del mismo número. La gran variedad de grupos ofrece infinitas posibilidades desde cualquier mano inicial. El juego aún está en pruebas. Si te interesa o tienes sugerencias, únete al grupo oficial de QQ de Hongque 389832188."
     },
     {
-      "key": "虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
+      "key": "虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
       "text": "Hongque W, versión 1.0, usa fichas de siete colores y nueve números, con dos ejemplares de cada uno. Gana la mano quien antes agrupe todas sus fichas. Las secuencias arcoíris aportan muchas posibilidades al juego, por lo que es la mejor opción para iniciarse en Hongque."
     },
     {
@@ -25241,8 +25237,8 @@
       "text": "Tras kong, las fichas de reposición se revelan en las posiciones indicadas por los dados. Kamo solo impide ganar por descarte con mano pequeña. El límite se aplica por ganador y pagador; las victorias de un mismo lote se acumulan para el límite."
     },
     {
-      "key": "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
-      "text": "Al inicio hay 2 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite."
+      "key": "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
+      "text": "Al inicio hay 3 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite."
     },
     {
       "key": "经典双鸟",
@@ -29289,12 +29285,12 @@
       "text": "Reglamento Hongque² v1.7, con reglas básicas, jugadas y ejemplos."
     },
     {
-      "key": "虹雀 W v1.0",
-      "text": "Hongque W v1.0"
+      "key": "虹雀 W v1.1",
+      "text": "Hongque W v1.1"
     },
     {
-      "key": "虹雀 W v1.0 规则书",
-      "text": "Reglamento Hongque W v1.0"
+      "key": "虹雀 W v1.1 规则书",
+      "text": "Reglamento Hongque W v1.1"
     },
     {
       "key": "未分类",

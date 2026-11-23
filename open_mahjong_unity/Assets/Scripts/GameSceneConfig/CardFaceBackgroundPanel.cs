@@ -106,6 +106,9 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void OnEnable() {
         HandSurfaceLibrary.Changed += RefreshHandPreviews;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        TileFaceResolver.OnPackChanged += RefreshHandPreviews;
+#endif
         HandSurfaceLibrary.EnsureReady(() => { if (this != null && isActiveAndEnabled) RefreshHandPreviews(); });
         RefreshPreviews();
         RefreshSolidColorUi();
@@ -118,6 +121,9 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void OnDisable() {
         HandSurfaceLibrary.Changed -= RefreshHandPreviews;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        TileFaceResolver.OnPackChanged -= RefreshHandPreviews;
+#endif
         pendingHandImages.Clear();
         if (handNameDialog != null) handNameDialog.CloseWithOwner();
         if (handLayoutEditor != null) handLayoutEditor.CloseWithOwner();

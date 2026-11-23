@@ -2,7 +2,7 @@ import asyncio
 import time
 import unittest
 from types import SimpleNamespace as NS
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from .match_manager import MatchManager
 from .party_manager import PartyManager
@@ -164,15 +164,14 @@ class PartyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(p.leader_user_id, 1)
         self.assertEqual(p.members, [1])
 
-    async def test_member_rating_gap_rejects_the_whole_queue_entry(self):
+    async def test_member_rating_gap_does_not_block_queue_entry(self):
         p = await self.pair(1, 2)
         await self.request(2, 'ready', ready=True)
         self.s.db_manager.get_rank_data.side_effect = lambda uid: {'ratings': {DOUBLES_RATING_RULE: {'elo': 1500 if uid == 1 else 2001}}}
         result = await self.request(1, 'queue')
-        self.assertFalse(result.success)
-        self.assertIn('500', result.message)
-        self.assertFalse(p.queued_at)
-        self.assertFalse(self.mm.user_to_queues)
+        self.assertTrue(result.success, result.message)
+        self.assertTrue(p.queued_at)
+        self.assertEqual(self.mm.queues[DOUBLES_QUEUE], [1, 2])
 
     async def test_offline_leader_expires_and_online_member_keeps_the_party(self):
         p = await self.pair(1, 2)
@@ -185,19 +184,28 @@ class PartyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(p.leader_user_id, 2)
         self.assertIsNone(self.pm.get(1))
 
-    async def test_elo_ranges_expand_for_both_teams_and_member_gap_is_checked(self):
-        a = await self.pair(1, 2); b = await self.pair(3, 4)
-        for u in (2, 4):
-            await self.request(u, 'ready', ready=True)
-        self.s.db_manager.get_rank_data.side_effect = lambda uid: {'ratings': {DOUBLES_RATING_RULE: {'elo': 1500 if uid < 3 else 1800}}}
-        await self.request(1, 'queue'); await self.request(3, 'queue')
-        self.assertFalse(self.mm.committed_users)
-        a.queued_at -= 80
-        await self.pm.try_match()
-        self.assertFalse(self.mm.committed_users)
-        b.queued_at -= 80
-        await self.pm.try_match()
+    async def test_first_two_teams_match_immediately_across_large_rating_gap(self):
+        await self.pair(1, 2)
+        await self.pair(3, 4)
+        self.s.db_manager.get_rank_data.side_effect = lambda uid: {'ratings': {DOUBLES_RATING_RULE: {'elo': 1200 if uid < 3 else 2400}}}
+        self.assertTrue((await self.request(1, 'queue')).success)
+        self.assertTrue((await self.request(3, 'queue')).success)
         self.assertEqual(self.mm.committed_users, {1, 2, 3, 4})
+
+    async def test_backlog_uses_enqueue_order_after_a_team_rejoins(self):
+        for leader in (1, 3, 5):
+            await self.pair(leader, leader + 1)
+        self.s.db_manager.get_rank_data.side_effect = lambda uid: {'ratings': {DOUBLES_RATING_RULE: {'elo': 2100 if uid < 3 else 1500}}}
+        with patch.object(self.pm, 'try_match', new_callable=AsyncMock):
+            for leader in (5, 3, 1):
+                self.assertTrue((await self.request(leader, 'queue')).success)
+            self.assertTrue((await self.request(5, 'cancel')).success)
+            self.assertTrue((await self.request(5, 'queue')).success)
+        await self.pm.try_match()
+        await asyncio.sleep(0)
+        self.assertEqual(self.mm.committed_users, {1, 2, 3, 4})
+        self.mm._start_game.assert_awaited_once_with(DOUBLES_QUEUE, [3, 1, 4, 2])
+        self.assertEqual(self.mm.queues[DOUBLES_QUEUE], [5, 6])
 
     async def test_room_invite_keeps_identity_and_has_no_password(self):
         import uuid

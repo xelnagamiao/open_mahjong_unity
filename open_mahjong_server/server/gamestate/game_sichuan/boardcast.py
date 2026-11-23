@@ -69,6 +69,9 @@ def _build_players_info(self, viewer_user_id: Optional[int]):
             if p.user_id == viewer_user_id:
                 viewer_index = p.player_index
                 break
+    retired = {}
+    if getattr(self, "is_doubles", False):
+        retired = {win["winner"]: win for win in getattr(self, "deferred_hu_settlements", ())}
     players_info = []
     for player in self.player_list:
         tags = tag_list_for_viewer(player.tag_list, player.player_index, viewer_index)
@@ -105,6 +108,19 @@ def _build_players_info(self, viewer_user_id: Optional[int]):
             'post_hu_lock': getattr(player, 'post_hu_lock', False),
             'xueliu_throw_tiles': list(getattr(player, 'xueliu_throw_tiles', [])) if not getattr(self, 'xueliu_exchange', False) or player.user_id == viewer_user_id else [],
         })
+        if self.game_status in ("sbr_exchange_received", "xueliu_exchange_received") and player.player_index == viewer_index:
+            direction = self.exchange_direction if self.game_status == "sbr_exchange_received" else self.xueliu_exchange_direction
+            sender = self.player_list[(viewer_index - direction) % 4]
+            players_info[-1]["sbr_received_tiles"] = list(sender.xueliu_throw_tiles)
+        seat = player.player_index
+        if seat in retired:
+            win = retired[seat]
+            hand = player.hand_tiles[:-1]
+            players_info[-1].update(
+                hand_tiles_count=len(hand), hand_tiles=hand if seat == viewer_index else None,
+                blood_hu_tile=0 if win["is_zimo"] and seat != viewer_index else win["hepai_tile"],
+                blood_hu_zimo=win["is_zimo"], blood_hu_source=win["discarder"], blood_hu_multi=win["multi_ron"],
+            )
     return players_info
 
 
@@ -148,6 +164,11 @@ def _base_game_info(self):
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base.update(build_player_entry_order_fields(self))
+    if self.game_status == "sbr_exchange_received":
+        base["sbr_exchange_direction"] = self.exchange_direction
+    elif self.game_status == "xueliu_exchange_received":
+        base["sbr_exchange_direction"] = self.xueliu_exchange_direction
+        base["exchange_receipt_seconds"] = max(0, self.exchange_receipt_deadline - time.monotonic())
     if self.sub_rule in DUPLICATE_SUB_RULES:
         base.update(real_time=self.real_time, tactical_grace_seconds=int(self.tactical_grace_seconds))
     if uses_duplicate_wall(self):
@@ -383,7 +404,8 @@ def _exchange_view(self, index):
 
 def _exchange_animation_response(self, index):
     return Response(
-        type="gamestate/sichuan/broadcast_hand_action", success=True, message="换牌中",
+        type="gamestate/sichuan/broadcast_hand_action", success=True,
+        message="掷骰确定换牌方向" if self.game_status == "sbr_exchange_dice" else "换牌中",
         ask_hand_action_info=Ask_hand_action_info(
             xueliu_exchange=_exchange_view(self, index), remaining_time=0, step_remaining=0,
             player_index=index, remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
@@ -536,9 +558,10 @@ async def reconnected_send_pending_ask_for_viewer(
             ),
         )
         await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
-    elif self.game_status == "xueliu_exchange_animation" and hasattr(self, "exchange_view"):
+    elif self.game_status in ("sbr_exchange_dice", "xueliu_exchange_animation") and hasattr(self, "exchange_view"):
         await send_game_packet(self, player_conn.websocket, _exchange_animation_response(self, view_player_index).dict(exclude_none=True))
-    elif self.game_status == "waiting_xueliu_throw" and (self.action_dict.get(view_player_index) or getattr(self, "is_xueliu_doubles", False)):
+    elif self.game_status == "waiting_xueliu_throw" and (self.action_dict.get(view_player_index)
+            or getattr(self, "xueliu_exchange", False)):
         response = Response(
             type="gamestate/sichuan/broadcast_hand_action", success=True,
             message="请选择三张同花牌",

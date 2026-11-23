@@ -248,7 +248,7 @@ public sealed class ChangchunGameState : TurnBasedGameState {
                     // Keep the concealed pose and all other melds, including stacked added kongs.
                     var replacement=MahjongObjectPool.Instance.Spawn(physical,old.position,old.rotation);
                     if(replacement==null) continue;
-                    replacement.transform.SetParent(group,true);replacement.transform.SetSiblingIndex(i);
+                    TableWorldObjectMount.AttachPreservingWorld(replacement.transform,group);replacement.transform.SetSiblingIndex(i);
                     replacement.GetComponent<Tile3D>()?.ApplyCombinationPeekState(physical,2);
                     Card3DHoverManager.Instance?.RegisterCard(replacement,physical);
                     MahjongObjectPool.Instance.Return(-1,old.gameObject);

@@ -80,8 +80,8 @@ public partial class CreatePanel {
             fuzhouBaseScore = fuzhouBaseScoreIndex,
             duplicateEnabled = _duplicateWasEnabled, spectatorBeforeDuplicate = _spectatorBeforeDuplicate,
             dropdowns = basicDropdowns.ToDictionary(x => x, x => x.value),
-            inputs = basicInputs.ToDictionary(x => x, x => x.text),
-            toggles = basicToggles.ToDictionary(x => x, x => x.isOn),
+            inputs = basicInputs.ToDictionary(x => x, x => x == HepaiLimitInput ? limitBeforeNewChineseExchange ?? x.text : x.text),
+            toggles = basicToggles.ToDictionary(x => x, x => x == InputHepaiLimitToggle && limitBeforeNewChineseExchange != null ? customLimitBeforeNewChineseExchange : x.isOn),
             scrolls = basicScrolls.ToDictionary(x => x, x => x.normalizedPosition),
             details = _detailedConfigStates.ToDictionary(pair => pair.Key, pair => new DetailedDraft {
                 showAllFans = pair.Value.ShowAllFans,

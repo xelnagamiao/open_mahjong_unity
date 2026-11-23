@@ -3,7 +3,9 @@ Shader "Custom/ThreeDTiles"
     Properties
     {
         _FrontTex ("Front Texture (牌面)", 2D) = "white" {}
+        _MipMapBias ("Front Artwork Mip Bias", Float) = -1
         _FrontColor ("Front Tint", Color) = (1,1,1,1)
+        _FrontAtlasBounds ("Atlas UV bounds", Vector) = (0,0,1,1)
         _FrontTilingOffset ("Front Tiling & Offset", Vector) = (1,1,0,0)
 
         // 3D 牌面背景：可由「牌面背景」页上传；前景花纹（_FrontTex）按 alpha 叠加在上面。
@@ -94,7 +96,8 @@ Shader "Custom/ThreeDTiles"
             TEXTURE2D(_SideTex);  SAMPLER(sampler_SideTex);
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
-                UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _FrontAtlasBounds)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkLayout)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _ArtworkBaseline)
                 // 牌背贴图逐牌旋转角（度）：按牌当前世界朝向与相机统一校正，保证背图朝镜头正向；0 = 默认
@@ -196,10 +199,12 @@ Shader "Custom/ThreeDTiles"
                 // （fluffy/hkmahjong 已透明化的米色背景）使用 _TableFaceFallbackColor 兜底，
                 // 启用 3D 牌面背景时该色被底图取代。
                 // 底图 / 纯色 / fallback 都乘 _FrontColor，悬停蓝、摸切灰、铳牌红才会盖住整面。
-                half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
+                half4 front = SAMPLE_TEXTURE2D_BIAS(_FrontTex, sampler_FrontTex, frontUV, _MipMapBias) * frontColor;
                 // Contain 会产生越界 UV。以透明处理留白，不能复制 Clamp 边缘像素。
                 half frontInside = step(0.0, frontUV.x) * step(frontUV.x, 1.0)
                     * step(0.0, frontUV.y) * step(frontUV.y, 1.0);
+                float4 bounds = UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontAtlasBounds);
+                front.a *= all(frontUV >= bounds.xy) && all(frontUV <= bounds.zw);
                 front.a *= imageInside * lerp(1.0h, frontInside, saturate(_FrontTexContain));
                 half frontAlpha = saturate(front.a);
                 if (saturate(_FrontBgBlend) > 0.0h)

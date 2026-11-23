@@ -267,8 +267,6 @@ class GameServer:
         # 好友 / 实时观战 管理器
         self.friend_manager = FriendManager(self)
         self.event_auto_matcher = EventAutoMatcher(self)
-        from .room.sichuan_duplicate import restore_pairs
-        restore_pairs(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -284,6 +282,7 @@ class GameServer:
                 return
             if player.user_id and self.user_id_to_connection.get(player.user_id) is not player:
                 self.players.pop(Connect_id, None)
+                await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
                 return
             player.event_disconnecting = True
             if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
@@ -298,6 +297,9 @@ class GameServer:
             if player.current_room_id:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)
                 logging.info(f"玩家 {Connect_id} 已离开房间 {player.current_room_id}")
+
+            if player.user_id:
+                await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
 
             # A replacement connection can log in while leave_room broadcasts.
             if player.user_id and self.user_id_to_connection.get(player.user_id) is not player:
@@ -322,9 +324,6 @@ class GameServer:
                 except Exception as exc:
                     logging.warning(f"friend_manager.on_player_disconnect 异常: {exc}")
 
-            # 如果玩家在游戏中，则断开游戏连接
-            if player.user_id:
-                await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
             
             # 删除用户ID到玩家连接的映射
             if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
@@ -407,8 +406,8 @@ class GameServer:
     async def create_Shanghai_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "shanghai/qiaoma", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, detailed_config: dict = None) -> Response:
         return await self.room_manager.create_Shanghai_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, detailed_config=detailed_config)
 
-    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None, real_time: bool = False, tactical_grace_seconds: int = 5) -> Response:
-        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, duplicate_key=duplicate_key, duplicate_round_count=duplicate_round_count, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source, real_time=real_time, tactical_grace_seconds=tactical_grace_seconds)
+    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None, real_time: bool = False, tactical_grace_seconds: int = 5, reuse_training_room: bool = False) -> Response:
+        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, duplicate_key=duplicate_key, duplicate_round_count=duplicate_round_count, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source, real_time=real_time, tactical_grace_seconds=tactical_grace_seconds, reuse_training_room=reuse_training_room)
 
     # 创建台湾麻将房间
     async def create_Taiwan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "taiwan/standard", tourist_limit: bool = False, allow_spectator: bool = True, open_cuohe: bool = False, cuohe_type: int = 0, detailed_config: dict = None, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
@@ -428,8 +427,16 @@ class GameServer:
 
     # 离开房间
     async def leave_room(self, Connect_id: str, room_id: str):
+        player = self.players[Connect_id]
+        state = self.gamestate_manager.get_game_state_by_user_id(player.user_id)
+        room = self.room_manager.rooms.get(room_id)
+        leaving_active_game = (state is not None and state.room_id == room_id
+                               and room is not None and room.get("active_gamestate_id") == state.gamestate_id)
         response = await self.room_manager.leave_room(Connect_id, room_id)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        if (response.success and leaving_active_game
+                and self.gamestate_manager.get_game_state_by_user_id(player.user_id) is state):
+            await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
+        await player.websocket.send_json(response.dict(exclude_none=True))
 
     # 添加机器人到房间
     async def add_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
@@ -748,7 +755,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
                     if message.get("reconnect"):
                         # 玩家确认重连：由 game_state.player_reconnect 向该玩家推送 game_start_GB（含当前对局状态）
-                        restored = await game_server.gamestate_manager.player_reconnect(user_id)
+                        restored = await game_server.gamestate_manager.player_reconnect(user_id, connection=player)
                         if not restored:
                             await player.websocket.send_json({"type": "gamestate/closed", "success": False,
                                 "gamestate_id": game_state.gamestate_id, "reason": "unavailable", "message": "当前对局无法重连"})

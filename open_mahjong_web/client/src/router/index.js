@@ -42,6 +42,7 @@ const AdminLayout = () => import('@/layouts/AdminLayout.vue')
 const AdminLogin = () => import('@/views/admin/Login.vue')
 const AdminDashboard = () => import('@/views/admin/Dashboard.vue')
 const AdminUsers = () => import('@/views/admin/Users.vue')
+const AdminSponsors = () => import('@/views/admin/Sponsors.vue')
 const AdminAccountBans = () => import('@/views/admin/AccountBans.vue')
 const AdminChatHistory = () => import('@/views/admin/ChatHistory.vue')
 const AdminTitles = () => import('@/views/admin/Titles.vue')
@@ -381,6 +382,7 @@ const routes = [
     children: [
       { path: '', name: 'AdminDashboard', component: AdminDashboard, meta: { title: '管理仪表盘' } },
       { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
+      { path: 'sponsors', name: 'AdminSponsors', component: AdminSponsors, meta: { title: '赞助玩家和特殊设定' } },
       { path: 'account-bans', name: 'AdminAccountBans', component: AdminAccountBans, meta: { title: '账号封禁名单' } },
       { path: 'chat-history', name: 'AdminChatHistory', component: AdminChatHistory, meta: { title: '聊天记录' } },
       { path: 'titles', name: 'AdminTitles', component: AdminTitles, meta: { title: '头衔管理' } },

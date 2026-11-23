@@ -101,7 +101,7 @@ public class DataNetworkManager : MonoBehaviour {
             NotificationManager.Instance.ShowTip("牌谱", false, response.message);
             return;
         }
-        RecordPanel.OpenRecord(response.record_detail);
+        RecordPanel.RequestOpenRecord(response.record_detail);
     }
 
     private void HandleUpdateRecordFavoriteResponse(Response response) {
@@ -206,6 +206,15 @@ public class DataNetworkManager : MonoBehaviour {
             PlayerInfoPanel.Instance?.OnRecentRecordsReceived(false, e.Message,
                 new PlayerRecentRecordsResponse { user_id = userId, request_id = requestId });
         }
+    }
+
+    public bool HasPendingRecordFirstPage(int listVersion) {
+        var socket = GetWebSocket();
+        if (socket == null || socket != _recordListSocket || socket.State != WebSocketState.Open) return false;
+        foreach (var request in _recordListRequests) {
+            if (request.offset == 0 && request.version == listVersion) return true;
+        }
+        return false;
     }
 
     public async void GetRecordList(int offset = 0, bool favoritesOnly = false, int listVersion = -1) {

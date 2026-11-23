@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -26,10 +27,7 @@ test('platform custom statistics, fans, daily games and record pages stay in the
     'third_place_count', 'fourth_place_count', 'fulu_round_count', 'cuohe_count', 'total_round_score'];
   try {
     // Session-local tables shadow the real tables; no persistent test data is written.
-    await pool.query(`CREATE TEMP TABLE game_records(game_id text PRIMARY KEY, created_at timestamptz);
-      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
-      CREATE TEMP VIEW game_replays AS SELECT * FROM game_records;
-      CREATE TEMP VIEW game_record_tables AS SELECT game_id,replay_id,table_id FROM game_record_metadata;
+    await pool.query(`${replayDDL(true)};
 
       CREATE TEMP TABLE game_player_records(game_id text, user_id bigint, username text, score int, rank int,
         pt_change numeric, rule text, sub_rule text, room_type text, match_type text, match_tier text, event_id text);
@@ -44,7 +42,7 @@ test('platform custom statistics, fans, daily games and record pages stay in the
 
     async function seed(id, { rule = 'guobiao', subRule = `${rule}/standard`, room = 'custom', tier = null,
       event = null, time = '2026-10-28T12:00:00+08:00', day = '2026-10-28' } = {}) {
-      await pool.query('INSERT INTO game_records VALUES($1,$2)', [id, time]);
+      await insertReplay(pool,[id,{},time]);
       for (let seat = 1; seat <= 4; seat += 1) {
         await pool.query(`INSERT INTO game_player_records VALUES($1,$2,$3,0,$4,0,$5,$6,$7,'1/4',$8,$9)`,
           [id, 10000100 + seat, `玩家${seat}`, seat, rule, subRule, room, tier, event]);

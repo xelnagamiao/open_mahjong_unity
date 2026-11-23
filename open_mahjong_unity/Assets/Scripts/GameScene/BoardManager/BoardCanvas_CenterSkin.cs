@@ -1,5 +1,3 @@
-using UnityEngine;
-
 // Appearance only. The original serialized TMP/Image references and game-state
 // methods remain in BoardCanvas.cs and BoardCanvas_CurrentDisplay.cs.
 public partial class BoardCanvas
@@ -13,11 +11,7 @@ public partial class BoardCanvas
         EnsureCenterBoardSkin().Apply(id);
     }
 
-    public void ApplyCenterStyle(int index)
-    {
-        index = Mathf.Clamp(index, 0, CenterDisplayStyles.All.Count - 1);
-        ApplyCenterStyle(CenterDisplayStyles.All[index].Id);
-    }
+    public void ApplyCenterStyle(int index) => ApplyCenterStyle(CenterDisplayStyles.IdFromIndex(index));
 
     void Start()
     {

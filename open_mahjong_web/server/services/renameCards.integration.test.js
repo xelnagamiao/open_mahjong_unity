@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -21,7 +22,7 @@ test('account rename consumes inventory cards transactionally in PostgreSQL', { 
       is_tourist boolean DEFAULT FALSE, email text, email_verified_at timestamp,
       rename_count integer NOT NULL DEFAULT 0);
       CREATE TABLE game_player_records (game_id text, user_id bigint REFERENCES users, username text);
-      CREATE TABLE game_records (game_id text PRIMARY KEY, record jsonb);`);
+      ${replayDDL()};`);
     await pool.query(fs.readFileSync(path.join(__dirname, '../../../open_mahjong_server/server/database/inventory_schema.sql'), 'utf8'));
     await pool.query(`INSERT INTO item_definitions(item_id,code,name,category,asset_key,max_quantity)
       VALUES (3001,'rename_coupon','改名卡','item','item.rename_credit',1000000),
@@ -65,7 +66,7 @@ test('account rename consumes inventory cards transactionally in PostgreSQL', { 
       return { status: res.status, body: await res.json() };
     }
     async function reset(cards = 2) {
-      await pool.query(`TRUNCATE users, game_records CASCADE;
+      await pool.query(`TRUNCATE users, game_replays CASCADE;
         INSERT INTO users(user_id,username,is_tourist,rename_count)
         VALUES (101,'OldName',FALSE,7),(102,'TakenName',FALSE,0),(103,'GuestName',TRUE,0);
         UPDATE item_definitions SET use_enabled=TRUE,grant_enabled=TRUE;`);
@@ -81,7 +82,8 @@ test('account rename consumes inventory cards transactionally in PostgreSQL', { 
 
     await t.test('success debits one card, records the ledger, and updates history and account payload', async () => {
       await reset();
-      await pool.query(`INSERT INTO game_records VALUES ('g1','{"game_title":{"p0_uid":101,"p0_name":"OldName"}}');
+      await insertReplay(pool,['g1',{game_title:{p0_uid:101,p0_name:'OldName'}}]);
+      await pool.query(`
         INSERT INTO game_player_records VALUES ('g1',101,'OldName')`);
       const res = await rename('NewName');
       assert.equal(res.status, 200);
@@ -92,7 +94,7 @@ test('account rename consumes inventory cards transactionally in PostgreSQL', { 
       assert.deepEqual((await pool.query('SELECT username,rename_count FROM users WHERE user_id=101')).rows[0],
         { username: 'NewName', rename_count: 7 });
       assert.equal((await pool.query('SELECT username FROM game_player_records')).rows[0].username, 'NewName');
-      assert.equal((await pool.query('SELECT record FROM game_records')).rows[0].record.game_title.p0_name, 'OldName');
+      assert.equal((await pool.query('SELECT record FROM game_replays')).rows[0].record.tables.main.payload.game_title.p0_name, 'OldName');
       assert.deepEqual((await pool.query('SELECT item_id,delta,quantity_after FROM inventory_ledger')).rows,
         [{ item_id: 3001, delta: -1, quantity_after: 1 }]);
       assert.equal((await pool.query('SELECT action,result FROM inventory_operations')).rows[0].action, 'rename');

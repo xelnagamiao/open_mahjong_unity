@@ -23,7 +23,7 @@ public partial class Game3DManager {
                 ? MahjongObjectPool.Instance.SpawnBlankTile(anchor.position, rotation, 0)
                 : MahjongObjectPool.Instance.SpawnPresentationTile(stack.TileId, anchor.position, rotation);
             if (card == null) continue;
-            card.transform.SetParent(parent, true);
+            TableWorldObjectMount.AttachPreservingWorld(card.transform, parent);
             card.GetComponent<Tile3D>()?.ApplyCombinationPeekState(stack.TileId, stack.Sign);
             MeshFilter mesh = card.GetComponentInChildren<MeshFilter>(true);
             if (mesh == null || mesh.sharedMesh == null) {
@@ -35,7 +35,7 @@ public partial class Game3DManager {
                 belowMesh.transform.localToWorldMatrix, normal);
             card.transform.position = TileSurfacePlacement.PlaceOnPlane(card.transform.position,
                 mesh.sharedMesh.bounds, mesh.transform.localToWorldMatrix, normal.normalized * upper,
-                normal, tileSurfaceClearance);
+                normal, ScaledTileSurfaceClearance);
             MahjongObjectPool.Instance.RefreshTileCollider(card);
             Card3DHoverManager.Instance.RegisterCard(card, stack.TileId);
             tops[stack.AnchorIndex] = card.transform;

@@ -190,6 +190,7 @@
       </el-table-column>
     </el-table>
     <el-pagination
+      v-if="playerTotal > 0"
       class="pagination"
       v-model:current-page="filters.page"
       :page-size="filters.page_size"
@@ -240,6 +241,7 @@
   </main>
 </template>
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import {
   computed,
   defineAsyncComponent,
@@ -295,8 +297,9 @@ const defaultFilters = () => ({
   page: 1,
   page_size: 20,
 });
-const filters = reactive(defaultFilters());
-const appliedQuery = shallowRef(buildRankingQuery(defaultFilters()));
+const { saved, remember } = useAdminListState();
+const filters = reactive({ ...defaultFilters(), ...saved.filters });
+const appliedQuery = shallowRef(buildRankingQuery(filters));
 const playerFilterOpen = ref(false);
 function handleHeaderFilter(options) {
   Object.assign(filters, options);
@@ -432,6 +435,7 @@ function loadPlayers(force = false) {
   const query = buildRankingQuery(filters),
     key = JSON.stringify(query);
   if (force !== true && playerFlight?.key === key) return playerFlight.promise;
+  remember({ filters: { ...filters } });
   playerFlight?.controller.abort();
   const controller = new AbortController(),
     id = ++playersRequest;

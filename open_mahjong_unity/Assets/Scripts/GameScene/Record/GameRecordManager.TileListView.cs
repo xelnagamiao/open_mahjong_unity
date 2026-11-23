@@ -134,12 +134,13 @@ public partial class GameRecordManager {
 
     private void OnDisable() {
         HideRecordMatchResult();
-        CancelRecordBuhuaContinuation();
+        CancelPendingRecordStepInput();
         TileFaceResolver.OnPackChanged -= RefreshTileListLayout;
         HideRecordPlayerWaits();
     }
 
     private void RefreshTileListLayout() {
+        if (!IsTileListViewVisible()) return;
         foreach (Transform section in new[] { player0HandsContainer, player1HandsContainer,
             player2HandsContainer, player3HandsContainer, tilesListContainer, last14TilesContainer }) {
             if (section == null) continue;
@@ -175,12 +176,14 @@ public partial class GameRecordManager {
         if (scroll != null && scroll.content != null) LayoutRebuilder.MarkLayoutForRebuild(scroll.content);
     }
 
+    private bool tileListNeedsBuild = true;
+
     /// <summary>
-    /// 在牌山阅览各分区中生成初始手牌与牌山（InitGameRound 时调用）。
+    /// 首次展开本局牌山时生成初始手牌与牌山。
     /// tileListCards 仍按 originalTilesList 原始索引顺序保存，供灰显/铳牌提示使用。
     /// </summary>
-    private void BuildTileListInContainer() {
-        if (staticCardPrefab == null) return;
+    private void EnsureTileListBuilt() {
+        if (!tileListNeedsBuild || staticCardPrefab == null) return;
 
         CleanupLegacyTileListScrollChildren();
         ClearAllTileListSectionContainers();
@@ -190,17 +193,14 @@ public partial class GameRecordManager {
             return;
         }
 
+        tileListNeedsBuild = false;
         BuildInitialHandSection(player0HandsContainer, round.p0Tiles);
         BuildInitialHandSection(player1HandsContainer, round.p1Tiles);
         BuildInitialHandSection(player2HandsContainer, round.p2Tiles);
         BuildInitialHandSection(player3HandsContainer, round.p3Tiles);
 
         wallViewReservedIndices = null;
-        RefreshWallSections();
-
-        RefreshTileListLayout();
         UpdateTileListOpacity();
-        FocusTileListScrollOnWallSection();
     }
 
     private HashSet<int> wallViewReservedIndices;
@@ -248,6 +248,10 @@ public partial class GameRecordManager {
     /// <summary>翻癞子或回退后更新四家初始手牌；牌山的原始索引和摸牌顺序保持不变。</summary>
     public void RefreshInitialHandJokerOrder() {
         if (!isActiveAndEnabled || gameRecord == null) return;
+        if (!IsTileListViewVisible()) {
+            tileListNeedsBuild = true;
+            return;
+        }
         foreach (Transform section in new[] { player0HandsContainer, player1HandsContainer,
             player2HandsContainer, player3HandsContainer }) {
             if (section == null) continue;

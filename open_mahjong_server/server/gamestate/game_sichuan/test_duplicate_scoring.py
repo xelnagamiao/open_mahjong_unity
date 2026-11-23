@@ -49,7 +49,7 @@ def test_unknown_imp_scale_rejected():
 @pytest.mark.parametrize("closed_blue,small", [(10, 80), (40, 60)])
 @pytest.mark.parametrize("first", ["open", "closed"])
 async def test_user_examples_cap_after_combining_tables(closed_blue, small, first):
-    match, saved = pair(XUELIU_DUPLICATE)
+    match = pair(XUELIU_DUPLICATE)
     inputs = {"open": [-100, 100], "closed": [closed_blue, -closed_blue]}
     second = "closed" if first == "open" else "open"
     waiter = asyncio.create_task(match.submit(first, 1, inputs[first], [0, 0], {}))
@@ -63,23 +63,21 @@ async def test_user_examples_cap_after_combining_tables(closed_blue, small, firs
     assert final["boards"][0]["raw_difference"] == [closed_blue - 100, 100 - closed_blue]
     assert final["boards"][0]["small_scores"] == [0, small]
     assert final["boards"][0]["imp_scores"] == [0, 4]
-    before, revisions = deepcopy(match.data), len(saved)
+    before, revisions = deepcopy(match.data), match.data["revision"]
     await match.submit(first, 1, inputs[first], [0, 0], {})
-    assert match.data == before and len(saved) == revisions
-    recovered = PairedMatch(json.loads(json.dumps(match.data)), lambda *_: None)
-    assert recovered.public_info() == final
+    assert match.data == before and match.data["revision"] == revisions
+    assert match.public_info() == final
 
 
 @run_async
-async def test_capped_small_and_imp_accumulate_per_board_across_reload():
-    match, _ = pair(XUELIU_DUPLICATE, count=4)
+async def test_capped_small_and_imp_accumulate_per_board():
+    match = pair(XUELIU_DUPLICATE, count=4)
     for number, difference in enumerate([60, -79, 90, -9], 1):
         await asyncio.gather(match.submit("open", number, [difference, -difference], [0, 0], {}),
                              match.submit("closed", number, [0, 0], [0, 0], {}))
         if number < 4:
             assert not match.completed
             assert not {"scores", "small_scores", "imp_scores", "boards"} & match.public_info().keys()
-            match = PairedMatch(json.loads(json.dumps(match.data)), lambda *_: None)
     assert match.public_info()["small_scores"] == [140, 88]
     assert match.public_info()["imp_scores"] == [8, 5]
     assert match.public_info()["scores"] == [140, 88]
@@ -88,7 +86,7 @@ async def test_capped_small_and_imp_accumulate_per_board_across_reload():
 @run_async
 @pytest.mark.parametrize("difference", [29, 30])
 async def test_recording_imp_does_not_switch_small_score_winner_or_tiebreak(difference):
-    match, _ = pair(XUELIU_DUPLICATE, count=3)
+    match = pair(XUELIU_DUPLICATE, count=3)
     for number, value in enumerate([80, -difference, -difference], 1):
         await asyncio.gather(match.submit("open", number, [value, -value], [0, 0], {}),
                              match.submit("closed", number, [0, 0], [0, 0], {}))
@@ -99,7 +97,7 @@ async def test_recording_imp_does_not_switch_small_score_winner_or_tiebreak(diff
 
 @run_async
 async def test_sbr_uses_own_table_and_no_80_point_cap():
-    match, _ = pair()
+    match = pair()
     await asyncio.gather(match.submit("open", 1, [100, -100], [0, 0], {}),
                          match.submit("closed", 1, [-10, 10], [0, 0], {}))
     assert match.public_info()["scores"] == match.public_info()["imp_scores"] == [10, 0]
@@ -108,7 +106,7 @@ async def test_sbr_uses_own_table_and_no_80_point_cap():
 
 @run_async
 async def test_legacy_profile_preserves_saved_small_scoring():
-    match, _ = pair(XUELIU_DUPLICATE, count=2)
+    match = pair(XUELIU_DUPLICATE, count=2)
     match.data["profile"].update(version="xueliu-duplicate-v2")
     del match.data["profile"]["imp_scale"]
     del match.data["profile"]["board_score_cap"]
@@ -117,7 +115,7 @@ async def test_legacy_profile_preserves_saved_small_scoring():
     for key in ("small_scores", "imp_scores"):
         del match.data[key]
         del match.data["results"][0][key]
-    match = PairedMatch(json.loads(json.dumps(match.data)), lambda *_: None)
+    match = PairedMatch(json.loads(json.dumps(match.data)))
     await asyncio.gather(match.submit("open", 2, [0, 0], [0, 0], {}),
                          match.submit("closed", 2, [-10, 10], [0, 0], {}))
     assert match.public_info()["scores"] == match.public_info()["small_scores"] == [90, 10]

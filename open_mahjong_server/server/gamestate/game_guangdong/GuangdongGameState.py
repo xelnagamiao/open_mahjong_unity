@@ -150,6 +150,13 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongC
     def ready_candidate_cuts(self, index):
         return {}
 
+    def is_riichi_horizontal_discard(self, index, tile):
+        return tile in book.GHOSTS
+
+    def decorate_record_cut_tick(self, tick):
+        if len(tick) >= 2 and tick[0] == "c" and tick[1] in book.GHOSTS and "H" not in tick[3:]:
+            tick.append("H")
+
     def _register_initial_heavenly_ready(self):
         pass
 

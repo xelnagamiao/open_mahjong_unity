@@ -345,7 +345,7 @@ export const fr = {
   '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端': 'Sans aides ni indications du pointeur, faux mahjong activé, annonces tactiques, chat interdit, PC uniquement',
   '1级及以上，七段及以上不可进入': 'Niveau 1 et plus ; accès interdit à partir du 7e dan',
   '四段及以上': '4e dan et plus',
-  'Salasasa七段及以上或职业五段及以上并实名注册': '7e dan Salasasa et plus, ou 5e dan professionnel et plus, avec inscription sous son vrai nom',
+  'Salasasa七段及以上': '7e dan Salasasa et plus',
   '10级－3级': 'Niveaux 10 à 3',
   '麻雀计算器': 'Calculateur de mahjong', '创建复式牌墙': 'Créer un mur duplicate',
   '通过手动构建、随机种子复现、新建随机种子设置不同类型的复式密钥，供开设对局使用。': 'Créer des clés duplicate pour les parties en construisant un mur à la main, en reproduisant une graine ou en générant une nouvelle graine.',

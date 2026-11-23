@@ -85,7 +85,7 @@ public static class GameUiLocalizationBaker {
             }
             binding.followSourceChanges = !key.StartsWith("table.", StringComparison.Ordinal);
             bool ownedLayout = control || path.Contains("/MouseControllerTips/") || text.GetComponentInParent<BoardCanvas>(true)
-                || text.GetComponentInParent<SimpleRoundPanel>(true) || text.GetComponentInParent<RiichiRoundPanel>(true)
+                || text.GetComponentInParent<SimpleRoundPanel>(true) || text.GetComponentInParent<IndicatorRoundPanel>(true)
                 || text.GetComponentInParent<AutoAction>(true) || text.GetComponentInParent<FanCount>(true)
                 || text.GetComponentInParent<TableHudMatchInfo>(true) || text.GetComponentInParent<SettlementTotalLayout>(true)
                 || roots.Any(r => r.name == "HistoryText");

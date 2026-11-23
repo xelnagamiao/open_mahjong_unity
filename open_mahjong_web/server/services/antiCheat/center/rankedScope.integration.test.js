@@ -1,4 +1,5 @@
 "use strict";
+const { replayDDL, insertReplay } = require('../../testFixtures/replay');
 const test = require("node:test"),
   assert = require("node:assert/strict"),
   crypto = require("node:crypto");
@@ -38,7 +39,7 @@ test(
       await admin.query(`DROP DATABASE "${name}"`);
       await admin.end();
     });
-    await pool.query(`CREATE TABLE game_records(game_id text PRIMARY KEY,created_at timestamp,record jsonb);
+    await pool.query(`${replayDDL()};
     CREATE TABLE game_player_records(game_id text,user_id bigint,username text,original_player_index integer,score integer,rank integer,rule text,sub_rule text,room_type text,match_type text,match_tier text,event_id text);
     CREATE TABLE game_player_metrics(game_id text,user_id bigint,total_round_score integer,total_rounds integer);`);
     await initialize(pool);
@@ -59,10 +60,7 @@ test(
     ];
     const users = ["1", "2", "3", "4"];
     for (const [id, override, title] of specs) {
-      await pool.query(
-        `INSERT INTO game_records VALUES($1,'2026-11-10 12:00:00',$2)`,
-        [id, { game_title: title }],
-      );
+      await insertReplay(pool,[id,{game_title:title},'2026-11-10 12:00:00']);
       const meta = {
         rule: "guobiao",
         sub_rule: "guobiao/standard",
@@ -111,7 +109,7 @@ test(
       );
       const hash = (
         await pool.query(
-          `SELECT ${require("./database").FINGERPRINT || "'cached'"} AS hash FROM game_records gr WHERE game_id=$1`,
+          `SELECT ${require("./database").FINGERPRINT || "'cached'"} AS hash FROM game_record_tables gr WHERE game_id=$1`,
           [id],
         )
       ).rows[0].hash;
@@ -202,7 +200,7 @@ test(
     assert.equal(overview.summary.cached_games, 2);
     // Moving a cached game out of scope must publish a new snapshot, not delete its facts or replay it.
     await pool.query(
-      `UPDATE game_records SET record='{"game_title":{"room_type":"custom"}}' WHERE game_id='league'`,
+      `UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,room_type}','"custom"') WHERE game_id='league'`,
     );
     const job = await center.startUpdate(1);
     await runUpdate(pool, job.id, {
@@ -245,7 +243,7 @@ test(
     );
     // Source-only newcomer is not part of the explicitly published scope.
     await pool.query(
-      `INSERT INTO game_records SELECT 'not-updated',created_at,record FROM game_records WHERE game_id='legacy'`,
+      `WITH x AS (INSERT INTO game_replays(game_id,record,created_at) SELECT 'not-updated',jsonb_set(record,'{tables,main,table_record_id}','"not-updated"'),created_at FROM game_replays WHERE game_id='legacy' RETURNING game_id,created_at) INSERT INTO game_record_tables SELECT game_id,game_id,'main',created_at FROM x`,
     );
     await pool.query(
       `INSERT INTO game_player_records SELECT 'not-updated',user_id,username,original_player_index,score,rank,rule,sub_rule,room_type,match_type,match_tier,event_id FROM game_player_records WHERE game_id='legacy'`,
@@ -253,7 +251,7 @@ test(
     assert.equal(
       (
         await pool.query(
-          `SELECT count(*)::int n FROM public.game_records gr JOIN ${S}.published_scope_games s ON s.game_id=gr.game_id AND s.generation=$1 WHERE ${sourcePredicate("gr")}`,
+          `SELECT count(*)::int n FROM ${require("../../replayTables").tableTitles} gr JOIN ${S}.published_scope_games s ON s.game_id=gr.game_id AND s.generation=$1 WHERE ${sourcePredicate("gr")}`,
           [current],
         )
       ).rows[0].n,

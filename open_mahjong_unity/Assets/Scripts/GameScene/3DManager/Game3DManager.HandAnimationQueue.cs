@@ -80,7 +80,7 @@ public partial class Game3DManager {
     }
 
     /// <summary>牌谱明牌的删牌、飞牌和收拢尚未结束；自动播放须等它们完成再修改下一笔手牌状态。</summary>
-    public bool HasPendingRecordHandAnimations => _recordHandAnimationCount > 0;
+    public bool HasPendingRecordHandAnimations => _recordHandAnimationCount > 0 || GameCanvas.Instance?.IsTableExchangeAnimating == true;
 
     public bool HasPendingRecordStepAnimations(string playerPosition) {
         return HasPendingHandAnimWork(playerPosition)

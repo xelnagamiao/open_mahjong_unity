@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading">
-    <el-page-header @back="$router.push(listPath)" :content="isBase ? '基地详情' : '赛事详情'" />
+    <el-page-header @back="returnToAdminList(router, listPath)" :content="isBase ? '基地详情' : '赛事详情'" />
 
     <template v-if="detail">
       <el-card class="block">
@@ -149,7 +149,7 @@
           >刷新</el-button>
         </template>
 
-        <EventRoomCards :rooms="rooms" :loading="loadingRooms" :rule-labels="RULE_LABELS" allow-restart :allow-bots="detail?.status === 'active'" :busy-room-id="addingBotRoomId" @add-bot="addRoomBot" @delete="deleteRoom" @restart-pair="restartPair" />
+        <EventRoomCards :rooms="rooms" :loading="loadingRooms" :rule-labels="RULE_LABELS" :allow-bots="detail?.status === 'active'" :busy-room-id="addingBotRoomId" @add-bot="addRoomBot" @delete="deleteRoom" />
       </el-card>
 
       <el-card class="block">
@@ -310,6 +310,7 @@
 import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { returnToAdminList } from '@/composables/useAdminListState'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
@@ -619,16 +620,6 @@ async function addRoomBot({ room, seatIndex, botType }) {
   }
 }
 
-async function restartPair(row) {
-  try {
-    const reason = await promptReason('两室同时重开未完成副（已完成副的分数保留）')
-    const res = await adminApi.post(`/events/${route.params.eventId}/rooms/${row.room_id}/restart-pair`, { reason })
-    ElMessage.success(res.data.message)
-    await loadRooms()
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.response?.data?.message || '续赛失败')
-  }
-}
 
 async function setOwner() {
   if (!ownerForm.user_id.trim()) {
@@ -795,7 +786,7 @@ async function deleteEvent() {
       data: { reason, confirm_name: confirmName.trim() },
     })
     ElMessage.success(res.data.message || `${venueNoun.value}已删除`)
-    router.push(listPath.value)
+    returnToAdminList(router, listPath.value)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '删除失败')

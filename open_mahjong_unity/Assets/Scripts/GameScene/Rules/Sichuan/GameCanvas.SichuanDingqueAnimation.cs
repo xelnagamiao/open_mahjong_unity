@@ -118,5 +118,6 @@ public partial class GameCanvas {
         if (_retainClaimActionsAtZero || IsWaitingForDraw) StopTimeRunning();
         CancelDingqueReveal(finish: true);
         ClearXueliuExchangePresentation();
+        if (exchangeSixState != null) HideExchangeSixState();
     }
 }

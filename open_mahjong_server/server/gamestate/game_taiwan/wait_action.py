@@ -161,6 +161,10 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
                     player = game_state.player_list[index]
                     player.remaining_time = max(0, player.remaining_time - charged)
 
+        # 结算确认按座位即时广播，外层会按原截止时间继续等待其余玩家。
+        if game_state.game_status == "waiting_ready" and responses:
+            break
+
     game_state.waiting_players_list = []
     return responses, allowed
 

@@ -51,6 +51,8 @@ from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, player_action_record_reset, remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ...database.pool_retry import run_with_pool_retry
+from ...database.record_persistence import store_single_table_record
 from ..public.random_seed_manager import setup_random_seed_system
 from ...database.fulu_utils import record_fulu_rounds_for_players
 
@@ -794,7 +796,13 @@ class GuobiaoGameState:
                                                 score_changes = cuohe_score_changes_dict,
                                                 )
                             # 与正常和牌相同：结算面板 + ready，全部确认后再恢复手牌并续局
-                            await self.run_hu_result_ready_phase(len(cuohe_hu_fan))
+                            # 错和后继续本盘，结算确认只是临时借用玩家的剩余局时。
+                            saved_times = [(player, player.remaining_time) for player in self.player_list]
+                            try:
+                                await self.run_hu_result_ready_phase(len(cuohe_hu_fan))
+                            finally:
+                                for player, remaining_time in saved_times:
+                                    player.remaining_time = remaining_time
                             await self.apply_cuohe_resume_after_ready(
                                 hepai_player_index, saved_hu_class, is_qianggang=is_qianggang
                             )
@@ -1027,20 +1035,28 @@ class GuobiaoGameState:
         if getattr(self, "duplicate_key", None):
             # Pending messages use this round's seat indices, including after a seat rotation.
             self.player_list.sort(key=lambda player: player.player_index)
-        player_count = len(self.player_list)
-
         # 排位赛 PT 计算（同名次均摊其占用名次区间的加/扣分）
         from ...match.settlement import settle_ranked_game
-        is_match = self.room_type == "match"
-        match_queue_type = getattr(self, 'match_queue_type', None)
-        match_type = settle_ranked_game(self)
+        # The final hand is complete. An all-offline cleanup must not cancel its writes.
+        self.finish_round_when_offline = True
+        match_type = await run_with_pool_retry(settle_ranked_game, self)
+        db = self.db_manager
+
+        async def refresh_statistics(game_id, record, players, room_type, match_type):
+            await run_with_pool_retry(db.store_guobiao_game_stats, game_id, players, room_type, match_type,
+                                      len(record.get("game_round", {})))
+            await run_with_pool_retry(db.store_guobiao_fan_stats, game_id, players, room_type, match_type)
+
+        save_stats = refresh_statistics if self._records_standard_statistics() else None
         game_id = None
         try:
-            game_id = self.db_manager.store_guobiao_game_record(
+            game_id = await store_single_table_record(
+                self.db_manager.store_guobiao_game_record,
                 self.game_record,
                 self.player_list,
                 self.room_type,
-                match_type
+                match_type,
+                after_deferred_save=save_stats,
             )
         except Exception as e:
             logger.error(f"存储国标牌谱失败: {e}", exc_info=True)
@@ -1053,53 +1069,20 @@ class GuobiaoGameState:
         if hasattr(self, 'spectator_manager'):
             await self.spectator_manager.send_final_record_and_close()
         
-        # 判断是否应该保存对局数据和番种统计
-        # 小林规或修改了起和番限制的对局不保存统计数据，仅保存牌谱
-        is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
-        is_kshen = (self.sub_rule == "guobiao/kshen")
-        is_lanshi = (self.sub_rule == "guobiao/lanshi")
-        is_custom_hepai = (self.hepai_limit != 8) or self.jinluo_mode
-        has_ai_player = any(player.user_id <= 10 for player in self.player_list)
-        
-        if self.sub_rule == SANMA_SUB_RULE:
-            logger.info("三人国标仅保存子规则牌谱，不计四人标准国标累计统计")
-        elif sixteen.enabled(self):
-            logger.info("十六张独立统计，不写入标准国标累计统计")
-        elif four_jokers.enabled(self):
-            logger.info("四癞子独立统计，不写入标准国标累计统计")
-        elif blood_battle.enabled(self):
-            logger.info("国标血战仅保存子规则牌谱，不计标准国标累计统计")
-        elif is_xiaolin or is_kshen or is_lanshi:
-            rule_label = "小林规" if is_xiaolin else ("K神规" if is_kshen else "蓝十改")
-            logger.info(f'{rule_label}对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
-        elif is_custom_hepai:
-            logger.info(f'自定义起和番限制({self.hepai_limit})，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
-        elif has_ai_player:
-            logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
-        elif self.room_type == "events":
-            logger.info(f'比赛场对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
-        elif game_id:
-            total_rounds = len(self.game_record.get("game_round", {}))
-            self.db_manager.store_guobiao_game_stats(
-                game_id,
-                self.player_list,
-                self.room_type,
-                match_type,
-                total_rounds
-            )
-            self.db_manager.store_guobiao_fan_stats(
-                game_id,
-                self.player_list,
-                self.room_type,
-                match_type
-            )
-
         # 结束游戏生命周期：使用统一的清理方法。
         # 排位匹配对局的匹配状态（承诺锁 / 游戏中人数 / 房间号）统一在 cleanup_game_state_complete
         # 内通过 match_manager.release_match 释放，无需在此单独处理。
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
+        if game_id and save_stats:
+            await save_stats(game_id, self.game_record, self.player_list, self.room_type, match_type)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
+
+    def _records_standard_statistics(self):
+        return (self.sub_rule not in (SANMA_SUB_RULE, "guobiao/xiaolin", "guobiao/kshen", "guobiao/lanshi")
+                and not (sixteen.enabled(self) or four_jokers.enabled(self) or blood_battle.enabled(self))
+                and self.hepai_limit == 8 and not self.jinluo_mode and self.room_type != "events"
+                and all(player.user_id > 10 for player in self.player_list))
 
     def resolve_hepai_player_index(self, hu_class: str) -> int:
         """与局终正和一致：由切牌者与 hu_class 推算实际和牌玩家座位索引。"""

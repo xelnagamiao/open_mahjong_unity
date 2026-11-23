@@ -57,6 +57,9 @@ async function renderPage(url) {
   const canonical = `${SITE.domain}${url}`
 
   let html = template
+  if (url === '/admin' || url.startsWith('/admin/')) {
+    html = replaceTag(html, /<link rel="icon"[^>]*\/>/, '<link rel="icon" type="image/svg+xml" href="/admin-logo.svg" />')
+  }
   html = replaceTag(html, /<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
   html = replaceTag(html, /<meta name="description"[^>]*\/>/, description
     ? `<meta name="description" content="${escapeHtml(description)}" />`

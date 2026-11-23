@@ -6,6 +6,21 @@ import { createEventRoomForm, buildEventRoomSettings, changeEventRoomRule } from
 
 const seed = 'abcdef0123456789'.repeat(4)
 for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+  test(`${sub_rule}: reusable training round-trips without a fixed seed`, () => {
+    const form = createEventRoomCreationForm({ room_rule: 'sichuan', room_config: { sub_rule } })
+    selectSichuanWallSource(form, 'training')
+    form.reuse_training_room = true
+    form.room_count = 3
+    const request = buildEventRoomCreation(form)
+    assert.equal(request.room_config.reuse_training_room, true)
+    assert.equal(request.room_config.random_seed, undefined)
+    const saved = createEventRoomCreationForm(request)
+    assert.equal(saved.reuse_training_room, true)
+    assert.equal(sharedWallConfirmation(request), '')
+    selectSichuanWallSource(saved, 'key')
+    assert.equal(saved.reuse_training_room, false)
+    assert.equal(buildEventRoomCreation(saved).room_config.reuse_training_room, undefined)
+  })
   test(`${sub_rule}: training keeps duplicate rules but never submits a key or auto-generation`, () => {
     const form = createEventRoomCreationForm({ room_rule: 'sichuan', room_config: { sub_rule } })
     selectSichuanWallSource(form, 'training')

@@ -65,6 +65,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "new_chinese", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
+        } },
         { "taiwan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "cuohe_type", "has_password", "tourist_limit", "allow_spectator",
@@ -273,7 +277,7 @@ public class RoomConfigContainer : MonoBehaviour {
             case "game_round":
                 displayName = "圈数";
                 displayValue = roomInfo.is_duplicate
-                    ? $"复式 {Mathf.Max(1, roomInfo.duplicate_round_count)} 局" : RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round);
+                    ? $"复式 {Mathf.Max(1, roomInfo.duplicate_round_count)} 局" : (roomInfo.sub_rule == SanhuaGameState.SubRule ? $"{roomInfo.game_round}副" : RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round));
                 if (roomInfo.room_rule == "qingque" && roomInfo.unlimited_rounds) displayValue = "无固定时限";
                 if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) { displayName = "副数"; displayValue = $"{Mathf.Max(1, roomInfo.duplicate_round_count)} 副"; }
                 return true;

@@ -475,6 +475,10 @@
         {
           "sub_rule": "new_chinese/standard",
           "label": "新中式麻将"
+        },
+        {
+          "sub_rule": "new_chinese/sanhua",
+          "label": "散花天才麻将"
         }
       ]
     }

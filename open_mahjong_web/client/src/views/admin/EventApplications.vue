@@ -54,6 +54,7 @@
 
     <div class="pager">
       <el-pagination
+        v-if="total > 0"
         background
         layout="total, prev, pager, next"
         :total="total"
@@ -160,6 +161,7 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -181,8 +183,9 @@ function detailPath(eventId, kind) {
 const items = ref([])
 const loading = ref(false)
 const acting = ref(false)
-const statusFilter = ref('pending')
-const page = ref(1)
+const { saved, remember } = useAdminListState('applications')
+const statusFilter = ref(saved.status ?? 'pending')
+const page = ref(saved.page ?? 1)
 const pageSize = 20
 const total = ref(0)
 
@@ -203,7 +206,11 @@ const rejectTitle = computed(() => (isCurrentBase.value ? '打回基地申请' :
 
 const profileItems = ref([])
 const profileLoading = ref(false)
-const profileStatusFilter = ref('pending')
+const profileStatusFilter = ref(saved.profileStatus ?? 'pending')
+
+function rememberFilters() {
+  remember({ status: statusFilter.value, page: page.value, profileStatus: profileStatusFilter.value })
+}
 
 function statusLabel(s) {
   return ({ pending: '待审', approved: '已通过', rejected: '已打回', cancelled: '已取消' })[s] || s
@@ -254,6 +261,7 @@ function onStatusChange() {
 }
 
 async function load() {
+  rememberFilters()
   loading.value = true
   try {
     const res = await adminApi.get('/event-applications', {
@@ -347,6 +355,7 @@ async function doReject() {
 }
 
 async function loadProfileChanges() {
+  rememberFilters()
   profileLoading.value = true
   try {
     const res = await adminApi.get('/event-profile-changes', {

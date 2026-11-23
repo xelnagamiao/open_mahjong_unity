@@ -29,6 +29,14 @@ public partial class SceneConfigPanel : MonoBehaviour
     private bool panelVisible;
     private bool navigationBound;
     private void OnEnable() { Card3DPresetLibrary.Instance?.BeginEditing(); }
+    private void OnDisable() {
+        if (tableClothPanel != null) tableClothPanel.ReleaseGalleryPreviews();
+        if (tableEdgePanel != null) tableEdgePanel.ReleaseGalleryPreviews();
+        // Leaving the whole appearance editor is the safe boundary for the
+        // remaining shared Resources references. Individual selections use
+        // targeted release and do not request this scan.
+        SceneAppearanceMemory.RequestGlobalCleanup();
+    }
 
     private void Awake() {
         BindNavigation();

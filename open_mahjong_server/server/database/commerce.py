@@ -82,7 +82,8 @@ def _wallet_change(cursor, user_id, delta, source, source_id, *, hands=None, met
 
 def _saved_game_reward(cursor, game_id, record):
     """An accepted replay/ledger fixes its entitlement across reward rule changes."""
-    cursor.execute('SELECT record FROM game_records WHERE game_id=%s', (game_id,))
+    cursor.execute("""SELECT r.record->'tables'->t.table_id->'payload' AS record FROM game_record_tables t
+        JOIN game_replays r ON r.game_id=t.replay_id WHERE t.game_id=%s""", (game_id,))
     rows = _dict_rows(cursor)
     if rows:
         stored = rows[0]['record']

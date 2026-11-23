@@ -103,7 +103,7 @@ public sealed class RecordSidebarDrawer : MonoBehaviour {
         }
     }
 
-    private float TargetX => IsExpanded ? 0f : -drawer.rect.width;
+    private float TargetX => IsExpanded ? 0f : -drawer.rect.width * drawer.localScale.x;
 
     public void Toggle() {
         SetExpanded(!IsExpanded);

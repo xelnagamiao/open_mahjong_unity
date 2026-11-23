@@ -14,11 +14,13 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     public static GameStateNetworkManager Instance { get; private set; }
 
+    public SpectatorInfo[] LatestSpectatorList { get; private set; } = Array.Empty<SpectatorInfo>();
     public int SpectatorCount { get; private set; } = -1;
     public float SpectatorCountReceivedAt { get; private set; } = float.NegativeInfinity;
     public event Action SpectatorCountChanged;
 
     public void InvalidateSpectatorCount() {
+        LatestSpectatorList = Array.Empty<SpectatorInfo>();
         SpectatorCount = -1;
         SpectatorCountReceivedAt = float.NegativeInfinity;
         SpectatorCountChanged?.Invoke();
@@ -83,7 +85,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 SettlementSync.ApplyReadyStatus();
                 return;
             }
-            IGameState state = ResolveGameStateForMessage(rule, suffix);
+            IGameState state = ResolveGameStateForMessage(rule, suffix, response.game_info?.sub_rule);
             if (state == null) {
                 Debug.LogWarning($"没有可承载的族 GameState: {response.type}");
                 return;
@@ -140,13 +142,14 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// - 消息属于另一个已注册族：换族；
     /// - 其余（含 GB/nanque 等出站通道回包）沿用当前族，不因通道名切换实例。
     /// </summary>
-    private static IGameState ResolveGameStateForMessage(string rule, string suffix) {
+    private static IGameState ResolveGameStateForMessage(string rule, string suffix, string subRule) {
+        subRule ??= rule == RuleRegistry.Current?.RuleId ? RuleRegistry.CurrentSubRule : null;
         IGameState active = RuleRegistry.ActiveGameState;
         if (active == null || suffix == "game_start") {
-            return RuleRegistry.SetCurrent(rule);
+            return RuleRegistry.SetCurrent(rule, subRule);
         }
-        if (RuleRegistry.TryResolve(rule, out RuleManifest manifest) && manifest != RuleRegistry.Current) {
-            return RuleRegistry.SetCurrent(rule);
+        if (RuleRegistry.TryResolve(rule, subRule, out RuleManifest manifest) && manifest != RuleRegistry.Current) {
+            return RuleRegistry.SetCurrent(rule, subRule);
         }
         return active;
     }
@@ -172,6 +175,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 处理获取观战列表响应
     /// </summary>
     private void HandleGetSpectatorListResponse(Response response) {
+        if (response.success) LatestSpectatorList = response.spectator_list ?? Array.Empty<SpectatorInfo>();
         SpectatorCount = response.success ? 0 : -1;
         if (response.success && response.spectator_list != null)
             foreach (var item in response.spectator_list) if (item != null) SpectatorCount++;
@@ -398,7 +402,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取观战列表失败: {e.Message}");
-            SpectatorPanel.Instance.GetSpectatorListResponse(false, e.Message, null);
+            SpectatorPanel.Instance?.GetSpectatorListResponse(false, e.Message, null);
         }
     }
 

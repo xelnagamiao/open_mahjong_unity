@@ -6,7 +6,10 @@ export function isGuangdongMilRecord(detail) {
   return ['guangdong/mil2023', 'guangdong/mil2023-doubles'].includes(detail?.sub_rule || detail?.record?.game_title?.sub_rule)
 }
 
-/** Metadata is explanatory. Scores are applied only by hu/kong_score/refund_kongs. */
+export function guangdongScoreChanges(tick) {
+  return tick?.[0] === 'guangdong' && ['kong_score', 'refund_kongs', 'penalty'].includes(tick[1]) ? tick[2] : null
+}
+
 export function guangdongInfoAt(round, node) {
   const info = { ghost_discard_counts: [0, 0, 0, 0], horses: null, result: null, tips: {}, kongs: [] }
   for (const tick of (round?.action_ticks || []).slice(0, node)) {

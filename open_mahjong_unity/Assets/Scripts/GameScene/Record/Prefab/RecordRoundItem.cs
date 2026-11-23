@@ -14,7 +14,7 @@ public class RecordRoundItem : MonoBehaviour
     public void Initialize(string rule, int roundIndex, int currentRound, int honbaCount) {
         targetRoundIndex = roundIndex;
         TableText.Set(roundNameText, GetRoundName(rule, currentRound));
-        TableText.Set(roundExtraText, RuleRegistry.Resolve(rule, rule)?.RiichiRoundLayout == true ? $"{honbaCount}本场" : string.Empty);
+        TableText.Set(roundExtraText, RuleRegistry.Resolve(rule, rule)?.RecordTracksRiichiField == true ? $"{honbaCount}本场" : string.Empty);
         roundButton.onClick.RemoveAllListeners();
         roundButton.onClick.AddListener(OnClickRound);
     }

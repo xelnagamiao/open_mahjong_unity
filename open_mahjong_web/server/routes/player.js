@@ -1,3 +1,4 @@
+const { filteredTables } = require('../services/replayTables');
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
@@ -99,7 +100,7 @@ router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
       FROM (
         SELECT DISTINCT gpr.game_id, gr.replay_id, gr.table_id, gr.created_at
         FROM game_player_records gpr
-        JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+        JOIN ${filteredTables(conditions)} gr ON gr.game_id = gpr.game_id
         WHERE ${conditions.join(' AND ')}
       ) sub
       JOIN game_player_records gpr ON gpr.game_id = sub.game_id AND gpr.user_id = $1
@@ -214,6 +215,7 @@ router.get('/record/:gameId', requirePlayer, async (req, res) => {
     }
     const body = JSON.stringify(result.data.record);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Disposition', `attachment; filename="${result.data.game_id}.json"`);
     res.send(body);
   } catch (error) {
@@ -244,7 +246,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
         SELECT game_id FROM (
           SELECT DISTINCT gpr.game_id, gr.created_at
           FROM game_player_records gpr
-          JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+          JOIN ${filteredTables(conditions)} gr ON gr.game_id = gpr.game_id
           WHERE ${conditions.join(' AND ')}
         ) sub
         ORDER BY created_at DESC

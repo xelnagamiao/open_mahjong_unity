@@ -81,15 +81,11 @@ def test_private_csharp_context_teams_and_stop_after_ghost():
     assert not gs.chicken_teams and gs.team_ghosts(2) == 0 and "peida" not in p.tag_list
 
 
-@pytest.mark.parametrize("gameround,valid", [(1,False),(2,True),(3,False),(4,True)])
-def test_room_profile(gameround, valid):
+@pytest.mark.parametrize("gameround", [1, 2, 3, 4])
+def test_room_profile(gameround):
     args = dict(room_name="广东双打", sub_rule=PROFILE, game_round=gameround, round_timer=10, step_timer=4)
-    if valid:
-        room = GuangdongRoomValidator(**args)
-        assert room.detailed_config["horse_count"] == 0 and room.detailed_config["edition"] == config.DOUBLES_EDITION
-    else:
-        with pytest.raises(ValueError):
-            GuangdongRoomValidator(**args)
+    room = GuangdongRoomValidator(**args)
+    assert room.detailed_config["horse_count"] == 0 and room.detailed_config["edition"] == config.DOUBLES_EDITION
     with pytest.raises(ValueError):
         GuangdongRoomValidator(**dict(args, game_round=2, detailed_config={"horse_count": 4}))
 

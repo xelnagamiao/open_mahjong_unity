@@ -46,6 +46,7 @@ public static class PlayerInfoStatsFormatter {
         if (!int.TryParse(mode.Split('/')[0], out int rounds) || rounds <= 0) return "无固定时限";
         string source = PlayerInfoRuleCatalog.SourceRule(rule);
         if (source == "sichuan") return (rounds * PlayerInfoRuleCatalog.PlayerCount(rule)) + "副";
+        if (rule == "sanhua") return rounds + "副";
         if (source == "hongque") return rounds + "局";
         switch (rounds) {
             case 1: return "东风战";

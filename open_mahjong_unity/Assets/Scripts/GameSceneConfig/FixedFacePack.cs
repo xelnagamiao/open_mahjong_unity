@@ -37,15 +37,19 @@ public static class FixedFacePack
     }
     public static Sprite Load(string pack, int key, bool table) {
         Decode(pack, key, out var source, out int id);
-        if (source == CardFaceFamilyPreview.Source.Hongque && !table) return HongqueTileVisual.LoadSprite(id);
         if (source == CardFaceFamilyPreview.Source.Duocai && !DuocaiTiles.Joker(id)) return DuocaiTileVisual.Sprite(id, table);
-        string path = source == CardFaceFamilyPreview.Source.Hongque ? HongqueTileVisual.TableResourcePath(id)
+        string path = source == CardFaceFamilyPreview.Source.Hongque ? (table ? HongqueTileVisual.TableResourcePath(id) : "hongque/hand/" + id)
             : source == CardFaceFamilyPreview.Source.Singapore ? "image/Cards/Faces/singapore/" + id
             : source == CardFaceFamilyPreview.Source.Malaysia ? "Malaysia/" + id
             : source == CardFaceFamilyPreview.Source.Vietnamese ? "Vietnamese/Tiles/" + id : "Duocai/Tiles/" + id;
         if (Sprites.TryGetValue(path, out var sprite)) return sprite;
+        if (source == CardFaceFamilyPreview.Source.Hongque && !table) {
+            sprite = HongqueTileVisual.LoadSprite(id, cacheForGame: false);
+            if (sprite != null) Sprites[path] = sprite;
+            return sprite;
+        }
         if (source == CardFaceFamilyPreview.Source.Hongque && table) {
-            var texture = HongqueTileVisual.LoadTableTexture(id);
+            var texture = Resources.Load<Texture2D>(path);
             if (texture == null) return null;
             // Match the real 3D card's UV window, independent of its compressed texture dimensions.
             float height = texture.height / HongqueTileVisual.TableVerticalScale;
@@ -61,11 +65,22 @@ public static class FixedFacePack
         }
         return Sprites[path] = sprite;
     }
+
+    internal static void ReleasePreview(bool hongque) {
+        if (Sprites.Count == 0) return;
+        Sprites.Clear();
+        // A gallery can be closed while a replay remains suspended. Keep the shared
+        // hand atlas in that case. A real teardown releases it after detaching tiles.
+        if (hongque && !HongqueGameState.IsTableActive) BuiltinTileSprites.ReleaseHongqueHandCache();
+        // Gameplay objects can still hold the same texture. Let Unity unload only unreferenced assets.
+        SceneAppearanceMemory.RequestCleanup();
+    }
     public static bool TryGetArtworkAspect(int tileId, string pack, bool table, out float aspect) {
         aspect = 0f;
         if (!IsFixed(pack) && !TryResolve(tileId, out pack, out tileId)) return false;
-        Decode(pack, tileId, out var source, out _);
+        Decode(pack, tileId, out var source, out int id);
         if (source == CardFaceFamilyPreview.Source.Vietnamese) aspect = VietnameseTileVisual.ArtworkAspect;
+        else if (source == CardFaceFamilyPreview.Source.Duocai && DuocaiTiles.Joker(id)) aspect = DuocaiTileVisual.JokerArtworkAspect;
         // Hongque's preview sprite already contains the same UV crop as its 3D model.
         else if (table && source == CardFaceFamilyPreview.Source.Hongque) aspect = TileTextureLayout.TableAspect;
         return aspect > 0f;

@@ -156,7 +156,7 @@ def recompute_database(conn, *, dry_run=False):
     from .migrate_postgres import relation_kind
     try:
         with conn.cursor() as cur:
-            if relation_kind(cur,"game_records") != "v":
+            if any(relation_kind(cur, n) != "r" for n in ("game_replays", "game_record_tables")):
                 raise RecordConflict("Run the one-time cutover first")
             cur.execute("SELECT DISTINCT replay_id FROM game_record_tables WHERE table_id IN ('open','closed') ORDER BY 1")
             ids = [r[0] for r in cur.fetchall()]

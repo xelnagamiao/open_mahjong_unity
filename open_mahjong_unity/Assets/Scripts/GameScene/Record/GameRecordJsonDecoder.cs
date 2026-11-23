@@ -15,64 +15,107 @@ public static class GameRecordJsonDecoder {
         return format == "tziakcha" || format == "mjai" || format == "botzone";
     }
 
+    // Reading a large archive with DeserializeObject constructs the whole action graph
+    // in the socket dispatch frame. Keep the reader positioned between batches and
+    // pass its existing record tree to playback without another serialization.
+    internal static System.Collections.IEnumerable ReadArchiveJson(string json, Action<JObject> accept) {
+        using (var reader = new Newtonsoft.Json.JsonTextReader(new System.IO.StringReader(json)))
+        using (var writer = new JTokenWriter()) {
+            reader.DateParseHandling = Newtonsoft.Json.DateParseHandling.None;
+            int tokens = 0;
+            bool complete = false;
+            while (reader.Read()) {
+                if (reader.TokenType == Newtonsoft.Json.JsonToken.Comment) continue;
+                complete = reader.Depth == 0 && reader.TokenType == Newtonsoft.Json.JsonToken.EndObject;
+                writer.WriteToken(reader, false);
+                if (++tokens % 64 == 0) yield return null;
+            }
+            if (!complete || !(writer.Token is JObject envelope)) throw new FormatException("牌谱 JSON 不完整");
+            accept(envelope);
+        }
+    }
+
+    internal static Response TakeArchiveResponse(JObject envelope) {
+        var detail = envelope["record_detail"] as JObject;
+        var archive = detail?["record"] as JObject;
+        if (archive != null) detail.Remove("record");
+        var response = envelope.ToObject<Response>();
+        if (archive != null) response.record_detail.record = archive;
+        return response;
+    }
+
     public static GameRecord ParseGameRecord(string recordJson) {
         if (string.IsNullOrEmpty(recordJson)) {
             throw new ArgumentException("牌谱 JSON 字符串不能为空", nameof(recordJson));
         }
 
         try {
-            JObject root = JObject.Parse(recordJson);
-            GameRecord gameRecord = new GameRecord();
-
-            if (root["game_title"] != null) {
-                gameRecord.gameTitle = root["game_title"].ToObject<Dictionary<string, object>>();
-            }
-
-            string recordRule = root["game_title"]?["rule"]?.ToString()?.Trim().ToLowerInvariant();
-            string recordSubRule = root["game_title"]?["sub_rule"]?.ToString()?.Trim().ToLowerInvariant();
-            if (root["match_result"] is JObject result) {
-                gameRecord.matchResult = result.ToObject<RecordMatchResult>();
-                gameRecord.matchResult.Validate();
-            }
-
-            JObject gameRoundObj = root["game_round"] as JObject;
-            if (gameRoundObj == null) {
-                throw new Exception("未找到 game_round 节点");
-            }
-
-            // 从 game_title 中提取玩家 userid
-            Dictionary<int, int> playerUserIds = new Dictionary<int, int>();
-            if (gameRecord.gameTitle != null) {
-                if (gameRecord.gameTitle.ContainsKey("p0_uid") && gameRecord.gameTitle["p0_uid"] != null) {
-                    playerUserIds[0] = Convert.ToInt32(gameRecord.gameTitle["p0_uid"]);
-                }
-                if (gameRecord.gameTitle.ContainsKey("p1_uid") && gameRecord.gameTitle["p1_uid"] != null) {
-                    playerUserIds[1] = Convert.ToInt32(gameRecord.gameTitle["p1_uid"]);
-                }
-                if (gameRecord.gameTitle.ContainsKey("p2_uid") && gameRecord.gameTitle["p2_uid"] != null) {
-                    playerUserIds[2] = Convert.ToInt32(gameRecord.gameTitle["p2_uid"]);
-                }
-                if (gameRecord.gameTitle.ContainsKey("p3_uid") && gameRecord.gameTitle["p3_uid"] != null) {
-                    playerUserIds[3] = Convert.ToInt32(gameRecord.gameTitle["p3_uid"]);
-                }
-            }
-
-            int roundIndex = 1;
-            while (true) {
-                string roundKey = $"round_index_{roundIndex}";
-                JObject roundData = gameRoundObj[roundKey] as JObject;
-                if (roundData == null) {
-                    break;
-                }
-
-                Round round = ParseRound(roundData, roundIndex, playerUserIds, MahjongPlayerCount.ForSubRule(recordSubRule));
-                gameRecord.gameRound.rounds[roundIndex] = round;
-                roundIndex++;
-            }
-
-            return gameRecord;
+            var record = new GameRecord();
+            ReplayFrameLoader.Finish(DecodeRounds(JObject.Parse(recordJson), record));
+            return record;
         } catch (Exception e) {
             throw new Exception($"解析牌谱 JSON 失败: {e.Message}", e);
+        }
+    }
+
+    internal static System.Collections.IEnumerable DecodeRounds(JObject root, GameRecord gameRecord) {
+        if (root["game_title"] != null) {
+            gameRecord.gameTitle = root["game_title"].ToObject<Dictionary<string, object>>();
+        }
+
+        string recordSubRule = root["game_title"]?["sub_rule"]?.ToString()?.Trim().ToLowerInvariant();
+        if (root["match_result"] is JObject result) {
+            gameRecord.matchResult = result.ToObject<RecordMatchResult>();
+            gameRecord.matchResult.Validate();
+        }
+
+        JObject gameRoundObj = root["game_round"] as JObject;
+        if (gameRoundObj == null) {
+            throw new Exception("未找到 game_round 节点");
+        }
+
+        // 从 game_title 中提取玩家 userid
+        Dictionary<int, int> playerUserIds = new Dictionary<int, int>();
+        if (gameRecord.gameTitle != null) {
+            if (gameRecord.gameTitle.ContainsKey("p0_uid") && gameRecord.gameTitle["p0_uid"] != null) {
+                playerUserIds[0] = Convert.ToInt32(gameRecord.gameTitle["p0_uid"]);
+            }
+            if (gameRecord.gameTitle.ContainsKey("p1_uid") && gameRecord.gameTitle["p1_uid"] != null) {
+                playerUserIds[1] = Convert.ToInt32(gameRecord.gameTitle["p1_uid"]);
+            }
+            if (gameRecord.gameTitle.ContainsKey("p2_uid") && gameRecord.gameTitle["p2_uid"] != null) {
+                playerUserIds[2] = Convert.ToInt32(gameRecord.gameTitle["p2_uid"]);
+            }
+            if (gameRecord.gameTitle.ContainsKey("p3_uid") && gameRecord.gameTitle["p3_uid"] != null) {
+                playerUserIds[3] = Convert.ToInt32(gameRecord.gameTitle["p3_uid"]);
+            }
+        }
+
+        int roundIndex = 1;
+        while (true) {
+            string roundKey = $"round_index_{roundIndex}";
+            JObject roundData = gameRoundObj[roundKey] as JObject;
+            if (roundData == null) {
+                break;
+            }
+
+            var round = new Round();
+            ApplyPlayerUserIds(round, playerUserIds);
+            ApplyRoundHeader(round, roundData, roundIndex, MahjongPlayerCount.ForSubRule(recordSubRule));
+            yield return null;
+            if (roundData["action_ticks"] is JArray ticks) {
+                round.actionTicks = new List<List<string>>(ticks.Count);
+                foreach (var token in ticks) {
+                    if (!(token is JArray array)) continue;
+                    var tick = ParseActionTick(array);
+                    ValidateKanMoGangTick(tick, roundKey);
+                    AccumulateScoreChangesFromTick(round, tick);
+                    round.actionTicks.Add(tick);
+                    if ((round.actionTicks.Count & 15) == 0) yield return null;
+                }
+            }
+            gameRecord.gameRound.rounds[roundIndex] = round;
+            roundIndex++;
         }
     }
 
@@ -112,6 +155,7 @@ public static class GameRecordJsonDecoder {
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
         round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
         round.shangrao = (roundData["shangrao"] as JObject)?.ToObject<ShangraoInfo>();
+        round.sanhua = (roundData["sanhua"] as JObject)?.ToObject<SanhuaInfo>();
         round.newChinese = (roundData["new_chinese"] as JObject)?.ToObject<NewChineseInfo>();
         round.beijing = (roundData["beijing"] as JObject)?.ToObject<BeijingInfo>();
         round.beijingHints = (roundData["beijing_hints"] as JObject)?.ToObject<Dictionary<int,BeijingHints>>();
@@ -147,27 +191,6 @@ public static class GameRecordJsonDecoder {
         if (playerUserIds.ContainsKey(1)) round.p1UserId = playerUserIds[1];
         if (playerUserIds.ContainsKey(2)) round.p2UserId = playerUserIds[2];
         if (playerUserIds.ContainsKey(3)) round.p3UserId = playerUserIds[3];
-    }
-
-    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds, int playerCount) {
-        Round round = new Round();
-        ApplyPlayerUserIds(round, playerUserIds);
-        ApplyRoundHeader(round, roundData, roundIndex, playerCount);
-
-        JArray actionTicks = roundData["action_ticks"] as JArray;
-        if (actionTicks != null) {
-            round.actionTicks = new List<List<string>>();
-            foreach (JToken tickToken in actionTicks) {
-                JArray tickArr = tickToken as JArray;
-                if (tickArr == null) continue;
-                List<string> tick = ParseActionTick(tickArr);
-                round.actionTicks.Add(tick);
-                ValidateKanMoGangTick(tick, $"round_index_{roundIndex}");
-                AccumulateScoreChangesFromTick(round, tick);
-            }
-        }
-
-        return round;
     }
 
     /// <summary>牌谱加载与观战增量共用的 tick 解码；小数保持 JSON 的点号格式。</summary>

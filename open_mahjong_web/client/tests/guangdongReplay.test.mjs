@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { build } from 'esbuild'
+import { analyzeRecords } from '../src/utils/recordAnalyzer.js'
 import { guangdongInfoAt, isGuangdongMilRecord, parseGuangdongFan } from '../src/utils/guangdongReplay.js'
 const compiled = await build({ entryPoints: [new URL('../src/game2d/replay/recordReplay.ts', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')], bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent' })
 const { RecordReplay, isRecordSilentTick } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
@@ -95,6 +96,38 @@ test('双打双响只收走一张河牌，后续摸牌跳过和家，盘末逐�
     if (node === 7) assert.deepEqual(snapshot.seats.map(s => s.score), [-2,2,0,-32])
   }
   assert.deepEqual(replay.roundScoreChangesByOriginal(0), [-10,2,8,-32])
+})
+
+test('双打加杠保留原碰牌人，杠分和延迟和牌分各入账一次', () => {
+  const ticks = [
+    ['c', 45, 'F'], ['p', 45, 2, 45, 45], ['c', 14, 'F'],
+    ['hu_first', 3, 4, [], [0, 0, 0, 0], 14, 0, 2, 1],
+    ['d', 12], ['c', 12, 'T'], ['d', 13], ['c', 13, 'T'],
+    ['d', 45], ['jg', 45, 'T'], ['gd', 21], ['c', 21, 'T'],
+    ['hu_first', 0, 8, [], [0, 0, 0, 0], 21, 0, 2, 1],
+    ['guangdong', 'kong_score', [-1, -1, 2, 0], 'board', null, null],
+    ['blood', 'settle_hu', 'hu_first', 3, 4, [], [0, 0, -4, 4], 0, []],
+    ['blood', 'settle_hu', 'hu_first', 0, 8, [], [8, 0, -8, 0], 1, []], ['end'],
+  ]
+  const detail = fixture(ticks, { sub_rule: 'guangdong/mil2023-doubles',
+    hands: [[45, 22], [15], [45, 45, 14], [11]], wall: [12, 13, 45, 21] })
+  const round = detail.record.game_round.round_index_1
+  round.seats = [2, 3, 0, 1]
+  const finalByOriginal = [-10, 4, 7, -1]
+  for (const [i, player] of detail.players.entries()) {
+    detail.record.game_title[`p${i}_uid`] = player.user_id
+    player.score = finalByOriginal[i]
+  }
+  const replay = new RecordReplay(detail)
+  for (let view = 0; view < 4; view++) {
+    assert.equal(replay.eventForStep(0, 9, view).event.actor_seat, 2)
+    const melds = node => replay.build(0, node, view).snapshot.seats[2].melds.map(m => m.type)
+    assert.deepEqual([melds(10), melds(9), melds(10)], [['kong'], ['triplet'], ['kong']])
+    assert.deepEqual(replay.build(0, 10, view).snapshot.seats.map(s => s.score), [0, 0, 0, 0])
+    assert.deepEqual(replay.build(0, 14, view).snapshot.seats.map(s => s.score), [-1, -1, 2, 0])
+    assert.equal(analyzeRecords([detail.record], detail.players[view].user_id).total_round_score, finalByOriginal[view])
+  }
+  assert.deepEqual(replay.roundScoreChangesByOriginal(0), finalByOriginal)
 })
 
 test('战鸣申请只作表现，跳转不重复移牌；最终碰只认走一次', () => {

@@ -44,22 +44,18 @@ async function fetchUserOnline(userId) {
 }
 
 const { BAN_TYPES, ACTIVE_BAN } = require('../../utils/accountBans');
-const LADDER_PASS_FIELDS = [
-  'is_beginner_qualified',
-  'is_intermediate_qualified',
-  'is_advanced_qualified',
-  'is_mcrpl_qualified',
-];
-const USER_LIST_COLUMNS = `u.user_id, u.username, u.email, u.email_verified_at, u.is_tourist, u.sponsor_expires_at,
+const { LADDER_PASS_COLUMNS: LADDER_PASS_FIELDS } = require('../../utils/userLadderPass');
+const USER_LIST_COLUMNS = `u.user_id, u.username, u.email, u.email_verified_at, u.is_tourist, u.sponsor_expires_at, u.sponsor_amount, u.admin_note,
                 ${LADDER_PASS_FIELDS.map((field) => `u.${field}`).join(', ')},
                 u.ban_expires_at, u.ban_type, u.ban_reason,
                 u.created_at`;
-const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, ${RENAME_CARD_COLUMNS}, sponsor_expires_at,
+const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, ${RENAME_CARD_COLUMNS}, sponsor_expires_at, sponsor_amount, admin_note, has_special_settings,
               ${LADDER_PASS_FIELDS.join(', ')},
               ban_expires_at, ban_type, ban_reason, created_at`;
-const USER_PATCH_SELECT_COLUMNS = `user_id, username, sponsor_expires_at,
+const USER_PATCH_SELECT_COLUMNS = `user_id, username, sponsor_expires_at, sponsor_amount, admin_note, has_special_settings,
               ${LADDER_PASS_FIELDS.join(', ')},
               ban_expires_at, ban_type, ban_reason`;
+const SPONSOR_PLAYER_CONDITION = '(u.sponsor_expires_at IS NOT NULL OR COALESCE(u.sponsor_amount, 0) <> 0)';
 
 function parseBanExpiresAt(value) {
   if (value === null || value === undefined || value === '') {
@@ -156,6 +152,109 @@ router.get('/search', async (req, res) => {
   }
 });
 
+router.get('/sponsors', async (req, res) => {
+  const { group = 'sponsor' } = req.query;
+  if (group !== 'sponsor' && group !== 'special') {
+    return res.status(400).json({ success: false, message: '玩家分组无效' });
+  }
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const where = [group === 'sponsor' ? SPONSOR_PLAYER_CONDITION : 'u.has_special_settings'];
+  const params = [];
+  if (q) {
+    params.push(q);
+    const queryParam = `$${params.length}`;
+    where.push(`(u.user_id::text = ${queryParam} OR u.username ILIKE '%' || ${queryParam} || '%' OR COALESCE(u.email, '') ILIKE '%' || ${queryParam} || '%')`);
+  }
+  const condition = where.join(' AND ');
+  try {
+    const count = await pool.query(
+      `SELECT COUNT(*) FILTER (WHERE ${condition})::int AS total,
+              COUNT(*) FILTER (WHERE ${SPONSOR_PLAYER_CONDITION})::int AS sponsor,
+              COUNT(*) FILTER (WHERE u.has_special_settings)::int AS special,
+              COUNT(*) FILTER (WHERE ${SPONSOR_PLAYER_CONDITION} AND u.has_special_settings)::int AS overlap
+       FROM users u WHERE ${SPONSOR_PLAYER_CONDITION} OR u.has_special_settings`, params
+    );
+    const { total, ...totals } = count.rows[0];
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const currentPage = Math.min(page, totalPages);
+    const offset = (currentPage - 1) * limit;
+    const result = await pool.query(
+      `SELECT ${USER_LIST_COLUMNS}, u.has_special_settings, ${SPONSOR_PLAYER_CONDITION} AS has_sponsorship,
+              EXISTS(SELECT 1 FROM game_player_records g WHERE g.user_id = u.user_id) AS has_game_records
+       FROM users u
+       WHERE ${condition}
+       ORDER BY (COALESCE(u.sponsor_amount, 0) <> 0) DESC,
+                u.sponsor_expires_at DESC NULLS LAST,
+                u.user_id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+    res.json({ success: true, data: { items: result.rows, total, totals, page: currentPage, limit } });
+  } catch (err) {
+    console.error('admin sponsor list:', err);
+    res.status(500).json({ success: false, message: '读取玩家分组失败' });
+  }
+});
+
+router.patch('/sponsors/permissions', async (req, res) => {
+  const {
+    is_beginner_qualified,
+    is_intermediate_qualified,
+    is_advanced_qualified,
+    is_mcrpl_qualified,
+    sync_special_settings = false,
+    reason,
+  } = req.body || {};
+  const permissions = {
+    is_beginner_qualified,
+    is_intermediate_qualified,
+    is_advanced_qualified,
+    is_mcrpl_qualified,
+  };
+  if (!reason || !String(reason).trim()) {
+    return res.status(400).json({ success: false, message: '请填写变更原因' });
+  }
+  if (Object.values(permissions).some((value) => typeof value !== 'boolean')) {
+    return res.status(400).json({ success: false, message: '请完整设置赞助玩家的入场特许' });
+  }
+  if (typeof sync_special_settings !== 'boolean') {
+    return res.status(400).json({ success: false, message: '同步特殊设定玩家必须为布尔值' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const result = await client.query(
+      `UPDATE users AS u
+       SET ${LADDER_PASS_FIELDS.map((field, index) => `${field} = $${index + 1}`).join(', ')}
+       WHERE ${SPONSOR_PLAYER_CONDITION} AND ($${LADDER_PASS_FIELDS.length + 1}::boolean OR NOT u.has_special_settings)`,
+      [...LADDER_PASS_FIELDS.map((field) => permissions[field]), sync_special_settings]
+    );
+    await writeAudit({
+      adminUserId: req.admin.userId,
+      action: 'sponsor_players.permissions.update',
+      targetType: 'sponsor_players',
+      payload: { affected_count: result.rowCount, permissions, sync_special_settings },
+      reason: String(reason).trim(),
+    }, client);
+    await client.query('COMMIT');
+    res.json({ success: true, data: { affected_count: result.rowCount, permissions } });
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (_) {
+      // 保留原始错误并交给统一错误响应。
+    }
+    console.error('admin sponsor permissions patch:', err);
+    res.status(500).json({ success: false, message: '统一更新赞助玩家权限失败' });
+  } finally {
+    client?.release();
+  }
+});
+
 router.get('/bans', async (req, res) => {
   const { type = '', status = 'active', q = '' } = req.query;
   if ((type && !BAN_TYPES.includes(type)) || !['active', 'expired', 'all'].includes(status) || typeof q !== 'string') {
@@ -176,7 +275,7 @@ router.get('/bans', async (req, res) => {
     const total = count.rows[0].total;
     const currentPage = Math.min(page, Math.max(1, Math.ceil(total / limit)));
     const result = await pool.query(
-      `SELECT user_id, username, ban_type, ban_reason, ban_expires_at, ${ACTIVE_BAN} AS active
+      `SELECT user_id, username, admin_note, ban_type, ban_reason, ban_expires_at, ${ACTIVE_BAN} AS active
        ${from} ORDER BY ban_expires_at DESC NULLS FIRST, user_id DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, (currentPage - 1) * limit]
@@ -281,6 +380,9 @@ router.patch('/:userId', async (req, res) => {
     const {
       username,
       sponsor_expires_at,
+      sponsor_amount,
+      admin_note,
+      has_special_settings,
       is_beginner_qualified,
       is_intermediate_qualified,
       is_advanced_qualified,
@@ -296,6 +398,9 @@ router.patch('/:userId', async (req, res) => {
       is_advanced_qualified,
       is_mcrpl_qualified,
     };
+    if (has_special_settings !== undefined && typeof has_special_settings !== 'boolean') {
+      return res.status(400).json({ success: false, message: '特殊设定标记必须为布尔值' });
+    }
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ success: false, message: '请填写变更原因' });
     }
@@ -325,6 +430,22 @@ router.patch('/:userId', async (req, res) => {
         params.push(parsed.toISOString());
       }
     }
+    if (sponsor_amount !== undefined) {
+      const rawAmount = sponsor_amount === null || sponsor_amount === '' ? '0' : String(sponsor_amount).trim();
+      if (!/^\d+(?:\.\d{1,2})?$/.test(rawAmount) || Number(rawAmount) > 9999999999.99) {
+        return res.status(400).json({ success: false, message: '赞助金额须为不超过两位小数的非负数字' });
+      }
+      updates.push(`sponsor_amount = $${idx++}::numeric`);
+      params.push(rawAmount);
+    }
+    if (admin_note !== undefined) {
+      const note = admin_note === null ? '' : String(admin_note);
+      if (note.length > 2000) {
+        return res.status(400).json({ success: false, message: '玩家注释最多 2000 字' });
+      }
+      updates.push(`admin_note = $${idx++}`);
+      params.push(note);
+    }
     for (const field of LADDER_PASS_FIELDS) {
       if (ladderPassPayload[field] !== undefined) {
         updates.push(`${field} = $${idx++}`);
@@ -342,7 +463,7 @@ router.patch('/:userId', async (req, res) => {
       params.push(value);
     }
 
-    if (updates.length === 0) {
+    if (updates.length === 0 && has_special_settings === undefined) {
       return res.status(400).json({ success: false, message: '没有可更新的字段' });
     }
 
@@ -355,6 +476,25 @@ router.patch('/:userId', async (req, res) => {
     if (!before.rowCount) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    const player = before.rows[0];
+    const expiresAt = sponsor_expires_at === undefined ? player.sponsor_expires_at : sponsor_expires_at;
+    const hasSponsorship = (expiresAt != null && expiresAt !== '')
+      || Number(sponsor_amount === undefined ? player.sponsor_amount : sponsor_amount) !== 0;
+    const changedPass = LADDER_PASS_FIELDS.some(field =>
+      ladderPassPayload[field] !== undefined && Boolean(ladderPassPayload[field]) !== Boolean(player[field])
+    );
+    const hasPass = LADDER_PASS_FIELDS.some(field =>
+      Boolean(ladderPassPayload[field] === undefined ? player[field] : ladderPassPayload[field])
+    );
+    if (!hasSponsorship && hasPass && has_special_settings === false) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: '非赞助玩家须先清空入场特许才能取消特殊设定' });
+    }
+    const special = has_special_settings ?? (player.has_special_settings || changedPass || (!hasSponsorship && hasPass));
+    if (has_special_settings !== undefined || special !== player.has_special_settings) {
+      updates.push(`has_special_settings = $${idx++}`);
+      params.push(special);
     }
     params.push(userId);
     const after = await client.query(

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.IO.Compression;
 using UnityEngine;
@@ -52,25 +54,10 @@ public static class CardBackManager
     private static void ForEachTile3D(Action<Tile3D> apply)
     {
         if (apply == null) return;
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
-        for (int i = 0; i < tiles.Length; i++)
-        {
-            Tile3D tile = tiles[i];
-            if (tile != null) {
-                apply(tile);
-                Card3DHoverManager.Instance?.RefreshCardVisual(tile.gameObject);
-            }
-        }
-        if (MahjongObjectPool.Instance == null) return;
-        MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-        {
-            Tile3D pooledTile = MahjongObjectPool.GetTile3D(pooled);
-            if (pooledTile != null) {
-                apply(pooledTile);
-                Card3DHoverManager.Instance?.RefreshCardVisual(pooledTile.gameObject);
-            }
-        });
+        TileInstances<Tile3D>.ForEach(tile => {
+            apply(tile);
+            Card3DHoverManager.Instance?.RefreshCardVisual(tile.gameObject);
+        }, includeInactive: true);
     }
 
     private static void ForEachVisualMaterial(Action<Material> apply)
@@ -130,16 +117,7 @@ public static class CardBackManager
     {
         if (tile == null) return;
         SyncSharedVisualsToMaterial(tile.SharedTileMaterial);
-        tile.ApplyBackVisual(CurrentColor, CurrentTexture);
-        tile.ApplySideVisual(CurrentSideColor);
-        tile.ApplyBackEdgeVisual(CurrentBackEdgeColor);
-        tile.ApplyFrontEdgeVisual(CurrentFrontEdgeColor);
-        bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
-        bool showBg = ConfigManager.Instance != null
-            && ConfigManager.Instance.UseTableFaceBackground
-            && CurrentTableBackground != null
-            && !useSolid;
-        tile.ApplyFrontBgVisual(showBg ? CurrentTableBackground : null);
+        tile.ApplyAppearanceColors(CurrentColor, CurrentSideColor, CurrentBackEdgeColor, CurrentFrontEdgeColor);
         Card3DHoverManager.Instance?.RefreshCardVisual(tile.gameObject);
     }
 
@@ -150,7 +128,101 @@ public static class CardBackManager
     }
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
+    internal static string[] SelectedAssetKeys()
+    {
+        var config = ConfigManager.Instance;
+        if (config == null) return Array.Empty<string>();
+        return new[] { config.GetSelectedCardBackImage(), config.GetSelectedTableBackground(),
+                       config.GetSelectedHandBackground(), config.GetSelectedHandBack() }
+            .Where(item => item.Item2 && !string.IsNullOrEmpty(item.Item1)).Select(item => item.Item1).Distinct().ToArray();
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    internal static bool AppearanceVisible { get; set; }
+    static string[] pendingAppearance;
+    static int restoreRequest;
+    static bool webRestored;
+    static string appliedBackPath, requestedLayout;
+    static int appliedBackVersion, layoutVersion;
+    static bool HasCurrentBack(string path) => CurrentTexture != null && appliedBackPath == path &&
+        appliedBackVersion == UnityAssetIdb.Revision(path);
+
+    static IEnumerable<string> RestoreInputs()
+    {
+        var config = ConfigManager.Instance;
+        var back = config.GetSelectedCardBackImage();
+        if (back.isCustom && !HasCurrentBack(back.path)) yield return back.path;
+        var face = config.GetSelectedTableBackground();
+        if (face.isCustom && !_tableBgLoaded) yield return face.path;
+        var hand = config.GetSelectedHandBackground();
+        if (hand.isCustom && !_handBgLoaded) yield return hand.path;
+        var rear = config.GetSelectedHandBack();
+        if (rear.isCustom && !_handBackLoaded) yield return rear.path;
+    }
+    static readonly int[] handRequests = new int[2];
+
+    internal static void EnterWebAppearance()
+    {
+        AppearanceVisible = true;
+        if (ConfigManager.Instance == null) return;
+        TileFaceResolver.EnsureLoaded();
+        Desktop.Instance?.RefreshAppearance();
+        var layout = HandSurfaceLibrary.FaceLayoutKey(ConfigManager.Instance.GetSelectedHandBackground().path);
+        int revision = UnityAssetIdb.Revision(layout);
+        if (layout != null && (requestedLayout != layout || layoutVersion != revision)) {
+            requestedLayout = layout; layoutVersion = revision;
+            UnityAssetIdb.Read(layout, bytes => {
+                if (requestedLayout != layout || layoutVersion != revision || bytes == null) return;
+                HandSurfaceLibrary.ReadLayout(layout, bytes);
+                TileFaceResolver.NotifyHandLayoutChanged();
+            }, reason => {
+                if (requestedLayout == layout && layoutVersion == revision) requestedLayout = null;
+                Debug.LogWarning(reason);
+            }, 4097);
+        }
+        if (!webRestored || !_savedConfigApplied) ApplySavedConfig();
+    }
+
+    static void RestoreWebAppearance()
+    {
+        if (!AppearanceVisible || ConfigManager.Instance == null) return;
+        var selected = SelectedAssetKeys();
+        if (pendingAppearance != null && selected.SequenceEqual(pendingAppearance)) return;
+        int request = ++restoreRequest;
+        pendingAppearance = selected;
+        UnityAssetIdb.WithAssets(RestoreInputs(), () => {
+            if (request != restoreRequest) return;
+            pendingAppearance = null;
+            if (!AppearanceVisible || !selected.SequenceEqual(SelectedAssetKeys())) {
+                _savedConfigApplied = false;
+                if (AppearanceVisible) RestoreWebAppearance();
+                return;
+            }
+            var previous = CurrentTexture;
+            webRestored = true;
+            ApplySavedConfigReady();
+            if (previous != null && previous != CurrentTexture && !Card3DPresetTextureCache.Owns(previous))
+                UnityEngine.Object.Destroy(previous);
+            TileFaceResolver.NotifyRestoredSurfaces();
+            var panel = CardBackConfigPanel.Instance;
+            if (panel != null && panel.isActiveAndEnabled) panel.ReloadSaved();
+        }, reason => {
+            if (request != restoreRequest) return;
+            pendingAppearance = null; _savedConfigApplied = false; Debug.LogWarning(reason);
+        });
+    }
+#endif
     public static void ApplySavedConfig()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        _savedConfigApplied = false;
+        RestoreWebAppearance();
+#else
+        ApplySavedConfigReady();
+#endif
+    }
+
+    static void ApplySavedConfigReady()
     {
         if (ConfigManager.Instance == null) return;
         Color color = ConfigManager.Instance.CardBackColor;
@@ -168,13 +240,25 @@ public static class CardBackManager
         // 先确保共享材质上的 _FrontBgTex 与 CurrentTableBackground 已同步，
         // 再按 UseTableFaceBackground 开关只切 blend，不会清空已上传的纹理。
         ApplyFrontEdgeColor(ResolveFrontEdgeColor(FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // Applying the saved visuals may finish after the preset edit has ended.
+        // Only repair inconsistent old flags. Writing unchanged preferences signals a new edit.
+        if (ConfigManager.Instance.UseTableFaceBackground && ConfigManager.Instance.TableFaceUseSolidColor)
+            ConfigManager.Instance.SetUseTableFaceBackground(true);
+        RefreshFollowedFrontEdge();
+#else
         SetTableFaceBackgroundEnabled(ConfigManager.Instance.UseTableFaceBackground);
+#endif
         ApplyInstanceVisualsToAllTiles();
     }
 
     /// <summary>After a preference reset, drop stale preview textures without deleting uploaded assets.</summary>
     public static void RefreshAfterDefaults(bool includeHand)
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CardDesignImageLibrary.CancelPendingSelections();
+        if (includeHand) { handRequests[0]++; handRequests[1]++; }
+#endif
         ReplaceTableBackground(null);
         ApplyTableBackgroundAspect(null);
         if (includeHand)
@@ -195,6 +279,9 @@ public static class CardBackManager
 
     public static void RefreshAfterPreset()
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CardDesignImageLibrary.CancelPendingSelections();
+#endif
         var previousBack = CurrentTexture;
         ReplaceTableBackground(null);
         _tableBgLoaded = false; // Reload another preset's background, not just clear it.
@@ -263,7 +350,9 @@ public static class CardBackManager
     {
         if (_savedConfigApplied) return;
         if (ConfigManager.Instance == null) return;
+#if !UNITY_WEBGL || UNITY_EDITOR
         _savedConfigApplied = true;
+#endif
         ApplySavedConfig();
     }
 
@@ -273,6 +362,10 @@ public static class CardBackManager
         color = ConfigManager.ApplyColorBrightness(color, ConfigManager.Instance?.CardBackBrightness ?? 0f);
         CurrentColor = color;
         CurrentTexture = texture;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        appliedBackPath = texture != null && ConfigManager.Instance != null ? ConfigManager.Instance.GetSelectedCardBackImage().path : null;
+        appliedBackVersion = UnityAssetIdb.Revision(appliedBackPath);
+#endif
 
         ForEachVisualMaterial(mat =>
         {
@@ -321,6 +414,9 @@ public static class CardBackManager
         if (ConfigManager.Instance == null) return null;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedCardBackImage();
         if (string.IsNullOrEmpty(path) || !isCustom) return null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (HasCurrentBack(path)) return CurrentTexture;
+#endif
         if (Card3DPresetTextureCache.TryGet(path, out var cached)) return cached;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -358,8 +454,11 @@ public static class CardBackManager
     {
         if (_handBgLoaded) return CurrentHandBackground;
         if (ConfigManager.Instance == null) return null;
-        _handBgLoaded = true;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBackground();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (isCustom && !UnityAssetIdb.IsResolved(path)) { RestoreWebAppearance(); return CurrentHandBackground; }
+#endif
+        _handBgLoaded = true;
         if (string.IsNullOrEmpty(path)) return null;
         if (!isCustom)
         {
@@ -400,8 +499,11 @@ public static class CardBackManager
     {
         if (_handBackLoaded) return CurrentHandBack;
         if (ConfigManager.Instance == null) return null;
-        _handBackLoaded = true;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBack();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (isCustom && !UnityAssetIdb.IsResolved(path)) { RestoreWebAppearance(); return CurrentHandBack; }
+#endif
+        _handBackLoaded = true;
         if (string.IsNullOrEmpty(path)) return null;
         if (!isCustom)
         {
@@ -432,6 +534,9 @@ public static class CardBackManager
     public static bool SelectBuiltinHandSurface(int index, bool back, bool preserveFollow = false)
     {
         if (ConfigManager.Instance == null || index < 0 || index >= HandSurfaceStyles.Count) return false;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        handRequests[back ? 1 : 0]++;
+#endif
         string path = HandSurfaceStyles.ResourcePath(index, back);
         Texture2D texture = index == 0 ? null : Resources.Load<Texture2D>(path);
         if (index != 0 && texture == null) return false;
@@ -455,6 +560,16 @@ public static class CardBackManager
     public static bool SelectUploadedHandSurface(string id, bool back, bool preserveFollow = false)
     {
         if (ConfigManager.Instance == null) return false;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        int slot = back ? 1 : 0, request = ++handRequests[slot];
+        if (!UnityAssetIdb.IsResolved(id)) {
+            UnityAssetIdb.WithAssets(new[] { id }, () => {
+                if (handRequests[slot] != request) return;
+                if (!SelectUploadedHandSurface(id, back, preserveFollow)) SceneConfigUi.ShowTip("图片无法读取，已保留当前选择");
+            }, SceneConfigUi.ShowTip);
+            return true;
+        }
+#endif
         Texture2D texture = HandSurfaceLibrary.LoadTexture(id, back);
         if (texture == null) return false;
         if (back)
@@ -486,7 +601,11 @@ public static class CardBackManager
     {
         var config = ConfigManager.Instance;
         if (config == null || !config.HandBackAutoFollow) return false;
-        if (!HandSurfaceLibrary.Ready)
+        if (!HandSurfaceLibrary.Ready
+#if UNITY_WEBGL && !UNITY_EDITOR
+            && config.GetSelectedHandBackground().isCustom
+#endif
+        )
         {
             HandSurfaceLibrary.EnsureReady(() => ApplyHandBackFollow(showTip));
             return false;
@@ -508,9 +627,12 @@ public static class CardBackManager
     public static Texture2D LoadSavedTableBackground()
     {
         if (_tableBgLoaded) return CurrentTableBackground;
-        _tableBgLoaded = true;
         if (ConfigManager.Instance == null) return null;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedTableBackground();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (isCustom && !UnityAssetIdb.IsResolved(path)) { RestoreWebAppearance(); return CurrentTableBackground; }
+#endif
+        _tableBgLoaded = true;
         if (string.IsNullOrEmpty(path) || !isCustom) return null;
         if (Card3DPresetTextureCache.TryGet(path, out var cached)) {
             CurrentTableBackground = cached; ApplyTableBackgroundAspect(cached); return cached;

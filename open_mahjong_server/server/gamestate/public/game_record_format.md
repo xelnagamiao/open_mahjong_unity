@@ -199,7 +199,7 @@
 | `summary` | JSONB | 用于列表展示与访问控制的复式摘要 |
 | `created_at` | TIMESTAMP | 创建时间 |
 
-`game_record_tables` 用原桌号关联比赛编号和 `main`、`open` 或 `closed`。历史统计和重算通过只读视图 `game_records` 取得该桌的原始数据。旧分享链接仍可使用原桌号定位。
+`game_record_tables` 用原桌号关联比赛编号和 `main`、`open` 或 `closed`。逐桌重算按此定位读取 `game_replays.record.tables[table_id]`；需要原始动作序号的取证工具还原该桌保存的提示及位置。旧分享链接仍可使用原桌号和原回合、动作位置。
 
 ### 6.2 `game_player_records`
 

@@ -1,12 +1,13 @@
 """Shared creation of Sichuan eight-player lobbies over open/closed pairs."""
 from copy import deepcopy
+import asyncio
 import secrets
 import uuid
 import re
 
-from ..response import Response, public_room_data
+from ..response import Response
 from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat, board_from_tiles, rule_profile
-from ..database.sichuan_duplicate import PairedMatchStore
+from ..database.sichuan_duplicate import attach_paired_wall
 from ..gamestate.public.sichuan_duplicate import PairedMatch, new_match
 
 
@@ -32,13 +33,20 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
     if wall_source is not None and wall_source not in ("training", "key", "seed", "manual"):
         return Response(type="tips", success=False, message="复式牌山来源无效")
     training = wall_source == "training"
+    reuse = config.get("reuse_training_room", False)
+    if type(reuse) is not bool or (reuse and not training):
+        return Response(type="tips", success=False, message="重复使用仅支持训练牌山，且必须为布尔值")
+    if reuse and not event_id:
+        return Response(type="tips", success=False, message="重复使用仅在赛事或基地的训练房间开放")
+    if reuse and config.get("random_seed") not in (None, "", 0, "0"):
+        return Response(type="tips", success=False, message="重复使用训练房时不能指定随机种子")
     if "allow_spectator" in config and type(config["allow_spectator"]) is not bool:
         return Response(type="tips", success=False, message="allow_spectator必须为布尔值")
     if training and config.get("duplicate_key"):
         return Response(type="tips", success=False, message="训练牌山不能同时使用复式密钥")
     if not training and config.get("random_seed") not in (None, "", 0, "0"):
         return Response(type="tips", success=False, message="复式双打请选择自动生成或输入已有密钥；场景复现请使用普通房间")
-    if training:
+    if training and not reuse:
         from ..gamestate.public.random_seed_manager import parse_user_master_seed
         try:
             raw_seed = config.get("random_seed")
@@ -79,8 +87,7 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
                 raise ValueError(response.message)
             room_id = response.room_info["room_id"]
             rooms[table] = manager.rooms[room_id]
-            # The existing paired lobby retains both children through all-bot
-            # completion. Personal pairs use the same lifetime as venue pairs.
+            # Both children must survive until the pair closes them together.
             rooms[table]["persist_empty"] = True
             rooms[table].update(count_tips=bool(config.get("count_tips", False)),
                                 pointer_tips=bool(config.get("pointer_tips", True)))
@@ -90,29 +97,26 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
         snapshot.update(wall_source=wall_source, wall_type=wall_source, allow_spectator=allow_spectator)
         if source:
             snapshot.update(source_wall_id=source["id"], key=source["key"], wall_type=source["wall_type"])
-            if source.get("legacy_source_round_count"):
-                snapshot["legacy_source_round_count"] = source["legacy_source_round_count"]
             if source.get("seed") is not None:
                 snapshot["seed"] = source["seed"]
-        store = PairedMatchStore(manager.game_server.db_manager)
         for table, room in rooms.items():
             room.update(duplicate_match_id=match_id, duplicate_table=table,
                         duplicate_peer_room_id=rooms["closed" if table == "open" else "open"]["room_id"],
                         duplicate_round_count=count, duplicate_scoring=snapshot["profile"]["scoring"],
                         duplicate_sync_mode=sync_mode,
                         duplicate_status="waiting", is_duplicate=True, allow_spectator=allow_spectator,
-                        wall_source=wall_source, duplicate_wall_type=wall_source,
+                        wall_source=wall_source, duplicate_wall_type=wall_source, reuse_training_room=reuse,
                         team_by_seat=team_by_seat(table), roster_revision=0)
             room["duplicate_lobby_room_id"] = rooms["open"]["room_id"]
         snapshot["lobby"] = dict(version=1, name=config.get("room_name") or "复式双打", revision=0,
                                  waiting=[], member_order=[], settings={})
-        snapshot["room_snapshots"] = deepcopy(rooms)
-        snapshot["room_password"] = password
-        store.create(snapshot, event_id=event_id, owner_id=created_by or 0, name=config.get("room_name") or "复式双打")
+        snapshot.update(event_id=event_id, owner_user_id=created_by, reuse_training_room=reuse)
         if not training:
-            for room in rooms.values():
-                room["duplicate_key"] = snapshot["key"]
-        manager.game_server.gamestate_manager.sichuan_duplicate_matches[match_id] = PairedMatch(snapshot, store.save)
+            attach_paired_wall(manager.game_server.db_manager, snapshot, event_id=event_id,
+                               owner_id=created_by or 0, name=snapshot["lobby"]["name"])
+            for table, room in rooms.items():
+                room.update(duplicate_key=snapshot["key"], duplicate_game_id=snapshot["table_record_ids"][table])
+        manager.game_server.gamestate_manager.sichuan_duplicate_matches[match_id] = PairedMatch(snapshot)
     except BaseException:
         # Neither room has been published yet. Roll back both in-memory rooms.
         for room in rooms.values():
@@ -127,29 +131,14 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
 
 
 async def request_start(manager, room, connection_id, lobby_revision=None):
-    import asyncio
     from .room_seats import get_seats, is_full_bot_table
     from .room_teams import validate_team_start
-    from ..database.duplicate_walls import reserve_duplicate_game
     pair = manager.sichuan_duplicate_matches.get(room.get("duplicate_match_id"))
     if pair is None:
         return Response(type="tips", success=False, message="复式比赛未加载，请联系比赛管理员")
     async with pair.lock:
-        if pair.data["status"] == "interrupted" and "lobby" in pair.data and not room.get("event_id"):
-            # Personal rooms expose the existing unfinished-board recovery to
-            # their host; venue recovery remains an administrator operation.
-            from .sichuan_lobby import validate_start
-            rm = manager.game_server.room_manager
-            try:
-                recovering = validate_start(rm, pair, connection_id, lobby_revision)
-                if any(r.get("is_game_running") for r in recovering.values()):
-                    raise ValueError("请等待两室完成中断清理")
-                pair.restart_unfinished_board()
-                for r in recovering.values():
-                    r.update(duplicate_status="waiting", duplicate_progress=pair.public_info(r["duplicate_table"]))
-            except ValueError as error:
-                return Response(type="tips", success=False, message=str(error))
-        if pair.data["status"] != "waiting":
+        if (manager.sichuan_duplicate_matches.get(pair.data["id"]) is not pair or
+                pair.data["status"] != "waiting" or pair.data["completed_boards"]):
             return Response(type="tips", success=False, message="复式比赛已经开始或已中断")
         table = room["duplicate_table"]
         pair.ready[table] = (room["roster_revision"], tuple(get_seats(room)))
@@ -189,17 +178,12 @@ async def request_start(manager, room, connection_id, lobby_revision=None):
                 host_connection = manager.game_server.user_id_to_connection.get(other.get("host_user_id"))
                 if not bot_table and not host_connection:
                     raise ValueError("有真人的房间，其房主须在线")
-                if pair.data["completed_boards"] and get_seats(other) != [m["user_id"] for m in pair.data["members"][t]]:
-                    raise ValueError("续赛须由原阵容按原座位入座")
-                if pair.data.get("wall_source") != "training" and not other.get("duplicate_game_id"):
-                    other["duplicate_game_id"] = reserve_duplicate_game(manager.game_server.db_manager, pair.data["wall_id"])
                 error = await manager.start_game(None if bot_table else host_connection.Connect_id, other["room_id"], roster_revision=other["roster_revision"], _paired_prepare=True)
                 if error is not None:
                     raise ValueError(error.message)
             candidate = deepcopy(pair.data)
             candidate["members"] = {t: [{"user_id": uid, "seat": i, "team_id": team_by_seat(t)[i]}
                                         for i, uid in enumerate(get_seats(r))] for t, r in rooms.items()}
-            candidate["room_snapshots"] = deepcopy(rooms)
             candidate["status"] = "running"
             pair.save(candidate)
             for state in pair.states.values():
@@ -213,6 +197,9 @@ async def request_start(manager, room, connection_id, lobby_revision=None):
             pair.interrupt("start_failed")
             for state in list(pair.states.values()):
                 await manager.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="start_failed")
+            rm = manager.game_server.room_manager
+            if manager.sichuan_duplicate_matches.get(pair.data["id"]) is pair:
+                await finish_pair(rm, room, pair)
             if isinstance(error, asyncio.CancelledError):
                 raise
             return Response(type="tips", success=False, message=f"复式双桌开局失败：{error}")
@@ -235,99 +222,82 @@ async def delete_pair(manager, room, *, only_if_empty=False):
                 return Response(type="tips", success=False, message="房间仍有玩家，未自动关闭")
         if any(r and (r.get("is_game_running") or r.get("event_seating_pending")) for r in rooms):
             return Response(type="tips", success=False, message="开室或闭室仍在对局或组桌，暂不能删除整组")
-        candidate = deepcopy(pair.data)
-        candidate["rooms_deleted"] = True
-        if not pair.completed:
-            candidate["status"] = "cancelled"
-        pair.save(candidate)
-        pair.ready.clear()
-        if "lobby" in pair.data:
-            from .sichuan_lobby import humans, tables
-            root = manager.rooms[pair.data["room_ids"]["open"]]
-            response = Response(type="room/leave_room_done", success=True, message="房间已解散",
-                                room_id=root["room_id"], room_instance_id=root.get("instance_id"))
-            for uid in humans(pair, tables(manager, pair)):
-                connection = manager.game_server.user_id_to_connection.get(uid)
-                if connection:
-                    connection.current_room_id = None
-                    await connection.websocket.send_json(response.model_dump(exclude_none=True))
-        for rid in pair.data["room_ids"].values():
-            await manager.destroy_room(rid)
+        if not all(r and r.get("duplicate_match_id") == pair.data["id"] for r in rooms):
+            return Response(type="tips", success=False, message="房间已变化，请刷新")
+        await close_pair(manager, pair)
     return Response(type="tips", success=True, message="开室、闭室已整组删除")
 
 
-async def restart_pair(manager, room_id, event_id):
-    room = manager.rooms.get(room_id)
-    if not room or room.get("event_id") != event_id or not room.get("duplicate_match_id"):
-        raise ValueError("复式房间不属于该比赛场")
-    pair = manager.game_server.gamestate_manager.sichuan_duplicate_matches[room["duplicate_match_id"]]
-    async with pair.lock:
-        rooms = [manager.rooms[rid] for rid in pair.data["room_ids"].values()]
-        if any(r.get("is_game_running") for r in rooms):
-            raise ValueError("请等待两室完成中断清理")
-        pair.restart_unfinished_board()
-        for r in rooms:
-            r.update(duplicate_status="waiting", ready_list=[], duplicate_progress=pair.public_info(r["duplicate_table"]))
-            r["roster_revision"] += 1
-            await manager._broadcast_room_info(r["room_id"])
-    return {"success": True, "message": "未配对完成的副已为两室重新发牌，已配对结算的分数保留；原选手入座准备后续赛"}
+async def close_pair(manager, pair):
+    from .sichuan_lobby import humans, tables
+    from ..gamestate.public.connection_delivery import send_bounded
+
+    rooms = tables(manager, pair)
+    root = rooms["open"]
+    if not pair.completed:
+        pair.data["status"] = "cancelled"
+    pair.data["rooms_deleted"] = True
+    manager.game_server.gamestate_manager.sichuan_duplicate_matches.pop(pair.data["id"], None)
+    # Remove both rooms and detach all connections before delivering any packets.
+    response = Response(type="room/leave_room_done", success=True, message="复式房间已结束",
+                        room_id=root["room_id"], room_instance_id=root.get("instance_id"))
+    members = humans(pair, rooms) if "lobby" in pair.data else {
+        uid for child in rooms.values() for uid in child["player_list"] if uid > 10}
+    connections = []
+    for uid in members:
+        conn = manager.game_server.user_id_to_connection.get(uid)
+        if conn and getattr(conn, "current_room_id", None) in pair.data["room_ids"].values():
+            conn.current_room_id = None
+            connections.append(conn)
+    for rid in pair.data["room_ids"].values():
+        manager.rooms.pop(rid, None)
+        manager.room_passwords.pop(rid, None)
+    await asyncio.gather(*(send_bounded(conn.websocket, response.model_dump(exclude_none=True))
+                           for conn in connections), return_exceptions=True)
 
 
-def restore_pairs(server):
-    """Restore durable pairs after process restart, without resuming exposed hands."""
-    store = PairedMatchStore(server.db_manager)
-    for snapshot in store.unfinished():
-        if snapshot.get("rooms_deleted"):
-            continue
-        pair = PairedMatch(snapshot, store.save)
-        if pair.completed:
-            from types import SimpleNamespace
-            for table in ("open", "closed"):
-                if pair.data.get("record_ids", {}).get(table):
-                    continue
-                record = pair.data.get("final_records", {}).get(table)
-                if record is None:
-                    # A process may stop after the final barrier commit but
-                    # before either table reaches its record-saving hook.
-                    from ..gamestate.game_sichuan.DuplicateGameState import DuplicateMixin
-                    checkpoint = pair.data.get("checkpoints", {}).get(table)
-                    if not checkpoint or not checkpoint.get("players"):
-                        continue
-                    players = [SimpleNamespace(**p, record_counter=SimpleNamespace(rank_result=0)) for p in checkpoint["players"]]
-                    recovered = SimpleNamespace(duplicate_match=pair, duplicate_table=table, player_list=players)
-                    DuplicateMixin._finish_team_match(recovered)
-                    record = recovered.game_record
-                else:
-                    players = [SimpleNamespace(**{k: v for k, v in p.items() if k != "rank"},
-                        record_counter=SimpleNamespace(rank_result=p["rank"])) for p in pair.data["final_players"][table]]
-                room_type = (pair.data.get("room_snapshots", {}).get(table) or {}).get("room_type", "events")
-                record_id = server.db_manager.store_sichuan_game_record(record, players, room_type, "normal")
-                candidate = deepcopy(pair.data)
-                candidate.setdefault("final_records", {})[table] = deepcopy(record)
-                candidate.setdefault("final_players", {})[table] = [dict(
-                    user_id=p.user_id, username=p.username, score=p.score, original_player_index=p.original_player_index,
-                    rank=p.record_counter.rank_result) for p in players]
-                candidate.setdefault("record_ids", {})[table] = record_id
-                pair.save(candidate)
-        if snapshot["status"] == "running":
-            pair.interrupt("server_restart")
-        server.gamestate_manager.sichuan_duplicate_matches[snapshot["id"]] = pair
-        if "lobby" in pair.data:
-            pair.data["lobby"].update(waiting=[], member_order=[], settings={})
-            pair.data["lobby"]["revision"] += 1
-        for table, saved in snapshot["room_snapshots"].items():
-            room = deepcopy(saved)
-            room.update(instance_id=str(uuid.uuid4()), player_list=[], seat_list=[-1]*4,
-                        ready_list=[], host_user_id=None, player_settings={}, is_game_running=False,
-                        duplicate_status=pair.data["status"],
-                        duplicate_sync_mode=pair.synchronous, duplicate_progress=pair.public_info(table))
-            room.pop("active_gamestate_id", None)
-            if snapshot.get("wall_source") == "training":
-                room.pop("duplicate_key", None)
-                room.pop("duplicate_game_id", None)
-            else:
-                room["duplicate_key"] = snapshot["key"]
-            room["roster_revision"] = room.get("roster_revision", 0) + 1
-            server.room_manager.rooms[room["room_id"]] = room
-            if snapshot.get("room_password"):
-                server.room_manager.room_passwords[room["room_id"]] = snapshot["room_password"]
+async def finish_pair(manager, room, pair):
+    """The last table releases the group, or resets only the reusable lobby."""
+    from .sichuan_lobby import humans, tables
+    rooms = tables(manager, pair)
+    if any(child.get("is_game_running") for child in rooms.values()):
+        return
+    hub = getattr(manager.game_server.gamestate_manager, "match_spectator_hub", None)
+    if hub:
+        hub.feeds.pop(pair.data["id"], None)
+    if any(child.get("admin_closing") for child in rooms.values()):
+        return  # The administrator owns group closure.
+    if not pair.data.get("reuse_training_room"):
+        await close_pair(manager, pair)
+        return
+    lobby = deepcopy(pair.data["lobby"])
+    lobby["waiting"] = [uid for uid in lobby["waiting"] if manager.is_room_member_online(uid)]
+    members = {uid for uid in humans(pair, rooms) if manager.is_room_member_online(uid)}
+    lobby["member_order"] = [uid for uid in lobby["member_order"] if uid in members]
+    lobby["settings"] = {str(uid): lobby["settings"][str(uid)] for uid in members if str(uid) in lobby["settings"]}
+    if not room.get("event_id") and not members:
+        await close_pair(manager, pair)
+        return
+    old = pair.data
+    seed = secrets.token_hex(32)
+    count = old["planned_boards"]
+    profile = old["profile"]
+    mid = str(uuid.uuid4())
+    data = new_match(mid, profile["sub_rule"], old["room_ids"],
+                     [make_board(seed, i, layout=profile["wall_layout"]) for i in range(1, count + 1)],
+                     seed, sync_mode=pair.synchronous)
+    data.update(lobby=lobby, wall_source="training", wall_type="training",
+                allow_spectator=old["allow_spectator"], event_id=old.get("event_id"),
+                owner_user_id=old.get("owner_user_id"), reuse_training_room=True)
+    data["lobby"]["revision"] += 1
+    matches = manager.game_server.gamestate_manager.sichuan_duplicate_matches
+    matches.pop(old["id"])
+    matches[mid] = PairedMatch(data)
+    for child in rooms.values():
+        if not members:
+            manager._remove_all_bots_from_room(child)
+        child.update(duplicate_match_id=mid, duplicate_status="waiting", ready_list=[],
+                     team_by_seat=team_by_seat(child["duplicate_table"]))
+        child.pop("duplicate_progress", None)
+        child["roster_revision"] += 1
+    await manager._broadcast_room_info(rooms["open"]["room_id"])

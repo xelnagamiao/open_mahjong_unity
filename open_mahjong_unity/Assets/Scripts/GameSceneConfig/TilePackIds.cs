@@ -6,6 +6,7 @@ using System.Collections.Generic;
 /// 赤宝 105 / 205 / 305 = 赤 5 万 / 赤 5 饼 / 赤 5 条。
 /// </summary>
 public static class TilePackIds {
+    public const int MaxFaceTextureEdge = 512;
     public const string PackOfficial = "official";
     public const string PackFluffy = "fluffy";
     public const string PackHkMahjong = "hkmahjong";

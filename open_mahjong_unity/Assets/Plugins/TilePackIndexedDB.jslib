@@ -4,7 +4,10 @@ var TilePackIndexedDB = {
         storeName: 'tileBlobs',
         zipKey: 'standardZip',
         zipBytes: null,
-        assetBytes: null,
+        transfers: Object.create(null),
+        nextTransfer: 0,
+        operations: [],
+        busy: false,
         db: null
     },
 
@@ -17,23 +20,24 @@ var TilePackIndexedDB = {
             callback(null);
             return;
         }
-        var request = indexedDB.open(TilePackIdbState.dbName, 1);
+        var request, settled = false;
+        try { request = indexedDB.open(TilePackIdbState.dbName, 1); }
+        catch (e) { callback(null); return; }
         request.onupgradeneeded = function () {
             var db = request.result;
             if (!db.objectStoreNames.contains(TilePackIdbState.storeName)) {
                 db.createObjectStore(TilePackIdbState.storeName);
             }
         };
-        request.onsuccess = function () {
-            TilePackIdbState.db = request.result;
-            callback(TilePackIdbState.db);
+        function finish(db) { if (!settled) { settled = true; callback(db); } }
+        request.onsuccess = function() {
+            var db = request.result;
+            if (settled) { db.close(); return; }
+            TilePackIdbState.db = db;
+            db.onversionchange = function() { db.close(); if (TilePackIdbState.db === db) TilePackIdbState.db = null; };
+            finish(db);
         };
-        request.onerror = function () {
-            callback(null);
-        };
-        request.onblocked = function () {
-            callback(TilePackIdbState.db || null);
-        };
+        request.onerror = request.onblocked = function() { finish(null); };
     },
 
     $TilePackIdbSend: function (go, method, message) {
@@ -286,120 +290,124 @@ var TilePackIndexedDB = {
         });
     },
 
-    UnityAssetIdbPickAndPut: function (keyOrPrefixPtr, acceptPtr, goPtr, methodPtr) {
-        var keyOrPrefix = UTF8ToString(keyOrPrefixPtr);
-        var accept = UTF8ToString(acceptPtr) || 'image/png,image/jpeg,image/jpg,image/webp';
-        var go = UTF8ToString(goPtr);
-        var method = UTF8ToString(methodPtr);
-        TilePackIdbPickFile(accept, function (file) {
-            if (!file) {
-                TilePackIdbSend(go, method, 'cancel');
-                return;
+    $UnityAssetIdbSendBytes: function (go, method, key, bytes) {
+        var token = ++TilePackIdbState.nextTransfer;
+        TilePackIdbState.transfers[token] = bytes;
+        try {
+            TilePackIdbSend(go, method, 'ok|' + bytes.byteLength + '|' + token + '|' + key);
+        } catch (error) {
+            delete TilePackIdbState.transfers[token];
+            throw error;
+        }
+    },
+
+    $UnityAssetIdbEnqueue: function(operation, go, method) {
+        var state = TilePackIdbState;
+        function next() {
+            state.busy = state.operations.length > 0;
+            if (state.busy) state.operations.shift()();
+        }
+        state.operations.push(function() {
+            var sent = false;
+            function finish(message, key, bytes) {
+                if (sent) return;
+                sent = true;
+                try {
+                    if (bytes) UnityAssetIdbSendBytes(go, method, key, bytes);
+                    else TilePackIdbSend(go, method, message);
+                } finally { next(); }
             }
+            try { operation(finish); } catch (e) { finish('error|' + e.message); }
+        });
+        if (!state.busy) next();
+    },
+
+    $UnityAssetIdbReceiveFile: function (file, key, go, method) {
+        if (!file) { TilePackIdbSend(go, method, 'cancel'); return; }
+        var maxBytes = (key === '@read-only' ? 128 : 8) * 1024 * 1024;
+        if (file.size > maxBytes) { TilePackIdbSend(go, method, 'error|文件超过大小限制'); return; }
+        UnityAssetIdbEnqueue(function(finish) {
             var reader = new FileReader();
+            reader.onerror = function () { finish('error|读取文件失败'); };
             reader.onload = function () {
-                var stored = TilePackIdbCloneBuffer(reader.result);
-                var key = keyOrPrefix;
-                if (key.charAt(key.length - 1) === '/') {
+                var bytes = new Uint8Array(reader.result);
+                if (key === '@read-only') { finish(null, file.name, bytes); return; }
+                if (key.endsWith('/')) {
                     var dot = file.name.lastIndexOf('.');
-                    var ext = dot >= 0 ? file.name.substring(dot) : '.png';
-                    key = keyOrPrefix + 'item_' + Date.now() + ext;
+                    key += 'item_' + Date.now() + (dot >= 0 ? file.name.substring(dot) : '.png');
                 }
-                TilePackIdbState.assetBytes = stored;
-                if (keyOrPrefix === '@read-only') {
-                    TilePackIdbSend(go, method, 'ok|' + stored.byteLength + '|' + file.name);
-                    return;
-                }
-                var okMsg = 'ok|' + stored.byteLength + '|' + key;
                 TilePackIdbOpen(function (db) {
-                    if (!db) {
-                        TilePackIdbSend(go, method, okMsg);
-                        return;
-                    }
-                    var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-                    tx.objectStore(TilePackIdbState.storeName).put(stored, key);
-                    tx.oncomplete = function () {
-                        TilePackIdbSend(go, method, okMsg);
-                    };
-                    tx.onerror = function () {
-                        TilePackIdbSend(go, method, 'error|IndexedDB 写入失败');
-                    };
+                    if (!db) { finish('error|IndexedDB 不可用'); return; }
+                    try {
+                        var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                        tx.objectStore(TilePackIdbState.storeName).put(bytes.buffer, key);
+                        tx.oncomplete = function () { finish(null, key, bytes); };
+                        tx.onabort = function () { finish('error|IndexedDB 写入失败'); };
+                    } catch (e) { finish('error|' + e.message); }
                 });
             };
-            reader.onerror = function () {
-                TilePackIdbSend(go, method, 'error|读取文件失败');
-            };
             reader.readAsArrayBuffer(file);
-        });
+        }, go, method);
+    },
+
+    UnityAssetIdbPickAndPut: function (keyPtr, acceptPtr, goPtr, methodPtr) {
+        var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr), method = UTF8ToString(methodPtr);
+        TilePackIdbPickFile(UTF8ToString(acceptPtr), function (file) { UnityAssetIdbReceiveFile(file, key, go, method); });
     },
 
     UnityAssetIdbPut: function (keyPtr, dataPtr, length, goPtr, methodPtr) {
         var key = UTF8ToString(keyPtr);
         var go = UTF8ToString(goPtr);
         var method = UTF8ToString(methodPtr);
-        var heap = TilePackIdbHeap();
-        var copy = new Uint8Array(length);
-        copy.set(heap.subarray(dataPtr, dataPtr + length));
-        var stored = copy.buffer;
-        TilePackIdbState.assetBytes = stored;
-        var settled = false;
-        var finish = function (message) {
-            if (settled) return;
-            settled = true; TilePackIdbSend(go, method, message);
-        };
-        TilePackIdbOpen(function (db) {
-            if (!db) {
-                finish('error|IndexedDB 不可用，图片未保存');
-                return;
-            }
-            try {
-                var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-                tx.objectStore(TilePackIdbState.storeName).put(stored, key);
-                tx.oncomplete = function () { finish('ok|' + length + '|' + key); };
-                tx.onabort = function () { finish('error|IndexedDB 写入失败'); };
-            } catch (e) { finish('error|' + e.message); }
-        });
+        UnityAssetIdbEnqueue(function(finish) {
+            TilePackIdbOpen(function(db) {
+                if (!db) { finish('error|IndexedDB 不可用'); return; }
+                try {
+                    var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                    var copy = TilePackIdbHeap().slice(dataPtr, dataPtr + length);
+                    tx.objectStore(TilePackIdbState.storeName).put(copy.buffer, key);
+                    tx.oncomplete = function() { finish('ok'); };
+                    tx.onabort = function() { finish('error|IndexedDB 写入失败'); };
+                } catch (e) { finish('error|' + e.message); }
+            });
+        }, go, method);
     },
 
-    UnityAssetIdbGet: function (keyPtr, goPtr, methodPtr) {
-        var key = UTF8ToString(keyPtr);
-        var go = UTF8ToString(goPtr);
-        var method = UTF8ToString(methodPtr);
-        TilePackIdbOpen(function (db) {
-            if (!db) {
-                TilePackIdbSend(go, method, 'empty');
-                return;
-            }
-            var tx = db.transaction(TilePackIdbState.storeName, 'readonly');
-            var request = tx.objectStore(TilePackIdbState.storeName).get(key);
-            request.onsuccess = function () {
-                TilePackIdbToBuffer(request.result, function (buffer) {
-                    if (!buffer) {
-                        TilePackIdbSend(go, method, 'empty');
-                        return;
-                    }
-                    TilePackIdbState.assetBytes = buffer;
-                    TilePackIdbSend(go, method, 'ok|' + buffer.byteLength + '|' + key);
-                });
-            };
-            request.onerror = function () {
-                TilePackIdbSend(go, method, 'error|IndexedDB 读取失败');
-            };
-        });
+    UnityAssetIdbGet: function (keyPtr, limit, goPtr, methodPtr) {
+        var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr), method = UTF8ToString(methodPtr);
+        UnityAssetIdbEnqueue(function(finish) {
+            TilePackIdbOpen(function(db) {
+                if (!db) { finish('error|IndexedDB 不可用'); return; }
+                try {
+                    var tx = db.transaction(TilePackIdbState.storeName), req = tx.objectStore(TilePackIdbState.storeName).get(key);
+                    tx.onabort = function() { finish('error|IndexedDB 读取失败'); };
+                    req.onsuccess = function() {
+                        var value = req.result;
+                        if (value === undefined) { finish('empty'); return; }
+                        var size = value instanceof Blob ? value.size : value && value.byteLength;
+                        if (!(size >= 0)) { finish('error|未知的素材存储格式'); return; }
+                        var count = limit > 0 ? Math.min(limit, size) : size;
+                        if (count > 8 * 1024 * 1024) { finish('error|资源超过 8MB'); return; }
+                        if (value instanceof Blob) {
+                            TilePackIdbToBuffer(value.slice(0, count), function(buf) {
+                                if (buf) finish(null, key, new Uint8Array(buf)); else finish('error|图片读取失败');
+                            });
+                        } else {
+                            var buffer = ArrayBuffer.isView(value) ? value.buffer : value;
+                            finish(null, key, new Uint8Array(buffer, value.byteOffset || 0, count));
+                        }
+                    };
+                } catch (e) { finish('error|' + e.message); }
+            });
+        }, go, method);
     },
 
-    UnityAssetIdbCopy: function (dstPtr, maxLen) {
-        if (!TilePackIdbState.assetBytes || maxLen <= 0) {
-            return 0;
-        }
-        var source = new Uint8Array(TilePackIdbState.assetBytes);
-        var n = source.length < maxLen ? source.length : maxLen;
-        try {
-            TilePackIdbHeap().set(source.subarray(0, n), dstPtr);
-        } catch (e) {
-            return 0;
-        }
-        return n;
+    UnityAssetIdbCopy: function (token, dstPtr, length) {
+        var bytes = TilePackIdbState.transfers[token];
+        delete TilePackIdbState.transfers[token];
+        if (!bytes || bytes.byteLength !== length) return 0;
+        TilePackIdbHeap().set(bytes, dstPtr);
+        return length;
     },
 
     UnityAssetIdbDelete: function (keyPtr, goPtr, methodPtr) {
@@ -425,122 +433,27 @@ var TilePackIndexedDB = {
         });
     },
 
-    UnityAssetIdbLoadAll: function (goPtr, methodPtr) {
-        var go = UTF8ToString(goPtr);
-        var method = UTF8ToString(methodPtr);
+    UnityAssetIdbListKeys: function (prefixPtr, afterPtr, pageSize, goPtr, methodPtr) {
+        var prefix = UTF8ToString(prefixPtr), after = UTF8ToString(afterPtr);
+        var go = UTF8ToString(goPtr), method = UTF8ToString(methodPtr);
         TilePackIdbOpen(function (db) {
-            if (!db) {
-                TilePackIdbSend(go, method, 'empty');
-                return;
-            }
-            var tx = db.transaction(TilePackIdbState.storeName, 'readonly');
-            var store = tx.objectStore(TilePackIdbState.storeName);
-            var emitPacked = function (pending) {
-                var entries = [];
-                var index = 0;
-                var next = function () {
-                    if (index >= pending.length) {
-                        var packed = TilePackIdbPackEntries(entries);
-                        TilePackIdbState.assetBytes = packed;
-                        if (!packed || packed.byteLength <= 6) {
-                            TilePackIdbSend(go, method, 'empty');
-                            return;
-                        }
-                        TilePackIdbSend(go, method, 'ok|' + packed.byteLength);
-                        return;
-                    }
-                    var item = pending[index++];
-                    TilePackIdbToBuffer(item.value, function (buffer) {
-                        if (buffer) {
-                            entries.push({ key: item.key, buffer: buffer });
-                        }
-                        next();
-                    });
-                };
-                next();
+            if (!db) { TilePackIdbSend(go, method, 'error|IndexedDB 不可用'); return; }
+            var keys = [], tx, req;
+            try {
+                tx = db.transaction(TilePackIdbState.storeName, 'readonly');
+                var range = after ? IDBKeyRange.lowerBound(after, true) : prefix ? IDBKeyRange.lowerBound(prefix) : undefined;
+                req = tx.objectStore(TilePackIdbState.storeName).openKeyCursor(range);
+            } catch (e) { TilePackIdbSend(go, method, 'error|' + e.message); return; }
+            req.onsuccess = function () {
+                var cursor = req.result;
+                if (!cursor) return;
+                if (prefix && (typeof cursor.key !== 'string' || !cursor.key.startsWith(prefix))) return;
+                if (typeof cursor.key === 'string' && cursor.key !== 'standardZip' && !cursor.key.startsWith('tilepack/')) keys.push(cursor.key);
+                if (keys.length < pageSize) cursor.continue();
             };
-            if (typeof store.getAllKeys === 'function' && typeof store.getAll === 'function') {
-                var keysReq = store.getAllKeys();
-                var valsReq = store.getAll();
-                var keys = null;
-                var vals = null;
-                var finish = function () {
-                    if (!keys || !vals) {
-                        return;
-                    }
-                    var pending = [];
-                    for (var i = 0; i < keys.length; i++) {
-                        var key = String(keys[i]);
-                        if (key === TilePackIdbState.zipKey || key.indexOf('tilepack/') === 0) {
-                            continue;
-                        }
-                        pending.push({ key: key, value: vals[i] });
-                    }
-                    emitPacked(pending);
-                };
-                keysReq.onsuccess = function () {
-                    keys = keysReq.result || [];
-                    finish();
-                };
-                valsReq.onsuccess = function () {
-                    vals = valsReq.result || [];
-                    finish();
-                };
-                keysReq.onerror = function () {
-                    TilePackIdbSend(go, method, 'error|IndexedDB 列举失败');
-                };
-                valsReq.onerror = function () {
-                    TilePackIdbSend(go, method, 'error|IndexedDB 读取失败');
-                };
-                return;
-            }
-            var pending = [];
-            var cursorReq = store.openCursor();
-            cursorReq.onsuccess = function (event) {
-                var cursor = event.target.result;
-                if (cursor) {
-                    var key = String(cursor.key);
-                    if (key !== TilePackIdbState.zipKey && key.indexOf('tilepack/') !== 0) {
-                        pending.push({ key: key, value: cursor.value });
-                    }
-                    cursor.continue();
-                    return;
-                }
-                emitPacked(pending);
-            };
-            cursorReq.onerror = function () {
-                TilePackIdbSend(go, method, 'error|IndexedDB 列举失败');
-            };
+            tx.oncomplete = function () { UnityAssetIdbSendBytes(go, method, '', new TextEncoder().encode(JSON.stringify(keys))); };
+            tx.onabort = function () { TilePackIdbSend(go, method, 'error|IndexedDB 列举失败'); };
         });
-    },
-
-    $TilePackIdbPackEntries: function (entries) {
-        var encoder = new TextEncoder();
-        var total = 6;
-        var encodedKeys = [];
-        for (var i = 0; i < entries.length; i++) {
-            var keyBytes = encoder.encode(entries[i].key);
-            encodedKeys.push(keyBytes);
-            total += 2 + keyBytes.length + 4 + entries[i].buffer.byteLength;
-        }
-        var out = new Uint8Array(total);
-        var view = new DataView(out.buffer);
-        out[0] = 79; out[1] = 77; out[2] = 65; out[3] = 66;
-        view.setUint16(4, entries.length, true);
-        var offset = 6;
-        for (var j = 0; j < entries.length; j++) {
-            var kb = encodedKeys[j];
-            view.setUint16(offset, kb.length, true);
-            offset += 2;
-            out.set(kb, offset);
-            offset += kb.length;
-            var data = new Uint8Array(entries[j].buffer);
-            view.setUint32(offset, data.length, true);
-            offset += 4;
-            out.set(data, offset);
-            offset += data.length;
-        }
-        return out.buffer;
     },
 
     UnityAssetIdbBindDrop: function (keyPtr, goPtr, methodPtr) {
@@ -574,30 +487,7 @@ var TilePackIndexedDB = {
             if (!key || !go || !method) {
                 return;
             }
-            var reader = new FileReader();
-            reader.onload = function () {
-                var stored = TilePackIdbCloneBuffer(reader.result);
-                TilePackIdbState.assetBytes = stored;
-                if (key === '@read-only') {
-                    TilePackIdbSend(go, method, 'ok|' + stored.byteLength + '|' + file.name);
-                    return;
-                }
-                TilePackIdbOpen(function (db) {
-                    if (!db) {
-                        SendMessage(go, method, 'ok|' + stored.byteLength + '|' + key);
-                        return;
-                    }
-                    var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-                    tx.objectStore(TilePackIdbState.storeName).put(stored, key);
-                    tx.oncomplete = function () {
-                        SendMessage(go, method, 'ok|' + stored.byteLength + '|' + key);
-                    };
-                    tx.onerror = function () {
-                        SendMessage(go, method, 'error|IndexedDB 写入失败');
-                    };
-                });
-            };
-            reader.readAsArrayBuffer(file);
+            UnityAssetIdbReceiveFile(file, key, go, method);
         }, false);
     },
 
@@ -619,5 +509,7 @@ autoAddDeps(TilePackIndexedDB, '$TilePackIdbToBuffer');
 autoAddDeps(TilePackIndexedDB, '$TilePackIdbHeap');
 autoAddDeps(TilePackIndexedDB, '$TilePackIdbIsTouch');
 autoAddDeps(TilePackIndexedDB, '$TilePackIdbPickFile');
-autoAddDeps(TilePackIndexedDB, '$TilePackIdbPackEntries');
+autoAddDeps(TilePackIndexedDB, '$UnityAssetIdbSendBytes');
+autoAddDeps(TilePackIndexedDB, '$UnityAssetIdbEnqueue');
+autoAddDeps(TilePackIndexedDB, '$UnityAssetIdbReceiveFile');
 mergeInto(LibraryManager.library, TilePackIndexedDB);

@@ -122,6 +122,7 @@ public partial class CreatePanel
         var current=EventPresetConfig(request.Configuration,_ruleState);
         if(current==null){NotificationManager.Instance?.ShowTip("event",false,"当前管理服务暂不支持此规则的对局预设");return true;}
         if(_ruleState==eventPresetRule&&eventPresetBaseline!=null)current=MergePresetDelta(eventPresetSource,current,eventPresetBaseline);
+        if (request.Configuration is NewChinese_Create_RoomConfig newChinese) current["hepai_limit"] = newChinese.HepaiLimit;
         string rule=_ruleState;var submit=eventPresetSubmit;CloseEventPreset();submit?.Invoke(rule,current);return true;
     }
     public void CloseEventPreset()

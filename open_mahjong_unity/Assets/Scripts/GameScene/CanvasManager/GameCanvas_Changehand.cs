@@ -83,6 +83,10 @@ public partial class GameCanvas{
     // 手牌处理
     public IEnumerator ChangeHandCardsCoroutine(string ChangeType,int tileId,int[] TilesList,int? cut_tile_index){
 
+        if (ChangeType == "InitHandCardsFromRecord") {
+            ReplayFrameLoader.Finish(BuildRecordSelfHand(TilesList));
+            yield break;
+        }
         Debug.Log($"手牌处理: {ChangeType}");
 
         // 续打广播并不代表本家手牌发生了变化。此检查必须在队列执行时进行，
@@ -139,55 +143,6 @@ public partial class GameCanvas{
                 // 独立摸牌区在首次建手牌时就确定，不先整手排序再删牌/重建。
                 if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
                 isArranged = true;
-                yield break;
-            }
-        }
-
-        else if (ChangeType == "InitHandCardsFromRecord"){
-            if (TilesList == null){
-                Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: TilesList 为空，跳过初始化。");
-                yield break;
-            }
-            // 对齐 LayRecordShowHandTiles：d/gd/bd 后末张为摸入张（含普通摸/杠摸/补摸），不可整手排序后误钉
-            GameRecordManager.RecordPlayer selfPlayer = null;
-            bool pinDraw = GameRecordManager.Instance != null
-                && GameRecordManager.Instance.recordPlayer_to_info.TryGetValue("self", out selfPlayer)
-                && selfPlayer.showHandDrawSlotActive
-                && TilesList.Length > 0;
-            int drawTileId = pinDraw ? TilesList[TilesList.Length - 1] : 0;
-            int mainCount = pinDraw ? TilesList.Length - 1 : TilesList.Length;
-            int[] mainTiles = new int[mainCount];
-            Array.Copy(TilesList, 0, mainTiles, 0, mainCount);
-            TileIdOrder.SortHand(mainTiles);
-
-            for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
-                Transform child = handCardsContainer.GetChild(i);
-                Destroyer.Instance.AddToDestroyer(child);
-            }
-            for (int i = 0; i < mainTiles.Length; i++){
-                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
-                TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(mainTiles[i], false);
-                tileCard.handSortIndex = i;
-            }
-            if (pinDraw){
-                GameObject drawObj = Instantiate(tileCardPrefab, handCardsContainer);
-                TileCard drawCard = drawObj.GetComponent<TileCard>();
-                drawCard.SetTile(drawTileId, true);
-                drawCard.isDrawSlotPinned = selfPlayer.HasSeparateDrawSlot;
-                drawCard.handSortIndex = mainTiles.Length;
-            }
-            // Seeking restores a snapshot immediately, including a draw tile already merged into the hand.
-            // Keep its currentGetTile marker for discard semantics without replaying the merge animation.
-            var main = GetMainHandCardsOrdered();
-            var draw = GetPinnedDrawTile();
-            if (selfPlayer?.DrawSlotIsMerged == true && !WashizuTile.IsRealtimeHandOrder)
-                TileIdOrder.SortHand(main, card => card.tileId);
-            ApplyHandLayoutPositions(BuildHandLayoutPositions(main, draw), main, draw);
-            // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
-            GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
-            if (WashizuTile.IsRealtimeHandOrder) {
-                TryApplyWashizuSelfLayout(GameRecordManager.Instance.GetWashizuRecordLayout("self", true));
                 yield break;
             }
         }
@@ -353,20 +308,103 @@ public partial class GameCanvas{
         }
 
         // 如果切牌是摸切或者补花摸牌张 则不需要排序
-        else if (ChangeType == "RemoveBuhuaGetCard" || ChangeType == "InitHandCardsFromRecord"){
+        else if (ChangeType == "RemoveBuhuaGetCard"){
             isArranged = true;
             yield break;
         }
 
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序
         else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveHandCardRecord" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" ||
-         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "InitHandCardsFromRecord" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard" || ChangeType == "RemoveGetCards"){
+         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard" || ChangeType == "RemoveGetCards"){
             isArranged = true;
             // ReSetHandCards：换人收拢只取消独立摸牌区外观，保留 currentGetTile（开局补花后仍可能打出该摸张）
             // 其余路径：摸牌区已消费或即将由后续 GetCard 接管，清除摸切语义标记
             bool clearMoqieMark = ChangeType != "ReSetHandCards";
             yield return StartCoroutine(RearrangeHandCardsWithAnimation(clearMoqieMark));
         }
+    }
+
+    internal bool TryGetHandScreenBounds(int expectedCount, out Rect bounds) {
+        var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        bounds = default;
+        if (handCardsContainer == null || !handCardsContainer.gameObject.activeInHierarchy) return false;
+        var layouts = handCardsContainer.GetComponentsInParent<CanvasReferenceLayout>();
+        for (int i = layouts.Length - 1; i >= 0; i--) layouts[i].Apply();
+        Canvas.ForceUpdateCanvases();
+        var corners = new Vector3[4];
+        var canvas = handCardsContainer.GetComponentInParent<Canvas>()?.rootCanvas;
+        if (canvas == null) return false;
+        Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        int count = 0;
+        foreach (Transform child in handCardsContainer) {
+            var tile = child.GetComponent<TileCard>();
+            if (tile == null || tile.isDrawSlotPinned || !tile.isActiveAndEnabled) continue;
+            ((RectTransform)child).GetWorldCorners(corners);
+            foreach (Vector3 corner in corners) {
+                var point = RectTransformUtility.WorldToScreenPoint(uiCamera, corner);
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+            count++;
+        }
+        if (count != expectedCount || min.x >= max.x) return false;
+        bounds = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        return true;
+    }
+
+    internal IEnumerable BuildRecordSelfHand(int[] tiles) {
+        Debug.Log("手牌处理: InitHandCardsFromRecord");
+        handCardDragController?.AbortForHandChange("手牌变更:InitHandCardsFromRecord");
+        StopDrawReflowAnimation(finish: true);
+        if (tiles == null){
+            Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: tiles 为空，跳过初始化。");
+            yield break;
+        }
+        // 对齐 LayRecordShowHandTiles：d/gd/bd 后末张为摸入张（含普通摸/杠摸/补摸），不可整手排序后误钉
+        GameRecordManager.RecordPlayer selfPlayer = null;
+        bool pinDraw = GameRecordManager.Instance != null
+            && GameRecordManager.Instance.recordPlayer_to_info.TryGetValue("self", out selfPlayer)
+            && selfPlayer.showHandDrawSlotActive
+            && tiles.Length > 0;
+        int drawTileId = pinDraw ? tiles[tiles.Length - 1] : 0;
+        int mainCount = pinDraw ? tiles.Length - 1 : tiles.Length;
+        int[] mainTiles = new int[mainCount];
+        Array.Copy(tiles, 0, mainTiles, 0, mainCount);
+        TileIdOrder.SortHand(mainTiles);
+
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+            Transform child = handCardsContainer.GetChild(i);
+            Destroyer.Instance.AddToDestroyer(child);
+        }
+        for (int i = 0; i < mainTiles.Length; i++){
+            GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+            TileCard tileCard = cardObj.GetComponent<TileCard>();
+            tileCard.SetTile(mainTiles[i], false);
+            tileCard.handSortIndex = i;
+            yield return null;
+        }
+        if (pinDraw){
+            GameObject drawObj = Instantiate(tileCardPrefab, handCardsContainer);
+            TileCard drawCard = drawObj.GetComponent<TileCard>();
+            drawCard.SetTile(drawTileId, true);
+            drawCard.isDrawSlotPinned = selfPlayer.HasSeparateDrawSlot;
+            drawCard.handSortIndex = mainTiles.Length;
+        }
+        // Seeking restores a snapshot immediately, including a draw tile already merged into the hand.
+        // Keep its currentGetTile marker for discard semantics without replaying the merge animation.
+        var main = GetMainHandCardsOrdered();
+        var draw = GetPinnedDrawTile();
+        if (selfPlayer?.DrawSlotIsMerged == true && !WashizuTile.IsRealtimeHandOrder)
+            TileIdOrder.SortHand(main, card => card.tileId);
+        ApplyHandLayoutPositions(BuildHandLayoutPositions(main, draw), main, draw);
+        // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
+        GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
+        if (WashizuTile.IsRealtimeHandOrder) {
+            TryApplyWashizuSelfLayout(GameRecordManager.Instance.GetWashizuRecordLayout("self", true));
+            yield break;
+        }
+        isArranged = true;
     }
 
     /// <summary>

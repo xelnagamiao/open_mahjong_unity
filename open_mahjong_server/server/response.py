@@ -63,6 +63,7 @@ class PlayerInfo(BaseModel):
     win_count: Optional[int] = None
     post_hu_lock: Optional[bool] = None  # 血流：和后仅允许摸切
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
+    sbr_received_tiles: Optional[List[int]] = None
 
 class GameInfo(BaseModel):
     wall_source: Optional[str] = None
@@ -160,6 +161,8 @@ class GameInfo(BaseModel):
     blood_battle_result: Optional[Dict[str, object]] = None
     blood_battle: Optional[bool] = None  # 是否开启血战到底（关=一家和牌即结束本盘）
     xueliu_rule_profile: Optional[Dict[str, object]] = None
+    sbr_exchange_direction: Optional[int] = None
+    exchange_receipt_seconds: Optional[float] = None
 
     # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
     @field_serializer('master_seed', when_used='unless-none')
@@ -805,6 +808,7 @@ class Response(BaseModel):
     friend_count: Optional[int] = None
     friend_max: Optional[int] = None
     leaderboard_list: Optional[List[LeaderboardEntry]] = None
+    leaderboard_self_position: Optional[int] = None
     sticker_info: Optional[Sticker_info] = None
     # 房间对局投票暂停/结束：投票状态同步（phase/vote_type/agree/refuse/total/countdown/votes/reason）
     unlimited_info: Optional[dict] = None

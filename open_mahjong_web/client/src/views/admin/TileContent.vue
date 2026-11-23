@@ -56,6 +56,7 @@
 
     <div class="pager">
       <el-pagination
+        v-if="total > 0"
         background
         layout="total, prev, pager, next"
         :total="total"
@@ -105,6 +106,7 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -112,9 +114,10 @@ import adminApi from '@/api/adminClient'
 const items = ref([])
 const loading = ref(false)
 const acting = ref(false)
-const statusFilter = ref('pending')
-const kindFilter = ref('')
-const page = ref(1)
+const { saved, remember } = useAdminListState()
+const statusFilter = ref(saved.status ?? 'pending')
+const kindFilter = ref(saved.kind ?? '')
+const page = ref(saved.page ?? 1)
 const pageSize = 20
 const total = ref(0)
 const currentRow = ref(null)
@@ -165,6 +168,7 @@ function onFilterChange() {
 }
 
 async function load() {
+  remember({ status: statusFilter.value, kind: kindFilter.value, page: page.value })
   loading.value = true
   try {
     const res = await adminApi.get('/tile-content', {

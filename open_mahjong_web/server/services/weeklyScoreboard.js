@@ -9,7 +9,7 @@ const {
 } = require('../utils/funStatsTime');
 const { pickPtLeaders } = require('../utils/funStatsLeaders');
 
-// game_records.created_at 是北京时间的 TIMESTAMP（不带时区），直接按 04:00 切日。
+// game_record_tables.created_at 是北京时间的 TIMESTAMP（不带时区），直接按 04:00 切日。
 const STAT_DATE_EXPR = "(gr.created_at - interval '4 hours')::date";
 const TOP_N = 10;
 const BOT_USER_ID_MAX = 10;
@@ -48,7 +48,7 @@ async function queryWeeklyPtChanges({ dateFrom, dateTo }, db = pool) {
             COUNT(gpr.pt_change)::int AS games,
             COUNT(*) FILTER (WHERE gpr.pt_change IS NULL)::int AS missing_pt_records
        FROM game_player_records gpr
-       INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+       INNER JOIN game_record_tables gr ON gr.game_id = gpr.game_id
        LEFT JOIN users u ON u.user_id = gpr.user_id
       WHERE gpr.room_type = 'match'
         AND gpr.rule = 'guobiao'

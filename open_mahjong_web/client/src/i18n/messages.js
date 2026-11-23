@@ -1588,7 +1588,7 @@ Object.assign(en, {
   '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端': 'No hints, no pointer hints, false wins enabled, tactical calls, chat disabled, PC only',
   '1级及以上，七段及以上不可进入': 'Level 1 or higher; 7 Duan and above cannot enter.',
   '四段及以上': '4 Duan or higher',
-  'Salasasa七段及以上或职业五段及以上并实名注册': 'Salasasa 7 Duan or higher, or professional 5 Duan or higher, with verified registration',
+  'Salasasa七段及以上': 'Salasasa 7 Duan or higher',
   '10级－3级': 'Level 10–Level 3',
 })
 
@@ -1627,7 +1627,7 @@ Object.assign(ja, {
   '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端': 'ヒントなし、ポインターヒントなし、錯和あり、戦術的な副露あり、チャット禁止、PC版のみ',
   '1级及以上，七段及以上不可进入': '1級以上。七段以上は参加不可。',
   '四段及以上': '四段以上',
-  'Salasasa七段及以上或职业五段及以上并实名注册': 'Salasasa七段以上、またはプロ五段以上で実名登録済み',
+  'Salasasa七段及以上': 'Salasasa七段以上',
   '10级－3级': '10級～3級',
   'Salasasa国标麻将对战平台-萨拉飒飒': 'Salasasa国標麻雀対戦プラットフォーム',
   '麻将规则书大全：国标、立直、青雀、虹雀² PDF - Salasasa': '麻雀ルールブック大全：国標・立直・青雀・虹雀² PDF - Salasasa',

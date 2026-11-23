@@ -24,7 +24,7 @@ public static class RoundPanelUiBaker
     public static void Bake(Scene scene)
     {
         var rounds = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<RoundPanel>(true)).Single();
-        foreach (string name in new[] { "SimpleRoundPanel", "RiichiRoundPanel" })
+        foreach (string name in new[] { "SimpleRoundPanel", "IndicatorRoundPanel" })
         {
             var panel = rounds.transform.Find(name);
             var header = panel.Find("Header").GetComponent<HorizontalLayoutGroup>();

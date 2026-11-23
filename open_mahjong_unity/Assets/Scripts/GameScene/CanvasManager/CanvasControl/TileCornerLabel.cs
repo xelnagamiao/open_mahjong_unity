@@ -10,6 +10,16 @@ public sealed class TileCornerLabel : MonoBehaviour {
     public static readonly Color RedInk = new Color32(177, 25, 22, 255);
     private TMP_Text label;
     private bool? preview;
+    private bool useLeftCorner;
+
+    /// <summary>指示牌的右上角用于角色，辅助牌名跟随当前槽位切换至左上角。</summary>
+    public static void UseLeftCorner(Transform card, bool value) {
+        var marker = card.GetComponent<TileCornerLabel>();
+        if (!marker && value) marker = card.gameObject.AddComponent<TileCornerLabel>();
+        if (!marker) return;
+        marker.useLeftCorner = value;
+        if (marker.label) TileFaceOverlay.SetRuleCorner(marker.label.rectTransform, value);
+    }
 
     public static string Caption(int physicalTile) {
         int tile = TileIdOrder.Normalize(physicalTile);
@@ -61,7 +71,7 @@ public sealed class TileCornerLabel : MonoBehaviour {
         var marker = card.GetComponent<TileCornerLabel>();
         bool visible = previewEnabled ?? marker?.preview ?? Enabled;
         string text = visible ? Caption(tile) : null;
-        TileFaceOverlay.RefreshRuleCorners(card, !string.IsNullOrEmpty(text));
+        TileFaceOverlay.RefreshRuleCorners(card, !string.IsNullOrEmpty(text) && marker?.useLeftCorner != true);
         if (marker == null && !previewEnabled.HasValue && string.IsNullOrEmpty(text)) return;
         if (marker == null) marker = card.gameObject.AddComponent<TileCornerLabel>();
         if (previewEnabled.HasValue) marker.preview = previewEnabled;
@@ -78,6 +88,7 @@ public sealed class TileCornerLabel : MonoBehaviour {
             var rect = label.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
             rect.anchoredPosition = -TileFaceOverlay.CornerInset; rect.sizeDelta = new Vector2(32, 32);
+            TileFaceOverlay.SetRuleCorner(rect, marker.useLeftCorner);
         }
         marker.label.text = text; marker.label.color = Ink(tile); marker.label.gameObject.SetActive(true);
     }

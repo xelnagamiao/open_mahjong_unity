@@ -11,6 +11,8 @@ export const isPairedRoom = form => form.room_rule === 'sichuan' && isSichuanDup
 export const isTrainingWall = form => isPairedRoom(form) && form.wall_source === 'training'
 
 export function loadSichuanWallSource(form, config = {}) {
+  form.reuse_training_room = isPairedRoom(form) && config.wall_source === 'training' && config.reuse_training_room === true
+  if (form.reuse_training_room) form.random_seed = ''
   form.wall_source = ''
   if (!isPairedRoom(form)) return
   // Older paired rooms did not retain their wall type in their creation settings.
@@ -22,6 +24,7 @@ export function loadSichuanWallSource(form, config = {}) {
 
 export function selectSichuanWallSource(form, source) {
   if (!SICHUAN_WALL_SOURCES.some(item => item.value === source)) throw new Error('请选择有效的牌山来源')
+  form.reuse_training_room = false
   form.wall_source = source
   form.allow_spectator = source === 'training'
   form.scene_reproduction = false

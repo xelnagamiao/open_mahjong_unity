@@ -14,7 +14,7 @@ public partial class GameRecordManager {
         player.bloodWinTile = tile;
         player.bloodWinZimo = action == "hu_self";
         player.bloodWinMulti = multi;
-        player.bloodWinSource = source;
+        player.bloodWinSource = action == "hu_self" ? (int?)null : ResolveRecordRonSourceIndex(source);
         if (player.tileList.Count > 0 && player.tileList[player.tileList.Count - 1] == tile) {
             player.tileList.RemoveAt(player.tileList.Count - 1);
         }
@@ -44,6 +44,16 @@ public partial class GameRecordManager {
         if (removeRiver && !qianggang && action != "hu_self" && (recycle || !multi)) {
             SyncRecordRonDiscardRemoved(sourcePosition, tile);
         }
+    }
+
+    public bool TryRefreshGuangdongWinDisplay() {
+        if (!TryGetActiveRecordRuleContext(out _, out string subRule) || subRule != GuangdongMilRules.Doubles) return false;
+        foreach (var player in recordPlayer_to_info.Values) {
+            if (!player.isHu) continue;
+            GotoAction(currentNode);
+            return true;
+        }
+        return false;
     }
 
     private void RestoreBloodBattleReplayMarker(string position, RecordPlayer player) {

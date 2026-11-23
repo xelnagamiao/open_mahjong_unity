@@ -2,13 +2,43 @@
 from copy import deepcopy
 import asyncio
 import time
+import logging
+from types import SimpleNamespace
+
+from psycopg2 import InterfaceError, OperationalError
 
 from .SichuanGameState import SichuanGameState
 from .XueliuDoublesGameState import XueliuDoublesGameState
+from ...database.pool_retry import is_pool_exhausted
 from ...game_calculation.sichuan.duplicate_rules import team_by_seat, flatten_board
 
 
 COMPARISON_SECONDS = 8
+logger = logging.getLogger(__name__)
+_pending_writes = {}
+
+
+def wall_publication_pending(wall_id):
+    return wall_id in _pending_writes.values()
+
+
+def _can_retry_publication(error):
+    return isinstance(error, (InterfaceError, OperationalError)) or is_pool_exhausted(error)
+
+
+async def retry_publication(store, match, tables):
+    # A transient storage outage must not keep the lobby or either GameState alive.
+    delay = 2
+    while True:
+        await asyncio.sleep(delay)
+        try:
+            await asyncio.to_thread(store, match, tables)
+            return
+        except Exception as error:
+            if not _can_retry_publication(error):
+                logger.exception("复式终局牌谱重试失败 match_id=%s", match["id"])
+                return
+            delay = min(60, delay * 2)
 
 
 class DuplicateMixin:
@@ -75,19 +105,9 @@ class DuplicateMixin:
         self.team_round_history[-1]["pair_adjustments"] = list(self.duplicate_adjustments)
         from .boardcast import broadcast_duplicate_status
         await broadcast_duplicate_status(self)
-        from ..public.game_record_manager import apply_game_title_end_fields
-        checkpoint_record = deepcopy(self.game_record)
-        apply_game_title_end_fields(self, checkpoint_record["game_title"])
         await self.duplicate_match.submit(self.duplicate_table, self.current_round,
                                          [changes[0], changes[1]], self.duplicate_adjustments,
-                                         self.game_record["game_round"][f"round_index_{self.round_index}"],
-                                         {"game_record": checkpoint_record, "scores": [p.score for p in self.player_list],
-                                          "players": [{key: getattr(p, key) for key in (
-                                              "user_id", "username", "score", "team_id", "original_player_index",
-                                              "title_used", "profile_used", "character_used", "voice_used")} for p in self.player_list],
-                                          "score_history": [list(p.score_history) for p in self.player_list],
-                                          "round_number_history": [list(p.round_number_history) for p in self.player_list],
-                                          "team_round_history": self.team_round_history})
+                                         self.game_record["game_round"][f"round_index_{self.round_index}"])
         self.game_status = "round_settled"
         self.duplicate_waiting_for = None
         await broadcast_duplicate_status(self)
@@ -117,7 +137,7 @@ class DuplicateMixin:
         """Local ready skips only the timeline; every table gets its comparison."""
         from .boardcast import broadcast_duplicate_status
         if self.duplicate_match.data["status"] not in ("running", "completed"):
-            raise RuntimeError("复式对局已中断，等待管理员处理")
+            raise RuntimeError("复式对局已中断，本场已结束")
         self.game_status = "duplicate_wait"
         self.duplicate_waiting_for = "comparison"
         self._duplicate_comparison_deadline = None
@@ -132,29 +152,41 @@ class DuplicateMixin:
             self._duplicate_comparison_deadline = None
             self._duplicate_comparison_initial_ms = None
         if self.duplicate_match.data["status"] not in ("running", "completed"):
-            raise RuntimeError("复式对局已中断，等待管理员处理")
+            raise RuntimeError("复式对局已中断，本场已结束")
         self.game_status = "round_settled"
         self.duplicate_waiting_for = None
 
-    def _restore_match_checkpoint(self):
-        data = self.duplicate_match.data
-        if not data["completed_boards"]:
-            return
-        checkpoint = data.get("checkpoints", {}).get(self.duplicate_table)
-        if not checkpoint:
-            raise ValueError("缺少已完成副的恢复快照")
-        self.game_record = deepcopy(checkpoint["game_record"])
-        self.team_round_history = deepcopy(checkpoint["team_round_history"])
-        for index, (player, score) in enumerate(zip(self.player_list, checkpoint["scores"])):
-            player.score = score
-            player.score_history = list(checkpoint.get("score_history", [[], [], [], []])[index])
-            player.round_number_history = list(checkpoint.get("round_number_history", [[], [], [], []])[index])
-        self.current_round = self.round_index = data["completed_boards"] + 1
-        self.dealer_index = (self.current_round - 1) % 4
+    async def _store_final_record(self, match_type):
+        from ..public.match_result import attach_match_result
+        attach_match_result(self.game_record, self.player_list)
+        pair = self.duplicate_match
+        # Only final records and the settlement fields survive if storage needs a retry.
+        players = [SimpleNamespace(**{key: getattr(player, key, None) for key in (
+            "user_id", "username", "score", "original_player_index", "title_used", "character_used",
+            "profile_used", "voice_used", "avatar_frame_used", "pt")},
+            record_counter=SimpleNamespace(rank_result=player.record_counter.rank_result))
+            for player in self.player_list]
+        pair.record_inputs[self.duplicate_table] = (self.game_record, players, self.room_type, match_type)
+        if len(pair.record_inputs) == 2:
+            match = {key: pair.data[key] for key in ("id", "profile", "boards", "board_instances", "sync_mode",
+                     "wall_id", "key", "table_record_ids", "wall_source") if key in pair.data}
+            store = self.db_manager.store_sichuan_pair_records
+            try:
+                pair.data["record_ids"] = await asyncio.to_thread(store, match, pair.record_inputs) or {}
+            except Exception as error:
+                if not _can_retry_publication(error):
+                    raise
+                logger.exception("复式牌谱暂未写入，后台重试 match_id=%s", match["id"])
+                retry = asyncio.create_task(retry_publication(store, match, deepcopy(pair.record_inputs)))
+                _pending_writes[retry] = match.get("wall_id")
+                retry.add_done_callback(_pending_writes.pop)
+            finally:
+                pair.record_commit_event.set()
+        await pair.record_commit_event.wait()
+        return (pair.data.get("record_ids") or {}).get(self.duplicate_table)
 
     def _after_record_saved(self, game_id):
-        # Keep a durable final record even if the generic record table is
-        # temporarily unavailable. Unlock still requires both linked records.
+        # The live spectator and the participant archive both need the two final tables.
         candidate = deepcopy(self.duplicate_match.data)
         candidate.setdefault("final_records", {})[self.duplicate_table] = deepcopy(self.game_record)
         candidate.setdefault("record_ids", {})[self.duplicate_table] = game_id
@@ -192,11 +224,9 @@ class DuplicateMixin:
 
     def _finish_team_match(self):
         data = self.duplicate_match.data
-        # The last board barrier is durable before either table announces
-        # completion. Reuse its end timestamp so crash recovery is identical.
-        self.game_record = deepcopy(data["checkpoints"][self.duplicate_table]["game_record"])
         scores = data["scores"]
         public_result = self.duplicate_match.public_info()
+        public_result["name"] = data.get("lobby", {}).get("name", "")
         winner = None if scores[0] == scores[1] else int(scores[1] > scores[0])
         self.team_result = {"scores": dict(enumerate(scores)), "winner_team_id": winner,
                             "small_scores": dict(enumerate(public_result["small_scores"])),
@@ -212,7 +242,6 @@ class DuplicateMixin:
         self.game_record["game_title"]["duplicate_round_tiles"] = [flatten_board(b) for b in data["boards"]]
         for player in self.player_list:
             player.record_counter.rank_result = 1 if winner is None or player.team_id == winner else 2
-        # Rebuild the same final UI payload from durable checkpoints after a restart.
         from .board_settlement import match_summary
         settlement = match_summary(self)
         if settlement is not None:

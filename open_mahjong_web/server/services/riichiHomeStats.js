@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const { subRuleSql, statsKeySql } = require('./statisticsCatalog');
 const { RIICHI_STATS_VERSION, BASE_KEYS, DETAIL_KEYS } = require('./riichiStats');
 
@@ -15,7 +16,7 @@ function querySql(withSummaries) {
              (COALESCE(p.sub_rule,'')='riichi/sanma'
                OR COALESCE(p.match_type,'') ~ '^[0-9]+/3(_rank)?$'
                OR COALESCE(p.match_type,'') LIKE '%_sanma%') AS sanma
-      FROM game_player_records p JOIN game_records g USING(game_id)
+      FROM game_player_records p JOIN ${tableTitles} g USING(game_id)
       ${withSummaries ? `LEFT JOIN riichi_player_game_stats s ON s.game_id=p.game_id AND s.user_id=p.user_id AND s.version=${RIICHI_STATS_VERSION}` : ''}
       WHERE p.rule='riichi' AND p.room_type IN ('match','custom','events')
     ), samples AS (

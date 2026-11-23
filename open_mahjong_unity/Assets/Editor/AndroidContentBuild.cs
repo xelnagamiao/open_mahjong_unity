@@ -156,6 +156,8 @@ public static class AndroidContentBuild {
     static void Run(bool apk) {
         try {
             Configure();
+            // Both content-only updates and full APKs pack the game before building the shell.
+            HandTileAtlasBuild.ValidateSharedPacks();
             string baseRoot = Path.Combine(Work, Validation ? "validation-baselines" : "baselines", ConfigManager.base_version.ToString());
             Directory.CreateDirectory(baseRoot);
             string baselineFile = Path.Combine(baseRoot, "baseline.json");
@@ -258,7 +260,7 @@ public static class AndroidContentBuild {
                     BuildingBootstrapPlayer = true;
                     try {
                         using (new BootstrapRenderPipelineScope())
-                        using (new ShellResourcesScope()) report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { BootScene }, target = BuildTarget.Android,
+                        using (new BundledGameBuild.ShellResourcesScope()) report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { BootScene }, target = BuildTarget.Android,
                             assetBundleManifestPath = Path.Combine(BundleCache, "bundles.manifest"),
                             locationPathName = Path.Combine(Output, "open_mahjong_unity.apk"), options = BuildOptions.None });
                     } finally { BuildingBootstrapPlayer = false; }
@@ -411,92 +413,6 @@ public static class AndroidContentBuild {
         Directory.CreateDirectory(Path.GetDirectoryName(archive));
         Directory.Move(assets, archive);
     }
-    // Resources are already present in the embedded complete content ZIP. Unity
-    // otherwise includes them a second time even when only BootScene is built.
-    // Move only resource assets in the isolated copy, retaining GUIDs so that
-    // explicitly referenced framework assets still resolve. Scripts, assemblies
-    // and protected README files stay at their original paths throughout.
-    sealed class ShellResourcesScope : IDisposable {
-        readonly List<KeyValuePair<string, string>> moved = new List<KeyValuePair<string, string>>();
-        readonly List<string> includedAtlases = new List<string>();
-        const string Packed = "Assets/OmShellPackedResources";
-        const string TemporarySettings = "Assets/Resources/TMP Settings.asset";
-        bool temporary, packedCreated;
-        public ShellResourcesScope() {
-            if (!Path.GetFullPath(".").Replace('\\', '/').Contains("/.om_workspace/"))
-                throw new BuildFailedException("Resource isolation requires an independent build copy.");
-            try {
-                if (AssetDatabase.IsValidFolder(Packed)) throw new BuildFailedException("An interrupted shell build must be resynchronized before retrying.");
-                // Atlas Include In Build is independent of Resources. The
-                // content bundles already contain these packed textures.
-                foreach (string path in AssetDatabase.GetAllAssetPaths().Where(p => p.StartsWith("Assets/", StringComparison.Ordinal)
-                    && !p.Contains("/Editor/") && (p.EndsWith(".spriteatlas") || p.EndsWith(".spriteatlasv2")))) {
-                    var importer = AssetImporter.GetAtPath(path) as UnityEditor.U2D.SpriteAtlasImporter;
-                    var atlas = importer == null ? AssetDatabase.LoadAssetAtPath<UnityEngine.U2D.SpriteAtlas>(path) : null;
-                    bool included = importer != null ? importer.includeInBuild : atlas != null && UnityEditor.U2D.SpriteAtlasExtensions.IsIncludeInBuild(atlas);
-                    if (included) { includedAtlases.Add(path); SetAtlasIncluded(path, false); }
-                }
-                var assets = AssetDatabase.GetAllAssetPaths()
-                    .Where(p => p.StartsWith("Assets/", StringComparison.Ordinal) && p.Contains("/Resources/") && !p.Contains("/Editor/")
-                        && !AssetDatabase.IsValidFolder(p) && !Path.GetFileName(p).StartsWith("README", StringComparison.OrdinalIgnoreCase)
-                        && !new[] { ".cs", ".dll", ".asmdef", ".asmref" }.Contains(Path.GetExtension(p).ToLowerInvariant())).ToArray();
-                AssetDatabase.CreateFolder("Assets", "OmShellPackedResources"); packedCreated = true;
-                // Register all destination folders before batching asset moves.
-                // CreateFolder inside StartAssetEditing can leave child folders
-                // unavailable to MoveAsset until their imports have completed.
-                foreach (string asset in assets) {
-                    string destination = Packed + asset.Substring("Assets".Length).Replace("/Resources/", "/PackedResources/");
-                    EnsureFolder(Path.GetDirectoryName(destination).Replace('\\', '/'));
-                }
-                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-                AssetDatabase.StartAssetEditing();
-                try {
-                    foreach (string asset in assets) {
-                        string destination = Packed + asset.Substring("Assets".Length).Replace("/Resources/", "/PackedResources/");
-                        Move(asset, destination);
-                        moved.Add(new KeyValuePair<string, string>(asset, destination));
-                    }
-                // TMP's AOT package can request its settings before game content
-                // has loaded. Do not pull the full game's default fonts into the
-                // fixed framework just to satisfy this early lookup.
-                    if (!AssetDatabase.IsValidFolder("Assets/Resources")) AssetDatabase.CreateFolder("Assets", "Resources");
-                    AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<TMPro.TMP_Settings>(), TemporarySettings); temporary = true;
-                } finally { AssetDatabase.StopAssetEditing(); }
-                AssetDatabase.SaveAssets();
-            } catch { Dispose(); throw; }
-        }
-        static void Move(string from, string to) {
-            string error = AssetDatabase.MoveAsset(from, to);
-            if (!string.IsNullOrEmpty(error)) throw new BuildFailedException("Cannot isolate shell Resources: " + error);
-        }
-        static void EnsureFolder(string folder) {
-            if (AssetDatabase.IsValidFolder(folder)) return;
-            string parent = Path.GetDirectoryName(folder).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, Path.GetFileName(folder));
-        }
-        static void SetAtlasIncluded(string path, bool included) {
-            if (AssetImporter.GetAtPath(path) is UnityEditor.U2D.SpriteAtlasImporter importer) {
-                importer.includeInBuild = included; importer.SaveAndReimport();
-            } else {
-                var atlas = AssetDatabase.LoadAssetAtPath<UnityEngine.U2D.SpriteAtlas>(path);
-                if (atlas == null) throw new BuildFailedException("Cannot restore sprite atlas build flag: " + path);
-                UnityEditor.U2D.SpriteAtlasExtensions.SetIncludeInBuild(atlas, included);
-                EditorUtility.SetDirty(atlas);
-            }
-        }
-        public void Dispose() {
-            AssetDatabase.StartAssetEditing();
-            try {
-                if (temporary) { AssetDatabase.DeleteAsset(TemporarySettings); temporary = false; }
-                for (int i = moved.Count - 1; i >= 0; --i) { Move(moved[i].Value, moved[i].Key); moved.RemoveAt(i); }
-                if (packedCreated) { AssetDatabase.DeleteAsset(Packed); packedCreated = false; }
-            } finally { AssetDatabase.StopAssetEditing(); }
-            foreach (string path in includedAtlases) SetAtlasIncluded(path, true);
-            includedAtlases.Clear();
-            AssetDatabase.SaveAssets();
-        }
-    }
     static ContentIndex Pack(string staging, string metadataSource, string[] metadata, string baseline) {
         var builds = new List<AssetBundleBuild>();
         var resources = new List<ResourceEntry>();
@@ -614,9 +530,11 @@ public static class AndroidContentBuild {
     }
     static void CheckAotReferences(string staging, string baselineRoot, bool create) {
         var signatures = new SortedSet<string>(StringComparer.Ordinal);
+        string metadata = Path.GetFullPath(Path.Combine(staging, "metadata"));
         var hotNames = Directory.GetFiles(Path.Combine(staging, "code"), "*.dll").Select(Path.GetFileNameWithoutExtension).ToHashSet();
         using (var resolver = new Mono.Cecil.DefaultAssemblyResolver()) {
-        resolver.AddSearchDirectory(Path.Combine(staging, "metadata"));
+        foreach (string directory in resolver.GetSearchDirectories()) resolver.RemoveSearchDirectory(directory);
+        resolver.AddSearchDirectory(metadata);
         resolver.AddSearchDirectory(Path.Combine(staging, "code"));
         foreach (var dll in Directory.GetFiles(Path.Combine(staging, "code"), "*.dll")) {
             using (var module = Mono.Cecil.AssemblyDefinition.ReadAssembly(dll, new Mono.Cecil.ReaderParameters { AssemblyResolver = resolver })) {
@@ -631,7 +549,15 @@ public static class AndroidContentBuild {
                         resolved = member is Mono.Cecil.MethodReference method ? (Mono.Cecil.MemberReference)method.Resolve()
                             : member is Mono.Cecil.FieldReference field ? field.Resolve() : null;
                     } catch (Exception e) { throw new BuildFailedException("AOT dependency is unavailable in the archived framework: " + member.FullName + "\n" + e.Message); }
-                    if (resolved == null) throw new BuildFailedException("AOT dependency was stripped from the framework. Increment base_version and rebuild APK: " + member.FullName);
+                    // Cecil searches base types even for constructors. The CLR
+                    // requires the constructor on the exact type being constructed.
+                    bool inheritedConstructor = member is Mono.Cecil.MethodReference constructor
+                        && (constructor.Name == ".ctor" || constructor.Name == ".cctor")
+                        && resolved?.DeclaringType.FullName != constructor.DeclaringType.GetElementType().FullName;
+                    string definingFile = resolved?.Module.FileName;
+                    if (inheritedConstructor || string.IsNullOrEmpty(definingFile)
+                        || !string.Equals(Path.GetDirectoryName(Path.GetFullPath(definingFile)), metadata, StringComparison.OrdinalIgnoreCase))
+                        throw new BuildFailedException("AOT dependency was stripped from the archived framework. Use an available API or rebuild the Android framework: " + member.FullName);
                     // Compare resolved generic definitions, so List<NewRule>.Add
                     // does not falsely count as a new native API for every rule.
                     signatures.Add(scope.Name + "::" + resolved.FullName);

@@ -376,7 +376,7 @@ class RiichiGameState:
         end_claim_protection_interval(self)
         close_outbound_pipes(self)
         await self.spectator_manager.cleanup()
-        if self.game_task and not self.game_task.done():
+        if self.game_task and self.game_task is not asyncio.current_task() and not self.game_task.done():
             self.game_task.cancel()
             try:
                 await self.game_task

@@ -6,8 +6,7 @@ public partial class RoomPanel {
 
     private bool RefreshDuplicateLobby(RoomInfo info) {
         bool enabled = info.duplicate_lobby?.version == 1;
-        TableText.Set(startButton.GetComponentInChildren<TMPro.TMP_Text>(true), enabled
-            && info.duplicate_status == "interrupted" && string.IsNullOrEmpty(info.event_id) ? "重开未完成副" : "开始游戏");
+        TableText.Set(startButton.GetComponentInChildren<TMPro.TMP_Text>(true), "开始游戏");
         if (duplicateLobbyView) duplicateLobbyView.gameObject.SetActive(enabled);
         if (!enabled) return false;
         if (!duplicateLobbyView) throw new System.InvalidOperationException("八人复式房间布局尚未烘焙");

@@ -29,10 +29,10 @@ public partial class NetworkManager : MonoBehaviour {
     private Coroutine loginConnectionRestartCoroutine;
     private int loginConnectionRestartVersion;
     private readonly struct IncomingMessage {
-        public readonly byte[] Bytes;
+        public readonly string Json;
         public readonly double ReceivedAt;
-        public IncomingMessage(byte[] bytes) {
-            Bytes = bytes;
+        public IncomingMessage(string json) {
+            Json = json;
             ReceivedAt = System.Diagnostics.Stopwatch.GetTimestamp()
                 / (double)System.Diagnostics.Stopwatch.Frequency;
         }
@@ -72,6 +72,7 @@ public partial class NetworkManager : MonoBehaviour {
     // 断线弹窗状态：仅 Disconnected 时弹窗；NoMatch 等状态不弹
     private enum DisconnectDialogState { Start, Connected, Disconnected, Shown, NoMatch }
     private DisconnectDialogState _disconnectDialogState = DisconnectDialogState.Start;
+    private MessagePrefab disconnectDialog;
     private bool connectionAvailable;
     private bool sessionRevoked;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
@@ -89,13 +90,7 @@ public partial class NetworkManager : MonoBehaviour {
         BindWebSocketEvents(websocket);
     }
 
-    private static bool IsMatchFoundMessage(byte[] bytes) {
-        if (bytes == null || bytes.Length == 0) return false;
-        return System.Text.Encoding.UTF8.GetString(bytes).Contains(MatchFoundTypeJson);
-    }
-
-    private static bool IsLoginKickoutMessage(byte[] bytes) {
-        string json = System.Text.Encoding.UTF8.GetString(bytes);
+    private static bool IsLoginKickoutMessage(string json) {
         if (!json.Contains("login_kickout")) return false;
         try {
             var control = Newtonsoft.Json.Linq.JObject.Parse(json);
@@ -103,10 +98,10 @@ public partial class NetworkManager : MonoBehaviour {
         } catch (Newtonsoft.Json.JsonException) { return false; }
     }
 
-    private void EnqueueIncomingMessage(byte[] bytes) {
-        var incoming = new IncomingMessage(bytes);
+    private void EnqueueIncomingMessage(string json) {
+        var incoming = new IncomingMessage(json);
         lock (messageQueue) {
-            if (IsMatchFoundMessage(bytes)) {
+            if (json.Contains(MatchFoundTypeJson)) {
                 priorityMessageQueue.Enqueue(incoming);
             } else {
                 messageQueue.Enqueue(incoming);
@@ -132,12 +127,12 @@ public partial class NetworkManager : MonoBehaviour {
     private void BindWebSocketEvents(WebSocket ws) {
         ws.OnMessage += bytes => {
             if (ws != websocket) return;
+            string json = System.Text.Encoding.UTF8.GetString(bytes);
 #if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
             // Record version rejection before OnClose, even if UI dispatch is queued.
-            string versionMessage = System.Text.Encoding.UTF8.GetString(bytes);
-            if (versionMessage.Contains("error_version")) {
+            if (json.Contains("error_version")) {
                 try {
-                    var control = Newtonsoft.Json.Linq.JObject.Parse(versionMessage);
+                    var control = Newtonsoft.Json.Linq.JObject.Parse(json);
                     if ((string)control["type"] == "message" && (string)control["message"] == "error_version")
                         suppressConnectionFailureUi = true;
                 } catch (Newtonsoft.Json.JsonException) { }
@@ -145,12 +140,12 @@ public partial class NetworkManager : MonoBehaviour {
 #endif
             // Revocation must precede reconnect decisions, even when normal
             // response processing is backlogged behind other game messages.
-            if (IsLoginKickoutMessage(bytes)) {
+            if (IsLoginKickoutMessage(json)) {
                 sessionRevoked = true;
                 AutoReconnect.CancelForSessionReset();
                 ChatManager.Instance?.EndSession(false);
             }
-            EnqueueIncomingMessage(bytes);
+            EnqueueIncomingMessage(json);
         };
 
         ws.OnOpen += () => {
@@ -257,7 +252,7 @@ public partial class NetworkManager : MonoBehaviour {
     private void TryShowDisconnectDialog() {
         if (_disconnectDialogState != DisconnectDialogState.Disconnected) return;
         _disconnectDialogState = DisconnectDialogState.Shown;
-        NotificationManager.Instance.ShowMessage(
+        disconnectDialog = NotificationManager.Instance.ShowMessage(
             "连接已断开",
             "与服务器的连接已断开。如正处于一场游戏对局中，点击重连即可回到登录界面并尝试重新连接服务器；游客无法重连至游戏。",
             "disconnect"
@@ -351,6 +346,12 @@ public partial class NetworkManager : MonoBehaviour {
         }
 
         int version = ++loginConnectionRestartVersion;
+        if (disconnectDialog != null) disconnectDialog.CloseMessage();
+        disconnectDialog = null;
+        if (initialConnectCoroutine != null) {
+            StopCoroutine(initialConnectCoroutine);
+            initialConnectCoroutine = null;
+        }
         if (loginConnectionRestartCoroutine != null) {
             StopCoroutine(loginConnectionRestartCoroutine);
         }
@@ -437,6 +438,8 @@ public partial class NetworkManager : MonoBehaviour {
         }
     }
 
+    private Coroutine initialConnectCoroutine;
+
     private IEnumerator InitialConnectRoutine() {
         suppressConnectionFailureUi = true;
 
@@ -497,8 +500,10 @@ public partial class NetworkManager : MonoBehaviour {
     // 2.Start方法用于连接到服务器
     private void Start() {
         if (Instance == this && !isConnecting) {
+#if !UNITY_WEBGL || UNITY_EDITOR
             LocalRecordStore.EnsureReady(null);
-            StartCoroutine(InitialConnectRoutine());
+#endif
+            initialConnectCoroutine = StartCoroutine(InitialConnectRoutine());
         }
     }
 
@@ -511,7 +516,7 @@ public partial class NetworkManager : MonoBehaviour {
 
         // 处理消息队列（match/match_found 等优先消息先于普通队列）
         if (TryDequeueNextMessage(out IncomingMessage message)) {
-            Get_Message(message.Bytes, message.ReceivedAt);
+            Get_Message(message.Json, message.ReceivedAt);
         }
 
         // 处理主线程调度器
@@ -611,6 +616,7 @@ public partial class NetworkManager : MonoBehaviour {
             if (!AutoReconnect.IsActive) {
                 RoomNetworkManager.Instance?.CancelPendingRoomEntry();
                 RoomListPanel.Instance?.ResetSessionCaches();
+                RecordPanel.Instance?.ResetSessionCaches();
                 CreatePanel.ResetAllSessionCaches();
             }
             // 保存用户信息
@@ -667,16 +673,33 @@ public partial class NetworkManager : MonoBehaviour {
     }
 
     // 3.Get_Message方法用于处理服务器返回的消息
-    private void Get_Message(byte[] bytes, double? receivedAt = null){
-        try{
-            string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
-            Response response = ChangshaExchangeSixResponse.Decode(jsonStr);
+    private void Get_Message(string jsonStr, double receivedAt) {
+        try {
+            string type = ChangshaExchangeSixResponse.ReadMessageType(jsonStr);
+            if (type == "data/get_record_by_id") {
+                Response parsed = null;
+                ReplayFrameLoader.Begin(GameRecordJsonDecoder.ReadArchiveJson(jsonStr, envelope => parsed = GameRecordJsonDecoder.TakeArchiveResponse(envelope)),
+                    error => {
+                        Debug.LogException(error);
+                        NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱数据无法读取");
+                    },
+                    () => DispatchResponse(parsed, null, receivedAt));
+                return;
+            }
+            DispatchResponse(ChangshaExchangeSixResponse.Decode(jsonStr, type), jsonStr, receivedAt);
+        } catch (Exception error) {
+            Debug.LogException(error);
+        }
+    }
+
+    private void DispatchResponse(Response response, string jsonStr, double receivedAt) {
+        try {
             if (HandleMatchSpectatorMessage(jsonStr, response.type)) return;
             // Login responses contain the chat credential; do not persist it in logs.
             if (response.type == "login") Debug.Log($"收到登录响应: success={response.success}");
+            else if (response.type == "data/get_record_by_id") Debug.Log($"收到牌谱响应: {response.record_detail?.game_id}");
             else if (response.type != "pong") Debug.Log($"收到服务器消息: {jsonStr}");
-            response.received_monotonic = receivedAt ?? (System.Diagnostics.Stopwatch.GetTimestamp()
-                / (double)System.Diagnostics.Stopwatch.Frequency);
+            response.received_monotonic = receivedAt;
 
             AcceptRewardReceipt(response);
             if (response.type == "reward/redeem") {

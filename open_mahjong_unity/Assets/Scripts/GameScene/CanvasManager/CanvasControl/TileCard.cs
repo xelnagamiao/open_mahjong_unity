@@ -44,6 +44,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private RectTransform slotHitRect;
 
     private void Awake() {
+        TileInstances<TileCard>.Register(this);
         if (tileButton != null) {
             TileCardDragRelay relay = tileButton.GetComponent<TileCardDragRelay>();
             if (relay == null) {
@@ -546,6 +547,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void OnDestroy()
     {
+        TileInstances<TileCard>.Unregister(this);
         HandCardSelectionController.Instance?.OnCardDestroyed(this);
         // 隐藏提示（参照tips的设计模式）
         if (TipsContainer.Instance != null) TipsContainer.Instance.HideTips();

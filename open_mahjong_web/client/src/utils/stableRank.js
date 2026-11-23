@@ -8,7 +8,7 @@ export const STABLE_RANK_TIERS = [
   { value: 'beginner', label: '初级场', basePt: 30, minRankIndex: 0 },
   { value: 'intermediate', label: '中级场', basePt: 65, minRankIndex: 9, maxRankIndex: 16 },
   { value: 'advanced', label: '高级场', basePt: 105, minRankIndex: 13 },
-  { value: 'mcrpl', label: 'MCRPL', basePt: 135, minRankIndex: 0, qualificationRequired: true },
+  { value: 'mcrpl', label: 'MCRPL', basePt: 135, minRankIndex: 16, qualificationOverride: true },
 ]
 
 export const STABLE_RANK_FORMATS = [
@@ -122,8 +122,8 @@ function admissionForRank(tiers, rankIndex) {
     if (rankIndex < tier.minRankIndex) {
       notes.push(`${tier.label}需${RANK_NAMES[tier.minRankIndex]}`)
     }
-    if (tier.qualificationRequired) {
-      notes.push('MCRPL 需资格')
+    if (tier.qualificationOverride && rankIndex < tier.minRankIndex) {
+      notes.push(`MCRPL需${RANK_NAMES[tier.minRankIndex]}或资格`)
     }
   }
   return { admissionLimited: notes.length > 0, admissionBlocked, admissionNotes: notes }

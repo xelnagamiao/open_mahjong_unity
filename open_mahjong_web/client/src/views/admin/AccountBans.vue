@@ -22,7 +22,7 @@
         <el-form-item><el-button native-type="submit" type="primary">查询</el-button></el-form-item>
       </el-form>
       <el-alert v-if="error" type="error" :title="error" :closable="false" />
-      <el-table v-loading="loading" :data="items" empty-text="没有符合条件的封禁记录">
+      <el-table row-key="user_id" v-loading="loading" :data="items" empty-text="没有符合条件的封禁记录">
         <el-table-column prop="user_id" label="用户 ID" width="115" />
         <el-table-column prop="username" label="用户名" min-width="130" />
         <el-table-column label="封禁类型" width="115">
@@ -39,28 +39,37 @@
         <el-table-column label="封禁原因" min-width="180">
           <template #default="{ row }">{{ row.ban_reason || '—' }}</template>
         </el-table-column>
+        <el-table-column label="管理员备注" min-width="230">
+          <template #default="{ row }">
+            <AdminNoteEditor :key="row.user_id" v-model="row.admin_note"
+              :endpoint="`/users/${row.user_id}`" :label="`用户 ${row.user_id} 的备注`" />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }"><router-link :to="{ name: 'AdminUserDetail', params: { userId: row.user_id }, query: { from: 'bans' } }">详情</router-link></template>
         </el-table-column>
       </el-table>
-      <el-pagination class="pages" layout="total, prev, pager, next" :pager-count="5" :total="total"
+      <el-pagination v-if="total > 0" class="pages" layout="total, prev, pager, next" :pager-count="5" :total="total"
         :page-size="20" :current-page="page" @current-change="load" />
     </el-card>
   </section>
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
+import AdminNoteEditor from '@/components/admin/AdminNoteEditor.vue'
 import { onMounted, ref } from 'vue'
 import adminApi from '@/api/adminClient'
 import { banLabels } from '@/utils/accountBans'
 
-const type = ref('all')
-const status = ref('active')
-const keyword = ref('')
-let appliedKeyword = ''
+const { saved, remember } = useAdminListState()
+const type = ref(saved.type ?? 'all')
+const status = ref(saved.status ?? 'active')
+const keyword = ref(saved.q ?? '')
+let appliedKeyword = keyword.value
 const items = ref([])
 const total = ref(0)
-const page = ref(1)
+const page = ref(saved.page ?? 1)
 const loading = ref(false)
 const error = ref('')
 let latest = 0
@@ -71,6 +80,7 @@ function search() {
 }
 
 async function load(requestedPage) {
+  remember({ type: type.value, status: status.value, q: appliedKeyword, page: requestedPage })
   const request = ++latest
   loading.value = true
   error.value = ''
@@ -92,7 +102,7 @@ async function load(requestedPage) {
   }
 }
 
-onMounted(search)
+onMounted(() => load(page.value))
 </script>
 
 <style scoped>

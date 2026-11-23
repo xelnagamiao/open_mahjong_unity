@@ -53,7 +53,7 @@ public partial class Game3DManager : MonoBehaviour {
             Debug.LogError("无法从对象池获取3D手牌");
             return;
         }
-        cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, cardsPosition);
         if (DuocaiTableIndicators.DisplayedInfo != null)
             MahjongObjectPool.GetTile3D(cardObj).isRecordDrawSlotPinned = actionType == "get";
     }

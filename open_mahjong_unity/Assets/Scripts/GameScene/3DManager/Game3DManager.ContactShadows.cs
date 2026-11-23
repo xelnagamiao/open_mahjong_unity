@@ -8,7 +8,7 @@ public partial class Game3DManager {
 
     private bool TryGetTileContactSurface(out Vector3 point, out Vector3 normal, out float clearance) {
         GetTileSurface(out point, out normal);
-        clearance = tileSurfaceClearance;
+        clearance = ScaledTileSurfaceClearance;
         return isActiveAndEnabled && (tileSurfacePlane != null || tableSurfaceMesh != null);
     }
 

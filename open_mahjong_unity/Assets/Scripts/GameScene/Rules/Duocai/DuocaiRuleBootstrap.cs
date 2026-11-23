@@ -30,7 +30,8 @@ internal static class DuocaiRuleBootstrap {
             FanNameText=(_,label)=>FanName(label),FanValueText=FanValue,
             SettlementTotal=DuocaiResultPresentation.Total,
             ScoreboardFanText=DuocaiResultPresentation.Scoreboard,
-            RoundName=RoundTextDictionary.WindNumberRoundName,RoundStatusText=info=>RoundTextDictionary.WindNumberRoundName(info.current_round),RoundIndicators=info=>DuocaiTableIndicators.FieldState(info?.duocai_info??DuocaiTableIndicators.DisplayedInfo),
+            RoundName=RoundTextDictionary.WindNumberRoundName,RoundStatusText=info=>RoundTextDictionary.WindNumberRoundName(info.current_round),
+            RoundIndicators=info=>DuocaiTableIndicators.FieldState(info?.duocai_info, info?.sub_rule),
             DefaultHepaiLimit=8,HasFlowerReplacement=false,PeekAnkan=true,RonWinTileTravelsFromRiver=true,SupportsRobbedAddedKongSource=true,ShowsRonDangerHints=false,RulebookKey="duocai"
         });
         ActionWords.Register(new ActionWordSpec{Word="duocai_group:",ResolveKind=word=>word.EndsWith("chi_left")?ActionWordKind.Chi:word.EndsWith("peng")?ActionWordKind.Peng:word.EndsWith(":gang")?ActionWordKind.MingGang:ActionWordKind.Other,

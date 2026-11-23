@@ -27,7 +27,7 @@ async def test_personal_pair_keeps_independent_switch_and_seconds_in_both_snapsh
     assert response.room_info["real_time"] is real_time
     assert response.room_info["tactical_grace_seconds"] == seconds
     pair = pair_for(rooms, rooms.rooms[response.room_info["room_id"]])
-    for room in [*rooms.rooms.values(), *pair.data["room_snapshots"].values()]:
+    for room in rooms.rooms.values():
         assert room["real_time"] is real_time
         assert room["tactical_grace_seconds"] == seconds
         assert room["tactical_call"] is False
@@ -127,7 +127,7 @@ async def test_host_timing_update_is_atomic_clears_both_ready_sets_and_retains_s
     assert pair.data["lobby"]["revision"] == revision + 1 and not pair.ready
     for child in rooms.rooms.values():
         assert child["real_time"] and child["tactical_grace_seconds"] == 10 and not child["ready_list"]
-    assert pair.data["room_snapshots"] == {table: deepcopy(rooms.rooms[rid]) for table, rid in pair.data["room_ids"].items()}
+    assert "room_snapshots" not in pair.data
     assert await rooms.set_sichuan_real_time("u101", root["room_id"], False, 10) is None
     assert all(not child["real_time"] and child["tactical_grace_seconds"] == 10 for child in rooms.rooms.values())
     revision = pair.data["lobby"]["revision"]
@@ -152,34 +152,21 @@ async def test_invalid_or_unauthorized_updates_leave_pair_unchanged(rooms):
         assert all(not child["real_time"] for child in rooms.rooms.values())
 
 
-@run_async
-async def test_timing_update_persistence_failure_rolls_back_room_and_ready_state(rooms):
-    root = await create_lobby(rooms)
-    await join(rooms, root, 101)
-    pair = pair_for(rooms, root)
-    before, children = deepcopy(pair.data), deepcopy(rooms.rooms)
-    def fail(*_):
-        raise OSError("save unavailable")
-    pair.persist = fail
-    with pytest.raises(OSError):
-        await rooms.set_sichuan_real_time("u101", root["room_id"], True, 15)
-    assert pair.data == before and rooms.rooms == children
 
 
 @pytest.mark.parametrize("sub_rule", [SBR_DUPLICATE, XUELIU_DUPLICATE])
 @pytest.mark.parametrize("real_time", [False, True])
 @run_async
-async def test_restart_restores_both_room_timing_settings(rooms, monkeypatch, sub_rule, real_time):
-    from .sichuan_duplicate import restore_pairs
+async def test_reusable_lobby_keeps_both_room_timing_settings(rooms, monkeypatch, sub_rule, real_time):
+    from .sichuan_duplicate import finish_pair
     response = await rooms.create_empty_event_room("evt_pair", "sichuan", dict(
-        sub_rule=sub_rule, duplicate_round_count=1, real_time=real_time, tactical_grace_seconds=20,
+        wall_source="training", reuse_training_room=True, sub_rule=sub_rule, duplicate_round_count=1, real_time=real_time, tactical_grace_seconds=20,
     ), created_by=101)
     assert response.success
-    snapshot = deepcopy(rooms.saved[-1])
-    monkeypatch.setattr("server.room.sichuan_duplicate.PairedMatchStore.unfinished", lambda _: [snapshot])
-    rooms.rooms.clear()
-    rooms.game_server.gamestate_manager.sichuan_duplicate_matches.clear()
-    restore_pairs(rooms.game_server)
+    root = next(iter(rooms.rooms.values()))
+    pair = pair_for(rooms, root)
+    await finish_pair(rooms, root, pair)
+    assert root["duplicate_match_id"] != pair.data["id"]
     assert len(rooms.rooms) == 2
     for room in rooms.rooms.values():
         assert room["real_time"] is real_time and room["tactical_grace_seconds"] == 20

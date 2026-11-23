@@ -75,11 +75,12 @@ public partial class Game3DManager {
             // Printed public information sits on the cloth, without a second tile body.
             GetTileSurface(out Vector3 surfacePoint, out Vector3 surfaceNormal);
             Vector3 position = start + direction.normalized * handStep * i;
-            position += surfaceNormal * (tileSurfaceClearance - Vector3.Dot(position - surfacePoint, surfaceNormal));
+            position += surfaceNormal * (ScaledTileSurfaceClearance
+                - Vector3.Dot(position - surfacePoint, surfaceNormal));
             GameObject tile=MahjongObjectPool.Instance.SpawnWashizuReadingTile(WashizuTile.Face(cards[i]), position, rotation);
             if (tile==null) continue;
             tile.name="WashizuPublic_"+cards[i];
-            tile.transform.SetParent(panel.ShowCardsPosition,true);
+            TableWorldObjectMount.AttachPreservingWorld(tile.transform, panel.ShowCardsPosition);
             tile.GetComponent<WashizuReadingSurface>().Follow(
                 MahjongObjectPool.GetTile3D(panel.cardsPosition.GetChild(i).gameObject),
                 panel.cardsPosition, inward.normalized*readingInset);
@@ -97,7 +98,7 @@ public partial class Game3DManager {
             for (int i=row.Count-1;i>=0;i--) {
                 GameObject tile=row[i];
                 if (tile != null && tile.activeSelf && tile.GetComponent<WashizuReadingSurface>()
-                    .FollowOnTable(point, normal, tileSurfaceClearance)) continue;
+                    .FollowOnTable(point, normal, ScaledTileSurfaceClearance)) continue;
                 if (tile != null && tile.activeSelf) MahjongObjectPool.Instance?.Return(-1,tile);
                 row.RemoveAt(i);
             }

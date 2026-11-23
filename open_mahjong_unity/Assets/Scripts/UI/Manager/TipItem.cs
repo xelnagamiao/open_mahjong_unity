@@ -35,9 +35,11 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
     private bool _hovered;
     private bool _dismissing;
     private Coroutine _hoverTween;
+    private Coroutine _moveTween;
     private string _sizedMessage;
 
     public event Action<TipItem> OnDismissed; // TipStackController 订阅
+    public event Action OnHeightChanged;
 
     /// <summary>设置提示内容并显示。</summary>
     public void ShowMessage(string type, bool success, string message) {
@@ -67,13 +69,16 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
     private void ResizeToMessage() {
         string message = messageText.text;
         _sizedMessage = message;
+        messageText.GetComponent<PlatformFontBinding>()?.Apply();
         var rect = (RectTransform)transform;
         var canvas = GetComponentInParent<Canvas>();
         float availableWidth = canvas ? ((RectTransform)canvas.rootCanvas.transform).rect.width : 560;
         float maximumWidth = Mathf.Max(80, Mathf.Min(560, availableWidth - 32));
-        float width = Mathf.Min(maximumWidth, Mathf.Max(180, messageText.GetPreferredValues(message, 2000, 2000).x + 28));
-        float height = Mathf.Max(44, messageText.GetPreferredValues(message, width - 28, 2000).y + 16);
+        float width = Mathf.Min(maximumWidth, Mathf.Max(180, Mathf.Ceil(messageText.GetPreferredValues(message, 2000, 2000).x) + 30));
+        float height = Mathf.Max(44, Mathf.Ceil(messageText.GetPreferredValues(message, width - 28, 2000).y) + 16);
+        bool heightChanged = !Mathf.Approximately(rect.rect.height, height);
         rect.sizeDelta = new Vector2(width, height);
+        if (heightChanged) OnHeightChanged?.Invoke();
     }
 
     public void Init(float lifetime) {
@@ -111,6 +116,7 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     private IEnumerator SlideOutRoutine() {
         _dismissing = true;
+        if (_moveTween != null) StopCoroutine(_moveTween);
         _cg.blocksRaycasts = false;
         Vector2 startPos = _rt.anchoredPosition;
         Vector2 endPos = startPos + new Vector2(0f, slideOutOffsetY);
@@ -141,7 +147,9 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     /// <summary>平滑移动到目标 anchoredPosition（由 TipStackController 调用补位）。</summary>
     public Coroutine AnimateToPosition(Vector2 target, float duration) {
-        return StartCoroutine(MoveRoutine(target, duration));
+        if (_dismissing) return null;
+        if (_moveTween != null) StopCoroutine(_moveTween);
+        return _moveTween = StartCoroutine(MoveRoutine(target, duration));
     }
 
     private IEnumerator MoveRoutine(Vector2 target, float duration) {
@@ -151,6 +159,7 @@ public class TipItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
             yield return null;
         }
         _rt.anchoredPosition = target;
+        _moveTween = null;
     }
 
     // -- 指针事件 --

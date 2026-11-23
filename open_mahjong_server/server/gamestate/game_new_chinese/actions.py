@@ -4,12 +4,23 @@ from ...game_calculation.new_chinese import rules
 from ..game_beijing.actions import CHOWS, claim_tiles, empty_actions
 
 
-def ready_cuts(hand, codes):
+def wait_context(state, index):
+    if not state.hepai_limit:
+        return {}
+    p = state.player_list[index]
+    return dict(hepai_limit=state.hepai_limit, exchange_three=state.detailed_config["exchange_three"],
+                visible=state.visible_counts(), chain=max(p.chain, p.longest_chain))
+
+
+def ready_cuts(hand, codes, *, visible=None, **context):
     result = {}
     for tile in set(hand):
         rest = list(hand)
         rest.remove(tile)
-        found = rules.waits(rest, codes)
+        after_cut = visible.copy() if visible is not None else None
+        if after_cut is not None:
+            after_cut[tile] += 1
+        found = rules.waits(rest, codes, visible=after_cut, **context)
         if found:
             result[tile] = sorted(found)
     return result
@@ -17,8 +28,10 @@ def ready_cuts(hand, codes):
 
 def legal_cuts(state, index):
     p = state.player_list[index]
-    if p.declared or state.must_declare == index:
-        return set(ready_cuts(p.hand_tiles, p.combination_tiles))
+    if p.declared:
+        return {p.hand_tiles[-1]} if p.has_draw_slot else set()
+    if state.must_declare == index:
+        return set(ready_cuts(p.hand_tiles, p.combination_tiles, **wait_context(state, index)))
     return set(p.hand_tiles)
 
 
@@ -33,6 +46,19 @@ def after_meld(p, action, tile):
     if action in CHOWS:
         code = "s" + str(sorted([*needed, tile])[1])
     return rest, [*p.combination_tiles, code]
+
+
+def keeps_declared_waits(state, index, remaining, codes):
+    p = state.player_list[index]
+    if not p.declared:
+        return True
+    before = p.hand_tiles[:-1] if p.has_draw_slot else p.hand_tiles
+    context = wait_context(state, index)
+    before_waits = rules.waits(before, p.combination_tiles, **context)
+    if context:
+        context["chain"] = max(p.chain + 1, p.longest_chain)
+    after_waits = rules.waits(remaining, codes, **context)
+    return bool(after_waits) and after_waits <= before_waits
 
 
 def kong_tiles(state, index, kind):
@@ -51,7 +77,7 @@ def kong_tiles(state, index, kind):
             rest.remove(tile)
         else:
             continue
-        if not p.declared or rules.waits(rest, codes):
+        if keeps_declared_waits(state, index, rest, codes):
             result.add(tile)
     return result
 
@@ -73,13 +99,16 @@ def claim_actions(state, actor, tile, rob=False):
                     continue
                 if not rob and index == (actor + 1) % 4:
                     offered.append(chow)
-                if ready_cuts(*after):
+                context = wait_context(state, index)
+                if context:
+                    context["visible"].update(claim_tiles(chow, tile))
+                if ready_cuts(*after, **context):
                     offered.append(chow + "_ting")
             if not rob and player.hand_tiles.count(tile) >= 2:
                 offered.append("peng")
         if not rob and state.supplements:
             after = after_meld(player, "gang", tile)
-            if after and (not player.declared or rules.waits(*after)):
+            if after and keeps_declared_waits(state, index, *after):
                 offered.append("gang")
         if offered:
             offered.append("pass")

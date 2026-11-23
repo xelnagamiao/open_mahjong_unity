@@ -132,7 +132,7 @@ public partial class Game3DManager {
                     GameObject obj = MahjongObjectPool.Instance.Spawn(tileId, start, rotation);
                     if (obj == null) yield break;
                     card = obj.transform;
-                    card.SetParent(parent, true);
+                    TableWorldObjectMount.AttachPreservingWorld(card, parent);
                     MahjongObjectPool.GetTile3D(obj)?.ApplyCombinationPeekState(tileId, 0);
                     MahjongObjectPool.Instance.RefreshTileCollider(obj);
                     Card3DHoverManager.Instance.RegisterCard(obj, tileId);

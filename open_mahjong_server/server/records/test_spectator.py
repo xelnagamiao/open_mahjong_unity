@@ -14,7 +14,7 @@ from ..game_calculation.sichuan.duplicate_rules import make_board
 
 
 def server_fixture(delay=0):
-    pair = PairedMatch(new_match("test-match", "sichuan/doubles_duplicate", {}, [make_board("v2-fixture", 1)], "s"), lambda *_: None)
+    pair = PairedMatch(new_match("test-match", "sichuan/doubles_duplicate", {}, [make_board("v2-fixture", 1)], "s"))
     pair.data.update(status="running", wall_source="training")
     source = records()
     for table in ("open", "closed"):
@@ -221,3 +221,16 @@ def test_final_record_waits_for_both_delayed_tails_and_does_not_repeat():
     asyncio.run(feed.refresh(212))
     assert feed.streams["match"].seq == seq
     assert "final_streams" in feed.streams["match"].body
+
+def test_existing_training_spectator_can_finish_after_both_rooms_close():
+    server, pair = server_fixture()
+    hub = MatchSpectatorHub(server)
+    pair.data["status"] = "completed"
+    feed = MatchFeed(pair)
+    server.gamestate_manager.sichuan_duplicate_matches.clear()
+    admitted = NS(feed=feed)
+    assert hub.authorize(9001, pair.data["id"], ["open"], subscription=admitted) == (pair, ["open"])
+    with pytest.raises(PermissionError, match="MATCH_UNAVAILABLE"):
+        hub.authorize(9002, pair.data["id"], ["open"])
+    with pytest.raises(PermissionError, match="MATCH_UNAVAILABLE"):
+        hub.authorize(9001, "other", ["open"], subscription=admitted)

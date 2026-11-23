@@ -206,7 +206,7 @@ public sealed partial class InventoryPanel : MonoBehaviour {
 
     private void RenderDetails() {
         var item = Selected;
-        preview.sprite = ConfigManager.GetInventoryIcon(item?.Definition); preview.enabled = preview.sprite != null;
+        ConfigManager.SetInventoryIcon(preview, item?.Definition); preview.enabled = preview.sprite != null;
         AvatarFrameGraphic.Apply(preview, item?.Slot == "avatar_frame" ? item.Id : -1);
         previewArtwork.gameObject.SetActive(item != null && preview.sprite == null);
         if (item != null) previewArtwork.SetKind(item.IconKind);

@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -36,8 +37,7 @@ test('every statistics selection isolates its subrule and fan capability', {
   delete require.cache[servicePath];
   try {
     const fields = BASE_KEYS.filter(k => k !== 'total_games');
-    await pool.query(`CREATE TEMP TABLE game_records(game_id text PRIMARY KEY,record jsonb,created_at timestamptz DEFAULT NOW());
-      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+    await pool.query(`${replayDDL(true)};
 
       CREATE TEMP TABLE game_player_records(game_id text,user_id bigint,rule text,sub_rule text,room_type text,match_type text,match_tier text,event_id text,rank int);
       CREATE TEMP TABLE game_player_metrics(id bigserial PRIMARY KEY,game_id text,user_id bigint,rule text,sub_rule text,
@@ -46,7 +46,7 @@ test('every statistics selection isolates its subrule and fan capability', {
     for (const [i, def] of STATISTICS_RULES.entries()) {
       if (!def.basic_stats) continue;
       const gid = `game${i}`;
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [gid,{game_title:{rule:def.rule,sub_rule:def.sub_rule}}]);
+      await insertReplay(pool, [gid,{game_title:{rule:def.rule,sub_rule:def.sub_rule}}]);
       await pool.query("INSERT INTO game_player_records VALUES($1,10000101,$2,$3,'custom','1/4',NULL,NULL,1)",[gid,def.rule,def.sub_rule]);
       await pool.query(`INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,fan_stats,total_rounds,win_count,first_place_count)
         VALUES($1,10000101,$2,$3,'custom','1/4',$4,100,$5,1)`,[gid,def.rule,def.sub_rule,def.fan_stats?{test_fan:i+1}:null,i+1]);
@@ -90,7 +90,7 @@ test('every statistics selection isolates its subrule and fan capability', {
     assert.deepEqual(await querySceneTotalsFans({rule:'nanque'}), {});
     for (const hands of [4,8,12,16]) {
       const gid = `hongque${hands}`;
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [gid,{game_title:{rule:'hongque',sub_rule:'hongque/v1.6'}}]);
+      await insertReplay(pool, [gid,{game_title:{rule:'hongque',sub_rule:'hongque/v1.6'}}]);
       await pool.query("INSERT INTO game_player_records VALUES($1,10000101,'hongque','hongque/v1.6','custom',$2,NULL,NULL,1)",[gid,`${hands}/4`]);
       await pool.query(`INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,fan_stats,total_rounds,win_count)
         VALUES($1,10000101,'hongque','hongque/v1.6','custom',$2,$3,$4,1)`,[gid,`${hands}/4`,{'清顺':hands},hands]);
@@ -100,7 +100,7 @@ test('every statistics selection isolates its subrule and fan capability', {
       assert.equal(filtered.fan_stats['清顺'],hands);
     }
     for (const [gid, mode] of [['hongque-rebuilt','16/4_rank'],['hongque-new','16/4_rank']]) {
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [gid,{game_title:{rule:'hongque',sub_rule:'hongque/v1.6'}}]);
+      await insertReplay(pool, [gid,{game_title:{rule:'hongque',sub_rule:'hongque/v1.6'}}]);
       await pool.query("INSERT INTO game_player_records VALUES($1,10000101,'hongque','hongque/v1.6','match',$2,'elo',NULL,1)",[gid,mode]);
       await pool.query(`INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,fan_stats,total_rounds,win_count)
         VALUES($1,10000101,'hongque','hongque/v1.6','match',$2,'{"清顺":1}',16,1)`,[gid,mode]);
@@ -118,7 +118,7 @@ test('every statistics selection isolates its subrule and fan capability', {
     assert.equal(selectHomeStats(hongqueHome,'hongque','custom','hands4').total_games,1);
     for (const length of [2, 4]) {
       const gid = `sichuan-history-${length}`;
-      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [gid,{game_title:{rule:'sichuan',sub_rule:'sichuan/standard'}}]);
+      await insertReplay(pool, [gid,{game_title:{rule:'sichuan',sub_rule:'sichuan/standard'}}]);
       await pool.query("INSERT INTO game_player_records VALUES($1,10000101,'sichuan','sichuan/standard','match',$2,'elo',NULL,1)",[gid,`${length}/4_rank`]);
       await pool.query(`INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,fan_stats,total_rounds,win_count)
         VALUES($1,10000101,'sichuan','sichuan/standard','match',$2,$3,$4,1)`,[gid,`${length}/4_rank`,{'根':length},length*4]);

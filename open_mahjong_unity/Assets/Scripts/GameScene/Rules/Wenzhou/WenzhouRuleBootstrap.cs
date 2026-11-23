@@ -38,7 +38,7 @@ internal static class WenzhouRuleBootstrap {
             ScoreboardFanText = q => $"{q.HuScore}倍",
             ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = RoundTextDictionary.WindSeatRoundName,
-            RoundIndicators = info => WenzhouTableIndicators.FieldState(info?.wenzhou_info ?? WenzhouTableIndicators.DisplayedInfo),
+            RoundIndicators = info => WenzhouTableIndicators.FieldState(info?.wenzhou_info),
             DefaultHepaiLimit = 0, HasFlowerReplacement = false,
             RonWinTileTravelsFromRiver = true, SupportsRobbedAddedKongSource = false,
             AdjustHepaiPresentation = AdjustPendingKongWinPresentation,

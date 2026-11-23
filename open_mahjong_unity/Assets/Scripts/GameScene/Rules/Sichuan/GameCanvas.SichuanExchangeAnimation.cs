@@ -1,21 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
+using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 
 public partial class GameCanvas {
-    private const float ExchangeFlightSeconds = 1.25f;
     private RectTransform exchangePresentationRoot;
     private Coroutine exchangeFlight;
     private int exchangePresentationTick = -1;
     private AskHandActionGBInfo pendingExchangeAsk;
     private float pendingExchangeAskAt;
-    private RectTransform incomingExchangePacket;
-    private string incomingExchangeSeat;
     public bool IsXueliuExchangeAnimating => exchangeFlight != null;
+    public bool HasExchangePresentation(int tick) => exchangePresentationRoot && exchangePresentationTick == tick;
 
-    public bool ShowXueliuExchangePresentation(AskHandActionGBInfo info) {
+    public bool ShowXueliuExchangePresentation(AskHandActionGBInfo info, bool sbr = false) {
         XueliuExchangeInfo phase = info?.xueliu_exchange;
         if (phase == null) return true;
         if (!phase.animating && IsXueliuExchangeAnimating) {
@@ -33,18 +30,29 @@ public partial class GameCanvas {
             pendingExchangeAsk = null;
             ClearXueliuExchangeCards();
             exchangePresentationTick = info.action_tick;
-            if (CreateExchangeRoot()) exchangeFlight = StartCoroutine(AnimateExchangeGroup(info, positions));
+            if (CreateExchangeRoot()) {
+                if (sbr && (phase.dice?.Length == 2 || phase.direction >= 1 && phase.direction <= 3)) {
+                    var session = GameSession.Current;
+                    bool privateHand = !session.IsRealtimeSpectator && GameRecordManager.Instance?.IsSpectating != true &&
+                        info.player_index == session.SelfIndex;
+                    if (!sbrFlightHandHidden)
+                        BeginSbrTableHand(privateHand ? phase.outgoing_tiles : null, orderByHand: privateHand);
+                    exchangeFlight = StartCoroutine(phase.dice?.Length == 2
+                        ? AnimateSbrDice(info) : AnimateSbrTableExchange(info, positions));
+                } else {
+                    bool sends = System.Array.IndexOf(phase.active_players ?? System.Array.Empty<int>(), info.player_index) >= 0;
+                    if (sends || phase.stage == 2) BeginSbrTableHand(phase.outgoing_tiles);
+                    else HideXueliuThrowThreeSelection();
+                    StopTimeRunning();
+                    ShowFirstXueliuGroupAtRest(info, positions);
+                    exchangeFlight = StartCoroutine(AnimateExchangeGroup(info, positions));
+                }
+            }
         } else {
             ClearXueliuExchangeCards();
             exchangePresentationTick = -1;
             BoardCanvas.Instance?.ShowExchangePlayers(phase.active_players, positions);
-            // 第二组选牌期间保留换入的花色牌；重连也直接恢复到这个位置。
-            if (phase.stage == 2 && phase.teammate_suit > 0 && positions != null
-                && positions.TryGetValue(info.player_index, out string seat) && CreateExchangeRoot()) {
-                incomingExchangePacket = CreateExchangePacket(phase.teammate_suit, "IncomingExchange");
-                incomingExchangeSeat = seat;
-                UpdateIncomingExchangePosition();
-            }
+            if (phase.stage == 2 && CreateExchangeRoot()) ShowFirstXueliuGroupAtRest(info, positions);
         }
         return true;
     }
@@ -61,7 +69,6 @@ public partial class GameCanvas {
         exchangePresentationRoot.offsetMin = exchangePresentationRoot.offsetMax = Vector2.zero;
         var group = root.GetComponent<CanvasGroup>();
         group.blocksRaycasts = group.interactable = false;
-        Canvas.willRenderCanvases += UpdateIncomingExchangePosition;
         return true;
     }
 
@@ -69,94 +76,127 @@ public partial class GameCanvas {
         if (!BoardCanvas.Instance || !BoardCanvas.Instance.TryGetExchangePoints(exchangePresentationRoot, seat,
             out Vector2 center, out Vector2 edge)) return Vector2.zero;
         Vector2 direction = (edge - center).normalized;
-        float halfPacket = seat == "self" || seat == "top" ? 40f : 89f;
+        float halfPacket = seat == "self" || seat == "top" ? 31f : 56f;
         // 从中心盘对应边缘向外留出半包牌及间隔；不依赖屏幕长宽比例。
         return center + (edge - center) * 1.25f + direction * (halfPacket + 24f);
     }
 
-    private Vector2 ExchangeCenterPoint() {
-        return BoardCanvas.Instance && BoardCanvas.Instance.TryGetExchangePoints(exchangePresentationRoot, "self",
-            out Vector2 center, out _) ? center : Vector2.zero;
-    }
-
-    private void UpdateIncomingExchangePosition() {
-        if (incomingExchangePacket && exchangePresentationRoot)
-            incomingExchangePacket.anchoredPosition = ExchangeSeatPoint(incomingExchangeSeat);
-    }
-
-    private RectTransform CreateExchangePacket(int suit, string name) {
-        var packet = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
-        packet.SetParent(exchangePresentationRoot, false);
-        packet.anchorMin = packet.anchorMax = packet.pivot = new Vector2(.5f,.5f);
-        packet.sizeDelta = new Vector2(178, 80);
-        for (int i=0; i<3; i++) {
-            var card = new GameObject("ExchangeCard", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
-            card.transform.SetParent(packet, false);
-            card.raycastTarget = false;
-            card.color = suit > 0 ? new Color(.97f,.96f,.9f) : new Color(.12f,.42f,.34f);
-            card.rectTransform.sizeDelta = new Vector2(54,76);
-            card.rectTransform.anchoredPosition = new Vector2((i-1)*60,0);
-            if (suit < 1 || suit > 3 || dingqueTipText == null) continue;
-            TMP_Text label = Instantiate(dingqueTipText, card.transform, false);
-            label.name = "ExchangeSuit";
-            label.text = DingqueSuitLabels[suit];
-            label.fontSize = 38;
-            label.enableAutoSizing = false;
-            label.alignment = TextAlignmentOptions.Center;
-            label.color = suit == 1 ? new Color(.8f,.16f,.14f) : suit == 2 ? new Color(.15f,.35f,.8f) : new Color(.1f,.5f,.25f);
-            label.raycastTarget = false;
-            label.rectTransform.anchorMin = Vector2.zero;
-            label.rectTransform.anchorMax = Vector2.one;
-            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
-            label.gameObject.SetActive(true);
+    private void ShowFirstXueliuGroupAtRest(AskHandActionGBInfo info, Dictionary<int, string> positions) {
+        var phase = info.xueliu_exchange;
+        if (phase.stage != 2 || phase.active_players?.Length != 2) return;
+        var routes = GetTableExchangeRoutes(positions, phase.active_players.Select(r => (r + 2) % 4).ToArray(), phase.active_players);
+        if (!exchangePresentationRoot || routes.Length == 0) return;
+        var reference = SbrNode(exchangePresentationRoot, "ParkedExchange", new Vector2(747, 420));
+        var parked = CreateTablePackets(routes, positions, reference, 3, -1, null,
+            handsAlreadyReduced: true, parked: true);
+        if (parked == null) return;
+        foreach (int receiver in phase.active_players) {
+            int sender = (receiver + 2) % 4;
+            if (positions.TryGetValue(sender, out string from) && from != "self")
+                parked.owner.HideHandEnd(parked.table.GetPosPanel(from)?.cardsPosition, 3);
         }
-        return packet;
+        AttachTeamExchangeBadges(parked, info, positions, atReceivingSeats: true);
+        parked.Place(1, 1);
+    }
+
+    private void ShowDuplicateSubmission(int[] submitted, XueliuExchangeInfo phase) {
+        var session = GameSession.Current;
+        if (!sbrWaiting || submitted?.Length != 3 || phase == null || (phase.stage != 1 && phase.stage != 2) ||
+            session.SubRule != SichuanLobby.XueliuDuplicateSubRule || !HasPrivateTeamExchangeView(session.SelfIndex)) return;
+        if (!exchangePresentationRoot && !CreateExchangeRoot()) return;
+        if (exchangePresentationRoot.Find("DuplicateLocalSubmission")) return;
+        var reference = SbrNode(exchangePresentationRoot, "DuplicateLocalSubmission", new Vector2(747, 420));
+        var positions = NormalGameStateManager.Instance.indexToPosition;
+        var self = new[] { session.SelfIndex };
+        var layout = CreateTablePackets(GetTableExchangeRoutes(positions, self, self), positions, reference,
+            3, -1, null, handsAlreadyReduced: true, parked: true);
+        if (layout == null) return;
+        layout.owner.world.name = "DuplicateSubmittedModels";
+        layout.packets[0].anchor.name = "SubmittedAt_" + session.SelfIndex;
+        layout.inFrontOfReceipt = phase.stage == 2;
+        layout.AttachBadge(session.SelfIndex, SubmittedSuit(submitted), TeamBadgeExtendsRight(phase, positions));
+        layout.Place(1, 0);
+        if (!sbrFlightHandHidden) StartCoroutine(HideDuplicateSubmissionHand(reference, submitted));
+    }
+
+    private IEnumerator HideDuplicateSubmissionHand(RectTransform reference, int[] submitted) {
+        while (reference && reference.gameObject.activeInHierarchy && IsChangeHandCardProcessing) yield return null;
+        if (reference && reference.gameObject.activeInHierarchy && sbrWaiting && !sbrFlightHandHidden)
+            HideOutgoingTableTiles(SelectedTableTiles(submitted), submitted);
+    }
+
+    private static string DescribeXueliuTeamSuit(int suit) =>
+        suit >= 1 && suit <= 3 ? $"队友传来三张{DingqueSuitLabels[suit]}牌" : null;
+
+    private static bool HasPrivateTeamExchangeView(int viewer) {
+        var session = GameSession.Current;
+        return viewer >= 0 && viewer < 4 && viewer == session.SelfIndex && SichuanLobby.IsXueliuDoubles(session.SubRule)
+            && !session.IsRealtimeSpectator && !IsDingqueSelectionSuppressed();
+    }
+
+    private static int SubmittedSuit(int[] tiles) {
+        if (tiles?.Length != 3) return 0;
+        int suit = tiles[0] / 10;
+        return suit >= 1 && suit <= 3 && System.Array.TrueForAll(tiles,
+            id => id / 10 == suit && id % 10 >= 1 && id % 10 <= 9) ? suit : 0;
+    }
+
+    private static bool TeamBadgeExtendsRight(XueliuExchangeInfo phase, IReadOnlyDictionary<int, string> positions,
+            bool atReceivingSeats = false) {
+        if (phase.active_players == null) return true;
+        foreach (int seat in phase.active_players) {
+            int sender = atReceivingSeats ? (seat + 2) % 4 : seat;
+            if (positions.TryGetValue(sender, out string side)) {
+                if (side == "left") return true;
+                if (side == "right") return false;
+            }
+        }
+        return true;
+    }
+
+    private static void AttachTeamExchangeBadges(SbrPacketLayout packets, AskHandActionGBInfo info,
+            IReadOnlyDictionary<int, string> positions, bool atReceivingSeats = false) {
+        if (info == null || !HasPrivateTeamExchangeView(info.player_index)) return;
+        var phase = info.xueliu_exchange;
+        int self = info.player_index, teammate = (self + 2) % 4;
+        int ownSuit = phase.outgoing_suit != 0 ? phase.outgoing_suit : SubmittedSuit(phase.outgoing_tiles);
+        bool extendRight = TeamBadgeExtendsRight(phase, positions, atReceivingSeats);
+        packets.AttachBadge(atReceivingSeats ? teammate : self, ownSuit, extendRight);
+        packets.AttachBadge(atReceivingSeats ? self : teammate, phase.teammate_suit, extendRight);
     }
 
     private IEnumerator AnimateExchangeGroup(AskHandActionGBInfo info, Dictionary<int,string> positions) {
-        var packets = new List<RectTransform>();
-        var starts = new List<string>();
-        var ends = new List<string>();
-        XueliuExchangeInfo phase = info.xueliu_exchange;
-        int viewer = info.player_index;
-        int direction = phase.direction >= 1 && phase.direction <= 3 ? phase.direction : 2;
-        foreach (int sender in phase.active_players ?? System.Array.Empty<int>()) {
-            if (positions == null || !positions.TryGetValue(sender, out string from)
-                || !positions.TryGetValue((sender + direction) % 4, out string to)) continue;
-            int suit = sender == viewer ? phase.outgoing_suit : (sender + direction) % 4 == viewer ? phase.teammate_suit : 0;
-            packets.Add(CreateExchangePacket(suit, "ExchangeFrom_"+sender));
-            starts.Add(from);
-            ends.Add(to);
+        var phase = info.xueliu_exchange;
+        bool doubles = phase.stage == 1 || phase.stage == 2;
+        int direction = doubles ? 2 : phase.direction;
+        int[] senders = phase.active_players ?? System.Array.Empty<int>();
+        int[] recipients = senders.Select(seat => (seat + direction) % 4).ToArray();
+        string subtitle = null;
+        if (doubles) {
+            var session = GameSession.Current;
+            if (IsDingqueSelectionSuppressed() || info.player_index != session.SelfIndex) subtitle = "两家正在向各自的队友传牌";
+            else if (System.Array.IndexOf(senders, info.player_index) >= 0) subtitle = "本家换给队友三张牌";
+            else subtitle = DescribeXueliuTeamSuit(phase.teammate_suit) ?? "队友换给本家三张牌";
         }
-        float elapsed = Mathf.Clamp(ExchangeFlightSeconds - phase.animation_seconds, 0, ExchangeFlightSeconds-.01f);
-        while (elapsed < ExchangeFlightSeconds) {
-            for (int i=0;i<packets.Count;i++) {
-                // 全程使用实际中心盘投影；窗口缩放、视角变化时也沿中心盘移动。
-                Vector2 center = ExchangeCenterPoint() + new Vector2(0, i == 0 ? -52 : 52);
-                float arrive = Mathf.SmoothStep(0,1,Mathf.Clamp01(elapsed/.3f));
-                float depart = Mathf.SmoothStep(0,1,Mathf.Clamp01((elapsed-.65f)/.6f));
-                packets[i].anchoredPosition = elapsed < .65f
-                    ? Vector2.Lerp(ExchangeSeatPoint(starts[i]),center,arrive)
-                    : Vector2.Lerp(center,ExchangeSeatPoint(ends[i]),depart);
-            }
-            elapsed += Time.unscaledDeltaTime;
-            yield return null;
-        }
-        for (int i=0;i<packets.Count;i++) packets[i].anchoredPosition = ExchangeSeatPoint(ends[i]);
+        var flight = AnimateTableExchange(positions, senders, recipients, subtitle, phase.animation_seconds,
+            doubles ? 2f : 2.75f, info.player_index, phase.outgoing_tiles,
+            parkedAtDeparture: phase.stage == 2,
+            localAlreadyDown: doubles && GameSession.Current.SubRule == SichuanLobby.XueliuDuplicateSubRule,
+            teamInfo: doubles ? info : null);
+        while (flight.MoveNext()) yield return flight.Current;
         exchangeFlight = null;
         if (pendingExchangeAsk != null) {
             AskHandActionGBInfo next = pendingExchangeAsk;
             pendingExchangeAsk = null;
             next.remaining_time = Mathf.Max(1, next.remaining_time-Mathf.FloorToInt(Time.realtimeSinceStartup-pendingExchangeAskAt));
             ShowXueliuExchangePresentation(next);
-            ShowXueliuTeamExchange(next);
+            var session = GameSession.Current;
+            if (!session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating && next.player_index == session.SelfIndex)
+                ShowXueliuTeamExchange(next);
         }
     }
 
     private void ClearXueliuExchangeCards() {
-        Canvas.willRenderCanvases -= UpdateIncomingExchangePosition;
-        incomingExchangePacket = null;
-        incomingExchangeSeat = null;
         if (exchangeFlight != null) StopCoroutine(exchangeFlight);
         exchangeFlight = null;
         if (exchangePresentationRoot != null) {
@@ -167,6 +207,9 @@ public partial class GameCanvas {
     }
 
     public void ClearXueliuExchangePresentation() {
+        if (IsSbrChoosingOrWaiting) HideXueliuThrowThreeSelection();
+        else ResetSbrSelection();
+        ClearSbrReceived();
         pendingExchangeAsk = null;
         ClearXueliuExchangeCards();
         exchangePresentationTick = -1;

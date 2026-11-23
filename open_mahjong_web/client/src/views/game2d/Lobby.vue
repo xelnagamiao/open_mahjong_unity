@@ -338,7 +338,7 @@ const MATCH_HELP_TIERS = [
     settings: '无提示、无指针提示、错和、战术鸣牌',
   },
   {
-    key: 'mcrpl', title: 'MCRPL', admission: 'Salasasa七段及以上或职业五段及以上并实名注册', base: 135, time: '20+5',
+    key: 'mcrpl', title: 'MCRPL', admission: 'Salasasa七段及以上', base: 135, time: '20+5',
     settings: '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端',
   },
 ].map((tier) => ({
@@ -446,8 +446,8 @@ function formatRankPt(row) {
 }
 
 function canEnterTier(tierKey) {
-  if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
   const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
+  if (tierKey === 'mcrpl') return rankIndex >= 16 || Boolean(session.rank?.is_mcrpl_qualified)
   if (tierKey === 'intermediate' && rankIndex >= 16) return false
   if (tierKey === 'beginner') return true
   if (tierKey === 'intermediate') {

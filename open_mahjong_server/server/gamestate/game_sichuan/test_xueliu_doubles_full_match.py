@@ -85,10 +85,17 @@ def test_complete_xueliu_team_match(seed):
     endings = [m for m in messages if m['type']=='gamestate/sichuan/game_end']
     assert len(endings)==4
     assert any(m['type'].endswith('dingque_done') for m in messages)
+    viewer_round = {}
     for entry in messages:
         payload=entry['message']
         info=payload.get('game_info',{})
         for p in info.get('players_info',[]):
+            if p['user_id'] == entry['user_id']:
+                viewer_round[entry['user_id']] = (info['current_round'], p['player_index'])
+            if p['huapai_list']:
+                ticks = rounds[f"round_index_{info['current_round']}"]['action_ticks']
+                wins = [t[5] for t in ticks if t[0] in ('hu_self','hu_first','hu_second','hu_third') and t[1] == p['player_index']]
+                assert p['huapai_list'] == wins[:len(p['huapai_list'])]
             if p['user_id']!=entry['user_id']:
                 assert 'hand_tiles' not in p and not p['xueliu_throw_tiles']
         ask=payload.get('ask_hand_action_info',{})
@@ -96,7 +103,12 @@ def test_complete_xueliu_team_match(seed):
         if phase:
             assert phase['stage'] in (1,2)
             assert len(phase['active_players'])==2
-            assert set(phase)=={'stage','active_players','selection_done','teammate_suit','outgoing_suit','animating','animation_seconds'}
+            assert set(phase)=={'stage','active_players','selection_done','teammate_suit','outgoing_suit',
+                                'animating','animation_seconds','direction','outgoing_tiles'}
+            board, viewer = viewer_round[entry['user_id']]
+            assert phase['direction'] == 2
+            expected_outgoing = rounds[f'round_index_{board}']['xueliu_throw_tiles'][viewer] if phase['selection_done'] else []
+            assert phase['outgoing_tiles'] == expected_outgoing
             if phase['animating']:
                 assert not ask['action_list'] and ask['remaining_time']==0
             elif phase['stage']==1:
@@ -106,4 +118,4 @@ def test_complete_xueliu_team_match(seed):
     for team in (0,1):
         assert sum(r['score_changes'][team] for r in state.team_round_history)==state.team_result['scores'][team]
     recorded=endings[0]['message']['game_end_info']['record_detail']['record']
-    assert recorded['doubles_result']==json.loads(json.dumps(state.team_result))
+    assert recorded['tables']['main']['payload']['doubles_result']==json.loads(json.dumps(state.team_result))

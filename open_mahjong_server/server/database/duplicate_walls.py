@@ -34,21 +34,17 @@ def load_duplicate_wall(db, key):
     conn = db._get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id, key, rule, wall_type, tiles, event_id, deleted_at, seed, use_flowers, round_count, round_tiles, scope, owner_user_id FROM duplicate_walls WHERE key = %s", (key,))
+            cursor.execute("SELECT id, key, rule, wall_type, tiles, event_id, deleted_at, seed, use_flowers, round_count, round_tiles, scope, owner_user_id, legacy_planned_boards FROM duplicate_walls WHERE key = %s", (key,))
             row = cursor.fetchone()
-            planned_count = None
-            if row and row[2] in (SBR_WALL_SUBRULE, XUELIU_WALL_SUBRULE):
-                cursor.execute("SELECT MIN((data->>'planned_boards')::integer) FROM sichuan_duplicate_matches WHERE wall_id=%s", (row[0],))
-                planned_count = cursor.fetchone()[0]
         if not row or row[6] is not None:
             raise ValueError("复式密钥不存在或已删除")
         tiles = json.loads(row[4]) if isinstance(row[4], str) else row[4]
         wall = dict(id=row[0], key=row[1], rule=row[2], wall_type=row[3], tiles=tiles,
                     event_id=row[5], seed=row[7], use_flowers=row[8], round_count=row[9], scope=row[11], owner_user_id=row[12],
                     round_tiles=json.loads(row[10]) if isinstance(row[10], str) else row[10])
+        planned_count = row[13]
         if (planned_count in (1, 4, 8, 12, 16) and isinstance(wall["round_tiles"], list)
                 and planned_count < wall["round_count"] and len(wall["round_tiles"]) == wall["round_count"]):
-            wall["legacy_source_round_count"] = wall["round_count"]
             wall.update(round_count=planned_count, round_tiles=wall["round_tiles"][:planned_count])
         return wall
     finally:
@@ -171,18 +167,20 @@ def duplicate_record_is_visible(db, game_record, game_id=None):
         with conn.cursor() as cursor:
             if is_training_duplicate_record(title):
                 # A caller-supplied training marker must not unlock a formal game.
-                # Require the persisted record and its keyless paired snapshot.
+                # Verify the saved table association, including pre-upgrade records.
                 cursor.execute("""SELECT EXISTS (
-                    SELECT 1 FROM game_record_metadata r JOIN sichuan_duplicate_matches m
-                      ON m.id::text = r.record->'game_title'->>'duplicate_match_id'
-                    WHERE r.game_id=%s AND m.wall_id IS NULL
-                      AND m.data->>'wall_source'='training'
-                      AND m.data->'record_ids'->>(r.record->'game_title'->>'duplicate_table')=r.game_id
-                      AND r.record->'game_title'->>'wall_source'='training'
-                      AND r.record->'game_title'->>'duplicate_wall_type'='training'
-                      AND r.record->'game_title'->>'is_duplicate'='true'
-                      AND r.record->'game_title'->>'sub_rule' IN (%s,%s)
-                      AND COALESCE(r.record->'game_title'->>'duplicate_key','')=''
+                    SELECT 1 FROM game_record_tables r JOIN game_replays b ON b.game_id=r.replay_id
+                    CROSS JOIN LATERAL (SELECT b.record->'tables'->r.table_id->'payload'->'game_title' AS title) a
+                    WHERE r.game_id=%s AND r.table_id=a.title->>'duplicate_table'
+                      AND (r.training_match_id::text = a.title->>'duplicate_match_id' OR EXISTS (
+                        SELECT 1 FROM sichuan_duplicate_matches m WHERE m.id::text=a.title->>'duplicate_match_id'
+                          AND m.wall_id IS NULL AND m.data->>'wall_source'='training'
+                          AND m.data->'record_ids'->>r.table_id=r.game_id))
+                      AND a.title->>'wall_source'='training'
+                      AND a.title->>'duplicate_wall_type'='training'
+                      AND a.title->>'is_duplicate'='true'
+                      AND a.title->>'sub_rule' IN (%s,%s)
+                      AND COALESCE(a.title->>'duplicate_key','')=''
                       AND NOT EXISTS (SELECT 1 FROM duplicate_games g WHERE g.game_id=r.game_id))""",
                     (game_id, SBR_WALL_SUBRULE, XUELIU_WALL_SUBRULE))
                 row = cursor.fetchone()
@@ -252,6 +250,24 @@ ALTER TABLE duplicate_walls ADD CONSTRAINT duplicate_walls_round_count_check CHE
   round_count IN (1, 4, 8, 12, 16) OR (rule = 'sichuan/xueliu_doubles_duplicate' AND round_count > 0));
 ALTER TABLE duplicate_walls ADD COLUMN IF NOT EXISTS round_tiles JSONB
   CHECK (round_tiles IS NULL OR (jsonb_typeof(round_tiles) = 'array' AND jsonb_array_length(round_tiles) = round_count));
+-- Preserve the original length of old series that included one match's tiebreaks.
+-- Only the upgrade reads historical matches. Loading a wall reads the asset alone.
+DO $upgrade$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='duplicate_walls'::regclass
+                 AND attname='legacy_planned_boards' AND NOT attisdropped) THEN
+    ALTER TABLE duplicate_walls ADD COLUMN legacy_planned_boards INTEGER;
+    IF to_regclass('sichuan_duplicate_matches') IS NOT NULL THEN
+      UPDATE duplicate_walls w SET legacy_planned_boards=p.planned
+      FROM (SELECT wall_id, MIN((data->>'planned_boards')::integer) AS planned
+            FROM sichuan_duplicate_matches WHERE wall_id IS NOT NULL
+              AND data->>'planned_boards' IN ('1','4','8','12','16')
+            GROUP BY wall_id) p
+      WHERE w.id=p.wall_id AND w.rule IN ('sichuan/doubles_duplicate','sichuan/xueliu_doubles_duplicate')
+        AND p.planned<w.round_count AND jsonb_array_length(w.round_tiles)=w.round_count;
+    END IF;
+  END IF;
+END $upgrade$;
 CREATE INDEX IF NOT EXISTS idx_duplicate_walls_owner ON duplicate_walls(owner_user_id, scope, created_at);
 CREATE INDEX IF NOT EXISTS idx_duplicate_walls_event ON duplicate_walls(event_id, created_at);
 CREATE TABLE IF NOT EXISTS duplicate_games (
@@ -259,5 +275,7 @@ CREATE TABLE IF NOT EXISTS duplicate_games (
   wall_id BIGINT NOT NULL REFERENCES duplicate_walls(id),
   ended_at TIMESTAMPTZ NULL
 );
+ALTER TABLE duplicate_games ADD COLUMN IF NOT EXISTS paired_match_id UUID;
+CREATE INDEX IF NOT EXISTS idx_duplicate_games_paired ON duplicate_games(paired_match_id) WHERE paired_match_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_duplicate_games_wall ON duplicate_games(wall_id);
 """)

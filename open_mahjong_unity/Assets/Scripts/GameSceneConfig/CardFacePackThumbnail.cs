@@ -39,7 +39,7 @@ public sealed class CardFacePackThumbnail : MonoBehaviour {
                 customTileId = result.Pngs.ContainsKey(tileId) ? tileId
                     : result.Pngs.ContainsKey(11) ? 11 : result.Pngs.Keys.OrderBy(key => key).First();
                 TilePackLayoutConfig.Register(id, result.LayoutConfig);
-                customTexture = UnityAssetIdb.ToTexture(result.Pngs[customTileId]);
+                customTexture = TileFaceResolver.LoadCustomFaceTexture(result.Pngs[customTileId], "CustomFaceThumbnail_" + customTileId);
                 if (customTexture == null) return;
                 customSprite = Sprite.Create(customTexture, new Rect(0, 0, customTexture.width, customTexture.height),
                     new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect);
@@ -48,7 +48,7 @@ public sealed class CardFacePackThumbnail : MonoBehaviour {
         }
         background.sprite = TileFaceResolver.LoadHandBackground();
         background.preserveAspect = true;
-        artwork.sprite = custom ? customSprite : BuiltinTileSprites.Shared(pack, tileId) ?? BuiltinTileSprites.Hand(pack, tileId);
+        artwork.sprite = custom ? customSprite : BuiltinTilePreviews.Load(pack, tileId);
         artwork.enabled = artwork.sprite != null;
         TileFaceFit.ApplyHandArtwork(artwork, background, custom && customSprite != null ? customTileId : tileId,
             HandSurfaceLibrary.CurrentFaceLayout, pack);

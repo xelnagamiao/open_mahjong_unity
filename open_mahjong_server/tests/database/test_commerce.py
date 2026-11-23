@@ -23,7 +23,12 @@ def shop():
     fixture.setUp()
     fixture.sql('''INSERT INTO users(user_id,is_tourist) VALUES(104,FALSE);
         CREATE TABLE game_player_records(game_id text,user_id bigint);
-        CREATE TABLE game_records(game_id text PRIMARY KEY,record jsonb);''')
+        ''')
+    from server.records.store import ensure_tables
+    with fixture.pool.getconn() as conn:
+        with conn.cursor() as cur:
+            ensure_tables(cur)
+    fixture.pool.putconn(conn)
     try:
         yield fixture
     finally:
@@ -193,12 +198,12 @@ def test_shared_record_transaction_rolls_back_all_rewards_then_retries_same_id(d
     data['game_title']['room_type']='match'
     assert store_guobiao_game_record(db,data,players(definition),'match','1/4_rank') is None
     assert 'currency_reward' not in data
-    for table in ('game_records','game_player_records','game_player_metrics','wallet_ledger','user_wallets'):
+    for table in ('game_record_tables','game_player_records','game_player_metrics','wallet_ledger','user_wallets'):
         assert db.sql('SELECT COUNT(*) FROM '+table) == [(0,)]
     reserved=data['game_title']['cloud_game_id']
     monkeypatch.setattr(commerce,'_wallet_change',original)
     gid=store_guobiao_game_record(db,data,players(definition),'match','1/4_rank')
     assert gid == reserved
     assert store_guobiao_game_record(db,data,players(definition),'match','1/4_rank') == gid
-    assert db.sql('SELECT COUNT(*) FROM game_records') == [(1,)]
+    assert db.sql('SELECT COUNT(*) FROM game_record_tables') == [(1,)]
     assert db.sql('SELECT COUNT(*) FROM wallet_ledger') == [(4,)]

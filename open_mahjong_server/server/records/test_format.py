@@ -120,15 +120,11 @@ def test_corrupt_physical_origin_is_rejected(mutation):
         build_match(source)
 
 
-def test_restarting_training_board_changes_identity_even_when_tiles_stay_equal():
-    source = new_match("restart", "sichuan/doubles_duplicate", {}, [make_board(4, 1)], "seed")
-    source.update(status="interrupted", wall_source="training")
-    pair = PairedMatch(source, lambda *_: None)
-    before, wall = pair.data["board_instances"][0]["board_instance_id"], deepcopy(pair.data["boards"])
-    pair.restart_unfinished_board()
-    assert before != pair.data["board_instances"][0]["board_instance_id"]
-    assert pair.data["boards"] == wall
-    assert pair.data["voided_boards"][0]["board_instance_id"] == before
+def test_separate_training_matches_have_distinct_instances_for_identical_walls():
+    boards = [make_board(4, 1)]
+    first, second = [new_match(mid, "sichuan/doubles_duplicate", {}, boards, "seed") for mid in ("first", "second")]
+    assert first["boards"] == second["boards"]
+    assert first["board_instances"][0]["board_instance_id"] != second["board_instances"][0]["board_instance_id"]
 
 
 def test_single_table_and_unknown_extensions_survive_conversion():

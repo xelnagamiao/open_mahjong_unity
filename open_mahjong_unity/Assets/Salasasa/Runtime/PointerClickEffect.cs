@@ -33,9 +33,23 @@ namespace Salasasa.Home
         void Update()
         {
             if (!Application.isPlaying) return;
-            var mouse = Mouse.current;
-            if (Application.isFocused && mouse != null && mouse.leftButton.wasPressedThisFrame)
-                Emit(mouse.position.ReadValue());
+            if (Application.isFocused)
+            {
+                bool touchPressed = false;
+                var touchscreen = Touchscreen.current;
+                if (touchscreen != null)
+                {
+                    foreach (var touch in touchscreen.touches)
+                    {
+                        if (!touch.press.wasPressedThisFrame) continue;
+                        Emit(touch.position.ReadValue());
+                        touchPressed = true;
+                    }
+                }
+                var mouse = Mouse.current;
+                if (!touchPressed && mouse != null && mouse.leftButton.wasPressedThisFrame)
+                    Emit(mouse.position.ReadValue());
+            }
             if (hasPulses) SetVerticesDirty();
         }
 

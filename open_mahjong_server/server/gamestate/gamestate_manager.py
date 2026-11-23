@@ -3,7 +3,9 @@ import logging
 import asyncio
 import uuid
 from copy import deepcopy
-from .public.lifecycle import should_close_when_offline, cancel_auxiliary_tasks, cancel_game_task
+from .public.lifecycle import (
+    cancel_auxiliary_tasks, cancel_game_task, human_players, is_offline, should_close_when_offline,
+)
 from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
@@ -220,6 +222,9 @@ class GameStateManager:
             state_class = GuangdongGameState
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == GUANGDONG_DOUBLES:
             state_class = GuangdongDoublesGameState
+        if room_data["room_rule"] == "new_chinese" and room_data.get("sub_rule") == "new_chinese/sanhua":
+            from .game_sanhua.SanhuaGameState import SanhuaGameState
+            state_class = SanhuaGameState
         if state_class is None:
             return Response(type="error_message", success=False, message="房间类型不支持")
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == SBR_EXCHANGE_SUB_RULE:
@@ -287,11 +292,15 @@ class GameStateManager:
         state.close_reason = None
         state.abandoned_users = set()
         state._presence_lock = asyncio.Lock()
+        state._player_connections = {}
+        connections = getattr(self.game_server, "user_id_to_connection", {})
         self.gamestate_id_to_game_state[state.gamestate_id] = state
         index[state.room_id] = state
         for player in state.player_list:
             if player.user_id > 10:
                 self.user_id_to_game_state[player.user_id] = state
+                if not is_offline(player):
+                    state._player_connections[player.user_id] = connections.get(player.user_id)
         room_manager = self.game_server.room_manager
         room_manager.active_game_room_ids[state.gamestate_id] = state.room_id
         if room_manager.rooms.get(state.room_id) is room_data:
@@ -345,15 +354,17 @@ class GameStateManager:
         state = self.user_id_to_game_state.get(user_id)
         if state is not None:
             async with state._presence_lock:
-                if connection is not None and self.game_server.user_id_to_connection.get(user_id) is not connection:
-                    return
-                if getattr(state, "lifecycle_state", "running") == "running":
-                    try:
-                        await state.player_disconnect(user_id)
-                    finally:
-                        if should_close_when_offline(state):
-                            await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
-        await self.remove_spectator_from_all_games(user_id)
+                # A fresh login does not take ownership of the game seat until it reconnects.
+                if connection is None or state._player_connections.get(user_id) is connection:
+                    state._player_connections.pop(user_id, None)
+                    if state.lifecycle_state == "running":
+                        try:
+                            await state.player_disconnect(user_id)
+                        finally:
+                            if should_close_when_offline(state):
+                                await self.cleanup_game_state_complete(gamestate_id=state.gamestate_id, reason="all_humans_offline")
+        if connection is None or self.game_server.user_id_to_connection.get(user_id) is connection:
+            await self.remove_spectator_from_all_games(user_id)
     
     async def remove_spectator_from_all_games(self, user_id: int):
         """从所有进行中对局的延时观战列表移除用户（退出观战、加入匹配等场景）。"""
@@ -364,7 +375,7 @@ class GameStateManager:
             if hasattr(game_state, "remove_spectator"):
                 await game_state.remove_spectator(user_id)
     
-    async def player_reconnect(self, user_id: int):
+    async def player_reconnect(self, user_id: int, connection=None):
         state = self.user_id_to_game_state.get(user_id)
         if state is None:
             return False
@@ -372,6 +383,11 @@ class GameStateManager:
             if (getattr(state, "lifecycle_state", "running") != "running"
                     or user_id in getattr(state, "abandoned_users", ())):
                 return False
+            current = self.game_server.user_id_to_connection.get(user_id)
+            if (current is None or getattr(current, "event_disconnecting", False)
+                    or connection is not None and current is not connection):
+                return False
+            state._player_connections[user_id] = current
             await state.player_reconnect(user_id)
             vm = getattr(state, "vote_manager", None)
             if vm is not None:
@@ -615,11 +631,14 @@ class GameStateManager:
         room_manager = self.game_server.room_manager
         try:
             pair = getattr(state, "duplicate_match", None)
+            if pair and state.close_reason != "completed" and len(pair.record_inputs) < 2:
+                pair.record_commit_event.set()
+                pair.final_record_event.set()
             if pair and not pair.completed:
                 try:
                     pair.interrupt(state.close_reason)
                 except Exception:
-                    logger.exception("保存复式中断状态失败 gamestate_id=%s", gid)
+                    logger.exception("关闭复式对局失败 gamestate_id=%s", gid)
             try:
                 await cancel_auxiliary_tasks(state)
                 await state.cleanup_game_state()
@@ -628,7 +647,7 @@ class GameStateManager:
             finally:
                 # Even a rule-specific cleanup failure must stop the main loop.
                 await cancel_game_task(state)
-            if getattr(state, "_duplicate_game_id", None):
+            if getattr(state, "_duplicate_game_id", None) and not pair:
                 from ..database.duplicate_walls import mark_duplicate_game_ended
                 try:
                     mark_duplicate_game_ended(state.db_manager, state._duplicate_game_id)
@@ -663,9 +682,13 @@ class GameStateManager:
                 if getattr(state, "room_type", None) == "match" and getattr(self.game_server, "match_manager", None):
                     self.game_server.match_manager.release_match(gid)
                 else:
+                    departed_users = state.abandoned_users
+                    if state.close_reason == "all_humans_offline":
+                        departed_users = departed_users | {player.user_id for player in human_players(state) if is_offline(player)}
                     await room_manager.finish_custom_game_room(
                         state.room_id, expected_gamestate_id=gid,
                         expected_instance_id=getattr(state, "origin_room_instance_id", None),
+                        departed_users=departed_users,
                     )
             finally:
                 room_manager.active_game_room_ids.pop(gid, None)
@@ -673,3 +696,9 @@ class GameStateManager:
                 self._closing_games.pop(gid, None)
                 finished.set_result(None)
                 logger.info("对局已清理 gamestate_id=%s reason=%s", gid, state.close_reason)
+        # A cancelled task that never entered run_game cannot run its finally block.
+        if pair and pair.data["status"] in ("interrupted", "cancelled"):
+            for peer in pair.states.values():
+                peer_id = peer.gamestate_id
+                if peer_id not in self._closing_games and self.gamestate_id_to_game_state.get(peer_id) is peer:
+                    await self.cleanup_game_state_complete(gamestate_id=peer_id, reason=state.close_reason)

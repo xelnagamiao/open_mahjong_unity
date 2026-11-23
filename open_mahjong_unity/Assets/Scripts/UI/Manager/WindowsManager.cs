@@ -35,6 +35,10 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private Salasasa.Home.LobbyTableTransition lobbyTableTransition;
 
     public float WindowFadeDuration => windowFadeDuration;
+    public RecordPanel RecordListForNavigation => recordPanel ? recordPanel.GetComponentInChildren<RecordPanel>(true) : null;
+    private Salasasa.Home.FourSideHeader lobbyNavigation;
+    public RectTransform VisibleTopLobbyHeader => lobbyNavigation && lobbyNavigation.isActiveAndEnabled
+        && lobbyNavigation.Side == 0 && lobbyNavigation.visibility.alpha > 0 ? lobbyNavigation.surface : null;
     public bool CanReturnToGame { get; private set; }
     public void SetBackToGameVisible(bool visible) => CanReturnToGame = visible;
 
@@ -72,6 +76,7 @@ public class WindowsManager : MonoBehaviour {
             return;
         }
         Instance = this;
+        if (headerPanel) lobbyNavigation = headerPanel.GetComponent<Salasasa.Home.FourSideHeader>();
         ApplyColdBootHiddenState(); // 未登录前关掉场景中的一级窗口，避免子面板 Start 协程读到空用户名等
         StreamerModeHelper.OnChanged += ApplyStreamerModePanels;
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
@@ -130,6 +135,10 @@ public class WindowsManager : MonoBehaviour {
     /// 断线软重置：立即回到仅显示登录界面的布局（无渐变动画）。
     /// </summary>
     public void ResetToLoginUI() {
+        if (ReplayFrameLoader.Busy) {
+            ReplayFrameLoader.Cancel();
+            SharedRecordLink.ClearPendingJump();
+        }
         lobbyTableTransition?.Cancel();
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
@@ -381,6 +390,16 @@ public class WindowsManager : MonoBehaviour {
     }
 
     private void StartSwitchWindow(string targetWindow, bool ensureHeader, bool preserveTableTransition = false) {
+        if (targetWindow != "recordscene" && ReplayFrameLoader.Busy) {
+            ReplayFrameLoader.Cancel();
+            SharedRecordLink.ClearPendingJump();
+            SharedRecordLink.EndPublicSharePlayback();
+            if (currentWindow == "recordscene" && targetWindow != "game" && !GameSessionGuard.HasExclusiveSession) {
+                GameSceneTeardown.ResetToIdle();
+                CanReturnToGame = false;
+                ensureHeader = true;
+            }
+        }
         if (!preserveTableTransition) lobbyTableTransition?.Cancel();
         StopWindowSwitch();
         Debug.Log($"切换到{targetWindow}窗口");
@@ -422,6 +441,10 @@ public class WindowsManager : MonoBehaviour {
             lastLobbyTab = targetWindow;
         }
         currentWindow = targetWindow; // 更新当前窗口状态
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CardBackManager.AppearanceVisible = viewingTable || targetWindow == "sceneConfig";
+        if (CardBackManager.AppearanceVisible) CardBackManager.EnterWebAppearance();
+#endif
         if(pageRoot!=null)pageRoot.gameObject.SetActive(IsLobbyTab(targetWindow));
         ApplyScreenSleepTimeout();
         ApplyStreamerModePanels();
@@ -469,9 +492,6 @@ public class WindowsManager : MonoBehaviour {
         if (targetWindow == "event") EventLobbyPanel.Instance?.EnsureVisiblePage();
         if (NetworkManager.Instance == null || !NetworkManager.Instance.isActiveAndEnabled) return;
         switch (targetWindow) {
-            case "menu":
-                RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: false);
-                break;
             case "match":
                 MatchNetworkManager.Instance.RequestQueueStatusForMatchPanel();
                 break;

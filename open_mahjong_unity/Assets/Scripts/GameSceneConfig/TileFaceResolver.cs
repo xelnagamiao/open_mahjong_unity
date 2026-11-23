@@ -13,7 +13,6 @@ public static class TileFaceResolver {
     private static readonly Dictionary<int, Texture2D> CustomHandTextures = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Texture2D> CustomTableTextures = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Sprite> CustomTableSprites = new Dictionary<int, Sprite>();
-    private static readonly Dictionary<int, Sprite> OfficialSpriteCache = new Dictionary<int, Sprite>();
     private static Sprite handBackgroundSprite;
     private static Texture2D handBackgroundTexture;
     private static Texture2D defaultHandBackgroundTexture;
@@ -44,6 +43,9 @@ public static class TileFaceResolver {
         ConfigManager.Instance != null && TilePackIds.IsLayeredPack(ConfigManager.Instance.StandardTilePackId);
 
     public static void EnsureLoaded() {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (!CardBackManager.AppearanceVisible) return;
+#endif
         if (ConfigManager.Instance == null) {
             return;
         }
@@ -60,7 +62,7 @@ public static class TileFaceResolver {
         packId = TilePackIds.NormalizePackId(packId);
         loadVersion++;
         if (ConfigManager.Instance != null) {
-            ConfigManager.Instance.SetStandardTilePackId(packId);
+            ConfigManager.Instance.StoreStandardTilePackId(packId);
         }
         diskLoaded = false;
         webGlLoadStarted = false;
@@ -81,7 +83,7 @@ public static class TileFaceResolver {
         TilePackLayoutConfig.Register(TilePackIds.PackCustom, imported.LayoutConfig);
         ReplaceCustomTextures(imported.Pngs);
         if (enableFlag && ConfigManager.Instance != null) {
-            ConfigManager.Instance.SetStandardTilePackId(TilePackIds.PackCustom);
+            ConfigManager.Instance.StoreStandardTilePackId(TilePackIds.PackCustom);
         }
         NotifyChanged();
     }
@@ -93,7 +95,7 @@ public static class TileFaceResolver {
     public static void ApplyLibraryPack(string id, TilePackImporter.Result imported) {
         if (!TilePackIds.IsCustomPack(id) || imported == null || !imported.Success) return;
         loadVersion++;
-        ConfigManager.Instance?.SetStandardTilePackId(id);
+        ConfigManager.Instance?.StoreStandardTilePackId(id);
         diskLoaded = webGlLoadStarted = true;
         TilePackLayoutConfig.Register(id, imported.LayoutConfig);
         ReplaceCustomTextures(imported.Pngs);
@@ -136,14 +138,7 @@ public static class TileFaceResolver {
             return custom;
         }
 
-        if (OfficialSpriteCache.TryGetValue(faceId, out Sprite cached) && cached != null) {
-            return cached;
-        }
-        Sprite official = BuiltinTileSprites.Hand(TilePackIds.PackOfficial, faceId);
-        if (official != null) {
-            OfficialSpriteCache[faceId] = official;
-        }
-        return official;
+        return BuiltinTileSprites.Hand(TilePackIds.PackOfficial, faceId);
     }
 
     /// <summary>The shared atlas sprite actually used by this tile, including the official missing-face fallback.</summary>
@@ -367,18 +362,12 @@ public static class TileFaceResolver {
     }
 
     private static void RefreshVisibleHandCards() {
-        TileCard[] cards = UnityEngine.Object.FindObjectsByType<TileCard>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        for (int i = 0; i < cards.Length; i++) {
-            if (cards[i] != null && cards[i].tileId >= 0) {
-                cards[i].RefreshVisual();
-            }
-        }
-        StaticCard[] staticCards = UnityEngine.Object.FindObjectsByType<StaticCard>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        for (int i = 0; i < staticCards.Length; i++) {
-            if (staticCards[i] != null && staticCards[i].TileId >= 0) {
-                staticCards[i].RefreshVisual();
-            }
-        }
+        TileInstances<TileCard>.ForEach(card => {
+            if (card.tileId >= 0) card.RefreshVisual();
+        });
+        TileInstances<StaticCard>.ForEach(card => {
+            if (card.TileId >= 0) card.RefreshVisual();
+        });
     }
 
     public static void NotifyHandLayoutChanged() {
@@ -388,33 +377,44 @@ public static class TileFaceResolver {
     }
 
     public static void NotifyTableLayoutChanged() {
-        foreach (var tile in UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-            if (tile != null) tile.RefreshArtworkLayout();
+        TileInstances<Tile3D>.ForEach(tile => tile.RefreshArtworkLayout());
         RefreshVisibleHandCards();
         OnPackChanged?.Invoke();
     }
 
     public static void NotifyHandBackgroundChanged() {
+        InvalidateHandBackground();
+        NotifyChanged();
+    }
+
+    private static void InvalidateHandBackground() {
         if (handBackgroundTexture != null && handBackgroundTexture != defaultHandBackgroundTexture) {
             ReplaceHandBackgroundSprite(null);
         }
-        NotifyChanged();
     }
 
     public static void NotifyTableBackgroundChanged() {
-        if (tableBackgroundSprite != null) {
-            ReplaceTableBackgroundSprite(null);
-        }
+        InvalidateTableBackground();
         NotifyChanged();
     }
 
+    private static void InvalidateTableBackground() {
+        if (tableBackgroundSprite != null) {
+            ReplaceTableBackgroundSprite(null);
+        }
+    }
+
     public static void NotifyHandBackChanged() {
+        InvalidateHandBack();
+        NotifyChanged();
+    }
+
+    private static void InvalidateHandBack() {
         if (customHandBackSprite != null) {
             DestroyTransient(customHandBackSprite);
             customHandBackSprite = null;
         }
         customHandBackTexture = null;
-        NotifyChanged();
     }
 
     public static Texture2D PeekDefaultHandBackTexture() {
@@ -425,9 +425,23 @@ public static class TileFaceResolver {
         return IosResourceCache.Load<Texture2D>(TilePackIds.DefaultHandBackResource);
     }
 
+    internal static void NotifyRestoredSurfaces() {
+        InvalidateHandBackground();
+        InvalidateTableBackground();
+        InvalidateHandBack();
+        NotifyChanged();
+    }
+
     private static void NotifyChanged() {
+        string pack = CurrentPackId();
+        if (TilePackIds.IsCustomPack(pack)) {
+            // A partial or asynchronously loading pack still needs the official missing-face fallback.
+            pack = CustomHandSprites.Count < TilePackIds.StandardFaceIds.Length ? TilePackIds.PackOfficial : null;
+        }
+        BuiltinTileSprites.BeginStandardPackRefresh(pack);
         RefreshVisibleCards();
         OnPackChanged?.Invoke();
+        BuiltinTileSprites.ReleaseUnusedStandardPacks();
     }
 
     private static string CurrentPackId() {
@@ -484,7 +498,7 @@ public static class TileFaceResolver {
         DestroyCustomTextures();
         ownsRuntimeTextures = true;
         foreach (var pair in pngs) {
-            Texture2D texture = BytesToTexture(pair.Value, "CustomFace_" + pair.Key, false);
+            Texture2D texture = LoadCustomFaceTexture(pair.Value, "CustomFace_" + pair.Key);
             if (texture == null) continue;
             CustomHandTextures[pair.Key] = texture;
             CustomTableTextures[pair.Key] = texture;
@@ -552,21 +566,39 @@ public static class TileFaceResolver {
         return customHandBackSprite;
     }
 
-    private static Texture2D BytesToTexture(byte[] png, string name, bool markNonReadable) {
+    /// <summary>Creates a display texture from the original pack PNG. The caller owns the returned texture.</summary>
+    public static Texture2D LoadCustomFaceTexture(byte[] png, string name) {
         if (png == null || png.Length == 0) {
             return null;
         }
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-        texture.name = name;
-        texture.filterMode = FilterMode.Bilinear;
-        texture.anisoLevel = 16;
-        texture.mipMapBias = -.5f;
-        texture.wrapMode = TextureWrapMode.Clamp;
-        if (!ImageConversion.LoadImage(texture, png, markNonReadable)) {
+        try {
+            if (!ImageConversion.LoadImage(texture, png, false)) {
+                DestroyTransient(texture);
+                return null;
+            }
+            int longest = Mathf.Max(texture.width, texture.height);
+            if (longest > TilePackIds.MaxFaceTextureEdge) {
+                float scale = (float)TilePackIds.MaxFaceTextureEdge / longest;
+                int width = Mathf.Max(1, Mathf.RoundToInt(texture.width * scale));
+                int height = Mathf.Max(1, Mathf.RoundToInt(texture.height * scale));
+                texture.filterMode = FilterMode.Trilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                SceneConfigTextureCapture.ResizeInPlace(texture, width, height);
+            } else {
+                texture.Apply(false, true);
+            }
+            texture.name = name;
+            texture.filterMode = FilterMode.Bilinear;
+            texture.anisoLevel = 16;
+            texture.mipMapBias = -.5f;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            return texture;
+        } catch (UnityException error) {
             DestroyTransient(texture);
+            Debug.LogWarning($"无法加载自定义牌面 {name}：{error.Message}");
             return null;
         }
-        return texture;
     }
 
     private static void DestroyCustomTextures() {

@@ -185,14 +185,14 @@ namespace Salasasa.Leaderboards
             if (dataSource != DataSource.AuthenticatedServer || !IsOpen || string.IsNullOrEmpty(ActiveRequestId)) return;
             if (reply == null || reply.data_request_id != ActiveRequestId || reply.rating_rule != LeaderboardRules.Ids[selectedRule]) return;
             if (!reply.success || reply.leaderboard_list == null) { ShowState("error", "暂时无法获取榜单", "请稍后重新加载", false, true); return; }
-            Apply(reply.leaderboard_list, "实时榜单 · 前 100 名 · " + DateTime.Now.ToString("HH:mm") + " 更新");
+            Apply(reply.leaderboard_list, "实时榜单 · 前 100 名 · " + DateTime.Now.ToString("HH:mm") + " 更新", reply.leaderboard_self_position);
         }
 
-        void Apply(LeaderboardEntry[] data, string source)
+        void Apply(LeaderboardEntry[] data, string source, int ownPosition = 0)
         {
             entries = data ?? Array.Empty<LeaderboardEntry>();
             LastSourceText = source;
-            foreach (var view in views) view.SetRows(entries, selectedRule, portraits, dataSource == DataSource.Sample, MyId, source);
+            foreach (var view in views) view.SetRows(entries, selectedRule, portraits, dataSource == DataSource.Sample, MyId, source, ownPosition);
             CurrentState = entries.Length > 0 ? "ready" : "empty";
             DataApplied?.Invoke();
             if (entries.Length == 0) ShowState("empty", "暂无排行数据", "当前规则还没有上榜玩家", false, true);

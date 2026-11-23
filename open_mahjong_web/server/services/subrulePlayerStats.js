@@ -1,3 +1,4 @@
+const { filteredTables } = require('./replayTables');
 const { BASE_KEYS, DETAIL_KEYS, RIICHI_STATS_VERSION } = require('./riichiStats');
 const { statisticsSelection, normalizeMatchType } = require('./statisticsCatalog');
 
@@ -46,7 +47,7 @@ async function fetchMetricRows(db, conditions, params) {
   const result = await db.query(`SELECT gpr.match_type AS mode,gpr.room_type,gpr.rank,
       gpm.sub_rule,to_jsonb(gpm) AS metrics,s.stats AS summary,
       to_jsonb(gpr)->'score' AS settlement_score,to_jsonb(gpr) ? 'score' AS has_settlement_score
-    FROM game_player_records gpr JOIN game_records gr USING(game_id)
+    FROM game_player_records gpr JOIN ${filteredTables(conditions)} gr USING(game_id)
     LEFT JOIN LATERAL (SELECT * FROM game_player_metrics m
       WHERE m.game_id=gpr.game_id AND m.user_id=gpr.user_id ORDER BY m.id DESC LIMIT 1) gpm ON TRUE
     LEFT JOIN riichi_player_game_stats s ON gpr.rule='riichi' AND s.game_id=gpr.game_id

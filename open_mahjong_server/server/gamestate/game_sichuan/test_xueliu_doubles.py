@@ -77,7 +77,8 @@ def test_exchange_two_stages_rotate_preserve_tiles_and_hide_teammate_ranks(round
         assert len(active) == 2
         for index in range(4):
             view = current.exchange_view(index)
-            assert set(view) == {'stage','active_players','selection_done','teammate_suit','outgoing_suit','animating','animation_seconds'}
+            assert view['direction'] == 2 and 'dice' not in view
+            assert view['outgoing_tiles'] == current.player_list[index].xueliu_throw_tiles
             assert not view['animating']
             expected = current.player_list[(index+2)%4].xueliu_throw_tiles
             assert view['teammate_suit'] == (expected[0]//10 if len(asks)==2 and index in active else 0)

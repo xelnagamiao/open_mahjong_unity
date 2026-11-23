@@ -313,10 +313,13 @@ async def handle_get_leaderboard(game_server, Connect_id: str, message: dict, we
         elif not isinstance(rule,str) or rule not in RULES:
             response.message = "不支持的匹配规则"
         else:
-            rows = await _run_record_read(game_server.db_manager.get_rule_leaderboard, rule=rule)
-            response.leaderboard_list = [LeaderboardEntry(**row) for row in rows]
+            rows = await _run_record_read(game_server.db_manager.get_rule_leaderboard, rule=rule, limit=1000)
+            response.leaderboard_self_position = next(
+                (row["rank_position"] for row in rows if row["user_id"] == player.user_id), None
+            )
+            response.leaderboard_list = [LeaderboardEntry(**row) for row in rows[:100]]
             response.success = True
-            response.message = f"获取到 {len(rows)} 名排行榜玩家"
+            response.message = f"获取到 {len(response.leaderboard_list)} 名排行榜玩家"
     except Exception:
         logger.exception("读取规则排行榜失败")
         response.message = "读取排行榜失败，请重试"

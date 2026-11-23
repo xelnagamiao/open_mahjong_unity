@@ -16,7 +16,7 @@ from server.database.scene_stats import record_game_metrics
 def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert len(RULES) == len({r['key'] for r in RULES}) == len({r['sub_rule'] for r in RULES})
     assert all(r['basic_stats'] == (r['rule'] != 'free') for r in RULES)
-    assert sum(r['fan_stats'] for r in RULES) == 30
+    assert sum(r['fan_stats'] for r in RULES) == 31
     doubles = next(r for r in RULES if r['sub_rule'] == 'guangdong/mil2023-doubles')
     assert doubles['basic_stats'] and doubles['fan_key'] == 'guangdong_doubles'
     assert doubles['custom_modes'] == ['2/4', '4/4'] and not doubles['matchmaking']
@@ -85,6 +85,7 @@ def db():
     """)
     try:
         execute('''CREATE TABLE users(user_id bigint PRIMARY KEY,is_tourist boolean NOT NULL DEFAULT FALSE);
+            CREATE TABLE user_settings(user_id bigint PRIMARY KEY REFERENCES users,profile_image_id int DEFAULT 1);
             INSERT INTO users(user_id) VALUES(10000101),(10000102),(10000103),(10000104);''')
         from server.database.inventory import ensure_inventory_tables
         with conn.cursor() as cur:
@@ -177,7 +178,7 @@ def test_schema_initialization_is_idempotent_and_preserves_data(db):
     db.sql("INSERT INTO guobiao_history_stats(user_id,rule,mode,total_games) VALUES(10000999,'guobiao','1/4',99)")
     db.sql("INSERT INTO scene_daily_stats(stat_date,rule,total_games) VALUES('2020-01-01','guobiao',99)")
     db.sql("INSERT INTO scene_tier_fan_daily VALUES('2020-01-01','beginner','guobiao','pinghe',99,'guobiao/standard')")
-    tables = ('game_records', 'game_player_records', 'game_player_metrics', 'scene_daily_stats',
+    tables = ('game_replays', 'game_player_records', 'game_player_metrics', 'scene_daily_stats',
               'scene_tier_fan_daily', 'guobiao_history_stats', 'guobiao_fan_stats', 'app_meta')
     before = {table: db.sql(f'SELECT * FROM {table}') for table in tables}
     for _ in range(2):

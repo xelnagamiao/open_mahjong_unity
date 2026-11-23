@@ -69,7 +69,7 @@ public class UserContainer : MonoBehaviour {
 
     private void RefreshAppearance(InventoryAppearance appearance) {
         if (UserDataManager.Instance == null || profileImage == null) return;
-        profileImage.sprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
+        ConfigManager.SetProfilePortrait(profileImage, UserDataManager.Instance.ProfileImageId);
         AvatarFrameGraphic.Apply(profileImage, UserDataManager.Instance.AvatarFrameId);
     }
 

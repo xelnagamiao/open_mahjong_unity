@@ -32,7 +32,6 @@ class Party:
 class PartyManager:
     INVITE_SECONDS = 60
     RECONNECT_SECONDS = 60
-    MAX_MEMBER_GAP = 500
 
     def __init__(self, server):
         self.server = server
@@ -89,8 +88,7 @@ class PartyManager:
         state = 'in_game' if self.committed(p) else 'queueing' if p.queued_at else 'idle'
         return dict(party_id=p.party_id, leader_user_id=p.leader_user_id, members=rows, capacity=p.capacity,
             revision=p.revision, state=state, selected_queue=p.selected_queue,
-            queued_at=p.queued_at, team_elo=p.rating,
-            search_range=self.search_range(p.queued_at) if p.queued_at else 100)
+            queued_at=p.queued_at, team_elo=p.rating)
 
     async def send(self, uid, response):
         conn = self.server.user_id_to_connection.get(uid)
@@ -292,11 +290,6 @@ class PartyManager:
             message='', party_invite={**invite, 'status': 'accepted'}))
         return dict(party_invite={**invite, 'status': 'accepted'})
 
-    @staticmethod
-    def search_range(queued_at, now=None):
-        elapsed = (time.time() if now is None else now) - queued_at
-        return 100 if elapsed < 30 else 200 if elapsed < 60 else 350 if elapsed < 120 else 500
-
     async def enqueue(self, uid, p):
         self.require(uid in p.members, '当前不在该队伍中')
         if p.queued_at:
@@ -308,7 +301,6 @@ class PartyManager:
             rank = self.server.db_manager.get_rank_data(member)
             self.require(rank is not None, '无法读取双打评分，请稍后重试')
             ratings.append((rank.get('ratings', {}).get(DOUBLES_RATING_RULE) or {}).get('elo', 1500))
-        self.require(abs(ratings[0] - ratings[1]) <= self.MAX_MEMBER_GAP, '队内双打 Elo 分差不能超过 500')
         # Membership already blocks individual queues/room entry. Recheck after
         # spectator cleanup yields, including the connection epoch.
         conns = [self.server.user_id_to_connection.get(u) for u in p.members]
@@ -338,15 +330,11 @@ class PartyManager:
         for p in list(self.parties.values()):
             if p.queued_at and any(u not in self.server.user_id_to_connection or u in self.disconnect_tokens for u in p.members):
                 self.cancel_queue(p)
-        waiting = sorted((p for p in self.parties.values() if p.queued_at), key=lambda p: p.queued_at)
-        for a in waiting:
-            if not a.queued_at:
-                continue
-            candidates = [b for b in waiting if b is not a and b.queued_at
-                and abs(a.rating - b.rating) <= min(self.search_range(a.queued_at), self.search_range(b.queued_at))]
-            if not candidates:
-                continue
-            b = min(candidates, key=lambda p: (abs(a.rating - p.rating), p.queued_at))
+        # enqueue appends both teammates together and cancel_queue removes the pair.
+        queue = self.server.match_manager.queues[DOUBLES_QUEUE]
+        while len(queue) >= 4:
+            a = self.get(queue[0])
+            b = self.get(queue[2])
             users = [a.members[0], b.members[0], a.members[1], b.members[1]]
             banned = self.server.db_manager.active_account_bans(users, RANKED_BANS)
             if banned:

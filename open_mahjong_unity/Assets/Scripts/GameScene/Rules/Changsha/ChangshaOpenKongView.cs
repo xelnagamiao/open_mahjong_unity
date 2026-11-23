@@ -57,7 +57,7 @@ public partial class Game3DManager {
             GameObject tile = MahjongObjectPool.Instance.Spawn(tiles[i], position, rotation);
             if (tile == null) continue;
             tile.name = "ChangshaOpenKongTile_" + tiles[i];
-            tile.transform.SetParent(row.transform, true);
+            TableWorldObjectMount.AttachPreservingWorld(tile.transform, row.transform);
             Card3DHoverManager.Instance?.RegisterCard(tile, tiles[i]);
         }
     }

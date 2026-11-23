@@ -8,7 +8,7 @@ public partial class Game3DManager {
     public void ReturnChangshaContinuationTile(string seat, int tile) {
         var source = RegisterChangshaPublicRiverTile(seat, tile);
         if (source == null) return;
-        source.transform.SetParent(null, worldPositionStays: true);
+        TableWorldObjectMount.AttachDetached(source.transform, true);
         OnLastDiscardTaken(seat);
         MahjongObjectPool.Instance.Return(-1, source);
         CompactChangshaRiver(seat);

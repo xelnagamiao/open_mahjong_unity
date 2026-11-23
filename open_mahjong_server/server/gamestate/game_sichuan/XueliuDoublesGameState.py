@@ -1,17 +1,14 @@
 """血流双打的随机单桌 2V2；不采用复式双桌赛制。"""
 from copy import deepcopy
-import asyncio
 import time
 
 from .XueliuGameState import XueliuGameState
 from ...game_calculation.sichuan.doubles_rules import XUELIU_DOUBLES_SUB_RULE, team_scores, match_result
 
-EXCHANGE_ANIMATION_SECONDS = 1.4
-
-
 class XueliuDoublesGameState(XueliuGameState):
     is_team_game = True
     is_xueliu_doubles = True
+    exchange_animation_seconds = 2.0
 
     def _configure_rule(self):
         if self.sub_rule not in (XUELIU_DOUBLES_SUB_RULE, "sichuan/xueliu_doubles_duplicate"):
@@ -85,32 +82,25 @@ class XueliuDoublesGameState(XueliuGameState):
             self.exchange_stage = stage
             await self._collect_xueliu_selection(seats)
             # 两人都提交后才展示这组的换牌；动画期间没有任何选牌权限。
-            self.game_status = "xueliu_exchange_animation"
-            self.server_action_tick += 1
-            self.action_dict = {i: [] for i in range(4)}
-            self.exchange_animation_deadline = time.time() + EXCHANGE_ANIMATION_SECONDS
-            from .boardcast import broadcast_xueliu_exchange_animation
-            await broadcast_xueliu_exchange_animation(self)
-            await asyncio.sleep(EXCHANGE_ANIMATION_SECONDS)
+            await self._show_exchange_animation()
             if getattr(self, "lifecycle_state", "running") != "running":
                 return
             self.exchange_animation_deadline = 0
         self._exchange_selected_tiles()
         self.exchange_stage = 0
 
-    def _exchange_selected_tiles(self):
-        self.xueliu_exchange_direction = 2
-        for index, player in enumerate(self.player_list):
-            self.player_list[(index + 2) % 4].hand_tiles.extend(player.xueliu_throw_tiles)
+    def _opening_exchange_direction(self):
+        return 2
 
     def exchange_view(self, index):
         stage = getattr(self, "exchange_stage", 0)
         groups = getattr(self, "exchange_groups", [])
         active = groups[stage - 1] if stage in (1, 2) and groups else []
-        teammate = self.player_list[(index + 2) % 4]
+        teammate_index = (index + 2) % 4
+        teammate = self.player_list[teammate_index]
         incoming = teammate.xueliu_throw_tiles
         animating = self.game_status == "xueliu_exchange_animation"
-        incoming_visible = stage == 2 or (animating and (index + 2) % 4 in active)
+        incoming_visible = (stage == 2 and teammate_index not in active) or (animating and teammate_index in active)
         outgoing = self.player_list[index].xueliu_throw_tiles
         return {
             "stage": stage, "active_players": list(active),
@@ -118,6 +108,7 @@ class XueliuDoublesGameState(XueliuGameState):
             # 换牌动画及后手选牌只展示本队花色，不下发牌面数字或对手花色。
             "teammate_suit": incoming[0] // 10 if incoming_visible and incoming else 0,
             "outgoing_suit": outgoing[0] // 10 if outgoing else 0,
+            "direction": 2, "outgoing_tiles": list(outgoing),
             "animating": animating,
             "animation_seconds": max(0, getattr(self, "exchange_animation_deadline", 0) - time.time()) if animating else 0,
         }

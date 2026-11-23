@@ -1,4 +1,5 @@
 "use strict";
+const { replayDDL, insertReplay } = require('../../testFixtures/replay');
 const test = require("node:test"), assert = require("node:assert/strict");
 const { Pool, Client } = require("pg");
 const { createCenter } = require("./service");
@@ -14,14 +15,14 @@ async function setup(t) {
   const admin=new Client({...config,database:"postgres"});await admin.connect();await admin.query(`CREATE DATABASE "${db}"`);
   const pool=new Pool({...config,database:db});
   t.after(async()=>{await pool.end();assert.match(db,/^om_ac_direction_test_[a-f0-9]+$/);await admin.query(`DROP DATABASE "${db}"`);await admin.end();});
-  await pool.query(`CREATE TABLE game_records(game_id text PRIMARY KEY,created_at timestamp,record jsonb);
+  await pool.query(`${replayDDL()};
     CREATE TABLE game_player_records(game_id text,user_id bigint,username text,original_player_index integer,score integer,rank integer,rule text,sub_rule text,room_type text,match_type text,match_tier text,event_id text);
     CREATE TABLE game_player_metrics(game_id text,user_id bigint,total_round_score integer,total_rounds integer);`);
   const center=createCenter({pool,launch:()=>{}});await center.ready();
   const facts=new Map();let calls=0;
   async function add(id,users,matrix,ron={},day=10,rule=RK) {
     users=users.map(String);const created_at=`2026-11-${day}T12:00:00Z`;
-    await pool.query("INSERT INTO game_records VALUES($1,$2::timestamptz AT TIME ZONE 'Asia/Shanghai','{}')",[id,created_at]);
+    await insertReplay(pool,[id,{},(await pool.query("SELECT ($1::timestamptz AT TIME ZONE 'Asia/Shanghai')::text AS stamp",[created_at])).rows[0].stamp]);
     for (const [index,user] of users.entries()) await pool.query("INSERT INTO game_player_records(game_id,user_id,username,original_player_index,rule,sub_rule,room_type,match_tier,match_type) VALUES($1,$2,$3,$4,'guobiao','guobiao/standard','match','beginner','4/4_rank')",[id,user,`p${user}`,index]);
     const players=users.map((user_id,i)=>({user_id,name:`p${user_id}`,original_index:i,score:0,hands:1,points_per_hand:0,score_per_hand:0,score_unit:"net_points"}));
     const pairs=[];

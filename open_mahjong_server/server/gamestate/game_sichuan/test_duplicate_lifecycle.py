@@ -13,14 +13,14 @@ from ...game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, make_boar
 
 
 @asynccontextmanager
-async def paired_states():
+async def paired_states(*, run_tasks=True):
     server = make_server(range(101, 109))
     gm = server.gamestate_manager
     data = new_match("offline-pair", SBR_DUPLICATE, {"open": "1", "closed": "2"},
                      [make_board("offline", n) for n in (1, 2)], "offline", sync_mode=False)
     data.update(status="running", completed_boards=1,
                 table_completed_boards={"open": 1, "closed": 1})
-    pair = PairedMatch(data, lambda *_: None)
+    pair = PairedMatch(data)
     gm.sichuan_duplicate_matches[pair.data["id"]] = pair
     for table, first in (("open", 101), ("closed", 105)):
         room = make_room(range(first, first + 4), "sichuan", "events")
@@ -32,7 +32,8 @@ async def paired_states():
             player.player_index = player.original_player_index = index
         gm.register_game(state, room)
         state.game_task = asyncio.create_task(gm.run_game(state, lambda s=state: parked_loop(s)))
-    await asyncio.sleep(0)
+    if run_tasks:
+        await asyncio.sleep(0)
     try:
         yield server, pair
     finally:
@@ -43,7 +44,7 @@ async def paired_states():
 @pytest.mark.parametrize("entry", ["state", "manager", "abandon"])
 @pytest.mark.parametrize("stage", ["unsubmitted", "waiting", "finalizing"])
 @run_async
-async def test_offline_cleanup_uses_durable_progress(entry, stage):
+async def test_offline_cleanup_uses_submitted_progress(entry, stage):
     async with paired_states() as (server, pair):
         state = pair.states["closed"]
         # Merely entering the last round / displaying a result isn't enough.
@@ -99,3 +100,13 @@ async def test_unfinished_sibling_offline_still_interrupts_waiting_table():
                 await server.gamestate_manager.player_disconnect(player.user_id)
             assert pair.data["status"] == ("running" if table == "closed" else "interrupted")
         assert pair.data["interruption"] == "all_humans_offline"
+
+
+@run_async
+async def test_vote_closes_both_registered_tables_before_game_tasks_first_run():
+    async with paired_states(run_tasks=False) as (server, pair):
+        gm = server.gamestate_manager
+        await gm.cleanup_game_state_complete(gamestate_id="open", reason="vote_end")
+        assert not gm.gamestate_id_to_game_state and not gm.user_id_to_game_state
+        assert not server.room_manager.active_game_room_ids
+        assert all(state.lifecycle_state == "closed" for state in pair.states.values())

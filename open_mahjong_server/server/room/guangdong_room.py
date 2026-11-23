@@ -27,7 +27,7 @@ def enforce_guangdong_tactical(room):
 
 class GuangdongMilRoomValidator(GBRoomValidator):
     sub_rule: str = SUB_RULE
-    game_round: StrictInt = 4
+    game_round: StrictInt = 2
     round_timer: StrictInt
     step_timer: StrictInt
     tips: StrictBool = True
@@ -72,19 +72,21 @@ def GuangdongRoomValidator(**config):
     if sub_rule == TUIDAO_SUB_RULE:
         return TuidaoRoomValidator(**config)
     if sub_rule in (SUB_RULE, DOUBLES_SUB_RULE):
-        if sub_rule == DOUBLES_SUB_RULE and config.get("game_round", 4) not in (2, 4):
-            raise ValueError("广东双打每盘八副")
+        if config.get("game_round", 2) not in (1, 2, 3, 4):
+            raise ValueError("广东花鬼牌局长度必须为4、8、12或16局")
         return GuangdongMilRoomValidator(**config)
     raise ValueError("不支持的广东麻将子规则")
 
 
 async def create_guangdong_room(
-    manager, player_id, *, room_name, gameround=4, password="",
+    manager, player_id, *, room_name, gameround=None, password="",
     roundTimerValue=20, stepTimerValue=5, tips=True, random_seed=0,
     sub_rule=TUIDAO_SUB_RULE, detailed_config=None, tourist_limit=False,
     allow_spectator=True, event_id=None, count_tips=False, pointer_tips=True,
     **fixed_options,
 ):
+    if gameround is None:
+        gameround = 2 if sub_rule in (SUB_RULE, DOUBLES_SUB_RULE) else 4
     # Keep old calls without a sub-rule on the existing, unchanged Tuidao path.
     if sub_rule == TUIDAO_SUB_RULE:
         try:
@@ -150,7 +152,7 @@ async def create_guangdong_room(
 async def handle_create_guangdong_room(server, connection_id, message, websocket):
     response = await create_guangdong_room(
         server.room_manager, connection_id, room_name=message.get("roomname", ""),
-        gameround=message.get("gameround", 2 if message.get("sub_rule") == DOUBLES_SUB_RULE else 1),
+        gameround=message.get("gameround", 2 if message.get("sub_rule") in (SUB_RULE, DOUBLES_SUB_RULE) else 1),
         password=message.get("password", ""),
         roundTimerValue=message.get("roundTimerValue", 20), stepTimerValue=message.get("stepTimerValue", 5),
         tips=message.get("tips", True), random_seed=message.get("random_seed", 0),

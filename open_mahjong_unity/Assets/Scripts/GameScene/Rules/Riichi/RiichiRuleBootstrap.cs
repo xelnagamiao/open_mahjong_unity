@@ -36,7 +36,8 @@ internal static class RiichiRuleBootstrap {
             ActionCaption = word => word == "nuki" ? "拔北" : ActionWords.Is(word, ActionWordKind.Ron) ? "荣" : null,
             ActionVoice = word => word == "nuki" ? "nuki" : ActionWords.Is(word, ActionWordKind.Ron) ? "rong" : null,
             UsesRiichiDragonOrder = true,
-            RiichiRoundLayout = true,
+            RoundIndicators = info => RoundIndicatorDisplay.Riichi(info?.honba ?? 0, info?.riichi_sticks ?? 0,
+                info?.dora_indicators, info?.kan_dora_indicators),
         });
     }
 }

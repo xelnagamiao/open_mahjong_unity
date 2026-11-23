@@ -12,6 +12,9 @@ public static class GameSceneTeardown {
             Game3DManager.Instance.StopAllRunningAnimations();
             Game3DManager.Instance.Clear3DTile();
         }
+        // Clear rule-specific static references only after the replay objects no longer
+        // point at their textures. A suspended replay intentionally skips this teardown.
+        HongqueTileVisual.ReleaseGameCache();
         Card3DPresetLibrary.Instance?.BeginEditing();
 
         if (GameSceneUIManager.Instance != null) {

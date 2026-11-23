@@ -68,7 +68,8 @@ public partial class GameSceneMouseInputController {
         CancelRecordScreenHold();
         var manager = GameRecordManager.Instance;
         if (state != StateRecord || !IsGameSceneForeground() || manager == null
-            || manager.BlocksRecordNavigation || IsRecordNavigationPointerBlocked(position)) return;
+            || IsRecordNavigationPointerBlocked(position)) return;
+        if (manager.BlocksRecordNavigation && (key == KeyCode.Space || shift)) return;
         if (key == KeyCode.Space) manager.ToggleRecordAutoPlay();
         else if (key == KeyCode.LeftArrow) {
             if (shift) manager.StepToPreviousRoundFromInput();
@@ -123,7 +124,8 @@ public partial class GameSceneMouseInputController {
 
     private bool IsRecordScreenPointerBlocked(Vector2 position) {
         return position.x < 0f || position.y < 0f || position.x >= Screen.width || position.y >= Screen.height
-            || IsPointerOverExcludeRect(position);
+            || IsPointerOverExcludeRect(position)
+            || (GameRecordManager.Instance != null && GameRecordManager.Instance.IsReviewHandPress(position));
     }
 
     private void HandleRecordScreenPointer(Vector2 position, bool pressed, bool held) {
@@ -147,19 +149,19 @@ public partial class GameSceneMouseInputController {
             CancelRecordScreenHold();
             return;
         }
-        if (manager.HasPendingRecordBuhuaContinuation) return;
+        if (manager.HasPendingRecordStepInput) return;
         if (manager.currentNode != recordExpectedNode) {
             CancelRecordScreenHold();
             return;
         }
         if (Time.unscaledTime < recordNextRepeatTime) return;
-        AdvanceRecordScreenStep(manager);
+        AdvanceRecordScreenStep(manager, allowDeferredInput: false);
         // 低帧率或同家动画未完成时不补发积压输入，松手只让正在执行的动画收尾。
         recordNextRepeatTime = Time.unscaledTime + RecordRepeatIntervalSeconds;
     }
 
-    private void AdvanceRecordScreenStep(GameRecordManager manager) {
-        manager.StepRecordFromInput(true, continueBuhua: true);
+    private void AdvanceRecordScreenStep(GameRecordManager manager, bool allowDeferredInput = true) {
+        manager.HandleRecordStepInput(true, continueBuhua: true, allowDeferredInput: allowDeferredInput);
         recordExpectedRound = manager.currentRoundIndex;
         recordExpectedNode = manager.RecordStepInputTargetNode;
         recordExpectedNavigationVersion = manager.RecordNavigationVersion;

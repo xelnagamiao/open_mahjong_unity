@@ -8,6 +8,7 @@ internal static class SichuanRoomBuilder {
         bool duplicate = SichuanLobby.IsDuplicate(subRule);
         string source = duplicate ? input.WallSource ?? "key" : null;
         bool training = duplicate && source == "training";
+        bool reuse = training && input.ReuseTrainingRoom;
         if (!duplicate && (input.DuplicateEnabled || !string.IsNullOrEmpty(input.DuplicateKey)))
             return RoomCreationRequest.Invalid("川麻复式密钥仅支持双打复式子规则");
         if (duplicate && input.RandomSeedEnabled && !training)
@@ -16,7 +17,7 @@ internal static class SichuanRoomBuilder {
             return RoomCreationRequest.Invalid("请选择有效的牌山来源");
         if (duplicate && (source == "seed" || source == "manual") && string.IsNullOrWhiteSpace(input.DuplicateKey))
             return RoomCreationRequest.Invalid("请输入所选牌山类型的复式密钥");
-        if (training && (!MasterSeedInputValidator.TryNormalizeHex(input.RandomSeed, out var trainingSeed, out var seedError)
+        if (training && !reuse && (!MasterSeedInputValidator.TryNormalizeHex(input.RandomSeed, out var trainingSeed, out var seedError)
             || trainingSeed == new string('0', MasterSeedInputValidator.HexLength)))
             return RoomCreationRequest.Invalid(seedError ?? "训练随机种子不能全为零");
         int hepaiLimit = (int)input.Defaults[CreateRoomKeys.HepaiLimit];
@@ -31,7 +32,8 @@ internal static class SichuanRoomBuilder {
             RoomName = input.RoomName,
             GameRound = input.GameRound,
             Password = input.PasswordEnabled ? input.Password : "",
-            RandomSeed = training || input.RandomSeedEnabled ? input.RandomSeed : "",
+            RandomSeed = !reuse && (training || input.RandomSeedEnabled) ? input.RandomSeed : "",
+            ReuseTrainingRoom = reuse,
             Rule = "sichuan",
             SubRule = subRule,
             RoundTimer = input.RoundTimer,
@@ -53,7 +55,7 @@ internal static class SichuanRoomBuilder {
             TacticalGraceSeconds = duplicate ? input.TacticalGraceSeconds : 5,
         };
 
-        if (!config.Validate(out string error, input.PasswordEnabled, training || input.RandomSeedEnabled)) {
+        if (!config.Validate(out string error, input.PasswordEnabled, !reuse && (training || input.RandomSeedEnabled))) {
             return RoomCreationRequest.Invalid($"创建房间失败: {error}");
         }
         return RoomCreationRequest.Valid(config, network => network.Create_Sichuan_Room(config));

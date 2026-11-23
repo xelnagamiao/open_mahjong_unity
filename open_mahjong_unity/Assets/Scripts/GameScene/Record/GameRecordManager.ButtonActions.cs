@@ -63,7 +63,7 @@ public partial class GameRecordManager {
             return;
         }
 
-        CancelRecordBuhuaContinuation();
+        CancelPendingRecordStepInput();
         IsRecordAutoPlaying = true;
         UpdateRecordAutoPlayButtonText();
         recordAutoPlayCoroutine = StartCoroutine(RecordAutoPlayCoroutine());
@@ -200,7 +200,7 @@ public partial class GameRecordManager {
     }
 
     private void InvalidateRecordDelayedAdvances() {
-        CancelRecordBuhuaContinuation();
+        CancelPendingRecordStepInput();
         _recordPlaybackGeneration++;
         _pendingRecordDelayedAdvanceCount = 0;
     }
@@ -339,12 +339,12 @@ public partial class GameRecordManager {
     public void NextStep() {
         if (IsRecordMatchResultVisible) return;
         if (AtMatchEnd && !BlocksRecordNavigation) { FinishRecordMatch(); return; }
-        if (HasPendingRecordBuhuaContinuation) return;
+        if (HasPendingRecordStepInput) return;
         AdvanceRecordStep();
     }
 
     private void AdvanceRecordStep(bool allowBuhuaDraw = false) {
-        if (BlocksRecordNavigation || _pendingRecordDelayedAdvanceCount > 0 || !CanAnimateNextRecordStep(allowBuhuaDraw)) {
+        if (!CanAdvanceRecordStepNow(allowBuhuaDraw)) {
             return;
         }
         if (IsSpectatorSession) {
@@ -362,7 +362,7 @@ public partial class GameRecordManager {
     public void BackStep() {
         HideRecordMatchResult();
         StopRecordAutoPlay();
-        if (BlocksRecordNavigation) return;
+        if (IsAwaitingRecordResult || (_recordHuPresentationActive && !BuffersRecordStepInput())) return;
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {
             SwitchToRecordMode();
         }
@@ -376,6 +376,7 @@ public partial class GameRecordManager {
         bool shouldOpenRound = !roundScrollView.gameObject.activeSelf;
         roundScrollView.gameObject.SetActive(shouldOpenRound);
         if (shouldOpenRound) {
+            EnsureRoundButtons();
             xunmuScrollView.gameObject.SetActive(false);
         }
     }
@@ -386,6 +387,7 @@ public partial class GameRecordManager {
         bool shouldOpenXunmu = !xunmuScrollView.gameObject.activeSelf;
         xunmuScrollView.gameObject.SetActive(shouldOpenXunmu);
         if (shouldOpenXunmu) {
+            EnsureTurnButtons();
             roundScrollView.gameObject.SetActive(false);
         }
     }
@@ -396,6 +398,7 @@ public partial class GameRecordManager {
         bool shouldShow = !tileListView.activeSelf;
         if (shouldShow) {
             tileListView.SetActive(true);
+            EnsureTileListBuilt();
             RefreshRecordChongHint();
             FocusTileListScrollOnWallSection();
         } else {

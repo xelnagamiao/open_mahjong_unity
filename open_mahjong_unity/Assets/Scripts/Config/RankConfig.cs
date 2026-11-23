@@ -26,8 +26,9 @@ public static class RankConfig {
         bool isAdvancedQualified,
         bool isMcrplQualified
     ) {
+        // MCRPL 七段及以上自动准入，资格开关可单独放行其他段位。
         switch (tier) {
-            case "mcrpl": return isMcrplQualified;
+            case "mcrpl": return isMcrplQualified || rankLevel >= 16; // 七段
             case "beginner": return isBeginnerQualified || rankLevel >= 0;
             case "intermediate":
                 if (rankLevel >= 16) return false; // 七段及以上不可进入

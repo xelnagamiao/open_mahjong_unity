@@ -1,7 +1,7 @@
 """
 长沙麻将牌谱记录与基础统计存储。
 
-牌谱本体写入通用表 game_records / game_player_records；
+牌谱本体写入通用表 game_replays / game_record_tables / game_player_records；
 基础统计写入 changsha_history_stats（与立直等同结构）。
 """
 import json

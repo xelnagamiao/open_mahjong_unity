@@ -2,7 +2,7 @@
 import asyncio
 import importlib
 from collections import Counter
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -176,6 +176,63 @@ def test_real_loop_wrong_rob_settlement_and_resume(monkeypatch, both_claim, pena
     assert replay.players[1].tile_list == LOW
     assert sorted(replay.players[2].tile_list) == sorted(s.player_list[2].hand_tiles)
     assert RecordSim(s.game_record).goto_action('round_index_1', len(ticks)) == frames[-1]
+
+
+def test_wrong_win_preserves_each_players_time_after_ready_timeout(monkeypatch):
+    state_module = importlib.import_module('server.gamestate.game_guobiao.GuobiaoGameState')
+    action_module = importlib.import_module('server.gamestate.game_guobiao.wait_action')
+    s = make_state(enabled=False)
+    s.open_cuohe, s.hepai_limit = True, 16
+    s.claim_protection = s.tactical_call = False
+    s.round_time, s.step_time = 20, 5
+    banks = [0, 3, 11, 20]
+
+    def deal(state):
+        configure(state)
+        for seat, player in enumerate(state.player_list):
+            player.user_id = 101 + seat
+            player.remaining_time = banks[seat]
+
+    class ResumedHand(Exception):
+        pass
+
+    async def ask_hand():
+        if s.broadcast_result.await_count:
+            raise ResumedHand
+        s.action_queues[0].put_nowait({'action_type': 'jiagang', 'target_tile': 23})
+
+    async def ask_other():
+        s.action_queues[1].put_nowait({'action_type': 'hu_first'})
+        s.action_queues[2].put_nowait({'action_type': 'pass'})
+
+    clock = Mock()
+    clock.time.return_value = 1000
+
+    async def prompt_ready(state):
+        if state.action_dict[0]:
+            state.action_queues[0].put_nowait({'action_type': 'ready'})
+
+    async def after_confirmation(state):
+        assert state.action_dict == {0: [], 1: ['ready'], 2: ['ready'], 3: ['ready']}
+        clock.time.return_value += 60  # 第一家已确认，其余三家等到结算超时。
+
+    monkeypatch.setattr('server.gamestate.public.ready_phase.time', clock)
+    monkeypatch.setattr(state_module, 'init_guobiao_tiles', deal)
+    monkeypatch.setattr(state_module, 'broadcast_ready_status', prompt_ready)
+    monkeypatch.setattr(action_module, 'broadcast_ready_status', after_confirmation)
+    monkeypatch.setattr(action_module, 'broadcast_do_action', AsyncMock())
+    s.broadcast_do_action = s.broadcast_game_start = AsyncMock()
+    s.broadcast_refresh_player_tag_list = AsyncMock()
+    s.broadcast_result = AsyncMock()
+    s.broadcast_ask_hand_action = ask_hand
+    s.broadcast_ask_other_action = ask_other
+    with pytest.raises(ResumedHand):
+        asyncio.run(asyncio.wait_for(s.game_loop_chinese(), 3))
+
+    assert '错和' in s.broadcast_result.await_args.kwargs['hu_fan']
+    assert s.current_round == 1
+    assert [p.remaining_time for p in s.player_list] == banks
+    assert [p.remaining_time + s.step_time for p in s.player_list] == [5, 8, 16, 25]
 
 
 def pending_rob_state(monkeypatch, tactical=False):

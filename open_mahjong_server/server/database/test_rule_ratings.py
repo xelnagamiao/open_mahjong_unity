@@ -1,4 +1,5 @@
 """Real PostgreSQL migrations and settlements, exclusively in disposable schemas."""
+from server.records.test_seed import seed_single
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -21,7 +22,7 @@ def db():
     admin=psycopg2.connect(os.environ['RATING_TEST_DATABASE_URL']);admin.autocommit=True
     with admin.cursor() as c:c.execute('CREATE SCHEMA '+schema)
     pool=ThreadedConnectionPool(1,8,os.environ['RATING_TEST_DATABASE_URL'],options='-c search_path='+schema)
-    db=SimpleNamespace(_get_connection=pool.getconn,_put_connection=pool.putconn)
+    db=SimpleNamespace(pool=pool,_get_connection=pool.getconn,_put_connection=pool.putconn)
     def sql(query,args=None):
         conn=pool.getconn()
         try:
@@ -34,13 +35,14 @@ def db():
     sql("""CREATE TABLE users(user_id BIGINT PRIMARY KEY,username TEXT);
         CREATE TABLE user_settings(user_id BIGINT PRIMARY KEY,profile_image_id INT DEFAULT 1);
         CREATE TABLE rank_data(user_id BIGINT PRIMARY KEY REFERENCES users,guobiao_rank TEXT DEFAULT '10级',guobiao_score DOUBLE PRECISION DEFAULT 0,updated_at TIMESTAMP DEFAULT NOW());
-        CREATE TABLE game_records(game_id TEXT PRIMARY KEY,record JSONB,created_at TIMESTAMP DEFAULT NOW());
         CREATE TABLE game_player_records(game_id TEXT,user_id BIGINT,username TEXT,score INT,rank INT,original_player_index INT,rule TEXT,sub_rule TEXT,match_type TEXT,room_type TEXT);
         INSERT INTO users SELECT i,'player '||i FROM generate_series(11000001,11000004)i;
         INSERT INTO rank_data(user_id,guobiao_rank,guobiao_score) VALUES(11000001,'四段',812.34);
     """)
     conn=pool.getconn()
-    with conn.cursor() as c:ensure_rating_schema(c);ensure_rating_schema(c)
+    from server.records.store import ensure_tables
+    with conn.cursor() as c:
+        ensure_tables(c);ensure_rating_schema(c);ensure_rating_schema(c)
     conn.commit();pool.putconn(conn)
     try:yield db
     finally:
@@ -68,6 +70,46 @@ def test_doubles_atomic_independent_pool_idempotent_settlement(db):
     bad = [{**p, 'team_id': 1-p['team_id'], 'team_match_points': 1-p['team_match_points']} for p in rows]
     with pytest.raises(ValueError):
         settle_rated_game(db, 'team-elo-game', DOUBLES_QUEUE, bad)
+
+
+@pytest.mark.parametrize('queue', ['beginner_banzhuang', 'sichuan_doubles_elo_banzhuang'])
+def test_ranked_settlement_waits_for_pool_capacity_and_applies_once(db, queue):
+    import asyncio
+    from psycopg2.pool import PoolError
+    from .pool_retry import run_with_pool_retry
+
+    rows = players()
+    if QUEUES[queue].party_size > 1:
+        for seat, row in enumerate(rows):
+            row.update(place=seat % 2 + 1, team_id=seat % 2, team_match_points=1 - seat % 2)
+
+    async def run():
+        pool = db.pool
+        held = [pool.getconn() for _ in range(pool.maxconn)]
+        exhausted = asyncio.Event()
+        loop = asyncio.get_running_loop()
+
+        def settle():
+            try:
+                return settle_rated_game(db, 'pool-recovery', queue, rows)
+            except PoolError:
+                loop.call_soon_threadsafe(exhausted.set)
+                raise
+
+        try:
+            task = asyncio.create_task(run_with_pool_retry(settle))
+            await asyncio.wait_for(exhausted.wait(), timeout=5)
+            pool.putconn(held.pop())
+            result = await asyncio.wait_for(task, timeout=10)
+            assert settle() == result
+        finally:
+            for conn in held:
+                pool.putconn(conn)
+
+    asyncio.run(run())
+    assert db.sql('SELECT count(*) FROM rating_settlements') == [(1,)]
+    assert db.sql('SELECT games FROM rule_ratings WHERE rule=%s ORDER BY user_id',
+                  (QUEUES[queue].rating_rule,)) == [(1,)] * 4
 
 def test_additive_migration_preserves_national_data(db):
     data=get_rank_data(db,USERS[0]);assert data['guobiao_rank']=='四段' and data['guobiao_score']==812.34
@@ -206,7 +248,7 @@ def test_grade_and_elo_leaderboard_sort_independently(db):
 def test_record_filter_before_limit_and_custom_exclusion(db):
     for i,rule in enumerate(RULES):
         queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule);spec=QUEUES[queue]
-        gid=str(i);db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)',(gid,Json({'game_title':{'match_queue_type':queue}})))
+        gid=str(i);seed_single(db,gid,{'game_title':{'match_queue_type':queue}})
         for index,uid in enumerate(USERS[:spec.player_count]):
             sub_rule=spec.sub_rule or ('riichi/sanma' if spec.player_count == 3 else spec.rule+'/standard')
             db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,%s,%s,%s,%s,%s,%s)',(gid,uid,str(uid),index+1,index,spec.rule,sub_rule,'1/4_sanma_rank' if spec.player_count==3 else '1/4_rank','match'))
@@ -251,7 +293,7 @@ def test_ranked_history_counts_only_requested_player_rule_and_matching_games(db,
         fixture_index += 1
         if r == 'riichi_sanma':
             mode = mode.replace('/4','/4_sanma')
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid, Json({})))
+        seed_single(db,gid,{})
         db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)', (gid,uid,str(uid),game_rule,sub_rule,mode,room_type))
         db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,total_rounds,win_count,first_place_count,total_round_score) VALUES(%s,%s,%s,%s,%s,%s,4,2,1,30)',(gid,uid,game_rule,sub_rule,mode,room_type))
         if rule in ('riichi','riichi_sanma'):
@@ -291,7 +333,7 @@ def test_fan_statistics_keep_ranked_and_custom_games_separate(db,rule):
     from .statistics_catalog import selection
     sub_rule = selection(rule)['sub_rule']
     for gid, mode, room, count in (('rank','1/4_rank','match',3), ('custom','1/4','custom',7)):
-        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid,Json({})))
+        seed_single(db,gid,{})
         db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)',
             (gid,USERS[0],'player',rule,sub_rule,mode,room))
         db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,fan_stats) VALUES(%s,%s,%s,%s,%s,%s,%s)',

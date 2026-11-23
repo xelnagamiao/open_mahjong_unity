@@ -107,8 +107,9 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import TeamIconPicker from '@/components/TeamIconPicker.vue'
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -123,7 +124,8 @@ const loading = ref(false)
 const creating = ref(false)
 const iconBusy = ref(false)
 const createDialogVisible = ref(false)
-const statusFilter = ref('')
+const { saved, remember } = useAdminListState()
+const statusFilter = ref(saved.status ?? '')
 const profileDialogVisible = ref(false)
 const profileEditingEvent = ref(null)
 const applicationsPanel = ref(null)
@@ -155,6 +157,7 @@ function formatDate(v) {
 }
 
 async function load() {
+  remember({ status: statusFilter.value })
   loading.value = true
   try {
     const params = { kind: venueKind.value }
@@ -217,22 +220,10 @@ async function createEvent() {
 
 async function scrollToSection() {
   await nextTick()
-  const main = document.querySelector('.admin-main')
-  if (route.hash === '#applications') {
+  if (route.hash === '#applications' && saved.status === undefined) {
     document.getElementById('applications')?.scrollIntoView({ block: 'start' })
-  } else if (main) {
-    main.scrollTop = 0
   }
 }
-
-watch(() => route.meta.venueKind, async () => {
-  statusFilter.value = ''
-  createDialogVisible.value = false
-  await load()
-  await scrollToSection()
-})
-
-watch(() => route.hash, scrollToSection)
 
 onMounted(async () => {
   await load()

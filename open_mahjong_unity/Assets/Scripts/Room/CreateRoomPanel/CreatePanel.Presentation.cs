@@ -8,6 +8,8 @@ public partial class CreatePanel {
     [SerializeField, HideInInspector] private bool roomPresentationBaked;
     private bool roomPresentationBound;
     private string defaultHepaiLimitCaption;
+    private string limitBeforeNewChineseExchange;
+    private bool customLimitBeforeNewChineseExchange;
 
     private void RefreshHepaiLimitCaption() {
         var label = InputHepaiLimitToggle.GetComponentInChildren<TMP_Text>(true);
@@ -75,7 +77,23 @@ public partial class CreatePanel {
         SubRuleText.text = "子规则"; SubRuleText.gameObject.SetActive(true); SubRuleDropdown.gameObject.SetActive(true);
         RoomFieldState(PasswordPanel, passwordInput, passwordToggle.isOn, passwordToggle.isOn);
         RoomFieldState(SetRandomSeedPanel, randomSeedInput, true, SetRandomSeedToggle.isOn);
-        RoomFieldState(InputHepaiLimitPlane, HepaiLimitInput, InputHepaiLimitToggle.gameObject.activeSelf && !IsShanghaiQiaoma, InputHepaiLimitToggle.isOn);
+        bool limitLocked = GetSelectedSubRule() == NewChineseGameState.SubRule && newChineseExchangeThreeToggle.isOn;
+        if (limitLocked && limitBeforeNewChineseExchange == null) {
+            limitBeforeNewChineseExchange = HepaiLimitInput.text;
+            customLimitBeforeNewChineseExchange = InputHepaiLimitToggle.isOn;
+        }
+        if (limitLocked) {
+            InputHepaiLimitToggle.SetIsOnWithoutNotify(true);
+            HepaiLimitInput.SetTextWithoutNotify(NewChineseHand.ExchangeMinimumFan.ToString());
+        } else if (limitBeforeNewChineseExchange != null) {
+            if (_ruleState == NewChineseGameState.RuleId) {
+                HepaiLimitInput.SetTextWithoutNotify(limitBeforeNewChineseExchange);
+                InputHepaiLimitToggle.SetIsOnWithoutNotify(customLimitBeforeNewChineseExchange);
+            }
+            limitBeforeNewChineseExchange = null;
+        }
+        InputHepaiLimitToggle.interactable = !limitLocked;
+        RoomFieldState(InputHepaiLimitPlane, HepaiLimitInput, InputHepaiLimitToggle.gameObject.activeSelf && !IsShanghaiQiaoma, InputHepaiLimitToggle.isOn && !limitLocked);
         RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall || (IsSichuanDuplicate && !IsSichuanTraining),
             IsSichuanDuplicate || (DuplicateWallToggle && DuplicateWallToggle.isOn));
         bool cuoheVisible = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CuoheType) && CuoHeheToggle.gameObject.activeSelf;

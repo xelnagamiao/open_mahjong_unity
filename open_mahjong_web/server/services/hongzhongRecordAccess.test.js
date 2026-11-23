@@ -36,7 +36,8 @@ test('红中玩家记录筛选保持参数化，统计数来自通用记录索�
     assert.deepEqual(params, [101, 'custom', 'hongzhong/mil2024']);
     const subruleFilter = clauses.find(clause => clause.endsWith(' = $3'));
     assert.ok(subruleFilter.includes('gpr.sub_rule'));
-    assert.ok(subruleFilter.includes('game_title'), '按原始牌谱解析子规则，避免旧索引混入其他子规则');
+    assert.ok(subruleFilter.includes('gr.title'), '按 V2 对应桌的标题解析子规则，避免旧索引混入其他子规则');
+    assert.match(require('./replayTables').tableTitles, /r\.record->'tables'->t\.table_id->'payload'->'game_title' AS title/);
     const query = mock.mock.calls.find(call => call.arguments[0].includes('AS rule,COUNT(*)::int AS total_games FROM game_player_records'));
     assert.deepEqual(query.arguments[1], [101]);
   } finally { mock.mock.restore(); }

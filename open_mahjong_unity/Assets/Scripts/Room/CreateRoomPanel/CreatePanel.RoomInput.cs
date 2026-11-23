@@ -11,6 +11,7 @@ public partial class CreatePanel {
             WallSource = IsSichuanDuplicate ? SelectedSichuanWallSource : null,
             DuplicateKey = SelectedDuplicateKey, DuplicateEnabled = IsSichuanDuplicate || ReadRoomToggle(DuplicateWallToggle),
             DuplicateRoundCount = SichuanDuplicateBoardCounts[SichuanDuplicateRounds ? SichuanDuplicateRounds.value : 2],
+            ReuseTrainingRoom = ReuseTrainingRoom,
             DuplicateSyncMode = ReadRoomToggle(SichuanDuplicateSyncToggle),
             RealTime = IsSichuanDuplicate && ReadRoomToggle(SichuanRealTimeToggle),
             TacticalGraceSeconds = IsSichuanDuplicate ? SelectedSichuanSecondWait : 5,

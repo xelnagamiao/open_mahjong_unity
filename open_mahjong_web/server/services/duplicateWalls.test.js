@@ -57,7 +57,7 @@ function memoryPool() {
     }
     if (sql.startsWith('SELECT * FROM duplicate_walls WHERE id')) return { rows: walls.filter((r) => String(r.id) === String(params[0]) && !r.deleted_at).map((r) => ({ ...r })) };
     if (sql.startsWith('SELECT 1 FROM duplicate_games')) return { rows: linked.has(String(params[0])) ? [{}] : [] };
-    if (sql.startsWith('SELECT status, data FROM sichuan_duplicate_matches')) return { rows: pairs.has(String(params[0])) ? [pairs.get(String(params[0]))].flat() : [] };
+    if (sql.includes('GROUP BY g.paired_match_id')) return { rows: [pairs.get(String(params[0]))].flat().filter(p => p?.status === 'completed') };
     if (sql.startsWith('SELECT game_id FROM game_record_tables')) return { rows: params[0].filter(id => records.has(id)).map(game_id => ({ game_id })) };
     if (sql.startsWith('UPDATE duplicate_walls')) {
       const row = walls.find((r) => String(r.id) === String(params[0]));
@@ -71,7 +71,9 @@ function memoryPool() {
   return { walls, admins, linked, pairs, records, query, async connect() { const client = { release() {} }; client.query = (sql, params) => query(sql, params, client); return client; } };
 }
 test('a shared key waits for every group and every distinct table record before unlocking', async () => {
-  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const pool = memoryPool();
+  let inUse = true;
+  const service = createDuplicateWallService(pool, async () => inUse);
   const { wall } = await service.create(10, { scope: 'event', event_id: 'evt_A', wall_type: 'key', rule: 'sichuan/sbr' });
   pool.walls[0].rule = 'sichuan/doubles_duplicate';
   const first = { status: 'completed', data: { record_ids: { open: 'a-open', closed: 'a-closed' } } };
@@ -79,6 +81,7 @@ test('a shared key waits for every group and every distinct table record before 
   pool.pairs.set(wall.id, [first, second, { status: 'cancelled', data: {} }]);
   for (const id of ['a-open', 'a-closed', 'b-open']) pool.records.add(id);
   await assert.rejects(service.manage(10, wall.id, { is_unlocked: true }), { status: 409 });
+  inUse = false;
   second.status = 'completed';
   await assert.rejects(service.manage(10, wall.id, { is_unlocked: true }), { status: 409 });
   pool.records.add('b-closed');
@@ -103,14 +106,14 @@ test('event random key audit failure rolls back the real creation transaction an
 
 for (const rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
   test(`${rule}: paired records remain locked until both tables and records finish`, async () => {
-    const pool = memoryPool(); const service = createDuplicateWallService(pool);
+    const pool = memoryPool();
+    let inUse = true;
+    const service = createDuplicateWallService(pool, async () => inUse);
     const {wall} = await service.create(10, { scope:'event', event_id:'evt_A', wall_type:'key', rule:'guobiao' });
     pool.walls[0].rule = rule;
-    for (const status of [null, 'waiting', 'running', 'interrupted']) {
-      if (status) pool.pairs.set(wall.id, {status, data:{}});
-      await assert.rejects(service.manage(10, wall.id, {is_unlocked:true}), {status:409});
-      assert.equal(pool.walls[0].is_unlocked, false);
-    }
+    await assert.rejects(service.manage(10, wall.id, {is_unlocked:true}), {status:409});
+    assert.equal(pool.walls[0].is_unlocked, false);
+    inUse = false;
     const pair = {status:'completed',data:{record_ids:{open:'record-open',closed:null}}};
     pool.pairs.set(wall.id,pair);
     await assert.rejects(service.manage(10,wall.id,{is_unlocked:true}),{status:409});
@@ -236,6 +239,15 @@ test('legacy non-Guobiao DTOs remain readable without opening new creation or le
       assert.equal(wallDto({ ...row, tiles: undefined }, ownerView).tile_count, null);
     }
   }
+});
+
+test('legacy tiebreaks stay archived while creation uses the original series length', () => {
+  const rounds = Array.from({ length: 5 }, () => fullWall('sichuan/xueliu'));
+  const row = { rule: 'sichuan/xueliu_doubles_duplicate', wall_type: 'manual', round_count: 5,
+    legacy_planned_boards: 4, tiles: rounds[0], round_tiles: rounds };
+  assert.equal(wallDto(row).round_count, 4);
+  assert.deepEqual(wallDto(row, true).round_tiles, rounds.slice(0, 4));
+  assert.equal(row.round_tiles.length, 5);
 });
 
 test('seed walls repeat deterministically and random walls hide both seed and tile order in every DTO', () => {
@@ -430,9 +442,9 @@ test('sharing a Python training export resolves cloud_game_id and verifies the c
       assert.deepEqual(args, ['trainingCloud', record.game_title.duplicate_match_id]);
       return { rows: [] };
     }
-    assert.match(sql, /gr\.record = \$2::jsonb/);
+    assert.match(sql, /r\.record->'tables'->gr\.table_id->'payload' = \$2::jsonb/);
     assert.match(sql, /sichuan_duplicate_matches/);
-    return { rows: args[0] === 'trainingCloud' && args[1] === JSON.stringify(record) ? [{}] : [] };
+    return { rows: args[0] === 'trainingCloud' && args[1] === JSON.stringify(record) ? [{same: true}] : [] };
   } };
   assert.equal(await sharedSourceIsLocked(db, record), false);
   assert.equal(queries.length, 2);

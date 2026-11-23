@@ -25,6 +25,12 @@ public static partial class LocalRecordStore {
         Formatting = Formatting.None
     };
 
+    static readonly HashSet<string> IndexFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+        nameof(RecordInfo.game_id), nameof(RecordInfo.created_at), nameof(RecordInfo.rule), nameof(RecordInfo.sub_rule),
+        nameof(RecordInfo.match_type), nameof(RecordInfo.match_queue_type), nameof(RecordInfo.players),
+        nameof(RecordInfo.match_summary), nameof(RecordInfo.is_favorite), nameof(RecordInfo.note)
+    };
+
     static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
     static readonly List<Action> ReadyWaiters = new List<Action>();
     static readonly List<RecordInfo> MemoryIndex = new List<RecordInfo>();
@@ -76,59 +82,65 @@ public static partial class LocalRecordStore {
             Debug.LogError("本地牌谱读取失败，已保留原数据：" + error);
         }
         void ReadIndex() => bridge.BeginLoadIndex(bytes => {
-            try { MergeLoadedIndex(DecodeUtf8(bytes)); FinishReady(); }
+            try { MergeLoadedIndex(DecodeUtf8(bytes)); RecoverPending(FinishReady, Failed); }
             catch (Exception e) { Failed(e.Message); }
         }, Failed);
-        void Upgrade(int attempt) => bridge.BeginLoad(DeviceRecordMigration.Aliases, bytes => {
-            try {
-                if (bytes != null) { MatchRecordCodec.Parse(DecodeUtf8(bytes)); ReadIndex(); return; }
-                bridge.BeginSnapshot(null, (token,snapshot) => {
-                    try {
-                        var store = JsonConvert.DeserializeObject<Dictionary<string, string>>(DecodeUtf8(snapshot), JsonSettings);
-                        bridge.StartCoroutine(PrepareBrowserMigration(store, plan =>
-                            bridge.BeginCommit(token, plan, ReadIndex, error => {
-                                if (error == "conflict" && attempt < 3) Upgrade(attempt + 1);
-                                else Failed(error);
-                            }), error => {
-                                bridge.ReleaseSnapshot(token);
-                                Failed(error);
-                            }));
-                    } catch (Exception e) { bridge.ReleaseSnapshot(token); Failed(e.Message); }
-                }, Failed);
-            } catch (Exception e) { Failed(e.Message); }
-        }, Failed);
+        void Upgrade(int attempt) {
+            void Retry(string error) {
+                if (error == "conflict" && attempt < 3) Upgrade(attempt + 1);
+                else Failed(error);
+            }
+            bridge.BeginSnapshot(null, (token, directory) => {
+                try {
+                    var keys = JsonConvert.DeserializeObject<string[]>(DecodeUtf8(directory));
+                    bridge.StartCoroutine(PrepareBrowserMigration(token, keys, plan => {
+                        if (plan.Writes.Count == 0) {
+                            bridge.ReleaseSnapshot(token);
+                            ReadIndex();
+                        } else bridge.BeginCommit(token, plan, ReadIndex, Retry);
+                    }, Retry));
+                } catch (Exception e) { bridge.ReleaseSnapshot(token); Retry(e.Message); }
+            }, Retry);
+        }
         Upgrade(0);
     }
 
-    static IEnumerator PrepareBrowserMigration(Dictionary<string, string> store,
+    static IEnumerator PrepareBrowserMigration(int token, string[] keys,
             Action<DeviceRecordMigration.Plan> commit, Action<string> failed) {
-        // Let the IndexedDB callback and its full UTF-8 snapshot leave the WASM stack.
-        yield return null;
+        var bridge = LocalRecordIdbBridge.Instance;
+        var store = keys.ToDictionary(key => key, key => (string)null, StringComparer.Ordinal);
         var plan = new DeviceRecordMigration.Plan();
-        var steps = DeviceRecordMigration.PrepareSteps(store, plan);
-        while (true) {
+        var steps = DeviceRecordMigration.PrepareSteps(store, plan, true);
+        string error = null;
+        while (error == null) {
             bool more;
             try { more = steps.MoveNext(); }
-            catch (Exception e) { failed(e.Message); yield break; }
+            catch (Exception e) { error = e.Message; break; }
             if (!more) break;
-            yield return null;
+            bool waiting = true;
+            void Fail(string reason) { error = reason; waiting = false; }
+            if (steps.Current is string key) {
+                bridge.ReadMigration(token, key, bytes => {
+                    try { store[key] = DecodeUtf8(bytes); }
+                    catch (Exception e) { error = e.Message; }
+                    waiting = false;
+                }, Fail);
+            } else if (steps.Current is KeyValuePair<string,string> output) {
+                bridge.Stage(token, output.Key, output.Value, () => waiting = false, Fail);
+            } else waiting = false;
+            do { yield return null; } while (waiting);
         }
-        steps = null;
-        store = null;
-        yield return null;
-        try { commit(plan); }
-        catch (Exception e) { failed(e.Message); }
+        if (error != null) { bridge.ReleaseSnapshot(token); failed(error); yield break; }
+        try { commit(plan); } catch (Exception e) { bridge.ReleaseSnapshot(token); failed(e.Message); }
     }
 
     static async void PrepareNative(string directory) {
         try {
             // Do not block the game loop on the first upgrade of a large player library.
-            if (!File.Exists(Path.Combine(directory,"record-aliases.json")) || File.Exists(Path.Combine(directory,MigrationStage,"journal"))) {
-                await System.Threading.Tasks.Task.Run(() => {
-                    Directory.CreateDirectory(directory);
-                    using (AcquireFileWriteLock(directory)) MigrateDirectory(directory);
-                });
-            }
+            await System.Threading.Tasks.Task.Run(() => {
+                Directory.CreateDirectory(directory);
+                using (AcquireFileWriteLock(directory)) MigrateDirectory(directory);
+            });
             FinishReady();
         } catch (Exception e) {
             loading=false; ReadyWaiters.Clear();
@@ -164,8 +176,18 @@ public static partial class LocalRecordStore {
         string canonical = MatchRecordCodec.GameId(detail.record);
         if (string.IsNullOrEmpty(canonical)) throw new InvalidDataException("牌谱编号缺失");
         detail.game_id = canonical;
+        if (UseIndexedDb) {
+            LocalRecordIdbBridge.Ensure();
+            string journalKey = "__pending_save_v1/" + DateTime.UtcNow.Ticks.ToString("D19") + "/" + Guid.NewGuid().ToString("N");
+            LocalRecordIdbBridge.Instance.Stage(0, journalKey, JsonConvert.SerializeObject(detail, JsonSettings),
+                () => {
+                    if (draining) drainAgain = true;
+                    else if (ready) RecoverPending(null, LogSaveError);
+                    else EnsureReady(null);
+                }, LogSaveError);
+            return;
+        }
         EnsureReady(() => {
-            if (UseIndexedDb) { SaveToIndexedDb(detail, matchType); return; }
             using (AcquireFileWriteLock()) {
                 RecoverDirectory(DirectoryPath);
                 var existing = ReadFileDetail(detail.game_id);
@@ -177,7 +199,7 @@ public static partial class LocalRecordStore {
                 PruneAliases(aliases, dropped);
                 var plan = new DeviceRecordMigration.Plan();
                 plan.Writes[canonical] = JsonConvert.SerializeObject(detail, JsonSettings);
-                plan.Writes[DeviceRecordMigration.Index] = JsonConvert.SerializeObject(index, JsonSettings);
+                plan.Writes[DeviceRecordMigration.Index] = SerializeIndex(index);
                 plan.Writes[DeviceRecordMigration.Aliases] = aliases.ToString(Formatting.None);
                 plan.Deletes.AddRange(dropped);
                 PublishDirectory(DirectoryPath, plan);
@@ -214,13 +236,35 @@ public static partial class LocalRecordStore {
         if (UseIndexedDb) return null; // IndexedDB reads use LoadAsync.
         EnsureReady(null);
         if (!ready) return null;
-        using (AcquireFileWriteLock()) {
-            RecoverDirectory(DirectoryPath);
-            var alias = LoadFileAliases()[gameId] as JObject;
-            var detail = ReadFileDetail((string)alias?["game_id"] ?? gameId);
-            SelectAlias(detail, alias);
-            return detail;
+        return ReadFileForPlayback(DirectoryPath, gameId);
+    }
+
+    // Resolve the Unity path on the main thread. All I/O, lock waits and JSON
+    // deserialization below can then run on a native player's worker thread.
+    static RecordDetail ReadFileForPlayback(string directory, string gameId) {
+        JObject alias;
+        string json;
+        using (AcquireFileWriteLock(directory)) {
+            RecoverDirectory(directory);
+            var aliases = MatchRecordCodec.Parse(ReadSharedFile(Path.Combine(directory, "record-aliases.json")));
+            alias = aliases[gameId] as JObject;
+            string fileId = (string)alias?["game_id"] ?? gameId;
+            string path = Path.Combine(directory, SanitizeFileName(fileId) + ".json");
+            json = File.Exists(path) ? ReadSharedFile(path) : null;
         }
+        var detail = DeserializeDetail(json);
+        SelectAlias(detail, alias);
+        return detail;
+    }
+
+    static async void ReadFileForPlaybackAsync(string directory, string gameId, Action<RecordDetail> done) {
+        RecordDetail detail = null;
+        try {
+            detail = await System.Threading.Tasks.Task.Run(() => ReadFileForPlayback(directory, gameId));
+        } catch (Exception error) {
+            Debug.LogWarning($"读取本机牌谱失败: {error.Message}");
+        }
+        done?.Invoke(detail);
     }
 
     static JObject LoadFileAliases() => MatchRecordCodec.Parse(ReadSharedFile(Path.Combine(DirectoryPath, "record-aliases.json")));
@@ -255,23 +299,104 @@ public static partial class LocalRecordStore {
     }
 
     public static void LoadAsync(string gameId, Action<RecordDetail> done) {
-        if (!UseIndexedDb) { EnsureReady(() => done?.Invoke(Load(gameId))); return; }
         EnsureReady(() => {
-            if (string.IsNullOrEmpty(gameId)) { done?.Invoke(null); return; }
+            if (!ready || string.IsNullOrEmpty(gameId)) { done?.Invoke(null); return; }
+            if (!UseIndexedDb) {
+                ReadFileForPlaybackAsync(DirectoryPath, gameId, done);
+                return;
+            }
             var bridge = LocalRecordIdbBridge.Instance;
             bridge.BeginLoad(DeviceRecordMigration.Aliases, links => {
                 var alias = MatchRecordCodec.Parse(DecodeUtf8(links))[gameId] as JObject;
                 string id = (string)alias?["game_id"] ?? gameId;
                 bridge.BeginLoad(id, bytes => {
-                    var detail = DeserializeDetail(DecodeUtf8(bytes));
-                    SelectAlias(detail, alias);
-                    done?.Invoke(detail);
+                    DecodeForPlayback(DecodeUtf8(bytes), alias, done);
                 }, _ => done?.Invoke(null));
             }, _ => done?.Invoke(null));
         });
     }
 
-    static void SaveToIndexedDb(RecordDetail detail, string matchType) {
+    static void DecodeForPlayback(string json, JObject alias, Action<RecordDetail> done) {
+        if (string.IsNullOrEmpty(json)) { done?.Invoke(null); return; }
+        var host = NetworkManager.Instance;
+        if (!host || !host.isActiveAndEnabled) {
+            var detail = DeserializeDetail(json);
+            SelectAlias(detail, alias);
+            done?.Invoke(detail);
+            return;
+        }
+        host.StartCoroutine(DecodeStoredArchive(json, alias, done));
+    }
+
+    static IEnumerator DecodeStoredArchive(string json, JObject alias, Action<RecordDetail> done) {
+        RecordDetail detail = null;
+        var steps = GameRecordJsonDecoder.ReadArchiveJson(json, metadata => {
+            var record = metadata["record"] as JObject;
+            if (record != null) metadata.Remove("record");
+            detail = metadata.ToObject<RecordDetail>(JsonSerializer.Create(JsonSettings));
+            if (record != null) detail.record = record;
+            SelectAlias(detail, alias);
+        }).GetEnumerator();
+        try {
+            yield return null;
+            while (true) {
+                double deadline = Time.realtimeSinceStartupAsDouble + ReplayFrameLoader.FrameBudgetSeconds;
+                bool more;
+                try {
+                    do { more = steps.MoveNext(); }
+                    while (more && Time.realtimeSinceStartupAsDouble < deadline);
+                } catch (Exception error) {
+                    Debug.LogWarning($"解析本机牌谱失败: {error.Message}");
+                    detail = null;
+                    break;
+                }
+                if (!more) break;
+                yield return null;
+            }
+        } finally {
+            (steps as IDisposable)?.Dispose();
+        }
+        done?.Invoke(detail);
+    }
+
+    static bool draining, drainAgain;
+    static void LogSaveError(string error) => Debug.LogError("写入本地牌谱失败：" + error);
+
+    // The entry is removed in the same transaction that publishes its record and index.
+    // Closing midway leaves it available for the next explicit use of local records.
+    static void RecoverPending(Action done, Action<string> failed) {
+        if (draining) { drainAgain = true; return; }
+        draining = true;
+        var bridge = LocalRecordIdbBridge.Instance;
+        void Fail(string reason) { draining = false; failed(reason); }
+        void Scan() {
+            drainAgain = false;
+            bridge.ListPending(bytes => {
+                Queue<string> pending;
+                try { pending = new Queue<string>(JsonConvert.DeserializeObject<string[]>(DecodeUtf8(bytes))); }
+                catch (Exception e) { Fail(e.Message); return; }
+                void Next() {
+                    if (pending.Count == 0) {
+                        if (drainAgain) { Scan(); return; }
+                        draining = false; done?.Invoke(); return;
+                    }
+                    string key = pending.Dequeue();
+                    bridge.BeginLoad(key, data => {
+                        if (data == null) { Next(); return; }
+                        try {
+                            var detail = DeserializeDetail(DecodeUtf8(data));
+                            if (detail?.record == null) throw new InvalidDataException("暂存牌谱无法读取");
+                            SaveToIndexedDb(detail, key, Next, Fail);
+                        } catch (Exception e) { Fail(e.Message); }
+                    }, Fail);
+                }
+                Next();
+            }, Fail);
+        }
+        Scan();
+    }
+
+    static void SaveToIndexedDb(RecordDetail detail, string journalKey, Action done, Action<string> failed) {
         var bridge = LocalRecordIdbBridge.Instance;
         // Read and compare the same store snapshot used for the write so another tab cannot overwrite a completed table.
         void Write(int attempt) {
@@ -283,18 +408,26 @@ public static partial class LocalRecordStore {
                     if (store.TryGetValue(detail.game_id, out var previous))
                         MergeStoredDetail(DeserializeDetail(previous), detail);
                     DeviceRecordMigration.AddAliases(aliases, detail);
-                    ApplyIndexUpdate(index, detail, matchType, out var dropped);
+                    ApplyIndexUpdate(index, detail, detail.match_type, out var dropped);
                     PruneAliases(aliases, dropped);
                     var plan = new DeviceRecordMigration.Plan();
                     plan.Writes[detail.game_id] = JsonConvert.SerializeObject(detail, JsonSettings);
-                    plan.Writes[DeviceRecordMigration.Index] = JsonConvert.SerializeObject(index, JsonSettings);
+                    plan.Writes[DeviceRecordMigration.Index] = SerializeIndex(index);
                     plan.Writes[DeviceRecordMigration.Aliases] = aliases.ToString(Formatting.None);
                     plan.Deletes.AddRange(dropped);
+                    plan.Deletes.Add(journalKey);
                     bridge.BeginCommit(token, plan, () => {
-                        MemoryIndex.Clear(); MemoryIndex.AddRange(index);
-                    }, err => { if (err=="conflict" && attempt<3) Write(attempt+1); else Debug.LogError("写入本地牌谱失败："+err); });
-                } catch (Exception e) { bridge.ReleaseSnapshot(token); Debug.LogError("写入本地牌谱失败："+e.Message); }
-            }, err => Debug.LogError("读取本地牌谱失败："+err));
+                        MemoryIndex.Clear(); MemoryIndex.AddRange(index); done();
+                    }, err => {
+                        if (err == "already-saved") bridge.BeginLoadIndex(data => {
+                            try { MergeLoadedIndex(DecodeUtf8(data)); done(); }
+                            catch (Exception e) { failed(e.Message); }
+                        }, failed);
+                        else if (err == "conflict" && attempt < 3) Write(attempt + 1);
+                        else failed(err);
+                    });
+                } catch (Exception e) { bridge.ReleaseSnapshot(token); failed(e.Message); }
+            }, failed);
         }
         Write(0);
     }
@@ -309,6 +442,7 @@ public static partial class LocalRecordStore {
         var info = ToInfo(detail, matchType);
         if (previous != null) {
             info.is_favorite = previous.is_favorite;
+            info.note = previous.note;
             info.metadata = previous.metadata;
             info.match_queue_type ??= previous.match_queue_type;
             index.Remove(previous);
@@ -405,8 +539,31 @@ public static partial class LocalRecordStore {
     }
 
     static List<RecordInfo> DeserializeIndex(string json) {
-        return string.IsNullOrEmpty(json) ? new List<RecordInfo>() :
-            JsonConvert.DeserializeObject<List<RecordInfo>>(json, JsonSettings) ?? throw new InvalidDataException("本地牌谱索引无效");
+        if (string.IsNullOrEmpty(json)) return new List<RecordInfo>();
+        var index = JsonConvert.DeserializeObject<List<RecordInfo>>(json, JsonSettings)
+            ?? throw new InvalidDataException("本地牌谱索引无效");
+        var rows = JsonConvert.DeserializeObject<JArray>(json, JsonSettings);
+        for (int i = 0; i < index.Count; i++) {
+            if (index[i] == null || !(rows[i] is JObject row)) continue;
+            foreach (var property in row.Properties()) {
+                if (IndexFields.Contains(property.Name)) continue;
+                index[i].metadata ??= new JObject();
+                index[i].metadata[property.Name] = property.Value.DeepClone();
+            }
+        }
+        return index;
+    }
+
+    static string SerializeIndex(List<RecordInfo> index) {
+        // Preserve old index fields without asking the Android base to reflect over JsonExtensionData.
+        var rows = JsonConvert.DeserializeObject<JArray>(JsonConvert.SerializeObject(index, JsonSettings), JsonSettings);
+        for (int i = 0; i < index.Count; i++) {
+            var metadata = index[i]?.metadata;
+            if (metadata == null) continue;
+            foreach (var property in metadata.Properties())
+                ((JObject)rows[i])[property.Name] = property.Value.DeepClone();
+        }
+        return rows.ToString(Formatting.None);
     }
 
     static RecordDetail DeserializeDetail(string json) {

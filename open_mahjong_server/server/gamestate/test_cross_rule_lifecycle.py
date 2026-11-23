@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from . import gamestate_manager as factory
+from .game_sanhua.SanhuaGameState import SanhuaGameState
 from .test_room_lifecycle import USERS, make_room, make_server, parked_loop
 
 
@@ -28,6 +29,11 @@ CASES = {
     "jiujiang": factory.JiujiangGameState, "singapore": factory.SingaporeGameState,
     "malaysia": factory.MalaysiaGameState, "duocai": factory.DuocaiGameState,
     "guangdong/mil2023": factory.GuangdongGameState,
+    "guangdong/mil2023-doubles": factory.GuangdongDoublesGameState,
+    "new_chinese": factory.NewChineseGameState,
+    "new_chinese/sanhua": SanhuaGameState,
+    "sichuan/doubles": factory.SichuanGameState,
+    "sichuan/xuezhan_exchange": factory.SbrExchangeGameState,
     "sichuan/xueliu": factory.XueliuGameState,
     "sichuan/xueliu_exchange": factory.XueliuGameState,
     "sichuan/xueliu_doubles": factory.XueliuDoublesGameState,
@@ -49,7 +55,7 @@ async def running_game(case):
         room["sub_rule"] = case
     if rule == "malaysia":
         room["sub_rule"] = "malaysia/traditional84"
-    if case.endswith("_doubles"):
+    if case.endswith("doubles"):
         room["team_by_seat"] = [0, 1, 0, 1]
     from server.room.room_seats import get_seats
     get_seats(room)
@@ -72,7 +78,7 @@ async def running_game(case):
 
 
 async def broadcast_end(state):
-    if (getattr(state, "sub_rule", "") or "").endswith("_doubles"):
+    if (getattr(state, "sub_rule", "") or "").endswith("doubles"):
         from server.game_calculation.sichuan.doubles_rules import match_result, team_scores
         state.team_result = match_result(team_scores(state.player_list), [])
     if hasattr(state, "broadcast_game_end"):

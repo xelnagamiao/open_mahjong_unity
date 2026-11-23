@@ -37,11 +37,6 @@ def create_replay_table(cursor):
     """)
 
 
-def create_projection(cursor):
-    from pathlib import Path
-    cursor.execute(Path(__file__).with_name("table_projection.sql").read_text(encoding="utf-8"))
-
-
 def ensure_tables(cursor):
     cursor.execute("""SELECT relkind FROM pg_class WHERE oid=to_regclass('game_records')""")
     existing = cursor.fetchone()
@@ -56,10 +51,10 @@ def ensure_tables(cursor):
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (replay_id, table_id)
         );
+        ALTER TABLE game_record_tables ADD COLUMN IF NOT EXISTS training_match_id UUID;
         CREATE INDEX IF NOT EXISTS idx_game_record_tables_created_game
             ON game_record_tables(created_at DESC,game_id DESC);
     """)
-    create_projection(cursor)
 
 
 def lock_record_ids(cursor, game_id, replay_id):
@@ -69,7 +64,7 @@ def lock_record_ids(cursor, game_id, replay_id):
 
 
 def load_paired_snapshot(cursor, title, game_id, *, training):
-    """Read only the durable board and identity fields needed to verify a live settlement."""
+    """Verify a historical paired replay using its stored board and identity fields."""
     side = title.get("duplicate_table")
     cursor.execute("""SELECT jsonb_build_object(
                'id',id::text, 'profile',data->'profile', 'sync_mode',data->'sync_mode',

@@ -15,11 +15,11 @@ function statisticsLadderTiers(key) {
 
 // 与 Python 回填使用同一配表；历史别名只还原为一个实际子规则。
 function subRuleSql(p = 'p', g = 'g') {
-  const raw = `COALESCE(NULLIF(${p}.sub_rule,''),NULLIF(${g}.record->'game_title'->>'sub_rule',''))`;
+  const raw = `COALESCE(NULLIF(${p}.sub_rule,''),NULLIF(${g}.title->>'sub_rule',''))`;
   const defaults = new Map();
   for (const row of STATISTICS_RULES) if (!defaults.has(row.rule)) defaults.set(row.rule, row.sub_rule);
   defaults.set('guangdong', 'guangdong/tuidao_mil2024');
-  return `(CASE WHEN ${raw}='hongkong/new13' THEN CASE WHEN ${g}.record->'game_title'->'detailed_config'->>'new13_version'='lianhuise' THEN 'hongkong/new13_lianhuise' ELSE 'hongkong/new13_gametower' END
+  return `(CASE WHEN ${raw}='hongkong/new13' THEN CASE WHEN ${g}.title->'detailed_config'->>'new13_version'='lianhuise' THEN 'hongkong/new13_lianhuise' ELSE 'hongkong/new13_gametower' END
     WHEN ${raw} IS NOT NULL AND ${raw}<>${p}.rule THEN ${raw}
     WHEN ${p}.rule IN ('riichi','guobiao') AND (COALESCE(${p}.match_type,'') ~ '/3(_|$)' OR COALESCE(${p}.match_type,'') LIKE '%_sanma%') THEN ${p}.rule||'/sanma'
     ELSE CASE ${p}.rule ${[...defaults].map(([rule, sub]) => `WHEN ${quote(rule)} THEN ${quote(sub)}`).join(' ')} END END)`;

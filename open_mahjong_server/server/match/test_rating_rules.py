@@ -118,6 +118,26 @@ def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("position", [1, 100, 101, 1000, 1001])
+def test_leaderboard_personal_position_does_not_extend_public_list(position):
+    async def run():
+        rows = [dict(user_id=10_000_000 + rank, username=f"player{rank}", profile_image_id=1,
+                     rank_position=rank, guobiao_rank="9级", guobiao_score=0) for rank in range(1, 1001)]
+        get_rows = Mock(return_value=rows)
+        server = SimpleNamespace(players={"c": SimpleNamespace(user_id=10_000_000 + position)},
+                                 db_manager=SimpleNamespace(get_rule_leaderboard=get_rows))
+        ws = SimpleNamespace(send_json=AsyncMock())
+        await handle_get_leaderboard(server, "c", {"rule": "guobiao", "data_request_id": "rank"}, ws)
+        body = ws.send_json.call_args.args[0]
+        assert body["success"]
+        assert body["data_request_id"] == "rank"
+        assert [row["rank_position"] for row in body["leaderboard_list"]] == list(range(1, 101))
+        assert body.get("leaderboard_self_position") == (position if position <= 1000 else None)
+        get_rows.assert_called_once_with(rule="guobiao", limit=1000)
+
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize('queue',['qingque_elo_dongfeng','qingque_elo_banzhuang','hongque_elo_dongfeng'])
 def test_removed_short_elo_queues_cannot_be_joined(queue):
     async def run():

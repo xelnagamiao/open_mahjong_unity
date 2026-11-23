@@ -1,6 +1,6 @@
 from collections import Counter
 
-from .actions import CHOWS, after_meld, claim_actions, claim_tiles, empty_actions, kong_tiles, legal_cuts, ready_cuts
+from .actions import CHOWS, after_meld, claim_actions, claim_tiles, empty_actions, kong_tiles, legal_cuts, ready_cuts, wait_context
 from .state_machine import Phase as P
 from ...game_calculation.new_chinese import rules
 
@@ -15,8 +15,8 @@ class HandFlow:
 
     def opening_window(self):
         if self.detailed_config["exchange_three"]:
-            return self.window(P.EXCHANGE, 0, actions={i: ["exchange_three", "pass"] for i in range(4)})
-        return self.turn(0)
+            return self.window(P.EXCHANGE, self.dealer_index, actions={i: ["exchange_three", "pass"] for i in range(4)})
+        return self.turn(self.dealer_index)
 
     def turn(self, index, *, after_call=False):
         self.current_player_index = index
@@ -26,8 +26,8 @@ class HandFlow:
         if not after_call and p.has_draw_slot and self.quote(index, p.hand_tiles[-1], "draw"):
             offered.append("hu_self")
         offered.extend(k for k in ("angang", "jiagang") if kong_tiles(self, index, k))
-        self.candidate_cuts = ready_cuts(p.hand_tiles, p.combination_tiles)
-        if self.candidate_cuts and not p.declared:
+        self.candidate_cuts = {} if p.declared else ready_cuts(p.hand_tiles, p.combination_tiles, **wait_context(self, index))
+        if self.candidate_cuts:
             offered.append("riichi_cut")
         if self.must_declare != index:
             offered.append("cut")
@@ -38,13 +38,15 @@ class HandFlow:
         tile = data.get("TileId")
         if type(tile) is not int or tile not in p.hand_tiles:
             raise ValueError("出牌不在手牌中")
-        if (p.declared or data["action_type"] == "riichi_cut") and tile not in self.candidate_cuts:
-            raise ValueError("出牌后不能报听或维持听牌")
+        if data["action_type"] == "riichi_cut" and tile not in self.candidate_cuts:
+            raise ValueError("出牌后不能报听")
         drawn = data.get("cutClass")
         if drawn is not None and type(drawn) is not bool:
             raise ValueError("无效的出牌类型")
         if drawn is None:
             drawn = p.has_draw_slot and p.hand_tiles[-1] == tile
+        if p.declared and not drawn:
+            raise ValueError("报听后只能摸切")
         if drawn:
             if not p.has_draw_slot or p.hand_tiles[-1] != tile:
                 raise ValueError("此牌不是摸牌")
@@ -76,8 +78,35 @@ class HandFlow:
             self.validate_response(index, data, window["actions"][index])
         phase = self.machine.phase
         if phase == P.EXCHANGE:
-            self.exchange(responses)
-            result = self.turn(0)
+            submissions = {i: list(data["target_tile"]) for i, data in responses.items() if data["action_type"] == "exchange_three"}
+            result = self.window(P.EXCHANGE_CHOICES, self.dealer_index)
+            result["submissions"] = submissions
+            result["duration_ms"] = 3750 if len(submissions) >= 2 else 1000
+            result["deadline"] = self._timing_now() + result["duration_ms"] / 1000
+        elif phase == P.EXCHANGE_CHOICES:
+            if window.get("broadcast_complete") is False or self._timing_now() < window["deadline"]:
+                raise ValueError("换牌公示尚未结束")
+            submissions = window["submissions"]
+            if len(submissions) >= 2:
+                incoming = self.exchange(submissions)
+                result = self.window(P.EXCHANGE_RECEIPT, self.dealer_index)
+                result.update(incoming=incoming, duration_ms=750, deadline=self._timing_now() + .75)
+            else:
+                result = self.turn(self.dealer_index)
+                self.record_state()
+        elif phase == P.EXCHANGE_RECEIPT:
+            if window.get("broadcast_complete") is False or self._timing_now() < window["deadline"]:
+                raise ValueError("换入手牌展示尚未结束")
+            result = self.turn(self.dealer_index)
+            self.record_state()
+        elif phase == P.BAO_REVEAL:
+            if window.get("broadcast_complete") is False or self._timing_now() < window["deadline"]:
+                raise ValueError("宝牌展示尚未结束")
+            if self.supplements and self.bao_discarded_three_times():
+                result = self.reveal_bao()
+            else:
+                self.bao_offers = [i for i in self.ready_order if self.quote(i, self.bao, "seen")]
+                result = self.next_bao_offer()
         elif phase == P.BAO:
             index = window["player"]
             if responses[index]["action_type"] == "hu_self":
@@ -92,14 +121,12 @@ class HandFlow:
             raise ValueError("当前阶段不能行牌")
         return self.open_action_window(result)
 
-    def exchange(self, responses):
-        submissions = {i: data["target_tile"] for i, data in sorted(responses.items()) if data["action_type"] == "exchange_three"}
-        seats = list(submissions)
-        if len(seats) < 2:
-            return
-        for n, index in enumerate(seats):
+    def exchange(self, submissions):
+        seats = sorted(submissions)
+        received = {seat: submissions[seats[n - 1]] for n, seat in enumerate(seats)}
+        for index in seats:
             p = self.player_list[index]
-            incoming = submissions[seats[n - 1]]
+            incoming = received[index]
             original_draw = p.hand_tiles[-1] if p.has_draw_slot else None
             for t in submissions[index]:
                 p.hand_tiles.remove(t)
@@ -112,7 +139,7 @@ class HandFlow:
                 p.hand_tiles.append(draw)
             else:
                 p.hand_tiles.sort()
-        self.event("new_chinese_exchange", 0, submissions=submissions)
+        return received
 
     def take_turn(self, index, data, offered):
         p, action = self.player_list[index], data["action_type"]
@@ -121,12 +148,15 @@ class HandFlow:
         if "hu_self" in offered:
             tile = p.hand_tiles[-1]
             source = self.win_source(index, tile, "draw")
-            p.pass_win(source, tile, rules.waits(p.hand_tiles[:-1], p.combination_tiles))
+            waits = rules.waits(p.hand_tiles[:-1], p.combination_tiles, self_draw=True,
+                                after_kong=p.after_kong, **wait_context(self, index))
+            p.pass_win(source, tile, waits)
         if action == "angang":
             return self.commit_kong(index, data["target_tile"], action)
         if action == "jiagang":
             return self.rob_window(index, data["target_tile"], action, None)
         position, drawn = self.cut_identity(index, data)
+        cut_index = position if p.declared else data.get("cutIndex", position)
         tile = p.hand_tiles.pop(position)
         p.hand_tiles.sort()
         p.discard_tiles.append(tile)
@@ -142,7 +172,7 @@ class HandFlow:
             p.declared = True
             p.tag_list.append("declared_ready")
             self.ready_order.append(index)
-        self.event("cut", index, tile=tile, cutIndex=data.get("cutIndex", position), cutClass=drawn,
+        self.event("cut", index, tile=tile, cutIndex=cut_index, cutClass=drawn,
                    declared=declared, is_timeout_action=data.get("is_timeout_action", False))
         self.published_bao_cut = self.bao == tile
         self.after_bao = (index, tile)
@@ -156,30 +186,28 @@ class HandFlow:
         return self.after_declaration(index, tile, declared)
 
     def after_declaration(self, index, tile, declared):
-        self.changed_bao = bool(self.bao and self.supplements and self.river_counts()[self.bao] >= 3)
-        if not self.bao and declared or self.bao and self.river_counts()[self.bao] >= 3:
-            changed = self.reveal_bao()
-            offers = list(self.ready_order) if changed else []
-        else:
-            offers = [index] if declared and self.bao else []
-        self.bao_offers = [i for i in offers if self.quote(i, self.bao, "seen")]
+        self.changed_bao = False
+        if self.supplements and (self.bao_discarded_three_times() if self.bao else declared):
+            return self.reveal_bao()
+        self.bao_offers = [index] if declared and self.bao and self.quote(index, self.bao, "seen") else []
         return self.next_bao_offer()
 
+    def bao_discarded_three_times(self):
+        return sum(tile == self.bao for _, tile in self.discard_log) >= 3
+
     def reveal_bao(self):
-        if not self.supplements:
-            return False
         initial = not self.bao
-        while self.supplements:
-            self.bao = self.supplements.pop(self.rng.randrange(len(self.supplements)))
-            self.bao_revision += 1
-            for p in self.player_list:
-                if p.level == 4:
-                    p.level = 3
-            self.event("new_chinese_bao_reveal" if initial else "new_chinese_bao_change", self.current_player_index)
-            if self.river_counts()[self.bao] < 3:
-                break
-            initial = False
-        return True
+        self.changed_bao = not initial
+        self.bao = self.supplements.pop(self.rng.randrange(len(self.supplements)))
+        self.bao_revision += 1
+        for p in self.player_list:
+            if p.level == 4:
+                p.level = 3
+        window = self.window(P.BAO_REVEAL, self.current_player_index)
+        window["initial"] = initial
+        window["duration_ms"] = 1000
+        window["deadline"] = self._timing_now() + window["duration_ms"] / 1000
+        return window
 
     def next_bao_offer(self):
         if self.bao_offers:
@@ -226,7 +254,10 @@ class HandFlow:
         for i, data in responses.items():
             if "hu" in window["actions"][i]:
                 p = self.player_list[i]
-                wait = rules.waits(p.hand_tiles, p.combination_tiles, self_draw=False)
+                context = wait_context(self, i)
+                if context and (not rob or self.pending_kong[2] == "gang"):
+                    context["visible"][tile] -= 1
+                wait = rules.waits(p.hand_tiles, p.combination_tiles, self_draw=False, **context)
                 p.pass_win("discard", tile, wait)
         if window.get("before_bao"):
             self.discard_hu_checked = True

@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections import Counter
 from unittest.mock import patch
 
@@ -6,7 +7,7 @@ import pytest
 
 from .SbrExchangeGameState import SbrExchangeGameState
 from .action_check import check_hepai, check_action_after_cut, check_action_after_peng, check_action_hand_action
-from .boardcast import _build_players_info
+from .boardcast import _base_game_info, _build_players_info, reconnected_send_pending_ask
 from .init_tiles import init_sichuan_tiles
 from .test_action_window import submit
 from .test_xueliu_doubles_full_match import play_match
@@ -55,6 +56,44 @@ def score(state, seat, hand, melds=(), method="dianhe", kong=False):
     return state.sichuan_hu_results.get(seat)
 
 
+def test_reconnect_after_confirm_and_partway_through_exchange():
+    async def scenario():
+        state, messages = make_state()
+        state.game_status = "waiting_xueliu_throw"
+        state.action_dict = {seat: [state.xueliu_opening_action] for seat in range(4)}
+        state.action_dict[0] = []
+        state.xueliu_throw_deadline = time.time() + 5
+        state._consume_xueliu_throw_tiles(0, [11, 12, 13])
+        await reconnected_send_pending_ask(state, state.player_list[0].user_id)
+        info = messages[-1]["message"]["ask_hand_action_info"]
+        assert info["action_list"] == []
+        assert info["xueliu_exchange"] == {"selection_done": True, "outgoing_tiles": [11, 12, 13]}
+        await reconnected_send_pending_ask(state, state.player_list[1].user_id)
+        info = messages[-1]["message"]["ask_hand_action_info"]
+        assert info["action_list"] == [state.xueliu_opening_action]
+        assert "xueliu_exchange" not in info
+        state.game_status = "sbr_exchange_dice"
+        state.exchange_dice = [4, 6]
+        state.exchange_direction = 2
+        state.exchange_deadline = time.monotonic() + .25
+        await reconnected_send_pending_ask(state, state.player_list[0].user_id)
+        info = messages[-1]["message"]["ask_hand_action_info"]
+        roll = info["xueliu_exchange"]
+        assert info["action_list"] == [] and roll["animating"]
+        assert roll["dice"] == [4, 6] and roll["direction"] == 0 and roll["active_players"] == []
+        assert 0 < roll["animation_seconds"] <= .25 + 1e-6
+        state.game_status = "xueliu_exchange_animation"
+        state.exchange_deadline = time.monotonic() + .6
+        await reconnected_send_pending_ask(state, state.player_list[0].user_id)
+        phase = messages[-1]["message"]["ask_hand_action_info"]["xueliu_exchange"]
+        assert "dice" not in phase
+        assert phase["cards_face_down"]
+        assert phase["direction"] == 2 and phase["outgoing_tiles"] == [11, 12, 13]
+        assert 0 < phase["animation_seconds"] <= .6 + 1e-6
+        assert phase["outgoing_suit"] == phase["teammate_suit"] == 0
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("red", range(1,7))
 def test_sealed_exchange_direction_private_hands_and_record(red):
     state,_ = make_state()
@@ -66,6 +105,7 @@ def test_sealed_exchange_direction_private_hands_and_record(red):
     before = [list(player.hand_tiles) for player in state.player_list]
     chosen = [state._default_xueliu_throw_tiles(i) for i in range(4)]
     directions = []
+    phases = []
     async def select(seats):
         state.game_status = "waiting_xueliu_throw"
         for i in seats:
@@ -76,23 +116,47 @@ def test_sealed_exchange_direction_private_hands_and_record(red):
             for viewer in range(4):
                 snapshot = _build_players_info(state, state.player_list[viewer].user_id)
                 assert all(not p["xueliu_throw_tiles"] for p in snapshot if p["player_index"]!=viewer)
+                assert all("sbr_received_tiles" not in p for p in snapshot)
+            assert state.exchange_view(i) == dict(selection_done=True, outgoing_tiles=chosen[i])
     async def animate(st):
+        phases.append((st.game_status, st.server_action_tick))
         for i in range(4):
             frame = st.exchange_view(i)
-            directions.append(frame["direction"])
-            assert frame["teammate_suit"] == chosen[(i-frame["direction"])%4][0]//10
+            assert frame["outgoing_tiles"] == chosen[i]
+            assert st.player_list[i].hand_tiles == before[i]
+            assert all("sbr_received_tiles" not in p for p in _build_players_info(st, st.player_list[i].user_id))
+            if st.game_status == "sbr_exchange_dice":
+                assert frame["animating"] and frame["dice"] == [red, 6]
+                assert frame["direction"] == 0 and not frame["active_players"]
+                assert 0 < frame["animation_seconds"] <= 2.35 + 1e-6
+            else:
+                assert "dice" not in frame and frame["cards_face_down"]
+                assert 0 < frame["animation_seconds"] <= 1.90 + 1e-6
+                directions.append(frame["direction"])
+                assert frame["outgoing_suit"] == frame["teammate_suit"] == 0
+    async def received():
+        assert state.game_status == "sbr_exchange_received"
+        assert _base_game_info(state)["sbr_exchange_direction"] == state.exchange_direction
+        for player in state.player_list:
+            i = player.player_index
+            snapshot = _build_players_info(state, player.user_id)
+            assert [p.get("sbr_received_tiles") for p in snapshot] == [
+                chosen[(i - state.exchange_direction) % 4] if seat == i else None for seat in range(4)]
+        assert all("sbr_received_tiles" not in p for p in _build_players_info(state, None))
     async def dingque():
         for p in state.player_list: p.dingque_suit = 3
     async def finish(*args): pass
     state._collect_xueliu_selection = select
     state._dingque_phase = dingque
-    state.broadcast_game_start = finish
+    state.broadcast_game_start = received
     with patch(__package__+".SbrExchangeGameState.Random") as dice, \
          patch(__package__+".SbrExchangeGameState.broadcast_xueliu_exchange_animation",animate), \
          patch(__package__+".SbrExchangeGameState.broadcast_dingque_done",finish), patch("asyncio.sleep",finish):
         dice.return_value.randint.side_effect = [red,6]
         asyncio.run(state._opening_phase())
     direction = (red+1)//2
+    assert [phase for phase, _ in phases] == ["sbr_exchange_dice", "xueliu_exchange_animation"]
+    assert phases[1][1] == phases[0][1] + 1
     assert directions == [direction]*4
     for i,p in enumerate(state.player_list):
         assert Counter(p.hand_tiles) == Counter(before[i])-Counter(chosen[i])+Counter(chosen[(i-direction)%4])

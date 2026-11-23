@@ -57,6 +57,7 @@ public class Round {
     public NanchangInfo nanchang;
     public ShangraoInfo shangrao;
     public NewChineseInfo newChinese;
+    public SanhuaInfo sanhua;
     public BeijingInfo beijing;
     public Dictionary<int,BeijingHints> beijingHints;
     public DuocaiInfo duocai;

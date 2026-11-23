@@ -45,7 +45,7 @@ def test_first_startup_repairs_every_enabled_subrule_and_skips_future_scans(db, 
     db.sql('INSERT INTO app_meta(meta_key,meta_value) VALUES(%s,%s)',
            ('statistics_fans_catalog_v1', Json({'status': 'complete', 'by_sub_rule': {'sichuan/standard': 4}})))
     before = db.sql("SELECT to_jsonb(m)-'fan_stats' FROM game_player_metrics m ORDER BY game_id,user_id")
-    replays = db.sql('SELECT * FROM game_records ORDER BY game_id')
+    replays = db.sql('SELECT * FROM game_replays ORDER BY game_id')
     participants = db.sql('SELECT * FROM game_player_records ORDER BY game_id,user_id')
     report = upgrade.run_startup_fan_upgrade(db)
     assert report['status'] == 'complete' and report['changed'] == len(expected)
@@ -53,7 +53,7 @@ def test_first_startup_repairs_every_enabled_subrule_and_skips_future_scans(db, 
     actual = db.sql('SELECT game_id,user_id,fan_stats FROM game_player_metrics WHERE fan_stats IS NOT NULL ORDER BY game_id,user_id')
     assert sorted(actual) == sorted(expected)
     assert db.sql("SELECT to_jsonb(m)-'fan_stats' FROM game_player_metrics m ORDER BY game_id,user_id") == before
-    assert db.sql('SELECT * FROM game_records ORDER BY game_id') == replays
+    assert db.sql('SELECT * FROM game_replays ORDER BY game_id') == replays
     assert db.sql('SELECT * FROM game_player_records ORDER BY game_id,user_id') == participants
     first_marker = marker(db)
     assert json.loads(first_marker[0])['scope'] == 'all'

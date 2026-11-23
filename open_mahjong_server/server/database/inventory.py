@@ -65,6 +65,7 @@ def ensure_inventory_tables(cursor):
                 (description, iid, code, key, '使用后增加 1 次账号改名机会，可在网页账号中心改名。'))
 
 
+    cursor.execute(Path(__file__).with_name('suspend_touhou_avatars.sql').read_text(encoding='utf-8'))
     from .commerce import ensure_commerce_tables
     ensure_commerce_tables(cursor)
 
@@ -301,7 +302,7 @@ def save_definition(db, actor_id, item_id, body):
             cursor.execute('SELECT pg_advisory_xact_lock(%s)',(CATALOG_LOCK,))
             before = _definition(cursor,item_id) if item_id is not None else None
             if before and (before['code'] != code or before['asset_key'] != key): raise InventoryError('创建后编码和资源类型不能修改')
-            if before and before['is_default'] and not usable: raise InventoryError('默认装扮不能停用')
+            if before and before['is_default'] and before['use_enabled'] and not usable: raise InventoryError('默认装扮不能停用')
             if asset.get('effect') == 'fixed_bundle':
                 rewards = body.get('config',{}).get('rewards') if isinstance(body.get('config',{}),dict) else None
                 if not isinstance(rewards,list) or not 1 <= len(rewards) <= 20: raise InventoryError('礼包须配置 1–20 种固定奖励')

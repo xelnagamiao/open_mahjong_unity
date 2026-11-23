@@ -125,7 +125,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
                 }
             }
         }
-        playerProfilePicture.sprite = GameSettings.Current.GetProfileSprite(titlePlayerInfo.profile_used);
+        AvatarPortraitBackground.SetSprite(playerProfilePicture, GameSettings.Current.GetProfileSprite(titlePlayerInfo.profile_used), titlePlayerInfo.profile_used);
         ApplyAvatarFrame(titlePlayerInfo.avatar_frame_used);
     }
 
@@ -276,7 +276,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
             // 加载头像
             Sprite profileSprite = GameSettings.Current.GetProfileSprite(playerInfo.profile_used);
             if (profileSprite != null) {
-                playerProfilePicture.sprite = profileSprite;
+                AvatarPortraitBackground.SetSprite(playerProfilePicture, profileSprite, playerInfo.profile_used);
             }
             ApplyAvatarFrame(playerInfo.avatar_frame_used);
 
@@ -428,7 +428,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
         playerTitleText.text = "";
         if (playerProfilePicture != null) {
             Sprite profileSprite = Resources.Load<Sprite>("image/Profiles/1");
-            if (profileSprite != null) playerProfilePicture.sprite = profileSprite;
+            if (profileSprite != null) AvatarPortraitBackground.SetSprite(playerProfilePicture, profileSprite, 1);
             ProfileOnClick profileOnClick = playerProfilePicture.GetComponent<ProfileOnClick>();
             if (profileOnClick != null) profileOnClick.user_id = 0;
         }

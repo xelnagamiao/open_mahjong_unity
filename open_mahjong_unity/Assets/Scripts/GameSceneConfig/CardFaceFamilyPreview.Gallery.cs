@@ -51,9 +51,7 @@ public sealed partial class CardFaceFamilyPreview
             }
             foreach (int index in leaving)
             {
-                var slot = visible[index];
-                slot.gameObject.SetActive(false);
-                unused.Push(slot);
+                Recycle(visible[index]);
                 visible.Remove(index);
             }
             for (int i = 0; i < entries.Length; i++)
@@ -74,6 +72,19 @@ public sealed partial class CardFaceFamilyPreview
                 FixedFacePack.ApplyPreview(slot, pack, FixedFacePack.Key(entry.source, entry.id), table);
                 slot.gameObject.SetActive(true);
             }
+        }
+
+        public void Clear()
+        {
+            foreach (var slot in visible.Values) Recycle(slot);
+            visible.Clear();
+        }
+
+        void Recycle(CardFacePreviewSlot slot)
+        {
+            slot.gameObject.SetActive(false);
+            slot.ClearArtwork();
+            unused.Push(slot);
         }
 
         Vector2 Position(Entry entry) => table ? entry.tablePosition : entry.handPosition;

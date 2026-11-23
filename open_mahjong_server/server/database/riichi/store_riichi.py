@@ -1,5 +1,5 @@
 """
-立直麻将游戏记录存储：与国标/古典相同，写入 game_records + game_player_records。
+立直麻将游戏记录存储：与国标/古典相同，写入 game_replays / game_record_tables + game_player_records。
 """
 import json
 import logging

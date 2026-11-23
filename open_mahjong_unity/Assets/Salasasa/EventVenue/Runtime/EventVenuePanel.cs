@@ -406,7 +406,17 @@ namespace Salasasa.Events
                     var row=pool.rows[i];row.gameObject.SetActive(i<count);if(i>=count)continue;
                     var skin=row.GetComponentInChildren<EventVenueNativeCard>(true);if(!skin)continue;
 
-                    if(row.kind=="room")skin.GetComponent<RoomItem>().SetRoomInfo(rooms[i]);
+                    if(row.kind=="room"){
+                        var card=skin.GetComponent<RoomItem>();
+                        var rect=(RectTransform)skin.transform;
+                        float normalHeight=card.GetComponent<LayoutElement>().preferredHeight;
+                        float height=RoomItem.IsEightPlayerLobby(rooms[i])?card.DuplicateHeight:normalHeight;
+                        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,height);
+                        var layout=row.GetComponent<LayoutElement>();
+                        float templateHeight=pool.template.GetComponent<LayoutElement>().preferredHeight;
+                        layout.minHeight=layout.preferredHeight=templateHeight+(height-normalHeight)*rect.localScale.y;
+                        card.SetRoomInfo(rooms[i]);
+                    }
                     if(row.kind=="game"){
                         bool paired=!string.IsNullOrEmpty(spectators[i].match_id)&&pairedSpectatorPrefab;
                         var pairCard=row.transform.Find("MatchSpectatorCard");

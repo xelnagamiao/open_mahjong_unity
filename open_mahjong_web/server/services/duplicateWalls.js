@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const crypto = require('node:crypto');
 const ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16]);
 const SICHUAN_PAIRED = new Set(['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']);
@@ -120,7 +121,7 @@ function wallDto(row, ownerView = false) {
   dto.owner_username = row.scope === 'personal' ? row.owner_username ?? null : null;
   dto.event_name = row.scope === 'event' ? row.event_name ?? null : null;
   dto.is_deleted = row.deleted_at != null;
-  dto.round_count = row.round_count ?? 1;
+  dto.round_count = row.legacy_planned_boards ?? row.round_count ?? 1;
   dto.wall_layout = ['sichuan/xueliu', 'sichuan/xueliu_doubles_duplicate'].includes(row.rule) ? 'xueliu'
     : ['sichuan/sbr', 'sichuan/doubles_duplicate'].includes(row.rule) ? 'sbr' : 'standard';
   dto.use_flowers = typeof row.use_flowers === 'boolean' ? row.use_flowers
@@ -130,7 +131,7 @@ function wallDto(row, ownerView = false) {
   dto.tile_count = row.tile_count == null ? (Array.isArray(row.tiles) ? row.tiles.length : null) : Number(row.tile_count);
   if (ownerView && row.wall_type !== 'key') {
     dto.tiles = row.tiles;
-    dto.round_tiles = row.round_tiles ?? [row.tiles];
+    dto.round_tiles = (row.round_tiles ?? [row.tiles]).slice(0, dto.round_count);
     dto.seed = row.seed;
   }
   return dto;
@@ -142,7 +143,21 @@ function quotaDto(scope, row = {}) {
   return { ...limits, created_today: createdToday, stored, remaining_today: Math.max(0, limits.daily_limit - createdToday), remaining_storage: Math.max(0, limits.storage_limit - stored), timezone: 'Asia/Shanghai' };
 }
 
-function createDuplicateWallService(pool) {
+async function pairedWallInUse(wallId) {
+  const { proxyToGameServer } = require('./gameServerProxy');
+  let result;
+  try {
+    result = await proxyToGameServer(`/admin/rooms/paired-wall/${wallId}`, null, 'GET');
+  } catch {
+    fail(503, '暂时无法核对正在使用该密钥的房间，请稍后重试');
+  }
+  if (result.status !== 200 || typeof result.data?.in_use !== 'boolean') {
+    fail(503, '暂时无法核对正在使用该密钥的房间，请稍后重试');
+  }
+  return result.data.in_use;
+}
+
+function createDuplicateWallService(pool, wallInUse = pairedWallInUse) {
   async function authorizeScope(db, userId, scope, eventId, forCreate = false, { platformAdmin = false } = {}) {
     if (!Object.hasOwn(QUOTAS, scope)) fail(400, '无效的复式范围');
     if (scope !== 'event') return;
@@ -234,12 +249,17 @@ function createDuplicateWallService(pool) {
         fail(409, '锁定的密钥不能删除，请先解除锁定');
       }
       if (SICHUAN_PAIRED.has(row.rule) && (change.is_unlocked || change.remove)) {
-        const pairs = await client.query('SELECT status, data FROM sichuan_duplicate_matches WHERE wall_id=$1', [id]);
-        if (!pairs.rows.length || pairs.rows.some(pair => !['completed', 'cancelled'].includes(pair.status))) {
-          fail(409, '该密钥下所有组的开室、闭室尚未全部结束，不能提前解锁牌谱');
+        // The row lock prevents a new room from attaching between the live check and the unlock.
+        if (!row.is_unlocked && await wallInUse(id)) {
+          fail(409, '该密钥仍有开室或闭室正在使用，不能提前解锁牌谱');
         }
+        const pairs = await client.query(`SELECT data FROM sichuan_duplicate_matches WHERE wall_id=$1 AND status='completed'
+          UNION ALL SELECT jsonb_build_object('record_ids',
+            jsonb_object_agg(t.table_id, g.game_id) FILTER (WHERE t.table_id IN ('open','closed')))
+          FROM duplicate_games g JOIN game_record_tables t ON t.game_id=g.game_id
+          WHERE g.wall_id=$1 AND g.paired_match_id IS NOT NULL GROUP BY g.paired_match_id`, [id]);
         const ids = [];
-        for (const pair of pairs.rows.filter(pair => pair.status === 'completed')) {
+        for (const pair of pairs.rows) {
           const records = pair.data?.record_ids;
           if (!records?.open || !records?.closed || records.open === records.closed) fail(409, '各组两桌牌谱尚未保存完整，请稍后重试');
           ids.push(records.open, records.closed);
@@ -283,8 +303,8 @@ function createDuplicateWallService(pool) {
       `WITH matched_games AS (
         SELECT game_id, ended_at FROM duplicate_games WHERE wall_id = $1
         UNION ALL
-        SELECT gr.game_id, NULL::timestamptz FROM game_record_metadata gr
-        WHERE gr.record #>> '{game_title,duplicate_key}' = $2
+        SELECT gr.game_id, NULL::timestamptz FROM ${tableTitles} gr
+        WHERE gr.title->>'duplicate_key' = $2
           AND NOT EXISTS (SELECT 1 FROM duplicate_games dg WHERE dg.game_id = gr.game_id)
       )
        SELECT COALESCE(gr.replay_id,dg.game_id) AS game_id, dg.game_id AS source_id, gr.table_id,
@@ -294,7 +314,7 @@ function createDuplicateWallService(pool) {
           FROM game_player_records p WHERE p.game_id = dg.game_id), '[]'::jsonb) AS players
        FROM matched_games dg JOIN duplicate_walls dw ON dw.id = $1
        LEFT JOIN events e ON e.event_id = dw.event_id
-       LEFT JOIN game_record_metadata gr ON gr.game_id = dg.game_id
+       LEFT JOIN game_record_tables gr ON gr.game_id = dg.game_id
        ORDER BY dg.ended_at DESC NULLS FIRST, dg.game_id`, [wall.id, wall.key]);
     const byReplay = new Map();
     for (const {source_id, table_id, ...game} of games.rows) {
@@ -305,7 +325,15 @@ function createDuplicateWallService(pool) {
     }
     let pairedMatches;
     if (SICHUAN_PAIRED.has(wall.rule)) {
-      const pairs = (await pool.query('SELECT id,status,data FROM sichuan_duplicate_matches WHERE wall_id=$1 ORDER BY id', [wall.id])).rows;
+      const pairs = (await pool.query( `SELECT id,status,data FROM sichuan_duplicate_matches WHERE wall_id=$1
+        UNION ALL SELECT g.paired_match_id,'completed',
+          (r.record->'tables'->'open'->'payload'->'duplicate_match') || jsonb_build_object(
+            'profile',r.record->'rule_profile','lobby',jsonb_build_object('name',r.record#>>'{tables,open,payload,duplicate_match,name}'),
+            'results',r.record#>'{tables,open,payload,duplicate_match,boards}',
+            'record_ids',jsonb_build_object('open',t.game_id,'closed',r.record#>>'{tables,closed,table_record_id}'))
+        FROM duplicate_games g JOIN game_record_tables t USING(game_id) JOIN game_replays r ON r.game_id=t.replay_id
+        WHERE g.wall_id=$1 AND g.paired_match_id IS NOT NULL AND t.table_id='open'
+          AND r.record->>'completeness'='complete' ORDER BY id`, [wall.id])).rows;
       pairedMatches = pairs.filter(pair => pair.status === 'completed').map(pair => ({
         match_id: pair.id, game_id: games.rows.find(g => Object.values(pair.data.record_ids || {}).includes(g.source_id))?.game_id,
         name: pair.data.lobby?.name || '', room_ids: pair.data.room_ids,

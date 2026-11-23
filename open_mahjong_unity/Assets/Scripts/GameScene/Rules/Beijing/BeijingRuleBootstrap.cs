@@ -31,7 +31,7 @@ internal static class BeijingRuleBootstrap {
             SettlementTotal=q=>new SettlementTotalDisplay{FanText=$"基本分 {q.HuScore}点",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}点":""},
             ScoreboardFanText=q=>$"{q.HuScore}点",
             ActionVoice=word=>word=="hu_self"?"hu":word=="tianting"?"tianting":null,
-            RoundIndicators=info=>BeijingTableIndicators.FieldState(info?.beijing_info??BeijingTableIndicators.DisplayedInfo),
+            RoundIndicators=info=>BeijingTableIndicators.FieldState(info?.beijing_info),
             DefaultHepaiLimit=0,HasFlowerReplacement=false,PeekAnkan=true,ShowsRonDangerHints=false,RonWinTileTravelsFromRiver=true,
             AdjustHepaiPresentation=(request,robbed)=>{if(robbed){request.WinTileMode=HepaiWinTilePresentMode.RonInstantThenPause;request.RestoreRecordHandFromSnapshot=true;request.IsQianggang=false;request.DiscardPlayerPosition=null;}},
             ReplayConcealedKongMask=(rule,tiles)=>tiles.SelectMany(tile=>new[]{2,tile}).ToArray(),RulebookKey="beijing"

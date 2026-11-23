@@ -10,6 +10,7 @@ public partial class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
     public static bool Debug = false;
+    public static bool UseLocalServices { get; private set; }
 
     /// <summary>Steam 构建开关：为 true 时，场景中挂载 SteamBuildHider 的物体列表会被隐藏。</summary>
     public static bool BuildForSteam = false;
@@ -47,30 +48,25 @@ public partial class ConfigManager : MonoBehaviour {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (Array.IndexOf(Environment.GetCommandLineArgs(), "--local-services") >= 0) Debug = true;
 #endif
-        if (Debug) {
-            // 开发接口地址
-            gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
-            chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 36; // 发行版号(验证客户端-服务器版本是否一致)
-            base_version = 1; // 安卓框架基准版本(决定是否需要安装新 APK)
-        } else {
-            // 生产环境接口地址
-            gameUrl = "wss://salasasa.cn/game";
-            chatUrl = "wss://salasasa.cn/chat";
-            webApiUrl = "https://salasasa.cn";
-            releaseVersion = 36;
-            base_version = 1;
-        }
+        SetLocalServices(Debug);
+        releaseVersion = 37; // 发行版号(验证客户端-服务器版本是否一致)
+        base_version = 2; // 安卓框架基准版本(决定是否需要安装新 APK)
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.5.90.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
-        webUrl = Debug ? "http://localhost:5173" : "https://salasasa.cn"; // 访问转到
+        clientVersion = "0.5.91.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
 #if UNITY_IOS && !UNITY_EDITOR
         mobileDownloadUrl = iosDownloadUrl;
 #endif
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
+    }
+
+    public static void SetLocalServices(bool local) {
+        UseLocalServices = local;
+        gameUrl = local ? "ws://localhost:8081/game" : "wss://salasasa.cn/game";
+        chatUrl = local ? "ws://localhost:8083/chat" : "wss://salasasa.cn/chat";
+        webApiUrl = local ? "http://localhost:3000" : "https://salasasa.cn";
+        webUrl = local ? "http://localhost:5173" : "https://salasasa.cn";
     }
 
     public const string DefaultTitleName = "暂无头衔";
@@ -91,6 +87,7 @@ public partial class ConfigManager : MonoBehaviour {
     private const string KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2 = "AskOtherPassShortcutOrderV2";
     private const string KEY_TARGET_FRAME_RATE = "TargetFrameRate";
     private const string KEY_VSYNC_ENABLED = "VsyncEnabled";
+    private const string KEY_MSAA_SAMPLE_COUNT = "MsaaSampleCount";
     private const string KEY_STREAMER_MODE = "StreamerMode";
     private const string KEY_REALTIME_SPECTATE_MODE = "RealtimeSpectateMode";
     private const string KEY_HAND_CUT_CONFIRM = "HandCutConfirmMode";
@@ -168,6 +165,8 @@ public partial class ConfigManager : MonoBehaviour {
     /// <summary>目标帧率</summary>
     public int TargetFrameRate { get; private set; }
     public bool VsyncEnabled { get; private set; }
+    /// <summary>多重采样等级。仅允许 1x、2x、4x，默认按平台选择。</summary>
+    public int MsaaSampleCount { get; private set; }
     /// <summary>主播模式：0 关 1 开</summary>
     public bool StreamerModeEnabled { get; private set; }
     /// <summary>实时观战设置：0 显示申请，1 自动同意，2 自动拒绝。</summary>
@@ -244,7 +243,18 @@ public partial class ConfigManager : MonoBehaviour {
 
     public static readonly string[] LanguageOptionLabels = { "简体中文", "繁體中文", "English", "Français", "Deutsch", "Русский", "日本語", "Español" };
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
+    public static readonly int[] MsaaSampleCountOptions = { 1, 2, 4 };
     private const int DefaultTargetFrameRate = 60;
+
+#if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
+    public const int DefaultMsaaSampleCount = 1;
+#elif !UNITY_EDITOR && UNITY_WEBGL
+    public const int DefaultMsaaSampleCount = 2;
+#elif UNITY_EDITOR || UNITY_STANDALONE
+    public const int DefaultMsaaSampleCount = 4;
+#else
+    public const int DefaultMsaaSampleCount = 2;
+#endif
 
 #if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
     public const int DefaultHandCutConfirmMode = 1;
@@ -314,6 +324,7 @@ public partial class ConfigManager : MonoBehaviour {
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
         VsyncEnabled = PlayerPrefs.GetInt(KEY_VSYNC_ENABLED, 1) == 1;
         TargetFrameRate = NormalizeTargetFrameRate(PlayerPrefs.GetInt(KEY_TARGET_FRAME_RATE, DefaultTargetFrameRate));
+        MsaaSampleCount = NormalizeMsaaSampleCount(PlayerPrefs.GetInt(KEY_MSAA_SAMPLE_COUNT, DefaultMsaaSampleCount));
 
         ApplyVsync();
         ApplyTargetFrameRate();
@@ -324,7 +335,11 @@ public partial class ConfigManager : MonoBehaviour {
 
     private void Start() {
         ApplyCameraAntialiasingByPlatform();
+        if (UniversalRenderPipeline.asset is UniversalRenderPipelineAsset urpAsset) {
+            SceneRenderScaleProfile.RefreshRuntimeShadowDistance(urpAsset);
+        }
         ApplyTileOutlineStyle();
+#if !UNITY_WEBGL || UNITY_EDITOR
         UnityAssetIdb.EnsureReady(() => {
             HandSurfaceLibrary.EnsureReady();
             TileFaceResolver.EnsureLoaded();
@@ -336,6 +351,9 @@ public partial class ConfigManager : MonoBehaviour {
                 CardBackConfigPanel.Instance.ReloadSaved();
             }
         });
+#else
+        if (CardBackManager.AppearanceVisible) CardBackManager.EnterWebAppearance();
+#endif
     }
 
     public void SetCustomStandardTilePackEnabled(bool enabled) {
@@ -343,6 +361,10 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public void SetStandardTilePackId(string packId) {
+        TileFaceResolver.SelectPack(packId);
+    }
+
+    internal void StoreStandardTilePackId(string packId) {
         StandardTilePackId = TilePackIds.NormalizePackId(packId);
         PlayerPrefs.SetString(KEY_STANDARD_TILE_PACK_ID, StandardTilePackId);
         PlayerPrefs.SetInt(KEY_CUSTOM_STANDARD_TILE_PACK, CustomStandardTilePackEnabled ? 1 : 0);
@@ -1020,6 +1042,17 @@ public partial class ConfigManager : MonoBehaviour {
         GameplaySettingsChanged?.Invoke();
     }
 
+    /// <summary>设置 MSAA 等级并立即应用。可选值为 1、2、4。</summary>
+    public void SetMsaaSampleCount(int sampleCount) {
+        int normalized = NormalizeMsaaSampleCount(sampleCount);
+        if (MsaaSampleCount == normalized) return;
+        MsaaSampleCount = normalized;
+        PlayerPrefs.SetInt(KEY_MSAA_SAMPLE_COUNT, MsaaSampleCount);
+        PlayerPrefs.Save();
+        ApplyAntialiasingByPlatform();
+        GameplaySettingsChanged?.Invoke();
+    }
+
     private void ApplyVsync() {
         QualitySettings.vSyncCount = VsyncEnabled ? 1 : 0;
     }
@@ -1031,29 +1064,35 @@ public partial class ConfigManager : MonoBehaviour {
         return DefaultTargetFrameRate;
     }
 
-    // iOS reduces multisample and shadow buffers; desktop/WebGL retain 4x MSAA.
-    // Android keeps its existing FXAA workaround.
-    private const int MsaaSampleCountHigh = 4;
-    // Android 保留 6/28 PR#50 规避：MSAA 会强制中间 render pass，Mali Valhall Vulkan 上触发 Canvas 丢失。
-    private const int MsaaSampleCountDisabled = 1;
+    private static int NormalizeMsaaSampleCount(int sampleCount) {
+        int maximum = GetPlatformMsaaMaximum();
+        foreach (int option in MsaaSampleCountOptions) {
+            if (sampleCount == option && option <= maximum) return sampleCount;
+        }
+        return maximum;
+    }
 
+    private static int GetPlatformMsaaMaximum() {
+#if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
+        return 1;
+#elif !UNITY_EDITOR && UNITY_WEBGL
+        return 2;
+#else
+        return 4;
+#endif
+    }
+
+    // Windows PC 上限 4x，WebGL 上限 2x，Android 和 iOS 固定 1x。设置页仍显示
+    // 1x、2x、4x，但写入值会按当前平台上限规范化。Android 相机上的 FXAA 兼容
+    // 分支独立保留，不与 MSAA 选项混用。
     private static void ApplyAntialiasingByPlatform() {
         if (!(UniversalRenderPipeline.asset is UniversalRenderPipelineAsset urpAsset)) return;
-#if UNITY_ANDROID && !UNITY_EDITOR
-        int target = MsaaSampleCountDisabled;
-#elif UNITY_IOS && !UNITY_EDITOR
-        int target = 2;
-        // Runtime-only settings: no changes to the shared URP asset in the Editor.
-        // Keep HDR and render scale so the established table appearance is preserved.
-        if (urpAsset.mainLightShadowmapResolution > 2048)
-            urpAsset.mainLightShadowmapResolution = 2048;
-#else
-        int target = MsaaSampleCountHigh;
-#endif
+        int target = Instance != null ? Instance.MsaaSampleCount : DefaultMsaaSampleCount;
         // 仅在值变化时写入，避免无意义脏标记触发管线重建
         if (urpAsset.msaaSampleCount != target) {
             urpAsset.msaaSampleCount = target;
         }
+        SceneRenderScaleProfile.ApplyRuntime(urpAsset);
     }
 
     private static void ApplyCameraAntialiasingByPlatform() {

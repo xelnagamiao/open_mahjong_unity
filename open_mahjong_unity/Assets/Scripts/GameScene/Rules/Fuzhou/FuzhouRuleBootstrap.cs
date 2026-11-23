@@ -36,7 +36,7 @@ internal static class FuzhouRuleBootstrap {
             RoundStatusText=q=>q.fuzhou_info?.rule_version=="fuzhou-user-20261014-v1"?LegacyRoundName(q.current_round):RoundName(q.current_round),
             MaxRoundText=r=>$"{r*4}局",
             MaxRoundInfoText=q=>$"{q.max_round*(q.fuzhou_info?.rule_version=="fuzhou-user-20261014-v1"?6:4)}局",
-            RoundIndicators=info=>FuzhouTableIndicators.FieldState(info?.fuzhou_info??FuzhouTableIndicators.DisplayedInfo),
+            RoundIndicators=info=>FuzhouTableIndicators.FieldState(info?.fuzhou_info),
             HasFlowerReplacement=true,ReplacementFromTailEnd=true,PeekAnkan=true,
             AutoBuhuaDelay=()=>FuzhouGameState.Active?.Info?.gold_tile==0 ? 0f : 0.3f,
             ReplayConcealedKongMask=(rule,tiles)=>new[]{2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3]},
@@ -78,13 +78,15 @@ public static class FuzhouTableIndicators {
             var d=info.declarations[i];
             if(d!=null && (d.youjin>0||d.golden_middle)) declaration+=$" {new[]{"东","南","西","北"}[i]}{(d.golden_middle?"听金坎":d.youjin==2?"二游":"一游")}";
         }
-        return new RoundIndicatorDisplay {Tiles=new[]{info?.gold_tile>0?info.gold_tile:0},
-            Caption=(declaration+(info?.last_four==true?" 末四张":"")).Trim(),
-            Counter=info==null?"":$"连庄：{info.dealer_streak} 死牌：{info.reserved_tiles}"};
+        if (info == null) return RoundIndicatorDisplay.Pending;
+        string status = $"连庄{info.dealer_streak} · 死牌{info.reserved_tiles}";
+        declaration = (declaration + (info.last_four ? " 末四张" : "")).Trim();
+        if (declaration.Length > 0) status += "\n" + declaration;
+        return new RoundIndicatorDisplay(new[] { new RoundIndicatorTile(info.gold_tile, "金") }, status);
     }
     public static void Refresh(FuzhouInfo info) {
         bool changed=DisplayedInfo?.gold_tile!=info?.gold_tile;
-        DisplayedInfo=info;RoundPanel.Instance?.RefreshRuleIndicators(FieldState(info));
+        DisplayedInfo=info;RoundPanel.Instance?.RefreshIndicators(FuzhouGameState.RuleId, FieldState(info));
         if(!changed) return;
         GameCanvas.Instance?.RefreshRuleHandOrder();
         Game3DManager.Instance?.RefreshRecordJokerHandOrder();

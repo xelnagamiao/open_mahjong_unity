@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -77,6 +76,9 @@ public sealed partial class CenterDisplayConfigPanel : MonoBehaviour
 
     private void OnEnable()
     {
+        foreach (var option in options)
+            if (option != null && option.preview)
+                option.preview.texture = CenterDisplayStyles.GetPreview(option.id);
         SubscribeToConfig();
         ReloadSaved();
         ScrollToSelected();
@@ -93,6 +95,12 @@ public sealed partial class CenterDisplayConfigPanel : MonoBehaviour
     private void OnDisable()
     {
         UnsubscribeFromConfig();
+        foreach (var option in options)
+        {
+            if (option == null || !option.preview || !option.preview.texture) continue;
+            option.preview.texture = null;
+        }
+        CenterDisplayStyles.ReleaseAllPreviews();
     }
 
     private void OnDestroy()
@@ -139,14 +147,13 @@ public sealed partial class CenterDisplayConfigPanel : MonoBehaviour
                 option.nameText.text = entry.Name;
                 option.nameText.gameObject.SetActive(false);
             }
-            Texture2D texture = option.preview != null ? option.preview.texture as Texture2D : null;
+            bool hasPreview = option.preview && option.preview.texture;
             if (option.preview != null)
             {
-                option.preview.texture = texture;
                 option.preview.color = Color.white;
-                option.preview.gameObject.SetActive(texture != null);
+                option.preview.gameObject.SetActive(hasPreview);
             }
-            if (option.fallback != null) option.fallback.SetActive(texture == null);
+            if (option.fallback != null) option.fallback.SetActive(!hasPreview);
             bool selected = entry.Id == selectedId;
             if (option.button != null)
                 SceneConfigUi.SetButtonSelected(option.button, selected, SceneConfigUi.SelectedOrange, SceneConfigUi.UnselectedBlueGray);

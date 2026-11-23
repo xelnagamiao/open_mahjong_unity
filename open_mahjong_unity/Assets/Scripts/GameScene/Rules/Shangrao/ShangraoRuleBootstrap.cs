@@ -37,7 +37,7 @@ internal static class ShangraoRuleBootstrap {
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"和牌 {q.HuScore}分",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}分":""},
             ScoreboardFanText=q=>$"{q.HuScore}分",
             ActionVoice=word=>word=="hu_self"?"hu":null, RoundName=round=>$"第{round}副", MaxRoundText=round=>$"{round*4}副",
-            RoundIndicators=info=>ShangraoTableIndicators.FieldState(info?.shangrao_info??ShangraoTableIndicators.DisplayedInfo),
+            RoundIndicators=info=>ShangraoTableIndicators.FieldState(info?.shangrao_info),
             DefaultHepaiLimit=1, HasFlowerReplacement=false, PeekAnkan=true, ShowsRonDangerHints=false,
             ReplayConcealedKongMask=(rule,tiles)=>tiles.SelectMany(tile=>new[]{0,tile}).ToArray(),
             RulebookKey="shangrao",

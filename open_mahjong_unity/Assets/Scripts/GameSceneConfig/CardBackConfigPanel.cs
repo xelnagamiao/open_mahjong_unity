@@ -112,7 +112,11 @@ public partial class CardBackConfigPanel : MonoBehaviour
         {
             currentColor = ConfigManager.Instance.CardBackColor;
             currentBrightness = ConfigManager.Instance.CardBackBrightness;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            currentTexture = CardBackManager.CurrentTexture;
+#else
             currentTexture = CardBackManager.LoadSavedTexture();
+#endif
         }
         SyncUIFromColor();
         UpdatePreview();
@@ -316,7 +320,11 @@ public partial class CardBackConfigPanel : MonoBehaviour
     private void ApplyCardBackPng(byte[] png)
     {
         CardBackManager.PersistCardBackImage(png);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        currentTexture = CardBackManager.CurrentTexture;
+#else
         currentTexture = CardBackManager.LoadSavedTexture();
+#endif
         UpdatePreview();
     }
 

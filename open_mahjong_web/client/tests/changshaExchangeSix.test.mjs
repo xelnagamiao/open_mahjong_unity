@@ -117,6 +117,9 @@ test('exchange choices preserve hands, scores and wall and can be sought backwar
    assert.deepEqual(replay.remainingWallAt(0, 3), replay.remainingWallAt(0, 0))
  }
  assert.equal(exchangeSixInfoAt(round, 2).choicePhase, 'exchange_start_choice')
+ assert.match(exchangeSixChoiceText(exchangeSixInfoAt(round, 2)), /2秒/)
+ round.action_ticks[1].push(3)
+ assert.match(exchangeSixChoiceText(exchangeSixInfoAt(round, 2)), /3秒/)
  assert.equal(exchangeSixChoiceText(exchangeSixInfoAt(round, 3)), '北家选择：全桌不换')
  assert.equal(exchangeSixInfoAt(round, 3).completedRounds, 0)
  assert.equal(exchangeSixInfoAt(round, 1).choice, null)

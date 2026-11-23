@@ -21,10 +21,16 @@
       <transition name="fade-slide" mode="out-in">
         <section :key="active.key" class="rule-section">
           <div class="rule-intro">
-            <h2>{{ active.subRuleLabel || active.label }}</h2>
+            <h2>{{ active.key === 'custom' ? selectedCustom.label : active.subRuleLabel || active.label }}</h2>
             <p v-if="activeDescription && active.key !== 'shangrao'">{{ activeDescription }}</p>
           </div>
 
+          <div v-if="active.key === 'custom'" class="tab-bar" aria-label="自定义子规则">
+            <button v-for="profile in customRulebooks" :key="profile.subRule"
+              :class="['tab-pill', { 'is-active': selectedCustom === profile }]"
+              :aria-pressed="selectedCustom === profile"
+              @click="router.replace({ name: 'Rulebook', params: { rule: 'custom' }, query: { sub_rule: profile.subRule } })">{{ profile.label }}</button>
+          </div>
           <div v-if="active.key === 'hongkong'" class="tab-bar" aria-label="香港麻将子规则">
             <button v-for="profile in hongKongRulebooks" :key="profile.subRule"
               :class="['tab-pill', { 'is-active': selectedHongKong.subRule === profile.subRule }]"
@@ -85,7 +91,7 @@ import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebo
 import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
 import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from '@/constants/shangraoRulebooks.js'
 import { duocaiRulebooks, DUOCAI_DESCRIPTION } from '../constants/duocaiRulebooks.js'
-import { newChineseRulebooks, NEW_CHINESE_DESCRIPTION } from '../constants/newChineseRulebooks.js'
+import { customRulebooks, newChineseRulebooks, NEW_CHINESE_DESCRIPTION } from '../constants/newChineseRulebooks.js'
 import { beijingRulebooks, BEIJING_DESCRIPTION } from '../constants/beijingRulebooks.js'
 import { hongqueRulebooks, hongqueRulebook } from '../constants/hongqueRulebooks.js'
 import { FORMULA_RULEBOOK } from '../constants/formulaRulebook.js'
@@ -441,6 +447,7 @@ const initialKey = (() => {
 
 const activeKey = ref(initialKey)
 const active = computed(() => rules.find(r => r.key === activeKey.value) || rules[0])
+const selectedCustom = computed(() => customRulebooks.find(p => p.subRule === route.query.sub_rule) || customRulebooks[0])
 const selectedHongKong = computed(() => hongKongRulebook({
   sub_rule: route.query.sub_rule,
   hk_new13_version: route.query.new13_version,
@@ -449,11 +456,13 @@ const selectedGuangdong = computed(() => milRulebook('guangdong', route.query.su
 const selectedHongque = computed(() => hongqueRulebook(route.query.sub_rule))
 const selectedSbr = computed(() => active.value.key === 'sichuan' && active.value.docs.find(doc => doc.subRule && doc.subRule === route.query.sub_rule))
 const activeDescription = computed(() => {
+  if (active.value.key === 'custom') return selectedCustom.value.description
   if (selectedSbr.value) return selectedSbr.value.desc
   if (active.value.key === 'hongque') return selectedHongque.value.description
   return active.value.key === 'guangdong' ? selectedGuangdong.value.desc : active.value.description
 })
 const activeDocs = computed(() => {
+  if (active.value.key === 'custom') return selectedCustom.value.docs
   if (selectedSbr.value) return [selectedSbr.value, active.value.docs[0]]
   if (active.value.key === 'hongque') return [selectedHongque.value]
   if (active.value.key === 'hongkong') return [selectedHongKong.value]

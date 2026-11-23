@@ -17,10 +17,19 @@ public sealed class PlatformFontBinding : MonoBehaviour
     Salasasa.Home.HeaderButtonPresentation header;
     Salasasa.Home.HeaderReturnGame returnHeader;
     TMP_FontAsset appliedFont;
+    TMP_FontAsset documentFont;
     Material appliedMaterial;
     FontStyles appliedStyle;
     FontWeight appliedWeight;
     string observedText;
+
+    // A published document can contain names in several scripts, independently
+    // of the UI language. Keep its primary face when its text is refreshed.
+    public void SetDocumentFont(TMP_FontAsset font)
+    {
+        documentFont = font;
+        Apply();
+    }
 
     void Awake() => Cache();
     void Cache()
@@ -41,8 +50,10 @@ public sealed class PlatformFontBinding : MonoBehaviour
         PlatformTypography.Changed -= Apply;
         ConfigManager.OnLanguageChanged -= Apply;
     }
-    void LateUpdate()
+    void LateUpdate() => ApplyIfNeeded();
+    public void ApplyIfNeeded()
     {
+        if (!label) Cache();
         if (label.font != appliedFont || label.fontSharedMaterial != appliedMaterial || label.fontStyle != appliedStyle
             || label.fontWeight != appliedWeight || label.text != observedText) Apply();
     }
@@ -62,7 +73,8 @@ public sealed class PlatformFontBinding : MonoBehaviour
             if (!material) material = source.material;
         }
         bool chinese = PlatformTypography.HasCjk(label.text);
-        appliedFont = preserveAuthoredChineseFace && chinese && !profile && !PlatformTypography.UseJapaneseFont(label.text) ? source
+        appliedFont = documentFont ? documentFont
+            : preserveAuthoredChineseFace && chinese && !profile && !PlatformTypography.UseJapaneseFont(label.text) ? source
             : preserveAuthoredTypeface && !profile ? PlatformTypography.ResolvePreserved(source, label.text, label.richText)
             : PlatformTypography.Resolve(source, label.text, label.richText);
         appliedMaterial = PlatformTypography.ResolveMaterial(material, appliedFont);

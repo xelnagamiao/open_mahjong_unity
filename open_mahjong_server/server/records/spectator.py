@@ -256,9 +256,13 @@ class MatchSpectatorHub:
         self.admission = asyncio.Lock()
         self.send_timeout = 5.0
 
-    def authorize(self, user_id, match_id, requested):
+    def authorize(self, user_id, match_id, requested, *, subscription=None):
         manager = self.server.gamestate_manager
         pair = manager.sichuan_duplicate_matches.get(match_id)
+        if (pair is None and subscription and subscription.feed.pair.completed
+                and subscription.feed.pair.data["id"] == match_id):
+            # An admitted spectator may finish the delayed stream after its lobby is gone.
+            pair = subscription.feed.pair
         if pair is None:
             raise PermissionError("MATCH_UNAVAILABLE")
         if pair.data.get("wall_source") != "training":
@@ -360,7 +364,7 @@ class MatchSpectatorHub:
             while self.subscriptions.get(sub.user_id) is sub:
                 await asyncio.sleep(1)
                 await sub.feed.refresh()
-                pair, allowed = self.authorize(sub.user_id, sub.feed.pair.data["id"], sub.tables)
+                pair, allowed = self.authorize(sub.user_id, sub.feed.pair.data["id"], sub.tables, subscription=sub)
                 if pair is not sub.feed.pair or allowed != sub.tables:
                     raise PermissionError("SPECTATOR_FORBIDDEN")
                 if await self.deliver(sub):

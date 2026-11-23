@@ -63,6 +63,7 @@ async function streamRecordZip(db, gameIds, filename, res) {
       signal.throwIfAborted();
       if (!piped) {
         res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Cache-Control', 'no-store');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         archive.pipe(res);
         piped = true;

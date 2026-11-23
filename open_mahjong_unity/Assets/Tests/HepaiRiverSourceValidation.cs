@@ -26,7 +26,7 @@ public static class HepaiRiverSourceValidation {
          var manager=root.AddComponent<Game3DManager>(); UnityEditor.EditorUtility.CopySerialized(source,manager);
          var pool=root.AddComponent<MahjongObjectPool>(); UnityEditor.EditorUtility.CopySerialized(sourcePool,pool);
          Set(pool,"poolDictionary",new Dictionary<int,Queue<GameObject>>());
-         Call(pool,"CacheAllSprites",Get(pool,"cardAtlas"));pool.InitializePool();MahjongObjectPool.Instance=pool;
+         pool.InitializePool();MahjongObjectPool.Instance=pool;
          var hover=root.AddComponent<Card3DHoverManager>();hoverProperty.SetValue(null,hover);
          var panels=new Dictionary<string,PosPanel3D>();
          foreach(string seat in new[]{"self","left","top","right"}){

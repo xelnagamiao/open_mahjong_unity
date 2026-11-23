@@ -47,7 +47,11 @@ public sealed class MatchRecordSession {
         Mode = live ? PlaybackMode.Live : PlaybackMode.History;
     }
 
-    public static MatchRecordSession FromRecord(JObject record, string selectedTable = null) {
+    public static MatchRecordSession FromRecord(JObject record, string selectedTable = null) => OpenArchive(record, selectedTable, true);
+
+    // The archive viewer owns a read-only snapshot. Live sessions and independent callers
+    // can still request a detached copy before applying transport changes.
+    internal static MatchRecordSession OpenArchive(JObject record, string selectedTable, bool copyTables) {
         if ((string)record?["format"] != "open_mahjong.match_record" || (int?)record["schema_version"] != 2)
             throw new FormatException("Unsupported match record version");
         var all = record["tables"] as JObject ?? throw new FormatException("Missing tables");
@@ -59,7 +63,7 @@ public sealed class MatchRecordSession {
         foreach (var pair in all.Properties()) {
             var table = pair.Value as JObject ?? throw new FormatException("Invalid table");
             ValidateTable(table, pair.Name);
-            session.tables[pair.Name] = (JObject)table.DeepClone();
+            session.tables[pair.Name] = copyTables ? (JObject)table.DeepClone() : table;
         }
         if (!session.Ready(session.ActiveTable)) throw new FormatException("Selected table unavailable");
         return session;

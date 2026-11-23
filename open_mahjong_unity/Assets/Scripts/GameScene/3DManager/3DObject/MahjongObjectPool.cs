@@ -1,7 +1,5 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.U2D;
 
 /// <summary>
 /// 麻将牌数字枚举 标准库
@@ -29,13 +27,13 @@ public class MahjongObjectPool : MonoBehaviour {
     private const int BlankPoolTileId = 2;
 
     [SerializeField] GameObject tile3DPrefab;
-    [SerializeField] SpriteAtlas cardAtlas;
     private Dictionary<int, Queue<GameObject>> poolDictionary;
-    private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
     private readonly Dictionary<Material, Material> washizuMaterials = new Dictionary<Material, Material>();
     private readonly Dictionary<Material, Material> washizuInkMaterials = new Dictionary<Material, Material>();
     private readonly Dictionary<Material, Material> washizuReadingMaterials = new Dictionary<Material, Material>();
     private Mesh washizuReadingMesh;
+    // Uncreated slots still count towards the physical limit for this tile.
+    private readonly Dictionary<int, int> uncreatedTiles = new Dictionary<int, int>();
     private readonly Dictionary<int, int> hongquePoolCapacity = new Dictionary<int, int>();
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
     private Dictionary<int, Material> customStandardMaterialCache = new Dictionary<int, Material>();
@@ -50,94 +48,33 @@ public class MahjongObjectPool : MonoBehaviour {
             return;
         }
 
-        CacheAllSprites(cardAtlas);
-        foreach (int id in MalaysiaTileVisual.Ids) spriteCache[id] = MalaysiaTileVisual.Sprite(id);
+        TableWorldObjectMount.AttachPool(transform);
         InitializePool();
     }
 
-    /// <summary>
-    /// 预缓存所有需要的 Sprite
-    /// </summary>
-    private void CacheAllSprites(SpriteAtlas atlas) {
-        int[] allIds = {
-            2, 11, 12, 13, 14, 15, 16, 17, 18, 19, // 2 = 空白白板 46 = 回形白板
-            21, 22, 23, 24, 25, 26, 27, 28, 29,
-            31, 32, 33, 34, 35, 36, 37, 38, 39,
-            41, 42, 43, 44, 45, 46, 47,
-            51, 52, 53, 54, 55, 56, 57, 58, 59,
-            105, 205, 305 // 立直麻将：赤 5m / 赤 5p / 赤 5s
-        };
-
-        foreach (int id in allIds) {
-            string spriteName = id.ToString();
-            Sprite sprite = BuiltinTileSprites.Shared(TilePackIds.PackOfficial, id);
-            if (sprite == null && atlas != null) {
-                sprite = atlas.GetSprite(spriteName) ?? atlas.GetSprite(spriteName + "(Clone)");
-            }
-            if (sprite != null) {
-                spriteCache[id] = sprite;
-            }
+    public void InitializePool() {
+        AddPool(BlankPoolTileId, 56);
+        foreach (int id in TilePackIds.StandardFaceIds) {
+            if (id == BlankPoolTileId) continue;
+            // Four copies of each regular tile and 59, one copy of each flower or red five.
+            AddPool(id, id < 50 || id == 59 ? 4 : 1);
         }
+        foreach (int id in MalaysiaTileVisual.Ids) AddPool(id, id == 81 ? 4 : 1);
     }
 
-    public void InitializePool() {
-        int blankId = BlankPoolTileId;
-        Queue<GameObject> blankTilePool = new Queue<GameObject>();
-        for (int i = 0; i < 56; i++) {
-            GameObject obj = Instantiate(tile3DPrefab);
-            obj.SetActive(false);
-            obj.transform.SetParent(transform);
-            SetupPooledTile(obj);
-            ApplyCardTexture(obj, blankId);
-            blankTilePool.Enqueue(obj);
-        }
-        poolDictionary[blankId] = blankTilePool;
+    private void AddPool(int id, int capacity) {
+        if (poolDictionary.ContainsKey(id)) return;
+        poolDictionary[id] = new Queue<GameObject>(capacity);
+        uncreatedTiles[id] = capacity;
+    }
 
-        int[] standardTiles = {
-            11, 12, 13, 14, 15, 16, 17, 18, 19,
-            21, 22, 23, 24, 25, 26, 27, 28, 29,
-            31, 32, 33, 34, 35, 36, 37, 38, 39,
-            41, 42, 43, 44, 45, 46, 47, 81
-        };
-        foreach (int tileId in standardTiles.Concat(new[] {59})) {
-            Queue<GameObject> objectPool = new Queue<GameObject>();
-            for (int i = 0; i < 4; i++) {
-                GameObject obj = Instantiate(tile3DPrefab);
-                obj.SetActive(false);
-                obj.transform.SetParent(transform);
-                SetupPooledTile(obj);
-                ApplyCardTexture(obj, tileId);
-                objectPool.Enqueue(obj);
-            }
-            poolDictionary[tileId] = objectPool;
-        }
-
-        // 花牌、动物牌和人头牌各一张实体，独立对象池支持补花和牌谱。
-        int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58, 61, 62, 63, 64, 71, 72, 73, 74 };
-        foreach (int tileId in flowerTiles) {
-            Queue<GameObject> objectPool = new Queue<GameObject>();
-            GameObject obj = Instantiate(tile3DPrefab);
-            obj.SetActive(false);
-            obj.transform.SetParent(transform);
-            SetupPooledTile(obj);
-            ApplyCardTexture(obj, tileId);
-            objectPool.Enqueue(obj);
-            poolDictionary[tileId] = objectPool;
-        }
-
-        // 立直麻将赤宝牌：每种仅 1 张，与普通 5m/5p/5s 作为同点数不同实体
-        int[] redDoraTiles = { 105, 205, 305 };
-        foreach (int tileId in redDoraTiles) {
-            Queue<GameObject> objectPool = new Queue<GameObject>();
-            GameObject obj = Instantiate(tile3DPrefab);
-            obj.SetActive(false);
-            obj.transform.SetParent(transform);
-            SetupPooledTile(obj);
-            ApplyCardTexture(obj, tileId);
-            objectPool.Enqueue(obj);
-            poolDictionary[tileId] = objectPool;
-        }
-
+    private GameObject CreatePooledTile(int id) {
+        var tile = Instantiate(tile3DPrefab, transform);
+        tile.SetActive(false);
+        EnsureTileCollider(tile);
+        var state = tile.GetComponent<Tile3D>() ?? tile.AddComponent<Tile3D>();
+        state.SetTileIds(id, id);
+        return tile;
     }
 
     public void PrewarmHongquePool(int copies = 1) {
@@ -153,18 +90,11 @@ public class MahjongObjectPool : MonoBehaviour {
         }
         hongquePoolCapacity.TryGetValue(tileId, out int capacity);
         for (int i = capacity; i < copies; i++) {
-            GameObject obj = Instantiate(tile3DPrefab);
-            obj.SetActive(false);
-            obj.transform.SetParent(transform);
-            SetupPooledTile(obj);
+            GameObject obj = CreatePooledTile(tileId);
             ApplyCardTexture(obj, tileId);
             objectPool.Enqueue(obj);
         }
         hongquePoolCapacity[tileId] = Mathf.Max(capacity, copies);
-    }
-
-    private void SetupPooledTile(GameObject obj) {
-        EnsureTileCollider(obj);
     }
 
     public const int TilePhysicsLayer = 10;
@@ -269,8 +199,7 @@ public class MahjongObjectPool : MonoBehaviour {
         if(DuocaiTileVisual.IsCurrent(type))return SpawnPresentationTile(type,position,rotation);
         int logicalType = type;
         if(VietnameseTileVisual.IsExtra(type) && !poolDictionary.ContainsKey(type)) {
-            var queue=new Queue<GameObject>();var extra=Instantiate(tile3DPrefab,transform);
-            extra.SetActive(false);SetupPooledTile(extra);ApplyCardTexture(extra,type);queue.Enqueue(extra);poolDictionary[type]=queue;
+            AddPool(type, 1);
         }
         type = WashizuTile.Face(type);
         if (HongqueTileVisual.IsHongqueId(type)) {
@@ -283,12 +212,11 @@ public class MahjongObjectPool : MonoBehaviour {
         }
         // 空白池也承载独立展示牌；血流连续多响的历史标记可超过初始容量。
         // 只扩展这个视觉池，实体牌仍保留每种四张的限制。
-        if (type == BlankPoolTileId && poolDictionary[type].Count == 0) {
-            GameObject extra = Instantiate(tile3DPrefab, transform);
-            extra.SetActive(false);
-            SetupPooledTile(extra);
-            ApplyCardTexture(extra, type);
-            poolDictionary[type].Enqueue(extra);
+        if (poolDictionary[type].Count == 0 && uncreatedTiles.TryGetValue(type, out int remaining) && remaining > 0) {
+            poolDictionary[type].Enqueue(CreatePooledTile(type));
+            uncreatedTiles[type] = remaining - 1;
+        } else if (type == BlankPoolTileId && poolDictionary[type].Count == 0) {
+            poolDictionary[type].Enqueue(CreatePooledTile(type));
         }
         if (poolDictionary[type].Count == 0) {
             Debug.LogWarning("牌池中已无可用对象: " + type);
@@ -353,11 +281,18 @@ public class MahjongObjectPool : MonoBehaviour {
 
     /// <summary>独立展示实例不借用实体牌池；调用方注销悬停并 Destroy，不能 Return。</summary>
     public GameObject CreatePresentationTile(int tileId) {
-        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId) && !VietnameseTileVisual.IsExtra(tileId) && !DuocaiTileVisual.IsCurrent(tileId)))
+        return CreatePresentationTile(tileId, TableWorldObjectMount.RuntimeRoot);
+    }
+
+    public GameObject CreatePresentationTile(int tileId, Transform parent) {
+        int face = WashizuTile.Face(tileId);
+        if (tile3DPrefab == null || (!TilePackIds.IsStandardFaceId(face) && !MalaysiaTileVisual.Contains(face)
+            && !HongqueTileVisual.IsHongqueId(tileId) && !VietnameseTileVisual.IsExtra(tileId) && !DuocaiTileVisual.IsCurrent(tileId)))
             return null;
         CardBackManager.EnsureSavedConfigApplied();
-        GameObject tile = Instantiate(tile3DPrefab);
-        SetupPooledTile(tile);
+        Transform prefab = tile3DPrefab.transform;
+        GameObject tile = TableWorldObjectMount.InstantiatePrefab(tile3DPrefab, parent, prefab.position, prefab.rotation);
+        EnsureTileCollider(tile);
         ApplyCardTexture(tile, tileId);
         CardBackManager.ApplyInstanceVisuals(GetTile3D(tile));
         return tile;
@@ -407,10 +342,12 @@ public class MahjongObjectPool : MonoBehaviour {
             type = blankId;
         }
 
-        ApplyCardTexture(tile, type);
-
         tile.SetActive(false);
-        tile.transform.SetParent(transform);
+        tile3D?.ReleasePooledFace(type);
+        // The tile already carries the active world scale. Reparent it to the
+        // pool while preserving that pose, otherwise a normalized profile
+        // would apply its scale a second time on every Return.
+        TableWorldObjectMount.AttachPreservingWorld(tile.transform, transform);
         poolDictionary[type].Enqueue(tile);
     }
 
@@ -495,13 +432,9 @@ public class MahjongObjectPool : MonoBehaviour {
         }
 
         tile3D.RestoreAtlasMaterial();
-        if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
-            tile3D.SetCardSprite(tileId, cachedSprite);
-        }
-        if (GameSettings.Current.UseBlankWhiteDragonFace(tileId)
-            && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
-            tile3D.SetCardSprite(tileId, blankSprite);
-        }
+        Sprite fallback = TilePackIds.IsStandardFaceId(tileId) ? TileFaceResolver.LoadTableSprite(tileId) : null;
+        if (fallback != null) tile3D.SetCardSprite(tileId, fallback);
+        else tile3D.SetTileIds(tileId, tileId);
     }
 
     public void SetPresentationFace(GameObject tile, int tileId) {
@@ -536,25 +469,17 @@ public class MahjongObjectPool : MonoBehaviour {
         ClearWashizuMaterials();
         Dictionary<int, Material> previous = customStandardMaterialCache;
         customStandardMaterialCache = new Dictionary<int, Material>();
-        ForEachPooledTile(tile => {
-            if (tile == null) return;
-            Tile3D pooled = GetTile3D(tile);
-            int poolId = pooled != null ? pooled.GetPoolTileId() : -1;
-            if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
-                ApplyCardTexture(tile, poolId);
-                CardBackManager.ApplyInstanceVisuals(pooled);
-            }
-        });
-        Tile3D[] active = Object.FindObjectsByType<Tile3D>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        for (int i = 0; i < active.Length; i++) {
-            Tile3D activeTile = active[i];
-            if (activeTile == null) continue;
+        TileInstances<Tile3D>.ForEach(activeTile => {
+            // Queued tiles bind their face only when leased. They have no pack dependency.
+            if (!activeTile.gameObject.activeSelf && activeTile.transform.parent == transform) return;
             int poolId = activeTile.GetPoolTileId();
             if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
-                SetPresentationFace(activeTile.gameObject, activeTile.GetTileId());
-                CardBackManager.ApplyInstanceVisuals(activeTile);
+                int logicalId = activeTile.GetTileId();
+                int renderedId = WashizuTile.IsTransparent(logicalId) ? logicalId : activeTile.VisibleFaceTileId;
+                SetPresentationFace(activeTile.gameObject, renderedId);
+                activeTile.SetTileIds(logicalId, poolId);
             }
-        }
+        }, includeInactive: true);
         foreach (var pair in previous) {
             if (pair.Value != null && !customStandardMaterialCache.ContainsValue(pair.Value)) {
                 Object.Destroy(pair.Value);

@@ -1,8 +1,14 @@
-/** 赞助到期时间展示与计算 */
+export const ladderPassOptions = [
+  { key: 'is_beginner_qualified', label: '初级场' },
+  { key: 'is_intermediate_qualified', label: '中级场' },
+  { key: 'is_advanced_qualified', label: '高级场' },
+  { key: 'is_mcrpl_qualified', label: 'MCRPL' },
+]
 
-export function getSponsorStatus(expiresAt) {
+export function getSponsorStatus(expiresAt, sponsorAmount = 0) {
   if (!expiresAt) {
-    return { label: '非赞助者', tagType: 'info', remaining: null, isActive: false }
+    const label = Number(sponsorAmount) > 0 ? '有赞助记录' : '非赞助者'
+    return { label, tagType: 'info', remaining: null, isActive: false }
   }
   const exp = new Date(expiresAt)
   if (Number.isNaN(exp.getTime())) {

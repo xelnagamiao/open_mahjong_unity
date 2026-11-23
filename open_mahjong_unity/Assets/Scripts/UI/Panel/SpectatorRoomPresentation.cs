@@ -64,6 +64,9 @@ public static class SpectatorRoomPresentation {
         (info.sub_rule == "sichuan/doubles" || info.sub_rule == "sichuan/xueliu_doubles" ||
          info.sub_rule == "sichuan/doubles_duplicate" || info.sub_rule == "sichuan/xueliu_doubles_duplicate");
 
+    public static Color32 TeamBackground(int team) =>
+        team == 0 ? new Color32(38, 60, 83, 255) : new Color32(78, 40, 45, 255);
+
     public static bool HasTeams(SpectatorInfo info) {
         if (!IsDoubles(info) || info.team_by_player_index == null || info.team_by_player_index.Length != 4) return false;
         int blue = 0, red = 0;

@@ -24,7 +24,7 @@ public static partial class HandSurfaceLibrary
     static FaceLayout previewLayout;
     static string LayoutDirectory => Path.Combine(DirectoryPath, "Layouts");
 
-    static string FaceLayoutKey(string backgroundPath)
+    internal static string FaceLayoutKey(string backgroundPath)
     {
         int builtin = HandSurfaceStyles.FindIndex(backgroundPath, false);
         if (builtin >= 0) return LayoutPrefix + "builtin-" + builtin;
@@ -99,8 +99,7 @@ public static partial class HandSurfaceLibrary
         }
         void Fail(string reason) { busy.Remove(key); error?.Invoke("保存牌面位置失败：" + reason); }
 #if UNITY_WEBGL && !UNITY_EDITOR
-        byte[] previous = UnityAssetIdb.GetCached(key);
-        UnityAssetIdb.Put(key, data, Complete, reason => { UnityAssetIdb.StagePendingWrite(key, previous); Fail(reason); });
+        UnityAssetIdb.Put(key, data, Complete, Fail);
 #else
         string file = LayoutFile(key), temporary = file + ".pending";
         try {
@@ -110,25 +109,21 @@ public static partial class HandSurfaceLibrary
         Complete();
 #endif
     }
+    internal static void ReadLayout(string key, byte[] data) {
+        if (data == null || data.Length > 4096) return;
+        try {
+            var record = JsonUtility.FromJson<LayoutRecord>(Encoding.UTF8.GetString(data));
+            if (record != null && record.version == 1 && ValidLayoutKey(key) && record.key == key)
+                faceLayouts[key] = record.layout.Normalized;
+        } catch (Exception e) { Debug.LogWarning("保留但跳过损坏的牌面位置设置：" + e.Message); }
+    }
     static void ReadFaceLayouts()
     {
         faceLayouts.Clear(); previewLayoutKey = null;
-        void ReadLayout(string key, byte[] data) {
-            if (data == null || data.Length > 4096) return;
-            try {
-                var record = JsonUtility.FromJson<LayoutRecord>(Encoding.UTF8.GetString(data));
-                if (record != null && record.version == 1 && ValidLayoutKey(key) && record.key == key)
-                    faceLayouts[key] = record.layout.Normalized;
-            } catch (Exception e) { Debug.LogWarning("保留但跳过损坏的牌面位置设置：" + e.Message); }
-        }
-#if UNITY_WEBGL && !UNITY_EDITOR
-        foreach (string key in UnityAssetIdb.KeysWithPrefix(LayoutPrefix)) ReadLayout(key, UnityAssetIdb.GetCached(key));
-#else
         try {
             if (Directory.Exists(LayoutDirectory)) foreach (string file in Directory.GetFiles(LayoutDirectory, "*.json"))
                 if (new FileInfo(file).Length <= 4096) ReadLayout(LayoutPrefix + Path.GetFileNameWithoutExtension(file), File.ReadAllBytes(file));
         } catch (Exception e) { Debug.LogWarning("读取牌面位置设置失败：" + e.Message); }
-#endif
     }
     static void RemoveFaceLayout(string backgroundPath)
     {

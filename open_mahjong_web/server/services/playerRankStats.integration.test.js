@@ -1,3 +1,4 @@
+const { replayDDL, insertReplay } = require('./testFixtures/replay');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
@@ -12,8 +13,7 @@ test('filtered player scores and counts use the same records', {
   require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: pool };
   try {
     await pool.query(`
-      CREATE TEMP TABLE game_records (game_id text PRIMARY KEY, created_at timestamp NOT NULL, record jsonb DEFAULT '{}');
-      CREATE TEMP VIEW game_record_metadata AS SELECT g.*, g.game_id AS replay_id, 'main'::text AS table_id FROM game_records g;
+      ${replayDDL(true)};
 
       CREATE TEMP TABLE game_player_records (
         game_id text, user_id bigint, rule text, sub_rule text, room_type text,
@@ -40,7 +40,7 @@ test('filtered player scores and counts use the same records', {
       ['eventB', '2026-08-10 12:00:00', 'events', 'evtB', '1/4', 'evtB', -240, 4],
     ];
     for (const [id, date, room, tier, length, event, score, rank] of fixtures) {
-      await pool.query('INSERT INTO game_records(game_id,created_at) VALUES ($1, $2)', [id, date]);
+      await insertReplay(pool,[id,{},date]);
       await pool.query(`INSERT INTO game_player_records VALUES
         ($1, 10000101, 'guobiao', 'guobiao', $2, $3, $4, $5, $6, $7),
         ($1, 10000202, 'guobiao', 'guobiao', $2, $3, $4, $5, -9999, 4)`,

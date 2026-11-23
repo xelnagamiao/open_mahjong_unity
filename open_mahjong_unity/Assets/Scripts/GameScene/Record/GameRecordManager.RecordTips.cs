@@ -195,6 +195,7 @@ public partial class GameRecordManager {
             NoJokerBonus = ReadGameTitleString(gameRecord.gameTitle, "no_joker_bonus", "add8"),
             BlackFlowerProgressive = ReadGameTitleBool(gameRecord.gameTitle, "black_flower_progressive", true),
             CurrentRound = displayRound,
+            DealerIndex = roundData?.dealerIndex ?? 0,
             SelfPlayerIndex = selfPlayer.playerIndex,
             RemainTiles = GetRecordRemainTiles(),
             SelfHuapaiList = selfPlayer.huapaiList ?? new List<int>(),

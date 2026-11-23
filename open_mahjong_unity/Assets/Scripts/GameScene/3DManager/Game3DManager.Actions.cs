@@ -199,7 +199,7 @@ public partial class Game3DManager : MonoBehaviour
                 }
 
                 Card3DHoverManager.Instance.RegisterCard(cardObj, jiagangTileId);
-                cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, SetParent);
                 if (stackAnchors != null) stackAnchors[SetTileList.Count - 1 - i] = cardObj.transform;
                 RegisterLastJiagang(playerIndex, cardObj, jiagangTileId);
                 if (doAnimation && stackAnchors == null)
@@ -287,7 +287,7 @@ public partial class Game3DManager : MonoBehaviour
             }
 
             Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
-            cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+            TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, SetParent);
             MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
 
             Tile3D tile3D = cardObj.GetComponent<Tile3D>();
@@ -506,7 +506,7 @@ public partial class Game3DManager : MonoBehaviour
                     continue;
                 }
                 Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
-                cardObj.transform.SetParent(setParent, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, setParent);
                 MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
                 Tile3D tile3D = cardObj.GetComponent<Tile3D>();
                 tile3D?.ApplyCombinationPeekState(tileId, sign);
@@ -523,7 +523,7 @@ public partial class Game3DManager : MonoBehaviour
                         if (signList[i] != 3) continue;
                         GameObject added = MahjongObjectPool.Instance.Spawn(tileList[i], addedPosition, addedRotation);
                         if (added == null) { Debug.LogError($"无法从对象池获取加杠牌: {tileList[i]}"); continue; }
-                        added.transform.SetParent(setParent, worldPositionStays: true);
+                        TableWorldObjectMount.AttachPreservingWorld(added.transform, setParent);
                         Card3DHoverManager.Instance.RegisterCard(added, tileList[i]);
                         MahjongObjectPool.Instance.RefreshTileCollider(added);
                         added.GetComponent<Tile3D>()?.ApplyCombinationPeekState(tileList[i], 3);

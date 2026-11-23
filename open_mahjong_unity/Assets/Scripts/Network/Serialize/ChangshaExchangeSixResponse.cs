@@ -7,15 +7,31 @@ public sealed class ChangshaExchangeSixResponse : Response {
         DateParseHandling = Newtonsoft.Json.DateParseHandling.None
     };
 
-    public static Response Decode(string json) {
-        return Newtonsoft.Json.Linq.JObject.Parse(json).Value<string>("type") == "gamestate/changsha/exchange_six_state"
-            ? Newtonsoft.Json.JsonConvert.DeserializeObject<ChangshaExchangeSixResponse>(json, LosslessRecordSettings)
-            : Newtonsoft.Json.JsonConvert.DeserializeObject<Response>(json, LosslessRecordSettings);
+    public static string ReadMessageType(string json) {
+        using (var reader = new Newtonsoft.Json.JsonTextReader(new System.IO.StringReader(json))) {
+            while (reader.Read()) {
+                if (reader.TokenType != Newtonsoft.Json.JsonToken.PropertyName || reader.Depth != 1) continue;
+                bool isType = (string)reader.Value == "type";
+                if (!reader.Read()) break;
+                if (isType) return reader.Value as string;
+                reader.Skip();
+            }
+        }
+        return null;
+    }
+
+    public static Response Decode(string json) => Decode(json, ReadMessageType(json));
+
+    public static Response Decode(string json, string type) {
+        if (type == "gamestate/changsha/exchange_six_state")
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<ChangshaExchangeSixResponse>(json, LosslessRecordSettings);
+        return Newtonsoft.Json.JsonConvert.DeserializeObject<Response>(json, LosslessRecordSettings);
     }
 }
 
 public sealed class ChangshaExchangeSixState {
     public string phase;
+    public bool restoring;
     public int revision;
     public int action_tick;
     public int remaining_time;
@@ -61,6 +77,7 @@ public sealed class ChangshaExchangeSixChoice {
 public sealed class ChangshaExchangeSixPrivate {
     public int[] hand_tiles;
     public int[] selected_tiles;
+    public int[] received_tiles;
     public string[] action_list;
     public Dictionary<string, int[]> targets;
     public int[] cut_tiles;

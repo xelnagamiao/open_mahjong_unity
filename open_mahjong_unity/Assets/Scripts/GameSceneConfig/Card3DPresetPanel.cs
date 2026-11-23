@@ -80,7 +80,7 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         if (inlineLayout != null && hint != null && (layoutHint != hint.text || layoutHintFont != hint.font || !Mathf.Approximately(layoutHintSize, hint.fontSize)))
             inlineLayout.RefreshLayout();
     }
-    private void OnEnable() { if (Application.isPlaying) Initialize(owner); BindLibrary(); library?.BeginEditing(); }
+    private void OnEnable() { if (Application.isPlaying) Initialize(owner); BindLibrary(); library?.ReadDocument(); library?.BeginEditing(); }
     private void OnDisable()
     {
         CancelRotation();
@@ -286,6 +286,6 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
     }
     private void SaveCreated()
     {
-        if (library != null && library.Add(presetName.text)) createModal.gameObject.SetActive(false);
+        library?.AddWithImages(presetName.text, saved => { if (saved && this != null) createModal.gameObject.SetActive(false); });
     }
 }

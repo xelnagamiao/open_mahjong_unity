@@ -17,7 +17,7 @@ class Protocol:
     def view(self, viewer):
         ended = self.machine.phase in (P.END, P.READY, P.FINISHED)
         p = self.player_list[viewer] if viewer in range(4) else None
-        return dict(phase=self.game_status, hand_number=self.round_index, repeat=self.repeat,
+        info = dict(phase=self.game_status, hand_number=self.round_index, repeat=self.repeat,
                     bao=self.bao if ended or p and p.declared else 0, revision=self.bao_revision,
                     declared=[other.declared for other in self.player_list],
                     chains=[other.chain for other in self.player_list], best_chains=[p.longest_chain for p in self.player_list],
@@ -28,6 +28,40 @@ class Protocol:
                     self_has_draw_slot=bool(p and p.has_draw_slot), after_kong=bool(p and p.after_kong),
                     visible=dict(self.visible_counts()), start_scores=list(self.round_start_scores),
                     settlement=self.deferred_hu_settlements[-1]["fan_details"] if ended and self.deferred_hu_settlements else None)
+        if self.machine.phase == P.EXCHANGE and p:
+            submitted = self.live_pending_window.get("submitted", {})
+            if viewer in submitted or viewer not in self.waiting_players_list:
+                info["exchange_outgoing"] = list(submitted.get(viewer, []))
+        elif self.machine.phase == P.EXCHANGE_CHOICES:
+            window = self.live_pending_window
+            info.update(exchange_choices=[i in window["submissions"] for i in range(4)],
+                        exchange_duration_ms=window["duration_ms"],
+                        exchange_remaining_ms=self.presentation_remaining_ms())
+            if viewer in window["submissions"]:
+                info["exchange_outgoing"] = list(window["submissions"][viewer])
+        elif self.machine.phase == P.EXCHANGE_RECEIPT:
+            info["exchange_remaining_ms"] = self.presentation_remaining_ms()
+            if viewer in self.live_pending_window["incoming"]:
+                info["exchange_incoming"] = list(self.live_pending_window["incoming"][viewer])
+        elif self.machine.phase == P.BAO_REVEAL:
+            info.update(bao_initial=self.live_pending_window["initial"], bao_remaining_ms=self.presentation_remaining_ms())
+        return info
+
+    def presentation_remaining_ms(self):
+        window = self.live_pending_window
+        if window.get("broadcast_complete") is False:
+            return window["duration_ms"]
+        return max(0, round((window["deadline"] - self._timing_now()) * 1000))
+
+    def _refresh_clock_payload(self, index, payload):
+        super()._refresh_clock_payload(index, payload)
+        game_info = payload.get("game_info") or {}
+        info = game_info.get("new_chinese")
+        phase = info.get("phase") if info else None
+        if phase in (P.EXCHANGE_CHOICES, P.EXCHANGE_RECEIPT, P.BAO_REVEAL):
+            current = self.machine.phase == phase and game_info.get("action_tick") == self.server_action_tick
+            field = "bao_remaining_ms" if phase == P.BAO_REVEAL else "exchange_remaining_ms"
+            info[field] = self.presentation_remaining_ms() if current else 0
 
     def adapt(self, payload, viewer):
         info = payload.get("game_info")
@@ -39,7 +73,7 @@ class Protocol:
                 ask["remaining_time"] = math.ceil(max(0, ask["remaining_time"]))
         if info is not None:
             ended = self.machine.phase in (P.END, P.READY, P.FINISHED)
-            info.update(new_chinese=self.view(viewer), detailed_config=self.detailed_config)
+            info.update(new_chinese=self.view(viewer), detailed_config=self.detailed_config, hepai_limit=self.hepai_limit)
             for i, p in enumerate(self.player_list):
                 fields = wire.player_info_payload(self, i, viewer, reveal_final=ended)
                 fields["remaining_time"] = math.ceil(max(0, p.remaining_time))
@@ -66,12 +100,21 @@ class Protocol:
                 hand.update(riichi_candidate_cuts=self.candidate_cuts,
                             forbidden_cut_tiles=sorted(set(p.hand_tiles)-legal_cuts(self, viewer)),
                             kong_candidates={k: sorted(kong_tiles(self, viewer, k)) for k in ("angang", "jiagang")})
+                if p.declared:
+                    hand["forced_cut_tiles"] = sorted(legal_cuts(self, viewer))
         claim = payload.get("ask_other_action_info")
         if claim is not None:
             claim["chi_candidates"] = {a: [claim_tiles(a.removesuffix("_ting"), tile)] for a in options if a.removesuffix("_ting") in CHOWS}
         return self.adapt(payload, viewer)
 
     def emit_window_payloads(self, window):
+        if window["status"] == P.BAO_REVEAL:
+            action = "new_chinese_bao_reveal" if window["initial"] else "new_chinese_bao_change"
+            return self.emit_visible_action_payloads(dict(action=action, player=window["player"]))
+        if window["status"] == P.EXCHANGE_CHOICES:
+            return self.emit_visible_action_payloads(dict(action="new_chinese_exchange_choices", player=self.dealer_index))
+        if window["status"] == P.EXCHANGE_RECEIPT:
+            return self.emit_visible_action_payloads(dict(action="new_chinese_exchange", player=self.dealer_index))
         if window["status"] == P.END:
             self._final_result_pending = True
             return []
@@ -81,7 +124,9 @@ class Protocol:
         return payloads
 
     def build_pending_action_payload(self, index):
-        if self.live_pending_window and self.machine.phase not in (P.END, P.READY, P.FINISHED):
+        if self.machine.phase == P.EXCHANGE and (index not in self.waiting_players_list or not self.action_queues[index].empty()):
+            return None
+        if self.live_pending_window and self.machine.phase not in (P.EXCHANGE_CHOICES, P.EXCHANGE_RECEIPT, P.BAO_REVEAL, P.END, P.READY, P.FINISHED):
             return self._ask(index, self.live_pending_window)
         return None
 
@@ -134,8 +179,10 @@ class Protocol:
             packets.append(self.build_final_settlement_payload(index))
             if self.machine.phase == P.READY:
                 packets.append(self.build_ready_status_payload(index))
-        elif self.live_pending_window:
-            packets.append(self._ask(index, self.live_pending_window))
+        else:
+            pending = self.build_pending_action_payload(index)
+            if pending is not None:
+                packets.append(pending)
         return packets
 
     async def player_reconnect(self, user_id):
@@ -161,7 +208,9 @@ class Protocol:
 
     def spectator_record_tick(self, tick):
         if tick and tick[0] == "new_chinese" and tick[1] == "state":
-            return ["new_chinese", "state", {**tick[2], "bao": 0, "levels": [], "passed": []}]
+            state = {**tick[2], "bao": 0, "levels": [], "passed": []}
+            state.pop("exchange_packets", None)
+            return ["new_chinese", "state", state]
         return tick
 
     def complete_spectator_record(self, record_view):
@@ -197,7 +246,17 @@ class Protocol:
                                               event["original_source"], int(event.get("for_chow", False))])
         elif not action.startswith("new_chinese_"):
             super().record_visible_action(event)
+        self.record_state()
+
+    def record_state(self):
+        if not self._has_active_round_record():
+            return
         state = self.view(None)
+        if self.machine.phase in (P.EXCHANGE_CHOICES, P.EXCHANGE_RECEIPT):
+            state["exchange_remaining_ms"] = self.live_pending_window["duration_ms"]
+        if self.machine.phase == P.EXCHANGE_CHOICES:
+            submissions = self.live_pending_window["submissions"]
+            state["exchange_packets"] = [list(submissions.get(i, [])) for i in range(4)]
         state.update(bao=self.bao, levels=[p.level for p in self.player_list],
                      after_kongs=[p.after_kong for p in self.player_list],
                      blocked=[bool("peida" in p.tag_list) for p in self.player_list],

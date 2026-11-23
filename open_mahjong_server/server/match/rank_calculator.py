@@ -81,7 +81,7 @@ TIER_MIN_RANK_INDEX = {
     "beginner": 0,       # 所有人
     "intermediate": 9,   # 1级（index 9）
     "advanced": 13,      # 四段（index 13）
-    "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
+    "mcrpl": 16,         # 七段及以上，或由 is_mcrpl_qualified 单独放行
 }
 
 # 场次最高准入段位（上限不包含在内）。中级场仅开放至六段，达到七段后不可继续对局。
@@ -105,11 +105,11 @@ def can_play_tier(
     """判断段位是否有资格进入指定场次。
 
     初级/中级/高级的特许标志只突破最低段位，不突破最高段位上限。
-    MCRPL 仅凭 is_mcrpl_qualified 进入，与赞助状态无关。
+    MCRPL 七段及以上可进入，也可以由 is_mcrpl_qualified 单独放行。
     """
-    if tier == "mcrpl":
-        return is_mcrpl_qualified
     rank_idx = get_rank_index(rank_name)
+    if tier == "mcrpl":
+        return is_mcrpl_qualified or rank_idx >= TIER_MIN_RANK_INDEX["mcrpl"]
     max_rank_idx = TIER_MAX_RANK_INDEX.get(tier)
     if max_rank_idx is not None and rank_idx >= max_rank_idx:
         return False
@@ -259,6 +259,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
                       match_tier=spec.tier, hepai_limit=0 if spec.rule == 'sichuan' else 1, open_cuohe=False,
                       step_timer=8 if spec.tier=='intermediate' else 5,
                       tactical_call=spec.rule == 'sichuan', tips=spec.tier in ('beginner','elo'), pointer_tips=True)
+        if spec.sub_rule in ('sichuan/doubles', 'sichuan/xueliu_doubles'):
+            config.update(round_timer=30, step_timer=10)
         if spec.sub_rule == 'sichuan/xueliu_exchange':
             config.update(blood_battle=False, detailed_config={'xueliu_exchange_scoring': True})
         if spec.rule == 'qingque':

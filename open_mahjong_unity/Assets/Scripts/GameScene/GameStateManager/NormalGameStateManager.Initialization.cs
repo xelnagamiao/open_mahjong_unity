@@ -43,7 +43,7 @@ public partial class NormalGameStateManager {
         if (IsRealtimeSpectator) {
             GameSceneUIManager.Instance.InitRealtimeSpectatorStart(isNewMatch);
         } else {
-            GameSceneUIManager.Instance.InitGameStart(isNewMatch);
+            GameSceneUIManager.Instance.InitGameStart(isNewMatch, gameInfo.use_flowers != false);
         }
         UnlimitedRoundPanel.Instance?.Initialize(gameInfo, !IsRealtimeSpectator);
 

@@ -49,6 +49,9 @@ public static class RuleRegistry {
         ActiveGameState = null;
     }
 
+    private static readonly Dictionary<string, RuleManifest> SubRules = new Dictionary<string, RuleManifest>();
+    public static void RegisterSubRule(string subRule, RuleManifest manifest) => SubRules[subRule] = manifest;
+
     public static void Register(RuleManifest manifest) {
         if (manifest == null || string.IsNullOrEmpty(manifest.RuleId)) {
             Debug.LogError("RuleRegistry.Register: 清单缺少 RuleId");
@@ -59,6 +62,9 @@ public static class RuleRegistry {
 
     /// <summary>按 room_rule 精确解析；room_rule 为空或未注册时尝试用 sub_rule 前缀解析。</summary>
     public static bool TryResolve(string roomRule, string subRule, out RuleManifest manifest) {
+        string subRuleKey = string.IsNullOrEmpty(subRule) ? roomRule : subRule;
+        if (!string.IsNullOrEmpty(subRuleKey) && SubRules.TryGetValue(subRuleKey, out manifest)
+            && (string.IsNullOrEmpty(roomRule) || roomRule == subRuleKey || roomRule == manifest.RuleId)) return true;
         if (!string.IsNullOrEmpty(roomRule) && ManifestsByRule.TryGetValue(roomRule, out manifest)) {
             return true;
         }

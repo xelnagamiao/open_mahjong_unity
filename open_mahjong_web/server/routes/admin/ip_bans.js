@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
     const offset = (page - 1) * limit;
     const result = await pool.query(
-      `SELECT id, ip_address, ban_expires_at, ban_reason, created_by, created_at, updated_at
+      `SELECT id, ip_address, ban_expires_at, ban_reason, admin_note, created_by, created_at, updated_at
        FROM ip_bans
        ORDER BY updated_at DESC, id DESC
        LIMIT $1 OFFSET $2`,
@@ -92,6 +92,52 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('admin ip_bans create:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.patch('/:id/note', async (req, res) => {
+  const { admin_note, reason } = req.body || {};
+  if (!/^\d{1,19}$/.test(req.params.id) || BigInt(req.params.id) > 9223372036854775807n) {
+    return res.status(400).json({ success: false, message: '无效的封禁记录 ID' });
+  }
+  if (typeof admin_note !== 'string' || admin_note.length > 2000) {
+    return res.status(400).json({ success: false, message: '备注须为 2000 字以内的文本' });
+  }
+  if (typeof reason !== 'string' || !reason.trim()) {
+    return res.status(400).json({ success: false, message: '请填写变更原因' });
+  }
+
+  let client;
+  let connectionError;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows: [before] } = await client.query(
+      'SELECT ip_address, admin_note FROM ip_bans WHERE id = $1 FOR UPDATE', [req.params.id]
+    );
+    if (!before) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: '该封禁记录已不存在，请刷新列表' });
+    }
+    await client.query('UPDATE ip_bans SET admin_note = $1 WHERE id = $2', [admin_note, req.params.id]);
+    await writeAudit({
+      adminUserId: req.admin.userId,
+      action: 'ip_ban.note',
+      targetType: 'ip',
+      targetId: before.ip_address,
+      payload: { before: { admin_note: before.admin_note }, after: { admin_note } },
+      reason: reason.trim(),
+    }, client);
+    await client.query('COMMIT');
+    res.json({ success: true, data: { admin_note } });
+  } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (rollbackError) { connectionError = rollbackError; }
+    }
+    console.error('admin ip_bans note:', err);
+    res.status(500).json({ success: false, message: '保存 IP 备注失败' });
+  } finally {
+    client?.release(connectionError);
   }
 });
 

@@ -168,10 +168,11 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
         Add(()=>Click(Field<Button[]>(lobby,"ruleButtons")[3]));
         Add(()=>Click(Field<Button[]>(lobby,"variantButtons")[0]));
         Add(()=>{var card=Field<MatchButton[]>(lobby,"entries").First(c=>c.RuleId=="sichuan");Click(Field<Button>(card,"infoButton"));});
-        Add(()=>{Check(Field<GameObject>(policy,"eloContent").activeSelf,"Elo card information opens baked copy");
-            var text=Field<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text;
-            Check(text.Contains("满四人立即")&&!text.Contains("匹配范围")&&!text.Contains("±"),"Elo policy describes immediate four-player matching");Capture("elo-policy");});
-        Add(()=>Click(Field<Button>(policy,"closeButton")));
+        Add(()=>{var panel=Find<MatchDescribePanel>();
+            Check(panel.gameObject.activeInHierarchy&&!policy.gameObject.activeInHierarchy,"Elo card opens the queue description popup");
+            var text=Field<TMP_Text>(panel,"contentText").text;
+            Check(text.Contains("满四人开局")&&text.Contains("时间限制：20+5"),"Sichuan card describes its matching and timer");Capture("elo-policy");});
+        Add(()=>Click(Field<Button>(Find<MatchDescribePanel>(),"closeButton")));
         Add(()=>Click(Field<Button[]>(lobby,"ruleButtons")[0]));
         for(int i=0;i<4;i++){int n=i;Add(()=>Click(Field<Button>(Field<MatchButton[]>(lobby,"entries")[n],"button")));}
         Add(()=>{Check(MatchNetworkManager.Instance.CurrentQueues.Count==4,"Four simultaneous queues retained");Capture("four-queues");});

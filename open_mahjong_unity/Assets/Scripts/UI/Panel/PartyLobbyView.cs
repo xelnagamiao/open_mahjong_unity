@@ -98,7 +98,7 @@ public sealed class PartyLobbyView : MonoBehaviour {
             if (i >= slots) continue;
             LobbyPartyMember m = n.HasParty ? p.members[i] : null;
             int profile = m != null ? m.profile_image_id : UserDataManager.Instance.ProfileImageId;
-            avatars[i].sprite = ConfigManager.GetProfileSprite(profile);
+            ConfigManager.SetProfilePortrait(avatars[i], profile);
             avatars[i].color = m == null || m.online ? Color.white : new Color(.5f, .5f, .5f);
             bool leader = m == null || m.user_id == p.leader_user_id;
             if (leaderCrowns != null && i < leaderCrowns.Length && leaderCrowns[i]) leaderCrowns[i].SetActive(leader);

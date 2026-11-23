@@ -39,6 +39,7 @@ public sealed class Card3DPresetStorage
     {
         if (!custom || string.IsNullOrEmpty(path)) return path ?? "";
 #if UNITY_WEBGL && !UNITY_EDITOR
+        if (IsSnapshotImage(path)) return path;
         byte[] bytes = UnityAssetIdb.GetCached(path);
 #else
         byte[] bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
@@ -48,7 +49,7 @@ public sealed class Card3DPresetStorage
         using (var sha = SHA256.Create()) hash = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
 #if UNITY_WEBGL && !UNITY_EDITOR
         string target = ImagePrefix + hash;
-        if (UnityAssetIdb.GetCached(target) == null) {
+        if (!UnityAssetIdb.Contains(target) && !pendingImages.ContainsKey(target)) {
             pendingImages[target] = bytes;
             UnityAssetIdb.StagePendingWrite(target, bytes);
         }

@@ -247,6 +247,45 @@ def test_taiwan_derived_rule_waits_for_every_human(package, name):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("confirmed", [(), (0,), (0, 1, 2, 3)], ids=["timeout", "partial", "all"])
+def test_taiwan_wrong_win_resumes_with_each_players_time(monkeypatch, confirmed):
+    async def run():
+        state, _, _ = make_state(next(adapter for adapter in ADAPTERS if adapter[0] == "taiwan"))
+        state.open_cuohe = True
+        state.hepai_limit = 1
+        banks = [0, 3, 11, 20]
+        for player, bank in zip(state.player_list, banks):
+            player.remaining_time = bank
+        state._queue_winner_resolution([dict(
+            index=0, source="self_draw", hu_class="hu_self", tile=11,
+            detail=dict(is_win=False, below_minimum=True, tai=0, fan_names=[]),
+        )])
+        round_index = state.round_index
+        seen = []
+
+        async def capture(payload):
+            if "ready_status_info" in payload:
+                ready = payload["ready_status_info"]["player_to_ready"]
+                seen.append({int(seat) for seat, value in ready.items() if value})
+                if len(seen) == 1:
+                    for seat in confirmed:
+                        await reply(state, seat, "ready", state.server_action_tick)
+
+        state.game_server.user_id_to_connection[state.player_list[0].user_id].websocket.send_json = capture
+        monkeypatch.setattr(ready_phase, "hu_result_ready_wait_seconds", lambda *a, **kw: 0.5)
+        try:
+            await asyncio.wait_for(state._resolve_cuohe(), 3)
+            assert set(confirmed) in seen
+            assert seen[-1] == {0, 1, 2, 3}
+            assert state.game_status == "waiting_hand_action" and state.round_index == round_index
+            assert [player.remaining_time for player in state.player_list] == banks
+            assert [state.step_time + player.remaining_time for player in state.player_list] == [5, 8, 16, 25]
+        finally:
+            await cancel_auxiliary_tasks(state)
+
+    asyncio.run(run())
+
+
 def test_hongque_waits_for_every_human():
     from ..game_hongque.HongqueGameState import HongqueGameState
 

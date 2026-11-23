@@ -1,12 +1,16 @@
-using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class WuhanPresentation {
     public static WuhanInfo DisplayedInfo { get; private set; }
-    public static string TileName(int tile) {
-        if (tile < 40) return (tile % 10) + (tile < 20 ? "万" : tile < 30 ? "筒" : "条");
-        string[] names = { "东", "南", "西", "北", "中", "白", "发" };
-        return tile >= 41 && tile <= 47 ? names[tile - 41] : "?";
+    internal static RoundIndicatorDisplay Indicators(WuhanInfo info) {
+        var tiles = new List<RoundIndicatorTile> { new RoundIndicatorTile(info?.indicator, "指") };
+        var shown = new HashSet<int> { tiles[0].TileId };
+        foreach (int skin in info?.skins ?? new[] {45}) {
+            if (skin > 0 && shown.Add(skin)) tiles.Add(new RoundIndicatorTile(skin, "皮"));
+        }
+        if (info?.joker > 0) tiles.Add(new RoundIndicatorTile(info.joker, "赖"));
+        return new RoundIndicatorDisplay(tiles);
     }
     public static void Apply(WuhanInfo info, bool refreshBadges) {
         bool jokerChanged = DisplayedInfo?.joker != info?.joker;
@@ -16,13 +20,7 @@ public static class WuhanPresentation {
             Game3DManager.Instance?.RefreshRecordJokerHandOrder();
             GameRecordManager.Instance?.RefreshInitialHandJokerOrder();
         }
-        var panel = Object.FindFirstObjectByType<SimpleRoundPanel>();
-        if (panel != null) {
-            string first = info?.joker is int joker ? "癞：" + TileName(joker) : "待庄家首打";
-            string second = "皮：" + string.Join(" ", (info?.skins ?? new[] {45}).Select(TileName));
-            string third = info?.sea == true ? "海底：仅自摸或过" : info?.push_gold == true ? "推金：须杠出皮子" : "皮癞：杠补牌 / 打出不补牌";
-            panel.UpdateSupplementalLines(first, second, third);
-        }
+        RoundPanel.Instance?.RefreshIndicators(WuhanGameState.RuleId, Indicators(info));
         if (!refreshBadges) return;
         foreach (var card in Object.FindObjectsByType<TileCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card, card.tileId);
         foreach (var card in Object.FindObjectsByType<StaticCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card.transform, card.TileId);

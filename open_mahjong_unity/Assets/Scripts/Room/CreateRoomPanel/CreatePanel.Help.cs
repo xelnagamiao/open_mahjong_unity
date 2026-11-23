@@ -16,6 +16,9 @@ public partial class CreatePanel {
 
     public void ShowRoomHelp(string message, Component source = null) {
         if (!roomHelpText) return;
+        if (_ruleState == NewChineseGameState.RuleId && source && (source.gameObject == InputHepaiLimitToggle.gameObject
+            || source.transform.IsChildOf(InputHepaiLimitPlane.transform)))
+            message = "起和番按牌型番数计算。默认0番，开启换三张后固定为15番，七对子和碰碰和可直接起和。";
         if (IsShanghaiQiaoma && source && source.gameObject == InputHepaiLimitToggle.gameObject)
             message = "一番和：开启后至少1番才能和牌，花数不算番；杠开、抢杠计入番数，原有花数门槛仍生效。关闭后允许垃圾和。";
         if (_ruleState == "sichuan" && source && (source.gameObject == InputHepaiLimitToggle.gameObject

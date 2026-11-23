@@ -9,7 +9,7 @@ using UnityEditor.Build.Reporting;
 using UnityEditor.U2D;
 using UnityEngine;
 
-/// <summary>Compresses shared standard faces and Hongque hands while preserving original sprite geometry.</summary>
+/// <summary>Checks imported standard faces and prepares the separate Hongque hand atlas.</summary>
 public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
 {
     private const string Root = "Assets/Resources/image/Cards/Faces/";
@@ -17,14 +17,16 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
 
     public void OnPreprocessBuild(BuildReport report)
     {
-        // The complete content bundles were packed before the bootstrap APK.
-        // Recreating these Resources here would duplicate their atlas textures
-        // and collide with the temporary shell resource isolation.
-        if (AndroidContentBuild.BuildingBootstrapPlayer) return;
-        EnsurePack("official");
-        EnsurePack("fluffy");
-        EnsurePack("hkmahjong");
+        // Both bootstrap Players have already validated and packed their atlases.
+        if (BundledGameBuild.BuildingBootstrap) return;
+        ValidateSharedPacks();
         EnsurePack("hongque");
+    }
+
+    public static void ValidateSharedPacks()
+    {
+        foreach (string pack in BuiltinTileFaceImporter.Packs)
+            EnsurePack(pack);
     }
 
     public static string EnsurePack(string pack)
@@ -32,48 +34,24 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
         bool shared = TilePackIds.IsBuiltinPack(pack);
         if (EditorSettings.spritePackerMode != SpritePackerMode.SpriteAtlasV2)
             throw new BuildFailedException("Hand tile atlases require the project's existing Sprite Atlas V2 mode.");
-        string folder = BuiltinTileSprites.SourceRoot + pack + (shared ? "/shared" : "/hand");
-        string path = Root + pack + (shared ? "/SharedAtlas.spriteatlasv2" : "/HandAtlas.spriteatlasv2");
-        int maxSize = shared ? 4096 : 2048;
-        string[] sources = Directory.GetFiles(folder, "*.png").OrderBy(p => p, StringComparer.Ordinal).ToArray();
-        if (shared) {
-            // The 3D renderer maps the complete authored canvas. Tight Sprite geometry would
-            // trim transparent margins even when atlas tight packing itself is disabled.
-            foreach (string source in sources) {
-                var sourceImporter = AssetImporter.GetAtPath(source.Replace('\\', '/')) as TextureImporter;
-                if (sourceImporter == null) continue;
-                var settings = new TextureImporterSettings();
-                sourceImporter.ReadTextureSettings(settings);
-                bool changed = settings.spriteMeshType != SpriteMeshType.FullRect;
-                if (changed) {
-                    settings.spriteMeshType = SpriteMeshType.FullRect;
-                    sourceImporter.SetTextureSettings(settings);
-                }
-                // Archive the full PNG, but keep Windows runtime faces near the former
-                // 400 x 532 table images. Atlas packing performs the final BC7 compression.
-                var windowsSource = sourceImporter.GetPlatformTextureSettings("Standalone");
-                if (!windowsSource.overridden || windowsSource.maxTextureSize != 512
-                    || windowsSource.format != TextureImporterFormat.Automatic
-                    || windowsSource.textureCompression != TextureImporterCompression.Uncompressed
-                    || windowsSource.crunchedCompression) {
-                    windowsSource.name = "Standalone";
-                    windowsSource.overridden = true;
-                    windowsSource.maxTextureSize = 512;
-                    windowsSource.format = TextureImporterFormat.Automatic;
-                    windowsSource.textureCompression = TextureImporterCompression.Uncompressed;
-                    windowsSource.crunchedCompression = false;
-                    sourceImporter.SetPlatformTextureSettings(windowsSource);
-                    changed = true;
-                }
-                if (changed) sourceImporter.SaveAndReimport();
-            }
+        string folder = shared ? BuiltinTileFaceImporter.Folder(pack) : BuiltinTileSprites.SourceRoot + pack + "/hand";
+        string path = Root + pack + (shared ? "/" + BuiltinTileSprites.StandardAtlasName(pack) + ".spriteatlasv2" : "/HandAtlas.spriteatlasv2");
+        int maxSize = pack == TilePackIds.PackOfficial ? 4096 : pack == TilePackIds.PackHkMahjong ? 1024 : 2048;
+        if (!Directory.Exists(folder)) throw new BuildFailedException("Missing face directory: " + folder);
+        string[] sources = Directory.GetFiles(folder, "*", shared ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+            .Where(p => p.EndsWith(".png", StringComparison.OrdinalIgnoreCase)).OrderBy(p => p, StringComparer.Ordinal).ToArray();
+        if (sources.Length == 0) throw new BuildFailedException("Empty face directory: " + folder);
+        foreach (string source in sources)
+        {
+            string assetPath = source.Replace('\\', '/');
+            if (shared) BuiltinTileFaceImporter.Validate(assetPath);
+            if (AssetDatabase.LoadAssetAtPath<Sprite>(assetPath) == null)
+                throw new BuildFailedException("Face image did not import as a Sprite: " + assetPath);
         }
-        Sprite[] sprites = sources.Select(p => AssetDatabase.LoadAssetAtPath<Sprite>(p.Replace('\\', '/'))).ToArray();
-        if (sprites.Length == 0 || sprites.Any(s => s == null))
-            throw new BuildFailedException("Hand pack contains an image without a Sprite: " + pack);
         // Folder membership updates automatically when a pack gains new faces.
         if (!File.Exists(path))
         {
+            if (shared) throw new BuildFailedException("Missing shared face atlas: " + path);
             var atlas = new SpriteAtlasAsset();
             atlas.Add(new UnityEngine.Object[] { AssetDatabase.LoadAssetAtPath<DefaultAsset>(folder) });
             SpriteAtlasAsset.Save(atlas, path);
@@ -81,11 +59,23 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
         }
         var importer = AssetImporter.GetAtPath(path) as SpriteAtlasImporter;
         if (importer == null) throw new BuildFailedException("Cannot load hand atlas importer: " + path);
+        var packing = importer.packingSettings;
+        var texture = importer.textureSettings;
+        bool packingChanged = packing.enableRotation || packing.enableTightPacking != shared || packing.padding != 8
+            || packing.enableAlphaDilation != (pack != "hongque");
+        bool textureChanged = !texture.generateMipMaps || texture.readable || !texture.sRGB
+            || texture.filterMode != FilterMode.Bilinear || texture.anisoLevel != 16;
+        if (shared)
+        {
+            if (!importer.includeInBuild || packingChanged || textureChanged)
+                throw new BuildFailedException("Shared atlas inclusion, packing or texture settings differ from the card policy: " + path);
+            CheckAtlasPlatforms(importer, maxSize, true);
+            return path;
+        }
+
         bool atlasChanged = !importer.includeInBuild;
         if (atlasChanged) importer.includeInBuild = true;
-        var packing = importer.packingSettings;
-        if (packing.enableRotation || packing.enableTightPacking || packing.padding != 8
-            || packing.enableAlphaDilation != (pack != "hongque")) {
+        if (packingChanged) {
             packing.enableRotation = false;
             packing.enableTightPacking = false;
             packing.padding = 8;
@@ -93,9 +83,7 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
             importer.packingSettings = packing;
             atlasChanged = true;
         }
-        var texture = importer.textureSettings;
-        if (!texture.generateMipMaps || texture.readable || !texture.sRGB
-            || texture.filterMode != FilterMode.Bilinear || texture.anisoLevel != 16) {
+        if (textureChanged) {
             texture.generateMipMaps = true;
             texture.readable = false;
             texture.sRGB = true;
@@ -104,18 +92,22 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
             importer.textureSettings = texture;
             atlasChanged = true;
         }
-        // Highest-quality block formats; the source PNGs remain intact, and Windows
-        // uses its source import limit instead of shipping full authoring resolution.
-        atlasChanged |= ConfigurePlatform(importer, "DefaultTexturePlatform", maxSize, TextureImporterFormat.Automatic);
-        atlasChanged |= ConfigurePlatform(importer, "Standalone", shared ? 2048 : maxSize, TextureImporterFormat.BC7, true, true);
-        foreach (string platform in new[] { "Android", "iPhone" })
-            atlasChanged |= ConfigurePlatform(importer, platform, maxSize, TextureImporterFormat.ASTC_4x4, true);
+        atlasChanged |= CheckAtlasPlatforms(importer, maxSize, false);
         if (atlasChanged) importer.SaveAndReimport();
         return path;
     }
 
-    private static bool ConfigurePlatform(SpriteAtlasImporter importer, string platform, int maxSize,
-        TextureImporterFormat format, bool? overridden = null, bool useMaximumQuality = false)
+    private static bool CheckAtlasPlatforms(SpriteAtlasImporter importer, int maxSize, bool validateOnly)
+    {
+        bool changed = CheckPlatform(importer, "DefaultTexturePlatform", maxSize, TextureImporterFormat.Automatic, validateOnly);
+        changed |= CheckPlatform(importer, "Standalone", Math.Min(2048, maxSize), TextureImporterFormat.BC7, validateOnly, true, true);
+        foreach (string platform in new[] { "Android", "iPhone" })
+            changed |= CheckPlatform(importer, platform, maxSize, TextureImporterFormat.ASTC_4x4, validateOnly, true);
+        return changed;
+    }
+
+    private static bool CheckPlatform(SpriteAtlasImporter importer, string platform, int maxSize,
+        TextureImporterFormat format, bool validateOnly, bool? overridden = null, bool useMaximumQuality = false)
     {
         var settings = importer.GetPlatformSettings(platform);
         var maximumQuality = typeof(TextureImporterPlatformSettings).GetProperty(
@@ -129,6 +121,8 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
             && settings.textureCompression == TextureImporterCompression.CompressedHQ
             && settings.compressionQuality == 100 && !settings.crunchedCompression && !qualityChanged)
             return false;
+        if (validateOnly)
+            throw new BuildFailedException($"Shared atlas {platform} settings must use {format}, max {maxSize}, high quality: {importer.assetPath}");
         settings.name = platform;
         if (overridden.HasValue) settings.overridden = overridden.Value;
         settings.maxTextureSize = maxSize;

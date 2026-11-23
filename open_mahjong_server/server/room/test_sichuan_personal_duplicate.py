@@ -81,6 +81,46 @@ async def test_personal_rejects_venue_key_and_keeps_no_half_pair(rooms, monkeypa
     assert not result.success and not rooms.rooms and not rooms.saved
 
 
+@pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
+@pytest.mark.parametrize("legacy_reuse", [False, True])
+@pytest.mark.parametrize("submitted", [False, True])
+@run_async
+async def test_last_human_departure_respects_submitted_board(rooms, monkeypatch, sub, legacy_reuse, submitted):
+    from ..gamestate.game_sichuan.DuplicateGameState import DuplicateMixin
+    from ..gamestate.test_room_lifecycle import parked_loop
+
+    player = login(rooms)
+    result = await create(rooms, sub, wall_source="training", duplicate_round_count=1, random_seed="1" * 64)
+    assert result.success, result.message
+    root = rooms.rooms[result.room_info["room_id"]]
+    pair = pair_for(rooms, root)
+    pair.data["reuse_training_room"] = legacy_reuse
+    for index in range(8):
+        message = dict(action="seat" if index == 4 else "add_bot", seat_index=index,
+                       roster_revision=pair.data["lobby"]["revision"], bot_kind=0)
+        assert await action(rooms, "host", root["room_id"], message) is None
+    monkeypatch.setattr(DuplicateMixin, "run_game_loop", parked_loop)
+    gm = rooms.game_server.gamestate_manager
+    assert await gm.start_game("host", root["room_id"], roster_revision=pair.data["lobby"]["revision"]) is None
+    await asyncio.sleep(0)
+    if submitted:
+        human_table = gm.get_game_state_by_user_id(player.user_id)
+        pair.data["table_completed_boards"][human_table.duplicate_table] = len(pair.data["boards"])
+        human_table.game_status = "duplicate_wait"
+    await asyncio.wait_for(gm.abandon_player_game("host", player.user_id), timeout=2)
+    if submitted:
+        assert pair.data["status"] == "running" and len(rooms.rooms) == 2
+        assert all(not state.game_task.done() for state in pair.states.values())
+        pair.data.update(status="completed", completed_boards=1,
+                         table_completed_boards={"open": 1, "closed": 1})
+        for state in pair.states.values():
+            await gm.cleanup_game_state_complete(gamestate_id=state.gamestate_id)
+    assert all(state.game_task.done() for state in pair.states.values())
+    assert not gm.gamestate_id_to_game_state and not gm.sichuan_duplicate_matches
+    assert not rooms.rooms and not rooms.active_game_room_ids
+    assert player.current_room_id is None
+
+
 @run_async
 async def test_personal_all_bot_child_finish_preserves_host_and_existing_group_cleanup(rooms):
     login(rooms)
@@ -93,14 +133,12 @@ async def test_personal_all_bot_child_finish_preserves_host_and_existing_group_c
     assert await act("seat", seat_index=4) is None
     for i in range(4): assert await act("add_bot", seat_index=i, bot_kind=0) is None
     closed = tables(rooms, pair)["closed"]
+    root.update(active_gamestate_id="peer", is_game_running=True)
     closed.update(active_gamestate_id="done", is_game_running=True)
     pair.data["status"] = "completed"
     await rooms.finish_custom_game_room(closed["room_id"], expected_gamestate_id="done", expected_instance_id=closed["instance_id"])
-    assert closed["seat_list"] == [-1] * 4
-    assert public_lobby(rooms, root)["seat_list"][4] == 101
     assert len(rooms.rooms) == 2
-    assert (await rooms.sync_my_room("host")).room_info["max_player"] == 8
-    assert (await rooms.leave_room("host", root["room_id"])).success
+    await rooms.finish_custom_game_room(root["room_id"], expected_gamestate_id="peer", expected_instance_id=root["instance_id"])
     assert rooms.game_server.players["host"].current_room_id is None
     assert not rooms.rooms and pair.data["rooms_deleted"]
 
@@ -124,7 +162,7 @@ async def test_socket_dispatch_preserves_duplicate_options(rooms, sub):
 @pytest.mark.parametrize("interrupted", [False, True])
 @pytest.mark.parametrize("training", [False, True])
 @run_async
-async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_same_host(rooms, monkeypatch, sub, interrupted, training):
+async def test_personal_one_human_seven_bots_start_real_states_and_reject_interrupted_start(rooms, monkeypatch, sub, interrupted, training):
     from ..gamestate.test_room_lifecycle import make_server, parked_loop
     from ..gamestate.game_sichuan.DuplicateGameState import DuplicateMixin
     server = rooms.game_server
@@ -149,6 +187,9 @@ async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_
         rejected = await server.gamestate_manager.start_game("other", root["room_id"],
             roster_revision=pair.data["lobby"]["revision"])
         assert not rejected.success and pair.data["boards"] == original
+        rejected = await server.gamestate_manager.start_game("host", root["room_id"], roster_revision=pair.data["lobby"]["revision"])
+        assert not rejected.success and not pair.states
+        return
     reserve=Mock(return_value='reserved-id')
     monkeypatch.setattr("server.database.duplicate_walls.reserve_duplicate_game", reserve)
     monkeypatch.setattr(DuplicateMixin, "run_game_loop", parked_loop)
@@ -164,10 +205,6 @@ async def test_personal_one_human_seven_bots_start_real_states_and_recover_with_
         if training:
             reserve.assert_not_called()
             assert all(not state.duplicate_key and state.duplicate_wall_type=='training' for state in pair.states.values())
-        if interrupted:
-            assert (pair.data["boards"][0] == original[0]) is training
-            assert pair.data["boards"][1:] == original[1:]
-            assert pair.data["voided_boards"][0]["number"] == 1
     finally:
         for gid in list(gm.gamestate_id_to_game_state): await gm.cleanup_game_state_complete(gamestate_id=gid)
 
@@ -220,3 +257,13 @@ async def test_auto_close_does_not_delete_a_reused_room_id(rooms):
     rooms.rooms[root["room_id"]] = replacement
     assert not (await delete_pair(rooms, root, only_if_empty=True)).success
     assert rooms.rooms[root["room_id"]] is replacement
+
+@pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
+@run_async
+async def test_personal_training_cannot_enable_reuse(rooms, sub):
+    player = login(rooms)
+    response = await create(rooms, sub, wall_source="training", reuse_training_room=True)
+    assert not response.success and "赛事或基地" in response.message
+    assert player.current_room_id is None
+    assert not rooms.rooms and not rooms.game_server.gamestate_manager.sichuan_duplicate_matches
+    assert not rooms.saved

@@ -78,6 +78,7 @@ namespace Salasasa.Leaderboards
                 message = response.message,
                 rating_rule = response.rating_rule,
                 data_request_id = response.data_request_id,
+                leaderboard_self_position = response.leaderboard_self_position,
                 leaderboard_list = response.leaderboard_list?.Select(entry => new LeaderboardEntry {
                     rule = entry.rule, system = entry.system, rank_name = entry.rank_name,
                     rank_score = entry.rank_score, guobiao_rank = entry.guobiao_rank,
@@ -111,6 +112,7 @@ namespace Salasasa.Leaderboards
             if (!sprite || !sprite.texture) return;
             var rect = sprite.textureRect;
             image.texture = sprite.texture;
+            AvatarPortraitBackground.Apply(image, profile);
             image.uvRect = new Rect(rect.x / sprite.texture.width, rect.y / sprite.texture.height, rect.width / sprite.texture.width, rect.height / sprite.texture.height);
         }
 

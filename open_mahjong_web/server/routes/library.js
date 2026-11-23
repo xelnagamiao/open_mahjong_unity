@@ -19,6 +19,7 @@ const ALLOWED_RULE_KEYS = new Set([
   'nanchang',
   'shangrao',
   'new_chinese',
+  'sanhua',
   'beijing',
   'duocai',
   'hangzhou',

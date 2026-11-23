@@ -143,7 +143,7 @@ async def test_one_host_starts_two_four_player_games(rooms, monkeypatch):
 
 
 @run_async
-async def test_persistence_failure_rolls_back_cross_table_swap(rooms):
+async def test_commit_failure_rolls_back_cross_table_swap(rooms, monkeypatch):
     root = await create(rooms)
     for uid in (101, 102):
         await join(rooms, root, uid)
@@ -153,7 +153,7 @@ async def test_persistence_failure_rolls_back_cross_table_swap(rooms):
     before = public_lobby(rooms, root)
     def fail(*_):
         raise OSError("save unavailable")
-    pair.persist = fail
+    monkeypatch.setattr("server.room.sichuan_lobby.commit", lambda *args, **kwargs: fail())
     with pytest.raises(OSError):
         await act(rooms, root, 101, "seat", source_seat=0, seat_index=4)
     assert public_lobby(rooms, root) == before
@@ -214,7 +214,7 @@ async def test_unified_broadcast_reaches_waiters_without_exposing_peer_progress(
 
 
 @run_async
-async def test_existing_finished_all_bot_table_cleanup_remains_in_effect(rooms):
+async def test_last_table_cleanup_removes_event_room_and_bot_table(rooms):
     root = await create(rooms)
     await join(rooms, root, 101)
     await act(rooms, root, 101, "seat", seat_index=4)
@@ -225,8 +225,7 @@ async def test_existing_finished_all_bot_table_cleanup_remains_in_effect(rooms):
     closed.update(active_gamestate_id="done", is_game_running=True)
     pair.data["status"] = "completed"
     await rooms.finish_custom_game_room(closed["room_id"], expected_gamestate_id="done", expected_instance_id=closed["instance_id"])
-    assert closed["seat_list"] == [-1] * 4
-    assert public_lobby(rooms, root)["seat_list"][4] == 101
+    assert not rooms.rooms and not rooms.game_server.gamestate_manager.sichuan_duplicate_matches
 
 
 @run_async
@@ -243,7 +242,7 @@ async def test_host_on_closed_table_changes_both_tables_bot_speed(rooms):
 
 @pytest.mark.parametrize("kind", ["ready", "leave", "setting"])
 @run_async
-async def test_failed_persistence_keeps_membership_and_readiness_atomic(rooms, kind):
+async def test_failed_commit_keeps_membership_and_readiness_atomic(rooms, monkeypatch, kind):
     root = await create(rooms)
     for uid in (101, 102):
         await join(rooms, root, uid)
@@ -252,7 +251,7 @@ async def test_failed_persistence_keeps_membership_and_readiness_atomic(rooms, k
     before = public_lobby(rooms, root)
     def fail(*_):
         raise OSError("save unavailable")
-    pair.persist = fail
+    monkeypatch.setattr("server.room.sichuan_lobby.commit", lambda *args, **kwargs: fail())
     if kind == "leave":
         assert not (await rooms.leave_room("u102", root["room_id"])).success
     else:

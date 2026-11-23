@@ -6,9 +6,11 @@ Shader "Hidden/Duocai/InkColor" {
         #pragma vertex vert_img
         #pragma fragment frag
         #include "UnityCG.cginc"
-        sampler2D _MainTex; float4 _Ink, _Rect;
+        sampler2D _MainTex; float4 _Ink, _Rect, _Bounds;
         fixed4 frag(v2f_img input):SV_Target {
-            fixed4 color=tex2D(_MainTex,input.uv*_Rect.zw+_Rect.xy);
+            float2 uv=input.uv*_Rect.zw+_Rect.xy;
+            fixed4 color=tex2D(_MainTex,uv);
+            color.a *= all(uv>=_Bounds.xy) && all(uv<=_Bounds.zw);
             float strength=1-min(color.r,min(color.g,color.b));
             return fixed4(lerp(1,_Ink.rgb,strength),color.a);
         }

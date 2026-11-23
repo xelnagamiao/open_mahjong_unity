@@ -16,6 +16,7 @@ public class RecordTipsContext {
     public string NoJokerBonus = "add8";
     public bool BlackFlowerProgressive = true;
     public int CurrentRound;
+    public int DealerIndex;
     public int SelfPlayerIndex;
     public int RemainTiles;
     public List<int> SelfHuapaiList;

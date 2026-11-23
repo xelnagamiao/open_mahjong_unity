@@ -1,3 +1,4 @@
+const { filteredTables } = require('./replayTables');
 /** 日麻摘要使用与对局列表相同的筛选条件，绝不混用全历史分子。 */
 const RIICHI_STATS_VERSION = 3;
 const BASE_KEYS = [
@@ -39,7 +40,7 @@ function aggregateRiichiStats(rows) {
 async function fetchRiichiRows(db, conditions, params) {
   const result = await db.query(`
     SELECT gpr.match_type AS mode, s.stats
-    FROM game_player_records gpr JOIN game_records gr ON gr.game_id=gpr.game_id
+    FROM game_player_records gpr JOIN ${filteredTables(conditions)} gr ON gr.game_id=gpr.game_id
     LEFT JOIN riichi_player_game_stats s ON s.game_id=gpr.game_id AND s.user_id=gpr.user_id AND s.version=${RIICHI_STATS_VERSION}
     WHERE ${conditions.join(' AND ')}
   `, params);

@@ -112,7 +112,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useAdminListState } from '@/composables/useAdminListState'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
@@ -126,7 +127,8 @@ import {
 } from '@/constants/rankTable'
 
 const route = useRoute()
-const userId = ref('10000001')
+const { saved, remember } = useAdminListState()
+const userId = ref(saved.userId ?? String(route.query.userId || '10000001'))
 const rankNames = RANK_NAMES
 const form = reactive({
   guobiao_rank: '10级',
@@ -181,6 +183,7 @@ function onRankChange() {
 async function loadRank() {
   const id = parseInt(userId.value, 10)
   if (Number.isNaN(id)) return
+  remember({ userId: userId.value })
   try {
     const res = await adminApi.get(`/rank/${id}`)
     const data = res.data.data
@@ -256,17 +259,6 @@ async function resetRank() {
     ElMessage.error(e.response?.data?.message || '重置失败')
   }
 }
-
-watch(
-  () => route.query.userId,
-  (v) => {
-    if (v) {
-      userId.value = String(v)
-      loadRank()
-    }
-  },
-  { immediate: true }
-)
 
 onMounted(() => {
   loadLeaderboard()

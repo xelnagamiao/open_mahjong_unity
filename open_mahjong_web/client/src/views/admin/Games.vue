@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -95,7 +96,8 @@ import adminApi from '@/api/adminClient'
 import { formatRoomType, formatRule, formatSubRule, pickGameMeta } from '@/utils/gameMeta'
 
 const route = useRoute()
-const filters = reactive({
+const { saved, remember } = useAdminListState()
+const filters = reactive(saved.filters ?? {
   game_id: '',
   user_id: '10000001',
   rule: '',
@@ -153,6 +155,7 @@ async function search() {
     ElMessage.warning('请至少填写一项筛选条件，或使用「获取全部」')
     return
   }
+  remember({ mode: 'search', filters: { ...filters } })
   loading.value = true
   try {
     const res = await adminApi.get('/games/search', { params: buildFilterParams() })
@@ -165,6 +168,7 @@ async function search() {
 }
 
 async function fetchAll() {
+  remember({ mode: 'all', filters: { ...filters } })
   loadingAll.value = true
   try {
     const res = await adminApi.get('/games/search', { params: { all: true } })
@@ -215,7 +219,9 @@ async function removeGame(gameId) {
 }
 
 onMounted(() => {
-  if (route.query.game_id) {
+  if (saved.mode === 'all') fetchAll()
+  else if (saved.mode === 'search') search()
+  else if (route.query.game_id) {
     filters.game_id = String(route.query.game_id)
     search()
   }

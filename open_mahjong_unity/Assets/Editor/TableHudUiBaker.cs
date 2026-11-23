@@ -72,7 +72,7 @@ public static partial class TableHudUiBaker {
     private static void BakeFooter(Transform rounds) {
         var venues = new List<TMP_Text>(); var formats = new List<TMP_Text>();
         var contents = new List<RectTransform>(); var strips = new List<RectTransform>();
-        foreach (string name in new[] { "SimpleRoundPanel", "RiichiRoundPanel" }) {
+        foreach (string name in new[] { "SimpleRoundPanel", "IndicatorRoundPanel" }) {
             var panel = (RectTransform)rounds.Find(name);
             var header = (RectTransform)panel.Find("Header");
             var content = (RectTransform)panel.Find("Content");

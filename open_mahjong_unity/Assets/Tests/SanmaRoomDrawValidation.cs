@@ -47,8 +47,7 @@ public static class SanmaRoomDrawValidation {
                 for (int seat = 0; seat < 4; seat++)
                     Check(roomObject.transform.Find("PlayerSeat" + (seat + 1)).gameObject.activeSelf == (seat < capacity),
                         spec.Item2 + " capacity " + spec.Item3 + " seat " + seat);
-                var tooltip = roomObject.GetComponentInChildren<RoomInfoTooltip>(true);
-                string playerDetails = Field<string>(tooltip, "body").Split(new[] {"完整房间配置"}, StringSplitOptions.None)[0];
+                string playerDetails = roomItem.BuildDetails().Split(new[] {"完整房间配置"}, StringSplitOptions.None)[0];
                 Check(playerDetails.Contains("\n4  ") == (capacity == 4), spec.Item2 + " details capacity " + spec.Item3);
                 Check(Field<TMP_Text[]>(roomItem, "playerNames")[2].text == "等待加入", spec.Item2 + " third vacancy");
             }

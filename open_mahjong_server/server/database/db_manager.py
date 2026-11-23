@@ -93,7 +93,7 @@ class DatabaseManager:
                 );
             """)
 
-            from .duplicate_walls import ensure_duplicate_tables
+            from .sichuan_duplicate import ensure_tables as ensure_duplicate_tables
             ensure_duplicate_tables(cursor)
 
             from ..records.store import ensure_tables as ensure_replay_tables
@@ -581,6 +581,9 @@ class DatabaseManager:
                 else:
                     raise
 
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sponsor_amount NUMERIC(12, 2) NOT NULL DEFAULT 0;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_note TEXT NOT NULL DEFAULT '';")
+
             # Unity 注册可以记录邮箱；未验证邮箱不获得邮箱登录/找回凭据资格。
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP NULL;")
@@ -728,7 +731,7 @@ class DatabaseManager:
                     updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
-
+            cursor.execute("ALTER TABLE ip_bans ADD COLUMN IF NOT EXISTS admin_note TEXT NOT NULL DEFAULT '';")
 
             # 创建游客用户序列（9000000-9900000）
             cursor.execute("CREATE SEQUENCE IF NOT EXISTS tourist_user_id_seq START 9000000 INCREMENT 1 MAXVALUE 9900000 CYCLE;")
@@ -3162,7 +3165,10 @@ DatabaseManager.store_classical_fan_stats = store_classical_fan_stats
 # 挂载四川麻将（血战到底）相关方法到 DatabaseManager 类（牌谱写通用表，无需专用统计表）
 from .sichuan.store_sichuan import store_sichuan_game_record
 
+from .record_persistence import store_sichuan_pair_records
+
 DatabaseManager.store_sichuan_game_record = store_sichuan_game_record
+DatabaseManager.store_sichuan_pair_records = store_sichuan_pair_records
 
 # 挂载长沙麻将相关方法到 DatabaseManager 类
 from .changsha.store_changsha import store_changsha_game_record, store_changsha_game_stats

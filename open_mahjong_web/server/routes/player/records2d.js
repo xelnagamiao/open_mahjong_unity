@@ -32,7 +32,7 @@ router.get('/my-records', requirePlayer, async (req, res) => {
       const countResult = await db.query(
         `SELECT COUNT(*)::int AS total
          FROM game_player_records gpr
-         INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+         INNER JOIN game_record_tables gr ON gr.game_id = gpr.game_id
          WHERE ${where}`,
         [req.player.userId],
       );
@@ -40,7 +40,7 @@ router.get('/my-records', requirePlayer, async (req, res) => {
         `SELECT gpr.game_id, gr.created_at, gpr.rule, gpr.sub_rule, gpr.match_type,
                 gpr.room_type, gpr.is_favorite, COALESCE(gpr.note, '') AS note
          FROM game_player_records gpr
-         INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+         INNER JOIN game_record_tables gr ON gr.game_id = gpr.game_id
          WHERE ${where}
          ORDER BY gr.created_at DESC, gpr.game_id DESC
          LIMIT $2 OFFSET $3`,

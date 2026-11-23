@@ -29,7 +29,7 @@ def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> 
         cursor.execute(
             """
             SELECT gr.game_id
-            FROM game_records gr
+            FROM game_record_tables gr
             WHERE EXISTS (
                 SELECT 1
                 FROM game_player_records gpr
@@ -63,9 +63,10 @@ def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> 
                 gpr.sub_rule,
                 gpr.match_type,
                 gr.created_at,
-                gr.record->'game_title'->>'match_queue_type' AS match_queue_type
+                r.record->'tables'->gr.table_id->'payload'->'game_title'->>'match_queue_type' AS match_queue_type
             FROM game_player_records gpr
-            INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+            INNER JOIN game_record_tables gr ON gr.game_id = gpr.game_id
+            INNER JOIN game_replays r ON r.game_id = gr.replay_id
             WHERE gpr.game_id IN ({placeholders})
             ORDER BY gr.created_at DESC, gpr."rank", gpr.original_player_index NULLS LAST, gpr.score DESC
             """,

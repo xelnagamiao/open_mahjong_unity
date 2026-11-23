@@ -39,7 +39,7 @@ public class RecordPrefab : MonoBehaviour {
     [SerializeField] private Button FavoriteButton;
 
     private string gameId;
-    private PlayerRecordInfo[] playersInfo;
+    private RecordPanel listOwner;
     private bool isFavorite;
     private bool favoriteRequestPending;
     private bool localPlayback;
@@ -47,9 +47,31 @@ public class RecordPrefab : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI[] additionalRanks, additionalNames, additionalScores;
     private readonly System.Collections.Generic.Dictionary<RectTransform, Vector2[]> originalPlayerRects = new System.Collections.Generic.Dictionary<RectTransform, Vector2[]>();
     private readonly System.Collections.Generic.Dictionary<TMP_Text, TextAlignmentOptions> originalPlayerAlignment = new System.Collections.Generic.Dictionary<TMP_Text, TextAlignmentOptions>();
+    private readonly System.Collections.Generic.Dictionary<TMP_Text, (Color color, bool richText)> originalPlayerStyles = new();
     private bool pairedLayoutActive, playerLayoutDirty;
+    private TextMeshProUGUI[] rankLabels, nameLabels, scoreLabels;
 
     public string GameId => gameId;
+
+    private void CachePlayerLabels() {
+        if (rankLabels != null) return;
+        rankLabels = new[] { Rank1Text, Rank2Text, Rank3Text, Rank4Text };
+        nameLabels = new[] { Username1Text, Username2Text, Username3Text, Username4Text };
+        scoreLabels = new[] { Score1Text, Score2Text, Score3Text, Score4Text };
+    }
+
+    // Called only for an unbound card, before its text components are enabled for the first time.
+    public void PrepareEmptyShell() {
+        CachePlayerLabels();
+        RecordIdText.text = MatchTypeText.text = RecordedTimeText.text = "";
+        if (RuleText.TryGetComponent<LocalizedPlatformLabel>(out var rule)) rule.SetSource("");
+        else RuleText.text = "";
+        for (int i = 0; i < rankLabels.Length; i++)
+            rankLabels[i].text = nameLabels[i].text = scoreLabels[i].text = "";
+        if (MatchOutcomeText) MatchOutcomeText.gameObject.SetActive(false);
+        if (additionalRows != null)
+            foreach (var row in additionalRows) row.SetActive(false);
+    }
 
     public void InitializeRecordItem(
         string gameId,
@@ -67,13 +89,16 @@ public class RecordPrefab : MonoBehaviour {
         }, localPlayback);
     }
 
-    public void BindRecord(RecordInfo record, bool localPlayback = false) {
+    public void BindRecord(RecordInfo record, bool localPlayback = false) => BindRecord(record, localPlayback, null);
+
+    public void BindRecord(RecordInfo record, bool localPlayback, RecordPanel owner) {
+        if (gameId != record.game_id || this.localPlayback != localPlayback || listOwner != owner)
+            favoriteRequestPending = false;
+        listOwner = owner;
         gameId = record.game_id;
         var players = record.players;
         var matchSummary = record.match_summary;
-        this.playersInfo = players;
         isFavorite = record.is_favorite;
-        this.favoriteRequestPending = false;
         this.localPlayback = localPlayback;
 
         RecordIdText.text = gameId;
@@ -86,31 +111,32 @@ public class RecordPrefab : MonoBehaviour {
         MatchTypeText.text = matchTypeDisplay;
         RecordedTimeText.text = record.created_at;
 
-        TextMeshProUGUI[] rankTexts = { Rank1Text, Rank2Text, Rank3Text, Rank4Text };
-        TextMeshProUGUI[] usernameTexts = { Username1Text, Username2Text, Username3Text, Username4Text };
-        TextMeshProUGUI[] scoreTexts = { Score1Text, Score2Text, Score3Text, Score4Text };
+        CachePlayerLabels();
+        var rankTexts = rankLabels;
+        var usernameTexts = nameLabels;
+        var scoreTexts = scoreLabels;
 
-        if (players != null) {
-            var sortedPlayers = System.Array.FindAll(players, p => p != null);
-            System.Array.Sort(sortedPlayers, (a, b) => {
-                int rankCmp = a.rank.CompareTo(b.rank);
-                if (rankCmp != 0) return rankCmp;
-                int origA = a.original_player_index ?? int.MaxValue;
-                int origB = b.original_player_index ?? int.MaxValue;
-                return origA.CompareTo(origB);
-            });
-            players = sortedPlayers;
-            for (int i = 0; i < 4; i++) {
-                if (i < players.Length) {
-                    rankTexts[i].text = subRule == "sichuan/doubles_duplicate" || subRule == "sichuan/xueliu_doubles_duplicate"
-                        ? "—" : $"{players[i].rank}位";
-                    usernameTexts[i].text = players[i].username;
-                    scoreTexts[i].text = players[i].score >= 0 ? $"+{players[i].score}" : players[i].score.ToString();
-                } else {
-                    rankTexts[i].text = "";
-                    usernameTexts[i].text = "";
-                    scoreTexts[i].text = "";
-                }
+        var sortedPlayers = players == null ? System.Array.Empty<PlayerRecordInfo>() : System.Array.FindAll(players, p => p != null);
+        System.Array.Sort(sortedPlayers, (a, b) => {
+            int rankCmp = (a.rank ?? int.MaxValue).CompareTo(b.rank ?? int.MaxValue);
+            if (rankCmp != 0) return rankCmp;
+            int origA = a.original_player_index ?? int.MaxValue;
+            int origB = b.original_player_index ?? int.MaxValue;
+            return origA.CompareTo(origB);
+        });
+        players = sortedPlayers;
+        for (int i = 0; i < 4; i++) {
+            if (i < players.Length) {
+                var rank = players[i].rank;
+                var score = players[i].score;
+                rankTexts[i].text = subRule == "sichuan/doubles_duplicate" || subRule == "sichuan/xueliu_doubles_duplicate"
+                    || !rank.HasValue ? "—" : $"{rank.Value}位";
+                usernameTexts[i].text = players[i].username;
+                scoreTexts[i].text = !score.HasValue ? "—" : score.Value >= 0 ? $"+{score.Value}" : score.Value.ToString();
+            } else {
+                rankTexts[i].text = "";
+                usernameTexts[i].text = "";
+                scoreTexts[i].text = "";
             }
         }
 
@@ -122,16 +148,19 @@ public class RecordPrefab : MonoBehaviour {
     private void ApplyMatchSummary(Newtonsoft.Json.Linq.JObject summary) {
         bool paired = summary?["tables"]?["closed"] != null && additionalRows != null && additionalRows.Length == 2;
         if (additionalRows == null || additionalRows.Length != 2) return;
-        foreach (var row in additionalRows) row.SetActive(paired);
+        if (!paired) foreach (var row in additionalRows) row.SetActive(false);
         float height = 210;
         var rect = (RectTransform)transform;
-        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        if (!Mathf.Approximately(rect.rect.height, height))
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
         var layout = GetComponent<LayoutElement>();
         if (layout != null) layout.minHeight = layout.preferredHeight = height;
         var body = (RectTransform)transform.Find("Container");
-        body.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height - 66);
+        if (!Mathf.Approximately(body.rect.height, height - 66))
+            body.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height - 66);
         var divider = body.Find("Players/PlayerColumnDivider") as RectTransform;
-        if (divider != null) divider.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 112);
+        if (divider != null && !Mathf.Approximately(divider.rect.height, 112)) divider.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 112);
+        bool restoreSingleTableLayout = pairedLayoutActive && !paired;
         pairedLayoutActive = paired;
         if (MatchOutcomeText != null) {
             MatchOutcomeText.gameObject.SetActive(paired);
@@ -143,11 +172,17 @@ public class RecordPrefab : MonoBehaviour {
             MatchOutcomeText.color = outcome == "蓝胜" ? new Color32(128,194,255,255)
                 : outcome == "红胜" ? new Color32(255,152,158,255) : Color.white;
         }
-        if (!paired) LayoutPlayerRows(false);
+        if (restoreSingleTableLayout) {
+            LayoutPlayerRows(false);
+            foreach (var previous in originalPlayerStyles) {
+                previous.Key.color = previous.Value.color;
+                previous.Key.richText = previous.Value.richText;
+            }
+        }
         if (!paired) return;
-        var ranks = new[] {Rank1Text,Rank2Text,Rank3Text,Rank4Text};
-        var names = new[] {Username1Text,Username2Text,Username3Text,Username4Text};
-        var scores = new[] {Score1Text,Score2Text,Score3Text,Score4Text};
+        var ranks = rankLabels;
+        var names = nameLabels;
+        var scores = scoreLabels;
         var personalImp = summary?["personal_imp"] as Newtonsoft.Json.Linq.JObject ?? PersonalImpSummary.Build(summary);
         for (int table=0;table<2;table++) {
             string id=table==0?"open":"closed";
@@ -157,6 +192,8 @@ public class RecordPrefab : MonoBehaviour {
                 var rank=table==0?ranks[seat]:additionalRanks[seat];
                 var name=table==0?names[seat]:additionalNames[seat];
                 var score=table==0?scores[seat]:additionalScores[seat];
+                if (!originalPlayerStyles.ContainsKey(name)) originalPlayerStyles.Add(name, (name.color, name.richText));
+                if (!originalPlayerStyles.ContainsKey(score)) originalPlayerStyles.Add(score, (score.color, score.richText));
                 rank.text="";
                 name.richText=false; name.text=player?.username ?? "暂无数据";
                 score.text=player==null?"—":PersonalImpSummary.ScoreText(personalImp,id,seat);
@@ -165,21 +202,24 @@ public class RecordPrefab : MonoBehaviour {
                 name.color=score.color=color;
             }
         }
-        LayoutPlayerRows(true);
+        foreach (var row in additionalRows) row.SetActive(true);
+        playerLayoutDirty = true;
+        FinishPendingLayout();
     }
 
     private void OnRectTransformDimensionsChange() => playerLayoutDirty = true;
     private void OnEnable() { PlatformTypography.Changed += MarkPlayerLayoutDirty; ConfigManager.OnLanguageChanged += MarkPlayerLayoutDirty; }
     private void OnDisable() { PlatformTypography.Changed -= MarkPlayerLayoutDirty; ConfigManager.OnLanguageChanged -= MarkPlayerLayoutDirty; }
     private void MarkPlayerLayoutDirty() => playerLayoutDirty = true;
-    private void LateUpdate() {
-        if (pairedLayoutActive && playerLayoutDirty) LayoutPlayerRows(true);
+    private void LateUpdate() => FinishPendingLayout();
+    public void FinishPendingLayout() {
+        if (pairedLayoutActive && playerLayoutDirty && isActiveAndEnabled) LayoutPlayerRows(true);
     }
 
     private void LayoutPlayerRows(bool paired) {
-        var ranks = new[] {Rank1Text,Rank2Text,Rank3Text,Rank4Text};
-        var names = new[] {Username1Text,Username2Text,Username3Text,Username4Text};
-        var scores = new[] {Score1Text,Score2Text,Score3Text,Score4Text};
+        var ranks = rankLabels;
+        var names = nameLabels;
+        var scores = scoreLabels;
         void Remember(RectTransform r) {
             if (!originalPlayerRects.ContainsKey(r)) originalPlayerRects[r] = new[] {r.anchorMin,r.anchorMax,r.anchoredPosition,r.sizeDelta};
         }
@@ -244,9 +284,15 @@ public class RecordPrefab : MonoBehaviour {
 
     private void LoadRecord() {
         if (localPlayback) {
-            LocalRecordStore.LoadAsync(gameId, local => {
+            if (listOwner) {
+                listOwner.OpenLocalRecord(gameId);
+                return;
+            }
+            string requestedId = gameId;
+            LocalRecordStore.LoadAsync(requestedId, local => {
+                if (!this || !isActiveAndEnabled || gameId != requestedId || !localPlayback) return;
                 if (local != null && local.record != null) {
-                    RecordPanel.OpenRecord(local, localPlayback: true);
+                    RecordPanel.RequestOpenRecord(local, localPlayback: true);
                     return;
                 }
                 NotificationManager.Instance.ShowTip("牌谱", false, "本机没有这份牌谱");
@@ -274,7 +320,11 @@ public class RecordPrefab : MonoBehaviour {
 
     private void ToggleFavorite() {
         if (localPlayback || favoriteRequestPending || string.IsNullOrEmpty(gameId)) return;
-        favoriteRequestPending = true;
+        if (listOwner) {
+            if (!listOwner.TryBeginFavoriteRequest(gameId)) return;
+        } else {
+            favoriteRequestPending = true;
+        }
         DataNetworkManager.Instance.UpdateRecordFavorite(gameId, !isFavorite);
     }
 

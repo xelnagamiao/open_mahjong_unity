@@ -48,7 +48,7 @@ def aggregate_daily_stats(db_manager, stat_date: date, max_online: int = None) -
         cursor = conn.cursor()
         date_expr_gr = _stat_date_expr("gr.created_at")
         cursor.execute(
-            f"SELECT COUNT(*) FROM game_records WHERE {_stat_date_expr('created_at')} = %s",
+            f"SELECT COUNT(*) FROM game_record_tables WHERE {_stat_date_expr('created_at')} = %s",
             (stat_date,),
         )
         game_count = int(cursor.fetchone()[0] or 0)
@@ -66,7 +66,7 @@ def aggregate_daily_stats(db_manager, stat_date: date, max_online: int = None) -
         cursor.execute(f"""
             SELECT COUNT(DISTINCT gpr.user_id)
             FROM game_player_records gpr
-            INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+            INNER JOIN game_record_tables gr ON gr.game_id = gpr.game_id
             WHERE {date_expr_gr} = %s
               AND gpr.user_id > %s
         """, (stat_date, REGISTERED_USER_ID_MIN))
@@ -253,7 +253,7 @@ def run_catchup_aggregation(
     try:
         cursor.execute(f"""
             SELECT stat_date FROM (
-                SELECT {_stat_date_expr('created_at')} AS stat_date FROM game_records
+                SELECT {_stat_date_expr('created_at')} AS stat_date FROM game_record_tables
                 UNION SELECT stat_date FROM daily_login_users
                 UNION SELECT stat_date FROM daily_online_cache
             ) source

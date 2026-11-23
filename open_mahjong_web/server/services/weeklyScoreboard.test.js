@@ -66,13 +66,13 @@ test('PostgreSQL weekly totals use settlement PT and Shanghai 04:00 boundaries',
     await db.query("SET LOCAL search_path = pg_temp; SET LOCAL TIME ZONE 'UTC'");
     await db.query(`
       CREATE TEMP TABLE users (user_id bigint, username text);
-      CREATE TEMP TABLE game_records (game_id text PRIMARY KEY, created_at timestamp);
+      CREATE TEMP TABLE game_record_tables (game_id text PRIMARY KEY, created_at timestamp);
       CREATE TEMP TABLE game_player_records (
         game_id text, user_id bigint, username text, room_type text, rule text,
         score int, pt_change numeric(12, 2)
       );
       INSERT INTO users VALUES (101, 'Current name');
-      INSERT INTO game_records VALUES
+      INSERT INTO game_record_tables VALUES
         ('before', '2026-09-18 03:59:59'), ('first', '2026-09-18 04:00:00'),
         ('during', '2026-09-24 12:00:00'), ('last', '2026-09-25 03:59:59'),
         ('today', '2026-09-25 04:00:00');

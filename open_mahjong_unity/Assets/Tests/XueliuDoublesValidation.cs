@@ -15,7 +15,8 @@ public static class XueliuDoublesValidation {
         const string sub = "sichuan/xueliu_doubles";
         Check(SichuanLobby.IsTeamMode(sub) && SichuanLobby.IsXueliu(sub) && SichuanLobby.IsExchange(sub), "双打血流路由");
         Check(!SichuanLobby.IsDoubles(sub), "不应用 SBR 提前结束");
-        Check(SichuanLobby.SubRules[3].Key == "sichuan/doubles" && SichuanLobby.SubRules[4].Key == sub, "已有子规则索引稳定");
+        Check(SichuanLobby.SubRules[3].Key == "sichuan/xueliu_exchange" &&
+            SichuanLobby.SubRules[4].Key == SichuanLobby.DoublesSubRule && SichuanLobby.SubRules[5].Key == sub, "换三张与双打的子规则索引");
         Check(ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(2, false, sub) == SichuanRoundLabel.Liuju, "两人胡后仍到流局");
         var hand = new List<int> {11,12,13,14,15,16,21,22,23,26,27,28,25};
         Check(SichuanTips.Tingpai(new TingpaiQuery { Hand=hand, SubRule=sub }).Contains(25), "十三张血流听牌");
@@ -38,19 +39,20 @@ public static class XueliuDoublesValidation {
         if (!Application.isPlaying) throw new InvalidOperationException("Play Mode required");
         var canvas = GameCanvas.Instance;
         var flags = System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
-        var info = new AskHandActionGBInfo { remaining_time=10, action_tick=1, action_list=new[] {"xueliu_exchange_three"},
+        var info = new AskHandActionGBInfo { player_index=2, remaining_time=10, action_tick=1, action_list=new[] {"xueliu_exchange_three"},
             xueliu_exchange=new XueliuExchangeInfo { stage=2, active_players=new[] {2,3}, teammate_suit=1 } };
         canvas.ShowXueliuTeamExchange(info);
-        var tip=(TMPro.TMP_Text)typeof(GameCanvas).GetField("dingqueTipText",flags).GetValue(canvas);
-        if (!tip.text.Contains("队友换出万牌")) throw new Exception("后手未看到队友花色");
+        TMPro.TMP_Text Text(string name) => (TMPro.TMP_Text)typeof(GameCanvas).GetField(name,flags).GetValue(canvas);
+        if (Text("sbrPromptText").text != "请选择换给队友的手牌" || !Text("sbrSelectionText").text.Contains("队友传来三张万牌"))
+            throw new Exception("后手选牌时未正确显示队友花色");
         info.action_list=Array.Empty<string>();
         info.xueliu_exchange.selection_done=true;
         canvas.ShowXueliuTeamExchange(info);
-        if (!tip.text.Contains("已提交") || !tip.text.Contains("西、北")) throw new Exception("已提交重连恢复错误");
+        if (Text("sbrPromptText").text != "已选好换给队友的手牌") throw new Exception("已提交重连恢复错误");
         var button=(UnityEngine.UI.Button)typeof(GameCanvas).GetField("dingqueWanButton",flags).GetValue(canvas);
         if (button.gameObject.activeSelf) throw new Exception("等待阶段可以重复提交");
         canvas.HideXueliuThrowThreeSelection();
-        return "Exchange panel: teammate suit, active seats, committed reconnect and disabled input verified";
+        return "Exchange panel: teammate suit, selection prompt, committed reconnect and disabled input verified";
     }
 
     public static string ValidateTeamBadges() {

@@ -66,7 +66,11 @@ def collect_subrule_fans(record, original_index, sub_rule):
         from .riichi.record_stats import analyze_riichi_record
         return (analyze_riichi_record(record, original_index) or {}).get("fan_stats", {})
     rule = definition["rule"]
-    mapping = _fan_mapping(rule)
+    if sub_rule == "new_chinese/sanhua":
+        from .statistics_fans import fan_names
+        mapping = fan_names(sub_rule)
+    else:
+        mapping = _fan_mapping(rule)
     if sub_rule == "changsha/exchange_six":
         mapping = {**mapping, **{name: name for name in ("十三将", "无对十三将", "全幺九", "报听", "明牌", "闷杠")}}
     from .guobiao.record_analyzer import _parse_hu_tick

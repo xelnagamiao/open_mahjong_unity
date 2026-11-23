@@ -226,8 +226,9 @@ def test_postgres_atomic_replacement_preserves_references_and_exact_sources(isol
     assert migrate_database(c,apply=True)["matches"] == 1
     assert migrate_database(c,apply=True)["status"] == "already_unified"
     with c,c.cursor() as cur:
-        cur.execute("SELECT game_id,record FROM game_records")
-        assert dict(cur.fetchall()) == {v["game_id"]:v["record"] for v in s.values()}
+        from .format import restore_source
+        cur.execute("SELECT t.game_id,r.record->'tables'->t.table_id FROM game_record_tables t JOIN game_replays r ON r.game_id=t.replay_id")
+        assert {sid:restore_source(t) for sid,t in cur.fetchall()} == {v["game_id"]:v["record"] for v in s.values()}
         cur.execute("SELECT f.note, t.table_id FROM fav f JOIN game_record_tables t USING(game_id)")
         assert cur.fetchone() == ("note","closed")
         cur.execute("SELECT record->'tables'->'closed'->'players'->0 FROM game_replays")
@@ -240,8 +241,9 @@ def test_postgres_atomic_replacement_preserves_references_and_exact_sources(isol
     assert recompute_database(c)["changed"] == 1
     assert recompute_database(c)["changed"] == 0
     with c,c.cursor() as cur:
-        cur.execute("SELECT game_id,record FROM game_records")
-        assert dict(cur.fetchall()) == {v["game_id"]:v["record"] for v in s.values()}
+        from .format import restore_source
+        cur.execute("SELECT t.game_id,r.record->'tables'->t.table_id FROM game_record_tables t JOIN game_replays r ON r.game_id=t.replay_id")
+        assert {sid:restore_source(t) for sid,t in cur.fetchall()} == {v["game_id"]:v["record"] for v in s.values()}
 
 
 def test_unchanged_singles_receipt_and_historical_revision_guard(isolated_postgres, tmp_path):
@@ -273,5 +275,39 @@ def test_unchanged_singles_receipt_and_historical_revision_guard(isolated_postgr
     assert migrate_database(c,receipt_out=receipt)["matches"] == 1
     assert migrate_database(c,apply=True,receipt=read_json(receipt))["reused"] == 1
     with c,c.cursor() as cur:
-        cur.execute("SELECT record FROM game_records")
+        cur.execute("SELECT record #> '{tables,main,payload}' FROM game_replays")
         assert cur.fetchone()[0] == payload
+
+
+def test_finalization_preserves_tables_blocks_unknown_dependencies_and_detects_drift(isolated_postgres, tmp_path):
+    c = isolated_postgres
+    with c, c.cursor() as cur:
+        cur.execute("INSERT INTO game_records(game_id,record) VALUES ('history',%s)", (Json({"game_title":{},"game_round":{}}),))
+    migrate_database(c,apply=True)
+    with c, c.cursor() as cur:
+        cur.execute("""CREATE FUNCTION replay_table_payload(jsonb) RETURNS jsonb LANGUAGE sql AS 'SELECT $1';
+            CREATE VIEW game_records AS SELECT game_id,replay_table_payload(record) AS record FROM game_replays;
+            CREATE VIEW game_record_metadata AS SELECT game_id FROM game_record_tables;
+            CREATE VIEW unknown_reader AS SELECT * FROM game_records""")
+    with pytest.raises(psycopg2.errors.DependentObjectsStillExist):
+        migrate_database(c,apply=True)
+    with c, c.cursor() as cur:
+        cur.execute("DROP VIEW unknown_reader")
+    path = tmp_path/"proof.json"
+    report = migrate_database(c,receipt_out=path)
+    assert set(report["would_retire"]) == {"game_records","game_record_metadata","replay_table_payload(jsonb)"}
+    with c, c.cursor() as cur:
+        cur.execute("""SELECT to_regclass('game_records') IS NOT NULL""")
+        assert cur.fetchone() == (True,)
+        cur.execute("""UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,corrupt}','true')""")
+    with pytest.raises(RecordConflict):
+        migrate_database(c,apply=True,receipt=read_json(path))
+    with c, c.cursor() as cur:
+        cur.execute("""UPDATE game_replays SET record=record #- '{tables,main,payload,game_title,corrupt}'""")
+    assert set(migrate_database(c,apply=True,receipt=read_json(path))["retired"]) == set(report["would_retire"])
+    assert migrate_database(c,apply=True)["retired"] == []
+    with c,c.cursor() as cur:
+        from .store import ensure_tables
+        ensure_tables(cur)
+        cur.execute("SELECT to_regclass('game_records'),to_regclass('game_record_metadata'),to_regprocedure('replay_table_payload(jsonb)')")
+        assert cur.fetchone() == (None,None,None)

@@ -72,6 +72,9 @@ def fan_names(sub_rule):
     if sub_rule == "guangdong/mil2023-doubles":
         from ..game_calculation.guangdong.scoring import FANS
         return _names([*(value[0] for value in FANS.values()), "鸡和"])
+    if sub_rule == "new_chinese/sanhua":
+        from ..game_calculation.sanhua.rules import VALUES
+        return _names(VALUES)
     if sub_rule == "new_chinese/standard":
         from ..game_calculation.new_chinese.rules import VALUES
         return _names(VALUES)

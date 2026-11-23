@@ -255,7 +255,7 @@ try {
         }
         # Resolve local packages again after each target's fresh source sync.
         $manifestPath = "$copy/Packages/manifest.json"
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        $manifest = Get-Content -LiteralPath "$source/Packages/manifest.json" -Raw | ConvertFrom-Json
         foreach ($dep in $manifest.dependencies.PSObject.Properties) {
             if ([string]$dep.Value -like 'file:*') {
                 $local = ([string]$dep.Value).Substring(5)
@@ -285,6 +285,11 @@ try {
         Write-Host "Building $($item.Target) -> $($item.Output)"
         $arguments = @('-batchmode', '-quit', '-projectPath', $copy)
         $arguments += @('-activeBuildProfile', $item.Profile, '-build', $item.Output, '-logFile', $log)
+        if ($item.Target -eq 'WebGL') {
+            $arguments = @('-batchmode', '-quit', '-projectPath', $copy, '-buildTarget', 'WebGL',
+                '-activeBuildProfile', $item.Profile, '-executeMethod', 'WebTextureProfileBuild.BuildWebGL',
+                '-omOutput', $item.Output, '-logFile', $log)
+        }
         if ($item.Target -in @('Android', 'AndroidHotUpdate')) {
             $method = if ($item.Target -eq 'Android') { 'AndroidContentBuild.BuildApk' } else { 'AndroidContentBuild.BuildContent' }
             $androidOutput = if ($item.Target -eq 'Android') { Split-Path $item.Output -Parent } else { $item.Output }
@@ -336,11 +341,9 @@ try {
                 throw "Unity exited with code $exitCode. See $log"
             }
             if (Test-Path -LiteralPath $log) {
-                # AndroidContentBuild checks API results for its auxiliary bundle
-                # exports and the final APK, then emits its own success marker.
-                # Unity can log Failure for a cached scene-bundle report with no
-                # errors; that auxiliary status must not override the final result.
-                if ($item.Target -notin @('Android','AndroidHotUpdate') -and
+                # The content builders check each AssetBundle and Player result
+                # before publishing. Only the ordinary Player build uses this log marker.
+                if ($item.Target -eq 'Windows' -and
                     (Select-String -LiteralPath $log -Pattern 'Build Finished, Result: Failure|Build completed with a result of .Failed' -Quiet)) {
                     $details = Select-String -LiteralPath $log -Pattern 'What went wrong:' -Context 0,3 | Select-Object -First 1
                     if ($details) { Write-Host $details.ToString() }
@@ -350,7 +353,8 @@ try {
             if (!(Test-Path -LiteralPath $artifact)) { throw "Missing output: $artifact" }
             # Incremental builds may reuse the launcher/template without changing its
             # timestamp. The fresh per-run Unity build result is authoritative.
-            $successPattern = if ($item.Target -in @('Android', 'AndroidHotUpdate')) { 'ANDROID_CONTENT_BUILD_SUCCEEDED' } else { 'Build Finished, Result: Success|Build completed with a result of .Succeeded' }
+            $successPattern = if ($item.Target -in @('Android', 'AndroidHotUpdate')) { 'ANDROID_CONTENT_BUILD_SUCCEEDED' }
+                elseif ($item.Target -eq 'WebGL') { 'WEB_TEXTURE_PROFILES_SUCCEEDED' } else { 'Build Finished, Result: Success|Build completed with a result of .Succeeded' }
             if (!(Test-Path -LiteralPath $log) -or !(Select-String -LiteralPath $log -Pattern $successPattern -Quiet)) {
                 throw "No explicit successful build result in Unity log: $log"
             }

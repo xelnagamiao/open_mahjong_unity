@@ -3,8 +3,8 @@ using UnityEngine;
 
 public partial class ConfigManager {
     public const int DefaultAvatarItemId = 2301;
-    public const int ReimuAvatarItemId = 2302;
-    public const int CirnoAvatarItemId = 2303;
+    public const int ReimuAvatarItemId = AvatarPortraitBackground.ReimuItemId;
+    public const int CirnoAvatarItemId = AvatarPortraitBackground.CirnoItemId;
     public static bool IsDevelopmentOnlyAvatar(int itemId) => itemId == ReimuAvatarItemId || itemId == CirnoAvatarItemId;
     private static readonly Dictionary<int, InventoryItem> inventoryCatalog = new Dictionary<int, InventoryItem>();
     private static readonly Dictionary<string, Sprite> inventorySprites = new Dictionary<string, Sprite>();
@@ -19,6 +19,10 @@ public partial class ConfigManager {
     public static Sprite GetInventoryIcon(InventoryItem item) {
         if (item == null || string.IsNullOrEmpty(item.icon_path)) return null;
         return LoadInventorySprite(item.icon_path);
+    }
+
+    public static void SetInventoryIcon(UnityEngine.UI.Image image, InventoryItem item) {
+        AvatarPortraitBackground.SetSprite(image, GetInventoryIcon(item), item?.item_id ?? 0);
     }
 
     private static Sprite LoadInventorySprite(string path) {
@@ -50,10 +54,15 @@ public partial class ConfigManager {
         return LoadInventorySprite("image/Profiles/" + profileId) ?? IosResourceCache.Load<Sprite>("image/Profiles/1");
     }
 
+    public static void SetProfilePortrait(UnityEngine.UI.Image image, int profileId) {
+        AvatarPortraitBackground.SetSprite(image, GetProfileSprite(profileId), profileId);
+    }
+
     public static bool SetProfilePortrait(UnityEngine.UI.RawImage image, int profileId, Color fallback, float alpha = 1f) {
         var sprite = profileId > 0 ? GetProfileSprite(profileId) : null;
         var texture = sprite ? sprite.texture : null;
         image.texture = texture;
+        AvatarPortraitBackground.Apply(image, texture ? profileId : 0);
         if (texture) {
             var pixels = sprite.textureRect;
             image.uvRect = new Rect(pixels.x / texture.width, pixels.y / texture.height,

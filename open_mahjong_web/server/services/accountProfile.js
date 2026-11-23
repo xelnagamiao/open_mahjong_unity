@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const { STATISTICS_RULES, subRuleSql, statsKeySql } = require('./statisticsCatalog');
 const RULES = new Map(STATISTICS_RULES.flatMap(row => [[row.key, row], [row.sub_rule, row]]));
 
@@ -34,7 +35,7 @@ async function getAccountProfile(db, userId, requestedYear, now = new Date()) {
       WHERE ${played} AND g.created_at >= $2::date AND g.created_at < $3::date + INTERVAL '1 day'
       GROUP BY 1 ORDER BY 1`, [userId, start, end]),
     db.query(`SELECT COALESCE(${statsKeySql(subRuleSql('p', 'g'))},${subRuleSql('p', 'g')},p.rule) AS rule,
-      COUNT(DISTINCT g.replay_id)::int AS games FROM game_player_records p JOIN game_record_metadata g USING(game_id)
+      COUNT(DISTINCT g.replay_id)::int AS games FROM game_player_records p JOIN ${tableTitles} g USING(game_id)
       WHERE p.user_id=$1 GROUP BY 1 ORDER BY games DESC,rule ASC LIMIT 6`, [userId]),
   ]);
   const days = activity.rows.map(row => ({ date: String(row.date).slice(0, 10), games: Number(row.games) }));

@@ -17,6 +17,7 @@ export function exchangeSixInfoAt(round, node) {
     if (t[0] === 'changsha_deal_dice') { info.dealDice = t[1]; info.forbidden = t[2] }
     if (t[0] === 'changsha_exchange_choice_start') {
       info.choicePhase = t[1] === 0 ? 'exchange_start_choice' : 'exchange_repeat_choice'
+      info.choiceSeconds = t[2] ?? 2
       info.choice = null
     }
     if (t[0] === 'changsha_exchange_decision') {
@@ -42,8 +43,8 @@ export function exchangeSixInfoAt(round, node) {
 }
 
 export function exchangeSixChoiceText(info) {
-  if (info.choicePhase === 'exchange_start_choice') return '开局选择：2秒内任意一家可选择不换'
-  if (info.choicePhase === 'exchange_repeat_choice') return '第二轮选择：最先提交生效，2秒无人选择则不换'
+  if (info.choicePhase === 'exchange_start_choice') return `开局选择：${info.choiceSeconds}秒内任意一家可选择不换`
+  if (info.choicePhase === 'exchange_repeat_choice') return `第二轮选择：最先提交生效，${info.choiceSeconds}秒无人选择则不换`
   const choice = info.choice
   if (!choice) return ''
   const actor = choice.seat == null ? '超时默认' : `${['东家', '南家', '西家', '北家'][choice.seat]}选择`

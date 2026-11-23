@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 internal sealed class NewChineseHand {
+    internal const int ExchangeMinimumFan = 15;
     internal static readonly int[] Faces = Enumerable.Range(1, 3).SelectMany(s => Enumerable.Range(1, 9).Select(r => s * 10 + r)).Concat(Enumerable.Range(41, 7)).ToArray();
     internal static readonly Dictionary<string, int> Values = new Dictionary<string, int> {
         {"大四喜之十八罗汉", 1800},
@@ -66,7 +67,8 @@ internal sealed class NewChineseHand {
         {"龙七对", 20},
         {"杠上杠", 15},
         {"三连杠", 200},
-        {"一色四同顺", 150}
+        {"一色四同顺", 150},
+        {"精五门", 50}
     };
     private static readonly HashSet<string> Limits = new HashSet<string> {
         "大四喜之十八罗汉",
@@ -221,10 +223,10 @@ internal sealed class NewChineseHand {
         bool closed = exposed.All(g => g.Kind == 'G'), allPungs = standard && seq.Length == 0;
         int quads = faces.Count(t => physical[t] + (t == tile ? 1 : 0) == 4 && !kongs.Contains(t));
         int winds = pungs.Count(t => t >= 41 && t <= 44), dragons = pungs.Count(t => t >= 45);
-        Add("大四喜之十八罗汉", Enumerable.Range(41, 4).All(kongs.Contains));
-        Add("十八罗汉", kongs.Count == 4); Add("三杠", kongs.Count == 3); Add("双杠", kongs.Count == 2); Add("杠", kongs.Count == 1);
-        Add("四暗刻单骑救主", dark == 4 && shape.Win < 0); Add("四暗刻", dark == 4);
-        Add("三暗刻", dark >= 3); Add("双暗刻", dark >= 2);
+        if (kongs.Count == 4) Add(Enumerable.Range(41, 4).All(kongs.Contains) ? "大四喜之十八罗汉" : "十八罗汉", true);
+        Add("三杠", kongs.Count == 3); Add("双杠", kongs.Count == 2); Add("杠", kongs.Count == 1);
+        Add("四暗刻单骑救主", dark == 4 && shape.Win < 0); Add("四暗刻", dark == 4 && shape.Win >= 0);
+        Add("三暗刻", dark == 3); Add("双暗刻", dark == 2);
         Add("清幺九", faces.All(Terminal) && !honors); Add("混幺九", faces.All(Terminal) && honors && suits.Length > 0);
         Add("字一色", suits.Length == 0); Add("清一色", suits.Length == 1 && !honors);
         Add("混一色", suits.Length == 1 && honors);
@@ -236,7 +238,6 @@ internal sealed class NewChineseHand {
         Add("三风刻", winds >= 3); Add("双风刻", winds >= 2); Add("大三元", dragons == 3);
         Add("小三元", dragons == 2 && shape.Pair >= 45 || seven && Enumerable.Range(45, 3).All(faces.Contains));
         Add("双箭刻", dragons >= 2); Add("全带幺", standard && Terminal(shape.Pair) && groups.All(g => g.Tiles.Any(Terminal)));
-        Add("门清", closed);
         Add("一色三同顺", seq.GroupBy(t => t).Any(g => g.Count() >= 3)); Add("一色四同顺", seq.Length == 4 && seq.Distinct().Count() == 1);
         Add("三同刻", Enumerable.Range(1, 9).Any(r => new[]{1,2,3}.All(s => pungs.Contains(s*10+r))));
         Add("三色三同顺", Enumerable.Range(2, 7).Any(r => new[]{1,2,3}.All(s => seq.Contains(s*10+r))));
@@ -244,6 +245,7 @@ internal sealed class NewChineseHand {
             int face = 10*suits[0]+r;
             return hidden[face]+(face == tile ? 1 : 0) >= (r == 1 || r == 9 ? 3 : 1);
         });
+        Add("门清", closed && standard && !gates && !Nine && dark != 4);
         if (gates) {
             bool exact = Enumerable.Range(1, 9).All(r => hidden[10*suits[0]+r] == (r == 1 || r == 9 ? 3 : 1));
             Add(exact ? "九宝莲灯之天衣无缝" : "九宝莲灯之准灯高挂", true);
@@ -255,7 +257,7 @@ internal sealed class NewChineseHand {
             }
         }
         if (shape.Kind == "orphans") Add(before.Distinct().Count()==13 ? "国士无双十三面" : "十三幺", true);
-        Add("四归一", quads == 1); Add("八归", quads == 2); Add("十二归", quads == 3);
+        Add("四归一", !seven && quads == 1); Add("八归", !seven && quads == 2); Add("十二归", !seven && quads == 3);
         if (seven) {
             Add("七福星", faces.Length == 7 && suits.Length == 0);
             int run = 0;
@@ -266,10 +268,16 @@ internal sealed class NewChineseHand {
                     run = Math.Max(current, run);
                 }
             }
-            Add("连四对", run >= 4); Add("连五对", run >= 5); Add("连六对", run >= 6); Add("连七对", run >= 7);
+            Add("连四对", run == 4); Add("连五对", run == 5); Add("连六对", run == 6); Add("连七对", run == 7);
             Add("龙七对", quads == 1); Add("双龙七对", quads == 2); Add("三龙七对", quads == 3);
             Add("双龙七对单骑救主", quads == 2 && hidden[tile] == 1);
             Add("三龙七对单骑救主", quads == 3 && hidden[tile] == 1);
+        }
+        if (flags.ContainsKey("五门齐") && flags.ContainsKey("全带幺") && flags.ContainsKey("三色三同顺")) {
+            flags.Remove("五门齐");
+            flags.Remove("全带幺");
+            flags.Remove("三色三同顺");
+            flags.Add("精五门", Values["精五门"]);
         }
         if (flags.ContainsKey("大四喜混幺九")) { flags.Remove("大四喜"); flags.Remove("混幺九"); }
         if (flags.ContainsKey("大四喜字一色")) { flags.Remove("大四喜"); flags.Remove("字一色"); }
@@ -299,8 +307,10 @@ internal sealed class NewChineseHand {
     };
 
     internal Result Score(int winning, string source, bool dealer = false, bool payerDealer = false,
-                          int chain = 0, bool afterKong = false, int visible = 0) {
+                          int chain = 0, bool afterKong = false, int visible = 0,
+                          int minimumFan = 0, bool exchangeThree = false) {
         bool self = source != "black" && source != "discard";
+        if (exchangeThree) minimumFan = ExchangeMinimumFan;
         Result best = null;
         foreach (int tile in Legal.OrderBy(t => t)) {
             if (source != "bao_draw" && tile != winning || !choices.TryGetValue((tile,self), out var list)) continue;
@@ -311,12 +321,14 @@ internal sealed class NewChineseHand {
                     if (Nine) Add("准听九");
                     else if (Legal.Count >= 3 && Legal.Count <= 8) Add(WaitNames[Legal.Count]);
                 }
-                if (visible >= 3) Add("绝张");
+                if (visible >= 3 || tile == winning && visible + hidden[tile] == 3 &&
+                    choice.shape.Kind != "orphans" && choice.shape.Win < 0) Add("绝张");
                 if (afterKong && (source == "self_draw" || source == "bao_draw")) Add("杠上开花");
-                if (chain >= 2) Add("杠上杠");
-                if (chain >= 3) Add("三连杠");
                 if (chain >= 4) Add("连四杠");
+                else if (chain == 3) Add("三连杠");
+                else if (chain == 2) Add("杠上杠");
                 int total=fans.Values.Sum(), grade=BaseFor(choice.shape,tile,source);
+                if (total < minimumFan && !(exchangeThree && (grade == 2 || grade == 3))) continue;
                 int high=Base[source][grade,0], low=Base[source][grade,1];
                 int points = source == "black" ? (dealer || payerDealer ? high : low) + total*(dealer ? 3 : 2)
                     : (dealer ? 3*high : high+2*low) + 3*total;

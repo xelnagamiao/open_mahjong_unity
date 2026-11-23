@@ -52,7 +52,7 @@ public static class PlatformFontAutomation
 
     public static void Changed(string[] paths)
     {
-        if (AndroidContentBuild.BuildingBootstrapPlayer || Applying || !paths.Any(Relevant)) return;
+        if (BundledGameBuild.BuildingBootstrap || Applying || !paths.Any(Relevant)) return;
         SessionState.SetBool(PendingKey, true);
         SessionState.SetString(ErrorKey, "");
         due = EditorApplication.timeSinceStartup + 8;
@@ -67,7 +67,7 @@ public static class PlatformFontAutomation
 
     static void Update()
     {
-        if (AndroidContentBuild.BuildingBootstrapPlayer || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling ||
+        if (BundledGameBuild.BuildingBootstrap || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling ||
             EditorApplication.isUpdating || BuildPipeline.isBuildingPlayer || Applying || ExternalEditorWork()) return;
         try
         {
@@ -227,7 +227,7 @@ public sealed class PlatformFontAutoBuild : IPreprocessBuildWithReport
     public int callbackOrder => -1000;
     public void OnPreprocessBuild(BuildReport report)
     {
-        if (AndroidContentBuild.BuildingBootstrapPlayer) return;
+        if (BundledGameBuild.BuildingBootstrap) return;
         PlatformFontAutomation.EnsureUpToDate();
         var failures=PlatformFontBuildValidation.ValidatePrefabs();
         if(failures.Length>0)throw new BuildFailedException("预制体固定文本缺字：\n"+string.Join("\n",failures));

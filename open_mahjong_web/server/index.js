@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 });
 
 // 数据库连接
-require('./config/database');
+const pool = require('./config/database');
 
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
@@ -53,7 +53,7 @@ const { createWindowLimiter, getClientIp } = require('./middleware/rateLimit');
 const { ensureAuditTable } = require('./utils/audit');
 const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
-const { ensureUserLadderPassColumns } = require('./utils/userLadderPass');
+const { ensureUserLadderPassColumns, ensureSponsorAmountColumn, ensureAdminNoteColumn } = require('./utils/userLadderPass');
 const { ensureUserRenameCountColumn } = require('./utils/userRenameCount');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
@@ -198,6 +198,19 @@ async function startServer() {
     console.log('用户特许入场字段已就绪');
   } catch (err) {
     console.error('用户特许入场字段初始化失败:', err);
+  }
+  try {
+    await ensureSponsorAmountColumn();
+    console.log('用户赞助金额字段已就绪');
+  } catch (err) {
+    console.error('用户赞助金额字段初始化失败:', err);
+  }
+  try {
+    await ensureAdminNoteColumn();
+    await pool.query("ALTER TABLE IF EXISTS ip_bans ADD COLUMN IF NOT EXISTS admin_note TEXT NOT NULL DEFAULT ''");
+    console.log('用户与 IP 封禁备注字段已就绪');
+  } catch (err) {
+    console.error('管理员备注字段初始化失败:', err);
   }
   try {
     await ensureUserRenameCountColumn();

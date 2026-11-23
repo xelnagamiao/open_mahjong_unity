@@ -3,6 +3,7 @@
     "room_name": "",
     "sub_rule": "new_chinese/standard",
     "game_round": 4,
+    "hepai_limit": 0,
     "starting_score": 0,
     "round_timer": 20,
     "step_timer": 5,

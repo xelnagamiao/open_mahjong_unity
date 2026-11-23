@@ -326,7 +326,7 @@ namespace Salasasa.DataLab
         public void Reload()
         {
             if(!initialized||!pageRoot.activeSelf)return;
-            StopRequests();InvalidateRecords();status.text="正在更新…";state="loading";if(homeJson==null)ClearMetrics();
+            StopRequests();InvalidateRecords();status.text="";state="loading";if(homeJson==null)ClearMetrics();
             if(fanStatistics)fanStatistics.RefreshSelection(true);
             if(RecordsVisible)EnsureRecords();
             if(useSnapshot){homeJson=snapshotHome.text;RenderStats();state="ready";status.text="平台数据 · 快照";return;}
@@ -336,7 +336,7 @@ namespace Salasasa.DataLab
         {
             var request=UnityWebRequest.Get(apiBase.TrimEnd('/')+ConfigManager.PlatformHomeStatsPath);homeRequest=request;request.timeout=12;yield return request.SendWebRequest();
             if(request.result==UnityWebRequest.Result.Success){
-                try{homeJson=request.downloadHandler.text;RenderStats();state="ready";status.text="更新于 "+DateTime.Now.ToString("HH:mm");}
+                try{homeJson=request.downloadHandler.text;RenderStats();state="ready";}
                 catch(Exception){homeJson=null;state="error";status.text="数据格式异常，请刷新重试";ClearMetrics();}
             }else{state="error";status.text=homeJson==null?"连接失败，请刷新重试":"更新失败 · 保留上次数据";if(homeJson==null)ClearMetrics();}
             request.Dispose();homeRequest=null;homeRoutine=null;

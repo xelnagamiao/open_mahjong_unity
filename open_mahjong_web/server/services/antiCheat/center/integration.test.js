@@ -1,4 +1,5 @@
 "use strict";
+const { replayDDL, insertReplay } = require('../../testFixtures/replay');
 const test = require("node:test"),
   assert = require("node:assert/strict"),
   crypto = require("crypto"),
@@ -35,7 +36,7 @@ async function setup(t) {
     await admin.query(`DROP DATABASE "${db}"`);
     await admin.end();
   });
-  await pool.query(`CREATE TABLE game_records(game_id text PRIMARY KEY,created_at timestamp,record jsonb);
+  await pool.query(`${replayDDL()};
     CREATE TABLE game_player_records(game_id text,user_id bigint,username text,original_player_index integer,score integer,rank integer,rule text,sub_rule text,room_type text,match_type text,match_tier text,event_id text);
     CREATE TABLE game_player_metrics(game_id text,user_id bigint,total_round_score integer,total_rounds integer);`);
   const launched = [];
@@ -44,10 +45,7 @@ async function setup(t) {
   const insert = async (id, stamp = "2026-11-10T12:00:00Z") => {
     const fixture = physicalWinningRecord(id),
       record = fixture.record;
-    await pool.query(
-      "INSERT INTO game_records VALUES($1,$2::timestamptz AT TIME ZONE 'Asia/Shanghai',$3)",
-      [id, stamp, JSON.stringify(record)],
-    );
+    await insertReplay(pool,[id,record,(await pool.query("SELECT ($1::timestamptz AT TIME ZONE 'Asia/Shanghai')::text AS stamp",[stamp])).rows[0].stamp]);
     for (let seat = 0; seat < 4; seat++) {
       const uid = record.game_title[`p${seat}_uid`],
         score = [-56, 72, -8, -8][seat];
@@ -95,10 +93,10 @@ test("directional revisions replace changed facts, isolate event evidence and re
   await x.insert("two","2026-11-11T12:00:00Z");await x.update();assert.equal(x.calls(),2);
   const two=(await x.center.listPairs({window_days:0})).items.find(p=>p.pair_key===first.pair_key);
   assert.equal(two.shared_games,2);assert.equal(two.feeding.RON.count,first.feeding.RON.count*2);
-  await x.pool.query("UPDATE game_records SET record=jsonb_set(record,'{game_title,correction}','1') WHERE game_id='one'");
+  await x.pool.query("UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,correction}','1') WHERE game_id='one'");
   assert.equal((await x.update()).changed_games,1);assert.equal(x.calls(),3);
   assert.equal((await x.center.pair(first.pair_key)).shared_games,2,"correction replaces contribution instead of doubling it");
-  await x.pool.query("DELETE FROM game_records WHERE game_id='two'");
+  await x.pool.query("DELETE FROM game_replays WHERE game_id='two'");
   assert.equal((await x.update()).deleted_games,1);
   assert.equal((await x.center.pair(first.pair_key)).shared_games,1);
   const old=(await x.pool.query(`SELECT payload FROM ${S}.published_pairs WHERE generation=$1 AND pair_key=$2`,[gen,first.pair_key])).rows[0].payload;
@@ -265,7 +263,7 @@ test(
     const x = await setup(t);
     await x.insert("duplicate-identity");
     await x.pool.query(
-      "UPDATE game_records SET record=jsonb_set(record,'{game_title,p1_uid}',record#>'{game_title,p0_uid}')",
+      "UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,p1_uid}',record#>'{tables,main,payload,game_title,p0_uid}')",
     );
     const first = await x.update();
     assert.equal(first.failed_games, 0);
@@ -289,7 +287,7 @@ test(
     const fixed =
       physicalWinningRecord("duplicate-identity").record.game_title.p1_uid;
     await x.pool.query(
-      "UPDATE game_records SET record=jsonb_set(record,'{game_title,p1_uid}',$1::jsonb)",
+      "UPDATE game_replays SET record=jsonb_set(record,'{tables,main,payload,game_title,p1_uid}',$1::jsonb)",
       [JSON.stringify(fixed)],
     );
     const next = await x.update();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -7,6 +8,64 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     public const string RuleId = "new_chinese", SubRule = "new_chinese/standard";
     public static NewChineseGameState Active => RuleRegistry.ActiveGameState as NewChineseGameState;
     public NewChineseInfo Info {get; private set;}
+    private int exchangeTick = -1;
+    private Coroutine baoPresentation;
+    private readonly Queue<(string suffix, Response response)> afterBao = new Queue<(string, Response)>();
+
+    public override bool HandleMessage(string suffix, Response response) {
+        if (suffix == "game_start") ClearBaoPresentation();
+        if (baoPresentation == null) return Dispatch(suffix, response);
+        afterBao.Enqueue((suffix, response));
+        return true;
+    }
+
+    private bool Dispatch(string suffix, Response response) {
+        var info = response.game_info?.new_chinese;
+        if (info != null && response.received_monotonic is double received) {
+            double now = System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
+            int delay = (int)Math.Max(0, (now - received) * 1000);
+            if (info.bao_remaining_ms is int remaining) info.bao_remaining_ms = Math.Max(0, remaining - delay);
+            info.exchange_remaining_ms = Math.Max(0, info.exchange_remaining_ms - delay);
+        }
+        int tick = response.game_info?.action_tick ?? 0;
+        if (info != null && suffix != "game_start" && tick > 0) {
+            bool exchange = info.phase == "waiting_exchange" || info.phase == "showing_exchange_choices" || info.phase == "receiving_exchange";
+            if (exchange && tick <= exchangeTick) return true;
+            exchangeTick = Math.Max(tick, exchangeTick);
+        }
+        return base.HandleMessage(suffix, response);
+    }
+
+    private void ShowBaoCaption(bool initial, float remainingSeconds) {
+        Clock.Clear("NewChineseBao");
+        var panel = EndLiujuPanel.Instance;
+        if (panel == null || remainingSeconds <= 0f) return;
+        panel.ShowTableCaption(initial ? "翻宝" : "换宝", remainingSeconds);
+        if (panel.IsShowingTableCaption)
+            baoPresentation = Manager.StartCoroutine(WaitForBaoCaption(panel));
+    }
+
+    private IEnumerator WaitForBaoCaption(EndLiujuPanel panel) {
+        while (panel != null && panel.IsShowingTableCaption) yield return null;
+        baoPresentation = null;
+        while (baoPresentation == null && afterBao.Count > 0) {
+            var message = afterBao.Dequeue();
+            Dispatch(message.suffix, message.response);
+        }
+    }
+
+    private void ClearBaoPresentation() {
+        if (baoPresentation != null) {
+            if (Manager != null) Manager.StopCoroutine(baoPresentation);
+            if (EndLiujuPanel.Instance?.IsShowingTableCaption == true)
+                EndLiujuPanel.Instance.ClearEndLiujuPanel();
+        }
+        baoPresentation = null;
+        afterBao.Clear();
+    }
+
+    public override bool IsSelfLocked => (Info?.declared != null && Session.SelfIndex >= 0 &&
+        Session.SelfIndex < Info.declared.Length) ? Info.declared[Session.SelfIndex] : SeatHasTag("self", tag => tag == "declared_ready");
 
     public override bool CanCutTile(int tileId) {
         var actions = Clock.AllowActionList;
@@ -28,7 +87,22 @@ public sealed class NewChineseGameState : TurnBasedGameState {
 
     protected override void OnRoundStarted(GameInfo info) {
         GameCanvas.Instance?.HideXueliuThrowThreeSelection();
+        GameCanvas.Instance?.ClearXueliuExchangePresentation();
         Accept(info);
+        exchangeTick = info?.action_tick ?? -1;
+        if (Info?.phase == "waiting_exchange") {
+            if (Info.exchange_outgoing != null && !Session.IsRealtimeSpectator) {
+                var hand = Info.exchange_outgoing;
+                GameCanvas.Instance?.RestoreSbrWaiting(hand,
+                    hand.Length == 3 ? "已选换牌，等待其他玩家…" : "已选不换，等待其他玩家…", anyThreeOptional: true);
+            } else exchangeTick--;
+        }
+        if (Info?.phase == "showing_exchange_choices")
+            GameCanvas.Instance?.ShowNewChineseExchangeChoices(Info, Mirror.IndexToPosition);
+        if (Info?.phase == "receiving_exchange" && !Session.IsRealtimeSpectator)
+            GameCanvas.Instance?.ShowSbrReceived(Info.exchange_incoming, 0, Info.exchange_remaining_ms * .001f);
+        if (Info?.phase == "showing_bao")
+            ShowBaoCaption(Info.bao_initial, (Info.bao_remaining_ms ?? 1000) * .001f);
         RefreshHints(info);
     }
 
@@ -40,7 +114,10 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     }
 
     protected override void OnAskHandAction(Response response) {
+        if (Info?.phase == "receiving_exchange") GameCanvas.Instance?.FinishNewChineseReceipt();
         Accept(response.game_info);
+        if (Info?.phase == "showing_exchange_choices" || Info?.phase == "receiving_exchange") return;
+        GameCanvas.Instance?.FinishNewChineseExchangeChoices();
         var ask = response.ask_hand_action_info;
         if (ask == null) return;
         if (Info?.phase == "waiting_exchange") {
@@ -65,8 +142,14 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     protected override void OnDoAction(Response response) {
         Accept(response.game_info);
         var words = response.do_action_info?.action_list;
+        if (words != null && words.Contains("new_chinese_exchange_choices")) {
+            GameCanvas.Instance?.HideNewChineseExchange();
+            GameCanvas.Instance?.ShowNewChineseExchangeChoices(Info, Mirror.IndexToPosition);
+            return;
+        }
         if (words != null && (words.Contains("new_chinese_exchange") || words.Contains("rob_kan")) &&
             response.game_info?.self_hand_tiles != null) {
+            GameCanvas.Instance?.FinishNewChineseExchangeChoices();
             GameCanvas.Instance?.HideNewChineseExchange();
             Manager.InitializeGame(true, "", response.game_info);
             return;
@@ -79,7 +162,7 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     protected override bool TryApplyFamilyWord(TableAction action, string word) {
         if (word == "new_chinese_bao_reveal" || word == "new_chinese_bao_change") {
             if (!action.Silent)
-                EndLiujuPanel.Instance?.ShowTableCaption(word == "new_chinese_bao_reveal" ? "翻宝" : "换宝");
+                ShowBaoCaption(word == "new_chinese_bao_reveal", (Info?.bao_remaining_ms ?? 1000) * .001f);
             return true;
         }
         return word == "declare_kan" || word == "rob_kan";
@@ -101,6 +184,8 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        ClearBaoPresentation();
+        GameCanvas.Instance?.ClearXueliuExchangePresentation();
         GameCanvas.Instance?.HideNewChineseExchange();
         GameCanvas.Instance?.ShowNewChineseStatus(null, Mirror.IndexToPosition, -1);
         Info = null;

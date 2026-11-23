@@ -6,7 +6,6 @@ using UnityEngine;
 public static class CenterDisplayStyles
 {
     public const string Classic = "classic";
-    public const string GraphiteImage = "graphite_image";
     public const string GraphiteImage2 = "graphite_image_2";
     public const string Default = GraphiteImage2;
     public const string OriginalFlat = "original_flat";
@@ -30,6 +29,11 @@ public static class CenterDisplayStyles
         internal Entry(string id, string name, int index) { Id = id; Name = name; Index = index; }
     }
 
+    private static readonly Dictionary<string, Texture2D> previews = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetPreviews() => previews.Clear();
+
     public static IReadOnlyList<Entry> All { get; } = Array.AsReadOnly(new[]
     {
         new Entry(Classic, "标准", 0),
@@ -44,7 +48,6 @@ public static class CenterDisplayStyles
         new Entry("ivory", "浅灰双框", 9),
         new Entry("violet", "紫灰双框", 10),
         new Entry(OriginalFlat, "蓝灰窄框", 11),
-        new Entry(GraphiteImage, "灰色凹槽", 12),
         new Entry(GraphiteImage2, "灰色凹槽 2", 13),
         new Entry(FlatFrame, "单框", 14),
         new Entry(FlatSeats, "席条", 15),
@@ -77,7 +80,29 @@ public static class CenterDisplayStyles
     }
 
     public static string Normalize(string id) => Get(id).Id;
+    // Numeric callers keep their original indices even when a style is retired.
+    public static string IdFromIndex(int index)
+    {
+        index = Mathf.Clamp(index, All[0].Index, All[All.Count - 1].Index);
+        foreach (var style in All)
+            if (style.Index == index) return style.Id;
+        return Default;
+    }
+
     public static int IndexOf(string id) => Get(id).Index;
-    public static Texture2D GetPreview(string id) => Resources.Load<Texture2D>(
-        "image/Board/CenterDisplay/" + Normalize(id) + "_preview");
+    public static Texture2D GetPreview(string id)
+    {
+        string key = Normalize(id);
+        if (previews.TryGetValue(key, out var cached) && cached != null) return cached;
+        var preview = Resources.Load<Texture2D>("image/Board/CenterDisplay/" + key + "_preview");
+        if (preview != null) previews[key] = preview;
+        return preview;
+    }
+
+    public static void ReleaseAllPreviews()
+    {
+        foreach (var preview in previews.Values)
+            if (preview != null) Resources.UnloadAsset(preview);
+        previews.Clear();
+    }
 }

@@ -105,11 +105,12 @@ STACKABLE_FANS = ["花牌", "四归一", "双同刻", "一般高", "喜相逢", 
 FAN_FIELDS = list(dict.fromkeys(FAN_NAME_TO_FIELD.values()))
 
 # 存储国标麻将游戏牌谱记录和玩家对局记录
-def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str):
+def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str,
+                              *, raise_on_pool_exhaustion=False):
     """Publish replay, metrics and currency through the shared atomic path."""
     from ..record_persistence import persist_game_record
     return persist_game_record(db_manager, game_record, player_list, room_type, match_type,
-                               generate_game_id, allow_duplicate=True)
+                               generate_game_id, allow_duplicate=True, raise_on_pool_exhaustion=raise_on_pool_exhaustion)
 
 # 存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
 def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_type: str, match_type: str, total_rounds: int):

@@ -30,6 +30,7 @@ internal static class WuhanRuleBootstrap {
             TileBadgeText = Badge, LiveVisibleIndicators = () => CurrentInfo?.indicator is int tile ? new[] { tile } : Array.Empty<int>(),
             HandJokerTiles = _ => WuhanPresentation.DisplayedInfo?.joker is int tile ? new[] { tile } : Array.Empty<int>(),
             PrepareHandDisplay = info => WuhanPresentation.Apply(info?.wuhan_info, false),
+            RoundIndicators = info => WuhanPresentation.Indicators(info?.wuhan_info),
             RecordHandJokerTiles = RecordJokers,
             VisibleMeldTiles = (code, self) => !self && code?.StartsWith("G") == true ? Array.Empty<int>() : null,
             FanValueText = (rule, name) => name == "风一色" ? "金顶" : name == "硬和" ? "1番" : "主3番\n叠1番",

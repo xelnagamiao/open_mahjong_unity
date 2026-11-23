@@ -28,8 +28,9 @@ public sealed class ShopPanel : MonoBehaviour {
     private UserDataManager user;
     private NetworkManager network;
     private Salasasa.Home.BakedModalFade fade;
-    private readonly List<ShopRow> rows = new List<ShopRow>();
-    private readonly List<ShopWalletRow> historyRows = new List<ShopWalletRow>();
+    private ViewportCardList<string, ShopRow> goodsList;
+    private ViewportCardList<long, ShopWalletRow> historyList;
+    private float goodsHeight, historyHeight;
     private readonly List<WalletEntry> entries = new List<WalletEntry>();
     private readonly List<long?> pageCursors = new List<long?> { null };
     private int historyPage;
@@ -38,7 +39,7 @@ public sealed class ShopPanel : MonoBehaviour {
     private string selectedId;
     private ShopCommand pending;
     private int openedUserId;
-    private bool busy, showingHistory, hasMore;
+    private bool busy, showingHistory, hasMore, hasCatalog, hasHistory;
     private Coroutine timeout;
     public bool IsOpen => gameObject.activeInHierarchy && !(fade && fade.IsClosing);
     private bool IsPurchase => pending != null && pending.type == "shop/purchase";
@@ -57,6 +58,11 @@ public sealed class ShopPanel : MonoBehaviour {
         quantityInput.contentType = TMP_InputField.ContentType.IntegerNumber;
         quantityInput.onValueChanged.AddListener(_ => UpdateControls());
         rowTemplate.gameObject.SetActive(false); historyTemplate.gameObject.SetActive(false);
+        goodsHeight = goodsContent.GetComponent<UnityEngine.UI.GridLayoutGroup>().cellSize.y;
+        historyHeight = historyTemplate.GetComponent<UnityEngine.UI.LayoutElement>().preferredHeight;
+        goodsList = new(goodsScroll, goodsContent, _ => Instantiate(rowTemplate, goodsContent), BindOffer);
+        historyList = new(historyScroll, historyContent, _ => Instantiate(historyTemplate, historyContent),
+            (row, index) => row.Bind(entries[index]));
     }
 
     private void OnEnable() {
@@ -81,10 +87,13 @@ public sealed class ShopPanel : MonoBehaviour {
         if (openedUserId != user.UserId) {
             openedUserId = user.UserId; pending = null; offers = Array.Empty<ShopOffer>();
             entries.Clear(); selectedId = null; showingHistory = false; hasMore = false;
+            hasCatalog = hasHistory = false;
             historyPage = 0; pageCursors.Clear(); pageCursors.Add(null); pendingHistoryPage = null;
         }
         quantityInput.SetTextWithoutNotify(IsPurchase ? pending.quantity.ToString() : "1");
-        Render();
+        // The language can change while this panel is closed and unsubscribed.
+        SyncRows(true);
+        RenderDetail(); UpdateControls();
         if (IsPurchase) Status("上次购买结果未确认，请重试原购买");
         else Refresh();
     }
@@ -92,15 +101,27 @@ public sealed class ShopPanel : MonoBehaviour {
     public void Close() { if (fade) fade.Hide(); else gameObject.SetActive(false); }
 
     private void LateUpdate() {
-        if (user != null && user.UserId != openedUserId) Close();
+        if (user != null && user.UserId != openedUserId) { Close(); return; }
+        if (showingHistory) historyList.Tick(); else goodsList.Tick();
     }
 
-    private void LanguageChanged() => Render();
-    private void Status(string source) => statusLabel.text = PlatformText.Get(source);
+    private void LanguageChanged() {
+        SyncRows(false);
+        RenderDetail(); UpdateControls();
+    }
+    internal static void SetLabelText(TMP_Text label, string value) {
+        if (label.text == value) return;
+        label.text = value;
+        // ScrollRect and currency icons can request geometry before the font binding's LateUpdate.
+        if (!string.IsNullOrEmpty(value) && label.TryGetComponent(out PlatformFontBinding binding))
+            binding.ApplyIfNeeded();
+    }
+    private void Status(string source) => SetLabelText(statusLabel, string.IsNullOrEmpty(source) ? string.Empty : PlatformText.Get(source));
     private void InventoryChanged() {
         if (user?.Inventory?.owned != null) foreach (var offer in offers)
             offer.owned_quantity = Array.Find(user.Inventory.owned, balance => balance.item_id == offer.item.item_id)?.quantity ?? 0;
-        for (int i = 0; i < Math.Min(rows.Count, offers.Length); i++) rows[i].RefreshOwned(offers[i].owned_quantity);
+        foreach (var offer in offers)
+            if (goodsList.TryGetVisible(offer.offer_id, out var row)) row.RefreshOwned(offer.owned_quantity);
         UpdateControls();
     }
 
@@ -108,7 +129,7 @@ public sealed class ShopPanel : MonoBehaviour {
         if (busy) return;
         if (IsPurchase) { SendPending(); return; }
         pending = new ShopCommand { type = "shop/get", request_id = Guid.NewGuid().ToString("N") };
-        Status("正在同步商店与萨拉币…"); SendPending();
+        Status(string.Empty); SendPending();
     }
 
     private void SendPending() {
@@ -137,8 +158,14 @@ public sealed class ShopPanel : MonoBehaviour {
         bool wasPurchase = IsPurchase;
         StopTimeout(); busy = false;
         if (response.success) {
-            if (response.shop_offers != null) offers = response.shop_offers.Where(offer => offer?.item != null && offer.unit_price_minor > 0).ToArray();
+            if (response.shop_offers != null) {
+                hasCatalog = true;
+                var seen = new HashSet<string>();
+                offers = response.shop_offers.Where(offer => offer?.item != null && offer.unit_price_minor > 0 &&
+                    !string.IsNullOrEmpty(offer.offer_id) && seen.Add(offer.offer_id)).ToArray();
+            }
             if (response.wallet_entries != null) {
+                hasHistory = true;
                 bool emptyNext = pageRequest && pendingHistoryPage > historyPage && response.wallet_entries.Length == 0;
                 if (!emptyNext) {
                     entries.Clear();
@@ -151,7 +178,8 @@ public sealed class ShopPanel : MonoBehaviour {
             pendingHistoryPage = null;
             pending = null;
             if (wasPurchase) quantityInput.SetTextWithoutNotify("1");
-            Render(); Status(wasPurchase ? "购买成功，物品已放入背包" : "");
+            SyncRows(pageRequest); RenderDetail(); UpdateControls();
+            Status(wasPurchase ? "购买成功，物品已放入背包" : "");
         } else {
             if (!response.commerce_retryable || !wasPurchase) pending = null;
             Status(response.message ?? "商店请求失败，请重新打开商店"); UpdateControls();
@@ -177,7 +205,7 @@ public sealed class ShopPanel : MonoBehaviour {
         if (quantity < 1 || quantity > MaxQuantity(selected) || selected.unit_price_minor * quantity > user.Wallet.balance_minor) return;
         pending = new ShopCommand { type = "shop/purchase", request_id = Guid.NewGuid().ToString("N"),
             offer_id = selected.offer_id, quantity = quantity, price_version = selected.price_version };
-        Status("正在购买…"); SendPending();
+        Status(string.Empty); SendPending();
     }
 
     private void More() {
@@ -198,19 +226,30 @@ public sealed class ShopPanel : MonoBehaviour {
         SendPending();
     }
 
-    private void Render() {
+    private void SyncRows(bool resetHistory) {
         if (selectedId == null || Selected == null) selectedId = offers.FirstOrDefault()?.offer_id;
-        foreach (var row in rows) { row.gameObject.SetActive(false); Destroy(row.gameObject); } rows.Clear();
+        string[] ids = Array.ConvertAll(offers, offer => offer.offer_id);
+        goodsList.SetRows(ids, _ => 0, _ => goodsHeight);
         foreach (var offer in offers) {
-            var row = Instantiate(rowTemplate, goodsContent); row.gameObject.SetActive(true);
-            row.Bind(offer, id => { selectedId = id; quantityInput.SetTextWithoutNotify("1"); RenderDetail(); UpdateControls(); }); rows.Add(row);
+            if (goodsList.TryGetVisible(offer.offer_id, out var row) && !row.Matches(offer))
+                goodsList.Invalidate(offer.offer_id);
         }
-        for (int i = 0; i < entries.Count; i++) {
-            if (i >= historyRows.Count) historyRows.Add(Instantiate(historyTemplate, historyContent));
-            historyRows[i].gameObject.SetActive(true); historyRows[i].Bind(entries[i]);
-        }
-        for (int i = entries.Count; i < historyRows.Count; i++) historyRows[i].gameObject.SetActive(false);
-        historyScroll.verticalNormalizedPosition = 1;
+        // History is paginated; an index also works for legacy entries without a unique ID.
+        long[] historyKeys = new long[entries.Count];
+        for (int i = 0; i < historyKeys.Length; i++) historyKeys[i] = i;
+        historyList.SetRows(historyKeys, _ => 0, _ => historyHeight, resetScroll: resetHistory);
+        foreach (var key in historyKeys) historyList.Invalidate(key);
+    }
+
+    private void BindOffer(ShopRow row, int index) {
+        var offer = offers[index];
+        row.Bind(offer, SelectOffer);
+        row.SetSelected(offer.offer_id == selectedId, !busy && !IsPurchase);
+    }
+
+    private void SelectOffer(string id) {
+        selectedId = id;
+        quantityInput.SetTextWithoutNotify("1");
         RenderDetail(); UpdateControls();
     }
 
@@ -218,33 +257,33 @@ public sealed class ShopPanel : MonoBehaviour {
         var selected = Selected; detailRoot.SetActive(selected != null && !showingHistory);
         if (selected == null) return;
         var item = selected.item;
-        detailName.text = PlatformText.Get(item.name); detailKind.text = PlatformText.Get(Kind(item));
-        detailDescription.text = PlatformText.Get(item.description ?? "");
-        // Resolve wrapping and auto-hiding before resetting a newly selected item's scroll position.
-        Canvas.ForceUpdateCanvases();
+        SetLabelText(detailName, PlatformText.Get(item.name));
+        SetLabelText(detailKind, PlatformText.Get(Kind(item)));
+        SetLabelText(detailDescription, PlatformText.Get(item.description ?? ""));
         descriptionScroll.StopMovement();
-        descriptionScroll.verticalNormalizedPosition = 1;
-        detailIcon.sprite = ConfigManager.GetInventoryIcon(item); detailIcon.enabled = detailIcon.sprite != null;
-        if (item.slot == "avatar_frame") AvatarFrameGraphic.Apply(detailIcon, item.item_id);
+        var content = descriptionScroll.content;
+        content.anchoredPosition = new Vector2(content.anchoredPosition.x, 0);
+        ConfigManager.SetInventoryIcon(detailIcon, item); detailIcon.enabled = detailIcon.sprite != null;
+        AvatarFrameGraphic.Apply(detailIcon, item.slot == "avatar_frame" ? item.item_id : -1);
         detailArtwork.gameObject.SetActive(!detailIcon.enabled); detailArtwork.SetKind(string.IsNullOrEmpty(item.slot) ? 2 : 3);
-        detailGlyph.text = PlatformText.Get(item.effect == "rename_credit" ? "名" : "礼"); detailGlyph.gameObject.SetActive(!detailIcon.enabled);
+        SetLabelText(detailGlyph, PlatformText.Get(item.effect == "rename_credit" ? "名" : "礼")); detailGlyph.gameObject.SetActive(!detailIcon.enabled);
     }
 
     private void UpdateControls() {
         if (!balanceLabel || user == null) return;
         var wallet = user.Wallet;
         balanceLabel.text = wallet == null ? "—" : Money(wallet.balance_minor);
-        earnedLabel.text = wallet == null ? PlatformText.Get("正在同步萨拉币") : PlatformText.Format("累计获得 {0}", Money(wallet.earned_minor));
+        SetLabelText(earnedLabel, wallet == null ? string.Empty : PlatformText.Format("累计获得 {0}", Money(wallet.earned_minor)));
         goodsRoot.SetActive(!showingHistory); historyRoot.SetActive(showingHistory);
         detailRoot.SetActive(Selected != null && !showingHistory);
         goodsTab.targetGraphic.color = showingHistory ? new Color(.25f,.25f,.25f) : new Color(.41f,.35f,.29f);
         historyTab.targetGraphic.color = showingHistory ? new Color(.41f,.35f,.29f) : new Color(.25f,.25f,.25f);
-        emptyGoods.gameObject.SetActive(offers.Length == 0 && !showingHistory);
-        emptyGoods.text = PlatformText.Get(busy ? "正在加载商品…" : "暂无上架商品");
-        emptyHistory.gameObject.SetActive(entries.Count == 0 && showingHistory);
+        emptyGoods.gameObject.SetActive(hasCatalog && offers.Length == 0 && !showingHistory);
+        if (emptyGoods.gameObject.activeSelf) SetLabelText(emptyGoods, PlatformText.Get("暂无上架商品"));
+        emptyHistory.gameObject.SetActive(hasHistory && entries.Count == 0 && showingHistory);
         moreButton.gameObject.SetActive(showingHistory); moreButton.interactable = hasMore && !busy && !IsPurchase;
         previousPageButton.gameObject.SetActive(showingHistory); previousPageButton.interactable = historyPage > 0 && !busy && !IsPurchase;
-        historyPageLabel.gameObject.SetActive(showingHistory); historyPageLabel.text = PlatformText.Format("第 {0} 页", historyPage + 1);
+        historyPageLabel.gameObject.SetActive(showingHistory); SetLabelText(historyPageLabel, PlatformText.Format("第 {0} 页", historyPage + 1));
         var selected = Selected;
         int quantity = Quantity, max = MaxQuantity(selected);
         bool allowed = !busy && !IsPurchase;
@@ -252,13 +291,14 @@ public sealed class ShopPanel : MonoBehaviour {
         decreaseButton.interactable = allowed && quantity > 1;
         increaseButton.interactable = allowed && quantity < max;
         if (selected != null) {
-            detailOwned.text = PlatformText.Format("已拥有 {0} 件", selected.owned_quantity);
-            detailPrice.text = PlatformText.Format("合计 {0}", Money(selected.unit_price_minor * Math.Max(0, quantity)));
+            SetLabelText(detailOwned, PlatformText.Format("已拥有 {0} 件", selected.owned_quantity));
+            SetLabelText(detailPrice, PlatformText.Format("合计 {0}", Money(selected.unit_price_minor * Math.Max(0, quantity))));
         }
-        for (int i = 0; i < rows.Count; i++) rows[i].SetSelected(i < offers.Length && offers[i] == selected, !busy && !IsPurchase);
+        foreach (var offer in offers)
+            if (goodsList.TryGetVisible(offer.offer_id, out var row)) row.SetSelected(offer == selected, !busy && !IsPurchase);
         bool registered = wallet != null && wallet.registered && !user.IsTourist;
         bool enough = selected != null && quantity >= 1 && quantity <= max && wallet != null && selected.unit_price_minor * quantity <= wallet.balance_minor;
         buyButton.interactable = !busy && (IsPurchase || registered && enough);
-        buyLabel.text = PlatformText.Get(busy ? "正在处理…" : IsPurchase ? "重试原购买" : !registered ? "游客无法购买物品" : max == 0 ? "已拥有" : !enough ? "萨拉币不足或数量无效" : "购买");
+        SetLabelText(buyLabel, PlatformText.Get(busy ? "正在处理…" : IsPurchase ? "重试原购买" : !registered ? "游客无法购买物品" : max == 0 ? "已拥有" : !enough ? "萨拉币不足或数量无效" : "购买"));
     }
 }

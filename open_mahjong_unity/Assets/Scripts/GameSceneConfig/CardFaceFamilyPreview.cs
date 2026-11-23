@@ -47,6 +47,7 @@ public sealed partial class CardFaceFamilyPreview : MonoBehaviour
         TileFaceResolver.OnPackChanged -= Refresh;
         HandSurfaceLibrary.Changed -= Refresh;
         Commit();
+        ReleasePreview();
     }
     void OnApplicationQuit() => Commit();
     void Update() {
@@ -91,6 +92,7 @@ public sealed partial class CardFaceFamilyPreview : MonoBehaviour
     public void Show(int selectedFamily) {
         Commit();
         if (tileEditor != null) tileEditor.Close();
+        if (selectedFamily != family) ReleasePreview();
         family = selectedFamily;
         editingPack = family == 1 ? FixedFacePack.Hongque : family == 2 ? FixedFacePack.Expanded : null;
         bool special = family != 0;
@@ -106,6 +108,22 @@ public sealed partial class CardFaceFamilyPreview : MonoBehaviour
         tableScroll.StopMovement(); tableScroll.verticalNormalizedPosition = 1f;
         if (readingArea != null) readingArea.ShowFamily(family);
         Refresh();
+    }
+
+    void ReleasePreview() {
+        if (family == 0) return;
+        if (optionArtwork) optionArtwork.sprite = null;
+        if (optionBackground) optionBackground.sprite = null;
+        if (hongqueHandTemplate && readingArea) {
+            foreach (var gallery in galleries) gallery?.Clear();
+        } else {
+            var entries = family == 1 ? hongqueEntries : expandedEntries;
+            if (entries != null) foreach (var entry in entries) {
+                if (entry.slot) entry.slot.ClearArtwork();
+                if (entry.tableSlot) entry.tableSlot.ClearArtwork();
+            }
+        }
+        FixedFacePack.ReleasePreview(family == 1);
     }
 
     void Refresh() {

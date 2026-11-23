@@ -18,11 +18,13 @@ function setMeta(attribute, name, content) {
 export function applyRouteHead(route, locale, translate) {
   const page = staticPageForPath(route.path)
   const copy = localizedRouteCopy(route.path, locale)
-  const title = page?.title || copy?.title || (route.path.startsWith('/admin') ? route.meta.title : translate(route.meta.title || SITE.name))
+  const isAdmin = route.meta.publicAdmin || route.meta.requiresAdmin
+  const title = page?.title || copy?.title || (isAdmin ? route.meta.title : translate(route.meta.title || SITE.name))
   const description = page?.description || copy?.description || translate(route.meta.description || '')
   const canonicalUrl = SITE.domain + (page?.path || route.path)
   document.title = title
   document.documentElement.lang = page?.locale || locale
+  document.head.querySelector('link[rel="icon"]')?.setAttribute('href', isAdmin ? '/admin-logo.svg' : '/logo.svg')
   setMeta('name', 'description', description)
   setMeta('name', 'keywords', page ? null : translate(route.meta.keywords || ''))
   setMeta('name', 'robots', route.meta.noindex ? 'noindex,nofollow' : 'index,follow')

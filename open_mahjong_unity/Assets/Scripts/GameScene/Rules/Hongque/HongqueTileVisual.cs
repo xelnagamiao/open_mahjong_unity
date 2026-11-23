@@ -19,6 +19,7 @@ public static class HongqueTileVisual {
     };
     private static readonly Dictionary<int, Texture2D> TableTextureCache = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Sprite> SpriteCache = new Dictionary<int, Sprite>();
+    private static readonly HashSet<int> GeneratedHandIds = new HashSet<int>();
     private static bool texturesPreloaded;
 
     public static bool IsHongqueId(int tileId) {
@@ -61,23 +62,38 @@ public static class HongqueTileVisual {
     /// 虹雀有 126 张不同牌面。若在每次摸牌/出牌时才同步 Resources.Load，
     /// 首次出现的新牌面会在主线程产生明显卡点；开局一次性预热后，实战只查字典。
     /// </summary>
-    public static void PreloadAllTextures() {
-        if (texturesPreloaded) return;
-        foreach (int tileId in TilePackIds.HongqueFaceIds) LoadSprite(tileId);
+    public static void PreloadAllTextures() => ReplayFrameLoader.Finish(PrepareHandSprites());
+
+    internal static System.Collections.IEnumerable PrepareHandSprites() {
+        if (texturesPreloaded) yield break;
+        foreach (int tileId in TilePackIds.HongqueFaceIds) {
+            LoadSprite(tileId);
+            yield return null;
+        }
         texturesPreloaded = true;
     }
 
-    public static Sprite LoadSprite(int tileId) {
+    public static Sprite LoadSprite(int tileId) => LoadSprite(tileId, true);
+
+    // A settings preview may share a live game's sprite, but must not pin the entire gallery in its cache.
+    internal static Sprite LoadSprite(int tileId, bool cacheForGame) {
         if (!IsHongqueId(tileId)) return null;
         if (SpriteCache.TryGetValue(tileId, out Sprite cached) && cached != null) return cached;
         Sprite sprite = tileId >= 1141 ? CreateColourlessHand(tileId) : null;
         if (sprite == null) sprite = BuiltinTileSprites.Hand("hongque", ToCode(tileId));
-        if (sprite != null) CacheHandSprite(tileId, sprite);
+        // SpriteAtlas has no authored mip bias; retain the original hand import setting.
+        if (sprite != null) {
+            sprite.texture.mipMapBias = -.5f;
+            if (cacheForGame) {
+                SpriteCache[tileId] = sprite;
+                if (tileId >= 1141 && sprite.texture != null) GeneratedHandIds.Add(tileId);
+            }
+        }
         return sprite;
     }
 
     private static Sprite CreateColourlessHand(int tileId) {
-        var source = LoadTableTexture(tileId);
+        var source = Resources.Load<Texture2D>(TableResourcePath(tileId));
         var reference = BuiltinTileSprites.Hand("hongque", "AX1");
         var shader = Resources.Load<Shader>("Hongque/ColourlessHand");
         if (source == null || reference == null || shader == null) return null;
@@ -103,9 +119,21 @@ public static class HongqueTileVisual {
         }
     }
 
-    private static void CacheHandSprite(int tileId, Sprite sprite) {
-        // SpriteAtlas has no authored mip bias; retain the original hand import setting.
-        sprite.texture.mipMapBias = -0.5f;
-        SpriteCache[tileId] = sprite;
+    /// <summary>释放已结束虹雀牌谱独占的缓存。挂起牌谱不会调用此方法。</summary>
+    internal static void ReleaseGameCache() {
+        foreach (int tileId in GeneratedHandIds) {
+            if (SpriteCache.TryGetValue(tileId, out Sprite sprite) && sprite != null) {
+                Texture2D texture = sprite.texture;
+                UnityEngine.Object.Destroy(sprite);
+                if (texture != null) UnityEngine.Object.Destroy(texture);
+            }
+            SpriteCache.Remove(tileId);
+        }
+        GeneratedHandIds.Clear();
+        SpriteCache.Clear();
+        TableTextureCache.Clear();
+        texturesPreloaded = false;
+        BuiltinTileSprites.ReleaseHongqueHandCache();
     }
+
 }

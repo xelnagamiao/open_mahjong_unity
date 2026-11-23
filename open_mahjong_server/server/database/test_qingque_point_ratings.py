@@ -60,7 +60,6 @@ def replay_db(db):
         created_at TIMESTAMPTZ DEFAULT NOW(),fan_stats JSONB,PRIMARY KEY(game_id,user_id));""")
     conn = db._get_connection()
     with conn.cursor() as cur:
-        cur.execute("DROP TABLE game_records")  # Empty rating-only fixture.
         ensure_match_record_tables(cur)
         ensure_schema(cur)
         ensure_inventory_tables(cur)
@@ -99,7 +98,7 @@ def test_restart_settles_last_complete_hand_publishes_replay_and_statistics_once
     assert replay_db.sql('SELECT game_type,total_rounds FROM game_player_metrics') == [('unlimited',1)]*4
     recover_checkpoints(replay_db, include_open=True)
     assert finish_checkpoint(replay_db, 'durable-game')[1] == cloud_id
-    assert replay_db.sql('SELECT count(*) FROM game_records') == [(1,)]
+    assert replay_db.sql('SELECT count(*) FROM game_record_tables') == [(1,)]
     assert replay_db.sql('SELECT games FROM rule_ratings') == [(1,)]*4
 
 

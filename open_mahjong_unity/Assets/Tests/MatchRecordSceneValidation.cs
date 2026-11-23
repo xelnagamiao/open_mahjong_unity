@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using UnityEngine.EventSystems;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -24,6 +26,37 @@ public static class MatchRecordSceneValidation {
         phase.value = 0;
         Check(Button("GoOpen").gameObject.activeInHierarchy && Button("GoClosed").gameObject.activeInHierarchy, "both complete navigation buttons are visible");
         Check(!Button("GoOpen").interactable && Button("GoClosed").interactable, "current table button is disabled");
+        var fold = Button("ToggleMatchControls");
+        var foldLabel = fold.GetComponentInChildren<TMP_Text>();
+        Color roomLabelColor = Button("GoOpen").GetComponentInChildren<TMP_Text>().color;
+        Check(foldLabel.color == roomLabelColor && HasReadableColors(fold, foldLabel.color),
+            "collapse button uses the room label color and has contrast in all five button states");
+        var bar = (RectTransform)fold.transform.parent;
+        Check(bar.Find("MatchStatus") == null, "paired toolbar has no playback annotation");
+        float expandedWidth = bar.rect.width;
+        Vector3 foldPosition = fold.transform.position;
+        phase.value = 1;
+        int nodeBeforeFolding = manager.currentNode;
+        phase.Show();
+        Check(phase.IsExpanded, "draw phase menu opens");
+        Click(fold);
+        Check(!phase.IsExpanded, "fold click closes the open menu in the same step");
+        Check(foldLabel.color == roomLabelColor && HasReadableColors(fold, foldLabel.color),
+            "expand label retains the room label color and contrast");
+        Check(bar.rect.width < expandedWidth && Vector3.Distance(fold.transform.position, foldPosition) < 0.01f,
+            "folded toolbar leaves its handle in place");
+        Check(bar.Cast<Transform>().Count(child => child.gameObject.activeSelf) == 1 && fold.gameObject.activeInHierarchy,
+            "only the expand button stays visible");
+        Click(fold);
+        Check(Mathf.Approximately(bar.rect.width, expandedWidth) && phase.gameObject.activeInHierarchy && phase.value == 1
+            && compare.isOn && manager.currentNode == nodeBeforeFolding, "expanding preserves phase, mode and replay position");
+        phase.Show();
+        Click(Button("IndependentProgress"));
+        Check(!phase.IsExpanded && !compare.isOn && !phase.gameObject.activeInHierarchy,
+            "independent mode receives the first click while the draw phase menu is open");
+        Click(compare);
+        Check(compare.isOn && phase.gameObject.activeInHierarchy, "compare mode is reachable after releasing the blocker");
+        phase.value = 0;
         var actions = (JArray)manager.MatchSession.Table("open")["round_meta"]["round_index_1"]["action_meta"];
         int sourceNode = -1, targetNode = -1, sourceSeat = -1;
         for (int i = 0; i < actions.Count; i++) {
@@ -108,6 +141,36 @@ public static class MatchRecordSceneValidation {
         Check(!GameSessionGuard.IsSpectatorSession && manager.MatchSession == null, "spectator exit releases all ownership");
         Check(RecordPanel.OpenRecord(detail, true), "record can reopen after spectator exit");
         return checks + " MainScene checks passed; aligned open node " + sourceNode + " to closed node " + targetNode;
+    }
+    private static bool HasReadableColors(Button button, Color foreground) {
+        float Luminance(Color color) {
+            var rgb = color.linear;
+            return 0.2126f * rgb.r + 0.7152f * rgb.g + 0.0722f * rgb.b;
+        }
+        var colors = button.colors;
+        var states = new[] { colors.normalColor, colors.highlightedColor, colors.pressedColor, colors.selectedColor, colors.disabledColor };
+        foreach (var state in states) {
+            var background = button.targetGraphic.color * state * colors.colorMultiplier;
+            if (foreground.a < 1f || background.a < 1f || (Luminance(background) + 0.05f) / (Luminance(foreground) + 0.05f) < 4.5f)
+                return false;
+        }
+        return true;
+    }
+
+    private static void Click(Selectable control) {
+        Canvas.ForceUpdateCanvases();
+        var rect = (RectTransform)control.transform;
+        var canvas = control.GetComponentInParent<Canvas>().rootCanvas;
+        var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        var pointer = new PointerEventData(EventSystem.current) {
+            position = RectTransformUtility.WorldToScreenPoint(camera, rect.TransformPoint(rect.rect.center)),
+            button = PointerEventData.InputButton.Left
+        };
+        var hits = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, hits);
+        var target = hits.Count > 0 ? ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject) : null;
+        if (target != control.gameObject) throw new InvalidOperationException("Pointer cannot reach " + control.name);
+        ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerClickHandler);
     }
 }
 #endif

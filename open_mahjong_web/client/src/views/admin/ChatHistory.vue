@@ -56,14 +56,16 @@
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
 import { onMounted, reactive, ref } from 'vue'
 import adminApi from '@/api/adminClient'
 import ChatConversation from './ChatConversation.vue'
 
-const filters = reactive({ kind: 'all', sender: '', keyword: '' })
-let applied
+const { saved, remember } = useAdminListState()
+const filters = reactive(saved.filters ?? { kind: 'all', sender: '', keyword: '' })
+let applied = { ...filters }
 const rows = ref([])
-const cursors = ref([null])
+const cursors = ref(saved.cursors ?? [null])
 const selected = ref(null)
 const hasMore = ref(false)
 const loading = ref(false)
@@ -84,6 +86,7 @@ function search() {
 }
 
 async function load(pages) {
+  remember({ filters: applied, cursors: [...pages] })
   const request = ++latest
   loading.value = true
   error.value = ''
@@ -102,7 +105,7 @@ async function load(pages) {
   }
 }
 
-onMounted(search)
+onMounted(() => load(cursors.value))
 </script>
 
 <style scoped>

@@ -31,7 +31,7 @@
 
     <el-card style="margin-top: 16px">
       <template #header>封禁列表</template>
-      <el-table :data="items" v-loading="loading" size="small">
+      <el-table row-key="id" :data="items" v-loading="loading" size="small">
         <el-table-column prop="ip_address" label="IP" min-width="140" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -44,7 +44,13 @@
           </template>
         </el-table-column>
         <el-table-column prop="ban_reason" label="原因" min-width="160" show-overflow-tooltip />
-        <el-table-column label="更新时间" min-width="160">
+        <el-table-column label="管理员备注" min-width="230">
+          <template #default="{ row }">
+            <AdminNoteEditor :key="row.id" v-model="row.admin_note"
+              :endpoint="`/ip-bans/${row.id}/note`" :label="`IP ${row.ip_address} 的备注`" />
+          </template>
+        </el-table-column>
+        <el-table-column label="封禁更新时间" min-width="160">
           <template #default="{ row }">{{ formatDate(row.updated_at) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="100">
@@ -53,15 +59,24 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-if="total > limit" :current-page="page" :page-size="limit" :total="total"
+        layout="total, prev, pager, next" class="pagination" @current-change="load" />
     </el-card>
   </div>
 </template>
 
 <script setup>
+import { useAdminListState } from '@/composables/useAdminListState'
+import AdminNoteEditor from '@/components/admin/AdminNoteEditor.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 
+const { saved, remember } = useAdminListState()
+const limit = 50
+const page = ref(saved.page ?? 1)
+const total = ref(0)
+let latest = 0
 const items = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -87,15 +102,22 @@ function banStatusOf(row) {
   return { label: '生效中', tagType: 'warning' }
 }
 
-async function load() {
+async function load(requestedPage = page.value) {
+  const request = ++latest
+  remember({ page: requestedPage })
   loading.value = true
   try {
-    const res = await adminApi.get('/ip-bans')
+    const res = await adminApi.get('/ip-bans', { params: { page: requestedPage, limit } })
+    if (request !== latest) return
+    total.value = res.data.data.total
+    const lastPage = Math.max(1, Math.ceil(total.value / limit))
+    if (requestedPage > lastPage) return load(lastPage)
+    page.value = requestedPage
     items.value = res.data.data.items
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载失败')
+    if (request === latest) ElMessage.error(e.response?.data?.message || '加载失败')
   } finally {
-    loading.value = false
+    if (request === latest) loading.value = false
   }
 }
 
@@ -130,10 +152,11 @@ async function submitBan() {
 }
 
 async function unban(row) {
-  const { value: reason } = await ElMessageBox.prompt('请输入解封原因', '解除 IP 封禁', {
+  const result = await ElMessageBox.prompt('请输入解封原因', '解除 IP 封禁', {
     inputValue: `解除封禁 ${row.ip_address}`,
     type: 'warning',
   }).catch(() => null)
+  const reason = result?.value
   if (!reason?.trim()) return
   try {
     await adminApi.delete(`/ip-bans/${encodeURIComponent(row.ip_address)}`, {
@@ -150,6 +173,7 @@ onMounted(load)
 </script>
 
 <style scoped>
+.pagination { margin-top: 16px; }
 .page-title {
   margin: 0 0 16px;
 }

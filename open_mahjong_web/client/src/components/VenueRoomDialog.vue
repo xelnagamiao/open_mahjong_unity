@@ -180,7 +180,9 @@ const generatingKey = ref(false)
 const confirming = ref(false)
 const busy = computed(() => props.loading || generatingKey.value || confirming.value)
 const paired = computed(() => props.form.room_rule === 'sichuan' && isSichuanDuplicate(props.form.sub_rule))
-const wallSourceHelp = computed(() => SICHUAN_WALL_SOURCES.find(source => source.value === props.form.wall_source)?.description || '')
+const wallSourceHelp = computed(() => props.form.wall_source === 'training' && props.form.reuse_training_room
+  ? '开室和闭室使用同一组训练牌山，可按房间设置观战。'
+  : SICHUAN_WALL_SOURCES.find(source => source.value === props.form.wall_source)?.description || '')
 const pairedExisting = computed(() => !isTrainingWall(props.form) && (['seed', 'manual'].includes(props.form.wall_source) || props.form.duplicate_key_source === 'existing'))
 watch(() => props.form.sub_rule, value => {
   if (isSichuanDuplicate(value) && !props.form.duplicate_key?.trim()) {
@@ -205,7 +207,7 @@ const quotaProblem = computed(() => {
 })
 const creationProblem = computed(() => {
   if (quotaProblem.value) return quotaProblem.value
-  if (paired.value && isTrainingWall(props.form) && !props.form.random_seed?.trim()) return '请输入训练牌山随机种子或随机生成'
+  if (paired.value && isTrainingWall(props.form) && !props.form.reuse_training_room && !props.form.random_seed?.trim()) return '请输入训练牌山随机种子或随机生成'
   if (paired.value && pairedExisting.value && !props.form.duplicate_key?.trim()) return '请输入复式密钥'
   if (supportsDuplicateKey(props.form) && !paired.value && props.form.duplicate_enabled && !autoDuplicate.value && !props.form.duplicate_key?.trim()) {
     return props.showAutoDuplicate ? '请输入复式密钥或开启自动生成复式密钥' : '请输入复式密钥'

@@ -57,9 +57,52 @@ public class FriendPanel : MonoBehaviour {
     [Header("轮询")]
     [SerializeField] private float pollingIntervalSeconds = 5f;
 
-    private readonly Dictionary<int, FollowingItem> _followingItemsByUid = new Dictionary<int, FollowingItem>();
-    private readonly Dictionary<int, FriendItem> _friendItemsByUid = new Dictionary<int, FriendItem>();
-    private readonly Dictionary<int, FriendRequestItem> _requestItemsByUid = new Dictionary<int, FriendRequestItem>();
+    private FriendList<FriendInfo, FollowingItem> following;
+    private FriendList<FriendInfo, FriendItem> friends;
+    private FriendList<FriendRequestInfo, FriendRequestItem> requests;
+    private int listOwner;
+
+    private sealed class FriendList<TInfo, TItem> where TInfo : class where TItem : Component {
+        private readonly ViewportCardList<int, TItem> view;
+        private readonly System.Func<TInfo, int> uid;
+        private readonly System.Func<TInfo, TInfo, bool> same;
+        private Dictionary<int, TInfo> data = new();
+        private readonly List<int> keys = new();
+        private readonly float height;
+
+        public FriendList(Transform container, GameObject prefab, System.Func<TInfo, int> uid,
+                          System.Func<TInfo, TInfo, bool> same, System.Action<TItem, TInfo> bind) {
+            this.uid = uid;
+            this.same = same;
+            var content = (RectTransform)container;
+            var scroll = content.GetComponentInParent<ScrollRect>(true);
+            var layout = prefab.GetComponent<LayoutElement>();
+            height = layout && layout.preferredHeight > 0 ? layout.preferredHeight : ((RectTransform)prefab.transform).rect.height;
+            view = new(scroll, content, _ => Object.Instantiate(prefab, content).GetComponent<TItem>(),
+                (item, index) => bind(item, data[keys[index]]));
+        }
+
+        public void Replace(TInfo[] list, bool reset = false) {
+            var next = new Dictionary<int, TInfo>();
+            keys.Clear();
+            if (list != null) foreach (var info in list) {
+                if (info == null) continue;
+                int id = uid(info);
+                if (!next.ContainsKey(id)) keys.Add(id);
+                next[id] = info;
+                if (data.TryGetValue(id, out var previous) && !same(previous, info)) view.Invalidate(id);
+            }
+            data = next;
+            view.SetRows(keys, _ => 0, _ => height, resetScroll: reset);
+        }
+
+        public void Tick() => view.Tick();
+        public int Count => data.Count;
+    }
+
+    private static bool SameFriend(FriendInfo a, FriendInfo b) =>
+        a.username == b.username && a.profile_image_id == b.profile_image_id && a.state == b.state && a.gamestate_id == b.gamestate_id;
+
     private int _followingMax = 10;
     private int _friendMax = DefaultFriendCapacity;
     private Coroutine _pollingCoroutine;
@@ -76,7 +119,11 @@ public class FriendPanel : MonoBehaviour {
         if (requestsTabButton != null) requestsTabButton.onClick.AddListener(() => SwitchTab(Tab.Requests));
         if (addFollowingButton != null) addFollowingButton.onClick.AddListener(OnClickAddFollowing);
         if (requestFriendButton != null) requestFriendButton.onClick.AddListener(OnClickRequestFriend);
-        ClearAllItems();
+        following = new(followingContentTransform, followingItemPrefab, x => x.user_id, SameFriend, (row, info) => row.Initialize(info));
+        friends = new(friendContentTransform, friendItemPrefab, x => x.user_id, SameFriend, (row, info) => row.Initialize(info));
+        requests = new(requestContentTransform, friendRequestItemPrefab, x => x.user_id,
+            (a, b) => a.username == b.username && a.profile_image_id == b.profile_image_id && a.created_at == b.created_at,
+            (row, info) => row.Initialize(info));
         ApplyRequestTabBadgeColor();
         RefreshRequestTabBadge();
     }
@@ -89,9 +136,17 @@ public class FriendPanel : MonoBehaviour {
 
     private void OnEnable() {
         UnreadBadgeStore.OnChanged += RefreshRequestTabBadge;
-        ClearAllItems();
+        int owner = UserDataManager.Instance ? UserDataManager.Instance.UserId : 0;
+        if (owner != listOwner || owner == 0) {
+            listOwner = owner;
+            following.Replace(null, true);
+            friends.Replace(null, true);
+            requests.Replace(null, true);
+            _followingMax = 10;
+            _friendMax = DefaultFriendCapacity;
+        }
         SwitchTab(Tab.Friends);
-        UpdateCountTexts(0, 0, 0);
+        UpdateCountTexts(following.Count, friends.Count, requests.Count);
         RefreshRequestTabBadge();
         StartLivePolling();
     }
@@ -223,107 +278,30 @@ public class FriendPanel : MonoBehaviour {
         ApplyFriendRequestList(response);
     }
 
+    private void LateUpdate() {
+        switch (_currentTab) {
+            case Tab.Following: following.Tick(); break;
+            case Tab.Friends: friends.Tick(); break;
+            case Tab.Requests: requests.Tick(); break;
+        }
+    }
+
     private void ApplyFollowingList(Response response) {
         if (response.friend_max.HasValue) _followingMax = response.friend_max.Value;
-        var list = response.friend_list;
-        int count = list?.Length ?? 0;
-        if (followingCountText != null) followingCountText.text = $"{count}/{_followingMax}";
-        if (followingContentTransform == null || followingItemPrefab == null) return;
-
-        var seen = new HashSet<int>();
-        if (list != null) {
-            foreach (var info in list) {
-                if (info == null) continue;
-                seen.Add(info.user_id);
-                if (_followingItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
-                    existing.Refresh(info);
-                } else {
-                    var go = Instantiate(followingItemPrefab, followingContentTransform);
-                    var item = go.GetComponent<FollowingItem>();
-                    item.Initialize(info);
-                    _followingItemsByUid[info.user_id] = item;
-                }
-            }
-        }
-        RemoveMissing(_followingItemsByUid, seen);
+        following.Replace(response.friend_list);
+        if (followingCountText) followingCountText.text = $"{following.Count}/{_followingMax}";
     }
 
     private void ApplyFriendList(Response response) {
         FriendRelationCache.ReplaceFromList(response.friend_list);
         if (response.friend_max.HasValue) _friendMax = response.friend_max.Value;
-        var list = response.friend_list;
-        int count = list?.Length ?? 0;
-        if (friendCountText != null) friendCountText.text = $"{count}/{_friendMax}";
-        if (friendContentTransform == null || friendItemPrefab == null) return;
-
-        var seen = new HashSet<int>();
-        if (list != null) {
-            foreach (var info in list) {
-                if (info == null) continue;
-                seen.Add(info.user_id);
-                if (_friendItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
-                    existing.Refresh(info);
-                } else {
-                    var go = Instantiate(friendItemPrefab, friendContentTransform);
-                    var item = go.GetComponent<FriendItem>();
-                    item.Initialize(info);
-                    _friendItemsByUid[info.user_id] = item;
-                }
-            }
-        }
-        RemoveMissing(_friendItemsByUid, seen);
+        friends.Replace(response.friend_list);
+        if (friendCountText) friendCountText.text = $"{friends.Count}/{_friendMax}";
     }
 
     private void ApplyFriendRequestList(Response response) {
-        var list = response.friend_request_list;
-        int count = list?.Length ?? 0;
-        if (requestCountText != null) requestCountText.text = $"{count}";
-        if (requestContentTransform == null || friendRequestItemPrefab == null) return;
-
-        var seen = new HashSet<int>();
-        if (list != null) {
-            foreach (var info in list) {
-                if (info == null) continue;
-                seen.Add(info.user_id);
-                if (_requestItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
-                    existing.Refresh(info);
-                } else {
-                    var go = Instantiate(friendRequestItemPrefab, requestContentTransform);
-                    var item = go.GetComponent<FriendRequestItem>();
-                    item.Initialize(info);
-                    _requestItemsByUid[info.user_id] = item;
-                }
-            }
-        }
-        RemoveMissing(_requestItemsByUid, seen);
-    }
-
-    private static void RemoveMissing<T>(Dictionary<int, T> itemsByUid, HashSet<int> seen) where T : Component {
-        var toRemove = new List<int>();
-        foreach (var kv in itemsByUid) {
-            if (!seen.Contains(kv.Key)) toRemove.Add(kv.Key);
-        }
-        foreach (int uid in toRemove) {
-            if (itemsByUid.TryGetValue(uid, out var item) && item != null) Destroy(item.gameObject);
-            itemsByUid.Remove(uid);
-        }
-    }
-
-    private void ClearAllItems() {
-        ClearContainer(followingContentTransform);
-        ClearContainer(friendContentTransform);
-        ClearContainer(requestContentTransform);
-        _followingItemsByUid.Clear();
-        _friendItemsByUid.Clear();
-        _requestItemsByUid.Clear();
-    }
-
-    private static void ClearContainer(Transform container) {
-        if (container == null) return;
-        for (int i = container.childCount - 1; i >= 0; i--) {
-            Transform c = container.GetChild(i);
-            if (c != null) Destroy(c.gameObject);
-        }
+        requests.Replace(response.friend_request_list);
+        if (requestCountText) requestCountText.text = requests.Count.ToString();
     }
 
     private void UpdateCountTexts(int followingCount, int friendCount, int requestCount) {

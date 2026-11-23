@@ -75,7 +75,7 @@ public sealed class PlatformFontBuildValidation : IProcessSceneWithReport, IPost
 
     public void OnProcessScene(Scene scene, BuildReport report)
     {
-        if (report == null) return;
+        if (report == null && !WebTextureProfileBuild.PackingScenes) return;
         var failures = ValidateScene(scene);
         if (failures.Length > 0) throw new BuildFailedException("场景固定文本缺字：\n" + string.Join("\n", failures));
     }

@@ -1,30 +1,29 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
+const { resultRow } = require('../services/testFixtures/replay');
 
 // An isolated HTTP app with no database/config import and no real accounts.
 // Exercise the existing ownership/quota path around the real ZIP service.
 let context;
 const db = { async query(sql, params) {
   context.queries.push({ sql, params });
-  if (sql.includes('SELECT DISTINCT game_id FROM game_player_records')) {
-    assert.equal(params[0], 100);
+  if (sql.includes('GROUP BY gr.replay_id ORDER BY MIN(req.pos)')) {
+    assert.equal(params[1], 100);
     if (context.pauseSelection) {
       context.selectionStarted();
       await context.pauseSelection;
     }
-    return { rows: params[1].filter((id) => context.owned.has(id)).map((id) => ({ game_id: id })) };
-  }
-  if (sql.includes('SELECT gr.game_id FROM game_records')) {
-    return { rows: params[0].filter((id) => context.visible.has(id)).map((id) => ({ game_id: id })) };
+    return { rows: [...new Set(params[0])].filter(id => context.owned.has(id) && context.visible.has(id))
+      .map(id => ({ replay_id:id, requested_id:id })) };
   }
   if (sql.includes('SELECT game_id FROM (')) {
     assert.equal(params[0], 100);
     return { rows: [...context.owned].map((id) => ({ game_id: id })) };
   }
-  if (sql.includes('SELECT game_id, record FROM game_records')) {
+  if (sql.includes('r.record::text AS body')) {
     if (context.failRecords) throw new Error('record query failed');
-    return { rows: params[0].filter((id) => context.visible.has(id)).map((id) => ({ game_id: id, record: { game_id: id, text: '完整牌谱' } })) };
+    return { rows: params[0].filter(id => context.visible.has(id)).map(id => resultRow(id, {game_title:{},game_round:{}})) };
   }
   throw new Error(`Unexpected query: ${sql}`);
 } };
@@ -113,7 +112,7 @@ test('download HTTP route keeps ownership, visibility, caps and account quotas',
       reset(); assert.equal((await post({ user_id: 100, game_ids: ['c'] })).status, 404);
       assert.equal(context.quotaCalls.length, 0);
       reset({ allow: 0 }); assert.equal((await post({ user_id: 100, game_ids: ['a'] })).status, 429);
-      assert.equal(context.queries.length, 2);
+      assert.equal(context.queries.length, 1);
     });
     await t.test('disconnect during ID selection stops subsequent reads and quota consumption', async () => {
       let releaseSelection;

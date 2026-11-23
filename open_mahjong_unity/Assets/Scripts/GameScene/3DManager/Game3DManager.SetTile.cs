@@ -157,7 +157,7 @@ public partial class Game3DManager : MonoBehaviour {
             RegisterLastDiscard(PlayerPosition, cardObj, tileId);
         }
         // 翻面基准是局部旋转，须在最终父节点下缓存，避免后续翻面把平放牌转进桌面。
-        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, SetPosition);
         // 立直横置标记写入 Tile3D，归还对象池时会被清掉
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) {
@@ -286,7 +286,7 @@ public partial class Game3DManager : MonoBehaviour {
             RegisterLastDiscard(PlayerPosition, cardObj, tileId);
         }
         // 与动画放牌保持相同顺序；重连和牌谱中的反复翻面也使用这个基准。
-        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, SetPosition);
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = useHorizontalLayout;

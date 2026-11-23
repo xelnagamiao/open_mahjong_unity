@@ -18,7 +18,7 @@ def pair_for(manager, room):
 
 def tables(manager, pair):
     result = {table: manager.rooms.get(pair.data["room_ids"][table]) for table in TABLES}
-    if any(room is None for room in result.values()):
+    if any(room is None or room.get("duplicate_match_id") != pair.data["id"] for room in result.values()):
         raise ValueError("复式房间未完整加载，请刷新后重试")
     return result
 
@@ -39,7 +39,7 @@ def member_count(pair, rooms):
 
 
 def editable(pair, rooms):
-    return pair.data["status"] in ("waiting", "interrupted") and not any(
+    return pair.data["status"] == "waiting" and not any(
         room.get("is_game_running") or room.get("event_seating_pending") or room.get("admin_closing")
         for room in rooms.values())
 
@@ -107,10 +107,6 @@ def commit(pair, rooms, *, roster=False):
         pair.data["lobby"]["revision"] += 1
         for room in rooms.values():
             invalidate_ready(room)
-    candidate = deepcopy(pair.data)
-    candidate["room_snapshots"] = deepcopy(rooms)
-    pair.save(candidate)
-    if roster:
         pair.ready.clear()
 
 

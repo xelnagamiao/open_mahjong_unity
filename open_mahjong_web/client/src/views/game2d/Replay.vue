@@ -328,7 +328,7 @@
         </div>
       </section>
 
-      <aside class="replay-sidebar">
+      <aside class="replay-sidebar" :class="{ 'replay-sidebar--review': isStandardFourRiichi(detail) }">
         <header class="replay-header">
           <div>
             <p class="replay-header__eyebrow">{{ tr('SALASASA 2D 牌谱') }}</p>
@@ -421,6 +421,9 @@
           </div>
         </section>
 
+        <RiichiReview v-if="sceneReady && !loading && !errorMessage && isStandardFourRiichi(detail)" :record="detail!.record" :game-id="localRecord ? null : detail!.game_id" :viewer="viewerOriginal"
+          :round="roundIndex" :node="node" :locked="terminalLocked" @seek="seekReviewChoice" />
+
         <section v-if="detail" class="replay-section replay-meta">
           <h2>{{ tr('对局信息') }}</h2>
           <div ref="gameInfoScrollElement" class="replay-meta__scroll" @wheel.prevent="onGameInfoWheel">
@@ -491,6 +494,8 @@ import { shouldShowTileLabels } from '@/game2d/lib/tileLabels'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import GuobiaoFanTable from '@/components/GuobiaoFanTable.vue'
+import RiichiReview from './RiichiReview.vue'
+import { isStandardFourRiichi } from '@/utils/riichiReview.js'
 import ReplayIndependentWall from './ReplayIndependentWall.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
 import TileFaceImage from './TileFaceImage.vue'
@@ -1527,6 +1532,12 @@ function selectRound(index: number) {
   node.value = 0
 }
 
+function seekReviewChoice(point: { round: number; node: number }) {
+  if (terminalLocked.value || !point) return
+  selectRound(point.round)
+  node.value = point.node
+}
+
 function selectXunmu(value: string) {
   if (terminalLocked.value) return
   stopPlaying()
@@ -1948,7 +1959,7 @@ async function loadRecord() {
       value = cached?.record
         ? cached as PublicGameRecord
         : await publicApiGet<PublicGameRecord>(publicRecordUrl(gameId))
-      if (!cached?.record && !['guobiao', 'hongzhong', 'hangzhou', 'jiujiang', 'shanxi', 'fuzhou'].includes(value.rule)) {
+      if (!cached?.record && !isStandardFourRiichi(replayTableView(value, { tableId: route.query.table })) && !['guobiao', 'hongzhong', 'hangzhou', 'jiujiang', 'shanxi', 'fuzhou'].includes(value.rule)) {
         throw new Error('2D 牌谱阅览暂不支持这套规则，请使用 3D 阅览')
       }
     }

@@ -55,7 +55,7 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
             string key = displayRule + ":" + id;
             if (!sprites.TryGetValue(key, out var sprite) || sprite == null) {
                 sprite = duocai ? DuocaiTileVisual.Sprite(id) : HongqueTileVisual.IsHongqueId(id)
-                    ? HongqueTileVisual.LoadSprite(id) : BuiltinTileSprites.Hand(TilePackIds.PackOfficial, id);
+                    ? HongqueTileVisual.LoadSprite(id) : BuiltinTilePreviews.Load(TilePackIds.PackOfficial, id);
                 sprites[key] = sprite;
             }
             face.texture = sprite != null ? sprite.texture : null;

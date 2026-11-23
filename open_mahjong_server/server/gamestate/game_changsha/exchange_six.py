@@ -33,12 +33,15 @@ EXCHANGE_ACTION = "changsha_exchange_six"
 NO_EXCHANGE_ACTION = "changsha_no_exchange"
 REPEAT_EXCHANGE_ACTION = "changsha_exchange_again"
 EXCHANGE_CHOICE_PHASES = ("exchange_start_choice", "exchange_repeat_choice")
-EXCHANGE_RECEIPT_PHASES = ("deal_dice_received", "exchange_received")
-EXCHANGE_RECEIPT_SECONDS = 10
+EXCHANGE_CHOICE_SECONDS = 3
+DEAL_DICE_SECONDS = 1.9
+EXCHANGE_DICE_AND_TRANSFER_SECONDS = 4.25
+INCOMING_TILE_LIFT_SECONDS = .75
 
 
 class ExchangeSixState(BaseModel):
     phase: str
+    restoring: bool = False
     revision: int
     action_tick: int
     remaining_time: int
@@ -188,7 +191,7 @@ class ExchangeSixFlow:
         if action not in state.action_dict.get(seat, []):
             return False
         if self.phase in EXCHANGE_CHOICE_PHASES:
-            if self.exchange_choice is not None or get_ask_elapsed(state, seat) >= 2:
+            if self.exchange_choice is not None or get_ask_elapsed(state, seat) >= EXCHANGE_CHOICE_SECONDS:
                 return False
             # 在首次await之前锁定赢家，不能让轮询座位的先后覆盖真实收件顺序。
             self.exchange_choice = {"seat": seat, "action": action, "round": self.completed_exchange_rounds}
@@ -219,14 +222,14 @@ class ExchangeSixFlow:
         state.action_events[seat].set()
         return True
 
-    def packet(self, seat, *, private_notices=True):
+    def packet(self, seat, *, private_notices=True, restoring=False):
         state = self.state
         choice_locked = self.phase in EXCHANGE_CHOICE_PHASES and self.exchange_choice is not None
         bank, step = reconnect_clock(state, state.player_list[seat])
-        if self.phase == "deal_dice" or self.phase in EXCHANGE_RECEIPT_PHASES:
+        if self.phase in ("deal_dice", "exchange_dice"):
             bank, step = 0, 0
         if self.phase == "exchange" or self.phase in EXCHANGE_CHOICE_PHASES:
-            budget = 2 if self.phase in EXCHANGE_CHOICE_PHASES else state.exchange_selection_seconds
+            budget = EXCHANGE_CHOICE_SECONDS if self.phase in EXCHANGE_CHOICE_PHASES else state.exchange_selection_seconds
             bank = math.ceil(max(0, budget - get_ask_elapsed(state, seat))) if seat in state.waiting_players_list and not choice_locked else 0
             step = 0
         player = state.player_list[seat]
@@ -241,7 +244,7 @@ class ExchangeSixFlow:
         return ChangshaExchangeSixResponse(
             gamestate_id=state.gamestate_id,
             state=ExchangeSixState(
-                phase=self.phase, revision=self.revision, action_tick=state.server_action_tick,
+                phase=self.phase, restoring=restoring, revision=self.revision, action_tick=state.server_action_tick,
                 remaining_time=bank, step_remaining=step,
                 public_state={
                     "rule_version": RULE_VERSION, "dice": list(self.dice), "source_offset": self.source_offset,
@@ -265,6 +268,10 @@ class ExchangeSixFlow:
                 },
                 private_state={"hand_tiles": list(state.player_list[seat].hand_tiles),
                                "selected_tiles": list(self.submissions.get(seat, [])),
+                               **({"received_tiles": list(self.submissions[(seat + self.source_offset) % 4])}
+                                  if private_notices and self.phase == "exchange_dice"
+                                  and self.completed_exchange_rounds == self.exchange_round
+                                  and (seat + self.source_offset) % 4 in self.submissions else {}),
                                "action_list": list(state.action_dict.get(seat, [])) if seat in state.waiting_players_list and not choice_locked else [],
                                "targets": dict(self.targets[seat]), "cut_tiles": cut_tiles,
                                "has_draw_slot": player.has_draw_slot, "local_hint_context": self.client_context(seat, cut_tiles),
@@ -284,12 +291,13 @@ class ExchangeSixFlow:
             small_hu_forbidden=seat == self.small_hu_forbidden_seat,
             locked_patterns=self.locked_patterns.get(seat))["local_request"]
 
-    async def send_snapshot(self, connection_user_id, view_seat, *, response=None):
+    async def send_snapshot(self, connection_user_id, view_seat, *, response=None, restoring=False):
         connection = self.state.game_server.user_id_to_connection.get(connection_user_id)
         if connection is None:
             return
         if response is None:
-            response = self.packet(view_seat, private_notices=connection_user_id == self.state.player_list[view_seat].user_id)
+            response = self.packet(view_seat, private_notices=connection_user_id == self.state.player_list[view_seat].user_id,
+                                   restoring=restoring)
         try:
             await connection.websocket.send_json(response.dict(exclude_none=True))
         except Exception:
@@ -314,7 +322,7 @@ class ExchangeSixFlow:
         state = self.state
         player = state.player_list[seat]
         actions = tuple(state.action_dict[seat])
-        if self.phase in ("exchange", "blind_kong_view") or self.phase in EXCHANGE_RECEIPT_PHASES:
+        if self.phase in ("exchange", "blind_kong_view"):
             return default_action(seat)
         forced_cut = (self.pending_ready_discard if seat == 0 and self.pending_ready_discard is not None
                       else player.hand_tiles[-1] if player.open_kong_locked or seat in self.reported_ready else None)
@@ -325,11 +333,10 @@ class ExchangeSixFlow:
             {a: tuple(t) for a, t in self.targets[seat].items()}, seat in self.reported_ready, forced_cut)
 
     async def run_stage(self, phase, actions, default_action):
-        """选牌和全桌决定独立计时，收牌确认不扣局时；暂停及重连不重置预算。"""
+        """选牌和全桌决定独立计时，暂停及重连不重置预算。"""
         state = self.state
         self.phase = phase
         choice_phase = phase in EXCHANGE_CHOICE_PHASES
-        receipt_phase = phase in EXCHANGE_RECEIPT_PHASES
         if choice_phase:
             self.exchange_choice = None
         state.game_status = "waiting_changsha_exchange_six"
@@ -357,7 +364,7 @@ class ExchangeSixFlow:
                     if self.exchange_choice is not None:
                         answers[self.exchange_choice["seat"]] = {"action_type": self.exchange_choice["action"]}
                         break
-                    remaining = max(2 - get_ask_elapsed(state, seat) for seat in state.waiting_players_list)
+                    remaining = max(EXCHANGE_CHOICE_SECONDS - get_ask_elapsed(state, seat) for seat in state.waiting_players_list)
                     if remaining <= 0:
                         break
                     # 自愿决定只等真人点击；机器人和离线玩家不自动替全桌抢答。
@@ -373,10 +380,9 @@ class ExchangeSixFlow:
                 for seat in list(state.waiting_players_list):
                     player = state.player_list[seat]
                     elapsed = get_ask_elapsed(state, seat)
-                    budget = (EXCHANGE_RECEIPT_SECONDS if receipt_phase else state.exchange_selection_seconds
-                              if phase == "exchange" else max(0, player.remaining_time) + state.step_time)
+                    budget = state.exchange_selection_seconds if phase == "exchange" else max(0, player.remaining_time) + state.step_time
                     expired = elapsed >= budget
-                    if player.is_bot and not receipt_phase and not expired and elapsed < bot_delay(state):
+                    if player.is_bot and not expired and elapsed < bot_delay(state):
                         continue
                     if player.is_bot or "offline" in player.tag_list or expired:
                         if expired:
@@ -413,12 +419,13 @@ class ExchangeSixFlow:
                                     self.pending_ready_discard = data["target_tile"]
                             append_action_tick(state, ["changsha_declaration", seat, data["action_type"], data.get("target_tile")])
                         answers[seat] = data
-                        if phase != "exchange" and not receipt_phase:
+                        if phase != "exchange":
                             player.remaining_time = max(0, player.remaining_time - max(0, int(elapsed - state.step_time)))
                         state.waiting_players_list.remove(seat)
                         state.action_dict[seat] = []
                         state.action_events[seat].clear()
-                        await self.broadcast()
+                        if phase != "exchange" or state.waiting_players_list:
+                            await self.broadcast()
                         break
                 if not state.waiting_players_list:
                     break
@@ -469,7 +476,7 @@ class ExchangeSixFlow:
     async def choose_exchange(self, *, after_first=False):
         phase = "exchange_repeat_choice" if after_first else "exchange_start_choice"
         choices = [REPEAT_EXCHANGE_ACTION, NO_EXCHANGE_ACTION] if after_first else [NO_EXCHANGE_ACTION]
-        append_action_tick(self.state, ["changsha_exchange_choice_start", self.completed_exchange_rounds])
+        append_action_tick(self.state, ["changsha_exchange_choice_start", self.completed_exchange_rounds, EXCHANGE_CHOICE_SECONDS])
         await self.run_stage(phase, {seat: list(choices) for seat in range(4)}, lambda seat: {"action_type": "pass"})
         if self.exchange_choice is None:
             self.exchange_choice = {"seat": None, "action": NO_EXCHANGE_ACTION if after_first else "changsha_begin_exchange",
@@ -479,11 +486,11 @@ class ExchangeSixFlow:
                                        choice["seat"] if choice["seat"] is not None else -1, choice["action"]])
         return choice["action"] == REPEAT_EXCHANGE_ACTION if after_first else choice["action"] != NO_EXCHANGE_ACTION
 
-    async def wait_for_receipt(self, *, after_exchange=False):
-        # 两秒选择窗必须等客户端播完骰子和手牌动画；旧客户端/掉线有独立超时兜底。
-        phase = "exchange_received" if after_exchange else "deal_dice_received"
-        await self.run_stage(phase, {seat: ["changsha_exchange_seen"] for seat in range(4)},
-                             lambda seat: {"action_type": "changsha_exchange_seen"})
+    async def present_opening(self, seconds):
+        await self.broadcast()
+        await vote_checkpoint(self.state)
+        await asyncio.sleep(seconds)
+        await vote_checkpoint(self.state)
 
     async def exchange(self, *, dice=None):
         if self.exchange_closed or self.completed_exchange_rounds >= 2:
@@ -511,13 +518,12 @@ class ExchangeSixFlow:
         self.source_offset = 2 if total % 2 else 3 if total % 4 == 0 else 1
         self.phase = "exchange_dice"
         append_action_tick(self.state, ["changsha_exchange_roll", self.exchange_round, list(self.dice), self.source_offset])
-        await self.broadcast()
+        await self.present_opening(EXCHANGE_DICE_AND_TRANSFER_SECONDS)
         self.apply_exchange()
         self.completed_exchange_rounds = self.exchange_round
         append_action_tick(self.state, ["changsha_exchange_six", list(self.dice), self.source_offset,
                                        [self.submissions[seat] for seat in range(4)], sorted(self.disqualified), self.exchange_round])
-        self.phase = "playing"
-        await self.broadcast()
+        await self.present_opening(INCOMING_TILE_LIFT_SECONDS)
 
     def ways(self, seat, *, first=False, self_draw=False, kong=False, rob=False, sea=False):
         ways = []
@@ -584,11 +590,8 @@ class ExchangeSixFlow:
         self.round_scores_before = {p.original_player_index: p.score for p in self.state.player_list}
         append_action_tick(self.state, ["changsha_deal_dice", list(self.deal_dice), self.small_hu_forbidden_seat])
         await self.show_deal_dice()
-        await self.wait_for_receipt()
         if await self.choose_exchange():
             await self.exchange()
-            # 客户端看完换牌骰子并真正展示新手牌后确认，不能在旧手牌上抢第二轮。
-            await self.wait_for_receipt(after_exchange=True)
             if await self.choose_exchange(after_first=True):
                 await self.exchange(dice=self.second_exchange_dice())
         self.exchange_closed = True
@@ -631,10 +634,7 @@ class ExchangeSixFlow:
         self.phase = "deal_dice"
         self.state.waiting_players_list = []
         self.state.action_dict = {seat: [] for seat in range(4)}
-        await self.broadcast()
-        await vote_checkpoint(self.state)
-        await asyncio.sleep(1.5)
-        await vote_checkpoint(self.state)
+        await self.present_opening(DEAL_DICE_SECONDS)
 
     def update_waits(self, seat):
         waits = self.waits(seat)

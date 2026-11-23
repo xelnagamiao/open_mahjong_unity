@@ -3,7 +3,8 @@ from uuid import uuid4
 
 from psycopg2.extras import Json
 
-from ..database.sichuan_duplicate import compact_completed_replays, _load_checkpoint_rounds
+from ..database.sichuan_duplicate import compact_completed_replays
+from .checkpoints import resolve_archive
 from .test_format import records
 from .test_store import db, publish
 
@@ -33,6 +34,6 @@ def test_only_identical_finished_timelines_are_replaced_and_recoverable(db):
             assert "game_round" not in stored["final_records"]["open"]
             assert "game_round" not in stored["checkpoints"]["closed"]["game_record"]
             assert stored["checkpoints"]["open"] == data["checkpoints"]["open"]
-            assert _load_checkpoint_rounds(cur, stored) == data
+            assert resolve_archive(cur, mid, stored) == data
     finally:
         db._put_connection(conn)

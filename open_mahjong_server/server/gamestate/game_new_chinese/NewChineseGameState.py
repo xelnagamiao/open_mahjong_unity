@@ -23,6 +23,7 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         self.machine = StateMachine()
         self.detailed_config = rules.normalize_config(data.get("detailed_config"))
         super().__init__(game_server, data, calculation_service, db_manager, gamestate_id)
+        self.hepai_limit = rules.room_fan_limit(data.get("hepai_limit", 0), self.detailed_config["exchange_three"])
         self.player_list = [NewChinesePlayer(**vars(p)) for p in self.player_list]
         self.bot_speed = data.get("bot_speed", "normal")
         self.rule_version = rules.RULE_VERSION
@@ -45,6 +46,32 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
     def _derive_round_seed(self):
         return derive_round_seed(self.master_seed, self.round_index)
 
+    async def flush_outbound_payloads(self):
+        window = self.live_pending_window
+        showing = window and window["status"] in (P.EXCHANGE_CHOICES, P.EXCHANGE_RECEIPT, P.BAO_REVEAL) and not window.get("broadcast_complete")
+        if showing:
+            window["broadcast_complete"] = False
+        await super().flush_outbound_payloads()
+        if showing:
+            from ..public.outbound_pipe import drain_viewer
+            await asyncio.gather(*(drain_viewer(self, i) for i in range(4)))
+            if window is self.live_pending_window and not window.get("broadcast_complete"):
+                window["deadline"] = self._timing_now() + window["duration_ms"] / 1000
+                window["broadcast_complete"] = True
+
+    async def wait_action(self, timeout=None):
+        if self.machine.phase in (P.EXCHANGE_CHOICES, P.EXCHANGE_RECEIPT, P.BAO_REVEAL):
+            window = self.live_pending_window
+            while (remaining := window["deadline"] - self._timing_now()) > 0:
+                await asyncio.sleep(remaining)
+            return {}
+        return await super().wait_action(timeout)
+
+    async def submit_action(self, player_index, action_type, **fields):
+        await super().submit_action(player_index, action_type, **fields)
+        if self.machine.phase == P.EXCHANGE:
+            self.live_pending_window.setdefault("submitted", {})[player_index] = list(fields.get("target_tile") or [])
+
     def initialize_round(self, *, wall=None):
         self.reset_round_state()
         self.bao = self.bao_revision = 0
@@ -61,10 +88,12 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
             raise ValueError("新中式牌墙应为136张无花牌")
         else:
             deck = list(wall)
-        for i, p in enumerate(self.player_list):
-            p.hand_tiles = sorted([deck[start + k] for start in (4*i, 16+4*i, 32+4*i) for k in range(4)] + [deck[48+i]])
-        self.player_list[0].hand_tiles.append(deck[52])
-        self.player_list[0].has_draw_slot = True
+        for offset in range(4):
+            p = self.player_list[(self.dealer_index + offset) % 4]
+            p.hand_tiles = sorted([deck[start + k] for start in (4*offset, 16+4*offset, 32+4*offset) for k in range(4)] + [deck[48+offset]])
+        dealer = self.player_list[self.dealer_index]
+        dealer.hand_tiles.append(deck[52])
+        dealer.has_draw_slot = True
         self.tiles_list, self.supplements = deck[53:-10], deck[-10:]
 
     def river_counts(self):
@@ -103,14 +132,16 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         if mode not in ("seen",) and tile == self.bao:
             visible += 1
         return rules.score(hand, p.combination_tiles, tile, source, after_kong=p.after_kong,
-                           chain=max(p.chain, p.longest_chain), visible=visible, dealer=index == 0, payer_dealer=payer == 0)
+                           chain=max(p.chain, p.longest_chain), visible=visible, dealer=index == self.dealer_index,
+                           payer_dealer=payer == self.dealer_index, hepai_limit=self.hepai_limit,
+                           exchange_three=self.detailed_config["exchange_three"])
 
     def settle(self, index, tile, mode, payer=None):
         quote = self.quote(index, tile, mode, payer)
         if not quote:
             raise ValueError("和牌未成立")
         p = self.player_list[index]
-        changes = rules.payments(quote, index, payer)
+        changes = rules.payments(quote, index, payer, self.dealer_index)
         source = "self_draw" if mode in ("seen", "draw") else "rob_kong" if mode == "rob" else "discard"
         if mode == "seen":
             p.hand_tiles.append(tile)
@@ -128,8 +159,8 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         return self.finish(index)
 
     def finish(self, winner=None):
-        self.next_dealer = int(winner is not None and winner != 0)
-        self.match_finishing = bool(self.next_dealer and self.current_round >= self.max_round * 4)
+        self.dealer_changes = winner is not None and winner != self.dealer_index
+        self.match_finishing = self.dealer_changes and self.current_round >= self.max_round * 4
         self.ended_by = "wall" if winner is None else "win"
         self.round_changes = [p.score - start for p, start in zip(self.player_list, self.round_start_scores)]
         self.round_settlement = dict(winner=winner, changes=self.round_changes)
@@ -138,13 +169,13 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
     apply_deferred_score_changes = EndOfHand.apply_deferred_score_changes
 
     def advance_round_after_ready(self):
-        shift = self.next_dealer
-        self.player_list = self.player_list[shift:] + self.player_list[:shift]
-        for i, p in enumerate(self.player_list):
-            p.player_index = i
-        self.current_round += shift
+        if self.dealer_changes:
+            self.dealer_index = (self.dealer_index + 1) % 4
+            self.current_round += 1
+            self.repeat = 0
+        else:
+            self.repeat += 1
         self.round_index += 1
-        self.repeat = 0 if shift else self.repeat + 1
         self.machine.transition(P.START)
 
     def _build_timeout_action(self, index):

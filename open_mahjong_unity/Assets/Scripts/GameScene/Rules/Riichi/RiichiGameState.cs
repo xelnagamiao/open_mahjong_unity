@@ -193,7 +193,7 @@ public class RiichiGameState : TurnBasedGameState {
 
     private void RefreshRoundPanel() {
         if (RoundPanel.Instance != null) {
-            RoundPanel.Instance.RefreshRiichi(Honba, RiichiSticks, DoraIndicators, KanDoraIndicators);
+            RoundPanel.Instance.RefreshIndicators(RuleId, RoundIndicatorDisplay.Riichi(Honba, RiichiSticks, DoraIndicators, KanDoraIndicators));
         }
     }
 

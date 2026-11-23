@@ -28,6 +28,7 @@ public static class AppSession {
 
         RoomNetworkManager.Instance?.ResetForSessionEnd();
         RoomListPanel.Instance?.ResetSessionCaches();
+        RecordPanel.Instance?.ResetSessionCaches();
         CreatePanel.ResetAllSessionCaches();
         UserDataManager.Instance?.ClearSessionState();
         UnreadBadgeStore.BindUser(0);

@@ -18,6 +18,8 @@ import time
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 
+from ...database.pool_retry import run_with_pool_retry
+from ...database.record_persistence import store_single_table_record
 from .action_check import check_action_after_peng, check_action_hand_action, refresh_waiting_tiles
 from .action_window import collect_tactical_recheck, validate_tactical_queued_action
 from .real_time import RealTimeClaimMixin
@@ -363,7 +365,7 @@ class SichuanGameState(RealTimeClaimMixin):
         from ..public.outbound_pipe import close_outbound_pipes
         close_outbound_pipes(self)
         await self.spectator_manager.cleanup()
-        if self.game_task and not self.game_task.done():
+        if self.game_task and self.game_task is not asyncio.current_task() and not self.game_task.done():
             self.game_task.cancel()
             try:
                 await self.game_task
@@ -439,7 +441,6 @@ class SichuanGameState(RealTimeClaimMixin):
             self.game_record["game_title"]["event_id"] = self.event_id
         self.dealer_index = 0
 
-        self._restore_match_checkpoint()
         while self._should_play_round():
             self._reset_round_state()
             init_sichuan_tiles(self)
@@ -552,14 +553,10 @@ class SichuanGameState(RealTimeClaimMixin):
             self.game_record['game_title']['sichuan_match'] = settlement
 
         from ...match.settlement import settle_ranked_game
-        match_type = settle_ranked_game(self)
-        game_id = None
-        try:
-            store = getattr(self.db_manager, "store_sichuan_game_record", None)
-            if store:
-                game_id = store(self.game_record, self.player_list, self.room_type, match_type)
-        except Exception as e:
-            logger.warning(f"四川对局落库跳过/失败: {e}")
+        # The final hand is complete. Keep settlement alive if all players leave while waiting.
+        self.finish_round_when_offline = True
+        match_type = await run_with_pool_retry(settle_ranked_game, self)
+        game_id = await self._store_final_record(match_type)
         self._after_record_saved(game_id)
         await self._wait_for_match_records()
         remember_local_record_detail(self, game_id, match_type)
@@ -571,8 +568,16 @@ class SichuanGameState(RealTimeClaimMixin):
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         logger.info(f"四川对局结束清理完成 room_id={self.room_id}")
 
-    def _restore_match_checkpoint(self):
-        pass
+    async def _store_final_record(self, match_type):
+        game_id = None
+        try:
+            store = getattr(self.db_manager, "store_sichuan_game_record", None)
+            if store:
+                game_id = await store_single_table_record(store, self.game_record, self.player_list,
+                                                          self.room_type, match_type)
+        except Exception as e:
+            logger.warning(f"四川对局落库跳过/失败: {e}")
+        return game_id
 
     async def _wait_for_match_records(self):
         pass

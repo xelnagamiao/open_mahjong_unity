@@ -167,7 +167,7 @@ public sealed class WenzhouGameState : TurnBasedGameState {
                     // would disturb the separate horizontal tile of an added kong.
                     var replacement = MahjongObjectPool.Instance.Spawn(physical, old.position, old.rotation);
                     if (replacement == null) continue;
-                    replacement.transform.SetParent(group, worldPositionStays: true);
+                    TableWorldObjectMount.AttachPreservingWorld(replacement.transform, group);
                     replacement.transform.SetSiblingIndex(tileIndex);
                     replacement.GetComponent<Tile3D>()?.ApplyCombinationPeekState(physical, 2);
                     Card3DHoverManager.Instance?.RegisterCard(replacement, physical);

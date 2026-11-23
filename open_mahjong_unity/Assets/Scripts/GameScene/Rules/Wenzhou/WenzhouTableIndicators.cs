@@ -8,20 +8,17 @@ public static class WenzhouTableIndicators {
     public static WenzhouInfo DisplayedInfo { get; private set; }
 
     public static RoundIndicatorDisplay FieldState(WenzhouInfo value) {
-        if (value == null) return new RoundIndicatorDisplay { Caption = "未翻财" };
+        if (value == null) return RoundIndicatorDisplay.Pending;
         int streak = Math.Max(0, Math.Min(3, value.dealer_streak));
-        return new RoundIndicatorDisplay {
-            // The flipped face itself is the joker; never apply riichi's next-tile mapping.
-            Tiles = new[] { value.indicator },
-            Caption = $"财神 {WenzhouText.Tile(value.caishen)}\n"
-                + (value.caishen == 46 ? "白板为财神" : $"白板当{WenzhouText.Tile(value.white_natural)}"),
-            Counter = $"连庄{streak} · {2 * (streak + 1)}倍",
-        };
+        string status = $"连庄{streak} · {2 * (streak + 1)}倍";
+        if (value.caishen > 0 && value.caishen != 46 && value.white_natural > 0)
+            status += $"\n白板当{WenzhouText.Tile(value.white_natural)}";
+        return new RoundIndicatorDisplay(new[] { new RoundIndicatorTile(value.indicator, "财") }, status);
     }
 
     public static void Refresh(WenzhouInfo value) {
         DisplayedInfo = value;
-        RoundPanel.Instance?.RefreshRuleIndicators(FieldState(value));
+        RoundPanel.Instance?.RefreshIndicators(WenzhouGameState.RuleId, FieldState(value));
         if (GameCanvas.Instance != null)
             foreach (var card in GameCanvas.Instance.GetComponentsInChildren<TileCard>(true)) WenzhouJokerBadge.Refresh(card);
     }

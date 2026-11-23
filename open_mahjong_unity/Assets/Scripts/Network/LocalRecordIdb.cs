@@ -23,6 +23,13 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
     static extern void LocalRecordIdbCommit(int token, IntPtr json, int len, string go, string method);
 
     [DllImport("__Internal")]
+    static extern void LocalRecordIdbMigrationRead(int token, string key, string go, string method);
+    [DllImport("__Internal")]
+    static extern void LocalRecordIdbStage(int token, string key, IntPtr bytes, int length, string go, string method);
+    [DllImport("__Internal")]
+    static extern void LocalRecordIdbPendingKeys(string go, string method);
+
+    [DllImport("__Internal")]
     static extern void LocalRecordIdbLoad(string key, string gameObjectName, string methodName);
 
     [DllImport("__Internal")]
@@ -45,6 +52,42 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
 
     public void BeginLoad(string gameId, Action<byte[]> onBytes, Action<string> onError) {
         Enqueue(() => StartLoad(gameId, onBytes, onError));
+    }
+
+    internal void ReadMigration(int token, string key, Action<byte[]> done, Action<string> error) {
+        Enqueue(() => {
+            _bytesCallback = done; _errorCallback = error;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            LocalRecordIdbMigrationRead(token, key, gameObject.name, nameof(OnLoadReady));
+#else
+            OnLoadReady("error|IndexedDB 不可用");
+#endif
+        });
+    }
+
+    internal void ListPending(Action<byte[]> done, Action<string> error) {
+        Enqueue(() => {
+            _bytesCallback = done; _errorCallback = error;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            LocalRecordIdbPendingKeys(gameObject.name, nameof(OnLoadReady));
+#else
+            OnLoadReady("error|IndexedDB 不可用");
+#endif
+        });
+    }
+
+    internal void Stage(int token, string key, string value, Action done, Action<string> error) {
+        Enqueue(() => {
+            _doneCallback = done; _errorCallback = error;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
+            var pin = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            try { LocalRecordIdbStage(token, key, pin.AddrOfPinnedObject(), bytes.Length, gameObject.name, nameof(OnPutReady)); }
+            finally { pin.Free(); }
+#else
+            OnPutReady("error|IndexedDB 不可用");
+#endif
+        });
     }
 
     int snapshotToken;
@@ -93,7 +136,8 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
     void Pump() {
         if (_busy || _queue.Count == 0) return;
         _busy = true;
-        _queue.Dequeue()?.Invoke();
+        try { _queue.Dequeue()?.Invoke(); }
+        catch (Exception e) { try { _errorCallback?.Invoke(e.Message); } finally { Finish(); } }
     }
 
     void Finish() {
@@ -136,7 +180,9 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
                 _errorCallback?.Invoke("IndexedDB 回调无效");
                 return;
             }
-            _bytesCallback?.Invoke(length == 0 ? Array.Empty<byte>() : CopyBytes(length));
+            var bytes = length == 0 ? Array.Empty<byte>() : CopyBytes(length);
+            if (bytes == null) _errorCallback?.Invoke("牌谱数据复制不完整");
+            else _bytesCallback?.Invoke(bytes);
         } finally {
             Finish();
         }
@@ -160,12 +206,7 @@ public sealed class LocalRecordIdbBridge : MonoBehaviour {
         GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
         try {
             int copied = LocalRecordIdbCopy(handle.AddrOfPinnedObject(), length);
-            if (copied != length) {
-                if (copied <= 0) return null;
-                var trimmed = new byte[copied];
-                Buffer.BlockCopy(bytes, 0, trimmed, 0, copied);
-                return trimmed;
-            }
+            if (copied != length) return null;
             return bytes;
         } finally {
             handle.Free();

@@ -8,11 +8,12 @@ public static class ShangraoTableIndicators {
     public static IEnumerable<int> VisibleTiles => CountedIndicators(DisplayedInfo);
     public static IEnumerable<int> CountedIndicators(ShangraoInfo info) => info == null ? Array.Empty<int>()
         : new[] {info.indicator}.Concat((info.burnt_tiles ?? Array.Empty<int>()).Where(tile => tile == info.bao));
-    public static RoundIndicatorDisplay FieldState(ShangraoInfo info) => info == null ? new RoundIndicatorDisplay()
-        : new RoundIndicatorDisplay {Tiles = new[] {info.indicator, info.bao}, Caption = "", Counter = "左指示 右宝牌"};
+    public static RoundIndicatorDisplay FieldState(ShangraoInfo info) => new RoundIndicatorDisplay(new[] {
+        new RoundIndicatorTile(info?.indicator, "指"), new RoundIndicatorTile(info?.bao, "宝")
+    });
     public static void Refresh(ShangraoInfo info, Dictionary<int, string> positions = null, Dictionary<int, int[]> rivers = null) {
         DisplayedInfo = info;
-        RoundPanel.Instance?.RefreshRuleIndicators(FieldState(info));
+        RoundPanel.Instance?.RefreshIndicators(ShangraoGameState.RuleId, FieldState(info));
         if (Game3DManager.Instance != null) {
             var overlay = Game3DManager.Instance.GetComponent<ShangraoRiverOverlay>() ?? Game3DManager.Instance.gameObject.AddComponent<ShangraoRiverOverlay>();
             overlay.Info = info; overlay.Positions = positions; overlay.Rivers = rivers;

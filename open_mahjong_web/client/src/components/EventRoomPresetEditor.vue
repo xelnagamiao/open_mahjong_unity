@@ -75,7 +75,7 @@
       <DuocaiRoomConfig v-else-if="form.room_rule === 'duocai'" :form="form" :show-password="false" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
-      <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" />
+      <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" :allow-paired="true" />
       <RoomTimerFields v-else :form="form" />
       <EventRoomSupplementFields :form="form" :show-password="false" />
       </EventRoomFieldsLayout>

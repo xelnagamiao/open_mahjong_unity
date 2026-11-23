@@ -5418,8 +5418,8 @@
       "text": "4e dan et plus"
     },
     {
-      "key": "Salasasa七段及以上或职业五段及以上并实名注册",
-      "text": "7e dan Salasasa et plus, ou 5e dan professionnel et plus, avec inscription sous son vrai nom"
+      "key": "Salasasa七段及以上",
+      "text": "7e dan Salasasa et plus"
     },
     {
       "key": "10级－3级",
@@ -11528,10 +11528,6 @@
     {
       "key": "蓝灰窄框",
       "text": "Cadre étroit bleu gris"
-    },
-    {
-      "key": "灰色凹槽",
-      "text": "Rainure grise"
     },
     {
       "key": "单框",
@@ -20430,16 +20426,16 @@
       "text": "Mahjong MCR : salle avancé\nCondition d’accès : 4e dan ou supérieur\nPT gagnés par partie : 105\nPT perdus par partie : selon le rang\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices, fausse victoire, appels tactiques\nTemps : 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou 5e dan professionnel ou supérieur, avec identité vérifiée\nPT gagnés par partie : 135*0.49\nPT perdus par partie : selon le rang*0.49\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou supérieur\nPT gagnés par partie : 135*0.49\nPT perdus par partie : selon le rang*0.49\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou 5e dan professionnel ou supérieur, avec identité vérifiée\nPT gagnés par partie : 135*0.7\nPT perdus par partie : selon le rang*0.7\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou supérieur\nPT gagnés par partie : 135*0.7\nPT perdus par partie : selon le rang*0.7\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou 5e dan professionnel ou supérieur, avec identité vérifiée\nPT gagnés par partie : 135\nPT perdus par partie : selon le rang\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "Mahjong MCR : salle MCRPL\nCondition d’accès : 7e dan Salasasa ou supérieur\nPT gagnés par partie : 135\nPT perdus par partie : selon le rang\nRépartition : +0.8+0.2-0.3-0.7\nParamètres : sans indices ni indication du pointeur, fausse victoire, appels tactiques\nTemps : 20+5"
     },
     {
       "key": "10分",
@@ -21222,8 +21218,8 @@
       "text": "Hongque est un jeu de type Rummikub sur le thème de l'arc-en-ciel, conçu par Null. Il utilise un exemplaire de chacun des neuf numéros dans quatorze couleurs. Le premier joueur à organiser toute sa main en suites ou pungs gagne la donne. La diversité des groupes offre des possibilités infinies à chaque distribution. Le jeu est encore en test ; rejoignez le groupe QQ officiel 389832188 pour en discuter ou proposer des suggestions."
     },
     {
-      "key": "虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
-      "text": "Hongque W 1.0 utilise deux exemplaires de chacun des neuf numéros dans sept couleurs. Le premier à organiser toute sa main en groupes gagne. Les suites arc-en-ciel multiplient les possibilités ; c'est le meilleur choix pour découvrir Hongque."
+      "key": "虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
+      "text": "Hongque W 1.1 utilise deux exemplaires de chacun des neuf numéros dans sept couleurs. Le premier à organiser toute sa main en groupes gagne. Les suites arc-en-ciel multiplient les possibilités ; c'est le meilleur choix pour découvrir Hongque."
     },
     {
       "key": "青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交",
@@ -25222,8 +25218,8 @@
       "text": "Après kong, les remplacements sont révélés selon les positions des dés. Kamo limite uniquement les petites victoires sur écart. Le plafond s'applique à chaque gagnant et chaque payeur ; les victoires multiples du même lot y sont cumulées."
     },
     {
-      "key": "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
-      "text": "Au début, la table dispose de 2 secondes pour choisir de ne pas échanger. Après un premier échange, un second peut être choisi, avec deux tours au maximum. Chaque tour échange six tuiles d'au plus deux familles ; trois familles font perdre le droit de gagner. Quatre tuiles après kong, deux oiseaux, petite victoire à 2 points, grande à partir de 8, sans plafond."
+      "key": "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
+      "text": "Au début, la table dispose de 3 secondes pour choisir de ne pas échanger. Après un premier échange, un second peut être choisi, avec deux tours au maximum. Chaque tour échange six tuiles d'au plus deux familles ; trois familles font perdre le droit de gagner. Quatre tuiles après kong, deux oiseaux, petite victoire à 2 points, grande à partir de 8, sans plafond."
     },
     {
       "key": "经典双鸟",

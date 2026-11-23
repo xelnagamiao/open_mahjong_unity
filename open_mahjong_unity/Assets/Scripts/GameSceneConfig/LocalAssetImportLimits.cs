@@ -88,6 +88,13 @@ public static class LocalAssetImportLimits {
         using (var stream = File.OpenRead(path)) Validate(stream, allowZip);
     }
 
+    internal static bool ValidImage(byte[] bytes) {
+        if (bytes == null) return false;
+        try { using (var stream = new MemoryStream(bytes, false)) Validate(stream, false); return true; }
+        catch (IOException e) { UnityEngine.Debug.LogWarning(e.Message); return false; }
+        catch (InvalidDataException e) { UnityEngine.Debug.LogWarning(e.Message); return false; }
+    }
+
     private static void Validate(Stream stream, bool allowZip) {
         if (stream.Length < 4) throw new InvalidDataException("文件为空或格式无效");
         int first = stream.ReadByte(), second = stream.ReadByte();

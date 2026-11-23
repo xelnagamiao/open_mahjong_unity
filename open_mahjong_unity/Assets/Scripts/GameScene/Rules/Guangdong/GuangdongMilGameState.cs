@@ -32,6 +32,12 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         Accept(info?.guangdong_state, info?.guangdong_tips);
         resumeAfterWin = false;
         if (info?.sub_rule == GuangdongMilRules.Doubles && info.players_info != null) {
+            var teams = new int[4];
+            System.Array.Fill(teams, -1);
+            foreach (var p in info.players_info)
+                if (p != null && p.player_index >= 0 && p.player_index < teams.Length && p.team_id.HasValue)
+                    teams[p.player_index] = p.team_id.Value;
+            GameCanvas.Instance?.UpdateSichuanTeams(teams);
             foreach (var p in info.players_info)
                 if (p.is_hu == true && Mirror.IndexToPosition.TryGetValue(p.player_index, out string position))
                     Game3DManager.Instance?.RestoreBloodBattleWinMarker(position, p.blood_hu_tile ?? 0,

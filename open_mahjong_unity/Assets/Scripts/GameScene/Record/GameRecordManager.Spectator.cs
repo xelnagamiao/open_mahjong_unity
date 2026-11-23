@@ -122,6 +122,7 @@ public partial class GameRecordManager {
     /// </summary>
     public void ResetForSessionEnd() {
         ClearMatchRecord();
+        ReleaseRecordMemory();
         IsSpectating = false;
         IsLiveSpectatorMode = true;
         CurrentMode = RecordManagerMode.Record;
@@ -254,7 +255,7 @@ public partial class GameRecordManager {
         if (roundStructureChanged || currentRoundChanged) {
             SyncRoundInspectorAndRoundButtons();
             if (gameRecord.gameRound.rounds.ContainsKey(currentRoundIndex)) {
-                BuildXunmuToNodeAndCreateItems();
+                BuildTurnIndex();
                 RefreshCurrentRecordTexts();
             }
             // 计分板若处于打开状态，随结算实时刷新分值列
@@ -724,7 +725,7 @@ public partial class GameRecordManager {
         foreach (Round round in _roundsListForInspector) {
             round.UpdateActionTicksDisplay();
         }
-        BuildRoundNodeItems();
+        InvalidateRoundButtons();
     }
 
     private void UpdateModeUIVisibility() {
@@ -770,7 +771,12 @@ public partial class GameRecordManager {
 
     private static PlayerRecordInfo[] ExtractPlayersSettings(string recordJson) {
         try {
-            JObject root = JObject.Parse(recordJson);
+            return ExtractPlayerArray(JObject.Parse(recordJson));
+        } catch { return null; }
+    }
+
+    private static PlayerRecordInfo[] ExtractPlayerArray(JObject root) {
+        try {
             JArray settingsArr = root["players_settings"] as JArray;
             if (settingsArr == null || settingsArr.Count == 0) return null;
 

@@ -30,6 +30,7 @@ const RULE_LABELS = {
 const SUB_RULE_LABELS = {
   'hongque/w-v1.0': '虹雀 W（v1.0）',
   'new_chinese/standard': '新中式麻将',
+  'new_chinese/sanhua': '散花天才麻将',
   'beijing/chipengti': '北京麻将（吃碰提）',
   'duocai/guobiao': '夺彩·国标',
   'duocai/riichi': '夺彩·立直',

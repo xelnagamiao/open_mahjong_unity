@@ -1,4 +1,5 @@
 """Committed rewards survive rate changes; client snapshots never authorize money."""
+from server.records.test_seed import seed_single
 from copy import deepcopy
 
 from psycopg2.extras import Json
@@ -13,6 +14,51 @@ from test_subrule_realtime import prepare, players, replay
 from test_subrule_statistics import db
 
 
+def test_deferred_single_table_record_credits_each_wallet_once(db):
+    import asyncio
+    import os
+    from functools import partial
+    from types import SimpleNamespace
+    from psycopg2.pool import ThreadedConnectionPool
+    from server.database.record_persistence import store_single_table_record
+
+    prepare(db)
+    definition = BY_SUB_RULE['guobiao/standard']
+    data = replay(definition)
+    participants = players(definition)
+    data['game_title'].update(room_type='match', match_tier='beginner', game_instance_id='pool-recovery',
+        end_time='2026-11-09T21:00:00+08:00', rating_result={
+            str(p.user_id): dict(rating_system='grade', rating_pt=10) for p in participants})
+    schema = db.sql('SELECT current_schema()')[0][0]
+    pool = ThreadedConnectionPool(1, 1, os.environ['SUBRULE_TEST_DATABASE_URL'], options=f'-c search_path={schema}')
+    store = partial(store_guobiao_game_record, SimpleNamespace(_get_connection=pool.getconn, _put_connection=pool.putconn))
+
+    async def run():
+        saved = asyncio.get_running_loop().create_future()
+
+        async def after_save(game_id, *_):
+            saved.set_result(game_id)
+
+        held = pool.getconn()
+        try:
+            assert await store_single_table_record(store, data, participants, 'match', '1/4_rank',
+                                                   after_deferred_save=after_save) is None
+            assert db.sql('SELECT count(*) FROM wallet_ledger') == [(0,)]
+        finally:
+            pool.putconn(held)
+        game_id = await asyncio.wait_for(saved, timeout=10)
+        assert game_id == data['game_title']['cloud_game_id']
+        assert await store_single_table_record(store, data, participants, 'match', '1/4_rank') == game_id
+
+    try:
+        asyncio.run(run())
+    finally:
+        pool.closeall()
+    assert db.sql('SELECT count(*) FROM game_replays') == [(1,)]
+    assert db.sql('SELECT count(*), count(DISTINCT user_id) FROM wallet_ledger') == [(4, 4)]
+    assert db.sql('SELECT count(*) FROM game_player_metrics') == [(4,)]
+
+
 def test_v2_saved_replay_retries_under_v3_without_payload_conflict_or_recredit(db, monkeypatch):
     prepare(db)
     definition = BY_SUB_RULE['guobiao/standard']
@@ -25,7 +71,7 @@ def test_v2_saved_replay_retries_under_v3_without_payload_conflict_or_recredit(d
         old.setattr(commerce, 'CALCULATION_VERSION', 2)
         game_id = store_guobiao_game_record(db, data, players(definition), 'match', '1/4_rank')
     assert game_id
-    stored = deepcopy(db.sql('SELECT record FROM game_records WHERE game_id=%s', (game_id,))[0][0])
+    stored = deepcopy(db.sql("SELECT record #> '{tables,main,payload}' FROM game_replays WHERE game_id=%s", (game_id,))[0][0])
     assert stored['currency_reward']['version'] == 2
     assert {p['currency_delta_minor'] for p in stored['currency_reward']['players']} == {10}
     before = db.sql('SELECT user_id,balance_minor,earned_minor FROM user_wallets ORDER BY user_id')
@@ -37,7 +83,7 @@ def test_v2_saved_replay_retries_under_v3_without_payload_conflict_or_recredit(d
     assert store_guobiao_game_record(db, forged, players(definition), 'match', '1/4_rank') == game_id
     assert forged['currency_reward'] == stored['currency_reward']
     assert forged['match_result'] == stored['match_result']
-    assert db.sql('SELECT record FROM game_records WHERE game_id=%s', (game_id,))[0][0] == stored
+    assert db.sql("SELECT record #> '{tables,main,payload}' FROM game_replays WHERE game_id=%s", (game_id,))[0][0] == stored
     assert db.sql('SELECT user_id,balance_minor,earned_minor FROM user_wallets ORDER BY user_id') == before
     assert db.sql('SELECT COUNT(*) FROM wallet_ledger') == [(4,)]
     assert db.sql('SELECT COUNT(*) FROM game_player_metrics') == metrics_before
@@ -77,7 +123,7 @@ def test_persisted_v2_entitlement_with_missing_ledger_keeps_original_amount(shop
         dict(user_id=uid, currency_delta_minor=0 if uid == 102 else 20,
              currency_reward_status='not_registered' if uid == 102 else 'saved') for uid in range(101, 105)])
     data['currency_reward'] = old
-    shop.sql('INSERT INTO game_records VALUES(%s,%s)', ('v2-unpaid', Json(data)))
+    seed_single(shop,'v2-unpaid',data)
     shop.sql('INSERT INTO game_player_records SELECT %s,generate_series(101,104)', ('v2-unpaid',))
     forged = dict(data, currency_reward=dict(old, players=[]))
     assert settle(shop, 'v2-unpaid', forged) == dict(credited_players=3, credited_minor=60)
@@ -91,7 +137,7 @@ def test_legacy_ledger_without_snapshot_remains_idempotent_at_original_rate(shop
     data = legacy_record()
     game_id = 'ledger-only'
     if saved_replay:
-        shop.sql('INSERT INTO game_records VALUES(%s,%s)', (game_id, Json(data)))
+        seed_single(shop,game_id,data)
     shop.sql('INSERT INTO game_player_records SELECT %s,generate_series(101,104)', (game_id,))
     conn = shop.pool.getconn()
     try:
@@ -128,7 +174,7 @@ def test_v2_three_player_snapshot_does_not_get_new_v3_retroactive_rewards(shop):
     data['game_title'].update(rule='riichi', sub_rule='riichi/sanma', player_count=3)
     data['currency_reward'] = dict(version=2, completed_hands=2, eligible=False, players=[
         dict(user_id=uid, currency_delta_minor=0, currency_reward_status='not_applicable') for uid in (101,102,103)])
-    shop.sql('INSERT INTO game_records VALUES(%s,%s)', ('old-sanma', Json(data)))
+    seed_single(shop,'old-sanma',data)
     shop.sql('INSERT INTO game_player_records SELECT %s,generate_series(101,103)', ('old-sanma',))
     assert settle(shop, 'old-sanma', data) == dict(credited_players=0, credited_minor=0)
     assert shop.sql('SELECT COUNT(*) FROM wallet_ledger') == [(0,)]

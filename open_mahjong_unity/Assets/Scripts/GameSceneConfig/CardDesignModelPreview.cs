@@ -3,7 +3,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using UnityEngine.U2D;
 
 /// <summary>Real tiles for the fixed design views and rotating preset thumbnails.</summary>
 public sealed class CardDesignModelPreview : MonoBehaviour
@@ -16,8 +15,6 @@ public sealed class CardDesignModelPreview : MonoBehaviour
     GameObject rig;
     Camera previewCamera;
     Material material;
-    Sprite officialFace;
-    bool ownsOfficialFace;
     float nextRender;
     int selectedTile = 11;
     Transform[] pivots = new Transform[3];
@@ -36,10 +33,7 @@ public sealed class CardDesignModelPreview : MonoBehaviour
 
     public void SelectTile(int tile)
     {
-        if (selectedTile != tile) {
-            if (ownsOfficialFace) Dispose(officialFace);
-            officialFace = null; ownsOfficialFace = false; selectedTile = tile;
-        }
+        selectedTile = tile;
         RenderPreview();
     }
     public void RotateCard(int index, Vector2 delta)
@@ -113,7 +107,9 @@ public sealed class CardDesignModelPreview : MonoBehaviour
         // Match MahjongObjectPool's 3D texture path, not the flat gallery sprite.
         var faceTexture = TileFaceResolver.LoadTableTexture(selectedTile);
         var sharedSprite = TileFaceResolver.LoadSharedTableSprite(selectedTile);
+        material.SetVector("_FrontAtlasBounds",new Vector4(0,0,1,1));
         if (sharedSprite != null && sharedSprite.texture == faceTexture) {
+            material.SetVector("_FrontAtlasBounds",UnityEngine.Sprites.DataUtility.GetOuterUV(sharedSprite));
             material.SetFloat("_FrontTexContain",0f);
             material.SetTexture("_FrontTex",faceTexture);
             material.SetVector("_FrontTilingOffset",Tile3D.ComputeSpriteTiling(sharedSprite));
@@ -123,15 +119,10 @@ public sealed class CardDesignModelPreview : MonoBehaviour
             material.SetVector("_FrontTilingOffset",TileTextureLayout.FrontContainTiling(faceTexture));
         } else {
             material.SetFloat("_FrontTexContain",0f);
-            if (officialFace == null) {
-                var atlas = Resources.Load<SpriteAtlas>(TilePackIds.OfficialAtlasResource);
-                officialFace = atlas != null ? atlas.GetSprite(selectedTile.ToString()) : null;
-                ownsOfficialFace = officialFace != null;
-                if (officialFace == null) officialFace = BuiltinTileSprites.OfficialTable(selectedTile);
-            }
-            var sprite = officialFace;
+            var sprite = sharedSprite ?? TileFaceResolver.LoadTableSprite(selectedTile);
+            material.SetTexture("_FrontTex", sprite != null ? sprite.texture : null);
             if (sprite != null) {
-                material.SetTexture("_FrontTex",sprite.texture);
+                material.SetVector("_FrontAtlasBounds",UnityEngine.Sprites.DataUtility.GetOuterUV(sprite));
                 material.SetVector("_FrontTilingOffset",Tile3D.ComputeSpriteTiling(sprite));
             }
         }
@@ -155,8 +146,8 @@ public sealed class CardDesignModelPreview : MonoBehaviour
             if (views != null && i < views.Length && views[i] != null) views[i].texture = null;
             if (textures[i] != null) textures[i].Release(); Dispose(textures[i]); textures[i] = null;
         }
-        Dispose(rig); Dispose(material); if (ownsOfficialFace) Dispose(officialFace);
-        officialFace = null; ownsOfficialFace = false; rig = null; material = null; previewCamera = null;
+        Dispose(rig); Dispose(material);
+        rig = null; material = null; previewCamera = null;
     }
     static void Dispose(Object obj) { if (obj == null) return; if (Application.isPlaying) Destroy(obj); else DestroyImmediate(obj); }
 }

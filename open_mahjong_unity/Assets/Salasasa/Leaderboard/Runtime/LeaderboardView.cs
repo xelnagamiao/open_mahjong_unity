@@ -136,7 +136,7 @@ namespace Salasasa.Leaderboards
         void OnDisable() { ConfigManager.OnLanguageChanged -= RefreshMyName; }
         void RefreshMyName() { if (myName && myNameIsPlaceholder) myName.text = PlatformText.Get(myNameSource); }
 
-        public void SetRows(LeaderboardEntry[] entries, int rule, LeaderboardPortrait[] portraits, bool sample, int myId, string sourceText)
+        public void SetRows(LeaderboardEntry[] entries, int rule, LeaderboardPortrait[] portraits, bool sample, int myId, string sourceText, int ownPosition = 0)
         {
             SetState(null, null, false, false);
             bool grade = LeaderboardRules.IsGrade(rule);
@@ -154,7 +154,7 @@ namespace Salasasa.Leaderboards
             scroll.StopMovement();
             scroll.verticalNormalizedPosition = 1;
             UpdateVisibleRows(true);
-            SetMine(entries, grade, portraits, sample, myId);
+            SetMine(entries, grade, portraits, sample, myId, ownPosition: ownPosition);
         }
 
         void OnListScrolled(Vector2 _) => UpdateVisibleRows(false);
@@ -182,14 +182,15 @@ namespace Salasasa.Leaderboards
             }
         }
 
-        public void SetMine(LeaderboardEntry[] entries, bool grade, LeaderboardPortrait[] portraits, bool sample, int myId, bool rankingResolved = true)
+        public void SetMine(LeaderboardEntry[] entries, bool grade, LeaderboardPortrait[] portraits, bool sample, int myId, bool rankingResolved = true, int ownPosition = 0)
         {
             LeaderboardEntry mine = Array.Find(entries, x => x.user_id == myId);
             ApplyDefaultPortrait(portraits, myAvatar);
             myNameSource = mine != null ? mine.username : sample ? "SALASASA" : myId > 0 ? "我的排名" : "未登录";
             myNameIsPlaceholder = mine == null && !sample;
             myName.text = myNameIsPlaceholder ? PlatformText.Get(myNameSource) : myNameSource;
-            myPosition.text = mine != null ? mine.rank_position.ToString("00") : myId > 0 && rankingResolved ? "999+" : "—";
+            int position = mine?.rank_position ?? ownPosition;
+            myPosition.text = position > 0 ? position.ToString("00") : myId > 0 && rankingResolved ? "1000+" : "—";
             myGrade.text = mine == null ? "—" : LeaderboardRules.Detail(mine, grade);
             myScore.text = mine == null ? "—" : LeaderboardRules.Score(mine, grade) + (grade ? " PT" : " R");
             myHint.text = myId > 0 ? "UID " + myId : "登录后显示我的排名";

@@ -111,7 +111,9 @@ namespace Salasasa.Home
                 (SelectedRoute=="profile" && ProfileOnClick.PendingUserId<10 && (!PlayerInfoPanel.Instance || !PlayerInfoPanel.Instance.IsOpen)))
                 SelectedRoute=CurrentPageRoute();
             bodyLayer.SetActive(home && !artwork.overlay.IsOpen);
-            SetVisible(roomList,current=="menu" && RoomListOpen);
+            bool roomsVisible = current == "menu" && RoomListOpen;
+            SetVisible(roomList, roomsVisible);
+            RoomListPanel.Instance?.SetPageVisible(roomsVisible);
             if(MeunPanel.Instance)
             {
                 string value=PlatformText.Format("匹配人数({0})",MeunPanel.Instance.MatchPlayerCount);
@@ -123,6 +125,11 @@ namespace Salasasa.Home
             if(artwork.artworkShade!=null)artwork.artworkShade.gameObject.SetActive(showArt);
             if(headerNavigation!=null)headerNavigation.Tick(logged,current,home);
         }
+        void OnDisable()
+        {
+            RoomListPanel.Instance?.SetPageVisible(false);
+        }
+
         static void SetVisible(CanvasGroup group,bool visible)
         {
             if(group==null)return;

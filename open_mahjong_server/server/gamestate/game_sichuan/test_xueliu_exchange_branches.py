@@ -182,7 +182,7 @@ def test_invalid_exchange_choice_keeps_the_player_pending_until_a_later_valid_re
                 await enqueue(current, 0, current.xueliu_opening_action, selected_tiles=[21,22,23])
             retry = asyncio.create_task(correct())
         with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask):
-            await asyncio.wait_for(state._xueliu_throw_three_phase(), 2)
+            await asyncio.wait_for(state._xueliu_throw_three_phase(), state.exchange_animation_seconds + 2)
             await retry
         assert state.player_list[0].xueliu_throw_tiles == [21,22,23]
         assert not state.waiting_players_list

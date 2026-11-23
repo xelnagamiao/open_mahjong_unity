@@ -26,7 +26,7 @@ def test_each_board_restores_room_bank_and_opening_payload(seconds, sub_rule, en
     room.update(room_rule='sichuan', sub_rule=sub_rule, round_timer=seconds, step_timer=6,
                 team_by_seat=team_by_seat(table))
     if sub_rule in (SBR_DUPLICATE, XUELIU_DUPLICATE):
-        match, _ = pair(sub_rule, count=4)
+        match = pair(sub_rule, count=4)
         server.gamestate_manager.sichuan_duplicate_matches = {'clock-test': match}
         room.update(duplicate_match_id='clock-test', duplicate_table=table,
                     duplicate_key='test-key', duplicate_game_id='test-game')

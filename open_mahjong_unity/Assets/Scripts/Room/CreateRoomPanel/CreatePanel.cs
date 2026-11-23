@@ -434,7 +434,7 @@ public partial class CreatePanel : MonoBehaviour {
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
-        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !IsJinluoEnabled && !isLanshi && !isBloodBattle && !isSichuanDoubles
+        bool showHepaiLimit = GetSelectedSubRule() != SanhuaGameState.SubRule && visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !IsJinluoEnabled && !isLanshi && !isBloodBattle && !isSichuanDoubles
             && (_ruleState != "shanghai" || IsShanghaiQiaoma);
         RefreshHepaiLimitCaption();
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
@@ -460,7 +460,7 @@ public partial class CreatePanel : MonoBehaviour {
                 visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu && !isSichuanDoubles && GetSelectedSubRule() != SichuanLobby.SbrExchange);
         }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount) && !IsChangshaExchangeSix);
-        newChineseExchangeThreeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ExchangeThree));
+        newChineseExchangeThreeToggle.gameObject.SetActive(GetSelectedSubRule() != SanhuaGameState.SubRule && visible.ContainsKey(CreateRoomKeys.ExchangeThree));
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();
@@ -512,9 +512,12 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void OnSubRuleChanged(int index) {
+        if (_ruleState == "guangdong" && GuangdongMilRules.IsMil(GetSelectedSubRule()))
+            SelectGameTime(2);
         RefreshHongKongMainControls();
         RefreshGuangdongControls();
         RefreshSubRuleDescription();
+        ApplySichuanSubRuleDefaults();
         if (_ruleState == "riichi" && RiichiStartingScoreInput != null) {
             string selectedSubRule = GetSelectedRiichiSubRule();
             if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(Array.FindIndex(RiichiRoomRules.Presets, p => p.Id == "sanma_majsoul"));
@@ -550,6 +553,16 @@ public partial class CreatePanel : MonoBehaviour {
             }
         }
         RefreshVisibility();
+    }
+
+    private void ApplySichuanSubRuleDefaults() {
+        if (_ruleState != "sichuan") return;
+        string subRule = GetSelectedSubRule();
+        bool duplicate = SichuanLobby.IsDuplicate(subRule);
+        bool doubles = subRule == SichuanLobby.DoublesSubRule || subRule == SichuanLobby.XueliuDoublesSubRule;
+        if (roundTimer != null) roundTimer.SetValueWithoutNotify(duplicate ? 7 : doubles ? 6 : 3);
+        if (stepTimer != null) stepTimer.SetValueWithoutNotify(doubles || duplicate ? 3 : 1);
+        if (pointerTipsToggle != null) pointerTipsToggle.SetIsOnWithoutNotify(!duplicate);
     }
 
     private string GetSelectedSubRule() {
@@ -720,7 +733,12 @@ public partial class CreatePanel : MonoBehaviour {
         bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId || _ruleState == ShangraoGameState.RuleId;
         if (!showRound) return;
         bool guangdongDoubles = _ruleState == "guangdong" && GetSelectedSubRule() == GuangdongMilRules.Doubles;
-        if (gameTime1Button != null) gameTime1Button.gameObject.SetActive(!guangdongDoubles);
+        if (GetSelectedSubRule() == SanhuaGameState.SubRule) {
+            SetToggleLabel(gameTime1Button,"四副"); SetToggleLabel(gameTime2Button,"八副");
+            SetToggleLabel(gameTime3Button,"十二副"); SetToggleLabel(gameTime4Button,"十六副");
+            gameTime3Button.gameObject.SetActive(true);
+            return;
+        }
         if (_ruleState == NewChineseGameState.RuleId) {
             SetToggleLabel(gameTime1Button,"四圈"); SetToggleLabel(gameTime2Button,"八圈");
             SetToggleLabel(gameTime3Button,"十二圈"); SetToggleLabel(gameTime4Button,"十六圈");
@@ -743,13 +761,12 @@ public partial class CreatePanel : MonoBehaviour {
             SelectGameTime(4);
         }
 
-        if (guangdongDoubles && (gameTime1Button.isOn || gameTime3Button.isOn)) SelectGameTime(2);
         string handUnit = guangdongDoubles || _ruleState == ShangraoGameState.RuleId ? "副" : "局";
         SetToggleLabel(gameTime1Button, (isChangsha || usesFixedHandCount) ? "4" + handUnit : _defaultGameRoundLabels[0]);
         SetToggleLabel(gameTime2Button, (isChangsha || usesFixedHandCount) ? "8" + handUnit : _defaultGameRoundLabels[1]);
         SetToggleLabel(gameTime3Button, usesFixedHandCount ? "12" + handUnit : _defaultGameRoundLabels[2]);
         SetToggleLabel(gameTime4Button, (isChangsha || usesFixedHandCount) ? "16" + handUnit : _defaultGameRoundLabels[3]);
-        if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha && !guangdongDoubles);
+        if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha);
     }
 
     private static string GetToggleLabelText(Toggle toggle) {
@@ -861,8 +878,10 @@ public partial class CreatePanel : MonoBehaviour {
             1 => 5,
             2 => 10,
             3 => 20,
-            4 => 40,
-            5 => 60,
+            4 => 30,
+            5 => 40,
+            6 => 60,
+            7 => 120,
             _ => 20
         };
     }

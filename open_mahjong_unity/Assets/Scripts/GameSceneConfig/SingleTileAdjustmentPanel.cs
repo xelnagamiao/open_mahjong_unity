@@ -69,7 +69,12 @@ public sealed class SingleTileAdjustmentPanel : MonoBehaviour
         if (!dirty || tileId < 0 || string.IsNullOrEmpty(pack)) return;
         dirty = false; TileFaceOffsetSettings.Save(pack, tileId, table, draft);
     }
-    public void Close() { Commit(); tileId = -1; if (panel != null) panel.gameObject.SetActive(false); }
+    public void Close() {
+        Commit();
+        tileId = -1;
+        if (panel != null) panel.gameObject.SetActive(false);
+        if (preview != null) preview.ClearArtwork();
+    }
     void Refresh() {
         if (refreshing || tileId < 0 || !panel.gameObject.activeSelf) return;
         refreshing = true;

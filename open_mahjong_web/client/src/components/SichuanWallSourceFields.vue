@@ -6,10 +6,16 @@
       </el-radio-group>
     </el-form-item>
     <div v-if="training" class="wall-source-parameters">
-      <el-form-item label="随机种子" required class="training-seed-field">
-        <el-input v-model="form.random_seed" maxlength="66" placeholder="64位十六进制随机种子" aria-label="训练牌山随机种子" />
-        <el-button @click="form.random_seed = generateTrainingSeed()">随机生成</el-button>
-        <el-button :disabled="!form.random_seed" @click="copySeed">复制</el-button>
+      <div class="training-reuse-row">
+        <el-form-item label="重复使用">
+          <el-switch v-model="form.reuse_training_room" aria-label="重复使用" @change="enabled => { if (enabled) form.random_seed = '' }" />
+        </el-form-item>
+        <p class="wall-source-help">重复使用：开启以后每次对局都会随机不一样的训练牌山，避免重复创建房间带来的麻烦。</p>
+      </div>
+      <el-form-item label="随机种子" :required="!form.reuse_training_room" class="training-seed-field">
+        <el-input v-model="form.random_seed" :disabled="form.reuse_training_room" maxlength="66" :placeholder="form.reuse_training_room ? '每场自动随机生成' : '64位十六进制随机种子'" aria-label="训练牌山随机种子" />
+        <el-button :disabled="form.reuse_training_room" @click="form.random_seed = generateTrainingSeed()">随机生成</el-button>
+        <el-button :disabled="form.reuse_training_room || !form.random_seed" @click="copySeed">复制</el-button>
       </el-form-item>
     </div>
     <template v-else>
@@ -80,7 +86,8 @@ async function copySeed() {
 .wall-source-options.room-segmented-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .wall-key-acquisition-field :deep(.el-radio-group) { display: flex; flex-wrap: wrap; }
 .wall-key-acquisition-field :deep(.el-radio) { margin-right: 12px; }
-.wall-source-parameters { margin-top: 12px; }
+.training-reuse-row { grid-column: 1 / -1; order: 1; }
+.wall-source-parameters .el-form-item.training-seed-field { order: 1; }
 .training-seed-field :deep(.el-form-item__content) { gap: 8px; }
 .training-seed-field :deep(.el-input) { flex: 1 1 300px; }
 .wall-source-help { width: 100%; margin: 4px 0; font-weight: 400; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.7; }

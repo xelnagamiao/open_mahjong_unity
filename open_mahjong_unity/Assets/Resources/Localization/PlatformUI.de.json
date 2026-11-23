@@ -5418,8 +5418,8 @@
       "text": "Ab 4. Dan"
     },
     {
-      "key": "Salasasa七段及以上或职业五段及以上并实名注册",
-      "text": "Salasasa ab 7. Dan oder Profirang ab 5. Dan, mit Registrierung unter echtem Namen"
+      "key": "Salasasa七段及以上",
+      "text": "Salasasa ab 7. Dan"
     },
     {
       "key": "10级－3级",
@@ -11528,10 +11528,6 @@
     {
       "key": "蓝灰窄框",
       "text": "Schmaler blaugrauer Rahmen"
-    },
-    {
-      "key": "灰色凹槽",
-      "text": "Graue Vertiefung"
     },
     {
       "key": "单框",
@@ -20430,16 +20426,16 @@
       "text": "MCR: Fortgeschrittene\nZugang: ab 4. Dan\nGewonnene pt pro Partie: 105\nVerlorene pt pro Partie: nach Rang\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan oder Profi 5. Dan und Registrierung mit echtem Namen\nGewonnene pt pro Partie: 135*0.49\nVerlorene pt pro Partie: nach Rang*0.49\nVerteilung: +0.8+0.2-0.3-0.7\nKeine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan\nGewonnene pt pro Partie: 135*0.49\nVerlorene pt pro Partie: nach Rang*0.49\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan oder Profi 5. Dan und Registrierung mit echtem Namen\nGewonnene pt pro Partie: 135*0.7\nVerlorene pt pro Partie: nach Rang*0.7\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan\nGewonnene pt pro Partie: 135*0.7\nVerlorene pt pro Partie: nach Rang*0.7\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan oder Profi 5. Dan und Registrierung mit echtem Namen\nGewonnene pt pro Partie: 135\nVerlorene pt pro Partie: nach Rang\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "text": "MCR: MCRPL\nZugang: ab Salasasa 7. Dan\nGewonnene pt pro Partie: 135\nVerlorene pt pro Partie: nach Rang\nVerteilung: +0.8+0.2-0.3-0.7\nEinstellungen: keine Hinweise, kein Zeigerhinweis, falsche Gewinne, taktische Rufe\nZeitlimit: 20+5"
     },
     {
       "key": "10分",
@@ -21222,7 +21218,7 @@
       "text": "Hongque ist ein von Null entwickeltes Rummy-Brettspiel mit Regenbogenthema. Es verwendet Mahjong-Ziegel in vierzehn Farben mit je einem Exemplar der neun Zahlen. Wer zuerst sämtliche Handziegel zu Folgen oder Gleichzahlsätzen verbindet, gewinnt die Hand. Die vielfältigen Satzarten eröffnen jeder Anfangshand zahllose Möglichkeiten. Das Spiel befindet sich noch im Test. Interessierte und alle mit Vorschlägen können sich in der offiziellen Hongque-QQ-Gruppe 389832188 austauschen."
     },
     {
-      "key": "虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
+      "key": "虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
       "text": "Hongque W, Version 1.0, verwendet Hongque-Ziegel in 7 Farben mit je 2 Exemplaren der 9 Zahlen. Wer zuerst alle Handziegel zu Sätzen verbindet, gewinnt die Hand. Regenbogenfolgen bringen viele Wendungen ins Spiel und machen diese Variante zum besten Einstieg in Hongque."
     },
     {
@@ -25222,8 +25218,8 @@
       "text": "Nach einem Kong werden Ersatzziegel gemäß Würfelposition öffentlich aufgedeckt. Kamo beschränkt nur kleine Abwurfgewinne. Die Grenze gilt je Gewinner und Zahler; mehrere Gewinne derselben Gruppe werden für die Grenze zusammengerechnet."
     },
     {
-      "key": "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
-      "text": "Zu Beginn bleiben 2 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung."
+      "key": "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
+      "text": "Zu Beginn bleiben 3 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung."
     },
     {
       "key": "经典双鸟",

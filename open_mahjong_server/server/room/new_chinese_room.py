@@ -1,11 +1,12 @@
 from typing import Any
+from ..game_calculation.sanhua import rules as sanhua
 
-from pydantic import Field, StrictBool, StrictInt, validator
+from pydantic import Field, StrictBool, StrictInt, model_validator, validator
 
 from .room_validators import GBRoomValidator
 from .standard_room import create_standard_room, handle_create_standard_room
 
-from ..game_calculation.new_chinese.rules import SUB_RULE, RULE_VERSION as EDITION, normalize_config as normalize_new_chinese_config
+from ..game_calculation.new_chinese.rules import SUB_RULE, RULE_VERSION as EDITION, normalize_config as normalize_new_chinese_config, room_fan_limit
 
 
 class NewChineseRoomValidator(GBRoomValidator):
@@ -33,20 +34,38 @@ class NewChineseRoomValidator(GBRoomValidator):
             raise ValueError("圈数须为4、8、12或16")
         return value
 
-    @validator("starting_score", "hepai_limit")
+    @validator("starting_score")
     def zero_start(cls, value):
         if value != 0:
-            raise ValueError("新中式麻将固定0起始分、0番起和")
+            raise ValueError("新中式麻将固定0起始分")
         return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def fixed_sanhua_settings(cls, data):
+        if isinstance(data, dict) and data.get("sub_rule") == sanhua.SUB_RULE:
+            if data.get("hepai_limit", 4) != 4 or data.get("detailed_config") not in (None, {}, {"rule_version": sanhua.VERSION}):
+                raise ValueError("散花天才麻将固定四番起和")
+            return {**data, "hepai_limit": 4, "detailed_config": {"rule_version": sanhua.VERSION}}
+        return data
+
+    @model_validator(mode="after")
+    def apply_fan_limit(self):
+        if self.sub_rule == sanhua.SUB_RULE:
+            return self
+        self.hepai_limit = room_fan_limit(self.hepai_limit, self.detailed_config["exchange_three"])
+        return self
 
     @validator("sub_rule")
     def valid_profile(cls, value):
-        if value != SUB_RULE:
+        if value not in (SUB_RULE, sanhua.SUB_RULE):
             raise ValueError("新中式麻将子规则无效")
         return value
 
     @validator("detailed_config", pre=True, always=True)
-    def valid_config(cls, value):
+    def valid_config(cls, value, values):
+        if values.get("sub_rule") == sanhua.SUB_RULE:
+            return {"rule_version": sanhua.VERSION}
         return normalize_new_chinese_config(value)
 
     @validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")

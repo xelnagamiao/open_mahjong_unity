@@ -677,7 +677,7 @@ def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Opt
         return "L" + identity("local-table", pair.data["id"], side).replace("-", "")[:15]
 
     if not game_id:
-        game_id = local_table_id(table_id) if pair else generate_local_only_game_id()
+        game_id = local_table_id(table_id) if pair else (title.get("cloud_game_id") or generate_local_only_game_id())
     sources = {table_id: {"record": jsonable_game_record(record), "game_id": game_id,
                           "players": [p.model_dump() for p in players]}}
     if pair:

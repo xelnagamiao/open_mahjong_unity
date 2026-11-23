@@ -263,6 +263,18 @@ test('all seven supported rules have the correct common defaults and rule change
   assert.throws(() => change(doc, 'manual', { room_rule: 'changsha', room_config: { game_round: 3 } }), errorStatus(400));
 });
 
+test('Sichuan doubles defaults use 30+10 and paired rooms use 120+10 with pointer tips off', () => {
+  const base = readRoomSettings({});
+  const doubles = change(base, 'manual', { room_rule: 'sichuan', room_config: { sub_rule: 'sichuan/doubles' } }).settings.manual.room_config;
+  assert.equal(doubles.round_timer, 30);
+  assert.equal(doubles.step_timer, 10);
+  const paired = change(base, 'manual', { room_rule: 'sichuan', room_config: { sub_rule: 'sichuan/doubles_duplicate' } }).settings.manual.room_config;
+  assert.equal(paired.round_timer, 120);
+  assert.equal(paired.step_timer, 10);
+  assert.equal(paired.pointer_tips, false);
+  assert.equal(paired.real_time, false);
+});
+
 test('preset names and IDs reject duplicates and the 50-preset limit still permits editing and deletion', () => {
   let settings = createPreset(undefined, 'preset-0', { name: '比赛 0' }).settings;
   assert.throws(() => createPreset(settings, 'preset-other', { name: ' 比赛 0 ' }), errorStatus(400, /已存在/));

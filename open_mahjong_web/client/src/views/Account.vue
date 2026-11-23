@@ -129,7 +129,7 @@
         <div class="venue-heading"><h2>赛事与基地</h2><p>我管理的赛事与基地</p></div>
         <div v-loading="eventsLoading" class="venue-grid">
           <article v-for="row in myEvents" :key="row.event_id" class="venue-card" :class="{ 'venue-card--base': row.kind === 'base', 'venue-card--selected': managingEventId === row.event_id }">
-            <button type="button" class="venue-card-open" aria-label="进入管理" :title="row.description || row.name" :aria-describedby="`venue-name-${row.event_id}`" :aria-expanded="managingEventId === row.event_id" :disabled="applyLoading || iconBusy" @click="openVenueManagement(row.event_id)"></button>
+            <button type="button" class="venue-card-open" tabindex="-1" aria-hidden="true" :title="row.description || row.name" :disabled="applyLoading || iconBusy" @click="openVenueManagement(row.event_id)"></button>
             <header class="venue-card-header">
               <span class="venue-kind">{{ row.kind === 'base' ? '基地' : '赛事' }}</span>
               <span class="venue-status" :class="{ 'venue-status--active': row.status === 'active' }">{{ eventStatusLabel(row.status) }}</span>
@@ -142,10 +142,17 @@
                 <el-tag v-if="row.profile_change_pending" type="warning" size="small">资料待审</el-tag>
               </div>
               <footer class="venue-card-footer">
-              <div class="venue-card-actions">
-                <el-button size="large" plain @click.stop="$router.push(`/events/${row.event_id}`)">公开页</el-button>
-                <el-button size="large" type="primary" @click.stop="$router.push('/player-data')">前往数据站</el-button>
-              </div>
+                <div class="venue-card-actions">
+                  <el-button
+                    size="large" type="primary"
+                    :disabled="applyLoading || iconBusy"
+                    :aria-describedby="`venue-name-${row.event_id}`"
+                    :aria-expanded="managingEventId === row.event_id"
+                    @click="openVenueManagement(managingEventId === row.event_id ? null : row.event_id)"
+                  >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
+                  <el-button size="large" plain @click.stop="$router.push(`/events/${row.event_id}`)">公开页</el-button>
+                  <el-button size="large" type="primary" plain @click.stop="$router.push('/player-data')">前往数据站</el-button>
+                </div>
                 <span class="venue-role" :class="{ 'venue-role--owner': row.role === 'owner' }">{{ eventRoleLabel(row.role, row.kind) }}</span>
               </footer>
             </div>

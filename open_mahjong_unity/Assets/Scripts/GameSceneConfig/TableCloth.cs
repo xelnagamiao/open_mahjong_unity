@@ -72,29 +72,21 @@ public class TableCloth : MonoBehaviour
             GetComponentInParent<TableClothPanel>(true)?.DeleteColor(deletePath);
             return;
         }
+        var panel = GetComponentInParent<TableClothPanel>(true);
+        if (panel == null) return;
         try {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            UnityAssetIdb.Delete(deletePath, FinishDelete);
+            UnityAssetIdb.Delete(deletePath, panel.FinishCustomFileDelete);
 #else
             if (System.IO.File.Exists(deletePath)) {
                 System.IO.File.Delete(deletePath);
                 Debug.Log("成功删除自定义桌布文件: " + deletePath);
             }
-            FinishDelete();
+            panel.FinishCustomFileDelete();
 #endif
         } catch (System.Exception e) {
             Debug.LogError("删除失败: " + e.Message);
         }
     }
 
-    private void FinishDelete() {
-        SceneConfigPanel scenePanel = GetComponentInParent<SceneConfigPanel>(true);
-        if (scenePanel != null) {
-            scenePanel.RefreshPage();
-        }
-        TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);
-        if (panel != null && panel.deleteButton != null) {
-            panel.deleteButton.gameObject.SetActive(false);
-        }
-    }
 }

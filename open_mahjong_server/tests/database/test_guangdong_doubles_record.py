@@ -13,7 +13,7 @@ def test_eight_board_record_persists_scores_and_fans_once(db, monkeypatch):
     db.store_guangdong_game_record = partial(store_taiwan_game_record, db)
     gs, _ = play_match(monkeypatch, db)
     gid = gs.game_record["game_title"]["cloud_game_id"]
-    assert db.sql("SELECT count(*) FROM game_records WHERE game_id=%s", (gid,)) == [(1,)]
+    assert db.sql("SELECT count(*) FROM game_record_tables WHERE game_id=%s", (gid,)) == [(1,)]
     rows = db.sql("""SELECT user_id,sub_rule,match_type,score,win_count,fan_stats,total_fan_score,total_rounds
                      FROM game_player_metrics WHERE game_id=%s ORDER BY user_id""", (gid,))
     assert len(rows) == 4 and all(r[1:3] == (PROFILE, "2/4") for r in rows)

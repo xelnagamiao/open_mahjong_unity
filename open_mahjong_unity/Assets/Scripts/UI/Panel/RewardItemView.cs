@@ -8,7 +8,7 @@ public sealed class RewardItemView : MonoBehaviour {
     public TMP_Text title, quantity;
     public void Bind(RewardItem item) {
         RewardUiText.Set(title,item.name); quantity.text = "× " + item.quantity;
-        icon.sprite = ConfigManager.GetInventoryIcon(item);
+        ConfigManager.SetInventoryIcon(icon, item);
         icon.enabled = icon.sprite != null;
         AvatarFrameGraphic.Apply(icon, item.slot == "avatar_frame" ? item.item_id : -1);
         fallbackIcon.gameObject.SetActive(!icon.enabled);

@@ -26,7 +26,7 @@ public class EndLiujuPanel : MonoBehaviour {
     [SerializeField] private StaticCard staticCardPrefab;
 
     private Coroutine autoHideCoroutine;
-    private readonly Queue<string> tableCaptions = new Queue<string>();
+    public bool IsShowingTableCaption { get; private set; }
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -40,28 +40,22 @@ public class EndLiujuPanel : MonoBehaviour {
         ShowLiujuPanel(displayText, null, 2f);
     }
 
-    public void ShowTableCaption(string text) {
-        if (liujuText == null) return;
-        if (tableCaptions.Count > 0) {
-            tableCaptions.Enqueue(text);
-            return;
-        }
+    public void ShowTableCaption(string text, float remainingSeconds = 1f) {
+        if (liujuText == null || remainingSeconds <= 0f) return;
         PrepareLiujuPanel(text);
-        tableCaptions.Enqueue(text);
-        autoHideCoroutine = StartCoroutine(PlayTableCaptions());
+        if (!isActiveAndEnabled) return;
+        IsShowingTableCaption = true;
+        autoHideCoroutine = StartCoroutine(PlayTableCaption(remainingSeconds));
     }
 
-    private IEnumerator PlayTableCaptions() {
-        while (tableCaptions.Count > 0) {
-            liujuText.text = tableCaptions.Peek();
-            const float duration = 1f, fade = .15f;
-            for (float elapsed = 0f; elapsed < duration; elapsed += Time.unscaledDeltaTime) {
-                liujuText.canvasRenderer.SetAlpha(Mathf.Clamp01(Mathf.Min(elapsed, duration - elapsed) / fade));
-                yield return null;
-            }
-            tableCaptions.Dequeue();
+    private IEnumerator PlayTableCaption(float remainingSeconds) {
+        const float duration = 1f, fade = .15f;
+        double end = Time.realtimeSinceStartupAsDouble + Mathf.Min(duration, remainingSeconds);
+        while (Time.realtimeSinceStartupAsDouble < end) {
+            float remaining = (float)(end - Time.realtimeSinceStartupAsDouble);
+            liujuText.canvasRenderer.SetAlpha(Mathf.Clamp01(Mathf.Min(duration - remaining, remaining) / fade));
+            yield return null;
         }
-        liujuText.canvasRenderer.SetAlpha(1f);
         autoHideCoroutine = null;
         gameObject.SetActive(false);
     }
@@ -75,9 +69,10 @@ public class EndLiujuPanel : MonoBehaviour {
             StopCoroutine(autoHideCoroutine);
             autoHideCoroutine = null;
         }
-        if (tableCaptions.Count == 0) return;
-        tableCaptions.Clear();
-        liujuText.canvasRenderer.SetAlpha(1f);
+        if (IsShowingTableCaption) {
+            IsShowingTableCaption = false;
+            liujuText.canvasRenderer.SetAlpha(1f);
+        }
     }
 
     /// <param name="tenpaiTilesByPlayerIndex">键为 player_index，值为听张 ID 列表；未听家不出现或为 null。</param>

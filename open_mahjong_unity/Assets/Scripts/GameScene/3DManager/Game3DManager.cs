@@ -344,8 +344,10 @@ public partial class Game3DManager : MonoBehaviour {
     private float handStep; // 手牌横向槽宽，保留实体之间的小间隙
     private float handRowStep; // 展开手牌换行槽高
     // 四家 3D 手牌共用横向间隙；场景首槽按旧间隙定位，由 HandRowOrigin 保持满手中心。
-    private const float HandColumnGap = 0.40f;
-    private const float HandAnchorColumnGap = 0.08f;
+    private const float AuthoredHandColumnGap = 0.40f;
+    private const float AuthoredHandAnchorColumnGap = 0.08f;
+    private float HandColumnGap => TableWorldScaleProfile.Length(AuthoredHandColumnGap);
+    private float HandAnchorColumnGap => TableWorldScaleProfile.Length(AuthoredHandAnchorColumnGap);
     private float cardScale; // 卡片缩放
     private float widthSpacing; // 弃牌/补花间距
     private float heightSpacing; // 弃牌/补花纵向间距
@@ -386,19 +388,21 @@ public partial class Game3DManager : MonoBehaviour {
 
     private void InitializeTileSpacing() {
         Renderer tileRenderer = tile3DPrefab.GetComponent<Renderer>();
-        float tileW = tileRenderer.bounds.size.x;
-        float tileH = tileRenderer.bounds.size.y;
+        float tileW = TableWorldScaleProfile.RuntimeAssetLength(tileRenderer.bounds.size.x);
+        float tileH = TableWorldScaleProfile.RuntimeAssetLength(tileRenderer.bounds.size.y);
         const float handStepRatio = 1.10f;
         const float handHeightRatio = 1.06f;
         const float riverExtraRatio = 1.06f;
         this.cardWidth = tileW * (1f + (handStepRatio - 1f) * 0.3f);
         this.cardHeight = tileH * (1f + (handHeightRatio - 1f) * 0.3f);
         this.handStep = tileW + HandColumnGap;
-        this.handRowStep = tileH + 0.08f;
+        this.handRowStep = tileH + TableWorldScaleProfile.Length(0.08f);
         float riverWidthOrig = tileW * handStepRatio * riverExtraRatio;
         float riverHeightOrig = tileH * handHeightRatio * riverExtraRatio;
-        this.widthSpacing = Mathf.Max(tileW + 0.08f, tileW + (riverWidthOrig - tileW) * 0.8f - 0.4f);
-        this.heightSpacing = Mathf.Max(tileH + 0.08f, tileH + (riverHeightOrig - tileH) * 0.8f - 0.45f);
+        this.widthSpacing = Mathf.Max(tileW + TableWorldScaleProfile.Length(0.08f),
+            tileW + (riverWidthOrig - tileW) * 0.8f - TableWorldScaleProfile.Length(0.4f));
+        this.heightSpacing = Mathf.Max(tileH + TableWorldScaleProfile.Length(0.08f),
+            tileH + (riverHeightOrig - tileH) * 0.8f - TableWorldScaleProfile.Length(0.45f));
     }
 
     /// <summary>应用统一的漫画描边。</summary>
@@ -430,12 +434,10 @@ public partial class Game3DManager : MonoBehaviour {
             Debug.LogWarning("Game3DManager.riichiTenbouPrefab 未绑定");
             return;
         }
-        Quaternion endRot = RiichiTenbouPlacementRotation(playerPosition);
-        GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, endRot);
-        tenbou.name = $"RiichiTenbou_{playerPosition}";
-        tenbou.transform.SetParent(panel.tenbouPos.parent, worldPositionStays: true);
+        GameObject tenbou = CreateRiichiTenbou(playerPosition, endTransform, startTransform.position);
+        if (tenbou == null) return;
         tenbou.SetActive(false);
-        StartCoroutine(MoveRiichiTenbouAfterDiscardCoroutine(tenbou, playerPosition, startTransform.position, endTransform, endRot));
+        StartCoroutine(MoveRiichiTenbouAfterDiscardCoroutine(tenbou, playerPosition, startTransform.position, endTransform, tenbou.transform.rotation));
     }
 
     /// <summary>
@@ -446,16 +448,17 @@ public partial class Game3DManager : MonoBehaviour {
         PosPanel3D panel = GetPosPanel(playerPosition);
         Transform endTransform = panel.tenbouPos;
         if (endTransform == null || riichiTenbouPrefab == null) return;
-        if (panel.tenbouPos.parent != null) {
-            for (int i = 0; i < panel.tenbouPos.parent.childCount; i++) {
-                Transform t = panel.tenbouPos.parent.GetChild(i);
-                if (t != null && t.name.StartsWith("RiichiTenbou_")) return;
-            }
-        }
-        Quaternion endRot = RiichiTenbouPlacementRotation(playerPosition);
-        GameObject tenbou = Instantiate(riichiTenbouPrefab, endTransform.position, endRot);
-        tenbou.name = $"RiichiTenbou_{playerPosition}";
-        tenbou.transform.SetParent(endTransform.parent, worldPositionStays: true);
+        CreateRiichiTenbou(playerPosition, endTransform, endTransform.position);
+    }
+
+    private GameObject CreateRiichiTenbou(string seat, Transform target, Vector3 position) {
+        string stickName = $"RiichiTenbou_{seat}";
+        Transform parent = target.parent;
+        if (parent != null && parent.Find(stickName) != null) return null;
+        GameObject stick = TableWorldObjectMount.InstantiatePrefab(riichiTenbouPrefab, parent, position,
+            RiichiTenbouPlacementRotation(seat));
+        stick.name = stickName;
+        return stick;
     }
 
     /// <summary>立直棒落点朝向：与各家河牌俯视一致，不继承 UI 节点旋转。</summary>
@@ -474,6 +477,9 @@ public partial class Game3DManager : MonoBehaviour {
             for (int i = panel.tenbouPos.parent.childCount - 1; i >= 0; i--) {
                 Transform t = panel.tenbouPos.parent.GetChild(i);
                 if (t != null && (t.name.StartsWith("RiichiTenbou_") || t.name.StartsWith("FieldRiichiTenbou_"))) {
+                    // 快照会在这一帧重新摆棒，先腾出座位，再交给 Unity 销毁旧对象。
+                    t.gameObject.SetActive(false);
+                    TableWorldObjectMount.AttachDetached(t, false);
                     Destroy(t.gameObject);
                 }
             }
@@ -566,6 +572,13 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false){
+        // 牌谱跳转重建手牌须同步完成，避免 GotoAction 后紧跟 NextStep 和牌倒牌时，
+        // 异步 Init 在下一帧用牌背覆盖 PlayHepaiHandReveal 已铺好的明牌（他家）。
+        if (actionType == "InitHandCardsFromRecord") {
+            InitHandCardsFromRecordImmediate();
+            return;
+        }
+
         SyncWashizuRecordOrderBeforeAnimation();
         if (TryEnqueueChangshaOpenKongAction(actionType, tileId, PlayerPosition, combination_mask, isRiichi, playCutPhysicsSound)) return;
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
@@ -589,13 +602,6 @@ public partial class Game3DManager : MonoBehaviour {
         // 导致 InitHandCards 在 yield 帧之后才补出 13 张手牌叠加在已增量的牌上。
         if (actionType == "InitHandCards"){
             InitHandCardsImmediate();
-            return;
-        }
-
-        // 牌谱跳转重建手牌须同步完成，避免 GotoAction 后紧跟 NextStep 和牌倒牌时，
-        // 异步 Init 在下一帧用牌背覆盖 PlayHepaiHandReveal 已铺好的明牌（他家）。
-        if (actionType == "InitHandCardsFromRecord") {
-            InitHandCardsFromRecordImmediate();
             return;
         }
 
@@ -660,13 +666,16 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     /// <summary>牌谱 GotoAction / 切换明牌展示：同步清空并重建 left/top/right 手牌区。</summary>
-    private void InitHandCardsFromRecordImmediate() {
+    private void InitHandCardsFromRecordImmediate() => ReplayFrameLoader.Finish(BuildRecordHands());
+
+    internal System.Collections.IEnumerable BuildRecordHands() {
+        SyncWashizuRecordOrderBeforeAnimation();
         ClearWashizuPresentation();
         StopAllHandAnimationQueues();
         ClearRecordHandCardsImmediate();
-        RenderRecordPlayerHand("left");
-        RenderRecordPlayerHand("top");
-        RenderRecordPlayerHand("right");
+        foreach (var seat in new[] { "left", "top", "right" }) {
+            foreach (var step in BuildRecordPlayerHand(seat)) yield return step;
+        }
         RefreshWashizuRecordHands();
     }
 
@@ -890,7 +899,9 @@ public partial class Game3DManager : MonoBehaviour {
         RenderRecordPlayerHand(winnerPosition);
     }
 
-    private void RenderRecordPlayerHand(string playerPosition){
+    private void RenderRecordPlayerHand(string playerPosition) => ReplayFrameLoader.Finish(BuildRecordPlayerHand(playerPosition));
+
+    private System.Collections.IEnumerable BuildRecordPlayerHand(string playerPosition) {
         var player = GameRecordManager.Instance.recordPlayer_to_info[playerPosition];
         List<int> handTiles = player.tileList;
         bool pinDraw = player.HasSeparateDrawSlot || player.hasRonWinningTile;
@@ -907,11 +918,13 @@ public partial class Game3DManager : MonoBehaviour {
             }
         }
         if (isShowCardsMode && !hasHiddenTiles){
-            LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles, pinDraw, player.hasRonWinningTile);
-            return;
+            foreach (var step in LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles, pinDraw, player.hasRonWinningTile))
+                yield return step;
+            yield break;
         }
         for (int i = 0; i < handTiles.Count; i++){
             Get3DTile(playerPosition,"init");
+            yield return null;
         }
     }
 

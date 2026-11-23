@@ -57,6 +57,13 @@ def register_admin_room_routes(app: FastAPI, game_server, *, proxy_secret: str):
     async def rooms():
         return {"success": True, "items": list_admin_rooms(game_server.room_manager)}
 
+    @app.get("/admin/rooms/paired-wall/{wall_id}", dependencies=[Depends(require_local_proxy)])
+    async def paired_wall_in_use(wall_id: int):
+        from ..gamestate.game_sichuan.DuplicateGameState import wall_publication_pending
+        pairs = game_server.gamestate_manager.sichuan_duplicate_matches.values()
+        return {"in_use": any(pair.data.get("wall_id") == wall_id for pair in pairs)
+                or wall_publication_pending(wall_id)}
+
     @app.post("/admin/rooms/{room_id}/ruling", dependencies=[Depends(require_local_proxy)])
     async def ruling(room_id: str, body: DoublesRulingBody):
         from ..game_calculation.guangdong.config import DOUBLES_SUB_RULE

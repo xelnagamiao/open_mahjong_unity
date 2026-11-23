@@ -86,6 +86,7 @@ public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）�
     public string duplicate_key;
     public int? duplicate_round_count;
     public bool duplicate_sync_mode;
+    public bool reuse_training_room;
     public bool claim_protection = true;
     public string type;
     public string rule;

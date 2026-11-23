@@ -250,13 +250,16 @@ async function parseUnityConfig() {
     const dataMatch = html.match(/dataUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
     const frameworkMatch = html.match(/frameworkUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
     const codeMatch = html.match(/codeUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
+    const versionMatch = html.match(/\bproductVersion\s*:\s*(["'])([^"'\r\n]+)\1/)
 
     const buildUrl = '/unity-game/Build'
     return {
       loaderUrl: loaderMatch ? buildUrl + '/' + loaderMatch[1] : null,
       dataUrl: dataMatch ? buildUrl + '/' + dataMatch[1] : null,
       frameworkUrl: frameworkMatch ? buildUrl + '/' + frameworkMatch[1] : null,
-      codeUrl: codeMatch ? buildUrl + '/' + codeMatch[1] : null
+      codeUrl: codeMatch ? buildUrl + '/' + codeMatch[1] : null,
+      // 旧模板省略版本时，用带哈希的数据文件名区分构建。
+      productVersion: versionMatch?.[2] ?? dataMatch?.[1]
     }
   } catch (error) {
     console.error('解析Unity配置失败:', error)
@@ -348,7 +351,7 @@ async function loadUnityGame(gen) {
     streamingAssetsUrl: '/unity-game/StreamingAssets',
     companyName: 'DefaultCompany',
     productName: 'open_mahjong_unity',
-    productVersion: '0.0.31.0',
+    productVersion: fileConfig.productVersion,
     autoSyncPersistentDataPath: true,
     showBanner: unityShowBanner
   }

@@ -189,7 +189,6 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
 
     private void OnInfoClick() {
         if(!IsAvailable) { NotificationManager.Instance?.ShowTip("匹配",false,"本规则的段位匹配暂未开放"); return; }
-        if(IsElo)policyPanel?.ShowElo(RuleId);
-        else describePanel?.ShowForQueue(QueueType);
+        describePanel?.ShowForQueue(QueueType);
     }
 }

@@ -16,6 +16,7 @@ CBUFFER_START(UnityPerMaterial)
     half _FrontBgTexAspect;
     float _TableFaceAspect;
     float _TableFaceImageScale;
+    float _MipMapBias;
     half _FrontTexContain;
     half _TableBgCoverFace;
     half4 _TableFaceColor;

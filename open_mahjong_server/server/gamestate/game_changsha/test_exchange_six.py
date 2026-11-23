@@ -46,7 +46,9 @@ def make_state(bot_seats=(), *, dealt=True):
     # 规则测试跳过纯展示等待；展示顺序专项通过真实入口单独验证。
     state.exchange_six.wait_for_kong_display = AsyncMock()
     state.exchange_six.show_deal_dice = AsyncMock()
-    state.exchange_six.wait_for_receipt = AsyncMock()
+    async def present(seconds):
+        await state.exchange_six.broadcast()
+    state.exchange_six.present_opening = present
     # 旧规则专项固定为换一轮；自愿决定与收牌边界由test_exchange_choice走真实入口覆盖。
     state.exchange_six.choose_exchange = AsyncMock(side_effect=lambda *, after_first=False: not after_first)
     # 固定手牌回归不依赖随机禁手座位；禁手专项另从真实抓牌骰子入口验证。
@@ -102,17 +104,18 @@ class ExchangeSixCalculationTests(unittest.TestCase):
 
 class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
     async def test_deal_dice_display_precedes_selection_and_restores_without_reroll(self):
-        from server.gamestate.game_changsha.exchange_six import ExchangeSixFlow
+        from server.gamestate.game_changsha.exchange_six import DEAL_DICE_SECONDS
         state = make_state()
         flow = state.exchange_six
         dice = list(flow.deal_dice)
         forbidden = flow.small_hu_forbidden_seat = (sum(dice) - 1) % 4
         initial_time = [player.remaining_time for player in state.player_list]
-        flow.show_deal_dice = ExchangeSixFlow.show_deal_dice.__get__(flow)
+        del flow.show_deal_dice
+        del flow.present_opening
         pauses = []
         original_sleep = asyncio.sleep
         async def pause(seconds):
-            if seconds != 1.5:
+            if seconds != DEAL_DICE_SECONDS:
                 await original_sleep(seconds)
                 return
             pauses.append(seconds)
@@ -131,7 +134,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(flow.deal_dice, dice)
             self.assertEqual([player.remaining_time for player in state.player_list], initial_time)
         async def exchange():
-            self.assertEqual(pauses, [1.5])
+            self.assertEqual(pauses, [1.9])
             # 真正建立选牌窗口，确认此时才开始独立的选牌预算。
             task = asyncio.create_task(flow.run_stage("exchange", {0: [EXCHANGE_ACTION]},
                 lambda seat: {"action_type": EXCHANGE_ACTION, "selected_tiles": flow.default_selection(seat)}))

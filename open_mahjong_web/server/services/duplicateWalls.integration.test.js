@@ -34,7 +34,8 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       INSERT INTO event_admins VALUES ('event-a', 101), ('event-a', 102);
       INSERT INTO event_admins VALUES ('registered-a', 101), ('closed-a', 101), ('pending-a', 101), ('base-a', 101), ('base-a', 102);
     `);
-    const service = createDuplicateWallService(pool);
+    const liveWalls = new Set();
+    const service = createDuplicateWallService(pool, async id => liveWalls.has(String(id)));
     const body = { scope: 'personal', wall_type: 'key', rule: 'guobiao' };
 
     await t.test('shared Sichuan key keeps every group locked until all complete and publishes separate scores', async () => {
@@ -46,20 +47,30 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         small_scores: [n * 100, 0], imp_scores: [n, 0], results: [], planned_boards: 4, completed_boards: 4,
         record_ids: { open: `multi${n}open`, closed: `multi${n}closed` } }));
       for (const [index, pair] of pairs.entries()) {
-        await pool.query('INSERT INTO sichuan_duplicate_matches(id,wall_id,status,data) VALUES($1,$2,$3,$4)',
-          [pair.id, wall.id, index === 0 ? 'completed' : 'running', pair]);
+        if (index === 0) {
+          await pool.query("INSERT INTO sichuan_duplicate_matches(id,wall_id,status,data) VALUES($1,$2,'completed',$3)",
+            [pair.id, wall.id, pair]);
+        }
         for (const [side, game_id] of Object.entries(pair.record_ids)) {
-          await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', [game_id, wall.id]);
+          await pool.query('INSERT INTO duplicate_games(game_id,wall_id,paired_match_id) VALUES($1,$2,$3)',
+            [game_id, wall.id, index === 0 ? null : pair.id]);
           if (game_id === 'multi2closed') continue;
           await insertPairedTable(pool, 'P' + (index + 1), pair, side, { is_duplicate: true, duplicate_key: wall.key });
         }
       }
+      liveWalls.add(String(wall.id));
       const ids = pairs.flatMap(pair => Object.values(pair.record_ids));
       await assert.rejects(service.manage(88001, wall.id, { is_unlocked: true }), { status: 409 });
       assert.deepEqual(await accessibleGameIds(pool, ids), []);
-      await pool.query("UPDATE sichuan_duplicate_matches SET status='completed' WHERE id=$1", [pairs[1].id]);
+      liveWalls.delete(String(wall.id));
       await assert.rejects(service.manage(88001, wall.id, { is_unlocked: true }), { status: 409 });
       await insertPairedTable(pool, 'P2', pairs[1], 'closed', { is_duplicate: true, duplicate_key: wall.key });
+      const live = pairs[1];
+      const result = { ...live, name: live.lobby.name, boards: live.results };
+      await pool.query(`UPDATE game_replays SET record = jsonb_set(record, '{tables,open,payload,duplicate_match}', $1)
+        || jsonb_build_object('completeness','complete','rule_profile',$2::jsonb) WHERE game_id='P2'`,
+        [result, live.profile]);
+      await pool.query("UPDATE duplicate_games SET ended_at=NOW() WHERE game_id=$1", [live.record_ids.closed]);
       await assert.rejects(service.manage(88002, wall.id, { is_unlocked: true }), { status: 403 });
       await service.manage(88001, wall.id, { is_unlocked: true });
       assert.deepEqual([...(await accessibleGameIds(pool, ids))].sort(), [...ids].sort());

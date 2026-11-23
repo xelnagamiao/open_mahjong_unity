@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from .test_sichuan_duplicate import rooms
-from .sichuan_duplicate import create_pair, restore_pairs
+from .sichuan_duplicate import create_pair
 from ..gamestate.game_sichuan.test_duplicate import run_async
 from ..gamestate.game_sichuan.DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState
 from ..gamestate.game_sichuan.init_tiles import init_sichuan_tiles
@@ -29,7 +29,7 @@ async def test_keyless_training_keeps_paired_walls_and_spectator_metadata(rooms,
     assert result.success,result.message
     assert result.room_info['wall_source']=='training' and result.room_info['is_duplicate']
     pair=next(iter(rooms.game_server.gamestate_manager.sichuan_duplicate_matches.values()))
-    assert pair.data['wall_id'] is None and 'key' not in pair.data
+    assert pair.data.get('wall_id') is None and 'key' not in pair.data
     assert pair.data['seed']==SEED and pair.synchronous is sync
     assert pair.data['boards']==[make_board(SEED,n,layout=layout) for n in range(1,5)]
     pair.data['status']='running'
@@ -74,7 +74,8 @@ async def test_invalid_training_seed_never_creates_half_rooms(rooms,bad):
     assert not result.success and not rooms.rooms and not rooms.saved
 
 
-@pytest.mark.parametrize('patch', [dict(duplicate_key='dup_test_key'),dict(allow_spectator='false'),
+@pytest.mark.parametrize('patch', [dict(duplicate_key='dup_test_key'),dict(reuse_training_room=True), dict(reuse_training_room='true'),
+                                  dict(wall_source='key',reuse_training_room=True,random_seed=0),dict(allow_spectator='false'),
                                   dict(allow_spectator=1),dict(wall_source='unknown'),dict(wall_source='seed',random_seed=0),
                                   dict(wall_source='manual',random_seed=0)])
 @run_async
@@ -101,23 +102,39 @@ async def test_explicit_key_source_must_match_database(rooms,monkeypatch,request
     else: assert not rooms.rooms and not rooms.saved
 
 
-@pytest.mark.parametrize('sub', [SBR_DUPLICATE,XUELIU_DUPLICATE])
+@pytest.mark.parametrize("sub", [SBR_DUPLICATE, XUELIU_DUPLICATE])
+@pytest.mark.parametrize("reuse", [True, False])
 @run_async
-async def test_training_restart_and_restore_preserve_seed_boards_and_no_key(rooms,monkeypatch,sub):
-    result=await create_pair(rooms,'evt_pair',sub,dict(sub_rule=sub,wall_source='training',random_seed=SEED),'',101)
-    assert result.success
-    pair=next(iter(rooms.game_server.gamestate_manager.sichuan_duplicate_matches.values()))
-    original=deepcopy(pair.data['boards'])
-    pair.data['status']='running'
-    pair.interrupt('test')
-    pair.restart_unfinished_board()
-    assert pair.data['boards']==original
-    saved=deepcopy(pair.data)
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _: [saved])
-    restore_pairs(rooms.game_server)
-    restored=rooms.game_server.gamestate_manager.sichuan_duplicate_matches[pair.data['id']]
-    assert restored.data['seed']==SEED and restored.data['boards']==original
-    assert all(room['allow_spectator'] and 'duplicate_key' not in room for room in rooms.rooms.values())
+async def test_training_closure_and_consecutive_reuse(rooms, sub, reuse):
+    config = dict(sub_rule=sub, wall_source="training", reuse_training_room=reuse, duplicate_round_count=1)
+    if not reuse:
+        config["random_seed"] = SEED
+    result = await create_pair(rooms, "evt_pair", sub, config, "pw", 101)
+    assert result.success and not rooms.saved
+    matches = rooms.game_server.gamestate_manager.sichuan_duplicate_matches
+    ids = set(rooms.rooms)
+    seen = set()
+    for status in ("completed", "interrupted"):
+        pair, = matches.values()
+        assert pair.data["id"] not in seen and pair.data["seed"] not in seen
+        seen.update([pair.data["id"], pair.data["seed"]])
+        assert pair.data["completed_boards"] == 0 and pair.data["scores"] == [0, 0]
+        assert not pair.data["pending_boards"] and len(pair.data["boards"]) == 1
+        pair.data["status"] = status
+        children = list(rooms.rooms.values())
+        for child in children:
+            child.update(is_game_running=True, active_gamestate_id=child["room_id"])
+        for child in children:
+            await rooms.finish_custom_game_room(child["room_id"], expected_gamestate_id=child["room_id"],
+                                                expected_instance_id=child["instance_id"])
+        assert pair.data["id"] not in matches
+        if not reuse:
+            assert not rooms.rooms and not matches
+            break
+        assert set(rooms.rooms) == ids
+        assert all(r["duplicate_status"] == "waiting" and not r["ready_list"] for r in rooms.rooms.values())
+        assert next(iter(matches.values())).data["boards"] != pair.data["boards"]
+    assert not rooms.saved
 
 
 @pytest.mark.parametrize('sub,cls', [(SBR_DUPLICATE,SbrDuplicateGameState),(XUELIU_DUPLICATE,XueliuDuplicateGameState)])

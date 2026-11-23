@@ -105,7 +105,7 @@ public partial class Game3DManager : MonoBehaviour
                 spawn = PlaceTileOnTable(spawn, rotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(closedHand[i], spawn, rotation);
                 if (cardObj == null) continue;
-                cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, cardsPosition);
             }
             return;
         }
@@ -123,7 +123,7 @@ public partial class Game3DManager : MonoBehaviour
             spawn = PlaceTileOnTable(spawn, backRotation);
             GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawn, backRotation);
             if (cardObj == null) continue;
-            cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, cardsPosition);
         }
     }
 
@@ -224,7 +224,7 @@ public partial class Game3DManager : MonoBehaviour
                     continue;
                 }
                 Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
-                cardObj.transform.SetParent(setParent, worldPositionStays: true);
+                TableWorldObjectMount.AttachPreservingWorld(cardObj.transform, setParent);
                 MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
                 Tile3D tile3D = cardObj.GetComponent<Tile3D>();
                 tile3D?.ApplyCombinationPeekState(tileId, sign);

@@ -123,7 +123,7 @@ public partial class Game3DManager {
             request.HepaiTile);
         if (source == null) return;
         ClearLastJiagangIfMatches(request.DiscardPlayerPosition, source);
-        source.transform.SetParent(null, worldPositionStays: true);
+        TableWorldObjectMount.AttachDetached(source.transform, true);
         MahjongObjectPool.Instance.Return(-1, source);
     }
     /// <summary>
@@ -256,7 +256,7 @@ public partial class Game3DManager {
         }
         Tile3D winTile3D = winObj.GetComponent<Tile3D>();
         if (winTile3D != null) winTile3D.SetBackOrientationUpright();
-        winObj.transform.SetParent(target, worldPositionStays: true);
+        TableWorldObjectMount.AttachPreservingWorld(winObj.transform, target);
         int lastSlot = closedSorted.Length;
         Vector3 endPos = GetRecordHandSlotWorldPosition(playerPosition, target, lastSlot);
         onHandReady?.Invoke();
@@ -274,7 +274,7 @@ public partial class Game3DManager {
         if (riverTile != null) {
             Vector3 startPos = riverTile.transform.position;
             Quaternion startRot = riverTile.transform.rotation;
-            riverTile.transform.SetParent(target, worldPositionStays: true);
+            TableWorldObjectMount.AttachPreservingWorld(riverTile.transform, target);
             Tile3D riverTile3D = riverTile.GetComponent<Tile3D>();
             // 和牌倒牌立牌：牌背统一转 180°（旅行途中背图随牌转动）。
             if (riverTile3D != null) riverTile3D.SetBackOrientationUpright();
@@ -441,7 +441,7 @@ public partial class Game3DManager {
             Set3DTile(closed[i], target, "Record", playerPosition);
         }
         if (winningTile != null) {
-            winningTile.transform.SetParent(target, worldPositionStays: true);
+            TableWorldObjectMount.AttachPreservingWorld(winningTile.transform, target);
             winningTile.GetComponent<Tile3D>()?.SetBackOrientationUpright();
             winningTile.transform.SetPositionAndRotation(
                 GetRecordHandSlotWorldPosition(playerPosition, target, closed.Length),

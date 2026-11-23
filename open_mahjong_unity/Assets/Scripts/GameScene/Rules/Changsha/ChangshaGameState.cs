@@ -33,7 +33,7 @@ public class ChangshaGameState : TurnBasedGameState {
         return true;
     }
 
-    public void ApplyExchangeSixSnapshot(ChangshaExchangeSixState snapshot) {
+    public void ApplyExchangeSixSnapshot(ChangshaExchangeSixState snapshot, double receivedAt = 0) {
         if (ExchangeSixSnapshot != null && snapshot.revision < ExchangeSixSnapshot.revision) return;
         ExchangeSixSnapshot = snapshot;
         // show_result owns the final hand/reveal animation. The following snapshot
@@ -58,8 +58,7 @@ public class ChangshaGameState : TurnBasedGameState {
         }
         Clock.LastAskActionTick = snapshot.action_tick;
         Clock.AllowActionList = new List<string>(snapshot.private_state.action_list ?? new string[0]);
-        Clock.IsSelfActionRequired = Clock.AllowActionList.Count > 0 && !Session.IsRealtimeSpectator
-            && snapshot.phase != "exchange_received" && snapshot.phase != "deal_dice_received";
+        Clock.IsSelfActionRequired = Clock.AllowActionList.Count > 0 && !Session.IsRealtimeSpectator;
         Clock.ForbiddenCutTiles.Clear();
         Clock.ForcedCutTiles.Clear();
         Clock.ApplyCurrentPlayerIndicator(Mirror.SeatOf(snapshot.public_state.current_player_index));
@@ -67,7 +66,12 @@ public class ChangshaGameState : TurnBasedGameState {
             ? GameSceneMouseInputController.InputPhaseNone
             : Clock.AllowActionList.Contains("cut") || snapshot.phase == "exchange"
                 ? GameSceneMouseInputController.InputPhaseAskHand : GameSceneMouseInputController.InputPhaseAskOther);
-        if (Clock.IsSelfActionRequired) GameCanvas.Instance?.LoadingRemianTime(snapshot.remaining_time, snapshot.step_remaining);
+        if (Clock.IsSelfActionRequired) {
+            double elapsed = receivedAt > 0 ? Time.realtimeSinceStartupAsDouble - receivedAt : 0;
+            double step = System.Math.Max(0, snapshot.step_remaining - elapsed);
+            double bank = System.Math.Max(0, snapshot.remaining_time - System.Math.Max(0, elapsed - snapshot.step_remaining));
+            GameCanvas.Instance?.LoadingRemianTime(bank, step);
+        }
         else GameCanvas.Instance?.StopTimeRunning();
         GameCanvas.Instance?.ShowExchangeSixState(snapshot, changed);
         Game3DManager.Instance?.SyncChangshaExchangeHands(snapshot.public_state);

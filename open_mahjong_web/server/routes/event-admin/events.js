@@ -522,15 +522,6 @@ router.post('/:eventId/rooms/:roomId/bots', requireEventMembership, async (req, 
   }
 });
 
-router.post('/:eventId/rooms/:roomId/restart-pair', requireEventMembership, async (req, res) => {
-  try {
-    const qs = new URLSearchParams({ event_id: req.event.event_id });
-    const { status, data } = await proxyToGameServer(`/admin/event/rooms/${encodeURIComponent(req.params.roomId)}/restart-pair?${qs}`, {});
-    if (status >= 400) return res.status(status).json({ success: false, message: data?.detail || '续赛失败' });
-    await writeAudit({ adminUserId: req.eventAdmin.userId, action: 'event_admin.room.restart_pair', targetType: 'event', targetId: req.event.event_id, payload: { room_id: req.params.roomId }, reason: String(req.body?.reason || '') });
-    res.json(data);
-  } catch (error) { res.status(500).json({ success: false, message: '游戏服不可达' }); }
-});
 
 router.delete('/:eventId/rooms/:roomId', requireEventMembership, async (req, res) => {
   try {
@@ -754,7 +745,7 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
                 MAX(gpr.match_type) AS match_type,
                 MAX(gpr.room_type) AS room_type,
                 MAX(gpr.event_id) AS event_id
-         FROM game_record_metadata gr
+         FROM game_record_tables gr
          JOIN game_player_records gpr ON gpr.game_id = gr.game_id
          WHERE ${whereSql}
          GROUP BY gr.replay_id
@@ -767,7 +758,7 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
       const countRes = await db.query(
         `SELECT COUNT(DISTINCT gr.replay_id)::int AS cnt
          FROM game_player_records gpr
-         JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+         JOIN game_record_tables gr ON gr.game_id = gpr.game_id
          WHERE ${whereSql}`,
         countParams
       );
@@ -875,7 +866,7 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
         `SELECT game_id FROM (
            SELECT gr.replay_id AS game_id, MAX(gr.created_at) AS created_at
            FROM game_player_records gpr
-           JOIN game_record_metadata gr ON gr.game_id = gpr.game_id
+           JOIN game_record_tables gr ON gr.game_id = gpr.game_id
            WHERE ${whereSql} GROUP BY gr.replay_id
          ) sub
          ORDER BY created_at DESC`,

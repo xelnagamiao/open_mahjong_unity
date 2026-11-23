@@ -244,6 +244,7 @@ public class ActionButton : MonoBehaviour {
     }
 
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
+        if (SanhuaGameState.Active != null) return SanhuaGameState.Active.Kongs(handTiles);
         if (WuhanGameState.Active != null) return WuhanGameState.CollectAngangOptions(handTiles);
         var options = new List<(int, List<int>)>();
         if (GameSession.Current.SubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.CanFlowerKong(handTiles))

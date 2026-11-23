@@ -36,7 +36,9 @@ def test_can_play_tier_rank_and_pass():
     assert not can_play_tier("2级", "advanced")
     assert can_play_tier("四段", "advanced")
     assert can_play_tier("2级", "advanced", is_advanced_qualified=True)
-    assert not can_play_tier("九段", "mcrpl")
+    assert can_play_tier("七段", "mcrpl")
+    assert can_play_tier("九段", "mcrpl")
+    assert not can_play_tier("六段", "mcrpl")
     assert can_play_tier("10级", "mcrpl", is_mcrpl_qualified=True)
 
 
@@ -69,7 +71,7 @@ def test_tenth_dan_tier_access_uses_highest_rank():
     assert can_play_tier("十段", "beginner")
     assert can_play_tier("十段", "advanced")
     assert not can_play_tier("十段", "intermediate", is_intermediate_qualified=True)
-    assert not can_play_tier("十段", "mcrpl")
+    assert can_play_tier("十段", "mcrpl")
     assert can_play_tier("十段", "mcrpl", is_mcrpl_qualified=True)
 
 

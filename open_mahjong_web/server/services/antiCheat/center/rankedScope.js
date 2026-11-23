@@ -1,13 +1,14 @@
 "use strict";
+const { tableTitles } = require('../../replayTables');
 const SCOPE_VERSION = "guobiao-ranked-v1";
 const MODEL_VERSION = "center-directional-guobiao-ranked-v3";
 // RankedQueue in server/match/rating_rules.py: four-player standard Guobiao.
 // Explicit saved title metadata wins; legacy records fall back to participant metadata.
-function sourcePredicate(alias = "gr") {
+function sourcePredicate(alias = "gr", title = `${alias}.title`) {
   if (!/^[a-z][a-z0-9_]*$/i.test(alias)) throw new Error("invalid_sql_alias");
   const value = (field) =>
     `COALESCE(NULLIF(scope_title.title->>'${field}',''),NULLIF(p.${field}::text,''))`;
-  return `EXISTS(SELECT 1 FROM (SELECT ${alias}.record->'game_title' AS title OFFSET 0) scope_title
+  return `EXISTS(SELECT 1 FROM (SELECT ${title} AS title OFFSET 0) scope_title
     CROSS JOIN public.game_player_records p WHERE p.game_id=${alias}.game_id
     GROUP BY p.game_id HAVING count(*)=4 AND count(DISTINCT p.user_id)=4 AND bool_and(COALESCE(
       ${value("rule")}='guobiao' AND ${value("room_type")}='match'
@@ -20,7 +21,7 @@ function sourcePredicate(alias = "gr") {
 }
 function cachedPredicate(alias = "g") {
   if (!/^[a-z][a-z0-9_]*$/i.test(alias)) throw new Error("invalid_sql_alias");
-  return `EXISTS(SELECT 1 FROM public.game_records scoped_source WHERE scoped_source.game_id=${alias}.game_id AND ${sourcePredicate("scoped_source")})`;
+  return `EXISTS(SELECT 1 FROM ${tableTitles} scoped_source WHERE scoped_source.game_id=${alias}.game_id AND ${sourcePredicate("scoped_source")})`;
 }
 async function initializeScope(client) {
   await client.query(`CREATE TABLE IF NOT EXISTS anti_cheat_center.scope_source_inventory(game_id text PRIMARY KEY);
@@ -52,7 +53,7 @@ async function saveScopeInventory(pool, ids) {
 async function synchronizeScopeInventory(pool) {
   const rows = (
     await pool.query(
-      `SELECT gr.game_id FROM public.game_records gr WHERE ${sourcePredicate("gr")}`,
+      `SELECT gr.game_id FROM ${tableTitles} gr WHERE ${sourcePredicate("gr")}`,
     )
   ).rows;
   await saveScopeInventory(

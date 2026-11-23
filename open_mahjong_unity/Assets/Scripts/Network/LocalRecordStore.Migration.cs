@@ -21,13 +21,13 @@ public static partial class LocalRecordStore {
 
     internal static void MigrateDirectory(string directory) {
         RecoverDirectory(directory);
-        if (File.Exists(Path.Combine(directory, "record-aliases.json")))
-            return;
         var store = new Dictionary<string, string>();
         foreach (string path in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly)) {
             string name = Path.GetFileNameWithoutExtension(path);
             if (name == "index")
                 store[DeviceRecordMigration.Index] = ReadSharedFile(path);
+            else if (name == "record-aliases")
+                store[DeviceRecordMigration.Aliases] = ReadSharedFile(path);
             else { DiskName(name); store[name] = ReadSharedFile(path); }
         }
         string legacy = Path.Combine(directory, "MatchRecordsV2");
@@ -79,7 +79,7 @@ public static partial class LocalRecordStore {
             }
         }
         var plan = DeviceRecordMigration.Prepare(store);
-        PublishDirectory(directory, plan, retire);
+        if (plan.Writes.Count != 0) PublishDirectory(directory, plan, retire);
     }
 
     static void PublishDirectory(string directory, DeviceRecordMigration.Plan plan, JObject retire = null) {

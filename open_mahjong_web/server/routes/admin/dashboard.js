@@ -15,7 +15,7 @@ router.get('/summary', async (req, res) => {
 
     const gamesToday = await pool.query(`
       SELECT COUNT(*)::int AS cnt
-      FROM game_records
+      FROM game_record_tables
       WHERE ${STAT_DATE_EXPR} = ${CURRENT_STAT_DATE_EXPR}
     `);
 

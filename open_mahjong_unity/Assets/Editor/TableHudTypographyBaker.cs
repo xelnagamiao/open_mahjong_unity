@@ -53,6 +53,7 @@ public static class TableHudTypographyBaker {
         foreach (var title in new[] { "直播观战模式", "牌谱阅览模式", "回到直播", "初级场", "中级场", "高级场", "东南战", "东风战" })
             foreach (AppLanguage language in Enum.GetValues(typeof(AppLanguage))) labels += PlatformText.Get(title, language);
         labels += new string(Enumerable.Range(32, 95).Select(x => (char)x).ToArray());
+        if (name == "ControlsBold") labels += "开局掷骰换牌合计点，本家下家上家对家本局禁小胡";
         labels = new string(labels.Distinct().ToArray());
         try {
             var baked = font.characterTable.Select(c => c.unicode).ToHashSet();

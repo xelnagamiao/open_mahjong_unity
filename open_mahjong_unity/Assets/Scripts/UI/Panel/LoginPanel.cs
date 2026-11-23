@@ -18,6 +18,7 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private Button ShowTestPanelButton;
     [SerializeField] private TMP_Text TestPanelStateText;
     [SerializeField] private GameObject TestPanel;
+    [SerializeField] private Button serverSwitchButton;
     [Header("Debug")]
     [SerializeField] private GameObject debugObject;
     [Header("Authentication Tabs")]
@@ -64,9 +65,7 @@ public class LoginPanel : MonoBehaviour {
         }
 
         if (debugObject != null) {
-            debugObject.SetActive(ConfigManager.Debug);
-            // The full-panel debug label is decorative and must not intercept
-            // clicks intended for the login form underneath it.
+            debugObject.SetActive(ConfigManager.UseLocalServices);
             if (debugObject.TryGetComponent<Graphic>(out var debugGraphic)) {
                 debugGraphic.raycastTarget = false;
             }
@@ -79,6 +78,10 @@ public class LoginPanel : MonoBehaviour {
         InitializeAccountRegulations();
         InitializeTabs();
         ShowTestPanelButton.onClick.AddListener(ShowTestPanel);
+        if (serverSwitchButton != null) {
+            serverSwitchButton.onClick.AddListener(SwitchServer);
+            RefreshServerSwitchLabel();
+        }
         // 设置输入框选中事件
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
@@ -92,6 +95,21 @@ public class LoginPanel : MonoBehaviour {
         BindRegisterField(registerPassword, passwordTips, 32);
         BindRegisterField(registerConfirmPassword, RegisterConfirmPasswordTips, 32);
 
+    }
+
+    private void SwitchServer() {
+        var network = NetworkManager.Instance;
+        if (network == null || WindowsManager.Instance?.GetCurrentWindow() != "login") return;
+        ConfigManager.SetLocalServices(!ConfigManager.UseLocalServices);
+        RefreshServerSwitchLabel();
+        ShowConnectingState();
+        network.RestartLoginConnection();
+    }
+
+    private void RefreshServerSwitchLabel() {
+        string label = ConfigManager.UseLocalServices ? "连接远程服务器" : "连接本地测试服务";
+        serverSwitchButton.GetComponent<LocalizedPlatformLabel>().SetSource(label);
+        if (debugObject != null) debugObject.SetActive(ConfigManager.UseLocalServices);
     }
 
     private void SubmitUsername(string value) {

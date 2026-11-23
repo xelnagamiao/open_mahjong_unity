@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const { parseReplay } = require('../utils/parseReplay');
 const pool = require('../config/database');
 const { visibleRecordSql, visibleReplayTableSql, LOCKED_MESSAGE } = require('./duplicateRecordAccess');
@@ -75,7 +76,7 @@ function presentReplay(row) {
 async function readGameRecords(db, ids) {
   if (!ids.length) return new Map();
   const { rows } = await db.query(`SELECT req.id, r.game_id, r.created_at, r.record::text AS body, link.table_id,
-      ARRAY(SELECT gr.game_id FROM game_record_metadata gr
+      ARRAY(SELECT gr.game_id FROM ${tableTitles} gr
             WHERE gr.replay_id = r.game_id AND ${visibleRecordSql()}) AS allowed,
       (SELECT jsonb_agg(jsonb_build_object('table_id', t.table_id, 'user_id', p.user_id,
                     'username', p.username, 'room_type', p.room_type, 'match_type', p.match_type))
@@ -99,7 +100,7 @@ async function downloadableReplays(db, ids, { userId = null, eventId = null } = 
   const { rows } = await db.query(`SELECT gr.replay_id,(array_agg(req.id ORDER BY req.pos))[1] AS requested_id
     FROM unnest($1::varchar[]) WITH ORDINALITY req(id, pos)
     LEFT JOIN game_record_tables link ON link.game_id=req.id
-    JOIN game_record_metadata gr ON gr.replay_id=COALESCE(link.replay_id, req.id)
+    JOIN ${tableTitles} gr ON gr.replay_id=COALESCE(link.replay_id, req.id)
     WHERE (link.table_id IS NULL OR gr.table_id=link.table_id) AND ${visibleReplayTableSql('gr')}
       AND (($2::bigint IS NULL AND $3::text IS NULL) OR EXISTS (
         SELECT 1 FROM game_record_tables owner JOIN game_player_records p USING(game_id)

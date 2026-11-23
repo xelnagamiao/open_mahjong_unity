@@ -75,7 +75,7 @@ public sealed class CardDesignImagePicker : MonoBehaviour
                     var button = Instantiate(optionTemplate, options, false);
                     button.name = "Image_" + entry.id; button.onClick = new Button.ButtonClickedEvent();
                     string id = entry.id;
-                    button.onClick.AddListener(() => { CardDesignImageLibrary.Select(entries.Find(e => e.id == id)); RefreshSavedUi(); });
+                    button.onClick.AddListener(() => { CardDesignImageLibrary.Select(entries.Find(e => e.id == id), RefreshAfterSelect); });
                     option = button.GetComponent<CardDesignImageOption>(); buttons.Add(entry.id, option);
                 }
                 option.SetEntry(entry);
@@ -133,6 +133,7 @@ public sealed class CardDesignImagePicker : MonoBehaviour
         else colors.background.ApplyPickerColor(ConfigManager.DefaultTableFaceColor);
         RefreshSavedUi();
     }
+    void RefreshAfterSelect() { if (this != null && isActiveAndEnabled) RefreshSavedUi(); }
     void RefreshSavedUi()
     {
         colors.back.ReloadSaved();
@@ -149,7 +150,7 @@ public sealed class CardDesignImagePicker : MonoBehaviour
         nameDialog = HandSurfaceNameDialog.Open(transform, uploadButton.GetComponentInChildren<TMP_Text>(true).font,
             back ? "保存3D牌背" : "保存3D牌面背景", CardDesignImageLibrary.SuggestedName(filename, back), image,
             (name, close, error) => CardDesignImageLibrary.SaveNew(bytes, name, back,
-                entry => { CardDesignImageLibrary.Select(entry); close(); if (this != null) RefreshSavedUi(); }, error));
+                entry => { CardDesignImageLibrary.Select(entry, RefreshAfterSelect); close(); }, error));
     }
     void Rename()
     {

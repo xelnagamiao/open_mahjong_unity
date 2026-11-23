@@ -528,6 +528,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         duplicate_round_count=message.get("duplicate_round_count"),
         duplicate_sync_mode=message.get("duplicate_sync_mode", False),
         wall_source=message.get("wall_source"),
+        reuse_training_room=message.get("reuse_training_room", False),
         real_time=message.get("real_time", False),
         tactical_grace_seconds=message.get("tactical_grace_seconds", 5),
     )

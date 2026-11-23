@@ -18,7 +18,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         + "包内只需牌号 PNG 和一个 tiles.cfg；不需要 manifest.json 或预览图。\n\n"
         + "推荐透明底原图；经典手牌背景为 272×389，新版为 272×424，花纹保持原图比例。\n"
         + "tiles.cfg 支持 # 注释：[2d] / [3d] 设置整包默认值，[2d.11] / [3d.11] 设置单牌相对微调，参数 x、y、scale 使用百分比。\n"
-        + "以上均为建议，不要求匹配指定尺寸或比例。保留原图尺寸、透明通道与完整内容；显示时等比居中，空余部分由背景或底色补齐。\n\n"
+        + "上传和导出保留原图。游戏加载牌面时，最长边超过 512 像素的图片会等比缩小至 512 像素，小图保持原尺寸。透明区域保留，牌面居中显示，空余部分由背景或底色补齐。\n\n"
         + "牌号：万11–19、筒21–29、索31–39、字41–47、花51–58；赤宝105/205/305，纯白白板2。\n"
         + "使用 PNG。资源上限：单边≤4096、牌面单张≤4MiB、背景和牌背单张≤8MiB、压缩包及解压后≤128MiB。可缺少部分牌面，缺图回退官方。\n"
         + "虹雀牌组固定使用官方 HQv3.1。\n"
@@ -165,7 +165,10 @@ public class CardFaceConfigPanel : MonoBehaviour {
             return;
         }
         Texture2D preview = null;
-        foreach (var image in imported.Pngs.Values) { preview = UnityAssetIdb.ToTexture(image); break; }
+        foreach (var face in imported.Pngs) {
+            preview = TileFaceResolver.LoadCustomFaceTexture(face.Value, "CustomFacePreview_" + face.Key);
+            break;
+        }
         packNameDialog = HandSurfaceNameDialog.Open(transform, uploadButton.GetComponentInChildren<TMP_Text>(true)?.font,
             "导入牌包", HandSurfaceLibrary.SuggestedName(fileName, false), preview, (name, close, error) =>
             TilePackLibrary.SaveNew(zipBytes, fileName, imported, entry => {

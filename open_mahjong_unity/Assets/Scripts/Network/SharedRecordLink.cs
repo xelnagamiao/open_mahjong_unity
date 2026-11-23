@@ -149,6 +149,23 @@ public sealed class SharedRecordLink : MonoBehaviour {
         _pendingPlayerIndex = null;
     }
 
+    internal sealed class Position {
+        internal readonly string Table = PendingTable;
+        internal readonly int Round = _pendingRound ?? 1;
+        internal readonly int Node = _pendingNode ?? 0;
+        internal readonly int? UserId = _pendingPlayer;
+        internal readonly int? Seat = _pendingPlayerIndex;
+        internal readonly bool Legacy = !canonicalCursor && PendingTable == null;
+    }
+
+    internal static Position TakePendingPosition() {
+        if (PendingTable == null && !_pendingRound.HasValue && !_pendingNode.HasValue &&
+            !_pendingPlayer.HasValue && !_pendingPlayerIndex.HasValue) return null;
+        var position = new Position();
+        ClearPendingJump();
+        return position;
+    }
+
     public static void ApplyPendingJumpIfAny() {
         if (PendingTable == null && !_pendingRound.HasValue && !_pendingNode.HasValue && !_pendingPlayer.HasValue && !_pendingPlayerIndex.HasValue) return;
         var manager = GameRecordManager.Instance;
@@ -222,43 +239,21 @@ public sealed class SharedRecordLink : MonoBehaviour {
             yield break;
         }
 
-        string apiRoot = ConfigManager.webApiUrl?.TrimEnd('/') ?? "";
-#if UNITY_WEBGL && !UNITY_EDITOR
-        // The site serves /api on the same origin as its player, including Vite's local proxy.
-        if (Uri.TryCreate(Application.absoluteURL, UriKind.Absolute, out var page) &&
-            (page.Scheme == Uri.UriSchemeHttp || page.Scheme == Uri.UriSchemeHttps))
-            apiRoot = page.GetLeftPart(UriPartial.Authority);
-#endif
-        string endpoint = $"{apiRoot}{ConfigManager.PlatformRecordPath}{UnityWebRequest.EscapeURL(gameId)}";
+        string endpoint = RecordApiUrl(gameId);
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint)) {
             request.timeout = 20;
             request.SetRequestHeader("Accept", "application/json");
             yield return request.SendWebRequest();
 
+            if (_queuedGameId != null) yield break;
             if (request.result != UnityWebRequest.Result.Success) {
                 ClearPendingJump();
                 ShowTip("无法打开牌谱", false, ReadServerError(request));
                 yield break;
             }
 
-            RecordDetail detail;
-            try {
-                JObject envelope = MatchRecordCodec.Parse(request.downloadHandler.text);
-                if (envelope.Value<bool?>("success") != true || envelope["data"] == null) {
-                    throw new InvalidOperationException(
-                        envelope.Value<string>("message") ?? "牌谱接口返回了无效数据"
-                    );
-                }
-                detail = envelope["data"].ToObject<RecordDetail>();
-            } catch (Exception e) {
-                ClearPendingJump();
-                Debug.LogError($"解析分享牌谱响应失败: {e}");
-                ShowTip("无法打开牌谱", false, $"牌谱数据解析失败：{e.Message}");
-                yield break;
-            }
-
-            yield return PlayPublicRecord(detail);
+            yield return ReadAndPlayArchive(request.downloadHandler.text, false);
         }
     }
 
@@ -304,18 +299,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
             yield break;
         }
 
-        RecordDetail detail;
-        try {
-            string json = Encoding.UTF8.GetString(_localConvertedBytes);
-            detail = ReadLocalConverted(json);
-        } catch (Exception e) {
-            ClearPendingJump();
-            Debug.LogError($"解析本地转换牌谱失败: {e}");
-            ShowTip("无法打开牌谱", false, $"牌谱数据解析失败：{e.Message}");
-            yield break;
-        }
-
-        yield return PlayPublicRecord(detail, localPlayback: true);
+        if (_queuedGameId == null) yield return ReadAndPlayArchive(Encoding.UTF8.GetString(_localConvertedBytes), true);
 #else
         ClearPendingJump();
         ShowTip("无法打开牌谱", false, "请在网页 3D 中打开转换牌谱");
@@ -351,8 +335,36 @@ public sealed class SharedRecordLink : MonoBehaviour {
         }
     }
 
-    internal static RecordDetail ReadLocalConverted(string json) {
-        var detail = MatchRecordCodec.Parse(json).ToObject<RecordDetail>();
+    private IEnumerator ReadAndPlayArchive(string json, bool local) {
+        RecordDetail detail = null;
+        ReplayFrameLoader.Begin(GameRecordJsonDecoder.ReadArchiveJson(json, envelope => {
+            if (local) detail = ReadLocalConverted(envelope);
+            else {
+                if (envelope.Value<bool?>("success") != true || !(envelope["data"] is JObject data))
+                    throw new InvalidOperationException(envelope.Value<string>("message") ?? "牌谱接口返回了无效数据");
+                detail = TakeDetail(data);
+            }
+        }), error => {
+            ClearPendingJump();
+            ShowTip("无法打开牌谱", false, error.Message);
+        }, () => {
+            if (_queuedGameId == null) StartCoroutine(PlayPublicRecord(detail, local));
+        });
+        while (ReplayFrameLoader.Busy) yield return null;
+    }
+
+    private static RecordDetail TakeDetail(JObject data) {
+        var record = data["record"] as JObject ?? throw new InvalidOperationException("牌谱数据无效");
+        data.Remove("record");
+        var detail = data.ToObject<RecordDetail>();
+        detail.record = record;
+        return detail;
+    }
+
+    internal static RecordDetail ReadLocalConverted(string json) => ReadLocalConverted(MatchRecordCodec.Parse(json));
+
+    private static RecordDetail ReadLocalConverted(JObject root) {
+        var detail = TakeDetail(root);
         if (detail?.record == null) throw new InvalidOperationException("本地牌谱数据无效");
         detail.game_id = LocalConvertedGameId;
         detail.cloud_saved = false;
@@ -383,9 +395,20 @@ public sealed class SharedRecordLink : MonoBehaviour {
         }
         IsPublicSharePlayback = true;
         // 与列表/本地牌谱共用显式场景初始化和失败返回，避免等待未激活组件的单例。
-        if (!RecordPanel.OpenRecord(detail, localPlayback)) {
+        if (!RecordPanel.RequestOpenRecord(detail, localPlayback)) {
             IsPublicSharePlayback = false;
         }
+    }
+
+    internal static string RecordApiUrl(string gameId) {
+        string apiRoot = ConfigManager.webApiUrl?.TrimEnd('/') ?? "";
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // Host the replay and its analysis on the same origin, including the local Vite proxy.
+        if (Uri.TryCreate(Application.absoluteURL, UriKind.Absolute, out var page) &&
+            (page.Scheme == Uri.UriSchemeHttp || page.Scheme == Uri.UriSchemeHttps))
+            apiRoot = page.GetLeftPart(UriPartial.Authority);
+#endif
+        return $"{apiRoot}{ConfigManager.PlatformRecordPath}{UnityWebRequest.EscapeURL(gameId)}";
     }
 
     static byte[] CopyLocalConvertedBytes(int length) {

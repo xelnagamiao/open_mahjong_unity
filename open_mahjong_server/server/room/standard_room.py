@@ -36,7 +36,7 @@ async def create_standard_room(manager, player_id, validator, rule_id, *, room_n
     profile["user_id"] = connection.user_id
     room = config.model_dump()
     room.update(room_id=room_id, instance_id=str(uuid.uuid4()), room_type="custom", room_rule=rule_id,
-                hepai_limit=0, max_player=4, player_list=[connection.user_id], player_settings={connection.user_id: profile},
+                max_player=4, player_list=[connection.user_id], player_settings={connection.user_id: profile},
                 has_password=bool(password), host_user_id=connection.user_id, host_name=connection.username,
                 is_game_running=False, is_player_set_random_seed=config.random_seed != 0)
     manager._apply_event_fields(room, event_id)

@@ -17,7 +17,7 @@ export function statisticsGameType(key, mode) {
   if (statisticsSelection(key)?.rule === 'qingque' && mode === 'unlimited/4_rank') return 'unlimited';
   const hongque = statisticsSelection(key)?.rule === 'hongque';
   const length = Number.parseInt(mode, 10);
-  if (hongque) return [4,8,12,16].includes(length) ? `hands${length}` : null;
+  if (hongque || statisticsSelection(key)?.key === 'sanhua') return [4,8,12,16].includes(length) ? `hands${length}` : null;
   return ({1:'dongfeng',2:'banzhuang',3:'xifeng',4:'quanzhuang'})[length] || null;
 }
 
@@ -25,6 +25,7 @@ export function statisticsModeLabel(key, mode) {
   if (!mode) return '-';
   const type = statisticsGameType(key, mode);
   if (type === 'unlimited') return '无固定时限';
+  if (type?.startsWith('hands') && statisticsSelection(key)?.key === 'sanhua') return `${type.slice(5)}副`;
   if (type?.startsWith('hands')) return `${type.slice(5)}局`;
   return ({dongfeng:'东风战',banzhuang:'半庄战',xifeng:'东西战',quanzhuang:'全庄战'})[type] || mode;
 }

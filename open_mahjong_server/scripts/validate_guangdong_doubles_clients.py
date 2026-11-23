@@ -14,7 +14,8 @@ import websockets
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "open_mahjong_server"))
 from server.gamestate.game_guangdong.test_doubles import state
-from server.gamestate.game_guangdong.test_doubles_match import choose_action, deal_board, deal_co_win_board
+from server.gamestate.game_guangdong.test_doubles_match import choose_action, deal_board, deal_co_win_board, deal_from_fixture
+from server.gamestate.game_guangdong.test_state import HAND
 from server.gamestate.gamestate_router import handle_gamestate_message
 from server.gamestate.public.game_record_manager import build_local_record_detail
 from server.database.subrule_fans import collect_subrule_fans
@@ -23,6 +24,7 @@ USERS = list(range(11000001, 11000005))
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-dir", required=True, type=Path)
 parser.add_argument("--co-wins", action="store_true", help="Exercise simultaneous wins on boards two and five")
+parser.add_argument("--video-ghost", action="store_true", help="Put a ghost in the opening discard for the client recording")
 args = parser.parse_args()
 out = args.output_dir.resolve()
 out.mkdir(parents=True, exist_ok=True)
@@ -34,7 +36,13 @@ def save(name, data):
 
 async def main():
     gs = state(round_timer=240, step_timer=30)
-    gs.init_tiles = lambda: (deal_co_win_board if args.co_wins else deal_board)(gs)
+    def deal():
+        if args.video_ghost and gs.current_round == 1:
+            gs.round_random_seed = 20261122
+            deal_from_fixture(gs, {0: HAND}, 55, [41])
+        else:
+            (deal_co_win_board if args.co_wins else deal_board)(gs)
+    gs.init_tiles = deal
     for p, uid in zip(gs.player_list, USERS):
         p.user_id, p.username, p.remaining_time = uid, f"双打测试{uid - 11000000}", 240
     server = gs.game_server

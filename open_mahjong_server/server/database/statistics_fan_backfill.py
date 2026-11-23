@@ -66,7 +66,7 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
                     conn.rollback()
                     return {**report, "status": "already_complete", "applied": False}
                 cur.execute("SET LOCAL lock_timeout='10s'")
-                cur.execute("""LOCK TABLE game_records,game_player_records,game_player_metrics,
+                cur.execute("""LOCK TABLE game_replays,game_record_tables,game_player_records,game_player_metrics,
                     scene_tier_fan_daily IN SHARE ROW EXCLUSIVE MODE""")
                 cur.execute(f"""CREATE TABLE IF NOT EXISTS {BACKUP_TABLE} (
                     migration_key text,table_name text,row_key text,row_data jsonb,
@@ -76,8 +76,9 @@ def backfill(conn, *, apply=False, sub_rules=None, batch_size=200, force=False, 
         with conn.cursor(name="fan_repair_scan", cursor_factory=RealDictCursor) as scan:
             scan.itersize = batch_size
             scan.execute("""SELECT m.game_id,m.user_id,m.rule,m.sub_rule,m.match_type,m.fan_stats,
-                    g.record,p.original_player_index FROM game_player_metrics m
-                LEFT JOIN game_records g USING(game_id)
+                    g.record->'tables'->t.table_id->'payload' AS record,p.original_player_index FROM game_player_metrics m
+                LEFT JOIN game_record_tables t USING(game_id)
+                LEFT JOIN game_replays g ON g.game_id=t.replay_id
                 LEFT JOIN game_player_records p ON p.game_id=m.game_id AND p.user_id=m.user_id
                 WHERE m.sub_rule=ANY(%s) ORDER BY m.game_id,m.user_id""", (selected,))
             while rows := scan.fetchmany(batch_size):

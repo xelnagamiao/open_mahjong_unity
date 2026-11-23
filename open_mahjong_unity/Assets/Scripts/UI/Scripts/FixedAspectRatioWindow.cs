@@ -3,7 +3,6 @@
 #endif
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -18,9 +17,6 @@ public class FixedAspectRatio : MonoBehaviour {
     [SerializeField] private Canvas[] viewportCanvases;
 
     private const string BlackBarCanvasName = "FixedAspectRatio Black Bars";
-    /// <summary>最大化 letterbox 时需随相机视口裁剪的 Overlay 根 Canvas（还原后必须回到 Screen Space - Overlay）。</summary>
-    private static readonly string[] LetterboxOverlayRootNames = { "OverlayCanvas", "MainCanvas", "#GameCanvas" };
-
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT {
         public int left, top, right, bottom;
@@ -34,9 +30,6 @@ public class FixedAspectRatio : MonoBehaviour {
 
     [DllImport("user32.dll")]
     private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
-
-    [DllImport("user32.dll")]
-    private static extern bool IsZoomed(IntPtr hWnd);
 
     private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
@@ -64,17 +57,8 @@ public class FixedAspectRatio : MonoBehaviour {
     private IntPtr originalWndProc;
     private WndProcDelegate wndProcDelegate;
     private RectTransform[] blackBars;
-    private Canvas blackBarCanvas;
-    private Rect currentCameraRect = new Rect(0f, 0f, 1f, 1f);
-    private bool isLetterboxActive;
-    private readonly Dictionary<Canvas, CanvasState> overlayCanvasStates = new Dictionary<Canvas, CanvasState>();
-    private Canvas[] letterboxRootCanvases;
-
-    private struct CanvasState {
-        public RenderMode renderMode;
-        public Camera worldCamera;
-        public float planeDistance;
-    }
+    private Rect lastBarRect = new Rect(-1f, -1f, 0f, 0f);
+    private Camera[] cameraBuffer = Array.Empty<Camera>();
 
     void Start() {
 #if USE_WINAPI
@@ -83,26 +67,9 @@ public class FixedAspectRatio : MonoBehaviour {
             HookWindowProc();
         }
 #endif
-        MobileViewportLayout.Install(gameObject);
+        MobileViewportLayout.Install(gameObject, viewportCanvases);
         SetupBlackBars();
-        CacheLetterboxRootCanvases();
         ApplyCameraViewport();
-    }
-
-    private void CacheLetterboxRootCanvases() {
-        if (viewportCanvases != null && viewportCanvases.Length > 0) {
-            letterboxRootCanvases = viewportCanvases;
-            return;
-        }
-        var roots = new List<Canvas>(LetterboxOverlayRootNames.Length);
-        foreach (GameObject root in gameObject.scene.GetRootGameObjects()) {
-            if (Array.IndexOf(LetterboxOverlayRootNames, root.name) < 0) continue;
-            Canvas canvas = root.GetComponent<Canvas>();
-            if (canvas != null && canvas != blackBarCanvas) {
-                roots.Add(canvas);
-            }
-        }
-        letterboxRootCanvases = roots.ToArray();
     }
 
     private void Update() {
@@ -212,7 +179,6 @@ public class FixedAspectRatio : MonoBehaviour {
         Canvas canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         UiCanvasLayers.Apply(canvas, UiCanvasLayers.Feedback, short.MaxValue, false);
-        blackBarCanvas = canvas;
 
         blackBars = new RectTransform[4];
         for (int i = 0; i < blackBars.Length; i++) {
@@ -232,7 +198,7 @@ public class FixedAspectRatio : MonoBehaviour {
         if (aspect < 1f) aspect = 1f / aspect;
 #endif
         Rect targetRect = shouldLetterbox ? GetTargetViewport(aspect) : new Rect(0f, 0f, 1f, 1f);
-        if (MobileViewportLayout.IsInstalled && Screen.width > 0 && Screen.height > 0) {
+        if (MobileViewportLayout.HasGameArea && Screen.width > 0 && Screen.height > 0) {
             // Only the viewport changes. The authored camera lens and transform
             // stay untouched; UI shares this same letterboxed game rectangle.
             Rect safe = MobileViewportLayout.GameArea;
@@ -240,112 +206,21 @@ public class FixedAspectRatio : MonoBehaviour {
                 safe.width / Screen.width, safe.height / Screen.height);
         }
 
-        currentCameraRect = targetRect;
-        Camera[] cameras = GetTargetCameras();
-        for (int i = 0; i < cameras.Length; i++) {
-            // Offscreen card/model previews own their RenderTexture viewport.
-            if (MobileViewportLayout.IsInstalled && cameras[i].targetTexture != null) continue;
-            cameras[i].rect = currentCameraRect;
+        Camera[] cameras = targetCameras;
+        int count = cameras == null ? 0 : cameras.Length;
+        if (count == 0) {
+            int required = Camera.allCamerasCount;
+            if (cameraBuffer.Length < required) cameraBuffer = new Camera[required];
+            count = Camera.GetAllCameras(cameraBuffer);
+            cameras = cameraBuffer;
         }
-
-        ApplyCanvasViewport(shouldLetterbox);
-        ApplyBlackBars(currentCameraRect);
-    }
-
-    private void ApplyCanvasViewport(bool shouldLetterbox) {
-        if (shouldLetterbox) {
-            ActivateLetterboxCanvasMode();
-            return;
+        for (int i = 0; i < count; i++) {
+            Camera camera = cameras[i];
+            if (camera && !camera.targetTexture && camera.rect != targetRect) camera.rect = targetRect;
         }
-
-        DeactivateLetterboxCanvasMode();
-        EnsureOverlayRootsUseOverlayMode();
-    }
-
-    private static CanvasState CaptureCanvasState(Canvas canvas) {
-        return new CanvasState {
-            renderMode = canvas.renderMode,
-            worldCamera = canvas.worldCamera,
-            planeDistance = canvas.planeDistance,
-        };
-    }
-
-    private static void ApplyCanvasState(Canvas canvas, CanvasState state) {
-        int currentOrder = canvas.sortingOrder;
-        canvas.renderMode = state.renderMode;
-        canvas.worldCamera = state.worldCamera;
-        canvas.planeDistance = state.planeDistance;
-        // Changing renderMode can leave Unity's root render order stale even
-        // though sortingOrder still reports its correct value. Re-register the
-        // current order; never restore a sorting value captured before the switch.
-        canvas.sortingOrder = currentOrder;
-    }
-
-    private void ActivateLetterboxCanvasMode() {
-        Camera canvasCamera = GetCanvasCamera();
-        if (!canvasCamera) return;
-        if (letterboxRootCanvases == null) CacheLetterboxRootCanvases();
-        Canvas[] canvases = letterboxRootCanvases;
-        for (int i = 0; i < canvases.Length; i++) {
-            Canvas canvas = canvases[i];
-            if (canvas == null || canvas == blackBarCanvas || !canvas.isRootCanvas) continue;
-
-            if (!overlayCanvasStates.ContainsKey(canvas)) {
-                overlayCanvasStates.Add(canvas, CaptureCanvasState(canvas));
-            }
-
-            // Disabled roots must enter the same mode before a later page is opened.
-            if (canvas.renderMode != RenderMode.ScreenSpaceCamera || canvas.worldCamera != canvasCamera) {
-                ApplyCanvasState(canvas, new CanvasState {
-                    renderMode = RenderMode.ScreenSpaceCamera,
-                    worldCamera = canvasCamera,
-                    planeDistance = canvas.planeDistance,
-                });
-            }
-        }
-
-        isLetterboxActive = true;
-    }
-
-    private void DeactivateLetterboxCanvasMode() {
-        if (!isLetterboxActive && overlayCanvasStates.Count == 0) return;
-
-        foreach (KeyValuePair<Canvas, CanvasState> pair in overlayCanvasStates) {
-            if (pair.Key == null) continue;
-            ApplyCanvasState(pair.Key, pair.Value);
-        }
-
-        overlayCanvasStates.Clear();
-        isLetterboxActive = false;
-    }
-
-    /// <summary>
-    /// 窗口还原后若 Canvas 仍卡在 Screen Space - Camera，Main(Overlay) 会整层盖住 Overlay(Camera)。
-    /// 每帧在非最大化状态下强制根 Canvas 回到 Overlay 模式，修复最大化→还原后的「混合态」。
-    /// </summary>
-    private void EnsureOverlayRootsUseOverlayMode() {
-        if (letterboxRootCanvases == null || letterboxRootCanvases.Length == 0) {
-            CacheLetterboxRootCanvases();
-        }
-
-        for (int i = 0; i < letterboxRootCanvases.Length; i++) {
-            Canvas canvas = letterboxRootCanvases[i];
-            if (canvas == null) {
-                CacheLetterboxRootCanvases();
-                return;
-            }
-            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay) continue;
-
-            if (overlayCanvasStates.TryGetValue(canvas, out CanvasState saved)) {
-                ApplyCanvasState(canvas, saved);
-                continue;
-            }
-
-            ApplyCanvasState(canvas, new CanvasState {
-                renderMode = RenderMode.ScreenSpaceOverlay,
-                worldCamera = null,
-                planeDistance = canvas.planeDistance,
-            });
+        if (targetRect != lastBarRect) {
+            ApplyBlackBars(targetRect);
+            lastBarRect = targetRect;
         }
     }
 
@@ -361,22 +236,6 @@ public class FixedAspectRatio : MonoBehaviour {
         bar.anchorMax = anchorMax;
         bar.offsetMin = Vector2.zero;
         bar.offsetMax = Vector2.zero;
-    }
-
-    private Camera[] GetTargetCameras() {
-        if (targetCameras != null && targetCameras.Length > 0) {
-            return targetCameras;
-        }
-
-        return Camera.allCameras;
-    }
-
-    private Camera GetCanvasCamera() {
-        if (targetCameras != null && targetCameras.Length > 0) {
-            return targetCameras[0];
-        }
-
-        return Camera.main;
     }
 
     private Rect GetTargetViewport(float screenAspectRatio) {
@@ -399,12 +258,7 @@ public class FixedAspectRatio : MonoBehaviour {
 
     private bool ShouldLetterbox() {
         if (MobileViewportLayout.Enabled) return false;
-#if USE_WINAPI
-        // Snapping, fullscreen changes and restored window sizes can bypass
-        // WM_SIZING. Keep both the board and overlay UI inside the same viewport.
-        return IsZoomed(hwnd)
-            || Mathf.Abs(Screen.width - Screen.height * targetAspectRatio) > 2f;
-#elif UNITY_ANDROID || UNITY_IOS
+#if UNITY_ANDROID || UNITY_IOS
         return true;
 #else
         return false;

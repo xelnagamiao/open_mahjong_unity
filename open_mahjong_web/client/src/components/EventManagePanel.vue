@@ -82,11 +82,11 @@
             <el-button text type="primary" :loading="loadingRooms" @click="loadRooms">刷新</el-button>
           </div>
           <EventRoomCards
-            allow-restart
+
             :allow-bots="detail?.status === 'active'"
             :busy-room-id="addingBotRoomId"
             @add-bot="addRoomBot"
-            @restart-pair="restartPair"
+
             :key="eventId"
             :rooms="rooms"
             :loading="loadingRooms"
@@ -1752,16 +1752,6 @@ async function addRoomBot({ room, seatIndex, botType }) {
   }
 }
 
-async function restartPair(row) {
-  try {
-    await ElMessageBox.confirm('两室未完成副将同时更换新牌，已完成副的分数保留。原阵容按原座位入座后续赛。', '重开未完成副', { type: 'warning' })
-    const res = await eventAdminApi.post(`/events/${props.eventId}/rooms/${row.room_id}/restart-pair`)
-    ElMessage.success(res.data.message)
-    await loadRooms()
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.response?.data?.message || '续赛失败')
-  }
-}
 
 watch(
   () => props.eventId,

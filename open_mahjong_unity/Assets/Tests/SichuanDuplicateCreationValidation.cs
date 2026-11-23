@@ -171,9 +171,36 @@ public static class SichuanDuplicateCreationValidation {
                     seed.text = new string('0', 64);
                     Check(!p.BuildRoomRequest().IsValid, "training rejects disabled all-zero seed");
                     seed.text = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
-                    Check(p.BuildRoomRequest().IsValid, "training accepts pasted hexadecimal seed");
+                    Check(seed.interactable && !seed.readOnly && p.BuildRoomRequest().IsValid, "training accepts manual seed input");
+                    var reuse = Field<UnityEngine.UI.Toggle>(p, "SichuanTrainingReuseToggle");
+                    var generate = Field<UnityEngine.UI.Button>(p, "SichuanTrainingGenerateButton");
+                    var copy = Field<UnityEngine.UI.Button>(p, "SichuanTrainingCopyButton");
+                    var realTime = Field<UnityEngine.UI.Toggle>(p, "SichuanRealTimeToggle").transform;
+                    if (green) {
+                        Check(reuse.gameObject.activeSelf && reuse.transform.parent == realTime.parent
+                            && reuse.transform.GetSiblingIndex() == realTime.GetSiblingIndex() + 1, "training reuse follows real time");
+                        reuse.isOn = true;
+                        var repeat = p.BuildRoomRequest();
+                        var repeatConfig = (Sichuan_Create_RoomConfig)repeat.Configuration;
+                        Check(repeat.IsValid && repeatConfig.ReuseTrainingRoom && string.IsNullOrEmpty(repeatConfig.RandomSeed)
+                            && !seed.interactable && !generate.interactable && !copy.interactable, "reusable training uses server-selected walls");
+                        Check(seed.placeholder.GetComponent<LocalizedPlatformLabel>().Source == "开启重复使用后每局自动随机生成",
+                            "reusable seed placeholder explains the switch");
+                        reuse.isOn = false;
+                        Check(seed.interactable && !seed.readOnly && !p.BuildRoomRequest().IsValid, "fixed training requires a new editable seed");
+                    } else {
+                        Check(!reuse.gameObject.activeSelf, "personal lobby hides training reuse");
+                        string manualSeed = seed.text;
+                        reuse.isOn = true;
+                        var personal = p.BuildRoomRequest();
+                        var personalConfig = (Sichuan_Create_RoomConfig)personal.Configuration;
+                        Check(personal.IsValid && !personalConfig.ReuseTrainingRoom && personalConfig.RandomSeed == manualSeed
+                            && seed.interactable && generate.interactable && copy.interactable, "personal training keeps seed and never submits reuse");
+                        reuse.isOn = false;
+                    }
                     foreach (int sourceIndex in new[] { 2, 3, 1 }) {
                         sources[sourceIndex].isOn = true;
+                        Check(!reuse.gameObject.activeSelf, "key-backed wall hides training reuse");
                         Check(!spectators.isOn && !spectators.interactable, "key-backed wall disables spectators");
                         key.text = "";
                         Check(p.BuildRoomRequest().IsValid == (sourceIndex == 1), "only key source can auto-generate a key");

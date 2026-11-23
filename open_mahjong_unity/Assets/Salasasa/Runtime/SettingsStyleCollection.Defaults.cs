@@ -41,6 +41,7 @@ namespace Salasasa.Home
                     config.SetLanguageMode((int)AppLanguage.SimplifiedChinese);
                     config.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[0]);
                     config.SetVsyncEnabled(true);
+                    config.SetMsaaSampleCount(ConfigManager.DefaultMsaaSampleCount);
                     break;
                 default:
                     return;

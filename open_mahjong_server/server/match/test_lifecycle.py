@@ -5,10 +5,13 @@ import pytest
 
 from server.gamestate.gamestate_manager import GameStateManager
 from server.gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
+from server.gamestate.game_sichuan.SichuanGameState import SichuanGameState
+from server.gamestate.test_room_lifecycle import parked_loop
 from server.game_calculation.game_calculation_service import GameCalculationService
 from server.match.match_manager import MatchManager
-from server.match.rating_rules import QUEUES
+from server.match.rating_rules import DOUBLES_QUEUE, QUEUES
 from server.room.room_manager import RoomManager
+from server.room.test_room_recovery import server_methods
 
 USERS = [910001, 910002, 910003, 910004]
 QUEUE = 'beginner_dongfeng'
@@ -110,6 +113,49 @@ def test_before_start_one_disconnect_marks_player_offline():
         assert 'offline' in offline.tag_list
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
         assert not server.match_manager.committed_users
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('queue,game_type', [(QUEUE, GuobiaoGameState), (DOUBLES_QUEUE, SichuanGameState)])
+@pytest.mark.parametrize('scenario', ['one_leaving', 'all_leaving', 'replacement_login'])
+def test_countdown_expires_during_disconnect_cleanup(queue, game_type, scenario):
+    async def run():
+        server = server_fixture()
+        manager = server.match_manager
+        manager.MATCH_FOUND_DELAY_SECONDS = 0
+        manager.winning_queues.update(dict.fromkeys(USERS, queue))
+        server.friend_manager = SimpleNamespace(on_player_disconnect=AsyncMock(), on_game_end=AsyncMock())
+        methods = server_methods()
+        last = USERS[-1]
+        if scenario != 'one_leaving':
+            for uid in USERS[:-1]:
+                await methods['disconnect'](server, str(uid))
+
+        async def finish_countdown(uid):
+            # The seat disconnect has run, but the socket is still in the login map.
+            assert uid == last and server.user_id_to_connection[uid].event_disconnecting
+            if scenario == 'replacement_login':
+                server.players['fresh'] = SimpleNamespace(websocket=SimpleNamespace(send_json=AsyncMock()))
+                methods['store_player_session'](server, 'fresh', uid, 'returning')
+            await manager._start_game(queue, USERS)
+
+        server.friend_manager.on_player_disconnect.side_effect = finish_countdown
+        with patch.object(game_type, 'run_game_loop', parked_loop):
+            await methods['disconnect'](server, str(last))
+
+        games = server.gamestate_manager.gamestate_id_to_game_state
+        if scenario == 'all_leaving':
+            assert not games and not manager.gamestate_to_match
+            assert not server.room_manager.match_room_ids
+            assert not manager.committed_users and not manager.winning_queues
+            assert manager.playing_counts[queue] == 0
+        else:
+            game, = games.values()
+            expected_online = {last} if scenario == 'replacement_login' else set(USERS[:-1])
+            assert {p.user_id for p in game.player_list if 'offline' not in p.tag_list} == expected_online
+            for uid in USERS:
+                assert game._player_connections.get(uid) is server.user_id_to_connection.get(uid)
+            await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
     asyncio.run(run())
 
 

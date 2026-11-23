@@ -55,7 +55,7 @@
 - **首次开启**：赛事主管理员可从 `registered` 直接开启为 `active`。
 - **关闭**：平台超管或该赛事主管理员；关闭后 `reopen_requested=false`。
 - **重新开启**：主管理员提交申请（`reopen_requested=true`）→ 平台超管 `activate` 批准或 `reject-reopen` 拒绝。
-- **删除**：仅平台超管；需二次确认；级联删除 `game_records`（经 `game_player_records.event_id` 定位）。
+- **删除**：仅平台超管；需二次确认；从参赛记录定位至 `game_replays` 中的整场牌谱。
 
 ---
 
@@ -131,11 +131,10 @@ CREATE TABLE event_applications (
 删除赛事时：
 
 ```sql
--- 1) 找出该赛事全部 game_id
-SELECT DISTINCT game_id FROM game_player_records WHERE event_id = $1;
--- 2) DELETE FROM game_records WHERE game_id = ANY(...)
---    → ON DELETE CASCADE 清理 game_player_records
--- 3) 可选：清理 game_player_metrics 中同 event_id 行
+-- 1) 按参赛桌定位整场比赛编号
+SELECT DISTINCT t.replay_id FROM game_player_records p JOIN game_record_tables t USING(game_id) WHERE p.event_id = $1;
+-- 2) 按这些比赛的原桌号清理 game_player_metrics
+-- 3) 删除对应 game_replays；外键级联清理 game_record_tables 和 game_player_records
 -- 4) DELETE FROM events WHERE event_id = $1  → CASCADE event_admins
 ```
 
@@ -189,7 +188,7 @@ else:
 
 ### 4.4 牌谱与统计
 
-- 终局写入：`room_type='events'`，`event_id=...`，保存 `game_records`。
+- 终局写入：`room_type='events'`，`event_id=...`，保存整场 `game_replays`、原桌定位及参赛记录。
 - **跳过**：`*_history_stats`、`*_fan_stats`、`rank_data` 更新。
 - `game_player_metrics` / `scene_daily_stats`：可不写，或写入但平台公开统计 API 排除 `events`（推荐：写入 metrics 供赛事后台汇总，公开平台统计排除）。
 

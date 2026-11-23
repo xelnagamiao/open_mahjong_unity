@@ -8,6 +8,7 @@ public sealed class RoomInfoTooltip : MonoBehaviour, IPointerEnterHandler, IPoin
     IPointerClickHandler, ISubmitHandler {
     private static RoomInfoTooltip active;
     private string heading, body;
+    private RoomItem source;
     private TMP_FontAsset font;
     private RectTransform popup, canvasRect;
     private Canvas rootCanvas;
@@ -17,6 +18,16 @@ public sealed class RoomInfoTooltip : MonoBehaviour, IPointerEnterHandler, IPoin
     private float showAt, leaveAt;
     private const float Margin = 12f;
     private readonly Vector3[] anchorCorners = new Vector3[4];
+
+    public void SetRoom(RoomItem room, TMP_FontAsset textFont) {
+        source = room;
+        heading = "房间详情";
+        font = textFont;
+    }
+
+    public void RefreshIfOpen() {
+        if (popup != null && source != null) SetContent(heading, source.BuildDetails(), font);
+    }
 
     public void SetContent(string title, string text, TMP_FontAsset textFont) {
         if (heading == title && body == text && font == textFont) return;
@@ -49,7 +60,9 @@ public sealed class RoomInfoTooltip : MonoBehaviour, IPointerEnterHandler, IPoin
     private void OnDestroy() { Hide(); }
 
     public void Show() {
-        if (popup != null || string.IsNullOrEmpty(body)) return;
+        if (popup != null) return;
+        if (source != null) body = source.BuildDetails();
+        if (string.IsNullOrEmpty(body)) return;
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null) return;
         if (active != null && active != this) active.Hide();

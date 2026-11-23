@@ -48,7 +48,7 @@ public partial class Game3DManager {
         }
 
         Vector3 startPosition = sourceTile.transform.position;
-        sourceTile.transform.SetParent(null, worldPositionStays: true);
+        TableWorldObjectMount.AttachDetached(sourceTile.transform, true);
         MahjongObjectPool.Instance.Return(-1, sourceTile);
         yield return PlaceTransferredFlowerTileCoroutine(
             tileId, recipientPlayerPosition, recipientPanel.buhuaPosition, startPosition);

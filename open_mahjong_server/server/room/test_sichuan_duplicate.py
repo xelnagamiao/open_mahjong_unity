@@ -1,14 +1,14 @@
 import asyncio
 from copy import deepcopy
 from types import SimpleNamespace as NS
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from .room_manager import RoomManager
 from .room_seats import get_seats, move_duplicate_seat
 from .room_teams import assign_team
-from .sichuan_duplicate import create_pair, delete_pair, restart_pair, restore_pairs, request_start
+from .sichuan_duplicate import create_pair, delete_pair, finish_pair, request_start
 from ..response import Response
 from ..gamestate.game_sichuan.test_duplicate import run_async
 from ..gamestate.gamestate_manager import GameStateManager
@@ -29,14 +29,11 @@ def rooms(monkeypatch):
     manager._broadcast_room_info = AsyncMock()
     manager.room_list_update = AsyncMock()
     saved = []
-    def create(_store, snapshot, **_):
-        if snapshot.get('wall_source') == 'training':
-            snapshot.update(wall_id=None,event_id='evt_pair')
-        else:
-            snapshot.update(key='dup_'+'a'*32,wall_id=1,event_id='evt_pair')
+    def attach(_db, snapshot, **kwargs):
+        snapshot.update(key=snapshot.get('key') or 'dup_'+'a'*32, wall_id=snapshot.get('source_wall_id', 1),
+                        event_id=kwargs['event_id'], table_record_ids={'open': 'open-id', 'closed': 'closed-id'})
         saved.append(deepcopy(snapshot))
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.create',create)
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.save',lambda _s,d,r: saved.append(deepcopy(d)))
+    monkeypatch.setattr('server.room.sichuan_duplicate.attach_paired_wall', attach)
     manager.saved = saved
     return manager
 
@@ -229,7 +226,7 @@ async def test_existing_key_validation_leaves_no_half_pair(rooms, monkeypatch, s
 @run_async
 async def test_database_failure_rolls_back_both_rooms_before_broadcast(rooms,monkeypatch):
     def fail(*_,**__): raise OSError('database unavailable')
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.create',fail)
+    monkeypatch.setattr('server.room.sichuan_duplicate.attach_paired_wall',fail)
     with pytest.raises(OSError):
         await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
     assert not rooms.rooms and not rooms.room_passwords
@@ -260,47 +257,24 @@ async def test_delete_pair_checks_peer_and_cascades(rooms,busy):
     result=await delete_pair(rooms,a)
     assert result.success == (busy is None)
     assert len(rooms.rooms)==(2 if busy else 0)
-    if not busy: assert rooms.saved[-1]['status']=='cancelled'
+    if not busy: assert not rooms.game_server.gamestate_manager.sichuan_duplicate_matches
 
 
+@pytest.mark.parametrize("status", ["completed", "interrupted"])
 @run_async
-async def test_restart_preserves_completed_scores_and_regenerates_both(rooms):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
-    pair=next(iter(rooms.game_server.gamestate_manager.sichuan_duplicate_matches.values()))
-    pair.data['status']='running'
-    await asyncio.gather(pair.submit('open',1,[3,-3],[0,0],{},{}),pair.submit('closed',1,[0,0],[0,0],{},{}))
-    previous=deepcopy(pair.data)
-    pair.interrupt('test')
-    room=next(iter(rooms.rooms.values()))
-    result=await restart_pair(rooms,room['room_id'],'evt_pair')
-    assert result['success'] and pair.data['status']=='waiting'
-    assert pair.data['boards'][0]==previous['boards'][0] and pair.data['boards'][1]!=previous['boards'][1]
-    assert pair.data['scores']==previous['scores'] and pair.data['completed_boards']==1
-    assert pair.data['pending']=={} and pair.data['checkpoints']=={'open':{},'closed':{}}
-
-
-@run_async
-async def test_restart_rejects_wrong_event_or_live_peer(rooms):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
-    a,b=list(rooms.rooms.values())
-    with pytest.raises(ValueError,match='不属于'):
-        await restart_pair(rooms,a['room_id'],'evt_other')
-    b['is_game_running']=True
-    with pytest.raises(ValueError,match='清理'):
-        await restart_pair(rooms,a['room_id'],'evt_pair')
-
-
-@run_async
-async def test_process_recovery_never_resumes_an_exposed_hand(rooms,monkeypatch):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'pw',101)
-    snapshot=deepcopy(rooms.saved[-1]); snapshot['status']='running'
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _: [snapshot])
-    rooms.rooms.clear()
-    restore_pairs(rooms.game_server)
-    pair=rooms.game_server.gamestate_manager.sichuan_duplicate_matches[snapshot['id']]
-    assert pair.data['status']=='interrupted'
-    assert len(rooms.rooms)==2
-    assert all(r['seat_list']==[-1]*4 and not r['is_game_running'] and r['duplicate_status']=='interrupted' for r in rooms.rooms.values())
+async def test_last_table_removes_both_rooms_and_cannot_restart(rooms, status):
+    await create_pair(rooms, 'evt_pair', SBR_DUPLICATE, {}, 'pw', 101)
+    gm = rooms.game_server.gamestate_manager
+    pair, = gm.sichuan_duplicate_matches.values()
+    root, peer = rooms.rooms.values()
+    pair.data["status"] = status
+    peer["is_game_running"] = True
+    await finish_pair(rooms, root, pair)
+    assert len(rooms.rooms) == 2
+    peer["is_game_running"] = False
+    await finish_pair(rooms, peer, pair)
+    assert not rooms.rooms and not rooms.room_passwords and not gm.sichuan_duplicate_matches
+    assert not (await request_start(gm, root, '101')).success
 
 
 async def prepare_pair(rooms,monkeypatch):
@@ -339,9 +313,8 @@ async def test_both_hosts_ready_gate_and_single_launch(rooms,monkeypatch):
 
 
 @run_async
-async def test_resume_keeps_original_eight_seats_and_reserved_record_ids(rooms,monkeypatch):
+async def test_start_keeps_original_eight_seats_and_reserved_record_ids(rooms,monkeypatch):
     gm,pair,(a,b)=await prepare_pair(rooms,monkeypatch)
-    pair.data['completed_boards']=1
     pair.data['members']={t:[{'user_id':uid} for uid in room['seat_list']] for t,room in zip(('open','closed'),(a,b))}
     a['duplicate_game_id']='keep-open';b['duplicate_game_id']='keep-closed'
     await request_start(gm,a,'101');assert await request_start(gm,b,'105') is None
@@ -349,14 +322,12 @@ async def test_resume_keeps_original_eight_seats_and_reserved_record_ids(rooms,m
     assert a['duplicate_game_id']=='keep-open' and b['duplicate_game_id']=='keep-closed'
 
 
-@pytest.mark.parametrize('mode',['duplicate_user','offline_host','wrong_resume','prepare_error','cancelled','changed_roster'])
+@pytest.mark.parametrize('mode',['duplicate_user','offline_host','prepare_error','cancelled','changed_roster'])
 @run_async
 async def test_pair_start_failures_never_launch_one_table(rooms,monkeypatch,mode):
     gm,pair,(a,b)=await prepare_pair(rooms,monkeypatch)
     if mode=='duplicate_user':b['seat_list'][2]=a['seat_list'][2]
     if mode=='offline_host':rooms.game_server.user_id_to_connection.pop(105)
-    if mode=='wrong_resume':
-        pair.data.update(completed_boards=1,members={'open':[{'user_id':999}]*4,'closed':[{'user_id':999}]*4})
     original=gm.start_game.side_effect
     async def start(conn,rid,**kwargs):
         if rid==b['room_id']:
@@ -370,7 +341,7 @@ async def test_pair_start_failures_never_launch_one_table(rooms,monkeypatch,mode
         with pytest.raises(asyncio.CancelledError):await request_start(gm,b,'105')
     else:
         result=await request_start(gm,b,'105');assert not result.success
-    assert pair.data['status']=='interrupted'
+    assert pair.data['status'] in ('interrupted', 'cancelled')
     gm.run_game.assert_not_awaited()
     assert gm.cleanup_game_state_complete.await_count==len(pair.states)
 
@@ -413,46 +384,6 @@ async def test_non_event_pair_and_internal_second_creation_failure(rooms):
     assert not rooms.rooms
 
 
-@run_async
-async def test_completed_restore_repairs_missing_record_and_delete_preserves_result(rooms,monkeypatch):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
-    snapshot=deepcopy(rooms.saved[-1]);snapshot.update(status='completed',record_ids={'open':'saved-open'},
-        final_records={'open':{},'closed':{'game_title':{}}},final_players={'closed':[{'user_id':105,'username':'p','score':0,'original_player_index':0,'rank':1}]})
-    deleted=deepcopy(snapshot);deleted['rooms_deleted']=True
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _:[deleted,snapshot])
-    rooms.game_server.db_manager.store_sichuan_game_record.return_value='saved-closed'
-    rooms.rooms.clear();restore_pairs(rooms.game_server)
-    pair=rooms.game_server.gamestate_manager.sichuan_duplicate_matches[snapshot['id']]
-    assert pair.data['record_ids']=={'open':'saved-open','closed':'saved-closed'}
-    assert (await delete_pair(rooms,next(iter(rooms.rooms.values())))).success
-    assert pair.data['status']=='completed' and pair.data['rooms_deleted']
-
-
-@run_async
-async def test_completed_barrier_restores_both_records_before_save_hooks(rooms,monkeypatch):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
-    snapshot=deepcopy(rooms.saved[-1]);snapshot.update(status='completed',completed_boards=1,scores=[1,0],checkpoints={})
-    for table in ('open','closed'):
-        snapshot['checkpoints'][table]={'game_record':{'game_title':{'end_time':'saved-time'},'game_round':{}},
-            'players':[dict(user_id=101+i,username='test',score=0,team_id=i%2,original_player_index=i) for i in range(4)]}
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _:[snapshot])
-    rooms.game_server.db_manager.store_sichuan_game_record.side_effect=['record-open','record-closed']
-    restore_pairs(rooms.game_server)
-    saved=rooms.saved[-1]
-    assert saved['record_ids']=={'open':'record-open','closed':'record-closed'}
-    assert set(saved['final_records'])=={'open','closed'}
-    assert all(record['game_title']['end_time']=='saved-time' for record in saved['final_records'].values())
-
-
-@run_async
-async def test_incomplete_legacy_completed_snapshot_does_not_fabricate_records(rooms,monkeypatch):
-    await create_pair(rooms,'evt_pair',SBR_DUPLICATE,dict(sub_rule=SBR_DUPLICATE),'',101)
-    snapshot=deepcopy(rooms.saved[-1]);snapshot['status']='completed'
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished',lambda _:[snapshot])
-    restore_pairs(rooms.game_server)
-    rooms.game_server.db_manager.store_sichuan_game_record.assert_not_called()
-
-
 @pytest.mark.parametrize('sub_rule', [SBR_DUPLICATE, XUELIU_DUPLICATE])
 @pytest.mark.parametrize('mode', [None, False, True])
 @run_async
@@ -465,12 +396,6 @@ async def test_pair_sync_mode_saved_in_both_rooms(rooms, monkeypatch, sub_rule, 
     assert len(rooms.rooms) == 2
     assert all(room['duplicate_sync_mode'] is (mode is True) for room in rooms.rooms.values())
     assert rooms.saved[-1]['sync_mode'] is (mode is True)
-    snapshot = deepcopy(rooms.saved[-1])
-    monkeypatch.setattr('server.room.sichuan_duplicate.PairedMatchStore.unfinished', lambda _: [snapshot])
-    rooms.rooms.clear()
-    restore_pairs(rooms.game_server)
-    assert len(rooms.rooms) == 2
-    assert all(room['duplicate_sync_mode'] is (mode is True) for room in rooms.rooms.values())
 
 
 @pytest.mark.parametrize('mode', ['false', 'true', 0, 1, None, [], {}])

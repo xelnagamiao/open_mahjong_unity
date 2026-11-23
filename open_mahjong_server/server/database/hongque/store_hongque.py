@@ -1,4 +1,4 @@
-"""虹雀牌谱写入通用表 game_records / game_player_records。含机器人则跳过入库。"""
+"""虹雀牌谱写入通用表 game_replays / game_record_tables / game_player_records。含机器人则跳过入库。"""
 import json
 import logging
 import secrets

@@ -95,7 +95,7 @@ public partial class AutoAction : MonoBehaviour{
     }
 
     // 初始化自动行为配置（由 GameSceneUIManager 调用）
-    public void Initialize(bool isNewMatch = false) {
+    public void Initialize(bool isNewMatch = false, bool hasFlowers = true) {
         gameObject.SetActive(true); // 显示自动行为组件
         DismissTimeoutReturnDialog();
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
@@ -119,9 +119,8 @@ public partial class AutoAction : MonoBehaviour{
         }
         isMingPaiPanelExpanded = false;
 
-        SetSpectatorOnlyLayout(false);
+        SetAvailableActions(true, hasFlowers);
         ApplyCompactButtonLabels();
-        ApplyBuhuaButtonVisibility();
         ResetSidebar();
 
         // 更新显示
@@ -147,7 +146,7 @@ public partial class AutoAction : MonoBehaviour{
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
         isMingPaiPanelExpanded = false;
 
-        SetSpectatorOnlyLayout(true);
+        SetAvailableActions(false, false);
         ApplyCompactButtonLabels();
         ResetSidebar();
 
@@ -155,29 +154,13 @@ public partial class AutoAction : MonoBehaviour{
         AddClickListeners();
     }
 
-    private void SetSpectatorOnlyLayout(bool spectatorOnly) {
-        SetGameplayAutoActionsVisible(!spectatorOnly);
-        SetOtherActionPanelVisible(!spectatorOnly);
-        if (arrangeHandCardsText != null) {
-            arrangeHandCardsText.gameObject.SetActive(true);
-        }
-    }
-
-    private void SetGameplayAutoActionsVisible(bool visible) {
-        SetTextActive(autoHepaiText, visible);
-        SetTextActive(autoCutCardText, visible);
-        SetTextActive(autoPassText, visible);
-        SetTextActive(autoBuhuaText, visible && ShouldShowBuhuaAutoActionButton());
-    }
-
-    private void ApplyBuhuaButtonVisibility() {
-        SetTextActive(autoBuhuaText, ShouldShowBuhuaAutoActionButton());
-    }
-
-    /// <summary>无补花流程的规则（RuleManifest.HasFlowerReplacement=false）隐藏自动补花按钮。</summary>
-    private static bool ShouldShowBuhuaAutoActionButton() {
-        RuleManifest manifest = RuleRegistry.Current;
-        return manifest == null || manifest.HasFlowerReplacement;
+    private void SetAvailableActions(bool playing, bool hasFlowers) {
+        SetTextActive(arrangeHandCardsText, true);
+        SetTextActive(autoHepaiText, playing);
+        SetTextActive(autoCutCardText, playing);
+        SetTextActive(autoPassText, playing);
+        SetTextActive(autoBuhuaText, playing && hasFlowers && RuleRegistry.Current?.HasFlowerReplacement != false);
+        SetOtherActionPanelVisible(playing);
     }
 
     private void SetOtherActionPanelVisible(bool visible) {

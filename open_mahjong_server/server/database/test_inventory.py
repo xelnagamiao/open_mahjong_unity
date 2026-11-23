@@ -148,7 +148,10 @@ class InventoryDatabaseTests(unittest.TestCase):
     def test_default_avatars_are_owned_and_only_change_the_avatar(self):
         for iid in (2301, 2302, 2303):
             self.assertEqual(self.qty(iid, 103), 1)
-        for iid, expected in ((2302, 2302), (2303, 2303), (2301, 1), (0, 1)):
+        for iid in (2302, 2303):
+            with self.assertRaisesRegex(InventoryError, '停用'):
+                self.call('equip', iid, uid=103, slot='avatar')
+        for iid, expected in ((2301, 1), (0, 1)):
             state = self.call('equip', iid, uid=103, slot='avatar')['inventory_state']
             self.assertEqual(state['appearance']['profile_image_id'], expected)
             self.assertEqual(state['appearance']['character_id'], 2)
@@ -160,11 +163,37 @@ class InventoryDatabaseTests(unittest.TestCase):
             self.call('equip', 999999, uid=103, slot='avatar')
 
     def test_avatar_frames_do_not_reset_other_appearance_slots(self):
+        # Simulate a later release through the same administrator API.
+        save_definition(self.db, 999, 2302, self.definition(2302, use_enabled=True))
         self.call('equip', 2302, uid=103, slot='avatar')
+        self.ensure_schema()
         for iid in (2202, 2201, 0):
             state = self.call('equip', iid, uid=103, slot='avatar_frame')['inventory_state']
             self.assertEqual((state['appearance']['character_id'], state['appearance']['voice_id']), (2, 2))
             self.assertEqual(state['appearance']['profile_image_id'], 2302)
+
+    def test_suspend_avatars_repairs_equipment_and_independent_profile_settings_once(self):
+        self.sql("""DELETE FROM app_meta WHERE meta_key='inventory.suspend_touhou_avatars.v1';
+            UPDATE item_definitions SET use_enabled=TRUE,grant_enabled=TRUE WHERE item_id IN (2302,2303);
+            INSERT INTO user_equipment(user_id,slot,item_id) VALUES
+                (101,'avatar',2302),(101,'avatar_frame',2202),(103,'avatar',2303);
+            INSERT INTO user_inventory(user_id,item_id,quantity) VALUES (101,2302,1);
+            INSERT INTO users(user_id) VALUES (104);
+            INSERT INTO item_definitions(item_id,code,name,category,asset_key,slot,max_quantity,is_default)
+                VALUES (4010,'other_avatar','其他头像','cosmetic','avatar.default','avatar',1,TRUE);
+            INSERT INTO user_equipment(user_id,slot,item_id) VALUES (104,'avatar',4010);
+            INSERT INTO user_settings(user_id,profile_image_id) VALUES (104,2302);
+            UPDATE user_settings SET profile_image_id=2302 WHERE user_id=101;
+            UPDATE user_settings SET profile_image_id=2303 WHERE user_id=102;""")
+        self.ensure_schema()
+        self.ensure_schema()
+        self.assertEqual(self.sql('SELECT user_id,profile_image_id FROM user_settings ORDER BY user_id'),
+                         [(101,1),(102,1),(103,1),(104,4010)])
+        self.assertEqual(self.sql('SELECT user_id,slot,item_id FROM user_equipment ORDER BY user_id'),
+                         [(101,'avatar_frame',2202),(104,'avatar',4010)])
+        self.assertEqual(self.sql('SELECT user_id,item_id,quantity FROM user_inventory'),[(101,2302,1)])
+        self.assertEqual(self.sql('SELECT use_enabled,grant_enabled FROM item_definitions WHERE item_id IN (2302,2303)'),
+                         [(False,False),(False,False)])
 
     def test_idempotency_replay_conflict_and_revoke(self):
         body=dict(request_id=uuid.uuid4().hex,item_id=3001,quantity=3,reason='retry')

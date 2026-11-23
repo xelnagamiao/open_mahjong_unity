@@ -39,6 +39,7 @@ namespace Salasasa.Home
                 case "MeldSpacingRow": return RuleRegistry.Current?.MeldSpacingEnabled == true || config.MeldSpacingEnabled ? 1 : 0;
                 case "LanguageRow": return (int)config.LanguageMode;
                 case "FrameRateLimit": return Mathf.Max(0, Array.IndexOf(ConfigManager.TargetFrameRateOptions, config.TargetFrameRate));
+                case "MsaaSampleCount": return Mathf.Max(0, Array.IndexOf(ConfigManager.MsaaSampleCountOptions, config.MsaaSampleCount));
                 default: throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown settings field");
             }
         }
@@ -74,6 +75,7 @@ namespace Salasasa.Home
                 case "MeldSpacingRow": config.SetMeldSpacingEnabled(value == 1); break;
                 case "LanguageRow": config.SetLanguageMode(value); break;
                 case "FrameRateLimit": config.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[Mathf.Clamp(value, 0, ConfigManager.TargetFrameRateOptions.Length - 1)]); break;
+                case "MsaaSampleCount": config.SetMsaaSampleCount(ConfigManager.MsaaSampleCountOptions[Mathf.Clamp(value, 0, ConfigManager.MsaaSampleCountOptions.Length - 1)]); break;
                 default: throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown settings field");
             }
         }

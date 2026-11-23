@@ -25,6 +25,7 @@ public class Sichuan_Create_RoomConfig {
     public string DuplicateKey { get; set; }
     public string WallSource { get; set; }
     public int DuplicateRoundCount { get; set; }
+    public bool ReuseTrainingRoom { get; set; }
     public bool DuplicateSyncMode { get; set; }
     public bool RealTime { get; set; }
     public int TacticalGraceSeconds { get; set; } = 5;

@@ -128,7 +128,7 @@ def match_summary(state):
             return None
     elif not state.is_doubles or getattr(state, 'is_xueliu', False):
         return None
-    records = ({table: checkpoint['game_record'] for table, checkpoint in duplicate.data['checkpoints'].items()}
+    records = ({table: duplicate.states[table].game_record for table in ('open', 'closed')}
                if duplicate else {'single': state.game_record})
     tables = {}
     participants = []

@@ -112,6 +112,6 @@ public sealed class MatchRecordCard : MonoBehaviour {
     public void Replay() {
         if (detail?.record == null) return;
         // The full match container enters the existing viewer; its table controls do the switching.
-        RecordPanel.OpenRecord(detail, localPlayback);
+        RecordPanel.RequestOpenRecord(detail, localPlayback);
     }
 }

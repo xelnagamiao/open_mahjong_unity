@@ -1,4 +1,5 @@
 "use strict";
+const { sourceText } = require('../../replayTables');
 // Derived data lives in PostgreSQL. No file report is part of the serving path.
 const SCHEMA = "anti_cheat_center";
 const VERSION = "center-facts-v4";
@@ -100,23 +101,71 @@ function pairId(rule, a, b) {
     .slice(0, 24);
 }
 // Fingerprints are checked only on an explicit update. Reading a page never scans replay blobs.
-const FINGERPRINT = `md5(jsonb_build_array(gr.created_at::text,gr.record,COALESCE((SELECT jsonb_agg(jsonb_build_array(p.user_id::text,p.original_player_index,p.score,p.rank,p.rule,p.sub_rule,p.room_type,p.match_type,p.match_tier,p.event_id,m.total_round_score,m.total_rounds) ORDER BY p.user_id,p.original_player_index) FROM public.game_player_records p LEFT JOIN public.game_player_metrics m ON m.game_id=p.game_id AND m.user_id=p.user_id WHERE p.game_id=gr.game_id),'[]'::jsonb))::text)`;
+const PLAYER_KEY = `COALESCE((SELECT jsonb_agg(jsonb_build_array(p.user_id::text,p.original_player_index,p.score,p.rank,p.rule,p.sub_rule,p.room_type,p.match_type,p.match_tier,p.event_id,m.total_round_score,m.total_rounds) ORDER BY p.user_id,p.original_player_index) FROM public.game_player_records p LEFT JOIN public.game_player_metrics m ON m.game_id=p.game_id AND m.user_id=p.user_id WHERE p.game_id=gr.game_id),'[]'::jsonb)`;
+const PLAYERS = `COALESCE((SELECT jsonb_agg((to_jsonb(p) - 'note' - 'is_favorite') || jsonb_build_object('total_round_score',m.total_round_score,'total_rounds',m.total_rounds) ORDER BY p.original_player_index NULLS LAST,p.user_id)
+  FROM public.game_player_records p LEFT JOIN public.game_player_metrics m ON m.game_id=p.game_id AND m.user_id=p.user_id WHERE p.game_id=gr.game_id),'[]'::jsonb)`;
+
+async function sourceBatch(db, key, single) {
+  const {rows} = await db.query(`WITH eligible AS MATERIALIZED (
+    SELECT gr.game_id,gr.created_at::text AS stamp,d.t, ${PLAYER_KEY} AS pk
+      ${single ? ', '+PLAYERS+' AS players' : ''}
+    FROM game_record_tables gr JOIN game_replays r ON r.game_id=gr.replay_id
+    CROSS JOIN LATERAL (SELECT r.record->'tables'->gr.table_id AS t) d
+    WHERE ${single ? "gr.game_id = $1 AND " + require('./rankedScope').sourcePredicate('gr',"d.t->'payload'->'game_title'") : "gr.game_id = ANY($1::varchar[])"}
+  ), keyed AS (SELECT *, t ?| ARRAY['transport_actions','source_round_fields','source_omitted_title_fields'] AS original_differs FROM eligible)
+  SELECT game_id,stamp AS created_at,
+    CASE WHEN original_differs THEN t::text END AS evidence,
+    CASE WHEN original_differs THEN pk::text END AS pk,
+    CASE WHEN NOT original_differs THEN md5(jsonb_build_array(stamp,t->'payload',pk)::text) END AS source_hash
+    ${single ? ",players, CASE WHEN NOT original_differs THEN t->'payload' END AS record" : ''}
+    FROM keyed ORDER BY game_id`, [key]);
+  const rebuild = [];
+  for (const row of rows) {
+    if (row.evidence != null) {
+      const source = sourceText(row.evidence);
+      rebuild.push({game_id:row.game_id, stamp:row.created_at, source, pk:row.pk});
+      if (single) row.record = JSON.parse(source);
+    }
+    delete row.evidence; delete row.pk;
+  }
+  if (rebuild.length) {
+    // Retain published evidence fingerprints (including PG's numeric spelling).
+    const hashes=await db.query(`SELECT game_id, md5(jsonb_build_array(stamp,source::jsonb,pk::jsonb)::text) AS h
+      FROM jsonb_to_recordset($1::jsonb) AS x(game_id text,stamp text,source text,pk text)`, [JSON.stringify(rebuild)]);
+    const byId=new Map(hashes.rows.map(r=>[r.game_id,r.h]));
+    for (const row of rows) if (!row.source_hash) row.source_hash=byId.get(row.game_id);
+  }
+  return rows;
+}
+async function scanSources(pool) {
+  const c=await pool.connect(), rows=[];
+  try {
+    await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    // Select only keys once. Sorting/walking large JSON bodies at every page
+    // would repeatedly spill the whole catalogue to PostgreSQL temp files.
+    const {tableTitles}=require('../../replayTables');
+    const ids=(await c.query(`SELECT gr.game_id FROM ${tableTitles} gr
+      WHERE ${require('./rankedScope').sourcePredicate('gr')} ORDER BY gr.created_at,gr.game_id`)).rows.map(r=>r.game_id);
+    for (let i=0;i<ids.length;i+=32) {
+      const batch=ids.slice(i,i+32);
+      const page=new Map((await sourceBatch(c,batch,false)).map(r=>[r.game_id,r]));
+      if (page.size!==batch.length) throw new Error('Incomplete ranked replay snapshot');
+      rows.push(...batch.map(id=>page.get(id)));
+    }
+    await c.query('COMMIT');
+  } catch (err) { await c.query('ROLLBACK'); throw err; }
+  finally { c.release(); }
+  return rows;
+}
 async function scan(pool) {
-  const rows=(await pool.query(`SELECT gr.game_id, ${FINGERPRINT} AS source_hash, gr.created_at::text FROM public.game_records gr WHERE ${require("./rankedScope").sourcePredicate("gr")} ORDER BY gr.created_at,gr.game_id`)).rows;
+  const rows=await scanSources(pool);
   await require('./rankedScope').saveScopeInventory(pool,rows.map(r=>r.game_id));
   return rows;
 }
 
 async function readGame(pool, id) {
-  const result = await pool.query(
-    `SELECT gr.game_id,gr.created_at::text,gr.record,${FINGERPRINT} AS source_hash,
-    COALESCE((SELECT jsonb_agg((to_jsonb(p) - 'note' - 'is_favorite') || jsonb_build_object('total_round_score',m.total_round_score,'total_rounds',m.total_rounds) ORDER BY p.original_player_index NULLS LAST,p.user_id)
-      FROM public.game_player_records p LEFT JOIN public.game_player_metrics m ON m.game_id=p.game_id AND m.user_id=p.user_id WHERE p.game_id=gr.game_id),'[]'::jsonb) AS players
-    FROM public.game_records gr WHERE gr.game_id=$1 AND ${require("./rankedScope").sourcePredicate("gr")}`,
-    [id],
-  );
-  if (!result.rows.length) return null;
-  const row = result.rows[0];
+  const [row] = await sourceBatch(pool,id,true);
+  if (!row) return null;
   row.created_at_timezone = "Asia/Shanghai";
   const p = row.players[0] || {},
     title = row.record?.game_title || {};
@@ -213,6 +262,7 @@ module.exports = {
   fail,
   initialize,
   pairId,
+  scanSources,
   scan,
   readGame,
   commitFacts,

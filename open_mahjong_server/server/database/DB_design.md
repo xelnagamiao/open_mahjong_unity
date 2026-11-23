@@ -108,7 +108,7 @@ PostgreSQL
 | summary | JSONB | 复式列表使用的八人名单、比赛结果、权限及个人 IMP 摘要 |
 | created_at | TIMESTAMP | 创建时间 |
 
-game_record_tables 用原桌 game_id 关联 game_replays 的 replay_id、table_id 及桌的创建时间。game_records 提供只读逐桌投影，供统计和历史重算读取。
+game_record_tables 用原桌 game_id 关联 game_replays 的 replay_id、table_id 及桌的创建时间。统计直接读取定位表、game_player_records 或 game_player_metrics；需要逐桌正文时，按 replay_id 读取 game_replays.record.tables[table_id]。收藏和备注只从当前用户的 game_player_records 读取。
 
 ### game_player_records 牌谱记录表，用于存储玩家对局记录
 | 字段名 | 类型 | 约束 | 说明 |

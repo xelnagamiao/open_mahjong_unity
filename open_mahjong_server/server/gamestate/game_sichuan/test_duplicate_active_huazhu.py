@@ -23,7 +23,7 @@ def make_state(table):
     messages = []
     db = build_db_manager()
     server = build_game_server(db, messages=messages)
-    match, _ = pair()
+    match = pair()
     server.gamestate_manager.sichuan_duplicate_matches = {"id": match}
     room = build_room_data(seed=0, room_id=match.data["room_ids"][table])
     room.update(room_rule="sichuan", sub_rule=SBR_DUPLICATE, room_type="events",
@@ -141,7 +141,7 @@ def test_team_early_finish_still_skips_flower_pig_settlement(table):
 
 @pytest.mark.parametrize("table", ["open", "closed"])
 @run_async
-async def test_pair_submission_checkpoint_and_imp_credit_the_penalty_exactly_once(table):
+async def test_pair_submission_and_imp_credit_the_penalty_exactly_once(table):
     state, _, match = make_state(table)
     mark_pig(state, 0)
     with patch(__package__ + ".SichuanGameState.asyncio.sleep", new_callable=AsyncMock):
@@ -155,9 +155,9 @@ async def test_pair_submission_checkpoint_and_imp_credit_the_penalty_exactly_onc
     assert entry["adjustments"] == [0, 0]
     assert match.data["results"][0]["raw_difference"] == totals
     assert match.data["scores"] == ([0, 5] if table == "open" else [5, 0])
-    checkpoint = match.data["checkpoints"][table]
-    assert checkpoint["scores"] == [-12, 6, 0, 6]
-    assert [int(history[-1]) for history in checkpoint["score_history"]] == checkpoint["scores"]
+    assert [player.score for player in state.player_list] == [-12, 6, 0, 6]
+    assert all(int(player.score_history[-1]) == player.score for player in state.player_list)
+    assert "checkpoints" not in match.data
     before = deepcopy(match.data)
     await match.submit(table, 1, totals, [0, 0], state.game_record["game_round"]["round_index_1"])
     assert match.data == before

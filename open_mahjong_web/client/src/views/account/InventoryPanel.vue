@@ -33,7 +33,10 @@ const loading = ref(false), busy = ref(false), error = ref(''), category = ref('
 let epoch = 0
 const tabs = [{ key: 'all', label: '全部' }, { key: 'item', label: '道具' }, { key: 'character', label: '角色' }, { key: 'cosmetic', label: '装扮' }]
 const slotNames = { avatar: '头像', avatar_frame: '头像框', character: '角色', voice: '语音', title: '称号' }
-const owned = computed(() => (assets.inventory?.owned || []).map(row => ({ ...assets.inventory.catalog.find(item => item.item_id === row.item_id), ...row })).filter(item => item.quantity > 0 && item.name))
+const owned = computed(() => (assets.inventory?.owned || [])
+  .map(row => ({ ...assets.inventory.catalog.find(item => item.item_id === row.item_id), ...row }))
+  .filter(item => item.quantity > 0 && item.name &&
+    (item.use_enabled || !['avatar.reimu', 'avatar.cirno'].includes(item.asset_key))))
 const items = computed(() => owned.value.filter(item => category.value === 'all' || item.category === category.value))
 const count = key => owned.value.filter(item => key === 'all' || item.category === key).length
 const isEquipped = item => assets.inventory?.equipment?.some(slot => slot.item_id === item.item_id && slot.slot === item.slot)

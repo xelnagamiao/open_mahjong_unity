@@ -131,7 +131,9 @@ match 的 body 是比赛 manifest：规则、同步模式、计划副数、公�
 
 ## 牌谱存储与读取
 
-普通比赛用原 game_id，四川复式的公开编号由内部比赛 ID 确定性生成。game_replays 每场保存一份正文。game_record_tables 只保存桌号、旧编号和时间，用于解析分享链接，并保留收藏、备注、统计和赛事关联。game_records 是逐桌只读 SQL 视图，可还原原始动作和时间戳，供统计和重算使用。
+普通比赛用原 game_id，四川复式的公开号由内部比赛 ID 确定性生成。game_replays 每场只保存一份 V2 正文；game_record_tables 是每桌的定位索引，保留桌编号、桌别、比赛和时间关联。game_player_records 保留参赛成绩和本人的收藏、备注。正文、下载和公开参赛名单不能输出这两个私有字段。
+
+常规读取没有旧视图或逐桌还原函数。只计桌数、查日期时查定位索引；需要标题或回放时按 replay_id 和 table_id 取该桌 V2 字段。比赛列表按 replay_id 去重，按桌计的统计使用原桌编号。少数需要原始操作位置的证据、历史检查点和来源核验使用正文内的溯源信息，不另存一份牌谱。
 
 客户端通过 get_record_by_id 或 HTTP GET /api/platform/record/{game_id} 取得相同的 record、game_id、selected_table_id 和参赛者。旧桌编号额外返回 legacy_cursor_map。两桌各自校验牌墙权限，锁定桌的局面、相应参赛者和比赛结算不会进入公开正文。
 
@@ -150,7 +152,9 @@ python -m server.records.migrate verify --backend files --input <LocalRecords目
 python -m server.records.migrate apply --backend files --input <LocalRecords目录> --backup <独立备份目录>
 ```
 
-数据库在事务中核对每桌原文、旧编号及关联，再切换正文。完整副本演练可使用 `--receipt-out` 输出已核验单桌的指纹，实际切换加 `--receipt` 后仍逐桌确认当前来源与指纹匹配。复式始终逐场核验。`recompute` 根据已保存动作、结算和运行快照补录可确定的派生字段，`--dry-run` 预览变化。桌面版逐份写入并读回核对，发生中断可重跑同一命令。Unity WebGL、网页本地牌谱和分析缓存在原站点、原浏览器配置文件中各自执行一次升级，手动导入导出使用 browser_migration.js 和同一 CLI 的 browser 后端。
+旧物理库逐桌比较原文并保留原编号、外键；发行版 36 已统一的库不重搬正文。`verify` 在一致性快照中核对每桌来源 SHA-256，并预演依赖限制；`--receipt-out` 可保存本次已验证的指纹。切换时暂停旧写入，`apply --receipt` 在锁内核对所有键与内容指纹，只对新增或变更桌重新做完整校验。只使用自己刚验证的副本凭据。两个旧视图和 SQL 函数以 RESTRICT 在同一事务移除；未知依赖、来源冲突或锁超时均停止，不能跳过。重复执行不重建视图。退回发行版 36 程序时先从切换前备份恢复这三个对象的定义，而不是覆盖更新后的业务数据。
+
+`recompute` 按已保存动作、结算及可用快照补录可证明的复式派生字段，不重算其他规则 ELO 或重新发放奖励。`--dry-run` 可预览。桌面版逐份写入并读回核对，发生中断可重跑同一命令。Unity WebGL、网页本地牌谱和分析缓存在原站点、原浏览器配置文件中各自执行一次升级，手动导入导出使用 browser_migration.js 和同一 CLI 的 browser 后端。
 
 规范哈希采用 UTF-8、对象键按 UTF-16 码元排序、无空格。整数精确保留；浮点数为 IEEE 754 binary64，非整数按 17 位有效数字展开十进制，整数值浮点数展开为其精确整数，去掉小数尾零和指数，负零归零。字符串只转义 JSON 必需的引号、反斜杠和 U+0000 至 U+001F，保留其他 Unicode 字符。Python、Unity 和浏览器桥使用同一规则。不要用带日期自动转换的 JSON 解析器改变原字符串。
 

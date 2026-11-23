@@ -51,7 +51,8 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
 
         Physics.SyncTransforms();
         Ray ray = raycastCamera.ScreenPointToRay(mousePosition);
-        float maxDistance = raycastMaxDistance > 0f ? raycastMaxDistance : raycastCamera.farClipPlane;
+        float authoredDistance = raycastMaxDistance > 0f ? raycastMaxDistance : raycastCamera.farClipPlane;
+        float maxDistance = TableWorldScaleProfile.Length(authoredDistance);
         int hitCount = Physics.RaycastNonAlloc(ray, raycastHitBuffer, maxDistance, tilePhysicsLayerMask);
 
         Tile3D hoverTile = null;

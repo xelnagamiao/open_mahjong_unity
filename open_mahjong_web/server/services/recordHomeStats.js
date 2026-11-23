@@ -1,3 +1,4 @@
+const { tableTitles } = require('./replayTables');
 const { subRuleSql, statsKeySql } = require('./statisticsCatalog');
 const METRIC_KEYS = ['win_count', 'self_draw_count', 'deal_in_count', 'total_fan_score',
   'total_win_turn', 'total_fangchong_score', 'fulu_round_count', 'cuohe_count', 'total_round_score'];
@@ -13,7 +14,7 @@ function querySql(withMetrics, exclude, filterSubRules) {
              ${withMetrics ? 'm.game_id IS NOT NULL' : 'FALSE'} AS has_metrics,
              ${withMetrics ? 'm.total_rounds' : 'NULL::int AS total_rounds'},
              ${METRIC_KEYS.map(key => withMetrics ? `m.${key}` : `NULL::int AS ${key}`).join(',')}
-      FROM game_player_records p JOIN game_record_metadata g USING(game_id)
+      FROM game_player_records p JOIN ${tableTitles} g USING(game_id)
       ${withMetrics ? `LEFT JOIN (SELECT DISTINCT ON (game_id,user_id) * FROM game_player_metrics
         WHERE ${exclude ? 'NOT (rule=ANY($1::text[]))' : 'rule=ANY($1::text[])'} ORDER BY game_id,user_id,id DESC) m
         ON m.game_id=p.game_id AND m.user_id=p.user_id AND m.rule=p.rule` : ''}

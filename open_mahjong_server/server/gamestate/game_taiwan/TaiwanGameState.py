@@ -2880,7 +2880,13 @@ class TaiwanGameState:
                 next_status="round_continue",
                 hepai_tile=tile if source == "discard" else None,
             )
-            await self.run_hu_result_ready_phase(len(hu_fan))
+            # 错和后可能继续本盘，结算确认只是临时借用玩家的剩余局时。
+            saved_times = [(item, item.remaining_time) for item in self.player_list]
+            try:
+                await self.run_hu_result_ready_phase(len(hu_fan))
+            finally:
+                for item, remaining_time in saved_times:
+                    item.remaining_time = remaining_time
 
             if "peida" not in player.tag_list:
                 player.tag_list.append("peida")

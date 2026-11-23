@@ -173,7 +173,7 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 初始化游戏开始（清空临时面板并显示自动行为组件）
     /// </summary>
-    public void InitGameStart(bool isNewMatch = false) {
+    public void InitGameStart(bool isNewMatch = false, bool hasFlowers = true) {
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
@@ -186,7 +186,7 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(true);
-        AutoAction.Instance.Initialize(isNewMatch); // 初始化自动行为组件
+        AutoAction.Instance.Initialize(isNewMatch, hasFlowers); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
         // 自定义房间对局显示投票暂停/结束按钮；匹配对局/其它模式隐藏全部退出按钮
         bool isCustomRoom = NormalGameStateManager.Instance.roomType == "custom";

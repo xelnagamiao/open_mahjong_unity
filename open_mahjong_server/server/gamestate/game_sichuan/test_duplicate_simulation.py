@@ -1,13 +1,15 @@
 """Eight client action streams exercise both real table state machines."""
 import asyncio
-import json
+from threading import Event
 from types import SimpleNamespace
+from uuid import uuid4
 from unittest.mock import AsyncMock
 
 import pytest
+from psycopg2.pool import PoolError
 
 from .test_duplicate import run_async
-from .DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState
+from .DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState, _pending_writes
 from .test_action_window import submit
 from .xueliu_bot import choose_opening, choose_hand, choose_claim
 from ..public.ai.smart_bot_logic import count_visible_tiles
@@ -32,9 +34,38 @@ async def test_finished_table_disconnects_while_other_table_plays_final_board(su
     await play_paired_game(sub, cls, 1807, False, True, disconnect_finished=True)
 
 
-async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_finished=False):
-    messages = []
+@run_async
+async def test_pool_exhaustion_releases_both_tables_and_retries_the_pair_once_recovered():
     db = build_db_manager()
+    recovered = Event()
+    published = []
+
+    def store(match, tables):
+        if db.store_sichuan_pair_records.call_count <= 2:
+            raise PoolError("connection pool exhausted")
+        assert recovered.wait(10), "both tables should finish before storage recovers"
+        published.append({side: record["game_title"]["duplicate_game_id"]
+                          for side, (record, *_) in tables.items()})
+        return match["table_record_ids"]
+
+    db.store_sichuan_pair_records.side_effect = store
+    try:
+        # The simulation checks that all eight players received the final score.
+        ids = await play_paired_game(SBR_DUPLICATE, SbrDuplicateGameState, 1807, False, False, db=db)
+        assert ids == {"open": None, "closed": None}
+        retry, = _pending_writes
+    finally:
+        recovered.set()
+    await asyncio.wait_for(retry, timeout=10)
+    assert db.store_sichuan_pair_records.call_count == 3
+    assert published == [{"open": "OpenGame", "closed": "ClosedGame"}]
+    assert retry not in _pending_writes
+
+
+async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_finished=False, replay_db=None, db=None):
+    messages = []
+    if db is None:
+        db = build_db_manager()
     db.store_sichuan_game_record.return_value = None
     server = build_game_server(db, messages=messages)
     if disconnect_finished:
@@ -42,21 +73,35 @@ async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_fi
         server.gamestate_manager = GameStateManager(server)
         server.room_manager.active_game_room_ids = {}
     seed_text=format(seed,'064x') if training else str(seed)
-    data = new_match("test-pair",sub,{"open":"991001","closed":"991002"},[make_board(seed_text,n) for n in (1,2)],seed_text,sync_mode=sync_mode)
-    if training: data.update(wall_source='training',wall_type='training',wall_id=None)
+    match_id = str(uuid4())
+    board_count = 4 if replay_db is not None else 2
+    data = new_match(match_id,sub,{"open":"991001","closed":"991002"},[make_board(seed_text,n) for n in range(1, board_count + 1)],seed_text,sync_mode=sync_mode)
+    if training:
+        data.update(wall_source="training", wall_type="training")
+    else:
+        data.update(wall_source="key", wall_type="key", key="test-duplicate-key",
+                    table_record_ids={"open": "OpenGame", "closed": "ClosedGame"})
+    if replay_db is not None:
+        from functools import partial
+        from ...database.sichuan_duplicate import attach_paired_wall
+        from ...database.record_persistence import store_sichuan_pair_records
+        if not training:
+            attach_paired_wall(replay_db, data, event_id="simulation", owner_id=101, name="simulation")
+        db.store_sichuan_pair_records.side_effect = partial(store_sichuan_pair_records, replay_db)
     data["status"] = "running"
-    pair = PairedMatch(data, lambda *_: None)
-    server.gamestate_manager.sichuan_duplicate_matches = {"test-pair":pair}
+    pair = PairedMatch(data)
+    server.gamestate_manager.sichuan_duplicate_matches = {match_id:pair}
     states = []
     for table in ("open","closed"):
         room = build_room_data(seed=0, room_id=data["room_ids"][table])
         ids = list(range(101,105)) if table == "open" else list(range(105,109))
         room.update(room_rule="sichuan",sub_rule=sub,room_type="events",player_list=ids,
                     player_settings={uid:{"username":f"P{uid}"} for uid in ids},
-                    team_by_seat=team_by_seat(table),duplicate_match_id="test-pair",
-                    duplicate_table=table,duplicate_key="test-duplicate-key",duplicate_game_id=table+"game-id")
+                    team_by_seat=team_by_seat(table),duplicate_match_id=match_id,
+                    duplicate_table=table)
+        if not training:
+            room.update(duplicate_key=data["key"], duplicate_game_id=data["table_record_ids"][table])
         if training:
-            room.pop('duplicate_key');room.pop('duplicate_game_id')
             room.update(wall_source='training',allow_spectator=True)
         state = cls(server,room,server.calculation_service,db,table)
         states.append(state)
@@ -72,7 +117,7 @@ async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_fi
     disconnected = asyncio.Event()
     if disconnect_finished:
         # Hold the slow table before its final board's actions. The fast table
-        # must submit durably, then all four real disconnect handlers run.
+        # must submit its final board, then all four real disconnect handlers run.
         opening = states[1]._opening_phase
         async def delayed_opening():
             if states[1].current_round == 2:
@@ -154,18 +199,8 @@ async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_fi
             assert any(m.get('waiting_for') == 'match' for m in statuses)
             assert all(not {'scores','imp_scores','small_scores','boards'} & m.keys() for m in statuses if m['status'] != 'completed')
         for s in states:
-            # Reconstruct exactly the same final record using only the durable
-            # last-board checkpoint, as after a crash before either save hook.
-            from .DuplicateGameState import DuplicateMixin
-            snapshot=json.loads(json.dumps(pair.data,default=str))
-            checkpoint=snapshot['checkpoints'][s.duplicate_table]
-            recovered=SimpleNamespace(duplicate_match=PairedMatch(snapshot,lambda *_:None),duplicate_table=s.duplicate_table,
-                player_list=[SimpleNamespace(**p,record_counter=SimpleNamespace(rank_result=0)) for p in checkpoint['players']])
-            DuplicateMixin._finish_team_match(recovered)
-            if training:
-                from ..public.match_result import attach_match_result
-                attach_match_result(recovered.game_record,recovered.player_list)
-            assert json.loads(json.dumps(recovered.game_record,default=str))==json.loads(json.dumps(s.game_record,default=str))
+            assert "checkpoints" not in pair.data
+            assert pair.data["final_records"][s.duplicate_table] == s.game_record
             assert s.game_record['game_title']['duplicate_profile']['sub_rule'] == sub
             assert all(tick[2] == 'dw' for r in s.game_record['game_round'].values() for tick in r['action_ticks'] if tick[0] in ('d','gd'))
             from ..verifier.record_sim.goto_action import RecordSim
@@ -219,3 +254,4 @@ async def play_paired_game(sub, cls, seed, sync_mode, training, *, disconnect_fi
         for s in states:
             await s.cleanup_game_state()
         restore_lab_runtime()
+    return pair.data.get("record_ids", {})

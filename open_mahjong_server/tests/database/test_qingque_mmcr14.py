@@ -60,7 +60,7 @@ def seed(db):
 def test_recalculation_is_scoped_backed_up_atomic_and_once_only(db):
     gid = seed(db)
     before = db.sql("SELECT to_jsonb(m)-'fan_stats' FROM game_player_metrics m ORDER BY user_id")
-    records = db.sql('SELECT * FROM game_records')
+    records = db.sql('SELECT * FROM game_replays')
     db.sql("INSERT INTO scene_tier_fan_daily(stat_date,match_tier,rule,sub_rule,fan_field,fan_count) "
            "VALUES('2020-01-01','elo','sichuan','sichuan/standard','清一色',7)")
     conn = db._get_connection()
@@ -71,7 +71,7 @@ def test_recalculation_is_scoped_backed_up_atomic_and_once_only(db):
     applied = recalculate(conn, apply=True)
     assert applied['changed'] == 1 and applied['applied'] and applied['scope'] == 'subset'
     assert db.sql("SELECT to_jsonb(m)-'fan_stats' FROM game_player_metrics m ORDER BY user_id") == before
-    assert db.sql('SELECT * FROM game_records') == records
+    assert db.sql('SELECT * FROM game_replays') == records
     assert get_rule_fans(db, 10000101, 'qingque', 'match') == {'shisanyao': 1, 'menqianqing': 1}
     conn.rollback()
     assert db.sql("SELECT fan_field,fan_count FROM scene_tier_fan_daily WHERE rule='qingque' ORDER BY fan_field") == [('menqianqing', 1), ('shisanyao', 1)]

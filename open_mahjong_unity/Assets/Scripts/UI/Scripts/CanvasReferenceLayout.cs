@@ -54,7 +54,7 @@ public sealed class CanvasReferenceLayout : MonoBehaviour {
         var reference = settings.referenceResolution;
         var root = settings.GetComponent<Canvas>().rootCanvas;
         Vector2 pixels = Application.isPlaying ? new Vector2(Screen.width, Screen.height) : root.pixelRect.size;
-        if (Application.isPlaying && MobileViewportLayout.IsInstalled) pixels = MobileViewportLayout.GameArea.size;
+        if (Application.isPlaying && MobileViewportLayout.HasGameArea) pixels = MobileViewportLayout.GameArea.size;
         if (pixels.x <= 0 || pixels.y <= 0) return 0;
         float width = pixels.x / Mathf.Max(1, reference.x), height = pixels.y / Mathf.Max(1, reference.y);
         if (settings.screenMatchMode == CanvasScaler.ScreenMatchMode.Expand) return Mathf.Min(width, height);

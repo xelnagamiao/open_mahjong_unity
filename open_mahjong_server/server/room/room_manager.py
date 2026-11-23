@@ -148,14 +148,17 @@ class RoomManager:
         connection = self.game_server.user_id_to_connection.get(user_id)
         return connection is not None and not getattr(connection, "event_disconnecting", False)
 
-    def _remove_offline_room_members(self, room: dict) -> None:
-        """对局锁定期间保留座位，解锁后移除已经断开的真人连接。"""
+    def _remove_offline_room_members(self, room: dict, departed_users=()) -> None:
+        """对局解锁后移除离线及已离开对局的真人。"""
         if room.get("is_game_running") or room.get("event_seating_pending"):
             return
         for user_id in list(room.get("player_list", [])):
-            if user_id <= 10 or self.is_room_member_online(user_id):
+            if user_id <= 10 or (user_id not in departed_users and self.is_room_member_online(user_id)):
                 continue
             unseat_player(room, user_id)
+            connection = self.game_server.user_id_to_connection.get(user_id)
+            if connection is not None and getattr(connection, "current_room_id", None) == room.get("room_id"):
+                connection.current_room_id = None
             room["ready_list"] = [uid for uid in room.get("ready_list", []) if uid != user_id]
             for key in (user_id, str(user_id)):
                 room.get("player_settings", {}).pop(key, None)
@@ -1211,7 +1214,7 @@ class RoomManager:
                                   tourist_limit: bool = False, allow_spectator: bool = True,
                                   tactical_call: bool = True, blood_battle: bool = True, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0,
                                   duplicate_key: str = "", duplicate_round_count=None, duplicate_sync_mode: bool = False, wall_source=None,
-                                  real_time: bool = False, tactical_grace_seconds: int = 5) -> Response:
+                                  real_time: bool = False, tactical_grace_seconds: int = 5, reuse_training_room: bool = False) -> Response:
         """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
         from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
         try:
@@ -1236,6 +1239,8 @@ class RoomManager:
                 duplicate_timing = timing_config(sub_rule, dict(real_time=real_time, tactical_grace_seconds=tactical_grace_seconds))
             except ValueError as error:
                 return Response(type="tips", success=False, message=f"房间配置无效: {error}")
+            if reuse_training_room and not is_duplicate_sub_rule(sub_rule):
+                raise ValueError("重复使用仅支持训练牌山")
             if is_duplicate_sub_rule(sub_rule):
                 if tourist_limit and getattr(player, "is_tourist", False):
                     return Response(type="tips", success=False, message="游客不能创建限制游客加入的复式房间")
@@ -1247,7 +1252,7 @@ class RoomManager:
                               count_tips=count_tips, pointer_tips=pointer_tips, tourist_limit=tourist_limit,
                               tactical_call=tactical_call, claim_protection=claim_protection,
                               allow_spectator=allow_spectator,
-                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source,
+                              duplicate_key=duplicate_key, duplicate_sync_mode=duplicate_sync_mode, wall_source=wall_source, reuse_training_room=reuse_training_room,
                               **duplicate_timing)
                 if duplicate_round_count is not None:
                     config["duplicate_round_count"] = duplicate_round_count
@@ -2286,7 +2291,8 @@ class RoomManager:
         host_settings = room_data.get("player_settings", {}).get(host_user_id, {})
         room_data["host_name"] = host_settings.get("username", f"用户{host_user_id}") if host_user_id else ""
 
-    async def finish_custom_game_room(self, room_id: str, *, expected_gamestate_id: str, expected_instance_id=None):
+    async def finish_custom_game_room(self, room_id: str, *, expected_gamestate_id: str,
+                                      expected_instance_id=None, departed_users=()):
         """Release only the lobby association owned by this exact game."""
         room = self.rooms.get(room_id)
         if (room is None or room.get("active_gamestate_id") != expected_gamestate_id
@@ -2298,12 +2304,14 @@ class RoomManager:
         if is_team_sub_rule(room.get("sub_rule")):
             from .room_teams import invalidate_ready
             invalidate_ready(room)
+        self._remove_offline_room_members(room, departed_users)
         if room.get("duplicate_match_id"):
             pair = self.game_server.gamestate_manager.sichuan_duplicate_matches.get(room["duplicate_match_id"])
             if pair:
-                room["duplicate_status"] = pair.data["status"]
-                room["duplicate_progress"] = pair.public_info()
-        self._remove_offline_room_members(room)
+                self._sync_room_host(room)
+                from .sichuan_duplicate import finish_pair
+                await finish_pair(self, room, pair)
+                return
         if not any(uid > 10 for uid in room.get("player_list", [])):
             if not self._is_persist_empty_room(room):
                 await self.destroy_room(room_id)
@@ -2417,6 +2425,8 @@ class RoomManager:
             duplicate_timing = timing_config(room_config.get("sub_rule") if rule == "sichuan" else None, room_config)
         except ValueError as error:
             return Response(type="tips", success=False, message=f"房间配置无效: {error}")
+        if room_config.get("reuse_training_room") and not is_duplicate_sub_rule(room_config.get("sub_rule")):
+            return Response(type="tips", success=False, message="重复使用仅支持训练牌山")
         if room_config.get("wall_source") is not None and not is_duplicate_sub_rule(room_config.get("sub_rule")):
             return Response(type="tips", success=False, message="牌山来源选项仅支持川麻双打复式")
         if is_duplicate_sub_rule(room_config.get("sub_rule")) and not _paired_internal:

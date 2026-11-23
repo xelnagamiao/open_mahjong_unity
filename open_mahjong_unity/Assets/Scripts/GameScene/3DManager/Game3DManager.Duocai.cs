@@ -94,7 +94,7 @@ public partial class Game3DManager {
         if(duocaiDeclaredRoot==null){duocaiDeclaredRoot=new GameObject("DuocaiDeclaredKongs").transform;duocaiDeclaredRoot.SetParent(transform,false);}
         var obj=MahjongObjectPool.Instance.SpawnPresentationTile(tileId,PlaceTileOnTable(position,rotation),rotation);
         if(obj==null)return;
-        obj.name="DuocaiDeclaredKong_"+seat;obj.transform.SetParent(duocaiDeclaredRoot,true);
+        obj.name="DuocaiDeclaredKong_"+seat;TableWorldObjectMount.AttachPreservingWorld(obj.transform,duocaiDeclaredRoot);
         var tile=MahjongObjectPool.GetTile3D(obj);tile.SetHoverPeekAllowed(false);
         value.tile=obj;value.lease=tile.PoolLeaseVersion;
         if(value.hideHand)HideDuocaiDeclaredHand(seat,panel,value);

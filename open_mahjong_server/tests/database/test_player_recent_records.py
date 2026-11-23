@@ -182,6 +182,7 @@ def database(monkeypatch):
             ensure_match_records(cursor)
             cursor.execute("""
                 CREATE TABLE users (user_id BIGINT PRIMARY KEY, is_tourist BOOLEAN NOT NULL DEFAULT FALSE);
+                CREATE TABLE user_settings (user_id BIGINT PRIMARY KEY REFERENCES users, profile_image_id INT DEFAULT 1);
                 CREATE TABLE game_player_records (
                     game_id VARCHAR(16) REFERENCES game_record_tables(game_id), user_id BIGINT,
                     username TEXT, score INT, rank INT CHECK (rank BETWEEN 1 AND 4),
@@ -358,7 +359,7 @@ def test_record_and_summary_rollback_together(database):
         recent.update_player_recent_records(cursor, "rollback", record)
         raise RuntimeError("failure before commit")
     with connection(database) as conn, conn.cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) FROM game_records")
+        cursor.execute("SELECT COUNT(*) FROM game_replays")
         assert cursor.fetchone()[0] == 0
     data = recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]
     assert data == {"placements": [], "big_win": None}

@@ -123,7 +123,7 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
         if (watchConfiguration) TryConnectConfiguration();
         if (pointAnchors.Count < 4) TryInitializePointAnchors();
         if (paletteIndex >= 0 && !IsGraphiteImage && !IsApprovedFlat) UpdateWindColors(false);
-        if (StyleId == CenterDisplayStyles.GraphiteImage2) UpdateGraphiteEast();
+        if (IsGraphiteImage) UpdateGraphiteEast();
     }
 
     public void Apply(string id)

@@ -80,7 +80,7 @@ async function runUpdate(pool, id, options = {}) {
     });
     // Out-of-scope caches remain available as historical evidence; only genuinely
     // deleted source records follow the existing deletion path.
-    const allSourceIds=new Set((await pool.query("SELECT game_id FROM public.game_records")).rows.map(r=>r.game_id));
+    const allSourceIds=new Set((await pool.query("SELECT game_id FROM public.game_record_tables")).rows.map(r=>r.game_id));
     const deleted = cached.filter((r) => !allSourceIds.has(r.game_id));
     const previousScope=(await pool.query(`SELECT game_id FROM ${S}.scope_game_versions WHERE valid_to IS NULL`)).rows;
     const priorScopeIds=new Set(previousScope.map(r=>r.game_id));

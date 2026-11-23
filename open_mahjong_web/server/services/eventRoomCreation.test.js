@@ -46,10 +46,24 @@ for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_dup
     }
   });
 }
+test('reusable training forwards each independent room without a seed or key', async () => {
+  const { service, calls, batches } = fixture({ quotaError: true });
+  const room_config = { sub_rule: 'sichuan/doubles_duplicate', wall_source: 'training', reuse_training_room: true, duplicate_round_count: 8 };
+  await service.create(event, 10, { room_rule: 'sichuan', room_count: 3, room_config });
+  assert.equal(calls.length, 3);
+  assert.equal(batches.length, 0);
+  for (const { body } of calls) {
+    assert.equal(body.room_config.reuse_training_room, true);
+    assert.equal(body.room_config.random_seed, undefined);
+  }
+});
 test('paired source validation rejects mixed payloads before touching keys or rooms', async () => {
   const base = { sub_rule: 'sichuan/doubles_duplicate', duplicate_round_count: 8 };
   for (const room_config of [
     { ...base, wall_source: 'training' },
+    { ...base, wall_source: 'training', reuse_training_room: true, random_seed: trainingSeed },
+    { ...base, wall_source: 'training', reuse_training_room: 'true' },
+    { ...base, wall_source: 'key', reuse_training_room: true },
     { ...base, wall_source: 'training', random_seed: '0'.repeat(64) },
     { ...base, wall_source: 'training', random_seed: trainingSeed, duplicate_key: 'dup_saved' },
     { ...base, wall_source: 'training', random_seed: trainingSeed, allow_spectator: 'true' },

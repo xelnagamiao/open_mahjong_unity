@@ -13,6 +13,7 @@ from server.database.get_rule_stats import get_custom_rule_history
 SAMPLES = {
     'guangdong': ('GD|chicken|0|鸡和', '鸡和'),
     'new_chinese': ('门清（5番）', '门清'),
+    'new_chinese/sanhua': ('硬和', '硬和'),
     'guobiao': ('平和', 'pinghe'), 'riichi': ('平和', 'pinfu'),
     'qingque': ('和牌', 'hepai'), 'classical': ('自摸', 'zimo'),
     'sichuan': ('清一色', '清一色'), 'changsha': ('清一色', '清一色'),
@@ -26,7 +27,7 @@ def replay(definition):
     rule = definition['rule']
     count = definition['player_count']
     seats = list(range(1, count)) + [0]  # 换位，不能将当前座位当初始席位。
-    label, _ = SAMPLES.get(rule, ('平和', '平和'))
+    label, _ = SAMPLES.get(definition['sub_rule'], SAMPLES.get(rule, ('平和', '平和')))
     tick = (['hu_riichi', seats[0], 'hu_self', 8, 30, [label], [0] * count]
             if rule == 'riichi' else ['hu_self', seats[0], 8, [label], [0] * count])
     result = {'game_title': {'rule': rule, 'sub_rule': definition['sub_rule'], 'room_type': 'custom',
@@ -46,7 +47,7 @@ def test_every_subrule_fan_profile_is_independent(definition):
     if not definition['fan_stats']:
         assert fans is None
     else:
-        key = SAMPLES[definition['rule']][1]
+        key = SAMPLES.get(definition['sub_rule'], SAMPLES[definition['rule']])[1]
         assert fans[key] == (3 if definition['rule'] == 'hongque' else 1)
         assert not any(collect_subrule_fans(record, 1, definition['sub_rule']).values())
 
@@ -144,9 +145,9 @@ def test_metrics_failure_rolls_back_record_and_players_then_retry_succeeds(db, m
     record = replay(definition)
     monkeypatch.setattr(metrics, '_build_metrics_row', fail_second)
     assert writer(definition)(db, record, players(definition), 'custom', '1/4') is None
-    for table in ('game_records', 'game_player_records', 'game_player_metrics', 'player_recent_records', 'riichi_player_game_stats'):
+    for table in ('game_replays', 'game_player_records', 'game_player_metrics', 'player_recent_records', 'riichi_player_game_stats'):
         assert db.sql(f'SELECT COUNT(*) FROM {table}') == [(0,)], table
     monkeypatch.setattr(metrics, '_build_metrics_row', original)
     assert writer(definition)(db, record, players(definition), 'custom', '1/4')
-    assert db.sql('SELECT COUNT(*) FROM game_records') == [(1,)]
+    assert db.sql('SELECT COUNT(*) FROM game_replays') == [(1,)]
     assert db.sql('SELECT COUNT(*) FROM game_player_metrics') == [(definition['player_count'],)]

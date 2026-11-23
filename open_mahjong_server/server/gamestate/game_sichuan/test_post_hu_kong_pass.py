@@ -35,7 +35,7 @@ def make_state(mode):
     server = build_game_server(db, messages=messages)
     data = new_match("kong-pass", XUELIU_DUPLICATE, {"open": "910010", "closed": "910011"},
                      [make_board(20261012, 1)], "20261012")
-    server.gamestate_manager.sichuan_duplicate_matches = {"kong-pass": PairedMatch(data, lambda *_: None)}
+    server.gamestate_manager.sichuan_duplicate_matches = {"kong-pass": PairedMatch(data)}
     room = build_room_data(seed=0, room_id="910010")
     room.update(room_rule="sichuan", sub_rule=XUELIU_DUPLICATE, room_type="events",
                 team_by_seat=team_by_seat("open"), duplicate_match_id="kong-pass",

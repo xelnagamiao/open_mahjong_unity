@@ -24,7 +24,7 @@ public sealed class RuleSupportTableFontBuild : IPreprocessBuildWithReport
 {
     public int callbackOrder => -10;
     public void OnPreprocessBuild(BuildReport report) {
-        if (!AndroidContentBuild.BuildingBootstrapPlayer)
+        if (!BundledGameBuild.BuildingBootstrap)
             RuleSupportTableFont.Prepare(RuleSupportTableBaker.ReadWorkbook(), true);
     }
 }

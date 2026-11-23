@@ -5,6 +5,7 @@ using UnityEngine.Rendering;
 public sealed class FreeModePlacementPreview : MonoBehaviour {
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private static readonly int RegionSizeId = Shader.PropertyToID("_RegionSize");
+    private static readonly int BorderWidthId = Shader.PropertyToID("_BorderWidth");
     private static readonly Color RiverColor = new Color(1f, 0.72f, 0.22f, 1f);
     private static readonly Color FlowerColor = new Color(0.25f, 0.95f, 0.83f, 1f);
     private static readonly Color TransferColor = new Color(0.45f, 0.72f, 1f, 1f);
@@ -54,6 +55,8 @@ public sealed class FreeModePlacementPreview : MonoBehaviour {
             return false;
         }
         material = new Material(shader) { name = "FreeModePlacementPreview (Instance)" };
+        float authoredBorderWidth = material.GetFloat(BorderWidthId);
+        material.SetFloat(BorderWidthId, TableWorldScaleProfile.Length(authoredBorderWidth));
         mesh = new Mesh {
             name = "FreeModePlacementPreview",
             vertices = new[] { new Vector3(-0.5f, -0.5f), new Vector3(-0.5f, 0.5f),

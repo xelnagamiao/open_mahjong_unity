@@ -34,22 +34,34 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (library.config == null) library.Initialize(owner);
         return library;
     }
+    bool readingDocument;
     private void Initialize(ConfigManager owner)
     {
         Instance = this; config = owner;
         captureAppearance = config.CaptureCard3DAppearance;
         applyAppearance = appearance => {
+#if !UNITY_WEBGL || UNITY_EDITOR
             Card3DPresetTextureCache.Warm(new[] { appearance });
+#endif
             config.ApplyCard3DAppearance(appearance);
             CardBackManager.RefreshAfterPreset();
         };
         applyRuntimeAppearance = appearance => {
+#if !UNITY_WEBGL || UNITY_EDITOR
             Card3DPresetTextureCache.Warm(new[] { appearance });
+#endif
             config.ApplyCard3DAppearance(appearance, false);
             CardBackManager.RefreshAfterPreset();
         };
         storage = new Card3DPresetStorage(Path.Combine(Application.persistentDataPath, "Card3DPresets"));
-        UnityAssetIdb.EnsureReady(() => {
+        ReadDocument();
+    }
+    internal void ReadDocument()
+    {
+        if (Ready || readingDocument) return;
+        readingDocument = true;
+        UnityAssetIdb.WithAssets(new[] { Card3DPresetStorage.DocumentKey }, () => {
+            readingDocument = false;
             if (this == null) return;
             try {
                 string json = storage.Read();
@@ -67,7 +79,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
                 // Do not replace an unreadable existing library with an empty one.
                 Debug.LogWarning("卡牌预设读取失败，原存档已保留：" + e.Message);
             }
-        });
+        }, reason => { readingDocument = false; ReportError("读取卡牌预设失败：" + reason); });
     }
     private void OnAppearanceEdited()
     {
@@ -88,26 +100,53 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (Instance == this) Instance = null;
     }
     public void Flush() { if (!Ready) return; CaptureEdits(); if (dirty && !saving) Save(); }
-    private Card3DAppearance SnapshotCurrent()
+    private static IEnumerable<string> SnapshotInputs(Card3DAppearance a)
     {
-        var a = (editorBeforeRuntime ?? captureAppearance()).Copy();
+        if (a.backImageCustom && !Card3DPresetStorage.IsSnapshotImage(a.backImage)) yield return a.backImage;
+        if (a.backgroundImageCustom && !Card3DPresetStorage.IsSnapshotImage(a.backgroundImage)) yield return a.backgroundImage;
+    }
+    private Card3DAppearance SnapshotImages(Card3DAppearance a)
+    {
         a.backImage = storage.SnapshotImage(a.backImage, a.backImageCustom);
         a.backgroundImage = storage.SnapshotImage(a.backgroundImage, a.backgroundImageCustom);
         return a;
     }
+    private readonly Dictionary<Card3DPreset, int> pendingEdits = new Dictionary<Card3DPreset, int>();
+    private int nextEdit;
     private void CaptureEdits()
     {
         if (!edited || applying) return;
         edited = false;
         var preset = Data.custom.Find(p => p.id == Data.selectedId);
         if (preset == null) return; // Built-ins remain immutable; + saves the current working copy.
-        try {
-            var snapshot = SnapshotCurrent();
-            if (JsonUtility.ToJson(snapshot) == JsonUtility.ToJson(preset.appearance)) return;
-            preset.appearance = snapshot; SynchronizeRotation(); MarkDirty(); WarmTextures(); Changed?.Invoke();
-        } catch (Exception e) { ReportError(e.Message); }
+        var appearance = (editorBeforeRuntime ?? captureAppearance()).Copy();
+        int request = ++nextEdit;
+        pendingEdits[preset] = request;
+        UnityAssetIdb.WithAssets(SnapshotInputs(appearance), () => {
+            if (!pendingEdits.TryGetValue(preset, out var current) || current != request) return;
+            pendingEdits.Remove(preset);
+            if (!Data.custom.Contains(preset)) return;
+            try {
+                var snapshot = SnapshotImages(appearance);
+                if (JsonUtility.ToJson(snapshot) == JsonUtility.ToJson(preset.appearance)) return;
+                preset.appearance = snapshot; SynchronizeRotation(); MarkDirty(); WarmTextures(); Changed?.Invoke();
+            } catch (Exception e) { ReportError(e.Message); }
+        }, message => {
+            if (pendingEdits.TryGetValue(preset, out var current) && current == request) {
+                pendingEdits.Remove(preset); ReportError(message);
+            }
+        });
     }
-    public bool Add(string name)
+    public void AddWithImages(string name, Action<bool> done)
+    {
+        if (!Ready) { done(false); return; }
+        BeginEditing();
+        var appearance = captureAppearance().Copy();
+        UnityAssetIdb.WithAssets(SnapshotInputs(appearance), () => done(Add(name, appearance)),
+            message => { ReportError(message); done(false); });
+    }
+    public bool Add(string name) => Add(name, null);
+    private bool Add(string name, Card3DAppearance appearance)
     {
         if (!Ready || string.IsNullOrWhiteSpace(name)) return false;
         BeginEditing();
@@ -115,7 +154,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (Data.All().Any(p => p.name == name)) { ReportError("预设名称已存在，请换一个名称"); return false; }
         try {
             CaptureEdits();
-            var preset = new Card3DPreset { id = Guid.NewGuid().ToString("N"), name = name, appearance = SnapshotCurrent() };
+            var preset = new Card3DPreset { id = Guid.NewGuid().ToString("N"), name = name, appearance = SnapshotImages(appearance ?? (editorBeforeRuntime ?? captureAppearance()).Copy()) };
             Data.custom.Add(preset); Data.selectedId = preset.id; MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
         } catch (Exception e) { ReportError(e.Message); return false; }
     }
@@ -259,7 +298,9 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     private void WarmTextures()
     {
         if (config == null) return;
+#if !UNITY_WEBGL || UNITY_EDITOR
         var list = RetainedAppearances(); Card3DPresetTextureCache.Warm(list); Card3DPresetTextureCache.ReleaseExcept(list);
+#endif
     }
     private void MarkDirty() { dirty = true; revision++; }
     private void Save()

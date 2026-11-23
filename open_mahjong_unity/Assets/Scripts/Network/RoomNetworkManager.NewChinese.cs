@@ -5,8 +5,9 @@ using UnityEngine;
 public partial class RoomNetworkManager {
     internal static object BuildNewChineseRequest(NewChinese_Create_RoomConfig config, string seed) {
         return new {
-                type = "room/create_NewChinese_room", rule = NewChineseGameState.RuleId, sub_rule = NewChineseGameState.SubRule,
+                type = "room/create_NewChinese_room", rule = NewChineseGameState.RuleId, sub_rule = config.SubRule ?? NewChineseGameState.SubRule,
                 roomname = config.RoomName, gameround = config.MatchRounds, password = config.Password, random_seed = seed,
+                hepai_limit = config.HepaiLimit,
                 roundTimerValue = config.RoundTimer, stepTimerValue = config.StepTimer, tips = config.Tips,
                 count_tips = config.CountTips, pointer_tips = config.PointerTips, tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator, event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId,

@@ -8297,10 +8297,10 @@
       "en": "4 Duan or higher"
     },
     {
-      "key": "Salasasa七段及以上或职业五段及以上并实名注册",
-      "zh": "Salasasa七段及以上或职业五段及以上并实名注册",
-      "tw": "Salasasa七段及以上或職業五段及以上並實名註冊",
-      "en": "Salasasa 7 Duan or higher, or professional 5 Duan or higher, with verified registration"
+      "key": "Salasasa七段及以上",
+      "zh": "Salasasa七段及以上",
+      "tw": "Salasasa七段及以上",
+      "en": "Salasasa 7 Duan or higher"
     },
     {
       "key": "10级－3级",
@@ -17465,12 +17465,6 @@
       "en": "Blue-gray narrow frame"
     },
     {
-      "key": "灰色凹槽",
-      "zh": "灰色凹槽",
-      "tw": "灰色凹槽",
-      "en": "Gray recess"
-    },
-    {
       "key": "单框",
       "zh": "单框",
       "tw": "單框",
@@ -18813,6 +18807,18 @@
       "zh": "游客登录",
       "tw": "遊客登入",
       "en": "Play as guest"
+    },
+    {
+      "key": "连接本地测试服务",
+      "zh": "连接本地测试服务",
+      "tw": "連線本機測試服務",
+      "en": "Connect to Local Test Server"
+    },
+    {
+      "key": "连接远程服务器",
+      "zh": "连接远程服务器",
+      "tw": "連線遠端伺服器",
+      "en": "Connect to Remote Server"
     },
     {
       "key": "开启测试台",
@@ -30815,22 +30821,22 @@
       "en": "MCR: Advanced\nEntry requirement: 4 dan or higher\nPT gain: 105\nPT loss: by rank\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints False wins Tactical calls\nTime limit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上或職業五段及以上並實名註冊\n場得pt：135*0.49\n場失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
-      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or professional 5 dan or higher, with verified registration\nPT gain: 135*0.49\nPT loss: by rank*0.49\nDistribution: +0.8+0.2-0.3-0.7\nNo hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上\n場得pt：135*0.49\n場失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
+      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or higher\nPT gain: 135*0.49\nPT loss: by rank*0.49\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上或職業五段及以上並實名註冊\n場得pt：135*0.7\n場失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n對局設定：無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
-      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or professional 5 dan or higher, with verified registration\nPT gain: 135*0.7\nPT loss: by rank*0.7\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上\n場得pt：135*0.7\n場失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n對局設定：無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
+      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or higher\nPT gain: 135*0.7\nPT loss: by rank*0.7\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
     },
     {
-      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
-      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上或職業五段及以上並實名註冊\n場得pt：135\n場失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n對局設定：無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
-      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or professional 5 dan or higher, with verified registration\nPT gain: 135\nPT loss: by rank\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
+      "key": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "zh": "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5",
+      "tw": "國標麻將：MCRPL場\n入場門檻：Salasasa七段及以上\n場得pt：135\n場失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n對局設定：無提示 無指針提示 錯和 戰術鳴牌\n時間限制：20+5",
+      "en": "MCR: MCRPL\nEntry requirement: Salasasa 7 dan or higher\nPT gain: 135\nPT loss: by rank\nDistribution: +0.8+0.2-0.3-0.7\nMatch settings: No hints No pointer hints False wins Tactical calls\nTime limit: 20+5"
     },
     {
       "key": "10分",
@@ -32003,10 +32009,10 @@
       "en": "Hongque is a rainbow-themed rummy-style game designed by Null. It uses one tile for each of nine numbers in fourteen suits. The first player to arrange their entire hand into runs or sets wins. Many set combinations make every starting hand different. The game is still in testing; join the official QQ group 389832188 for discussion and feedback."
     },
     {
-      "key": "虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
-      "zh": "虹雀W第1.0版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
-      "tw": "虹雀W第1.0版使用7種花色、9種數字各2張的虹雀牌，最先將手牌全部組成牌組的玩家贏得一局。彩虹順子的存在給遊戲帶來了很多變數，是入門虹雀的最佳選擇。",
-      "en": "Hongque W 1.0 uses two copies of nine numbers in seven suits. The first player to organize all their tiles into sets wins. Rainbow runs add variety, making this a suitable introduction to Hongque."
+      "key": "虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
+      "zh": "虹雀W第1.1版使用7种花色、9种数字各2张的虹雀牌，最先将手牌全部组成牌组的玩家赢得一局。彩虹顺子的存在给游戏带来了很多变数，是入门虹雀的最佳选择。",
+      "tw": "虹雀W第1.1版使用7種花色、9種數字各2張的虹雀牌，最先將手牌全部組成牌組的玩家贏得一局。彩虹順子的存在給遊戲帶來了很多變數，是入門虹雀的最佳選擇。",
+      "en": "Hongque W 1.1 uses two copies of nine numbers in seven suits. The first player to organize all their tiles into sets wins. Rainbow runs add variety, making this a suitable introduction to Hongque."
     },
     {
       "key": "青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交",

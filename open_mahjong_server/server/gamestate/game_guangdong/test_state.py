@@ -7,6 +7,7 @@ import pytest
 
 from .GuangdongGameState import GuangdongGameState
 from ...game_calculation.guangdong.config import TILES, GHOSTS, SUB_RULE
+from ..game_taiwan.boardcast import broadcast_do_action
 from ..public.game_record_manager import init_game_record, init_game_round
 
 HAND = [11, 11, 11, 22, 22, 22, 33, 33, 33, 41, 41, 41, 45]
@@ -65,6 +66,7 @@ def test_ghost_is_kept_and_can_be_discarded_but_never_claimed(ghost):
     assert "buhua" not in state.check_hand_actions(0)[0]
     asyncio.run(state.execute_cut(0, {"TileId": ghost, "cutIndex": 13, "cutClass": True}))
     assert player.discarded_ghosts == 1 and ghost in player.discard_tiles
+    assert ["c", ghost, "T", "H"] in ticks(state)
     assert ["guangdong", "ghost_discard", 0, 1] in ticks(state)
     assert not any(state.check_discard_actions(ghost).values())
     assert not state.kong_allowed(0, ghost, "concealed")
@@ -79,6 +81,14 @@ def test_no_chow_and_mandatory_cut_after_pung():
     asyncio.run(state.resolve_discard_responses({2: {"action_type": "peng"}}, actions))
     assert state.current_player_index == 2 and state.after_claim_actions()[2] == ["cut"]
     assert not state.kong_allowed(2, 41, "concealed") and not state.ready_candidate_cuts(2)
+
+
+def test_live_ghost_discard_broadcast_marks_horizontal():
+    state = make_state(); state.game_server.user_id_to_connection = {101: object(), 102: object(), 103: object(), 104: object()}
+    with patch("server.gamestate.game_taiwan.boardcast._send_do_action_payload_to_viewer", new_callable=AsyncMock) as send:
+        asyncio.run(broadcast_do_action(state, ["cut"], 0, cut_tile=55, cut_class=True))
+        assert send.await_count == 4
+        assert send.await_args_list[0].args[2]["is_riichi_horizontal"] is True
 
 
 def test_pass_uses_base_score_and_resets_only_on_draw():

@@ -37,7 +37,7 @@ def test_real_record_and_basic_statistics_are_persisted_without_fans(db):
     game_id = detail.game_id
     assert sorted(p.record_counter.rank_result for p in state.player_list) == [1, 2, 3, 4]
     asyncio.run(state.complete_game_lifecycle())
-    assert db.sql('SELECT game_id FROM game_records') == [(game_id,)]
+    assert db.sql('SELECT game_id FROM game_record_tables') == [(game_id,)]
     rows=db.sql("SELECT rule,sub_rule,count(*) FROM game_player_records GROUP BY rule,sub_rule")
     assert rows==[('vietnamese','vietnamese/classic160',4)]
     metrics=db.sql("SELECT rule,sub_rule,count(*) FROM game_player_metrics GROUP BY rule,sub_rule")

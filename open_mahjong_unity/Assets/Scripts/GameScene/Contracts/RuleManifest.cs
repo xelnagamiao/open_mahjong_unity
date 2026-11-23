@@ -166,7 +166,7 @@ public sealed class RuleManifest {
     /// <summary>房间辅助规则状态；为空使用默认错和开关文案。</summary>
     public Func<GameInfo, string> RoundSupplementText;
 
-    /// <summary>复用指示牌回合面板，替换日麻的点棒信息；null 保持原布局。</summary>
+    /// <summary>从当前局况取得公开牌列和局况文字；没有翻牌机制的玩法可仅返回文字。</summary>
     public Func<GameInfo, RoundIndicatorDisplay> RoundIndicators;
 
     /// <summary>房间 game_round → 总局数文案（"东风战" / "4局" / "八局"）。null 表示通用风圈文案。</summary>
@@ -299,9 +299,6 @@ public sealed class RuleManifest {
     /// <summary>手牌排序的三元牌顺序走"日麻三元牌"设置项（TileIdOrder.RiichiDragonOrderOptions）。</summary>
     public bool UsesRiichiDragonOrder;
 
-    /// <summary>局数/风圈面板用日麻布局（东1局 x本场）。</summary>
-    public bool RiichiRoundLayout;
-
     /// <summary>听牌提示由族自行计算并推送，通用 TingpaiCheck 链不得覆盖。</summary>
     public bool TipsProvidedByGameState;
 
@@ -311,10 +308,43 @@ public sealed class RuleManifest {
     }
 }
 
-/// <summary>规则提供的公开指示牌与局况；只影响显示，不参与牌义或计分。</summary>
+/// <summary>一张公开牌及其角标。编号 0 表示尚未翻开的牌背。</summary>
+public readonly struct RoundIndicatorTile {
+    public int TileId { get; }
+    public string Role { get; }
+
+    public RoundIndicatorTile(int? tileId, string role = null) {
+        TileId = Math.Max(0, tileId ?? 0);
+        Role = TileId > 0 ? role : null;
+    }
+}
+
+/// <summary>按公开顺序从左到右排列的牌槽，以及这一局的公开状态。</summary>
 public sealed class RoundIndicatorDisplay {
-    public bool CaptionAboveTiles;
-    public int[] Tiles = Array.Empty<int>();
-    public string Caption = "";
-    public string Counter = "";
+    public static readonly RoundIndicatorDisplay Pending = new RoundIndicatorDisplay(new RoundIndicatorTile[1]);
+    public IReadOnlyList<RoundIndicatorTile> Tiles { get; }
+    public string Status { get; }
+    public int? Honba { get; }
+    public int? RiichiSticks { get; }
+
+    public RoundIndicatorDisplay(IReadOnlyList<RoundIndicatorTile> tiles, string status = null, int? honba = null, int? riichiSticks = null) {
+        Tiles = tiles ?? Array.Empty<RoundIndicatorTile>();
+        Status = status;
+        Honba = honba;
+        RiichiSticks = riichiSticks;
+    }
+
+    public static RoundIndicatorDisplay Riichi(int honba, int riichiSticks, IReadOnlyList<int> dora, IReadOnlyList<int> kanDora = null, string status = null) {
+        var slots = new RoundIndicatorTile[5];
+        int count = 0;
+        Append(dora);
+        Append(kanDora);
+        return new RoundIndicatorDisplay(slots, status, honba, riichiSticks);
+
+        void Append(IReadOnlyList<int> indicators) {
+            if (indicators == null) return;
+            for (int i = 0; i < indicators.Count && count < slots.Length; i++)
+                slots[count++] = new RoundIndicatorTile(indicators[i]);
+        }
+    }
 }

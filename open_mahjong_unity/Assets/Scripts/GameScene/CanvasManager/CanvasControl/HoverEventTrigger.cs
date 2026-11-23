@@ -15,7 +15,10 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
     private RectTransform backgroundRect;
     private bool isHoverLifted;
     private bool isArmedLifted;
-    private bool isVisuallyLifted;
+    public bool SbrRaised { get; private set; }
+    private bool sbrPresentation;
+    private float sbrLiftFraction;
+    private float visualLift;
 
     private void Awake() {
         imageRect = tileImage.GetComponent<RectTransform>();
@@ -52,6 +55,19 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
         RefreshVisualLift();
     }
 
+    public void SetSbrLift(bool presenting, bool raised) {
+        sbrPresentation = presenting;
+        SbrRaised = raised;
+        sbrLiftFraction = raised ? 1f : 0f;
+        RefreshVisualLift();
+    }
+
+    internal void SetReceiptLift(float fraction) {
+        sbrLiftFraction = Mathf.Clamp01(fraction);
+        sbrPresentation = SbrRaised = sbrLiftFraction > 0f;
+        RefreshVisualLift();
+    }
+
     private void SetHoverLift(bool hover) {
         if (isHoverLifted == hover) {
             return;
@@ -62,20 +78,16 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
 
     private void RefreshVisualLift() {
         bool wantLift = isArmedLifted || (isHoverLifted && !IsHoverLiftDisabled());
-        ApplyVisualLift(wantLift);
-    }
-
-    private void ApplyVisualLift(bool lift) {
-        if (isVisuallyLifted == lift) {
-            return;
-        }
-        Vector3 delta = Vector3.up * hoverOffset * (lift ? 1f : -1f);
+        float target = sbrPresentation ? imageRect.rect.height * .46f * sbrLiftFraction
+                                       : (wantLift ? hoverOffset : 0f);
+        if (Mathf.Approximately(target, visualLift)) return;
+        Vector3 delta = Vector3.up * (target - visualLift);
         imageRect.localPosition += delta;
         buttonRect.localPosition += delta;
         if (backgroundRect != null) {
             backgroundRect.localPosition += delta;
         }
         GetComponent<WashizuHandVisual>()?.SyncLayout();
-        isVisuallyLifted = lift;
+        visualLift = target;
     }
 }

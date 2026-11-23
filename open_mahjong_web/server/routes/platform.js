@@ -1,6 +1,8 @@
 const { statisticsSelection } = require('../services/statisticsCatalog');
 const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const express = require('express');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 const router = express.Router();
 const { guobiaoFanDict } = require('../constants/guobiaoFanDict');
 const {
@@ -147,6 +149,32 @@ router.get('/recent-records', async (req, res) => {
   } catch (error) {
     console.error('platform recent-records error:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+// Read previously completed analyses only. Viewing a replay never calls the provider.
+router.get('/record/:gameId/riichi-review', async (req, res) => {
+  try {
+    const result = await getPublicGameRecord(req.params.gameId);
+    if (result.status !== 200) return res.status(result.status).json({ success: false, message: result.message });
+    const table = result.data.record.tables.main;
+    const title = table?.payload?.game_title;
+    const id = table?.table_record_id;
+    let review = null;
+    if (title?.sub_rule === 'riichi/standard' && /^[a-zA-Z0-9-]+$/.test(id ?? '') && id) {
+      const dir = process.env.SATORI_REVIEW_CACHE_DIR ||
+        path.resolve(__dirname, '../../../.om_workspace/satori-review/cache');
+      try {
+        const saved = JSON.parse(await fs.readFile(path.join(dir, id + '.json'), 'utf8'));
+        if (saved.schema === 1 && saved.gameId === id && saved.table === 'main') review = saved;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+    res.set('Cache-Control', 'no-store').json({ success: true, data: review });
+  } catch (error) {
+    console.error('riichi review cache error:', error.message);
+    res.status(500).json({ success: false, message: '复盘缓存读取失败' });
   }
 });
 

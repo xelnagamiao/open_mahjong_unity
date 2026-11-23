@@ -42,7 +42,7 @@ function evaluate(file, names, extra = {}) {
     ...extra,
   });
 }
-function setup(overrides = {}) {
+function setup(overrides = {}, saved = {}) {
   const calls = { reads: 0, updates: 0 },
     mounted = [],
     timers = new Map();
@@ -67,6 +67,7 @@ function setup(overrides = {}) {
     "refreshAll,loadPlayers,updateData,filters,playerRows,playerTotal,expandedKeys,expandPlayer,togglePlayer,search,handleHeaderFilter,resetFilters,error,summaryError,loadSummary,loadQuality,openManagement,managementChanged,quality,qualityError,overview,appliedQuery,changePage,playerLoading",
     {
       antiCheatApi: api,
+      useAdminListState: () => ({ saved, remember: (state) => Object.assign(saved, state) }),
       onMounted: (f) => mounted.push(f),
       onBeforeUnmount() {},
       ElMessage: { success() {} },
@@ -89,6 +90,20 @@ test("ordinary refresh only reads, without idle polling", async () => {
   assert.equal(h.calls.updates, 0);
   assert.equal(h.timers.size, 0);
 });
+test("returning to the ranking reloads the last submitted filters and page", async () => {
+  const saved = {};
+  const first = setup({}, saved);
+  first.page.filters.q = "玩家";
+  first.page.filters.channel = "RON";
+  await first.page.changePage(3);
+  first.page.filters.q = "未提交";
+  const restored = setup({}, saved);
+  await restored.mounted[0]();
+  assert.equal(restored.page.appliedQuery.value.q, "玩家");
+  assert.equal(restored.page.appliedQuery.value.channel, "RON");
+  assert.equal(restored.page.appliedQuery.value.page, 3);
+});
+
 test("explicit update guards simultaneous clicks", async () => {
   let finish,
     n = 0;

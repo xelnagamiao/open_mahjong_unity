@@ -1,10 +1,8 @@
-"""Durable per-table progress, optional board barriers, and score publication."""
+"""In-process pairing of two independent table loops, boards and team results."""
 import asyncio
 from copy import deepcopy
 import hashlib
 import json
-import secrets
-import uuid
 
 from ...records.format import ensure_board_instances
 
@@ -12,10 +10,11 @@ from ...game_calculation.sichuan.duplicate_rules import make_board, score_board,
 
 
 class PairedMatch:
-    def __init__(self, snapshot, persist):
+    def __init__(self, snapshot):
         self.data = deepcopy(snapshot)
         ensure_board_instances(self.data)
-        self.persist = persist
+        self.record_inputs = {}
+        self.record_commit_event = asyncio.Event()
         self.lock = asyncio.Lock()
         self.events = {}
         self.start_gate = asyncio.Event()
@@ -30,7 +29,6 @@ class PairedMatch:
 
     @property
     def synchronous(self):
-        # Existing saved matches retain their original board barrier.
         return self.data.get("sync_mode", True)
 
     @property
@@ -50,7 +48,6 @@ class PairedMatch:
     def save(self, candidate):
         ensure_board_instances(candidate)
         candidate["revision"] = self.data["revision"] + 1
-        self.persist(candidate, self.data["revision"])
         self.data = candidate
 
     def public_info(self, table=None):
@@ -71,17 +68,7 @@ class PairedMatch:
             info["completed_boards"] = 0
         return info
 
-    def _pending_boards(self):
-        if "pending_boards" in self.data:
-            return deepcopy(self.data["pending_boards"])
-        if not self.data.get("pending"):
-            return {}
-        entries = deepcopy(self.data["pending"])
-        for table, entry in entries.items():
-            entry["checkpoint"] = deepcopy(self.data.get("pending_checkpoints", {}).get(table))
-        return {str(self.data["completed_boards"] + 1): entries}
-
-    async def submit(self, table, number, scores, adjustments, record, checkpoint=None):
+    async def submit(self, table, number, scores, adjustments, record):
         if table not in ("open", "closed"):
             raise ValueError("复式桌号无效")
         if type(number) is not int or number < 1:
@@ -100,7 +87,7 @@ class PairedMatch:
                 if prior["digest"] != digest:
                     raise ValueError("复式重复结果冲突")
                 return self.public_info()
-            pending_boards = self._pending_boards()
+            pending_boards = deepcopy(self.data["pending_boards"])
             pending = pending_boards.setdefault(str(number), {})
             prior = pending.get(table)
             if prior and prior["digest"] != digest:
@@ -115,24 +102,20 @@ class PairedMatch:
             if not prior:
                 candidate = deepcopy(self.data)
                 pending[table] = {"scores": list(scores), "adjustments": list(adjustments),
-                                  "delta": delta, "digest": digest, "checkpoint": deepcopy(checkpoint)}
+                                  "delta": delta, "digest": digest}
                 candidate["pending_boards"] = pending_boards
                 candidate.setdefault("table_completed_boards", {t: self.data["completed_boards"] for t in ("open", "closed")})[table] = number
-                candidate.setdefault("table_checkpoints", {})[table] = deepcopy(checkpoint)
                 if len(pending) == 2:
                     if number != candidate["completed_boards"] + 1:
                         raise ValueError("复式配对结算顺序不匹配")
                     result = score_board(pending["open"]["delta"], pending["closed"]["delta"],
                                          scoring=candidate["profile"]["scoring"], imp_scale=self.imp_scale,
                                          board_score_cap=candidate["profile"].get("board_score_cap"))
-                    # Private checkpoint hands must never enter public results.
-                    result.update(number=number, tables={t: {k: deepcopy(v) for k, v in entry.items() if k != "checkpoint"}
-                                                       for t, entry in pending.items()})
+                    result.update(number=number, tables=pending)
                     candidate["results"].append(result)
                     candidate["scores"] = [candidate["scores"][i] + result["scores"][i] for i in range(2)]
                     candidate.update(score_totals(candidate["results"], imp_scale=self.imp_scale))
                     candidate["completed_boards"] = number
-                    candidate["checkpoints"] = {t: deepcopy(entry["checkpoint"]) for t, entry in pending.items()}
                     del pending_boards[str(number)]
                     at_end = number >= candidate["planned_boards"]
                     tied = candidate["scores"][0] == candidate["scores"][1]
@@ -141,15 +124,14 @@ class PairedMatch:
                     elif at_end:
                         candidate["boards"].append(make_board(candidate["seed"], number + 1, layout=candidate["profile"].get("wall_layout", "standard")))
                 next_pending = pending_boards.get(str(candidate["completed_boards"] + 1), {})
-                candidate["pending"] = {t: {k: deepcopy(v) for k, v in entry.items() if k != "checkpoint"} for t, entry in next_pending.items()}
-                candidate["pending_checkpoints"] = {t: deepcopy(entry["checkpoint"]) for t, entry in next_pending.items()}
+                candidate["pending"] = next_pending
                 self.save(candidate)
             if self.data["completed_boards"] >= number:
                 event.set()
         if must_wait:
             await event.wait()
         if self.data["status"] == "interrupted":
-            raise RuntimeError("复式对局已中断，等待管理员处理")
+            raise RuntimeError("复式对局已中断，本场已结束")
         return self.public_info()
 
     async def wait_ready(self, table, number):
@@ -164,58 +146,23 @@ class PairedMatch:
                 event.set()
         await event.wait()
         if self.data["status"] != "running":
-            raise RuntimeError("复式对局已中断，等待管理员处理")
+            raise RuntimeError("复式对局已中断，本场已结束")
 
     def interrupt(self, reason):
         if self.data["status"] in ("completed", "interrupted", "cancelled"):
             return
         candidate = deepcopy(self.data)
         candidate.update(status="interrupted", interruption=str(reason))
-        previous_revision = self.data["revision"]
-        try:
-            self.save(candidate)
-        except BaseException:
-            candidate["revision"] = previous_revision
-            raise
-        finally:
-            self.data = candidate
-            self.start_gate.set()
-            for event in self.events.values():
-                event.set()
-            for state in list(self.states.values()):
-                task = getattr(state, "game_task", None)
-                if task and task is not asyncio.current_task() and not task.done():
-                    task.cancel()
-
-    def restart_unfinished_board(self):
-        if self.data["status"] != "interrupted":
-            raise ValueError("只能重开已中断的复式比赛")
-        candidate = deepcopy(self.data)
-        number = candidate["completed_boards"] + 1
-        # Replace every potentially exposed unmatched board, including the fast
-        # table's submitted boards; retain all durably paired settlements.
-        last_exposed = min(len(candidate["boards"]), max(self.table_progress(t) for t in ("open", "closed")) + 1)
-        pending = self._pending_boards()
-        for n in range(number, last_exposed + 1):
-            candidate.setdefault("voided_boards", []).append({"number": n,
-                "board": candidate["boards"][n - 1], "pending": pending.get(str(n), {}),
-                "board_instance_id": candidate["board_instances"][n - 1]["board_instance_id"],
-                "reason": candidate.get("interruption", "interrupted")})
-            previous = candidate["board_instances"][n - 1]
-            candidate["board_instances"][n - 1] = {
-                "board_instance_id": str(uuid.uuid4()), "board_no": n,
-                "attempt": (previous.get("attempt") or 0) + 1}
-            if candidate.get("wall_source") != "training":
-                candidate["boards"][n - 1] = make_board(secrets.token_hex(32), n, layout=candidate["profile"].get("wall_layout", "standard"))
-        candidate.update(status="waiting", pending={}, pending_checkpoints={}, pending_boards={},
-                         table_completed_boards={t: candidate["completed_boards"] for t in ("open", "closed")},
-                         table_checkpoints=deepcopy(candidate.get("checkpoints", {})))
         self.save(candidate)
-        self.ready.clear()
-        self.states.clear()
-        self.events.clear()
-        self.board_ready.clear()
-        self.start_gate.clear()
+        self.start_gate.set()
+        self.final_record_event.set()
+        self.record_commit_event.set()
+        for event in self.events.values():
+            event.set()
+        for state in list(self.states.values()):
+            task = getattr(state, "game_task", None)
+            if task and task is not asyncio.current_task() and not task.done():
+                task.cancel()
 
 
 def new_match(match_id, sub_rule, room_ids, boards, seed, *, sync_mode=False):

@@ -36,7 +36,9 @@ public class SpectatorPrefab : MonoBehaviour {
             player4_name = player4_name, gamestate_id = gamestate_id });
     }
 
-    public void InitializeSpectatorItem(SpectatorInfo info) {
+    public void InitializeSpectatorItem(SpectatorInfo info) => InitializeSpectatorItem(info, info.paired_tables);
+
+    public void InitializeSpectatorItem(SpectatorInfo info, SpectatorInfo[] groupedTables) {
         match_id = info.match_id;
         initial_table = info.table_id ?? "open";
         string displayRule = string.IsNullOrEmpty(info.sub_rule) ? info.rule : info.sub_rule;
@@ -53,8 +55,7 @@ public class SpectatorPrefab : MonoBehaviour {
             if (i < playerTeamBackgrounds.Length && playerTeamBackgrounds[i] != null) {
                 var background = playerTeamBackgrounds[i];
                 background.gameObject.SetActive(teams);
-                if (teams) background.color = info.team_by_player_index[i] == 0
-                    ? new Color32(38, 60, 83, 255) : new Color32(78, 40, 45, 255);
+                if (teams) background.color = SpectatorRoomPresentation.TeamBackground(info.team_by_player_index[i]);
             }
         }
         if (GamestateIdText != null) {
@@ -67,7 +68,7 @@ public class SpectatorPrefab : MonoBehaviour {
         gamestate_id = info.gamestate_id;
         if (pairedPlayersRow != null) pairedPlayersRow.SetActive(!string.IsNullOrEmpty(match_id));
         if (!string.IsNullOrEmpty(match_id) && pairedPlayersRow != null) {
-            var available = info.paired_tables ?? new[] { info };
+            var available = groupedTables ?? new[] { info };
             var open = available.FirstOrDefault(t => t.table_id == "open");
             var closed = available.FirstOrDefault(t => t.table_id == "closed");
             ApplyMatchRow(open, labels, playerTeamBackgrounds);
@@ -86,7 +87,7 @@ public class SpectatorPrefab : MonoBehaviour {
             if (i < backgrounds.Length && backgrounds[i] != null) {
                 bool teams = info != null && SpectatorRoomPresentation.HasTeams(info);
                 backgrounds[i].gameObject.SetActive(teams);
-                if (teams) backgrounds[i].color = info.team_by_player_index[i] == 0 ? new Color32(38,60,83,255) : new Color32(78,40,45,255);
+                if (teams) backgrounds[i].color = SpectatorRoomPresentation.TeamBackground(info.team_by_player_index[i]);
             }
         }
     }

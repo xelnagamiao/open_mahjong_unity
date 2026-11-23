@@ -11,7 +11,7 @@ from psycopg2.extras import Json
 from psycopg2.pool import ThreadedConnectionPool
 import pytest
 
-from .format import build_match, digest
+from .format import build_match, digest, restore_source
 from .store import ensure_tables, paired_game_id, publish_table, read_record, list_replays
 from .test_format import records
 from .wall_alignment import RecordConflict
@@ -78,7 +78,7 @@ def test_concurrent_tables_and_retries_publish_one_body(db, monkeypatch):
         assert all(executor.map(lambda pair: publish(db, *pair), source.items()))
     for side, entry in source.items():
         assert not publish(db, side, entry)
-        assert query(db, "SELECT record FROM game_records WHERE game_id=%s", (entry["game_id"],), True)[0] == entry["record"]
+        assert restore_source(query(db, "SELECT r.record->'tables'->t.table_id FROM game_record_tables t JOIN game_replays r ON r.game_id=t.replay_id WHERE t.game_id=%s", (entry["game_id"],), True)[0]) == entry["record"]
     assert query(db, "SELECT count(*) FROM game_replays", one=True) == (1,)
     assert query(db, "SELECT count(*) FROM game_record_tables", one=True) == (2,)
     public_id = paired_game_id("test-match")
@@ -144,7 +144,7 @@ def test_rename_between_settlements_and_canonical_list(db, monkeypatch):
     closed = detail["record"]["tables"]["closed"]
     assert closed["players"][0]["username"] == "new"
     assert closed["payload"]["game_title"]["p0_name"] == "old"
-    assert query(db,"SELECT record->'game_title'->>'p0_name' FROM game_records WHERE game_id='idclosed'",one=True) == ("old",)
+    assert query(db,"SELECT record #>> '{tables,closed,payload,game_title,p0_name}' FROM game_replays",one=True) == ("old",)
     rows = list_replays(db,event_id="evt")
     assert len(rows) == 1 and rows[0]["game_id"] == canonical_id
     assert rows[0]["match_summary"]["tables"]["closed"]["players"][0]["username"] == "new"
@@ -209,7 +209,7 @@ def test_conflicting_retries_and_failed_transactions_do_not_leave_partial_data(d
     changed["record"]["another"] = 3
     with pytest.raises(RecordConflict):
         publish(db, "open", changed)
-    assert query(db,"SELECT record FROM game_records WHERE game_id=%s",(entry["game_id"],),True)[0] == entry["record"]
+    assert restore_source(query(db,"SELECT r.record->'tables'->t.table_id FROM game_record_tables t JOIN game_replays r ON r.game_id=t.replay_id WHERE t.game_id=%s",(entry["game_id"],),True)[0]) == entry["record"]
 
 def test_wire_preserves_source_nulls_and_all_historical_seats_without_inventing_scores(db, monkeypatch):
     import asyncio

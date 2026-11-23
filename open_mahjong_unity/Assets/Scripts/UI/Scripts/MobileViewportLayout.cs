@@ -17,11 +17,12 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         }
     }
     static MobileViewportLayout instance;
+    public static bool HasGameArea => instance != null;
     public static bool IsInstalled => Enabled && instance;
     // Popup fitters also need to stay inside the playable rectangle, not inside
     // the device-safe but letterboxed margins above and below it.
-    public static Rect SafeArea => Enabled && instance ? instance.gameArea : Screen.safeArea;
-    public static Rect GameArea => Enabled && instance ? instance.gameArea : new Rect(0,0,Screen.width,Screen.height);
+    public static Rect SafeArea => HasGameArea ? instance.gameArea : Screen.safeArea;
+    public static Rect GameArea => HasGameArea ? instance.gameArea : new Rect(0,0,Screen.width,Screen.height);
     readonly List<RectTransform> content = new List<RectTransform>();
     readonly float[] hostMetrics = new float[9];
     Rect safeArea;
@@ -37,8 +38,11 @@ public sealed class MobileViewportLayout : MonoBehaviour {
     [DllImport("__Internal")]
     static extern void OMUMobileDisplayMetrics([Out] float[] values);
 #endif
-    public static void Install(GameObject owner) {
-        if (!Enabled || instance) return;
+    public static void Install(GameObject owner, Canvas[] configuredRoots) {
+#if !UNITY_STANDALONE_WIN || UNITY_EDITOR
+        if (!Enabled) return;
+#endif
+        if (instance) return;
 #if OMU_SIZING_TEST && OMU_SIZING_RAW_LAYOUT
         return; // Unlock-only baseline: preserve every original canvas/anchor.
 #else
@@ -48,8 +52,10 @@ public sealed class MobileViewportLayout : MonoBehaviour {
         // Establish the usable size before child layouts query it on install.
         instance.Refresh(true);
         foreach (var root in owner.scene.GetRootGameObjects()) {
-            if (root.name!="MainCanvas" && root.name!="OverlayCanvas" && root.name!="#GameCanvas") continue;
             var canvas=root.GetComponent<Canvas>();
+            if (configuredRoots != null && configuredRoots.Length > 0) {
+                if (!canvas || System.Array.IndexOf(configuredRoots, canvas) < 0) continue;
+            } else if (root.name!="MainCanvas" && root.name!="OverlayCanvas" && root.name!="#GameCanvas") continue;
             if (!canvas || canvas.renderMode==RenderMode.WorldSpace) continue;
             var children=new List<Transform>();
             foreach(Transform child in root.transform) children.Add(child);
@@ -58,6 +64,7 @@ public sealed class MobileViewportLayout : MonoBehaviour {
             area.pivot=Vector2.one*.5f;area.offsetMin=area.offsetMax=Vector2.zero;
             foreach(var child in children)child.SetParent(area,false);
             instance.content.Add(area);
+            if (!Enabled) continue;
             foreach(var layout in root.GetComponentsInChildren<CanvasReferenceLayout>(true)) {
                 switch(layout.name) {
                     case "PointerClickCanvas": case "LobbyOverlay": case "PageOverlays":
@@ -94,7 +101,7 @@ public sealed class MobileViewportLayout : MonoBehaviour {
                         layout.referenceArea=area;layout.Apply(true);break;
                     }
             }
-        foreach (var root in owner.scene.GetRootGameObjects()) {
+        if (Enabled) foreach (var root in owner.scene.GetRootGameObjects()) {
             if (root.name!="MainCanvas") continue;
             var pages=root.transform.Find("MobileSafeArea/PageRoot");
             if (!pages) continue;
@@ -152,15 +159,16 @@ public sealed class MobileViewportLayout : MonoBehaviour {
     }
 #endif
     void Refresh(bool force) {
-        if (!Enabled || Screen.width<=0 || Screen.height<=0) return;
+        if (Screen.width<=0 || Screen.height<=0) return;
         bool resized=width!=Screen.width || height!=Screen.height;
-        Rect next=ReadSafeArea(resized || force);
+        Rect next=Enabled ? ReadSafeArea(resized || force) : new Rect(0,0,Screen.width,Screen.height);
         if (!force && !resized && next==safeArea) return;
         width=Screen.width;height=Screen.height;safeArea=next;
         // Narrow displays keep the original landscape composition, centred
         // inside the device safe area. Wide phones retain horizontal expansion.
         float gameHeight=Mathf.Min(next.height,next.width/minimumAspect);
-        gameArea=new Rect(next.x,next.y+(next.height-gameHeight)*.5f,next.width,gameHeight);
+        float gameWidth=Enabled ? next.width : Mathf.Min(next.width, gameHeight*minimumAspect);
+        gameArea=new Rect(next.center.x-gameWidth*.5f,next.center.y-gameHeight*.5f,gameWidth,gameHeight);
         ApplyContentArea();
     }
     void ApplyContentArea() {

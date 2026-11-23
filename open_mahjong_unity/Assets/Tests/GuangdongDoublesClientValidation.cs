@@ -34,13 +34,15 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         UnityEditor.EditorApplication.Exit(report.result == UnityEditor.Build.Reporting.BuildResult.Succeeded ? 0 : 1);
     }
 #endif
-    private static string output, endpoint;
+    private static string output, endpoint, videoDirectory;
     private static int user;
     private NativeWebSocket.WebSocket socket;
     private readonly List<string> failures = new();
     private readonly List<string> checks = new();
     private int clicks, claims, midWins, finished, reconnects;
     private float deadline;
+    private float nextVideoFrame;
+    private int videoFrame;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Configure() {
@@ -50,6 +52,14 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         output = Path.GetFullPath(args[at + 1]);
         endpoint = args[at + 2];
         user = int.Parse(args[at + 3]);
+        int videoAt = Array.IndexOf(args, "--gd-video-dir");
+        string configuredVideoDirectory = videoAt >= 0 && videoAt + 1 < args.Length
+            ? args[videoAt + 1] : Environment.GetEnvironmentVariable("GD_VIDEO_DIR");
+        if (!string.IsNullOrWhiteSpace(configuredVideoDirectory)) {
+            videoDirectory = Path.GetFullPath(configuredVideoDirectory);
+            Directory.CreateDirectory(videoDirectory);
+            File.WriteAllText(Path.Combine(videoDirectory, "video-configured.txt"), videoDirectory);
+        }
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) || !uri.IsLoopback) throw new ArgumentException("Loopback required");
         ConfigManager.gameUrl = endpoint + "/" + user;
         ConfigManager.BuildForSteam = false;
@@ -78,12 +88,19 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         Application.runInBackground = true;
         Application.targetFrameRate = 24;
         QualitySettings.vSyncCount = 0;
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--gd-silent-audio") >= 0 && ConfigManager.Instance != null) {
+            ConfigManager.Instance.SetVoiceVolume(0);
+            ConfigManager.Instance.SetSoundEffectVolume(0);
+        }
+        nextVideoFrame = Time.realtimeSinceStartup;
         deadline = Time.realtimeSinceStartup + 840;
         Application.logMessageReceived += (msg, trace, kind) => {
             if (kind == LogType.Error || kind == LogType.Exception || kind == LogType.Assert) { failures.Add(msg + "\n" + trace); Save(); }
         };
         Check(PlayerInfoRuleCatalog.HasFanStats(GuangdongMilRules.Doubles) &&
             PlayerInfoRuleCatalog.FanNames(GuangdongMilRules.Doubles).ContainsKey("鸡和"), "番种统计目录有鸡和");
+        Check(Resources.Load<AudioClip>("Sound/ttsmaker_204_xiaoxiao/dagui") != null &&
+            Resources.Load<AudioClip>("Sound/ttsmaker_1513_qiuqiu/dagui") != null, "TTSMaker 打鬼语音资源");
         var tiles = new List<int> { 11,12,13,14,15,16,22,23,24,36,37,38,41,41 };
         var context = new JObject { ["doubles"]=true, ["chicken_available"]=true, ["discarded_ghosts"]=2 };
         var row = RegionalLocalCalculator.Describe("guangdong",tiles,new List<string>(),41,context);
@@ -109,8 +126,17 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
     }
 
     private void Update() {
+        if (videoDirectory != null && Time.realtimeSinceStartup >= nextVideoFrame) {
+            StartCoroutine(CaptureVideoFrame(Path.Combine(videoDirectory, $"frame-{videoFrame++:D05}.png")));
+            nextVideoFrame += 1f / 12f;
+        }
         if (deadline <= 0 || Time.realtimeSinceStartup < deadline) return;
         deadline = 0; failures.Add("客户端超时"); Save("failed"); Application.Quit(2);
+    }
+
+    private IEnumerator CaptureVideoFrame(string path) {
+        yield return new WaitForEndOfFrame();
+        ClientValidationScreenshot.Capture(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path), Check);
     }
 
     private void Receive(byte[] data) {
@@ -181,6 +207,18 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         }
     }
 
+    private void CheckTeamPlayerBackgrounds() {
+        var panels = Resources.FindObjectsOfTypeAll<GamePlayerPanel>()
+            .Where(panel => panel.gameObject.scene.IsValid() && panel.gameObject.activeInHierarchy)
+            .ToArray();
+        Check(panels.Length == 4, "四名玩家底色面板");
+        foreach (var panel in panels) {
+            var background = panel.transform.Find("Username/BackGround")?.GetComponent<UnityEngine.UI.Image>();
+            Check(background != null && panel.SichuanTeamId >= 0 && panel.SichuanTeamId <= 1,
+                "玩家队伍底色 " + panel.name);
+        }
+    }
+
     private IEnumerator Inspect(JObject message) {
         yield return new WaitForSecondsRealtime(.8f);
         var mirror=TableMirror.Current;
@@ -191,6 +229,7 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
         foreach(var pair in mirror.IndexToPosition)Check(mirror.Info(pair.Value).score==scores[pair.Key],"座位分数 "+pair.Key);
         string label=(string)message["label"];
         CheckTeamScores(message["team_scores"].ToObject<int[]>(), label);
+        if (label == "chicken") CheckTeamPlayerBackgrounds();
         if(label=="chicken")Check(mirror.IndexToPosition.Values.Any(pos=>(mirror.Info(pos).tag_list??Array.Empty<string>()).Contains("gd_chicken")), "牌桌公开鸡和");
         if(user==11000001) ClientValidationScreenshot.Capture(output, label, Check);
         _=socket.SendText(new JObject{["type"]="qa/inspected",["label"]=label,["token"]=message["token"]}.ToString(Formatting.None));
@@ -206,7 +245,22 @@ public sealed class GuangdongDoublesClientValidation : MonoBehaviour {
             int i=(int)round["index"];
             manager.GotoSelectRound(i,false);
             yield return null;
-            int end=manager.gameRecord.gameRound.rounds[i].actionTicks.Count;
+            var ticks = manager.gameRecord.gameRound.rounds[i].actionTicks;
+            var pongOwners = new Dictionary<string, int>();
+            for (int node = 0; node < ticks.Count; node++) {
+                var tick = ticks[node];
+                if (tick[0] == "p") pongOwners[tick[1]] = int.Parse(tick[2]);
+                if (tick[0] != "jg") continue;
+                int owner = pongOwners[tick[1]];
+                manager.GotoAction(node);
+                var players = manager.recordPlayer_to_info.Values.OrderBy(p => p.playerIndex).ToArray();
+                var before = players.Select(p => p.score).ToArray();
+                Check(manager.currentPlayerIndex == owner && players[owner].combinationTiles.Contains("k" + tick[1]), "加杠前由原碰牌玩家行动");
+                manager.GotoAction(node + 1);
+                Check(players[owner].combinationTiles.Contains("g" + tick[1]), "加杠升级原碰牌副露");
+                Check(before.SequenceEqual(players.Select(p => p.score)), "加杠分延至副末结算");
+            }
+            int end=ticks.Count;
             manager.GotoAction(end);yield return null;
             var scores=round["scores"].ToObject<int[]>();
             foreach(var p in manager.recordPlayer_to_info.Values)

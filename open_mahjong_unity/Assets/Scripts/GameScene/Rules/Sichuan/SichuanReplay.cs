@@ -58,7 +58,12 @@ public partial class GameRecordManager {
 
     private bool UsesSichuanSettlementRecord() => IsBloodBattleRecord() || IsXueliuRecord();
 
-    // 川麻和牌后由最后一位和牌者的下一家续打；血战还要跳过本局已和退场者。
+    private int RecordTurnAfterWin(int winner, int current, HashSet<int> retired = null) {
+        bool continues = IsSichuanRecord() || ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == GuangdongMilRules.Doubles;
+        return continues ? NextRecordPlayerIndex(winner, retired) : current;
+    }
+
+    // 血战续打跳过本局已和退场者。
     // 巡目索引用自己的退场集合，不能读取当前回放节点的 isHu。
     private int NextRecordPlayerIndex(int fromIndex, HashSet<int> huPlayers = null) {
         for (int offset = 1; offset <= RecordPlayerCount; offset++) {
@@ -119,16 +124,18 @@ public partial class GameRecordManager {
         SoundManager.Instance.PlayActionSound(seat, action);
         CancelRecordHuPresentation();
         _recordHuPresentationCoroutine = StartCoroutine(CoPlayXueliuWinRecord(seat, tile, action == "hu_self", multi, from, recycle, qianggang));
-        StartCoroutine(AutoNextActionAfterDelay(0.5f));
+        if (!BuffersRecordStepInput()) StartCoroutine(AutoNextActionAfterDelay(0.5f));
     }
 
     private IEnumerator CoPlayXueliuWinRecord(string seat, int tile, bool zimo, bool multi, string source, bool recycle, bool qianggang) {
+        int generation = RecordNavigationVersion, round = currentRoundIndex, nextNode = currentNode + 1;
         _recordHuPresentationActive = true;
         try {
             yield return Game3DManager.Instance.PlayXueliuWinTile(seat, tile, zimo, multi, source, recycle, qianggang, syncLiveState: false);
         } finally {
             EndRecordHuPresentation();
         }
+        if (BuffersRecordStepInput()) ContinueRecordSettlementAfterHu(generation, round, nextNode);
     }
 
     private bool IsBloodBattleRecord() {
@@ -227,16 +234,12 @@ public partial class GameRecordManager {
     }
 
     private string ResolveRecordRonDiscarderPosition(int? ronDiscarderIndex) {
-        if (ronDiscarderIndex.HasValue && indexToPosition.TryGetValue(ronDiscarderIndex.Value, out string fromTick)) {
-            return fromTick;
-        }
-        if (lastJiagangPlayerIndex >= 0 && indexToPosition.TryGetValue(lastJiagangPlayerIndex, out string jgPos)) {
-            return jgPos;
-        }
-        if (lastDiscardPlayerIndex >= 0 && indexToPosition.TryGetValue(lastDiscardPlayerIndex, out string fallback)) {
-            return fallback;
-        }
-        return null;
+        return indexToPosition.TryGetValue(ResolveRecordRonSourceIndex(ronDiscarderIndex), out var seat) ? seat : null;
+    }
+
+    private int ResolveRecordRonSourceIndex(int? source) {
+        if (source.HasValue && indexToPosition.ContainsKey(source.Value)) return source.Value;
+        return lastJiagangPlayerIndex >= 0 ? lastJiagangPlayerIndex : lastDiscardPlayerIndex;
     }
 
     private void PlaySichuanMidGameHuRecord(
@@ -273,23 +276,27 @@ public partial class GameRecordManager {
             if (action != "hu_self" && recycleDiscard && !isQianggang) {
                 SyncRecordRonDiscardRemoved(discardPos, hepaiTile);
             }
-            yield return new WaitForSeconds(RoundEndTiming.RoundEndHandRevealSeconds);
+            float revealUntil = Time.time + RoundEndTiming.RoundEndHandRevealSeconds;
+            while (!HasPendingRecordStepInput && Time.time < revealUntil) yield return null;
         } finally {
             EndRecordHuPresentation();
         }
 
-        // 只在正常播完后衔接终局结算；取消演出不推进，观战仍由其播放循环驱动。
-        if (IsSpectatorSession || !IsSichuanRecord()
-            || presentationGeneration != _recordPlaybackGeneration
-            || presentationRound != currentRoundIndex || currentNode != nextNode
+        ContinueRecordSettlementAfterHu(presentationGeneration, presentationRound, nextNode);
+    }
+
+    private void ContinueRecordSettlementAfterHu(int generation, int roundIndex, int nextNode) {
+        if (IsSpectatorSession || (!IsSichuanRecord() && !BuffersRecordStepInput())
+            || generation != RecordNavigationVersion
+            || roundIndex != currentRoundIndex || currentNode != nextNode
             || gameRecord?.gameRound?.rounds == null
             || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)
-            || round.actionTicks == null) yield break;
+            || round.actionTicks == null) return;
         int nextVisibleNode = currentNode;
         while (nextVisibleNode < round.actionTicks.Count && IsRecordSilentTick(round.actionTicks[nextVisibleNode])) {
             nextVisibleNode++;
         }
-        if (nextVisibleNode >= round.actionTicks.Count) yield break;
+        if (nextVisibleNode >= round.actionTicks.Count) return;
         string nextAction = round.actionTicks[nextVisibleNode][0];
         // 局中摸打或同一炮的后续和牌仍需手动步进，不能因播完一次和牌就自动续打。
         if (nextAction == "liuju" || nextAction == "blood") NextAction();
