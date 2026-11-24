@@ -13,7 +13,7 @@ public partial class GameCanvas {
 
     public void ShowChangshaDeclarationChanges(ChangshaExchangeSixState previous, ChangshaExchangeSixState current) {
         // 首份快照可能来自重连，恢复头像标记即可，不补播已经发生的声明。
-        if (previous == null) return;
+        if (previous == null || current.restoring) return;
         foreach (var seat in TableMirror.Current.IndexToPosition) {
             if ((current.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key)
                 && !(previous.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key))

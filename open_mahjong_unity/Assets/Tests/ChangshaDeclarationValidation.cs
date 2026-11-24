@@ -60,6 +60,10 @@ public static class ChangshaDeclarationValidation {
         }};
         canvas.ShowChangshaDeclarationChanges(null, declared);
         Check(queues.Count == 0, "reconnect does not replay historical declarations");
+        declared.restoring = true;
+        canvas.ShowChangshaDeclarationChanges(baseline, declared);
+        Check(queues.Count == 0, "restoring over an older snapshot does not replay missed declarations");
+        declared.restoring = false;
         canvas.ShowChangshaDeclarationChanges(baseline, declared);
         yield return null; yield return null;
         Check(views["self"].GetComponent<TMP_Text>().text == "明牌", "open-hand declaration appears at the action position");
