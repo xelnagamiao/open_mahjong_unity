@@ -795,6 +795,7 @@ class ExchangeSixFlow:
     async def declare_kong(self, seat, tile, *, formal, claimed_from=None, defer_lock=False):
         state = self.state
         player = state.player_list[seat]
+        is_mo_gang = bool(player.has_draw_slot and player.hand_tiles and player.hand_tiles[-1] == tile)
         added_index = next((index for index, meld in enumerate(player.combination_tiles) if meld == f"k{tile}"), None)
         concealed = claimed_from is None and added_index is None
         state.current_player_index = seat
@@ -822,18 +823,20 @@ class ExchangeSixFlow:
             mask = player.combination_mask[added_index]
             sideways = mask.index(1)
             mask[sideways:sideways] = [3, tile]
-            player_action_record_jiagang(state, jiagang_tile=tile, is_mo_gang=player.has_draw_slot)
+            player_action_record_jiagang(state, jiagang_tile=tile, is_mo_gang=is_mo_gang)
             await state.broadcast_do_action(action_list=["jiagang" if formal else "buzhang"], action_player=seat,
-                                            combination_mask=mask, combination_target=f"k{tile}")
+                                            combination_mask=mask, combination_target=f"k{tile}",
+                                            is_mo_gang=is_mo_gang)
         else:
             for _ in range(4):
                 player.hand_tiles.remove(tile)
             mask = [0, tile] * 4
             player.combination_tiles.append(f"G{tile}")
             player.combination_mask.append(mask)
-            player_action_record_angang(state, angang_tile=tile, is_mo_gang=player.has_draw_slot, combination_mask=mask)
+            player_action_record_angang(state, angang_tile=tile, is_mo_gang=is_mo_gang, combination_mask=mask)
             await state.broadcast_do_action(action_list=["angang" if formal else "buzhang"], action_player=seat,
-                                            combination_mask=mask, combination_target=f"G{tile}")
+                                            combination_mask=mask, combination_target=f"G{tile}",
+                                            is_mo_gang=is_mo_gang)
         clear_draw_slot(player)
         if formal:
             if not defer_lock:
