@@ -88,7 +88,7 @@ class ExchangeSixFlow:
         self.reported_ready_pass_base = {seat: 0 for seat in range(4)}
         self.deal_dice = []
         self.small_hu_forbidden_seat = None
-        self.pending_ready_discard = None
+        self.dealer_report_pending = False
         self.hidden_draw = None
         self.private_reveal_pending = None
         self.public_kong_tiles = []
@@ -138,6 +138,20 @@ class ExchangeSixFlow:
         if not ignore_small_hu_ban and seat == self.small_hu_forbidden_seat and big_weight(fans) == 0:
             return 0, []
         return base_score(big_weight(fans)), fans
+
+    def report_discards(self, seat):
+        """只推演哪些切牌能听牌，不替庄家预选首切，也不实际移牌。"""
+        hand = self.state.player_list[seat].hand_tiles
+        return [tile for tile in sorted(set(hand))
+                if self.waits(seat, hand[:hand.index(tile)] + hand[hand.index(tile) + 1:], for_report=True)]
+
+    def legal_cut_tiles(self, seat):
+        player = self.state.player_list[seat]
+        if seat == 0 and self.dealer_report_pending:
+            return self.report_discards(seat)
+        if player.open_kong_locked or seat in self.reported_ready:
+            return player.hand_tiles[-1:]
+        return sorted(set(player.hand_tiles))
 
     def prepare_deal(self):
         """开局抓牌骰子与换牌骰子分开记录，座位0始终为本局庄家。"""
@@ -211,14 +225,10 @@ class ExchangeSixFlow:
                 target_tile = targets[0] if not target_tile else target_tile
                 if target_tile not in targets:
                     return False
+            if self.phase == "declarations":
+                target_tile = 0
             if action == "cut":
-                player = state.player_list[seat]
-                if tile_id not in player.hand_tiles:
-                    return False
-                opening_ready_cut = seat == 0 and self.pending_ready_discard is not None
-                if not opening_ready_cut and (player.open_kong_locked or seat in self.reported_ready) and tile_id != player.hand_tiles[-1]:
-                    return False
-                if seat == 0 and self.pending_ready_discard is not None and tile_id != self.pending_ready_discard:
+                if tile_id not in self.legal_cut_tiles(seat):
                     return False
             data = {"action_type": action, "target_tile": target_tile, "TileId": tile_id, "_action_tick": action_tick}
         await state.action_queues[seat].put(data)
@@ -241,12 +251,7 @@ class ExchangeSixFlow:
         player = state.player_list[seat]
         cut_tiles = []
         if "cut" in state.action_dict.get(seat, []) and seat in state.waiting_players_list:
-            if seat == 0 and self.pending_ready_discard is not None:
-                cut_tiles = [self.pending_ready_discard]
-            elif player.open_kong_locked or seat in self.reported_ready:
-                cut_tiles = player.hand_tiles[-1:]
-            else:
-                cut_tiles = sorted(set(player.hand_tiles))
+            cut_tiles = self.legal_cut_tiles(seat)
         return ChangshaExchangeSixResponse(
             gamestate_id=state.gamestate_id,
             state=ExchangeSixState(
@@ -330,7 +335,7 @@ class ExchangeSixFlow:
         actions = tuple(state.action_dict[seat])
         if self.phase in ("exchange", "blind_kong_view"):
             return default_action(seat)
-        forced_cut = (self.pending_ready_discard if seat == 0 and self.pending_ready_discard is not None
+        forced_cut = (self.legal_cut_tiles(seat)[-1] if seat == 0 and self.dealer_report_pending and "cut" in actions
                       else player.hand_tiles[-1] if player.open_kong_locked or seat in self.reported_ready else None)
         if is_auto_cut_bot(player):
             return choose_auto_cut_action(player, actions, [forced_cut] if forced_cut is not None else None)
@@ -434,7 +439,7 @@ class ExchangeSixFlow:
                             if data["action_type"] in ("changsha_report_ready", "changsha_open_hand_ready"):
                                 self.reported_ready.add(seat)
                                 if seat == 0:
-                                    self.pending_ready_discard = data["target_tile"]
+                                    self.dealer_report_pending = True
                             append_action_tick(state, ["changsha_declaration", seat, data["action_type"], data.get("target_tile")])
                         answers[seat] = data
                         if phase not in ("exchange", "claims_recheck"):
@@ -619,19 +624,13 @@ class ExchangeSixFlow:
             await self.four_joy(seat, [tile for tile, count in Counter(player.hand_tiles).items() if count == 4])
         # 四家各选一次，组合声明原子生效，不再选完一项后重新问一轮。
         actions = {}
-        for seat, player in enumerate(self.state.player_list):
+        for seat in range(4):
             choices = ["changsha_open_hand", "pass"]
             self.targets[seat] = {}
             if seat not in self.disqualified:
-                discards = ([tile for tile in sorted(set(player.hand_tiles))
-                             if self.waits(seat, player.hand_tiles[:player.hand_tiles.index(tile)] +
-                                           player.hand_tiles[player.hand_tiles.index(tile) + 1:], for_report=True)]
-                            if seat == 0 else [])
-                if discards or seat != 0 and self.waits(seat, for_report=True):
+                can_report = bool(self.report_discards(seat)) if seat == 0 else bool(self.waits(seat, for_report=True))
+                if can_report:
                     choices = ["changsha_open_hand_ready", "changsha_open_hand", "changsha_report_ready", "pass"]
-                    if discards:
-                        self.targets[seat]["changsha_report_ready"] = discards
-                        self.targets[seat]["changsha_open_hand_ready"] = list(discards)
             actions[seat] = choices
         await self.run_stage("declarations", actions, lambda seat: {"action_type": "pass"})
         self.targets = {seat: {} for seat in range(4)}
@@ -897,6 +896,8 @@ class ExchangeSixFlow:
                                             combination_mask=mask, combination_target=f"G{tile}",
                                             is_mo_gang=is_mo_gang)
         clear_draw_slot(player)
+        if seat == 0:
+            self.dealer_report_pending = False
         if formal:
             if not defer_lock:
                 self.lock_patterns(seat)
@@ -1274,7 +1275,7 @@ class ExchangeSixFlow:
         def default(index):
             if player.is_bot and "hu_self" in actions:
                 return {"action_type": "hu_self"}
-            discard = self.pending_ready_discard if seat == 0 and self.pending_ready_discard is not None else player.hand_tiles[-1]
+            discard = self.legal_cut_tiles(seat)[-1] if seat == 0 and self.dealer_report_pending else player.hand_tiles[-1]
             return {"action_type": "cut", "TileId": discard}
         answers = await self.run_stage("hand", {seat: actions}, default)
         data = answers[seat]
@@ -1283,6 +1284,7 @@ class ExchangeSixFlow:
             self.payer = None
             state.hu_class = "hu_self"
             state.game_status = "END"
+            self.dealer_report_pending = False
         elif data["action_type"] in ("angang", "jiagang", "buzhang"):
             await self.declare_kong(seat, data["target_tile"], formal=data["action_type"] != "buzhang")
         else:
@@ -1299,7 +1301,7 @@ class ExchangeSixFlow:
             self.update_waits(seat)
             self.first_draw_pending.discard(seat)
             if seat == 0:
-                self.pending_ready_discard = None
+                self.dealer_report_pending = False
                 state.xunmu += 1
             await state.broadcast_do_action(action_list=["cut"], action_player=seat, cut_tile=tile,
                                             cut_class=is_draw_cut, cut_tile_index=cut_index)
