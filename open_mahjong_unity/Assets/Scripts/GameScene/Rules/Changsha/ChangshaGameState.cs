@@ -111,6 +111,25 @@ public class ChangshaGameState : TurnBasedGameState {
 
     /// <summary>海底切牌：不走普通弃牌落位，单独摆到海底位置并记入镜像。</summary>
     protected override bool TryApplyFamilyWord(TableAction action, string word) {
+        if (Session.SubRule == ExchangeSixSubRule && word == "buzhang"
+            && action.CombinationTarget?.StartsWith("G") == true) {
+            // 暗杠补张的操作名是补张，实体仍须进入暗杠串行队列，先移手牌再建立四张副露。
+            var player = Mirror.Info(action.Seat);
+            TableMirror.AppendMeld(player, action.CombinationTarget, action.CombinationMask);
+            var removed = GameRecordMeldCodec.ExtractHandTilesFromMask(action.CombinationMask);
+            int drawTile = action.Seat == "self" ? Mirror.LastDealTileId : action.CombinationMask[1];
+            if (action.Seat == "self") {
+                if (action.IsMoGang && removed.Remove(drawTile)) {
+                    Mirror.SelfHandTiles.Remove(drawTile);
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", drawTile, null, null);
+                }
+                foreach (int removedTile in removed) Mirror.SelfHandTiles.Remove(removedTile);
+                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, removed.ToArray(), null);
+            } else player.hand_tiles_count -= 4;
+            Game3DManager.Instance.Change3DTile("angang", drawTile, 4, action.Seat, false,
+                action.CombinationMask, isMoGang: action.IsMoGang);
+            return true;
+        }
         if (Session.SubRule == ExchangeSixSubRule && word == "changsha_batch_claim") {
             Game3DManager.Instance?.PrepareChangshaBatchClaim(Mirror.SeatOf(action.CutFromPlayer.Value), action.CutTile.Value, action.Seat);
             return true;
