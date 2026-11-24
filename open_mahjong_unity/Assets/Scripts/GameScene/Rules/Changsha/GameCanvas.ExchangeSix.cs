@@ -544,7 +544,8 @@ public partial class GameCanvas {
         exchangeSixSelection.Clear();
     }
 
-    public void HideExchangeSixState() {
+    public void HideExchangeSixState(bool keepDeclarations = false) {
+        if (!keepDeclarations) ClearChangshaDeclarations();
         exchangeSixSnapshots.Clear();
         ClearChangshaExchangeControls();
         StopChangshaRecordTransfer();

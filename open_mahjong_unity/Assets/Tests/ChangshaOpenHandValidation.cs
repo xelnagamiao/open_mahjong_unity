@@ -13,9 +13,9 @@ public static class ChangshaOpenHandValidation {
             int[] expected = null;
             snapshot.open_hands?.TryGetValue(entry.Key, out expected);
             bool open = expected != null;
-            if (expected == null) snapshot.four_joy_revealed?.TryGetValue(entry.Key, out expected);
-            var shown = panel.ShowCardsPosition.GetComponentsInChildren<Tile3D>();
-            if (!shown.Select(tile => tile.GetTileId()).SequenceEqual(expected ?? Array.Empty<int>()))
+            if (entry.Value == "self") expected = null;
+            var shown = manager.ChangshaOpenHandRow(entry.Value).GetComponentsInChildren<Tile3D>();
+            if (!shown.Select(tile => tile.GetTileId()).SequenceEqual((expected ?? Array.Empty<int>()).OrderBy(value => value)))
                 throw new Exception("Public hand tile mismatch: " + entry.Value);
             if (panel.cardsPosition.gameObject.activeSelf == open)
                 throw new Exception("Concealed hand visibility mismatch: " + entry.Value);
@@ -23,6 +23,13 @@ public static class ChangshaOpenHandValidation {
             foreach (var tile in shown) {
                 if (!tile.gameObject.activeInHierarchy || Quaternion.Angle(tile.transform.rotation, Quaternion.Euler(90, 0, z)) > .1f)
                     throw new Exception("Public hand must face up: " + entry.Value);
+            }
+            if (shown.Length > 1) {
+                var step = shown[1].transform.position - shown[0].transform.position;
+                if (step.sqrMagnitude < .0001f) throw new Exception("Public hand tiles overlap: " + entry.Value);
+                for (int index = 2; index < shown.Length; index++)
+                    if (Vector3.Distance(shown[index].transform.position - shown[index - 1].transform.position, step) > .01f)
+                        throw new Exception("Public hand must use one evenly spaced row: " + entry.Value);
             }
             checkedSeats++;
         }
