@@ -35,6 +35,7 @@ public class ChangshaGameState : TurnBasedGameState {
 
     public void ApplyExchangeSixSnapshot(ChangshaExchangeSixState snapshot, double receivedAt = 0) {
         if (ExchangeSixSnapshot != null && snapshot.revision < ExchangeSixSnapshot.revision) return;
+        var previous = ExchangeSixSnapshot;
         ExchangeSixSnapshot = snapshot;
         // show_result owns the final hand/reveal animation. The following snapshot
         // still contains the pre-win concealed hand and must not rebuild it.
@@ -43,7 +44,7 @@ public class ChangshaGameState : TurnBasedGameState {
             Clock.IsSelfActionRequired = false;
             GameSceneMouseInputController.Instance?.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
             GameCanvas.Instance?.StopTimeRunning();
-            GameCanvas.Instance?.HideExchangeSixState();
+            GameCanvas.Instance?.HideExchangeSixState(keepDeclarations: true);
             return;
         }
         var hand = snapshot.private_state.hand_tiles ?? new int[0];
@@ -74,6 +75,7 @@ public class ChangshaGameState : TurnBasedGameState {
         }
         else GameCanvas.Instance?.StopTimeRunning();
         GameCanvas.Instance?.ShowExchangeSixState(snapshot, changed);
+        GameCanvas.Instance?.ShowChangshaDeclarationChanges(previous, snapshot);
         Game3DManager.Instance?.SyncChangshaExchangeHands(snapshot.public_state);
     }
 
@@ -81,7 +83,25 @@ public class ChangshaGameState : TurnBasedGameState {
         if (Session.SubRule != ExchangeSixSubRule || ExchangeSixSnapshot == null) return base.CanCutTile(tileId);
         var own = ExchangeSixSnapshot.private_state;
         if (ExchangeSixSnapshot.phase == "exchange") return (own.action_list ?? new string[0]).Contains("changsha_exchange_six");
-        return (own.action_list ?? new string[0]).Contains("cut") && (own.cut_tiles ?? new int[0]).Contains(tileId);
+        if ((own.action_list ?? new string[0]).Contains("cut")) return (own.cut_tiles ?? new int[0]).Contains(tileId);
+        // 等待别人行动不等于禁牌；允许查看、理牌。实际发切仍由allowActionList拦住。
+        var context = own.local_hint_context?["context"];
+        bool locked = context?["locked_patterns"] is Newtonsoft.Json.Linq.JObject
+            || context?["reported_ready"]?.ToObject<bool>() == true;
+        return !locked;
+    }
+
+    protected override void PresentSettlement(SettlementEnvelope env) {
+        if (Session.SubRule != ExchangeSixSubRule || env.HuClass != "initial_hu") {
+            base.PresentSettlement(env);
+            return;
+        }
+        // 四喜只是局中收分。提示独立排队，不被机器人紧随的摸牌或声明覆盖。
+        Presenter.ApplyScores(env.ScoresAfter);
+        if (!env.Silent && Mirror.IndexToPosition.TryGetValue(env.WinnerIndex, out string seat))
+            GameCanvas.Instance?.QueueChangshaDeclaration(seat, "四喜", env.WinnerHand);
+        if (GameCanvas.HasNonZeroGangScoreChanges(env.ScoreChanges))
+            GameCanvas.Instance?.ShowGangScoreFloats(env.ScoreChanges, 0f);
     }
 
     protected override void OnRoundStarted(GameInfo gameInfo) {

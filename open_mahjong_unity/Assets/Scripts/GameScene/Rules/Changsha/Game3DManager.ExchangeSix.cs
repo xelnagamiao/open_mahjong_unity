@@ -62,14 +62,23 @@ public partial class Game3DManager {
             int[] revealed = null;
             openHands.TryGetValue(entry.Key, out revealed);
             bool hideConcealed = revealed != null;
-            if (revealed == null) fourJoy.TryGetValue(entry.Key, out revealed);
-            if (revealed == null) continue;
+            if (exchangeSixHandUpdates.TryGetValue(entry.Value, out var pending) && pending != null) StopCoroutine(pending);
             exchangeSixHandUpdates[entry.Value] = StartCoroutine(SyncExchangeSixSeat(entry.Value, counts[entry.Key], revealed, hideConcealed));
         }
     }
     private readonly Dictionary<string, Coroutine> exchangeSixHandUpdates = new Dictionary<string, Coroutine>();
     private readonly Dictionary<string, int[]> exchangeSixShownHands = new Dictionary<string, int[]>();
     private readonly Dictionary<string, bool> exchangeSixConcealedHidden = new Dictionary<string, bool>();
+    private readonly Dictionary<string, Transform> exchangeSixOpenHandRows = new Dictionary<string, Transform>();
+
+    internal Transform ChangshaOpenHandRow(string seat) {
+        if (!exchangeSixOpenHandRows.TryGetValue(seat, out var row) || row == null) {
+            row = new GameObject("ChangshaOpenHand").transform;
+            row.SetParent(GetPosPanel(seat).transform, false);
+            exchangeSixOpenHandRows[seat] = row;
+        }
+        return row;
+    }
 
     public void SyncChangshaExchangeHands(ChangshaExchangeSixPublic snapshot) {
         foreach (string seat in HandAnimPlayerPositions) {
@@ -77,7 +86,6 @@ public partial class Game3DManager {
             int[] revealed = null;
             snapshot.open_hands?.TryGetValue(index, out revealed);
             bool hideConcealed = revealed != null;
-            if (revealed == null) snapshot.four_joy_revealed?.TryGetValue(index, out revealed);
             int count = TableMirror.Current.Info(seat)?.hand_tiles_count ?? 0;
             if (exchangeSixShownHands.TryGetValue(seat, out int[] previous) &&
                 (previous ?? new int[0]).SequenceEqual(revealed ?? new int[0]) && exchangeSixConcealedHidden[seat] == hideConcealed
@@ -88,6 +96,7 @@ public partial class Game3DManager {
     }
 
     private IEnumerator SyncExchangeSixSeat(string seat, int count, int[] revealed, bool hideConcealed) {
+        yield return null;
         while (HasPendingHandAnimWork(seat)) yield return null;
         var panel = GetPosPanel(seat);
         if (seat != "self" && panel.cardsPosition.childCount != count) {
@@ -97,19 +106,26 @@ public partial class Game3DManager {
             for (int index = 0; index < count; index++) Get3DTile(seat, "init");
         }
         var shown = new List<GameObject>();
-        CollectChildren(panel.ShowCardsPosition, shown);
+        // 独立于和牌倒牌容器，避免普通摸牌动画重排公开行，或回收正在使用的副露对象。
+        var row = ChangshaOpenHandRow(seat);
+        CollectChildren(row, shown);
         foreach (var tile in shown) MahjongObjectPool.Instance.Return(-1, tile);
         panel.cardsPosition.gameObject.SetActive(!hideConcealed);
-        if (revealed != null) foreach (int tile in revealed) {
+        // 本家已有可操作的二维手牌，不再在右下角重复铺一行，避免挡住副露。
+        if (seat != "self" && revealed != null) foreach (int tile in revealed.OrderBy(value => value)) {
             // 明牌使用展示副本，避免占用牌河和副露共用的牌对象。
-            Set3DTile(tile, panel.ShowCardsPosition, "Record", seat, usePresentationCopy: true);
+            Set3DTile(tile, row, "Record", seat, usePresentationCopy: true);
         }
         // Record 默认朝向要配合倒牌动画；公开行不播该动画，须直接把牌面朝上。
-        foreach (Transform tile in panel.ShowCardsPosition) {
+        Vector3 direction = seat == "self" ? RightDirection : seat == "left" ? BackDirection
+            : seat == "top" ? LeftDirection : FrontDirection;
+        Vector3 origin = HandRowOrigin(panel.cardsPosition, direction);
+        int slot = 0;
+        foreach (Transform tile in row) {
             tile.rotation = RiverTileWorldRotation(seat);
-            tile.position = PlaceTileOnTable(tile.position, tile.rotation);
+            tile.position = PlaceTileOnTable(origin + direction.normalized * handStep * slot++, tile.rotation);
         }
-        exchangeSixShownHands[seat] = revealed;
+        exchangeSixShownHands[seat] = revealed == null ? null : (int[])revealed.Clone();
         exchangeSixConcealedHidden[seat] = hideConcealed;
         exchangeSixHandUpdates[seat] = null;
     }
@@ -122,7 +138,7 @@ public partial class Game3DManager {
         foreach (string seat in exchangeSixShownHands.Keys) {
             var panel = GetPosPanel(seat);
             var shown = new List<GameObject>();
-            CollectChildren(panel.ShowCardsPosition, shown);
+            CollectChildren(ChangshaOpenHandRow(seat), shown);
             foreach (var tile in shown) MahjongObjectPool.Instance?.Return(-1, tile);
             panel.cardsPosition.gameObject.SetActive(true);
         }

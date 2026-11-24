@@ -24,10 +24,13 @@ public partial class GameRecordManager {
     private ChangshaExchangeSixChoice exchangeSixRecordChoice;
     private int? exchangeSixRecordSmallHuForbiddenSeat;
     private readonly Dictionary<int, List<int>> exchangeSixRecordFourJoy = new Dictionary<int, List<int>>();
+    private bool exchangeSixRecordAdvancing;
 
     private bool IsExchangeSixRecord() => ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == ChangshaGameState.ExchangeSixSubRule;
 
     private void ResetExchangeSixRecord() {
+        // 手动跳转清掉旧节点提示；顺序步进仍让已排队的四喜完整播完。
+        if (!exchangeSixRecordAdvancing) GameCanvas.Instance?.ClearChangshaDeclarations();
         exchangeSixRecordReady.Clear(); exchangeSixRecordOpen.Clear(); exchangeSixRecordDisqualified.Clear();
         exchangeSixRecordLocked.Clear(); exchangeSixRecordHidden.Clear(); exchangeSixRecordInstant.Clear();
         exchangeSixRecordWins = null;
@@ -246,7 +249,9 @@ public partial class GameRecordManager {
     // 该模式包含不入原手的公开四张批次，顺序播放也沿用跳转推演，防止两套扣牌逻辑漂移。
     private bool AdvanceExchangeSixRecord(List<string> tick) {
         if (!IsExchangeSixRecord() || tick[0].StartsWith("hu_") || tick[0] == "liuju" || tick[0] == "end") return false;
-        GotoAction(currentNode + 1);
+        exchangeSixRecordAdvancing = true;
+        try { GotoAction(currentNode + 1); }
+        finally { exchangeSixRecordAdvancing = false; }
         if (tick[0] == "changsha_deal_dice") GameCanvas.Instance?.PlayChangshaRecordDealDice();
         if (tick[0] == "changsha_exchange_roll") {
             int[] own = null;
@@ -259,6 +264,13 @@ public partial class GameRecordManager {
             }
             GameCanvas.Instance?.PlayChangshaRecordTransfer(indexToPosition, own);
         }
+        // 仅顺序播放报动作；GotoAction重建历史时不补播声明。
+        if (tick[0] == "changsha_declaration" && tick[2] != "pass")
+            GameCanvas.Instance?.QueueChangshaDeclaration(indexToPosition[ParseTickInt(tick, 1)],
+                tick[2] == "changsha_open_hand" ? "明牌" : "报听");
+        if (tick[0] == "changsha_four_joy")
+            GameCanvas.Instance?.QueueChangshaDeclaration(indexToPosition[ParseTickInt(tick, 1)], "四喜",
+                Enumerable.Repeat(ParseTickInt(tick, 2), 4).ToArray());
         return true;
     }
 
