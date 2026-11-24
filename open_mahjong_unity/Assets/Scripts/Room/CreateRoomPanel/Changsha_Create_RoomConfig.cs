@@ -40,7 +40,7 @@ public class Changsha_Create_RoomConfig {
                 return false;
             }
             // 固定子规则忽略隐藏的普通设置，控件原值保留供切回经典双鸟时恢复。
-            TacticalCall = false;
+            TacticalCall = true;
             OpenKongReplacementCount = 4;
             BirdCount = 2;
             DealerBird = false;

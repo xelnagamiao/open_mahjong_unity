@@ -2,7 +2,7 @@
 SUB_RULE = "changsha/exchange_six"
 RULE_VERSION = 2
 FIXED_OPTIONS = {
-    "tactical_call": False,
+    "tactical_call": True,
     "open_kong_replacement_count": 4,
     "bird_count": 2,
     "dealer_bird": False,
