@@ -527,6 +527,7 @@ public partial class GameCanvas {
         switch (action) {
             case "changsha_four_joy": return "四喜";
             case "changsha_report_ready": return "报听";
+            case "changsha_open_hand_ready": return "明牌\n+报听";
             case "changsha_open_hand": return "明牌";
             case "changsha_blind_kong": return "闷杠";
             case "changsha_blind_reveal": return "查看后继续";

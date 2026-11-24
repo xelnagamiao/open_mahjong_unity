@@ -65,13 +65,14 @@ public static class ChangshaDeclarationValidation {
         Check(queues.Count == 0, "restoring over an older snapshot does not replay missed declarations");
         declared.restoring = false;
         canvas.ShowChangshaDeclarationChanges(baseline, declared);
+        canvas.QueueChangshaDeclaration("self", "闷杠");
         yield return null; yield return null;
-        Check(views["self"].GetComponent<TMP_Text>().text == "明牌", "open-hand declaration appears at the action position");
+        Check(views["self"].GetComponent<TMP_Text>().text == "明牌 + 报听", "combined declaration appears as one notification");
         canvas.ShowChangshaDeclarationChanges(declared, declared);
         yield return new WaitForSecondsRealtime(1f);
-        Check(views["self"].GetComponent<TMP_Text>().text == "明牌", "notification is not overwritten by the next declaration");
+        Check(views["self"].GetComponent<TMP_Text>().text == "明牌 + 报听", "notification is not overwritten by the next declaration");
         yield return new WaitForSecondsRealtime(1.7f);
-        Check(views["self"].GetComponent<TMP_Text>().text == "报听", "second declaration plays in order");
+        Check(views["self"].GetComponent<TMP_Text>().text == "闷杠", "second declaration plays in order");
         yield return new WaitForSecondsRealtime(2.7f);
         Check(views.Count == 0, "repeated snapshot does not add duplicate notifications");
 
@@ -96,6 +97,20 @@ public static class ChangshaDeclarationValidation {
         canvas.HideExchangeSixState();
         yield return null;
         Check(views.Count == 0 && queues.Count == 0 && fourJoy == null, "exit clears visible and pending notifications");
+        // 合并菜单沿用正式操作栏，确认四种选择及完整的组合文字。
+        for (var parent = canvas.ActionButtonHost; parent != null; parent = parent.parent) parent.gameObject.SetActive(true);
+        snapshot = new ChangshaExchangeSixState {phase = "declarations", public_state = new ChangshaExchangeSixPublic(), private_state = new ChangshaExchangeSixPrivate()};
+        snapshot.private_state.action_list = new[] {"changsha_open_hand_ready", "changsha_open_hand", "changsha_report_ready", "pass"};
+        snapshot.private_state.targets = new Dictionary<string, int[]>();
+        typeof(ChangshaGameState).GetProperty("ExchangeSixSnapshot").SetValue(state, snapshot);
+        canvas.ShowExchangeSixState(snapshot, false);
+        yield return null; yield return null;
+        var labels = canvas.GetComponentsInChildren<TMP_Text>().Select(label => label.text.Replace("\n", "")).ToArray();
+        Check(new[] {"明牌+报听", "明牌", "报听", "过"}.All(labels.Contains), "one menu contains all four opening choices");
+        var combined = canvas.GetComponentsInChildren<TMP_Text>().First(label => label.text.Replace("\n", "") == "明牌+报听");
+        combined.ForceMeshUpdate();
+        Check(!combined.isTextOverflowing, "combined choice caption is fully visible");
+        canvas.HideExchangeSixState();
         Debug.Log("CHANGSHA_DECLARATION_VALIDATION_PASSED checks=" + Checks);
     }
 }

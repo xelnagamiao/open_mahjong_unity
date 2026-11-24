@@ -429,9 +429,9 @@ class ExchangeSixFlow:
                             self.submissions[seat] = chosen
                         if phase == "declarations":
                             # 声明一经确认就生效并广播，不能等其他玩家选完才公开手牌。
-                            if data["action_type"] == "changsha_open_hand":
+                            if data["action_type"] in ("changsha_open_hand", "changsha_open_hand_ready"):
                                 self.open_hands.add(seat)
-                            elif data["action_type"] == "changsha_report_ready":
+                            if data["action_type"] in ("changsha_report_ready", "changsha_open_hand_ready"):
                                 self.reported_ready.add(seat)
                                 if seat == 0:
                                     self.pending_ready_discard = data["target_tile"]
@@ -617,33 +617,23 @@ class ExchangeSixFlow:
         self.exchange_closed = True
         for seat, player in enumerate(self.state.player_list):
             await self.four_joy(seat, [tile for tile, count in Counter(player.hand_tiles).items() if count == 4])
-        pending = set(range(4))
-        while pending:
-            actions = {}
-            for seat in sorted(pending):
-                player = self.state.player_list[seat]
-                choices = ["pass"]
-                self.targets[seat] = {}
-                if seat not in self.open_hands:
-                    choices.insert(0, "changsha_open_hand")
-                if seat not in self.reported_ready and seat not in self.disqualified:
-                    if seat == 0:
-                        discards = [tile for tile in sorted(set(player.hand_tiles))
-                                    if self.waits(seat, player.hand_tiles[:player.hand_tiles.index(tile)] +
-                                                  player.hand_tiles[player.hand_tiles.index(tile) + 1:], for_report=True)]
-                        if discards:
-                            self.targets[seat]["changsha_report_ready"] = discards
-                            choices.insert(0, "changsha_report_ready")
-                    elif self.waits(seat, for_report=True):
-                        choices.insert(0, "changsha_report_ready")
-                actions[seat] = choices
-            answers = await self.run_stage("declarations", actions, lambda seat: {"action_type": "pass"})
-            for seat, data in answers.items():
-                if data["action_type"] == "pass":
-                    pending.discard(seat)
-                if seat in self.open_hands and seat in self.reported_ready:
-                    pending.discard(seat)
-            await self.broadcast()
+        # 四家各选一次，组合声明原子生效，不再选完一项后重新问一轮。
+        actions = {}
+        for seat, player in enumerate(self.state.player_list):
+            choices = ["changsha_open_hand", "pass"]
+            self.targets[seat] = {}
+            if seat not in self.disqualified:
+                discards = ([tile for tile in sorted(set(player.hand_tiles))
+                             if self.waits(seat, player.hand_tiles[:player.hand_tiles.index(tile)] +
+                                           player.hand_tiles[player.hand_tiles.index(tile) + 1:], for_report=True)]
+                            if seat == 0 else [])
+                if discards or seat != 0 and self.waits(seat, for_report=True):
+                    choices = ["changsha_open_hand_ready", "changsha_open_hand", "changsha_report_ready", "pass"]
+                    if discards:
+                        self.targets[seat]["changsha_report_ready"] = discards
+                        self.targets[seat]["changsha_open_hand_ready"] = list(discards)
+            actions[seat] = choices
+        await self.run_stage("declarations", actions, lambda seat: {"action_type": "pass"})
         self.targets = {seat: {} for seat in range(4)}
         self.opening_done = True
         self.state.current_player_index = 0

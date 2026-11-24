@@ -926,15 +926,9 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(flow.phase, "declarations")
             self.assertEqual(flow.reported_ready, set())
             self.assertEqual(flow.open_hands, set())
-            await self.action(state, 0, "changsha_report_ready", target=33)
+            await self.action(state, 0, "changsha_open_hand_ready", target=33)
             for seat in (1, 2, 3):
                 await self.action(state, seat, "pass")
-            first_tick = state.server_action_tick
-            for _ in range(100):
-                if state.server_action_tick != first_tick:
-                    break
-                await asyncio.sleep(0)
-            await self.action(state, 0, "changsha_open_hand")
             await asyncio.wait_for(task, 1)
         pending = asyncio.create_task(flow.hand_action(first=True))
         await self.wait_for_opening(state)
@@ -972,14 +966,8 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(reconnect["state"]["public_state"]["open_hands"], {"1": hand})
                 ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
                 self.assertEqual(ticks.count(["changsha_declaration", 1, "changsha_open_hand", 0]), 1)
-                first_tick = state.server_action_tick
                 for seat in (0, 2, 3):
                     await self.action(state, seat, "pass")
-                for _ in range(100):
-                    if state.server_action_tick != first_tick:
-                        break
-                    await asyncio.sleep(0)
-                await self.action(state, 1, "pass")
                 await asyncio.wait_for(task, 1)
                 self.assertEqual(ticks.count(["changsha_declaration", 1, "changsha_open_hand", 0]), 1)
             finally:

@@ -15,12 +15,11 @@ public partial class GameCanvas {
         // 首份快照可能来自重连，恢复头像标记即可，不补播已经发生的声明。
         if (previous == null || current.restoring) return;
         foreach (var seat in TableMirror.Current.IndexToPosition) {
-            if ((current.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key)
-                && !(previous.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key))
-                QueueChangshaDeclaration(seat.Value, "明牌");
-            if ((current.public_state.reported_ready_seats ?? new int[0]).Contains(seat.Key)
-                && !(previous.public_state.reported_ready_seats ?? new int[0]).Contains(seat.Key))
-                QueueChangshaDeclaration(seat.Value, "报听");
+            bool opened = (current.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key)
+                && !(previous.public_state.open_hand_seats ?? new int[0]).Contains(seat.Key);
+            bool ready = (current.public_state.reported_ready_seats ?? new int[0]).Contains(seat.Key)
+                && !(previous.public_state.reported_ready_seats ?? new int[0]).Contains(seat.Key);
+            if (opened || ready) QueueChangshaDeclaration(seat.Value, opened && ready ? "明牌 + 报听" : opened ? "明牌" : "报听");
         }
         if (current.phase == "blind_kong_declared" && previous.phase != current.phase
             && TableMirror.Current.IndexToPosition.TryGetValue(current.public_state.current_player_index, out string opener))
