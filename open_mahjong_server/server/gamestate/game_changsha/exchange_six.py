@@ -663,7 +663,10 @@ class ExchangeSixFlow:
             for tile in tiles:
                 if suppress_hu:
                     continue
-                score, fans = self.result(seat, tile, ways=self.ways(seat, kong=kong, rob=rob, sea=sea))
+                # 付款者的声明会让这一笔升大胡，禁小胡不能在升番之前拦截。
+                payer_declared = opener in self.open_hands or opener in self.reported_ready
+                score, fans = self.result(seat, tile, ways=self.ways(seat, kong=kong, rob=rob, sea=sea),
+                                          ignore_small_hu_ban=payer_declared)
                 if only_thirteen and not set(fans).intersection(("十三将", "无对十三将")):
                     continue
                 if score:
