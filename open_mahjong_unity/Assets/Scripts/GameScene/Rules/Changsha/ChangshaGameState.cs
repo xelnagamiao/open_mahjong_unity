@@ -77,6 +77,7 @@ public class ChangshaGameState : TurnBasedGameState {
         GameCanvas.Instance?.ShowExchangeSixState(snapshot, changed);
         GameCanvas.Instance?.ShowChangshaDeclarationChanges(previous, snapshot);
         Game3DManager.Instance?.SyncChangshaExchangeHands(snapshot.public_state);
+        Game3DManager.Instance?.SyncChangshaExchangeClaims(snapshot);
     }
 
     public override bool CanCutTile(int tileId) {

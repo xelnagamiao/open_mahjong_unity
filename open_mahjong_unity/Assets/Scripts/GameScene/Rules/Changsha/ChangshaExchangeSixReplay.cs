@@ -223,10 +223,15 @@ public partial class GameRecordManager {
         var fourJoy = exchangeSixRecordFourJoy.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray());
         var counts = recordPlayerList.ToDictionary(player => player.playerIndex, player => player.tileList.Count);
         Game3DManager.Instance?.SyncChangshaExchangeRecordHands(open, fourJoy, indexToPosition, counts);
-        GameCanvas.Instance?.ShowExchangeSixState(new ChangshaExchangeSixState {
+        var snapshot = new ChangshaExchangeSixState {
             remaining_time = exchangeSixRecordChoiceSeconds,
             phase = exchangeSixRecordChoicePhase ?? (exchangeSixRecordExchanging ? exchangeSixRecordRolling ? "exchange_dice" : "exchange" : exchangeSixRecordPublicTiles.Length > 0 ? "open_kong_public" : "playing"),
             public_state = new ChangshaExchangeSixPublic {kong_tiles = exchangeSixRecordPublicTiles, kong_dice = exchangeSixRecordDice,
+                current_player_index = currentPlayerIndex,
+                pending_kong = exchangeSixRecordPublicTiles.Length > 0 ? new ChangshaExchangeSixPendingKong {
+                    player_index = currentPlayerIndex,
+                    river_start = recordPlayer_to_info[indexToPosition[currentPlayerIndex]].discardTiles.Count
+                } : null,
                 exchange_round = exchangeSixRecordRound, completed_exchange_rounds = exchangeSixRecordCompletedRounds,
                 exchange_choice = exchangeSixRecordChoice,
                 dice = exchangeSixRecordExchangeDice, source_offset = exchangeSixRecordSourceOffset,
@@ -234,7 +239,9 @@ public partial class GameRecordManager {
                 reported_ready_seats = exchangeSixRecordReady.ToArray(), open_hand_seats = exchangeSixRecordOpen.ToArray(),
                 disqualified_seats = exchangeSixRecordDisqualified.ToArray()},
             private_state = new ChangshaExchangeSixPrivate {action_list = Array.Empty<string>()},
-        }, false);
+        };
+        GameCanvas.Instance?.ShowExchangeSixState(snapshot, false);
+        Game3DManager.Instance?.SyncChangshaExchangeClaims(snapshot, indexToPosition);
     }
 
     private IEnumerator AnnounceExchangeSixRecordWinners(string huClass) {

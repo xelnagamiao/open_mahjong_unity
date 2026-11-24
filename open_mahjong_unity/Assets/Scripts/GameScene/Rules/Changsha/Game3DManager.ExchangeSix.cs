@@ -131,6 +131,7 @@ public partial class Game3DManager {
     }
 
     public void ClearChangshaExchangeHands() {
+        ClearChangshaExchangeClaims();
         foreach (var update in exchangeSixRiverUpdates.Values) if (update != null) StopCoroutine(update);
         exchangeSixRiverUpdates.Clear();
         foreach (var update in exchangeSixHandUpdates.Values) if (update != null) StopCoroutine(update);

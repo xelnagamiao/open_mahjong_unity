@@ -58,6 +58,7 @@ public sealed class ChangshaExchangeSixPublic {
     public Dictionary<int, int[]> four_joy_revealed;
     public int[] claim_tiles;
     public int[] kong_tiles;
+    public ChangshaExchangeSixPendingKong pending_kong;
     public int[] kong_dice;
     public int[] kong_positions;
     public bool blind_kong;
@@ -66,6 +67,12 @@ public sealed class ChangshaExchangeSixPublic {
     public Dictionary<int, int> hand_counts;
     public int remaining_tiles;
     public ChangshaExchangeSixSettlement[] settlements;
+}
+
+public sealed class ChangshaExchangeSixPendingKong {
+    public int player_index;
+    public int river_start;
+    public bool discarded;
 }
 
 public sealed class ChangshaExchangeSixChoice {

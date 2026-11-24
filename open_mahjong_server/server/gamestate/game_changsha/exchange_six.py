@@ -92,6 +92,7 @@ class ExchangeSixFlow:
         self.hidden_draw = None
         self.private_reveal_pending = None
         self.public_kong_tiles = []
+        self.pending_kong = None
         self.kong_sequence = 0
         self.blind_kong = False
         self.wins = {}
@@ -265,6 +266,7 @@ class ExchangeSixFlow:
                                    for index in self.open_hands},
                     "four_joy_revealed": {str(index): list(tiles) for index, tiles in self.four_joy_revealed.items()},
                     "claim_tiles": list(self.claim_tiles), "kong_tiles": list(self.public_kong_tiles),
+                    "pending_kong": dict(self.pending_kong) if self.pending_kong is not None else None,
                     "blind_kong": self.blind_kong, "current_player_index": state.current_player_index,
                     "kong_dice": list(self.kong_dice), "kong_positions": list(self.kong_positions),
                     "hidden_draw_pending": self.hidden_draw is not None or self.private_reveal_pending is not None,
@@ -750,6 +752,8 @@ class ExchangeSixFlow:
                 groups = []
             results[seat] = groups
             choices = [f"hu_{('first', 'second', 'third')[distance - 1]}"] if groups else []
+            if groups:
+                self.targets[seat][choices[0]] = list(dict.fromkeys(tile for group in groups for tile in group["tiles"]))
             if allow_meld and len(state.tiles_list) > 1 and "peida" not in player.tag_list and seat not in self.reported_ready and not player.open_kong_locked:
                 for tile in tiles:
                     if player.hand_tiles.count(tile) >= 3:
@@ -766,7 +770,7 @@ class ExchangeSixFlow:
                             if all(value in VALID_TILES and value // 10 == tile // 10 for value in needed):
                                 if all(player.hand_tiles.count(value) >= needed.count(value) for value in needed):
                                     self.targets[seat].setdefault(action, []).append(tile)
-                choices.extend(self.targets[seat])
+                choices.extend(action for action in self.targets[seat] if action not in choices)
             if choices:
                 actions[seat] = choices + ["pass"]
         if not actions:
@@ -958,6 +962,7 @@ class ExchangeSixFlow:
         state = self.state
         seat = state.current_player_index
         self.public_kong_tiles = []
+        self.pending_kong = None
         self.four_joy_revealed.pop(seat, None)
         self.update_waits(seat)
         candidates = {tile: action for tile, (action, ready) in self.kong_candidates(seat, blind=True).items() if ready}
@@ -979,7 +984,7 @@ class ExchangeSixFlow:
         # 声明先公开，隐藏摸牌先从墙移出，再按新牌墙定位四张杠牌。
         self.hidden_draw = state.tiles_list.pop(0) if source == "normal" else self.take_single_replacement()
         append_action_tick(state, ["changsha_hidden_draw", seat, source, self.hidden_draw])
-        self.public_kong_tiles = self.take_open_kong_tiles()
+        self.begin_kong_presentation(self.take_open_kong_tiles())
         self.phase = "blind_kong_public"
         await self.broadcast()
         player = state.player_list[seat]
@@ -1029,7 +1034,7 @@ class ExchangeSixFlow:
             await state.broadcast_do_action(action_list=["deal_gang_tile"], action_player=seat, deal_tile=tile)
             await self.after_normal_draw(tile)
             return
-        self.public_kong_tiles = self.take_open_kong_tiles()
+        self.begin_kong_presentation(self.take_open_kong_tiles())
         if self.public_kong_tiles:
             # 一次公开杠牌批次算一次实际取牌，不能让后续续杠仍冒充首摸地胡。
             self.note_actual_draw(seat)
@@ -1037,11 +1042,19 @@ class ExchangeSixFlow:
         await self.broadcast()
         await self.resolve_kong_batch(self.public_kong_tiles)
 
+    def begin_kong_presentation(self, tiles):
+        self.public_kong_tiles = list(tiles)
+        seat = self.state.current_player_index
+        self.pending_kong = ({"player_index": seat, "river_start": len(self.state.player_list[seat].discard_tiles),
+                              "discarded": False} if tiles else None)
+
     async def discard_batch(self, tiles, *, clear_pass=True):
         state = self.state
         seat = state.current_player_index
         for tile in tiles:
             state.player_list[seat].discard_tiles.append(tile)
+        if self.pending_kong is not None and self.pending_kong["player_index"] == seat and list(tiles) == self.public_kong_tiles:
+            self.pending_kong["discarded"] = True
         if tiles:
             self.first_draw_pending.discard(seat)
             append_action_tick(state, ["changsha_batch_discard", seat, list(tiles)])
@@ -1057,6 +1070,16 @@ class ExchangeSixFlow:
         await vote_checkpoint(self.state)
 
     async def resolve_kong_batch(self, tiles):
+        try:
+            await self.resolve_pending_kong_batch(tiles)
+        finally:
+            # 全桌都以这份权威状态收起待鸣牌标记，过牌、续杠、被吃碰和胡牌共用清理。
+            self.pending_kong = None
+            self.public_kong_tiles = []
+            if self.state.game_status != "END":
+                await self.broadcast()
+
+    async def resolve_pending_kong_batch(self, tiles):
         state = self.state
         seat = state.current_player_index
         player = state.player_list[seat]
