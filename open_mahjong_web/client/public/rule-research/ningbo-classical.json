@@ -13,7 +13,7 @@
   "sources": [
     {
       "id": "lib-classical",
-      "url": "/rulebooks/classical-rulebook.pdf",
+      "url": "/rulebooks/古典麻将规则.pdf",
       "title": "古典麻将规则书",
       "type": "rulebook",
       "lang": "zh",
@@ -24,13 +24,13 @@
       ],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/classical-rulebook.pdf",
+      "local_path": "rulebooks/古典麻将规则.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },
     {
       "id": "lib-drawing",
-      "url": "/rulebooks/drawing-mahjong.pdf",
+      "url": "/rulebooks/绘图麻雀牌谱.pdf",
       "title": "绘图麻雀牌谱",
       "type": "rulebook",
       "lang": "zh",
@@ -42,14 +42,14 @@
       ],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/drawing-mahjong.pdf",
+      "local_path": "rulebooks/绘图麻雀牌谱.pdf",
       "local_kind": "file",
       "local_status": "ok",
       "edition_verified": "1924-03"
     },
     {
       "id": "lib-shinbara",
-      "url": "/rulebooks/shinbara-ningbo.html",
+      "url": "/rulebooks/想定宁波规则.html",
       "title": "想定宁波规则（榛原 1952）",
       "type": "rulebook",
       "lang": "zh",
@@ -60,7 +60,7 @@
       ],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/shinbara-ningbo.html",
+      "local_path": "rulebooks/想定宁波规则.html",
       "local_kind": "file",
       "local_status": "ok"
     },

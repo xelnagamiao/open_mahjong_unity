@@ -1,6 +1,12 @@
 // Shared reviewed UI translations. Keep source keys and placeholders unchanged.
 export default {
   "messages": {
+    "连接本地测试服务": "Mit lokalem Testserver verbinden",
+    "连接远程服务器": "Mit entferntem Server verbinden",
+    "换三张": "Drei Steine tauschen",
+    "留空自动生成": "Für automatische Erstellung leer lassen",
+    "按随机种子生成两室相同牌山，不创建复式密钥。": "Beide Tische verwenden dieselbe aus dem Startwert erzeugte Mauer. Es wird kein Duplikatschlüssel erstellt.",
+    "使用对应类型的复式密钥，副数跟随密钥。": "Verwende einen Duplikatschlüssel des gewählten Typs. Er legt die Anzahl der Spiele fest.",
     "广东麻将（推广）2V2 双打": "Guangdong-Mahjong · 2 gegen 2",
     "牌谱不可用": "Aufzeichnung nicht verfügbar",
     "上饶麻将（飞宝）": "Shangrao-Mahjong (Feibao)",
@@ -6260,7 +6266,7 @@ export default {
     "一色三顺": "Reines Dreifach-Chi",
     "二色同刻": "Zwei gleiche Pongs",
     "一色二顺": "Reines Doppel-Chi",
-    "other/rule/inclued_rule/新编MCR.pdf": "other/rule/inclued_rule/新编MCR.pdf",
+    "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
     "在 Salasasa 免费在线玩国标麻将 MCR，支持自动算番、段位匹配和牌谱复盘。浏览器 2D 无需下载，另有多规则客户端与麻将学习工具。": "Spiele MCR-Mahjong kostenlos online auf Salasasa, mit automatischer Fan-Berechnung, rangbasierter Spielersuche und Spielprotokollanalyse. 2D im Browser ohne Download; außerdem Clients für mehrere Regelwerke und Mahjong-Lernwerkzeuge.",
     "免费在线玩国标麻将 MCR | Salasasa": "MCR-Mahjong kostenlos online spielen | Salasasa",
     "在浏览器中免费进行国标麻将 MCR 对局，支持自动算番、段位匹配与牌谱复盘，界面提供简繁中文、英语、日语和法语。": "Spiele MCR-Mahjong kostenlos im Browser, mit automatischer Fan-Berechnung, rangbasierter Spielersuche und Spielprotokollanalyse. Die Oberfläche ist auf vereinfachtem und traditionellem Chinesisch, Englisch, Japanisch und Französisch verfügbar.",

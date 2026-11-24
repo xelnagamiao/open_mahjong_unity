@@ -10,19 +10,19 @@ public partial class RoundEndPresentation {
     public const float DrawNotenPenaltyHoldSeconds = 3f;
 
     public void PresentLiuju(string displayText, bool playPresentationEffects = true,
-        Dictionary<int, int[]> tenpaiTiles = null, IDictionary<int, string> indexToPosition = null) {
+        Dictionary<int, int[]> tenpaiTiles = null, IDictionary<int, string> indexToPosition = null, int publicBaoTile = 0) {
         if (SettlementSync.IsRestoring) {
             StopActiveSequence();PreparePresentationRoot(false);
-            EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition);
+            EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition, publicBaoTile);
             return;
         }
-        StartSequence(CoLiuju(displayText, playPresentationEffects, tenpaiTiles, indexToPosition));
+        StartSequence(CoLiuju(displayText, playPresentationEffects, tenpaiTiles, indexToPosition, publicBaoTile));
     }
 
     private IEnumerator CoLiuju(string displayText, bool playPresentationEffects,
-        Dictionary<int, int[]> tenpaiTiles, IDictionary<int, string> indexToPosition) {
+        Dictionary<int, int[]> tenpaiTiles, IDictionary<int, string> indexToPosition, int publicBaoTile) {
         PreparePresentationRoot(playPresentationEffects);
-        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition);
+        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition, publicBaoTile);
         yield return PlayAfterFade(
             () => EndLiujuPanel.Instance.PlayPreparedLiujuPanel(DrawCaptionHoldSeconds),
             playPresentationEffects
@@ -30,12 +30,14 @@ public partial class RoundEndPresentation {
     }
 
     /// <summary>荒牌流局：听牌展开手牌、流局与听牌标记、不听罚符分数变化三段演出。</summary>
-    public void PresentDrawWallLiujuAndPenalty(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras, bool playPresentationEffects = true) {
+    public void PresentDrawWallLiujuAndPenalty(string displayText, Dictionary<int, int> player_to_score,
+        RiichiEndResultExtras riichiExtras, bool playPresentationEffects = true, int publicBaoTile = 0) {
         StartSequence(CoRiichiDrawWallLiujuSequence(displayText, player_to_score, riichiExtras,
-            playPresentationEffects && !SettlementSync.IsRestoring));
+            playPresentationEffects && !SettlementSync.IsRestoring, publicBaoTile));
     }
 
-    private IEnumerator CoRiichiDrawWallLiujuSequence(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras, bool playPresentationEffects) {
+    private IEnumerator CoRiichiDrawWallLiujuSequence(string displayText, Dictionary<int, int> player_to_score,
+        RiichiEndResultExtras riichiExtras, bool playPresentationEffects, int publicBaoTile) {
         HideSelfGameplayControl(false);
         if (riichiExtras?.NagashiManganWinners?.Length > 0) displayText = "流局满贯";
         Dictionary<int, int[]> tenpaiTiles = riichiExtras != null ? riichiExtras.TenpaiTiles : null;
@@ -45,7 +47,7 @@ public partial class RoundEndPresentation {
         }
 
         PreparePresentationRoot(playPresentationEffects);
-        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles);
+        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, publicBaoTile: publicBaoTile);
         yield return PlayPresentationFade(playPresentationEffects);
         if (!SettlementSync.IsRestoring) {
             EndLiujuPanel.Instance.PlayPreparedLiujuPanel(DrawCaptionHoldSeconds);

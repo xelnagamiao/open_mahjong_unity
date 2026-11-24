@@ -40,6 +40,7 @@ test('subrule order follows the Unity create-room panel, including variants form
   assert.equal(PLATFORM_RULE_GROUPS.find(group => group.value === 'new_chinese').label, '自定义规则');
   assert.deepEqual(platformSubRuleOptions('new_chinese').map(rule => [rule.sub_rule, rule.label]), [
     ['new_chinese/standard', '新中式麻将'],
+    ['new_chinese/sanhua', '散花天才麻将'],
   ]);
   assert.equal(platformSubRuleOptions('guobiao')[0].label, '标准规(新编MCR)');
   assert.equal(PLATFORM_RULE_GROUPS.find(rule => rule.value === 'singapore').label, '新加坡四人麻将');

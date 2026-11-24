@@ -29,11 +29,14 @@ WAIT_FANS = {3: "听三张", 4: "听四张", 5: "听五张", 6: "听六张", 7: 
 
 def normalize_config(value=None):
     value = {} if value is None else value
-    if not isinstance(value, dict) or set(value) - {"rule_version", "exchange_three"}:
+    if not isinstance(value, dict) or set(value) - {"rule_version", "exchange_three", "showdown"}:
         raise ValueError("未知的新中式麻将配置")
-    if value.get("rule_version", RULE_VERSION) != RULE_VERSION or type(value.get("exchange_three", False)) is not bool:
-        raise ValueError("无效的新中式麻将版本或换三张设置")
-    return {"rule_version": RULE_VERSION, "exchange_three": value.get("exchange_three", False)}
+    if (value.get("rule_version", RULE_VERSION) != RULE_VERSION
+            or type(value.get("exchange_three", False)) is not bool
+            or type(value.get("showdown", False)) is not bool):
+        raise ValueError("无效的新中式麻将版本、换三张或摊牌设置")
+    return {"rule_version": RULE_VERSION, "exchange_three": value.get("exchange_three", False),
+            "showdown": value.get("showdown", False)}
 
 
 def room_fan_limit(value, exchange_three):
@@ -269,10 +272,12 @@ def score(hand, codes, winning_tile, source, *, after_kong=False, chain=0, visib
     _, qualified, legal, nine = _analysis(before, codes)
     self_obtained = source in ("self_draw", "bao_seen", "bao_draw")
     minimum_fan = EXCHANGE_FAN_LIMIT if exchange_three else hepai_limit
-    last_copy_in_pair = visible + before.count(winning_tile) == 3
+    held = before.count(winning_tile)
     best, best_key = None, None
     for tile in sorted(legal if source == "bao_draw" else legal.intersection((winning_tile,))):
-        for shape in qualified.get((tile, self_obtained), ()):
+        shapes = qualified.get((tile, self_obtained), ())
+        allow_last_copy = source != "bao_draw" and not (held == 3 and any(s.kind == "seven_pairs" for s in shapes))
+        for shape in shapes:
             fans = dict(_shape_fans(before, codes, tile, shape, self_obtained))
             if "九宝莲灯之准灯高挂" not in fans:
                 if nine:
@@ -281,8 +286,8 @@ def score(hand, codes, winning_tile, source, *, after_kong=False, chain=0, visib
                 elif len(legal) in WAIT_FANS:
                     name = WAIT_FANS[len(legal)]
                     fans[name] = VALUES[name]
-            if visible >= 3 or (last_copy_in_pair and tile == winning_tile
-                                and shape.kind != "orphans" and shape.winning_component < 0):
+            if allow_last_copy and (visible >= 3 or (
+                    visible + held == 3 and shape.kind != "orphans" and shape.winning_component < 0)):
                 fans["绝张"] = VALUES["绝张"]
             if after_kong and source in ("self_draw", "bao_draw"):
                 fans["杠上开花"] = VALUES["杠上开花"]

@@ -62,6 +62,24 @@ test('two table keys map to one replay and a missing sibling remains explicit', 
   assert.throws(() => mergeReplayRows([first, { ...first, record: { ...first.record, seed: 1n } }]), /冲突/)
 })
 
+test('importing compact and expanded copies preserves source actions and legacy cursor maps', async () => {
+  const { replayTableView } = await import('../src/utils/replayTable.js')
+  const { convertedReplay } = await import('../src/utils/recordConvert/convertedReplay.js')
+  const expanded = mergeReplayRows([detail('Lsolo')]).row
+  const compact = structuredClone(expanded)
+  compact.record.storage_codec = 'om.single_round_meta.v1'
+  const round = compact.record.tables.main.round_meta.round_index_1
+  delete round.action_meta
+  // The original source included a transport prompt, so the explicit map must survive.
+  assert.deepEqual(round.legacy_node_map, [0, 0, 1])
+  assert.deepEqual(mergeReplayRows([expanded, compact]).row.record, expanded.record)
+  assert.deepEqual(selectCachedReplay(compact), selectCachedReplay(expanded))
+  assert.deepEqual(replayTableView(compact), replayTableView(expanded))
+  assert.deepEqual(replayTableView(compact.record), replayTableView(expanded.record))
+  assert.deepEqual(convertedReplay(compact), expanded.record)
+  assert.equal(Object.hasOwn(round, 'action_meta'), false)
+})
+
 test('transport parser preserves 64-bit integer tokens, numeric-looking strings and object keys', () => {
   const json =
     '{"unsigned":18446744073709551615,"signed":-9223372036854775808,"str":"18446744073709551615","__proto__":{"n":1}}'

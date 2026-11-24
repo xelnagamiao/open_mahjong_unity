@@ -1,6 +1,6 @@
 {
   "id": "guobiao",
-  "source": "other/rule/inclued_rule/新编MCR.pdf",
+  "source": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
   "pages": [
     {
       "id": "rules",
@@ -15,7 +15,7 @@
             2
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -27,7 +27,7 @@
             9
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -68,7 +68,7 @@
             7
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -80,7 +80,7 @@
             8
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -100,7 +100,7 @@
             7
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -111,7 +111,7 @@
             7
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -122,7 +122,7 @@
             9
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -133,7 +133,7 @@
             9
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         }
       ]
@@ -150,7 +150,7 @@
             14
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -161,7 +161,7 @@
             16
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -172,7 +172,7 @@
             17
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -183,7 +183,7 @@
             17
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -194,7 +194,7 @@
             17
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -205,7 +205,7 @@
             17
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -216,7 +216,7 @@
             17
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -227,7 +227,7 @@
             20
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         },
         {
@@ -238,7 +238,7 @@
             9
           ],
           "sources": [
-            "other/rule/inclued_rule/新编MCR.pdf"
+            "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
           ]
         }
       ]

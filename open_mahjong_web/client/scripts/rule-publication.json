@@ -3,7 +3,6 @@
     "chuanyu/snapshots/91y-xuezhan-xueliu.html",
     "chuanyu/snapshots/mahjonget.html",
     "chuanyu/snapshots/tencent-tmt-2016.html",
-    "drawing-mahjong/files/drawing-mahjong-local.pdf",
     "hongkong/files/aimj-hk-pdf.pdf",
     "hongkong/files/hkma-16tile-en-doc.pdf",
     "hongkong/files/hkma-16tile-pdf-ref.pdf",
@@ -27,7 +26,6 @@
     "mahjong-phylogeny/files/arxiv-2013.pdf",
     "mahjong-phylogeny/files/culin-1895.pdf",
     "mahjong-phylogeny/files/culin-1924.html",
-    "mahjong-phylogeny/files/drawing-local.pdf",
     "mahjong-phylogeny/files/fan-zengxiang-1906.pdf",
     "mahjong-phylogeny/files/greene-2015.pdf",
     "mahjong-phylogeny/files/hu-shi-1927.html",
@@ -88,7 +86,6 @@
     "mahjong-studies/files/paijing-13.html",
     "mahjong-studies/files/parlett-leaf.html",
     "mahjong-studies/files/qingbai-087.html",
-    "mahjong-studies/files/shen-yifan-1914.pdf",
     "mahjong-studies/files/shinbara-1952.html",
     "mahjong-studies/files/su-e-duyang.html",
     "mahjong-studies/files/tang-guoshibu.html",
@@ -145,15 +142,18 @@
     "regional-rules/snapshots/wiki-zh-tianjin.html"
   ],
   "originals": {
-    "rulebooks/drawing-mahjong.pdf": "绘图麻雀牌谱.pdf",
-    "rulebooks/sichuan-sbr.pdf": "MIL_rule/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf"
+    "rulebooks/绘图麻雀牌谱.pdf": "绘图麻雀牌谱.pdf",
+    "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf": "MIL_rule/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf"
   },
   "aliases": {
-    "rule-research/drawing-mahjong.pdf": "rulebooks/drawing-mahjong.pdf",
-    "rule-research/绘图麻雀牌谱.pdf": "rulebooks/drawing-mahjong.pdf",
-    "rulebooks/K神麻雀规则_v2.63版_规范说明书.pdf": "rulebooks/guobiao-kshen.pdf",
-    "rulebooks/十样锦麻将规则书.pdf": "rulebooks/shiyangjin.pdf",
-    "rulebooks/四川麻将（SBR）竞赛规则（试行2025版）.pdf": "rulebooks/sichuan-sbr.pdf",
-    "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf": "rulebooks/sichuan-sbr.pdf"
+    "rule-research/drawing-mahjong.pdf": "rulebooks/绘图麻雀牌谱.pdf",
+    "rule-research/绘图麻雀牌谱.pdf": "rulebooks/绘图麻雀牌谱.pdf",
+    "rulebooks/K神麻雀规则_v2.63版_规范说明书.pdf": "rulebooks/K神麻雀规则说明书.pdf",
+    "rulebooks/十样锦麻将规则书.pdf": "rulebooks/十样锦麻将规则.pdf",
+    "rulebooks/四川麻将（SBR）竞赛规则（试行2025版）.pdf": "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf",
+    "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf": "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf",
+    "rule-research/drawing-mahjong/files/drawing-mahjong-local.pdf": "rulebooks/绘图麻雀牌谱.pdf",
+    "rule-research/mahjong-phylogeny/files/drawing-local.pdf": "rulebooks/绘图麻雀牌谱.pdf",
+    "rule-research/mahjong-studies/files/shen-yifan-1914.pdf": "rulebooks/绘图麻雀牌谱.pdf"
   }
 }

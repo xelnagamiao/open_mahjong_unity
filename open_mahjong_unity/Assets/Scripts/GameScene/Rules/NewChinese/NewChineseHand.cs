@@ -314,6 +314,7 @@ internal sealed class NewChineseHand {
         Result best = null;
         foreach (int tile in Legal.OrderBy(t => t)) {
             if (source != "bao_draw" && tile != winning || !choices.TryGetValue((tile,self), out var list)) continue;
+            bool allowLastCopy = source != "bao_draw" && !(hidden[tile] == 3 && list.Any(c => c.shape.Kind == "seven_pairs"));
             foreach (var choice in list) {
                 var fans = new Dictionary<string,int>(choice.fans);
                 void Add(string name) { fans[name] = Values[name]; }
@@ -321,8 +322,8 @@ internal sealed class NewChineseHand {
                     if (Nine) Add("准听九");
                     else if (Legal.Count >= 3 && Legal.Count <= 8) Add(WaitNames[Legal.Count]);
                 }
-                if (visible >= 3 || tile == winning && visible + hidden[tile] == 3 &&
-                    choice.shape.Kind != "orphans" && choice.shape.Win < 0) Add("绝张");
+                if (allowLastCopy && (visible >= 3 || visible + hidden[tile] == 3 &&
+                    choice.shape.Kind != "orphans" && choice.shape.Win < 0)) Add("绝张");
                 if (afterKong && (source == "self_draw" || source == "bao_draw")) Add("杠上开花");
                 if (chain >= 4) Add("连四杠");
                 else if (chain == 3) Add("三连杠");

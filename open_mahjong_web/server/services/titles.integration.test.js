@@ -43,10 +43,13 @@ test('PostgreSQL title management, authorization and rollback', { skip: !process
       await assert.rejects(service.saveTitle(db,adminId,null,{name:'测试',reason:'  '}), /原因/);
     });
     const body = {name:'测试冠军',description:'赛事授予',sort_order:5,is_enabled:true,reason:'集成测试'};
+    const seedIds = (await service.listTitles(db)).map(row => row.title_id);
     const {title} = await service.saveTitle(db,adminId,null,body);
+    const expectedIds = [...seedIds, title.title_id].sort((a,b) => a-b);
     await t.test('created IDs avoid sentinel and legacy IDs', async () => {
       assert.ok(title.title_id >= 3);
-      assert.equal((await service.listTitles(db)).length,4);
+      assert.ok(!seedIds.includes(title.title_id));
+      assert.deepEqual((await service.listTitles(db)).map(row => row.title_id).sort((a,b) => a-b),expectedIds);
     });
     await t.test('duplicate names and missing targets reject without partial grants', async () => {
       await assert.rejects(service.saveTitle(db,adminId,null,body), {code:'23505'});
@@ -93,7 +96,7 @@ test('PostgreSQL title management, authorization and rollback', { skip: !process
         const token=signToken({user_id:adminId},config.admin.jwtSecret,60);
         const response=await fetch(base,{headers:{Authorization:`Bearer ${token}`}});
         assert.equal(response.status,200);
-        assert.equal((await response.json()).data.length,4);
+        assert.deepEqual((await response.json()).data.map(row => row.title_id).sort((a,b) => a-b),expectedIds);
       } finally { await new Promise(resolve => server.close(resolve)); }
     });
   } finally {

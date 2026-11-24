@@ -63,6 +63,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle ClaimProtectionToggle;
     [SerializeField] private Toggle BloodBattleToggle;
     [SerializeField] private Toggle newChineseExchangeThreeToggle;
+    [SerializeField] private Toggle newChineseShowdownToggle;
     [SerializeField] private Toggle ChangshaInitialSiXiToggle;
     [SerializeField] private Toggle ChangshaInitialBanBanHuToggle;
     [SerializeField] private Toggle ChangshaInitialQueYiSeToggle;
@@ -228,6 +229,7 @@ public partial class CreatePanel : MonoBehaviour {
         ConfigManager.OnLanguageChanged -= ApplyDefaultRoomNameForCurrentUser;
         if (ruleSupportPanel) ruleSupportPanel.SetActive(false);
         CancelDetailedConfigChanges();
+        ReleaseDeferredPanels();
         WindowsManager.Instance?.ApplyStreamerModePanels();
     }
 
@@ -373,6 +375,7 @@ public partial class CreatePanel : MonoBehaviour {
                 break;
             case CreateRoomKeys.BloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
             case CreateRoomKeys.ExchangeThree:  newChineseExchangeThreeToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.Showdown:        newChineseShowdownToggle.isOn = (bool)value; break;
             case CreateRoomKeys.CsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
             case CreateRoomKeys.CsInitialSiXi:   if (ChangshaInitialSiXiToggle != null) ChangshaInitialSiXiToggle.isOn = (bool)value; break;
             case CreateRoomKeys.CsInitialBanBanHu: if (ChangshaInitialBanBanHuToggle != null) ChangshaInitialBanBanHuToggle.isOn = (bool)value; break;
@@ -461,6 +464,7 @@ public partial class CreatePanel : MonoBehaviour {
         }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount) && !IsChangshaExchangeSix);
         newChineseExchangeThreeToggle.gameObject.SetActive(GetSelectedSubRule() != SanhuaGameState.SubRule && visible.ContainsKey(CreateRoomKeys.ExchangeThree));
+        newChineseShowdownToggle.gameObject.SetActive(GetSelectedSubRule() != SanhuaGameState.SubRule && visible.ContainsKey(CreateRoomKeys.Showdown));
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();

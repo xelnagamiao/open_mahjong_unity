@@ -14,11 +14,11 @@ const books = 'rulebooks/'
 const studies = research + 'mahjong-studies/files/'
 const phylogeny = research + 'mahjong-phylogeny/files/'
 const groups = [
-  [books + 'drawing-mahjong.pdf', research + 'drawing-mahjong.pdf', research + '绘图麻雀牌谱.pdf',
+  [books + '绘图麻雀牌谱.pdf', research + 'drawing-mahjong.pdf', research + '绘图麻雀牌谱.pdf',
     research + 'drawing-mahjong/files/drawing-mahjong-local.pdf', phylogeny + 'drawing-local.pdf', studies + 'shen-yifan-1914.pdf'],
-  [books + 'sichuan-sbr.pdf', books + '四川麻将（SBR）竞赛规则（试行2025版）.pdf', books + 'mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf'],
-  [books + 'guobiao-kshen.pdf', books + 'K神麻雀规则_v2.63版_规范说明书.pdf'],
-  [books + 'shiyangjin.pdf', books + '十样锦麻将规则书.pdf'],
+  [books + 'mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf', books + '四川麻将（SBR）竞赛规则（试行2025版）.pdf', books + 'mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf'],
+  [books + 'K神麻雀规则说明书.pdf', books + 'K神麻雀规则_v2.63版_规范说明书.pdf'],
+  [books + '十样锦麻将规则.pdf', books + '十样锦麻将规则书.pdf'],
   ...['culin-1895.pdf', 'fan-zengxiang-1906.pdf', 'greene-2015.pdf'].map(name => [studies + name, phylogeny + name])
 ]
 
@@ -59,7 +59,7 @@ test('static exports preserve published bytes and omit unpublished research file
   const dist = await mkdtemp(join(scratch, 'rule-publication-test-'))
   t.after(() => rm(dist, { recursive: true, force: true }))
   await mkdir(join(dist, 'rulebooks'))
-  for (const name of ['guobiao-kshen.pdf', 'shiyangjin.pdf']) {
+  for (const name of ['K神麻雀规则说明书.pdf', '十样锦麻将规则.pdf']) {
     await copyFile(join(publicDir, 'rulebooks', name), join(dist, 'rulebooks', name))
   }
   writeRulePublication(dist)

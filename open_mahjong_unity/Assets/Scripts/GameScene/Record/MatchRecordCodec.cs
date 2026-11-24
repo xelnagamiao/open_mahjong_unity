@@ -125,6 +125,47 @@ public static class MatchRecordCodec {
     public static bool IsUnified(JObject record) =>
         (string)record?["format"] == "open_mahjong.match_record" && (int?)record["schema_version"] == 2;
 
+    static readonly JValue ZeroTimestamp = new JValue(0L);
+    internal static JObject InitialActionMeta(JToken time, bool paired) => new JObject {
+        ["actor_original_seat"] = null,
+        ["occurred_at_ms"] = time?.Type == JTokenType.Integer && ((JValue)time).CompareTo(ZeroTimestamp) >= 0 ? time.DeepClone() : null,
+        ["wall_ref"] = null,
+        ["wall_ref_basis"] = paired ? "unavailable" : "not_applicable"
+    };
+
+    // Compact archives omit only reproducible per-round arrays. Keep the input intact
+    // so a caller can still verify its stored checksum or save that representation.
+    public static JObject ExpandStorage(JObject record) {
+        var codec = record?["storage_codec"];
+        if (codec?.Type != JTokenType.String || (string)codec != "om.single_round_meta.v1" ||
+            !IsUnified(record) || (string)record["match_format"] != "single_table") return record;
+        if (!(record["tables"] is JObject tables) ||
+            tables.Count != 1 || (string)tables["main"]?["table_id"] != "main")
+            throw new FormatException("Invalid compact single replay table");
+
+        var expanded = (JObject)record.DeepClone();
+        var table = expanded["tables"]["main"];
+        if (!(table["payload"]?["game_round"] is JObject rounds) || !(table["round_meta"] is JObject metadata) ||
+            rounds.Count != metadata.Count) throw new FormatException("Round metadata mismatch");
+        foreach (var round in rounds.Properties()) {
+            if (!(round.Value["action_ticks"] is JArray ticks) || !(metadata[round.Name] is JObject meta))
+                throw new FormatException("Invalid compact replay round");
+            if (meta.Property("action_meta") == null) {
+                var times = round.Value["action_times_ms"] as JArray;
+                var actions = new JArray();
+                for (int i = 0; i < ticks.Count; i++) {
+                    var time = times != null && i < times.Count ? times[i] : null;
+                    actions.Add(InitialActionMeta(time, false));
+                }
+                meta["action_meta"] = actions;
+            }
+            if (meta.Property("legacy_node_map") == null)
+                meta["legacy_node_map"] = new JArray(Enumerable.Range(0, ticks.Count + 1));
+        }
+        expanded.Remove("storage_codec");
+        return expanded;
+    }
+
     public static string GameId(JObject record) {
         if ((string)record["match_format"] != "paired_tables_2v2")
             return (string)record["tables"]?["main"]?["table_record_id"];

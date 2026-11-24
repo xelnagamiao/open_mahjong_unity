@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine.EventSystems;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -11,7 +12,7 @@ using TMPro;
 
 /// <summary>Run in MainScene Play Mode with a real server-produced paired record.</summary>
 public static class MatchRecordSceneValidation {
-    public static string Run(string detailJson) {
+    public static async Task<string> Run(string detailJson) {
         if (!Application.isPlaying) throw new InvalidOperationException("MainScene Play Mode required");
         int checks = 0;
         void Check(bool ok, string message) { if (!ok) throw new Exception(message); checks++; }
@@ -21,8 +22,17 @@ public static class MatchRecordSceneValidation {
         Check(RecordPanel.OpenRecord(detail, true), "cold record entry");
         var manager = GameRecordManager.Instance;
         Button Button(string name) => manager.GetComponentsInChildren<Button>(true).Single(b => b.name == name);
+        async Task Go(string buttonName) {
+            Button(buttonName).onClick.Invoke();
+            // Archived tables load over multiple frames. Live switches can finish immediately.
+            await WaitFor(() => !ReplayFrameLoader.Busy, buttonName);
+        }
         var compare = manager.GetComponentsInChildren<Toggle>(true).Single(t => t.name == "CompareWall");
         var phase = manager.GetComponentsInChildren<TMP_Dropdown>(true).Single(t => t.name == "ComparePhase");
+        // The dropdown starts, the window fades in, and the lobby enables table input in LateUpdate.
+        var groups = phase.GetComponentsInParent<CanvasGroup>();
+        var raycaster = phase.GetComponentInParent<GraphicRaycaster>();
+        await WaitFor(() => phase.didStart && raycaster.isActiveAndEnabled && groups.All(group => group.blocksRaycasts), "paired toolbar input");
         phase.value = 0;
         Check(Button("GoOpen").gameObject.activeInHierarchy && Button("GoClosed").gameObject.activeInHierarchy, "both complete navigation buttons are visible");
         Check(!Button("GoOpen").interactable && Button("GoClosed").interactable, "current table button is disabled");
@@ -68,14 +78,14 @@ public static class MatchRecordSceneValidation {
         Check(sourceNode > 0, "fixture contains divergent action counts");
         manager.SwitchRecordPerspectiveToOriginalPlayerIndex(sourceSeat);
         manager.JumpToSharePosition(1, sourceNode);
-        Button("GoClosed").onClick.Invoke();
+        await Go("GoClosed");
         Check(manager.MatchSession.ActiveTable == "closed" && manager.currentNode == targetNode, "button aligns identical physical source across unequal nodes");
-        Button("GoOpen").onClick.Invoke();
+        await Go("GoOpen");
         Check(manager.currentNode == sourceNode, "return button preserves same wall position");
-        phase.value = 1; Button("GoClosed").onClick.Invoke();
+        phase.value = 1; await Go("GoClosed");
         Check(manager.currentNode == targetNode - 1, "before draw is the preceding prefix");
-        compare.isOn = false; manager.JumpToSharePosition(1, 7); Button("GoOpen").onClick.Invoke();
-        manager.JumpToSharePosition(1, 9); Button("GoClosed").onClick.Invoke();
+        compare.isOn = false; manager.JumpToSharePosition(1, 7); await Go("GoOpen");
+        manager.JumpToSharePosition(1, 9); await Go("GoClosed");
         Check(manager.currentNode == 7, "independent table cursors survive switches");
         Check(!Button("CopyRecordLink").gameObject.activeSelf, "local record cannot create a cloud link");
         var controls = Button("GoOpen").transform.parent;
@@ -104,7 +114,7 @@ public static class MatchRecordSceneValidation {
         Check(manager.IsSpectating && manager.currentNode == 8, "live entry starts at released tail");
         live.ApplyPacket(Snapshot("closed", Table("closed", 12), 1)); manager.RefreshMatchStream("closed");
         Check(manager.currentNode == 8 && manager.MatchSession.ActiveTable == "open", "inactive stream does not redraw active table");
-        Button("GoClosed").onClick.Invoke();
+        await Go("GoClosed");
         Check(manager.currentNode == 12 && manager.IsLiveSpectatorMode, "live switch uses other released tail");
         Button("IndependentProgress").onClick.Invoke();
         Check(!manager.IsLiveSpectatorMode && live.Mode == MatchRecordSession.PlaybackMode.History && manager.currentNode == 12, "independent mode can pause a live session even when compare was off");
@@ -142,6 +152,14 @@ public static class MatchRecordSceneValidation {
         Check(RecordPanel.OpenRecord(detail, true), "record can reopen after spectator exit");
         return checks + " MainScene checks passed; aligned open node " + sourceNode + " to closed node " + targetNode;
     }
+    private static async Task WaitFor(Func<bool> ready, string operation) {
+        double deadline = Time.realtimeSinceStartupAsDouble + 30;
+        while (!ready()) {
+            if (Time.realtimeSinceStartupAsDouble >= deadline) throw new TimeoutException(operation);
+            await Awaitable.NextFrameAsync();
+        }
+    }
+
     private static bool HasReadableColors(Button button, Color foreground) {
         float Luminance(Color color) {
             var rgb = color.linear;

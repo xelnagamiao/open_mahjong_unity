@@ -7,12 +7,12 @@ export const hongqueRulebooks = [
     subRule: 'hongque/v1.6', label: '虹雀² v1.7', title: '虹雀² v1.7 规则书',
     description: HONGQUE_2_DESCRIPTION,
     desc: '虹雀² v1.7 规则书，包含基本规则、番种说明及牌例。',
-    url: '/rulebooks/hongque-v1.7.pdf', filename: '虹雀² v1.7.pdf',
+    url: '/rulebooks/虹雀²（1.7版）.pdf', filename: '虹雀² v1.7.pdf',
   },
   {
     subRule: HONGQUE_W_SUB_RULE, label: '虹雀 W v1.1', title: '虹雀 W v1.1 规则书',
     description: HONGQUE_W_DESCRIPTION, desc: '',
-    url: '/rulebooks/hongque-w-v1.1.pdf', filename: '虹雀W v1.1.pdf',
+    url: '/rulebooks/虹雀W（1.1版）.pdf', filename: '虹雀W v1.1.pdf',
   },
 ]
 

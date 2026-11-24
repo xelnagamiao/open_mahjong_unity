@@ -9,6 +9,9 @@ from .state_machine import Phase as P
 
 
 class Protocol:
+    def _should_reveal_final(self):
+        return self.ended_by == "win" or self.detailed_config.get("showdown", False)
+
     def current_payer(self):
         if self.machine.phase in (P.RESPONSE, P.ROB_KONG) and self.live_pending_window:
             return self.live_pending_window.get("player")
@@ -75,7 +78,8 @@ class Protocol:
             ended = self.machine.phase in (P.END, P.READY, P.FINISHED)
             info.update(new_chinese=self.view(viewer), detailed_config=self.detailed_config, hepai_limit=self.hepai_limit)
             for i, p in enumerate(self.player_list):
-                fields = wire.player_info_payload(self, i, viewer, reveal_final=ended)
+                fields = wire.player_info_payload(self, i, viewer,
+                    reveal_final=ended and self._should_reveal_final())
                 fields["remaining_time"] = math.ceil(max(0, p.remaining_time))
                 fields["discard_riichi_flags"] = list(p.riichi_flags)
                 info["players_info"][i] = fields
@@ -153,11 +157,17 @@ class Protocol:
         self.apply_deferred_score_changes()
         info = wire._final_show_result_info(self)
         entry = next(iter(self.deferred_hu_settlements), None)
+        hands = {}
+        if self._should_reveal_final():
+            hands = {i: list(player.hand_tiles) for i, player in enumerate(self.player_list)}
+            if entry is not None:
+                hands[info["hepai_player_index"]] = info["hepai_player_hand"]
         info.update(next_status="match_end" if self.match_finishing else "round_end_by_ready",
-                    revealed_hands={i: list(p.hand_tiles) for i, p in enumerate(self.player_list)},
+                    revealed_hands=hands,
                     recycle_discard=bool(entry and entry["recycle_discard"]))
         return self.adapt(dict(type="gamestate/new_chinese/show_result", success=True,
-                               game_info=wire.game_info_payload(self,index,reveal_final=True), show_result_info=info), index)
+                               game_info=wire.game_info_payload(self, index,
+                                   reveal_final=self._should_reveal_final()), show_result_info=info), index)
 
     async def present_final_settlements(self):
         for i in range(4):

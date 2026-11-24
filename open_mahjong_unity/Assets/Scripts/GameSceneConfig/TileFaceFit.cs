@@ -137,6 +137,7 @@ public static class TileFaceFit {
             }
         }
         if (faceImage != null && face != null) {
+            TileArtworkSampling.Apply(faceImage);
             faceImage.sprite = face;
             faceImage.preserveAspect = true;
             faceImage.useSpriteMesh = false;

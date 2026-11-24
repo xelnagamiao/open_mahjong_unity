@@ -147,6 +147,14 @@ def public_players(players):
     return [{k: v for k, v in player.items() if k not in ("note", "is_favorite")} for player in (players or [])]
 
 
+def single_action_metadata(rd):
+    metadata = [{"actor_original_seat": None, "occurred_at_ms": None,
+                 "wall_ref": None, "wall_ref_basis": "not_applicable"} for _ in rd["action_ticks"]]
+    for action, timestamp in zip(metadata, rd.get("action_times_ms", [])):
+        action["occurred_at_ms"] = timestamp if type(timestamp) is int and timestamp >= 0 else None
+    return metadata
+
+
 def table_record(payload, table_id, match_id, *, source_id=None, players=None, complete=True,
                  catalog=None, reconstruct=False):
     if not isinstance(payload, dict) or not isinstance(payload.get("game_title"), dict):
@@ -192,13 +200,15 @@ def table_record(payload, table_id, match_id, *, source_id=None, players=None, c
                 layout = "xueliu"
             board = (board_info or {}).get("wall_definition") or board_from_record(title, rd, number)
             meta.update(round_origins(rd, instance, layout=layout, reconstruct=reconstruct, board=board))
-        else:
+        elif paired:
             meta["action_meta"] = [{"actor_original_seat": None, "occurred_at_ms": None, "wall_ref": None,
-                                    "wall_ref_basis": "unavailable" if paired else "not_applicable"} for _ in rd["action_ticks"]]
-            if paired:
-                meta["alignment_reason"] = "board_instance_unverified"
-        for action, timestamp in zip(meta["action_meta"], rd.get("action_times_ms", [])):
-            action["occurred_at_ms"] = timestamp if type(timestamp) is int and timestamp >= 0 else None
+                                    "wall_ref_basis": "unavailable"} for _ in rd["action_ticks"]]
+            meta["alignment_reason"] = "board_instance_unverified"
+        else:
+            meta["action_meta"] = single_action_metadata(rd)
+        if paired:
+            for action, timestamp in zip(meta["action_meta"], rd.get("action_times_ms", [])):
+                action["occurred_at_ms"] = timestamp if type(timestamp) is int and timestamp >= 0 else None
         result["round_meta"][key] = meta
     return preserve_source(result, original)
 

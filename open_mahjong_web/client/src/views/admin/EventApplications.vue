@@ -19,6 +19,12 @@
         </template>
       </el-table-column>
       <el-table-column prop="name" label="名称" min-width="140" />
+      <el-table-column label="队徽" width="100">
+        <template #default="{ row }">
+          <img v-if="row.team_icon_url" class="review-icon" :src="row.team_icon_url" alt="队徽" />
+          <span v-else class="muted">无队徽</span>
+        </template>
+      </el-table-column>
       <el-table-column label="拟定时间" min-width="180">
         <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
       </el-table-column>
@@ -118,7 +124,12 @@
       <el-button size="small" :loading="profileLoading" @click="loadProfileChanges">刷新</el-button>
     </div>
     <el-table :data="profileItems" v-loading="profileLoading" stripe>
-      <el-table-column label="拟用队徽" width="100"><template #default="{ row }"><img v-if="row.proposed_team_icon_url" :src="row.proposed_team_icon_url" alt="拟用队徽" style="width:64px;height:64px;object-fit:contain" /><span v-else>无队徽</span></template></el-table-column>
+      <el-table-column label="拟用队徽" width="100">
+        <template #default="{ row }">
+          <img v-if="profileIconUrl(row)" class="review-icon" :src="profileIconUrl(row)" alt="拟用队徽" />
+          <span v-else class="muted">无队徽</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="request_id" label="ID" width="70" />
       <el-table-column :label="isBase ? '基地' : '赛事'" min-width="160">
         <template #default="{ row }">
@@ -305,11 +316,15 @@ function previewApplication(row) {
   previewVisible.value = true
 }
 
+function profileIconUrl(row) {
+  return row.proposed_team_icon_url ?? row.current_team_icon_url
+}
+
 function previewProfileChange(row) {
   previewEvent.value = {
     name: row.proposed_name,
     description: row.proposed_description,
-    team_icon_url: row.proposed_team_icon_url ?? row.current_team_icon_url,
+    team_icon_url: profileIconUrl(row),
     requester_username: row.requester_username,
   }
   previewStatusLabel.value = isBase.value ? '基地资料修改后预览' : '赛事资料修改后预览'
@@ -437,6 +452,12 @@ defineExpose({ refreshProfileChanges: loadProfileChanges })
   justify-content: flex-end;
 }
 .muted { color: #999; }
+.review-icon {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
 .review-history {
   margin-bottom: 16px;
 }

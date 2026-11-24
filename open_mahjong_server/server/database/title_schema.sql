@@ -26,7 +26,9 @@ WHERE title_id = 2 AND name = '初段'
 INSERT INTO titles (name, description)
 SELECT seed.name, seed.description FROM (VALUES
     ('冠绝一世', '该头衔授予在国标麻将匹配中，第一个达成七段的玩家'),
-    ('千恋万花', '该头衔授予在国标麻将匹配中，在和牌时拥有八张花牌的玩家')
+    ('千恋万花', '该头衔授予在国标麻将匹配中，在和牌时拥有八张花牌的玩家'),
+    ('鲨国左护法', '赞助金额达到 100 元且低于 500 元的玩家'),
+    ('鲨国右护法', '赞助金额达到 500 元的玩家')
 ) AS seed(name, description)
 WHERE NOT EXISTS (SELECT 1 FROM titles WHERE name = seed.name)
 ON CONFLICT (name) DO NOTHING;

@@ -93,6 +93,8 @@ public sealed class TableHudTheme : MonoBehaviour {
             }
             foreach (var button in root.GetComponentsInChildren<Button>(true)) {
                 if (!IsDesignTarget(button.transform)) continue;
+                // Paired navigation authors its own contrast states, including the opaque fold handle.
+                if (button.transform.parent?.name == "MatchTableControls") continue;
                 var colors = button.colors;
                 colors.normalColor = Color.white;
                 colors.highlightedColor = new Color(.93f, .96f, 1f, 1f);

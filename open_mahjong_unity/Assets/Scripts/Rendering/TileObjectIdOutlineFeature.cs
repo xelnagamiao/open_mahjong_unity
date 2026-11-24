@@ -120,6 +120,9 @@ public class TileObjectIdOutlineFeature : ScriptableRendererFeature
                     : _settings.outlineColor;
                 passData.width = Mathf.Clamp(_settings.outlineWidth, 0.5f, 4f);
                 passData.silhouetteWidth = passData.width * Mathf.Clamp01(_settings.silhouetteWidthRatio);
+                // Leave the outer half pixel to the ribbon's coverage ramp; keep the
+                // full geometric hull when users disable the supporting ribbon.
+                passData.width -= Mathf.Min(0.5f, passData.silhouetteWidth);
                 builder.UseRendererList(rendererList);
                 builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
                 builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.Read);

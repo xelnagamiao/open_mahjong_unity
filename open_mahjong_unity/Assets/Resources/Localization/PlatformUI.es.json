@@ -1,5 +1,8 @@
 {
   "entries": [
+    {"key": "连接本地测试服务", "text": "Conectar al servidor de pruebas local"},
+    {"key": "连接远程服务器", "text": "Conectar al servidor remoto"},
+    {"key": "川麻（血战到底·换三张）", "text": "Sichuan (batalla con intercambio de tres)"},
     {"key": "换三张", "text": "Intercambiar tres fichas"},
     {"key": "留空自动生成", "text": "Dejar en blanco para generar automáticamente"},
     {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "text": "Las dos mesas usan el mismo muro generado a partir de la semilla. No se crea una clave de duplicado."},
@@ -25037,8 +25040,8 @@
       "text": "Dos chows de un palo"
     },
     {
-      "key": "other/rule/inclued_rule/新编MCR.pdf",
-      "text": "other/rule/inclued_rule/新编MCR.pdf"
+      "key": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
+      "text": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
     },
     {
       "key": "在 Salasasa 免费在线玩国标麻将 MCR，支持自动算番、段位匹配和牌谱复盘。浏览器 2D 无需下载，另有多规则客户端与麻将学习工具。",
@@ -29385,8 +29388,8 @@
       "text": "Documentación MIL"
     },
     {
-      "key": "来自 other/rule/MIL_rule 的 MIL 竞赛规则与补充细则，涵盖国标、四川、立直及各地方推广规则。",
-      "text": "Reglamentos y suplementos MIL de other/rule/MIL_rule: MCR, Sichuan, Riichi y reglas regionales de promoción."
+      "key": "MIL 竞赛规则与补充细则，涵盖国标、四川、立直及各地方推广规则。",
+      "text": "Reglamentos y suplementos MIL: MCR, Sichuan, Riichi y reglas regionales de promoción."
     },
     {
       "key": "四川麻将（SBR）竞赛规则（试行2025版）",

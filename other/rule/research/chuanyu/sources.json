@@ -15,7 +15,7 @@
   "sources": [
     {
       "id": "lib-sichuan",
-      "url": "/rulebooks/sichuan-sbr.pdf",
+      "url": "/rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf",
       "title": "四川麻将（SBR）竞赛规则",
       "type": "rulebook",
       "lang": "zh",
@@ -27,7 +27,7 @@
       ],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/sichuan-sbr.pdf",
+      "local_path": "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },

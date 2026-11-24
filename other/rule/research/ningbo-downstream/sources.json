@@ -1243,8 +1243,8 @@
     {
       "id": "mcr-1998-primary",
       "title": "《中国麻将竞赛规则（试行）》1998年7月题署／9月初版",
-      "url": "/rulebooks/mil/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf",
-      "canonical_url": "/rulebooks/mil/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf",
+      "url": "/rulebooks/mil/国标麻将竞赛规则.pdf",
+      "canonical_url": "/rulebooks/mil/国标麻将竞赛规则.pdf",
       "published": "1998-07题署；1998-09初版初印",
       "accessed": "2026-09-23",
       "source_level": "primary-scan",
@@ -1260,7 +1260,7 @@
       "type": "rulebook",
       "lang": "zh",
       "rights_note": "仅存规则事实、版本定位与研究者摘要；新扫描保留本机忽略目录，原件权利归原权利人。",
-      "repository_path": "other/rule/MIL_rule/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf",
+      "repository_path": "open_mahjong_web/client/public/rulebooks/mil/国标麻将竞赛规则.pdf",
       "sha256": "f0ee8c4a79e985a2839681c9fb6f7cb14f73a0ee8f2d1e12b05245b7a5e4ac59",
       "excerpt": "144张；番种分值累加，花牌不计入至少8分的起和门槛，普通点和三家各付8底分且放铳者另付牌值，自摸三家各付底分加牌值。后记明记1997–1998试验、汇集、修订经过。 定位：项目既有111页扫描：PDF3题名、5版权、9前言4页；正文3、21、27–29、97–98页（PDF14、32、38–40、108–109）已验图。 限制：题署、前言、印行日期分开。地方意见与著作被参考，不代表每个现代地方规则都是其父节点；未把现代补充细则倒填1998。"
     },
@@ -1355,8 +1355,8 @@
     {
       "id": "mil-mcr-supplement-2025",
       "title": "MIL《国标麻将规则补充细则（试行，2025）》",
-      "url": "/rulebooks/mil/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf",
-      "canonical_url": "/rulebooks/mil/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf",
+      "url": "/rulebooks/mil/国标麻将规则补充细则（试行2025版）.pdf",
+      "canonical_url": "/rulebooks/mil/国标麻将规则补充细则（试行2025版）.pdf",
       "published": "2025版；自述10月中旬编制，2025–2026中国指定赛事试行",
       "accessed": "2026-09-23",
       "source_level": "primary-local-pdf",
@@ -1370,7 +1370,7 @@
       ],
       "type": "rulebook",
       "lang": "zh",
-      "repository_path": "other/rule/MIL_rule/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf",
+      "repository_path": "open_mahjong_web/client/public/rulebooks/mil/国标麻将规则补充细则（试行2025版）.pdf",
       "sha256": "b4276564bf0febd8e0a313d54a8191349cfdf09185c4c931fce51da5431e9fc7",
       "rights_note": "核读项目既有PDF；不新增原件复制，原权利归发行者。记录事实与定位，未校对最新线上修订。",
       "excerpt": "明确以1998规则为根本，并据2025世界杯细则经验编制。罚分只扣本人；停和禁吃碰直杠但可加杠暗杠补花。不足门槛或听牌但和错张罚40，未听诈和罚80。附件明确必然门清自摸只加1、明暗杠5及形式多面听的计分解释。 定位：14页PDF全文文字层；PDF1–3、6、8–9、13–14已验图。前言、二（四五）、五（二）、九、十、附件1。 限制：适用该指定试行文本；前言对JMSA或EMA等解释的概括只是MIL的转述，不能替代各协会原规，也不能据此认定改法首创于2025。"

@@ -237,7 +237,7 @@ public class TurnBasedGameState : GameStateBase {
         AppendScoreboard(env);
 
         if (env.IsLiuju) {
-            Presenter.PresentLiuju("流局");
+            Presenter.PresentLiuju("流局", env.PublicBaoTile);
             return;
         }
         if (env.HuClass == "ryuukyoku") {

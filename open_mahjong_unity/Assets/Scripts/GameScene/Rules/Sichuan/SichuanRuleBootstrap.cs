@@ -8,6 +8,7 @@ internal static class SichuanRuleBootstrap {
             BuildRoom = SichuanRoomBuilder.Build,
             RuleId = SichuanGameState.RuleId,
             DefaultSubRule = "sichuan/standard",
+            FirstTenTileDiscardRow = FirstTenTileDiscardRow,
             DisplayName = "四川麻将",
             RulebookPath = (subRule, config) => subRule == SichuanLobby.SbrExchange
                 ? "/rulebook/sichuan?sub_rule=" + System.Uri.EscapeDataString(subRule) : "/rulebook/sichuan",
@@ -34,5 +35,11 @@ internal static class SichuanRuleBootstrap {
             SettlementTotal = SichuanFanText.SettlementTotal,
             HasFlowerReplacement = false,
         });
+    }
+
+    private static int FirstTenTileDiscardRow(string subRule) {
+        if (SichuanLobby.IsDoubles(subRule)) return 3;
+        if (SichuanLobby.IsXueliuDoubles(subRule)) return 4;
+        return 0;
     }
 }

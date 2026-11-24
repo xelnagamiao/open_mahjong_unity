@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
@@ -26,6 +27,8 @@ public class EndLiujuPanel : MonoBehaviour {
     [SerializeField] private StaticCard staticCardPrefab;
 
     private Coroutine autoHideCoroutine;
+    private RectTransform publicBaoRow;
+    private StaticCard publicBaoCard;
     public bool IsShowingTableCaption { get; private set; }
 
     private void Awake() {
@@ -82,12 +85,13 @@ public class EndLiujuPanel : MonoBehaviour {
     }
 
     public void PrepareLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex = null,
-        IDictionary<int, string> indexToPosition = null) {
+        IDictionary<int, string> indexToPosition = null, int publicBaoTile = 0) {
         StopPanelAnimation();
         if (liujuText != null) liujuText.text = displayText;
         EndResultPanel.ApplyGuobiaoConcealedKongs(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
         ClearTenpaiMarkers();
         ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex, indexToPosition);
+        ShowPublicBao(publicBaoTile);
         gameObject.SetActive(true);
     }
 
@@ -100,7 +104,46 @@ public class EndLiujuPanel : MonoBehaviour {
         StopPanelAnimation();
         ClearTenpaiMarkers();
         EndResultPanel.HideGuobiaoConcealedKongs(guobiaoAngangCheckText);
+        ShowPublicBao(0);
         gameObject.SetActive(false);
+    }
+
+    private void ShowPublicBao(int tile) {
+        if (tile <= 0) {
+            if (publicBaoRow) publicBaoRow.gameObject.SetActive(false);
+            return;
+        }
+        if (!publicBaoRow) {
+            if (!liujuText || !staticCardPrefab) return;
+            publicBaoRow = (RectTransform)new GameObject("PublicBao", typeof(RectTransform), typeof(Image)).transform;
+            publicBaoRow.gameObject.layer = gameObject.layer;
+            publicBaoRow.SetParent(liujuText.rectTransform, false);
+            publicBaoRow.anchorMin = publicBaoRow.anchorMax = new Vector2(.5f, 0);
+            publicBaoRow.anchoredPosition = new Vector2(0, -30);
+            publicBaoRow.sizeDelta = new Vector2(160, 76);
+            var background = publicBaoRow.GetComponent<Image>();
+            background.color = new Color(0.06f, 0.09f, 0.12f, 0.94f);
+            background.raycastTarget = false;
+
+            var label = new GameObject("Label", typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            label.gameObject.layer = gameObject.layer;
+            label.rectTransform.SetParent(publicBaoRow, false);
+            label.rectTransform.anchoredPosition = new Vector2(-47, 0);
+            label.rectTransform.sizeDelta = new Vector2(110, 68);
+            label.font = liujuText.font;
+            label.fontSize = 32;
+            label.alignment = TextAlignmentOptions.MidlineRight;
+            label.raycastTarget = false;
+            TableText.Set(label, "宝牌", NewChineseGameState.RuleId);
+
+            publicBaoCard = Instantiate(staticCardPrefab, publicBaoRow, false);
+            var cardRect = (RectTransform)publicBaoCard.transform;
+            cardRect.anchorMin = cardRect.anchorMax = cardRect.pivot = new Vector2(.5f, .5f);
+            cardRect.anchoredPosition = new Vector2(39, 0);
+            cardRect.sizeDelta = new Vector2(44, 62);
+        }
+        publicBaoRow.gameObject.SetActive(true);
+        publicBaoCard.SetTileOnlyImage(tile);
     }
 
     private void ClearTenpaiMarkers() {

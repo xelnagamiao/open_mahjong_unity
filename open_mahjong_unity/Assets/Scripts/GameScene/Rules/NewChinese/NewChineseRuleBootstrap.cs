@@ -17,7 +17,7 @@ internal static class NewChineseRuleBootstrap {
             BuildRoom=NewChineseRoomBuilder.Build, GameStateFactory=()=>new NewChineseGameState(),
             ReplayFactory=r=>r.CreateNewChineseReplayModule(), RulebookKey="custom", RulebookPath=(s,c)=>"/rulebook/custom?sub_rule="+Uri.EscapeDataString(s ?? sub),
             CreateRoomDefaults=new Dictionary<string,object> {
-                {CreateRoomKeys.SubRule,0}, {CreateRoomKeys.ExchangeThree,false}, {CreateRoomKeys.HepaiLimit,0}, {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
+                {CreateRoomKeys.SubRule,0}, {CreateRoomKeys.ExchangeThree,false}, {CreateRoomKeys.Showdown,false}, {CreateRoomKeys.HepaiLimit,0}, {CreateRoomKeys.GameRound,1}, {CreateRoomKeys.RoundTimer,3}, {CreateRoomKeys.StepTimer,1},
                 {CreateRoomKeys.Tips,true}, {CreateRoomKeys.CountTips,false}, {CreateRoomKeys.PointerTips,true},
                 {CreateRoomKeys.Password,false}, {CreateRoomKeys.RandomSeed,false}, {CreateRoomKeys.TouristLimit,false}, {CreateRoomKeys.AllowSpectator,true}
             },
@@ -105,7 +105,7 @@ internal static class NewChineseRuleBootstrap {
                 belowMinimum = hand.Score(tile,source,i==dealer,payerDealer,chain,kong,seen) != null;
             return price;
         }
-        var self = level < 4 && (level < 3 || bao) ? Price(bao?"bao_draw":"self_draw",false,afterKong,visible+(bao?1:0)) : null;
+        var self = level < 4 && (level < 3 || bao) ? Price(bao?"bao_draw":"self_draw",false,afterKong,visible) : null;
         if (info.phase == "waiting_tongbao" && info.acting == i && bao && level < 4) {
             var natural = Price("bao_seen",false,false,visible);
             if (natural != null) return WaitTileHint.TsumoOnly($"通宝\n{natural.Points}点");

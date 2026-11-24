@@ -17,7 +17,7 @@
 1.1 Taisei 角色头像裁图
 作者、原始来源与图像许可沿用上面的 afensorm / Taisei Project · CC BY 4.0。
 游戏内范围：Assets/Resources/image/Profiles/2302.png（博丽灵梦）、2303.png（琪露诺）；以该目录 LICENSE.txt 为独立许可说明，AvatarSources.txt 记录取景坐标和修改。
-包体外范围：仓库 other/AvatarPortraits/Taisei/512/ 与 1024/ 中共 22 张 PNG，分别为当前 11 位角色的两档头像；以该目录 LICENSE.txt 为独立许可说明，avatar-catalog.json 记录逐张来源、坐标与哈希。
+包体外范围：本机 LOCAL_PROTECTED/art-originals/Taisei/512/ 与 1024/ 中共 22 张 PNG，分别为当前 11 位角色的两档头像；以该目录 LICENSE.txt 为独立许可说明，avatar-catalog.json 记录逐张来源、坐标与哈希。
 修改：从现有原画截取正方形头肩区域，等比例缩小，保留透明通道和原画颜色；未重绘人物。它们仍按 CC BY 4.0 分发，不归入项目代码 MIT 许可或本项目内部专用资源限制。
 默认头像 Assets/Resources/image/Profiles/1.png 不在本项许可范围内，其许可保持原状。分发裁图时一并保留对应目录的许可与署名说明。
 

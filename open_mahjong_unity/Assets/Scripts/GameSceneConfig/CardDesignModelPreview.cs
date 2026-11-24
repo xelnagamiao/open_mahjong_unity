@@ -140,6 +140,7 @@ public sealed class CardDesignModelPreview : MonoBehaviour
     }
     void OnDisable() => Release();
     void OnDestroy() => Release();
+    public void ReleasePreviewResources() => Release();
     void Release()
     {
         for (int i = 0; i < textures.Length; i++) {

@@ -77,11 +77,27 @@ test('declared open hands stay visible with other hands hidden, and reverse seek
  assert.equal(r.build(0,1,0,false).snapshot.seats[2].hand_revealed,false)
  assert.equal(r.build(0,0,0,false).snapshot.seats[1].hand_revealed,false)
 })
+test('one combined declaration reveals the hand and reports ready at the same replay node', () => {
+ const detail = structuredClone(fixtures[0].detail), round = detail.record.game_round.round_index_1
+ round.action_ticks = [['changsha_declaration', 1, 'changsha_open_hand_ready']]
+ const replay = new RecordReplay(detail)
+ for (const node of [0, 1, 0]) {
+  const info = exchangeSixInfoAt(round, node)
+  assert.deepEqual(info.ready, node ? [1] : [])
+  assert.deepEqual(info.open, node ? [1] : [])
+  const seats = replay.build(0, node, 0, false).snapshot.seats
+  assert.equal(seats[1].hand_revealed, Boolean(node))
+  assert.equal(seats[2].hand_revealed, false)
+ }
+})
 test('front and node keep exchange mode/time, normalize stale classic options, and preserve classic defaults',()=>{
  for(const seconds of [10,30,60]) {
   const form=loadChangshaForm({}, {sub_rule:'changsha/exchange_six',exchange_selection_seconds:seconds,score_cap_type:'score',score_cap_value:64})
   const copy=structuredClone(form), payload=buildChangshaRoomPayload(form), node=normalizeRoomConfig('changsha',payload.room_config)
   assert.equal(node.sub_rule,'changsha/exchange_six');assert.equal(node.exchange_selection_seconds,seconds)
+  assert.equal(payload.room_config.tactical_call,true)
+  assert.equal(node.tactical_call,true)
+  assert.deepEqual(changshaRows(form).find(row=>row.label==='战术鸣牌'),{label:'战术鸣牌',value:'开启'})
   for(const [key,value] of Object.entries(fixed)) assert.equal(node[key],value)
   const preview=changshaInfoAt({action_ticks:[]},0,form)
   assert.equal(preview.openKongCount,4);assert.equal(preview.capType,'none')
@@ -92,6 +108,7 @@ test('front and node keep exchange mode/time, normalize stale classic options, a
   assert.throws(()=>normalizeRoomConfig('changsha',{sub_rule:'changsha/exchange_six',exchange_selection_seconds:seconds}))
  }
  assert.equal(buildChangshaRoomPayload(loadChangshaForm({})).room_config.sub_rule,'changsha/classic_double_bird')
+ assert.equal(buildChangshaRoomPayload(loadChangshaForm({})).room_config.tactical_call,false)
 })
 test('new hand shapes and reported non-jiang pair agree with Python calculator',async()=>{
  const vectors=JSON.parse(await readFile(new URL('./fixtures/changshaExchangeSixWaits.json',import.meta.url),'utf8'))

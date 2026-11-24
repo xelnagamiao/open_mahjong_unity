@@ -38,12 +38,14 @@ public partial class Game3DManager {
         }
     }
     /// <summary>流局查牌：四家手牌同时展开（和牌者末张为和牌张，先清补花区和牌标记避免重复）。</summary>
-    public void RevealSichuanLiujuAllHands(Dictionary<int, int[]> handsByPlayerIndex) {
+    public void RevealSichuanLiujuAllHands(Dictionary<int, int[]> handsByPlayerIndex, int? discarder = null, int discard = 0) {
         if (handsByPlayerIndex == null) return;
         GameRecordManager record = GameRecordManager.Instance;
         var seatMap = record != null && record.gameObject.activeInHierarchy
             ? record.indexToPosition
             : NormalGameStateManager.Instance.indexToPosition;
+        if (discarder.HasValue && discard > 0 && seatMap.TryGetValue(discarder.Value, out string source))
+            RecycleRiverDiscard(source, discard);
         var panels = new List<PosPanel3D>();
         // 先归还全部旧明牌，再逐家重建，避免尚未清理的另一家手牌占住同牌的四张实体。
         foreach (var kvp in handsByPlayerIndex) {
@@ -588,7 +590,7 @@ public partial class Game3DManager {
         int index = slot ?? target.childCount;
         int row = index / SichuanBuhuaCardsPerRow;
         int col = index % SichuanBuhuaCardsPerRow;
-        float colOffset = ComputeRowCenterOffset(target, row, col, SichuanBuhuaCardsPerRow, false);
+        float colOffset = ComputeRowCenterOffset(target, row * SichuanBuhuaCardsPerRow, col, false);
         pos = target.position
             + widthDir.normalized * colOffset
             + heightDir.normalized * heightSpacing * row;

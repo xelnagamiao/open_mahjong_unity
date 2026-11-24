@@ -61,10 +61,12 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
         if (importer == null) throw new BuildFailedException("Cannot load hand atlas importer: " + path);
         var packing = importer.packingSettings;
         var texture = importer.textureSettings;
+        // Only the standard atlases are shared with 3D. Hongque has separate table textures.
+        FilterMode faceFilter = shared ? FilterMode.Trilinear : FilterMode.Bilinear;
         bool packingChanged = packing.enableRotation || packing.enableTightPacking != shared || packing.padding != 8
             || packing.enableAlphaDilation != (pack != "hongque");
-        bool textureChanged = !texture.generateMipMaps || texture.readable || !texture.sRGB
-            || texture.filterMode != FilterMode.Bilinear || texture.anisoLevel != 16;
+        bool textureChanged = texture.generateMipMaps != shared || texture.readable || !texture.sRGB
+            || texture.filterMode != faceFilter || texture.anisoLevel != 16;
         if (shared)
         {
             if (!importer.includeInBuild || packingChanged || textureChanged)
@@ -84,10 +86,10 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
             atlasChanged = true;
         }
         if (textureChanged) {
-            texture.generateMipMaps = true;
+            texture.generateMipMaps = shared;
             texture.readable = false;
             texture.sRGB = true;
-            texture.filterMode = FilterMode.Bilinear;
+            texture.filterMode = faceFilter;
             texture.anisoLevel = 16;
             importer.textureSettings = texture;
             atlasChanged = true;

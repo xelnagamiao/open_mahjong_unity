@@ -1,6 +1,13 @@
 // Spanish UI catalog. Source keys and protocol values remain unchanged.
 export default {
   "messages": {
+    "连接本地测试服务": "Conectar al servidor de pruebas local",
+    "连接远程服务器": "Conectar al servidor remoto",
+    "川麻（血战到底·换三张）": "Sichuan (batalla con intercambio de tres)",
+    "换三张": "Intercambiar tres fichas",
+    "留空自动生成": "Dejar en blanco para generar automáticamente",
+    "按随机种子生成两室相同牌山，不创建复式密钥。": "Las dos mesas usan el mismo muro generado a partir de la semilla. No se crea una clave de duplicado.",
+    "使用对应类型的复式密钥，副数跟随密钥。": "Usa una clave de duplicado del tipo seleccionado. La clave determina el número de manos.",
     "广东麻将（推广）2V2 双打": "Mahjong de Guangdong · dobles 2 contra 2",
     "血战到底·换三张": "Batalla sangrienta con intercambio de tres fichas",
     "牌谱不可用": "Repetición no disponible",
@@ -6265,7 +6272,7 @@ export default {
     "一色三顺": "Tres chows de un palo",
     "二色同刻": "Pungs iguales en dos palos",
     "一色二顺": "Dos chows de un palo",
-    "other/rule/inclued_rule/新编MCR.pdf": "other/rule/inclued_rule/新编MCR.pdf",
+    "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
     "在 Salasasa 免费在线玩国标麻将 MCR，支持自动算番、段位匹配和牌谱复盘。浏览器 2D 无需下载，另有多规则客户端与麻将学习工具。": "Juega gratis al mahjong MCR en línea en Salasasa, con cálculo automático de puntos, emparejamiento por rango y revisión de registros. La versión 2D funciona en el navegador sin descargar; también hay un cliente con múltiples reglas y herramientas para aprender mahjong.",
     "免费在线玩国标麻将 MCR | Salasasa": "Juega gratis al mahjong MCR en línea | Salasasa",
     "在浏览器中免费进行国标麻将 MCR 对局，支持自动算番、段位匹配与牌谱复盘，界面提供简繁中文、英语、日语和法语。": "Juega gratis al mahjong MCR en el navegador, con cálculo automático de puntos, emparejamiento por rango y revisión de registros. La interfaz está disponible en chino simplificado y tradicional, inglés, japonés y francés.",
@@ -7352,7 +7359,7 @@ export default {
     "宜兴麻将规则书（DOC）": "Reglamento de Yixing (DOC)",
     "MIL 竞赛规则资料集": "Colección de reglas de competición MIL",
     "MIL 资料集": "Documentación MIL",
-    "来自 other/rule/MIL_rule 的 MIL 竞赛规则与补充细则，涵盖国标、四川、立直及各地方推广规则。": "Reglamentos y suplementos MIL de other/rule/MIL_rule: MCR, Sichuan, Riichi y reglas regionales de promoción.",
+    "MIL 竞赛规则与补充细则，涵盖国标、四川、立直及各地方推广规则。": "Reglamentos y suplementos MIL: MCR, Sichuan, Riichi y reglas regionales de promoción.",
     "四川麻将（SBR）竞赛规则（试行2025版）": "Reglas de competición de mahjong Sichuan (SBR), edición provisional de 2025",
     "国标麻将（MCR）竞赛规则": "Reglas de competición de mahjong MCR",
     "国标麻将（MCR）规则补充细则（2025）": "Suplemento de reglas de mahjong MCR (2025)",

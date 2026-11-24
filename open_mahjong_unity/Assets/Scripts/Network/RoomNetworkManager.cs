@@ -141,7 +141,6 @@ public partial class RoomNetworkManager : MonoBehaviour {
         _roomInstanceId = response.room_info.instance_id;
         UserDataManager.Instance.SetRoomId(roomId);
         if (ShouldNavigateToRoomOnRefresh(roomId)) {
-            WindowsManager.Instance.CaptureRoomReturnWindow();
             WindowsManager.Instance.SwitchWindow("room");
         }
         ClearPendingRoomEntry();
@@ -246,13 +245,13 @@ public partial class RoomNetworkManager : MonoBehaviour {
     /// 离开/解散房间后重置客户端房间状态与 UI。
     /// </summary>
     public void ApplyLeftRoomState(bool silent = false) {
+        bool leavingRoomPage = UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE
+            && WindowsManager.Instance.GetCurrentWindow() == "room";
         ClearPendingRoomEntry();
         ClearStaleLobbyState();
-        if (WindowsManager.Instance.GetCurrentWindow() == "room") {
+        if (leavingRoomPage) {
             WindowsManager.Instance.ReturnAfterLeavingRoom();
         }
-        // 不要在这里切 createRoom：房间根还在淡出时会把「退出」画成创建房表单。
-        // 下次主动点顶栏「房间」时，SwitchWindow 会按 RoomId 空自动打开创建房。
         GetRoomList(showTipOnSuccess: false);
         if (!silent) {
             NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");

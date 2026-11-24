@@ -40,6 +40,7 @@ public sealed class SettlementEnvelope {
     public int[][] WinnerMelds;
     /// <summary>长沙扎鸟指示牌（翻开牌山头，不进手牌）。其它规则为 null。</summary>
     public int[] BirdTiles;
+    public int PublicBaoTile;
     public int WinTile;
     public bool MultiRon;
     /// <summary>多家同时和：{player_index: hand}，逐家亮牌。</summary>
@@ -52,6 +53,7 @@ public sealed class SettlementEnvelope {
     public bool SkipHandReveal;
     /// <summary>Optional family presentation after the winning tile is moved, before the result panel.</summary>
     public System.Action AfterHandReveal;
+    public bool HoldAfterHandReveal;
     /// <summary>荣和张是否回收进河（服务端未给时由呈现层按 defer/multi_ron 推断）。</summary>
     public bool? RecycleDiscard;
     public int? RonDiscarderIndex;

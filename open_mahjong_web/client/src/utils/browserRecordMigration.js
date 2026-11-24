@@ -2,6 +2,7 @@
 // board origins follow server/records/format.py and wall_alignment.py.
 import { canonical, decoded, digest, identity, pairedId, requireData } from './browserRecordJson.js'
 import { origins, boardDefinition } from './browserRecordOrigins.js'
+import { expandStoredReplay } from '../../../shared/replayStorage.mjs'
 export { parseReplayJSON, stringifyReplayJSON } from './browserRecordJson.js'
 
 const FORMAT = 'open_mahjong.match_record'
@@ -223,7 +224,8 @@ export function standardBody(row) {
 function identify(row) {
   requireData(row?.game_id && row.record, '缺少牌谱编号或内容')
   const record = decoded(row.record)
-  const body = record.format === FORMAT ? record : decoded(row.match_record)
+  const isArchive = record.format === FORMAT
+  const body = expandStoredReplay(isArchive ? record : decoded(row.match_record))
   if (body) {
     requireData(body.format === FORMAT && body.schema_version === 2 && body.match_id && body.tables, '未知格式')
     const paired = body.match_format === 'paired_tables_2v2'
@@ -251,7 +253,7 @@ function identify(row) {
       matchId: body.match_id,
       side,
       body,
-      raw: record === body ? null : record,
+      raw: isArchive ? null : record,
     }
   }
   const title = record.game_title
@@ -426,10 +428,12 @@ export function mergeReplayRows(rows) {
 export function selectCachedReplay(row, alias = null) {
   if (!row) return null
   const side = alias?.table_id || row.selected_table_id
-  const table = row.record.tables[side]
+  const record = expandStoredReplay(row.record)
+  const table = record.tables[side]
   return {
     ...row,
     ...alias?.metadata,
+    record,
     selected_table_id: side,
     source_game_id: alias?.game_id || row.game_id,
     rank: alias && Object.hasOwn(alias, 'rank') ? alias.rank : row.rank,

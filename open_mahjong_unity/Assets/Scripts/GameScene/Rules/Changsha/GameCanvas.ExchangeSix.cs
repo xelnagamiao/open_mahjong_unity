@@ -164,7 +164,7 @@ public partial class GameCanvas {
         exchangeSixStatus.gameObject.AddComponent<LayoutElement>().preferredHeight = 76;
         var publicRow = new GameObject("PublicCards", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
         publicRow.transform.SetParent(exchangeSixPanel.transform, false);
-        publicRow.GetComponent<LayoutElement>().preferredHeight = 72;
+        publicRow.GetComponent<LayoutElement>().preferredHeight = 140;
         var publicLayout = publicRow.GetComponent<HorizontalLayoutGroup>();
         publicLayout.childForceExpandWidth = publicLayout.childForceExpandHeight = false;
         publicLayout.childControlWidth = publicLayout.childControlHeight = true;
@@ -250,17 +250,26 @@ public partial class GameCanvas {
         if (exchangeSixPrivateNotice != null && exchangeSixPrivateNotice.gameObject.activeSelf) {
             var handBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, handCardsContainer);
             var canvasBounds = ((RectTransform)transform).rect;
-            exchangeSixPrivateNotice.rectTransform.anchoredPosition = new Vector2(handBounds.center.x, handBounds.max.y - canvasBounds.yMin + 106);
+            exchangeSixPrivateNotice.rectTransform.anchoredPosition = new Vector2(handBounds.center.x - canvasBounds.center.x, handBounds.max.y - canvasBounds.yMin + 106);
         }
         if (exchangeSixPanel == null || !exchangeSixPanel.activeSelf || exchangeSixState == null) return;
         if (exchangeSixState.phase != "exchange"
             && exchangeSixState.phase != "exchange_start_choice" && exchangeSixState.phase != "exchange_repeat_choice"
-            && exchangeSixState.phase != "exchange_decision") return;
+            && exchangeSixState.phase != "exchange_decision" && exchangeSixState.public_state.pending_kong == null
+            && exchangeSixState.phase != "claims" && exchangeSixState.phase != "claims_recheck") return;
         // 以实际手牌上沿定位，选中牌抬起及窗口缩放后仍留出间距。
         var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, handCardsContainer);
         var canvasRect = ((RectTransform)transform).rect;
         var rect = (RectTransform)exchangeSixPanel.transform;
-        rect.anchoredPosition = new Vector2(bounds.center.x, bounds.max.y - canvasRect.yMin + 14);
+        float top = bounds.max.y;
+        if (exchangeSixState.public_state.pending_kong != null || exchangeSixState.phase == "claims"
+            || exchangeSixState.phase == "claims_recheck") {
+            if (ActionButtonHost != null && ActionButtonHost.gameObject.activeInHierarchy)
+                top = Mathf.Max(top, RectTransformUtility.CalculateRelativeRectTransformBounds(transform, ActionButtonHost).max.y);
+            if (exchangeSixPrivateNotice != null && exchangeSixPrivateNotice.gameObject.activeInHierarchy)
+                top = Mathf.Max(top, RectTransformUtility.CalculateRelativeRectTransformBounds(transform, exchangeSixPrivateNotice.transform).max.y);
+        }
+        rect.anchoredPosition = new Vector2(bounds.center.x - canvasRect.center.x, top - canvasRect.yMin + 14);
     }
 
     private TMP_Text ExchangeSixLabel(string name, Transform parent) {
@@ -440,10 +449,11 @@ public partial class GameCanvas {
         }
         bool isChoice = phase == "exchange_start_choice" || phase == "exchange_repeat_choice";
         bool isExchange = phase == "exchange_decision" || isChoice || phase == "exchange";
+        bool aboveHand = isExchange || data.pending_kong != null || phase == "claims" || phase == "claims_recheck";
         var panelRect = (RectTransform)exchangeSixPanel.transform;
-        panelRect.anchorMin = panelRect.anchorMax = isExchange ? new Vector2(.5f, 0) : new Vector2(.5f, .82f);
-        panelRect.pivot = new Vector2(.5f, isExchange ? 0 : 1);
-        if (!isExchange) panelRect.anchoredPosition = Vector2.zero;
+        panelRect.anchorMin = panelRect.anchorMax = aboveHand ? new Vector2(.5f, 0) : new Vector2(.5f, .82f);
+        panelRect.pivot = new Vector2(.5f, aboveHand ? 0 : 1);
+        if (!aboveHand) panelRect.anchoredPosition = Vector2.zero;
         var background = exchangeSixPanel.GetComponent<Image>();
         background.color = isExchange ? Color.clear : new Color(.96f, .97f, .98f, .96f);
         background.raycastTarget = !isExchange;
@@ -466,6 +476,28 @@ public partial class GameCanvas {
             exchangeSixStatus.text += $"\n骰子 {data.kong_dice[0]}、{data.kong_dice[1]}，合计 {data.kong_dice.Sum()}";
         var positions = isRecordPlayback
             ? GameRecordManager.Instance.indexToPosition : TableMirror.Current.IndexToPosition;
+        bool claimPrompt = (phase == "claims" || phase == "claims_recheck")
+            && (own.action_list ?? new string[0]).Any(action => action != "pass");
+        bool selfWinPrompt = phase == "kong_self_win" && own.action_list?.Contains("hu_self") == true;
+        bool pendingKong = data.pending_kong != null;
+        if (pendingKong || claimPrompt) {
+            int origin = pendingKong ? data.pending_kong.player_index : data.current_player_index;
+            string source = positions.TryGetValue(origin, out string position)
+                ? position == "self" ? "你" : position == "left" ? "左侧玩家" : position == "top" ? "对家" : "右侧玩家" : "出牌者";
+            exchangeSixStatus.text = source + (pendingKong ? "开杠，待鸣牌" : "打出的牌")
+                + (selfWinPrompt ? "\n请选择自摸或过" : claimPrompt ? "\n请选择要鸣的牌，或选择过" : "\n等待本批胡牌、续杠及吃碰杠处理");
+            background.color = Color.clear;
+            exchangeSixStatus.color = Color.white;
+            exchangeSixStatus.outlineWidth = .2f;
+            exchangeSixStatus.fontSize = 28;
+            if ((claimPrompt || selfWinPrompt) && own.targets != null) {
+                var winningTiles = own.targets.Where(entry => entry.Key.StartsWith("hu_") && own.action_list.Contains(entry.Key))
+                    .SelectMany(entry => entry.Value).Distinct().Select(ChangshaExchangeSixActions.TileLabel).ToArray();
+                if (winningTiles.Length > 0) exchangeSixStatus.text += "\n可胡：" + string.Join("、", winningTiles);
+            }
+            panelRect.anchorMin = panelRect.anchorMax = new Vector2(.5f, 0);
+            panelRect.pivot = new Vector2(.5f, 0);
+        }
         if (phase == "exchange_decision" && data.exchange_choice != null) {
             var choice = data.exchange_choice;
             string actor = "超时默认";
@@ -483,15 +515,15 @@ public partial class GameCanvas {
             exchangeSixStatus.text = title + "\n已提交六张，等待其他玩家";
         exchangeSixStatus.GetComponent<LayoutElement>().preferredHeight = Mathf.Max(76,
             exchangeSixStatus.GetPreferredValues(exchangeSixStatus.text, 668, Mathf.Infinity).y);
-        var publicTiles = data.kong_tiles != null && data.kong_tiles.Length > 0 ? data.kong_tiles : data.claim_tiles;
+        var publicTiles = pendingKong ? data.kong_tiles : claimPrompt ? data.claim_tiles : null;
         if (publicTiles != null) foreach (int tile in publicTiles) {
             var card = Instantiate(StaticCardPrefab, exchangeSixPublicCards);
             // 先确定公开牌宽度，再生成花纹，避免沿用手牌的大尺寸导致花纹超出槽位。
             var cardRect = (RectTransform)card.transform;
-            cardRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 48);
-            card.GetComponent<StaticCard>().SetTileOnlyImage(tile);
+            cardRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 96);
+            card.GetComponent<StaticCard>().SetTableFaceImage(tile);
             var element = card.GetComponent<LayoutElement>() ?? card.AddComponent<LayoutElement>();
-            element.preferredWidth = 48; element.preferredHeight = cardRect.rect.height;
+            element.preferredWidth = 96; element.preferredHeight = 140;
         }
         bool nativeControls = !isRecordPlayback && (phase == "exchange" || isChoice);
         if (!nativeControls) ClearChangshaExchangeControls();
@@ -500,7 +532,7 @@ public partial class GameCanvas {
         exchangeSixPublicCards.gameObject.SetActive(publicTiles != null && publicTiles.Length > 0);
         // 换牌提示与确认跟随手牌；鸣牌/声明继续走原生操作条。
         exchangeSixPanel.SetActive(isExchange && !nativeControls
-            || (publicTiles != null && publicTiles.Length > 0 && phase.Contains("kong")));
+            || pendingKong || claimPrompt);
         RefreshHandTileSelectability();
         if (nativeControls) ShowChangshaExchangeControls(phase == "exchange", readOnly);
     }
@@ -527,6 +559,7 @@ public partial class GameCanvas {
         switch (action) {
             case "changsha_four_joy": return "四喜";
             case "changsha_report_ready": return "报听";
+            case "changsha_open_hand_ready": return "明牌\n+报听";
             case "changsha_open_hand": return "明牌";
             case "changsha_blind_kong": return "闷杠";
             case "changsha_blind_reveal": return "查看后继续";
@@ -546,6 +579,7 @@ public partial class GameCanvas {
     }
 
     public void HideExchangeSixState(bool keepDeclarations = false) {
+        Game3DManager.Instance?.ClearChangshaExchangeClaims();
         if (!keepDeclarations) ClearChangshaDeclarations();
         exchangeSixSnapshots.Clear();
         ClearChangshaExchangeControls();

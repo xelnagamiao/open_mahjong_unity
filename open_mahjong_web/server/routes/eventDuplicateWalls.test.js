@@ -51,6 +51,7 @@ test('manager key routes require their own authentication, event membership and 
     '../../services/eventRoomBots': { createEventRoomBotService: () => ({}) },
     '../../middleware/requireEventAdmin': eventAuth,
     '../../utils/eventAdminHelpers': {}, '../../services/recordMetadataQuery': {}, '../../services/duplicateRecordAccess': {},
+    '../../services/recordDownloadZip': {}, '../../services/publicGameRecord': {},
     '../../services/eventRoomSettings': { createRoomSettingsService: () => ({}) },
     './roomSettings': { createSeatHandler: () => (_req, _res, next) => next() },
   };

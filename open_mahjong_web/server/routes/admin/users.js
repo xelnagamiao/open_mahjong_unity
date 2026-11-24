@@ -8,6 +8,7 @@ const { fetchUserStatsBundle } = require('../../services/playerStats');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 const { getAccountGeography } = require('../../services/accountGeography');
 const { RENAME_CARD_COLUMNS } = require('../../services/renameCards');
+const { grantSponsorTitles } = require('../../utils/titleTables');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const GAME_SERVER_TIMEOUT_MS = config.calcServer.timeoutMs;
@@ -501,6 +502,25 @@ router.patch('/:userId', async (req, res) => {
       `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${idx} RETURNING ${USER_PATCH_SELECT_COLUMNS}`,
       params
     );
+
+    const sponsorAmount = after.rows[0].sponsor_amount;
+    const grantedSponsorTitles = await grantSponsorTitles(
+      client,
+      req.admin.userId,
+      userId,
+      sponsorAmount,
+      '根据赞助金额自动授予头衔'
+    );
+    for (const grant of grantedSponsorTitles) {
+      await writeAudit({
+        adminUserId: req.admin.userId,
+        action: 'title.grant',
+        targetType: 'user',
+        targetId: userId,
+        payload: { title_id: grant.title_id, grant, automatic: true },
+        reason: '根据赞助金额自动授予头衔',
+      }, client);
+    }
 
     await writeAudit({
       adminUserId: req.admin.userId,

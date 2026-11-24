@@ -97,6 +97,7 @@ public class FriendPanel : MonoBehaviour {
         }
 
         public void Tick() => view.Tick();
+        public void TrimPooledRows(int maximumPerKind) => view.TrimPooledRows(maximumPerKind);
         public int Count => data.Count;
     }
 
@@ -157,6 +158,9 @@ public class FriendPanel : MonoBehaviour {
             StopCoroutine(_pollingCoroutine);
             _pollingCoroutine = null;
         }
+        following?.TrimPooledRows(6);
+        friends?.TrimPooledRows(8);
+        requests?.TrimPooledRows(6);
     }
 
     private IEnumerator CoPollFriendList() {

@@ -589,9 +589,8 @@ public static class TileFaceResolver {
                 texture.Apply(false, true);
             }
             texture.name = name;
-            texture.filterMode = FilterMode.Bilinear;
+            texture.filterMode = FilterMode.Trilinear;
             texture.anisoLevel = 16;
-            texture.mipMapBias = -.5f;
             texture.wrapMode = TextureWrapMode.Clamp;
             return texture;
         } catch (UnityException error) {

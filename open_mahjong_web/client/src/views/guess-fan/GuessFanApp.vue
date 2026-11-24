@@ -1,5 +1,5 @@
 <template>
-  <div class="gf">
+  <div class="gf game-lobby">
     <header class="welcome">
       <h1>猜番对抗</h1>
     </header>
@@ -81,10 +81,10 @@
       </section>
 
       <section class="sec">
-        <div class="lobby-split">
-          <div class="split-rooms">
-            <div class="sec-h">■ 房间列表</div>
-            <div class="panel-box">
+        <div class="lobby-columns">
+          <div class="lobby-room-column">
+            <div class="sec-h lobby-section-title">■ 房间列表</div>
+            <div class="panel-box lobby-room-panel">
               <div class="side-tools">
                 <div class="join-code">
                   <input v-model="joinCode" maxlength="6" placeholder="房间码" @keyup.enter="joinByInput" />
@@ -93,7 +93,7 @@
                 <button type="button" class="panel-btn ghost" :disabled="connecting" @click="refreshLobby">刷新</button>
               </div>
               <div v-if="!lobbyRooms.length" class="empty">暂无等待中的房间</div>
-              <ul v-else class="room-list">
+              <ul v-else class="room-list lobby-room-list" tabindex="0" aria-label="房间列表">
                 <li
                   v-for="r in lobbyRooms"
                   :key="r.code"
@@ -143,8 +143,8 @@
             </div>
           </div>
 
-          <div class="split-rank">
-            <div class="sec-h rank-sec-h">
+          <div>
+            <div class="sec-h rank-sec-h lobby-section-title">
               <div class="rank-tabs">
                 <span class="rank-label">排行榜</span>
                 <button
@@ -176,7 +176,7 @@
               </el-tooltip>
             </div>
             <div class="panel-box rank-box">
-              <ol v-if="lobbyBoard.length" class="rank-list">
+              <ol v-if="lobbyBoard.length" :key="leaderboardTab" class="rank-list lobby-rank-list" tabindex="0" aria-label="排行榜">
                 <li v-for="(row, i) in lobbyBoard" :key="row.userId">
                   <span class="rk" :class="`top-${i + 1}`">{{ i + 1 }}</span>
                   <span class="rank-player">
@@ -1473,26 +1473,6 @@ onBeforeUnmount(() => {
   max-width: none;
 }
 
-.lobby-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 16px;
-  align-items: start;
-}
-
-.split-rooms,
-.split-rank {
-  min-width: 0;
-}
-
-.side-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
 .match-defaults {
   font-size: 14px;
   color: #555;
@@ -1506,87 +1486,6 @@ onBeforeUnmount(() => {
 .match-defaults ul {
   margin: 0;
   padding-left: 1.2em;
-}
-
-.join-code {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-  min-width: 180px;
-}
-
-.join-code input {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.room-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.room-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.room-item.mine {
-  background: #f5faff;
-  margin: 0 -8px;
-  padding-left: 8px;
-  padding-right: 8px;
-}
-
-.room-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.tag.you {
-  background: #ecf5ff;
-  color: #409eff;
-}
-
-.room-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  min-width: 0;
-  font-size: 13px;
-}
-
-.room-main .code {
-  font-family: ui-monospace, monospace;
-  letter-spacing: 0.06em;
-}
-
-.room-players { display: flex; flex-wrap: wrap; gap: 6px; }
-.player-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; padding: 4px 8px 4px 4px; border: 1px solid #d9ecff; border-radius: 18px; background: #f3f9ff; color: #303133; }
-.player-chip i { display: grid; flex: 0 0 24px; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #409eff; color: #fff; font-style: normal; font-weight: 700; }
-.player-chip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-chip small { flex-shrink: 0; padding: 1px 4px; border-radius: 3px; background: #409eff; color: #fff; font-size: 10px; }
-.player-chip.waiting { border-style: dashed; background: #fafafa; color: #909399; }
-
-.room-main .meta {
-  color: #888;
-}
-
-.tag {
-  font-size: 11px;
-  padding: 1px 6px;
-  background: #f0f0f0;
-  color: #666;
 }
 
 .rank-sec-h {
@@ -1684,39 +1583,6 @@ onBeforeUnmount(() => {
   padding: 12px 0;
 }
 
-.panel-btn {
-  display: inline-block;
-  padding: 8px 14px;
-  background: #409eff;
-  color: #fff;
-  border: 0;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-.panel-btn:hover {
-  background: #66b1ff;
-}
-
-.panel-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.panel-btn.ghost {
-  background: transparent;
-  border: 1px solid #ddd;
-  color: #666;
-}
-
-.panel-btn.ghost:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
 .err {
   color: #f56c6c;
   font-size: 13px;
@@ -1752,9 +1618,6 @@ onBeforeUnmount(() => {
   }
   .g4 {
     grid-template-columns: 1fr 1fr;
-  }
-  .lobby-split {
-    grid-template-columns: 1fr;
   }
   .guide-grid { grid-template-columns: 1fr; }
 }

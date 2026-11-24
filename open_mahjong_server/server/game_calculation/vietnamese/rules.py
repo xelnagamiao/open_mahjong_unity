@@ -1,7 +1,7 @@
 """Classic 160-tile profile; optional rules stay explicit in the room snapshot.
 
 Authority: How to Play Vietnamese Mahjong, Revised and Expanded Edition,
-Bridget Young, 2026, PDF modified 2026-08-22. See other/rules/vietnamese.md.
+Bridget Young, 2026, PDF modified 2026-08-22. See other/rule/vietnamese.md.
 """
 from dataclasses import dataclass, asdict, fields
 from .tiles import *

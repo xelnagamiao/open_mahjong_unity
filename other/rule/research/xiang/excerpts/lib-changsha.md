@@ -1,6 +1,6 @@
 # lib-changsha
 
-来源：馆藏 `/rulebooks/changsha-classic-double-bird-rulebook.pdf`  
+来源：馆藏 `/rulebooks/长沙麻将经典双鸟规则书.pdf`  
 版本：2026-07-09  
 访问：2026-08-14
 

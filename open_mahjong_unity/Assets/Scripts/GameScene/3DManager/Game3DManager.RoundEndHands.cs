@@ -346,7 +346,7 @@ public partial class Game3DManager {
         int cardsPerRow = GetRevealedHandCardsPerRow();
         int row = slotIndex / cardsPerRow;
         int col = slotIndex % cardsPerRow;
-        float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, cardsPerRow, false, useHandSpacing: true);
+        float colOffset = ComputeRowCenterOffset(cardsPosition, row * cardsPerRow, col, false, useHandSpacing: true);
         Vector3 pos = HandRowOrigin(cardsPosition, widthDir);
         pos += widthDir.normalized * colOffset;
         pos += heightDir.normalized * handRowStep * row;

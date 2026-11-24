@@ -148,8 +148,8 @@ public partial class GameRecordManager {
             }
         } else if (action == "changsha_declaration") {
             int seat = ParseTickInt(tick, 1);
-            if (tick[2] == "changsha_report_ready") exchangeSixRecordReady.Add(seat);
-            if (tick[2] == "changsha_open_hand") exchangeSixRecordOpen.Add(seat);
+            if (tick[2] == "changsha_report_ready" || tick[2] == "changsha_open_hand_ready") exchangeSixRecordReady.Add(seat);
+            if (tick[2] == "changsha_open_hand" || tick[2] == "changsha_open_hand_ready") exchangeSixRecordOpen.Add(seat);
         } else if (action == "changsha_lock_patterns") {
             exchangeSixRecordLocked[ParseTickInt(tick, 1)] = JsonConvert.DeserializeObject<Dictionary<int, string[]>>(tick[2]);
         } else if (action == "changsha_hidden_draw") {
@@ -223,10 +223,15 @@ public partial class GameRecordManager {
         var fourJoy = exchangeSixRecordFourJoy.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray());
         var counts = recordPlayerList.ToDictionary(player => player.playerIndex, player => player.tileList.Count);
         Game3DManager.Instance?.SyncChangshaExchangeRecordHands(open, fourJoy, indexToPosition, counts);
-        GameCanvas.Instance?.ShowExchangeSixState(new ChangshaExchangeSixState {
+        var snapshot = new ChangshaExchangeSixState {
             remaining_time = exchangeSixRecordChoiceSeconds,
             phase = exchangeSixRecordChoicePhase ?? (exchangeSixRecordExchanging ? exchangeSixRecordRolling ? "exchange_dice" : "exchange" : exchangeSixRecordPublicTiles.Length > 0 ? "open_kong_public" : "playing"),
             public_state = new ChangshaExchangeSixPublic {kong_tiles = exchangeSixRecordPublicTiles, kong_dice = exchangeSixRecordDice,
+                current_player_index = currentPlayerIndex,
+                pending_kong = exchangeSixRecordPublicTiles.Length > 0 ? new ChangshaExchangeSixPendingKong {
+                    player_index = currentPlayerIndex,
+                    river_start = recordPlayer_to_info[indexToPosition[currentPlayerIndex]].discardTiles.Count
+                } : null,
                 exchange_round = exchangeSixRecordRound, completed_exchange_rounds = exchangeSixRecordCompletedRounds,
                 exchange_choice = exchangeSixRecordChoice,
                 dice = exchangeSixRecordExchangeDice, source_offset = exchangeSixRecordSourceOffset,
@@ -234,7 +239,9 @@ public partial class GameRecordManager {
                 reported_ready_seats = exchangeSixRecordReady.ToArray(), open_hand_seats = exchangeSixRecordOpen.ToArray(),
                 disqualified_seats = exchangeSixRecordDisqualified.ToArray()},
             private_state = new ChangshaExchangeSixPrivate {action_list = Array.Empty<string>()},
-        }, false);
+        };
+        GameCanvas.Instance?.ShowExchangeSixState(snapshot, false);
+        Game3DManager.Instance?.SyncChangshaExchangeClaims(snapshot, indexToPosition);
     }
 
     private IEnumerator AnnounceExchangeSixRecordWinners(string huClass) {
@@ -267,7 +274,10 @@ public partial class GameRecordManager {
         // 仅顺序播放报动作；GotoAction重建历史时不补播声明。
         if (tick[0] == "changsha_declaration" && tick[2] != "pass")
             GameCanvas.Instance?.QueueChangshaDeclaration(indexToPosition[ParseTickInt(tick, 1)],
-                tick[2] == "changsha_open_hand" ? "明牌" : "报听");
+                tick[2] == "changsha_open_hand_ready" ? "明牌 + 报听" : tick[2] == "changsha_open_hand" ? "明牌" : "报听");
+        // 两种闷杠都在声明成立后记一条隐藏取牌，提示不展示牌值。
+        if (tick[0] == "changsha_hidden_draw")
+            GameCanvas.Instance?.QueueChangshaDeclaration(indexToPosition[ParseTickInt(tick, 1)], "闷杠");
         if (tick[0] == "changsha_four_joy")
             GameCanvas.Instance?.QueueChangshaDeclaration(indexToPosition[ParseTickInt(tick, 1)], "四喜",
                 Enumerable.Repeat(ParseTickInt(tick, 2), 4).ToArray());

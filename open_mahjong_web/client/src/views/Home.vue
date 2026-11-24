@@ -297,6 +297,7 @@ const calcLinks = [
   { to: '/calc/chinese', title: '麻雀计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
   { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#c0392b' },
+  { to: '/menchin', title: '门清大战', description: '听牌训练、限时挑战与双人万字对战', color: '#177866' },
 ]
 
 const toolLinks = [

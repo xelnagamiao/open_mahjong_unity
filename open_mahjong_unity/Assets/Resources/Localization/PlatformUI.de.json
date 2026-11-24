@@ -1,5 +1,7 @@
 {
   "entries": [
+    {"key": "连接本地测试服务", "text": "Mit lokalem Testserver verbinden"},
+    {"key": "连接远程服务器", "text": "Mit entferntem Server verbinden"},
     {"key": "换三张", "text": "Drei Steine tauschen"},
     {"key": "留空自动生成", "text": "Für automatische Erstellung leer lassen"},
     {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "text": "Beide Tische verwenden dieselbe aus dem Startwert erzeugte Mauer. Es wird kein Duplikatschlüssel erstellt."},
@@ -25018,8 +25020,8 @@
       "text": "Reines Doppel-Chi"
     },
     {
-      "key": "other/rule/inclued_rule/新编MCR.pdf",
-      "text": "other/rule/inclued_rule/新编MCR.pdf"
+      "key": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
+      "text": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
     },
     {
       "key": "在 Salasasa 免费在线玩国标麻将 MCR，支持自动算番、段位匹配和牌谱复盘。浏览器 2D 无需下载，另有多规则客户端与麻将学习工具。",

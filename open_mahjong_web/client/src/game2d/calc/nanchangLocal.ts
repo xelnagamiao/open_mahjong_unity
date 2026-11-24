@@ -52,24 +52,25 @@ export class NanchangLocal {
   private jingdiao(hand:number[]){
     return this.jingdiaoShapes(hand).length>0
   }
-  private jingdiaoShapes(hand:number[],natural=false,win?:number){
+  private jingdiaoShapes(hand:number[]){
     if(!this.valid(hand,false))return []
-    const result=new Set<string>()
-    // Keep the reserved jing and drawn tile together; consider every reservation.
-    for(const tile of this.jing.filter(t=>hand.includes(t)&&(!natural||t===win))){
-      const rest=[...hand];rest.splice(rest.indexOf(tile),1);const h=this.counts(rest,natural)
-      if(this.groups(h.counts,h.wild,4-this.melds.length,0))result.add('standard')
-      if(this.melds.every(m=>new Set(meld(m)).size===1)&&this.groups(h.counts,h.wild,4-this.melds.length,0,true))result.add('all_triplets')
-      if(!this.melds.length&&this.pairs(h.counts,h.wild,6))result.add('seven_pairs')
-    }
-    return [...result]
+    const {counts,wild}=this.counts(hand)
+    if(!wild)return []
+    const remaining=wild-1, groups=4-this.melds.length, result:string[]=[]
+    if(this.groups(counts,remaining,groups,0))result.push('standard')
+    if(this.melds.every(m=>new Set(meld(m)).size===1)&&this.groups(counts,remaining,groups,0,true))result.push('all_triplets')
+    if(!this.melds.length&&this.pairs(counts,remaining,6))result.push('seven_pairs')
+    return result
   }
   waiting(hand:number[]){return this.valid(hand,false)?TILES.filter(t=>this.shapes([...hand,t]).length>0):[]}
   private score(hand:number[],win:number,self:boolean,payer:number|null,discarded:number[],other=true,declared=true):Quote|null {
     let shapes=this.shapes(hand,win,self);if(!shapes.length)return null
-    let natural=this.shapes(hand,win,self,true);const before=[...hand];before.splice(before.indexOf(win),1)
-    const jd=declared&&!!this.c.declared_jingdiao&&self&&this.jingdiao(before),winner=this.c.index??1,common=discarded.reduce((n,t)=>n+(t===this.jing[0]?2:t===this.jing[1]?1:0),0)+Number(jd)
-    if(jd){shapes=this.jingdiaoShapes(before);natural=this.jingdiaoShapes(before,true,win)}
+    const natural=this.shapes(hand,win,self,true)
+    const before=[...hand];before.splice(before.indexOf(win),1)
+    const declaredShapes=declared && this.c.declared_jingdiao && self ? this.jingdiaoShapes(before) : []
+    const jd=declaredShapes.length>0
+    if(jd)shapes=declaredShapes
+    const winner=this.c.index??1,common=discarded.reduce((n,t)=>n+(t===this.jing[0]?2:t===this.jing[1]?1:0),0)+Number(jd)
     let best:Quote|null=null
     for(const shape of [...shapes].sort()){
       const isNatural=natural.includes(shape),german=isNatural?other?5:10:0,fan=common+(isNatural?other?1:2:0)+(shape==='all_triplets'?2:shape==='seven_pairs'?isNatural?2:1:shape==='thirteen_lan'?Array.from({length:7},(_,i)=>i+41).every(t=>hand.includes(t))?2:1:0)

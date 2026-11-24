@@ -95,7 +95,6 @@ public class TipsFanCount : MonoBehaviour
         tipsFanCountText.fontSizeMin = 12f;
         tipsFanCountText.enableWordWrapping = false;
         tipsFanCountText.overflowMode = TextOverflowModes.Truncate;
-        tipsFanCountText.alignment = TextAlignmentOptions.Center;
     }
 #endif
 
@@ -142,7 +141,8 @@ public class TipsFanCount : MonoBehaviour
         PlaceRow(text.rectTransform, top);
         text.color = new Color32(240,240,240,255); text.raycastTarget = false;
         text.enableAutoSizing = true; text.fontSizeMin = 12; text.fontSizeMax = 23;
-        text.textWrappingMode = TextWrappingModes.NoWrap; text.alignment = TextAlignmentOptions.Center;
+        text.textWrappingMode = TextWrappingModes.NoWrap; text.alignment = TextAlignmentOptions.Midline;
+        text.GetComponent<PlatformTextBaseline>()?.Configure(PlatformTextBaseline.LayoutMode.Preserve);
         text.lineSpacing = 0; text.margin = new Vector4(4,0,4,0);
     }
 #endif

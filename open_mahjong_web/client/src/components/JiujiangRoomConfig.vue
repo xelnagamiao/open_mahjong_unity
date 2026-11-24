@@ -16,7 +16,7 @@
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>
       <el-form-item label="允许观战"><el-switch v-model="form.allow_spectator" /></el-form-item>
     </div>
-    <a href="/rulebooks/jiujiang.docx" download="九江麻将规则书.docx">下载九江麻将规则书</a>
+    <a href="/rulebooks/九江麻将规则书.docx" download="九江麻将规则书.docx">下载九江麻将规则书</a>
   </div>
 </template>
 

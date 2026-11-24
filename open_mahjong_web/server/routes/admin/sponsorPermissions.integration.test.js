@@ -15,12 +15,14 @@ test('sponsor and special permissions remain independent across admin edits', { 
   require.cache[dbPath] = { id: dbPath, loaded: true, exports: pool };
   require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
   const { ensureUserLadderPassColumns } = require('../../utils/userLadderPass');
+  const { ensureTitleTables } = require('../../utils/titleTables');
   await pool.query(`
     CREATE TEMP TABLE users (user_id integer PRIMARY KEY, username text, email text,
       email_verified_at timestamp, is_tourist boolean, sponsor_expires_at timestamp,
       sponsor_amount numeric DEFAULT 0, admin_note text, ban_expires_at timestamp,
       ban_type text, ban_reason text, created_at timestamp, is_beginner_qualified boolean DEFAULT false);
     CREATE TEMP TABLE game_player_records (user_id integer);
+    CREATE TEMP TABLE user_settings (user_id integer PRIMARY KEY REFERENCES users, title_id integer DEFAULT 1);
     CREATE TEMP TABLE admin_audit_log (admin_user_id bigint, action text,
       target_type text, target_id text, payload jsonb, reason text);
     INSERT INTO users (user_id,username,sponsor_amount,sponsor_expires_at,is_beginner_qualified) VALUES
@@ -28,6 +30,7 @@ test('sponsor and special permissions remain independent across admin edits', { 
       (4,'neither',0,NULL,false), (5,'historical',0,'2020-01-01',false);
   `);
   await ensureUserLadderPassColumns();
+  await ensureTitleTables(pool);
 
   const app = express();
   app.use(express.json());

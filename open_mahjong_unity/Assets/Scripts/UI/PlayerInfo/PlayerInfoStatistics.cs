@@ -22,6 +22,25 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private PlayerInfoAppearance.Palette palette;
     public float ViewportHeight => scroll.viewport.rect.height;
 
+    private void OnDisable()
+    {
+        TrimInactiveEntries(2);
+    }
+
+    private void TrimInactiveEntries(int keep)
+    {
+        keep = Mathf.Max(0, keep);
+        int inactive = 0;
+        for (int i = entries.Count - 1; i >= 0; i--)
+        {
+            var entry = entries[i];
+            if (entry != null && entry.gameObject.activeSelf) continue;
+            if (inactive++ < keep) continue;
+            if (entry) Destroy(entry.gameObject);
+            entries.RemoveAt(i);
+        }
+    }
+
     public void ApplyAppearance(PlayerInfoAppearance.Palette value) {
         palette = value;
         foreach (var entry in entries) if (entry) entry.ApplyAppearance(value);

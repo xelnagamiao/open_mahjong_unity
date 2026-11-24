@@ -17,7 +17,60 @@ public static class MatchRecordCodecValidation {
                 throw new Exception("Network record changes canonical vector " + checks);
             checks++;
         }
-        return checks + " cross-language integrity checks passed";
+        VerifyCompactStorage();
+        return checks + " cross-language integrity checks and compact storage checks passed";
+    }
+
+    static void VerifyCompactStorage() {
+        var source = JObject.Parse(@"{'game_title':{'rule':'guobiao'},'game_round':{
+            'round_index_1':{'action_ticks':[['d',11],['c',11],['d',12],['c',12],['end']],
+                             'action_times_ms':[0,1700000000123,-1,true]},
+            'round_index_2':{'action_ticks':[['ask_other',42],['end']]}}}");
+        var expanded = DeviceRecordMigration.ConvertSingle("CompactTest", source, new JArray());
+        var compact = (JObject)expanded.DeepClone();
+        compact["storage_codec"] = "om.single_round_meta.v1";
+        var metadata = (JObject)compact["tables"]["main"]["round_meta"];
+        ((JObject)metadata["round_index_1"]).Remove("action_meta");
+        ((JObject)metadata["round_index_1"]).Remove("legacy_node_map");
+        ((JObject)metadata["round_index_2"]).Remove("action_meta");
+        var original = (JObject)compact.DeepClone();
+        var session = MatchRecordSession.FromRecord(compact);
+        var actions = session.Table("main")["round_meta"]["round_index_1"]["action_meta"];
+        if ((long)actions[0]["occurred_at_ms"] != 0 || (long)actions[1]["occurred_at_ms"] != 1700000000123 ||
+            Enumerable.Range(2, 3).Any(i => actions[i]["occurred_at_ms"].Type != JTokenType.Null) ||
+            !JToken.DeepEquals(expanded["tables"]["main"], session.Table("main")) ||
+            session.Manifest["storage_codec"] != null || !JToken.DeepEquals(original, compact))
+            throw new Exception("Compact replay expansion changed a timestamp, explicit cursor map or input");
+        var aliases = new JObject();
+        DeviceRecordMigration.AddAliases(aliases, new RecordDetail { game_id = "CompactTest", record = compact });
+        if (!JToken.DeepEquals(aliases["CompactTest"]["node_map"]["round_index_2"], new JArray(0, 0, 1)) ||
+            !JToken.DeepEquals(aliases["CompactTest"]["node_map"]["round_index_1"], new JArray(0, 1, 2, 3, 4, 5)))
+            throw new Exception("Compact replay aliases changed a historical bookmark");
+
+        const string round = "round_index_1";
+        var explicitActions = new JArray((JArray)expanded["tables"]["main"]["round_meta"][round]["action_meta"]);
+        explicitActions[0]["occurred_at_ms"] = 299;
+        metadata[round]["action_meta"] = explicitActions;
+        if (!JToken.DeepEquals(MatchRecordSession.FromRecord(compact).Table("main")["round_meta"][round]["action_meta"], explicitActions))
+            throw new Exception("Compact replay overwrote explicit action metadata");
+        foreach (var extension in new JToken[] { "vendor.future.v3", new JObject { ["vendor"] = "v3" }, JValue.CreateNull() }) {
+            var full = (JObject)expanded.DeepClone();
+            full["storage_codec"] = extension;
+            var legacySession = MatchRecordSession.FromRecord(full);
+            if (!ReferenceEquals(MatchRecordCodec.ExpandStorage(full), full) ||
+                !JToken.DeepEquals(legacySession.Manifest["storage_codec"], extension) ||
+                !JToken.DeepEquals(legacySession.Table("main"), full["tables"]["main"]))
+                throw new Exception("Full V2 archive lost an unrecognized extension");
+        }
+        foreach (string invalid in new[] { "paired", "unknown", "unmarked" }) {
+            var damaged = (JObject)original.DeepClone();
+            if (invalid == "paired") damaged["match_format"] = "paired_tables_2v2";
+            if (invalid == "unknown") damaged["storage_codec"] = "om.unsupported";
+            if (invalid == "unmarked") damaged.Remove("storage_codec");
+            try { MatchRecordSession.FromRecord(damaged); }
+            catch (FormatException) { continue; }
+            throw new Exception("Invalid compact replay accepted: " + invalid);
+        }
     }
 
     static DeviceRecordMigration.Plan PrepareBothWays(Dictionary<string,string> source) {

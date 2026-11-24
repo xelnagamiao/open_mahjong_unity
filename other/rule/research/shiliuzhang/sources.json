@@ -141,7 +141,7 @@
     },
     {
       "id": "lib-taiwan",
-      "url": "/rulebooks/taiwan-yaku-table.pdf",
+      "url": "/rulebooks/台湾麻将台数表.pdf",
       "title": "台湾麻将役种表（馆藏）",
       "type": "rulebook",
       "lang": "zh",
@@ -152,7 +152,7 @@
       ],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/taiwan-yaku-table.pdf",
+      "local_path": "rulebooks/台湾麻将台数表.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },

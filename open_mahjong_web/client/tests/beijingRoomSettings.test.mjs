@@ -91,7 +91,7 @@ test('room boundaries reject invalid values, wrong rules and incompatible settin
 
 test('published rulebook retains the supplied introduction, table and all exponent formulas', () => {
   assert.equal(beijingRulebooks.length, 2)
-  const html = readFileSync(new URL('../public/rulebooks/beijing/rules.html', import.meta.url), 'utf8')
+  const html = readFileSync(new URL('../public/rulebooks/北京麻将（吃碰提）.html', import.meta.url), 'utf8')
   assert.ok(html.includes(BEIJING_DESCRIPTION))
   assert.ok(html.includes('<table>'))
   assert.ok(html.includes('3×2<sup>F</sup>'))

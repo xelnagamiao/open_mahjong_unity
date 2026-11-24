@@ -1,5 +1,6 @@
 const { tableTitles } = require('./replayTables');
 const { parseReplay } = require('../utils/parseReplay');
+const { expandStoredReplay } = require('../../shared/replayStorage.mjs');
 const pool = require('../config/database');
 const { visibleRecordSql, visibleReplayTableSql, LOCKED_MESSAGE } = require('./duplicateRecordAccess');
 
@@ -14,7 +15,7 @@ function containsSharedData(payload) {
 }
 
 function presentReplay(row) {
-  const record = parseReplay(row.body);
+  const record = expandStoredReplay(parseReplay(row.body));
   const allowed = new Set(row.allowed || []);
   const roster = row.participants || [];
   let selected = row.table_id;

@@ -37,6 +37,8 @@ const MobileDownload = () => import('@/views/MobileDownload.vue')
 const UsageGuide = () => import('@/views/UsageGuide.vue')
 const Tiles = () => import('@/views/Tiles.vue')
 const GuessFanApp = () => import('@/views/guess-fan/GuessFanApp.vue')
+const MenchinTraining = () => import('@/views/MenchinTraining.vue')
+const MenchinDuel = () => import('@/views/menchin/MenchinDuel.vue')
 const RecordConvert = () => import('@/views/RecordConvert.vue')
 const AdminLayout = () => import('@/layouts/AdminLayout.vue')
 const AdminLogin = () => import('@/views/admin/Login.vue')
@@ -204,6 +206,39 @@ const routes = [
         name: 'GuessFan',
         component: GuessFanApp,
         meta: { title: '猜番对抗 - salasasa.cn', requiresPlayer: true }
+      },
+      {
+        path: 'menchin',
+        name: 'MenchinTraining',
+        component: MenchinTraining,
+        meta: { title: '门清大战 - salasasa.cn' }
+      },
+      {
+        path: 'menchin/practice',
+        name: 'MenchinPractice',
+        component: MenchinTraining,
+        props: { page: 'practice' },
+        meta: { title: '休闲训练 - 门清大战 - salasasa.cn' }
+      },
+      {
+        path: 'menchin/challenge',
+        name: 'MenchinChallenge',
+        component: MenchinTraining,
+        props: { page: 'challenge' },
+        meta: { title: '限时挑战 - 门清大战 - salasasa.cn' }
+      },
+      {
+        path: 'menchin/pvp',
+        name: 'MenchinDuel',
+        component: MenchinDuel,
+        meta: { title: '双人万字对战 - 门清大战 - salasasa.cn' }
+      },
+      {
+        path: 'menchin/rankings',
+        name: 'MenchinRankings',
+        component: MenchinTraining,
+        props: { page: 'rankings' },
+        meta: { title: '挑战排行榜 - 门清大战 - salasasa.cn' }
       },
       {
         path: 'tools/record-convert',

@@ -99,6 +99,6 @@ test('W uses the supplied introduction and updated downloadable rulebook', () =>
   assert.equal(hongqueRulebook(w.sub_rule).description, HONGQUE_W_DESCRIPTION)
   assert.ok(hongqueRulebook('hongque/v1.6').description.length > 0)
   assert.equal(hongqueRulebooks.length, 2)
-  const pdf = readFileSync(new URL('../public/rulebooks/hongque-w-v1.1.pdf', import.meta.url))
+  const pdf = readFileSync(new URL('../public/rulebooks/虹雀W（1.1版）.pdf', import.meta.url))
   assert.equal(createHash('sha256').update(pdf).digest('hex'), '8a06601c88b69a645e6b5ccd5ba6fe44b423fdd2691310c3f636c5192e13f7c3')
 })

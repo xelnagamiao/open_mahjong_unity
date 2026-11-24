@@ -16,7 +16,7 @@
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>
       <el-form-item label="允许观战"><el-switch v-model="form.allow_spectator" /></el-form-item>
     </div>
-    <a href="/rulebooks/singapore-spgg2024.html" target="_blank" rel="noopener">查看平台规则及原文来源</a>
+    <a href="/rulebooks/新加坡四人麻将规则（SPGG 2024）.html" target="_blank" rel="noopener">查看平台规则及原文来源</a>
   </div>
 </template>
 

@@ -1,6 +1,8 @@
+import { expandStoredReplay } from '../../../shared/replayStorage.mjs'
+
 // Rendering consumes one table. The cached/downloaded document always keeps all tables.
 export function replayTableView(detail, { tableId, userId, sourceActions = false } = {}) {
-  const body = detail?.record ?? detail
+  const body = expandStoredReplay(detail?.record ?? detail)
   if (body?.format !== 'open_mahjong.match_record') return detail
   const tables = ['main', 'open', 'closed'].map(k => body.tables[k]).filter(t => t?.payload)
   const uid = Number(userId)
@@ -32,7 +34,7 @@ export function replayTableView(detail, { tableId, userId, sourceActions = false
       record.game_round[key] = restored
     }
   }
-  return { ...detail, game_id: detail.game_id ?? table.table_record_id, rule: body.rule,
+  return { ...(detail.record == null ? body : detail), game_id: detail.game_id ?? table.table_record_id, rule: body.rule,
     sub_rule: body.sub_rule, selected_table_id: table.table_id, table_record_id: table.table_record_id,
     players: table.players, record, round_meta: table.round_meta }
 }

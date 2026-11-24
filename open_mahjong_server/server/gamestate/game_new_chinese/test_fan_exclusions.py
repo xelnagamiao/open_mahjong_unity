@@ -89,6 +89,38 @@ def test_dragon_pairs_exclude_tile_hogs(quads, others, win, tier):
     assert "门清" not in fans and TILE_HOG_FANS.isdisjoint(fans)
 
 
+@pytest.mark.parametrize("source", ["self_draw", "discard", "black", "bao_seen"])
+@pytest.mark.parametrize(("quads", "pairs"), [
+    ([], [11,14,22,25,33,36,45]),
+    ([11], [24,27,35,42,45]),
+    ([11,22], [35,42,45]),
+    ([11,22,33], [45]),
+])
+def test_seven_pairs_last_copy_depends_on_winning_side(quads, pairs, source):
+    complete = [t for t in quads for _ in range(4)] + [t for t in pairs for _ in range(2)]
+    for tile in [45, *quads]:
+        before = complete.copy()
+        before.remove(tile)
+        visible = 4 - complete.count(tile)
+        detail = rules.score(before, (), tile, source, visible=visible)
+        assert detail["shape"] == "seven_pairs"
+        assert detail["fans"].get("绝张", 0) == (5 if tile in pairs else 0)
+        if tile in pairs:
+            assert "绝张" not in rules.score(before, (), tile, source, visible=visible - 1)["fans"]
+
+
+@pytest.mark.parametrize(("hand", "melds", "bao", "visible"), [
+    ([11,11,14,14,22,22,25,25,33,33,36,36,41], (), 41, 2),
+    ([11,11,11,11,24,24,27,27,35,35,42,42,45], (), 45, 2),
+    ([12,21,22,23,41,41,41], ("s12","s12"), 12, 2),
+    ([12,21,22,23,41,41,41], ("s12","s12"), 47, 3),
+])
+def test_bao_draw_never_awards_last_copy_or_uses_it_for_minimum_fan(hand, melds, bao, visible):
+    detail = rules.score(hand, melds, bao, "bao_draw", visible=visible)
+    assert "绝张" not in detail["fans"]
+    assert rules.score(hand, melds, bao, "bao_draw", visible=visible, hepai_limit=detail["fan"] + 1) is None
+
+
 @pytest.mark.parametrize(("ranks", "meld", "win", "tier"), [
     ("1112223334", "k41", 11, "四归一"),
     ("1111222333", "k41", 12, "八归"),

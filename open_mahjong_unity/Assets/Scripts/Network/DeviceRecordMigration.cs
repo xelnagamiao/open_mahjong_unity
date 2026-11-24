@@ -90,7 +90,8 @@ internal static class DeviceRecordMigration {
         return new[] { "main", "open", "closed" }.First(k => record["tables"][k]?["payload"] is JObject);
     }
     internal static void AddAliases(JObject aliases, RecordDetail detail) {
-        foreach (var t in ((JObject)detail.record["tables"]).Properties()) {
+        var record = MatchRecordCodec.ExpandStorage(detail.record);
+        foreach (var t in ((JObject)record["tables"]).Properties()) {
             string id = (string)t.Value["table_record_id"];
             if (string.IsNullOrEmpty(id) || !(t.Value["payload"] is JObject))
                 continue;
@@ -101,6 +102,8 @@ internal static class DeviceRecordMigration {
     }
     static int Weight(JObject body) => ((JObject)body["tables"]).Properties().Count(t => t.Value["payload"] is JObject);
     internal static JObject Merge(JObject a, JObject b) {
+        a = MatchRecordCodec.ExpandStorage(a);
+        b = MatchRecordCodec.ExpandStorage(b);
         if (a == null)
             return b;
         if (b == null)

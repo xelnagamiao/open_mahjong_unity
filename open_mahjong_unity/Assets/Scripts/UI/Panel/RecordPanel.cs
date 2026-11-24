@@ -118,6 +118,7 @@ public class RecordPanel : MonoBehaviour {
         CancelNavigationPreparation();
         if (presentation != null) StopCoroutine(presentation);
         presentation = null;
+        viewportCards?.TrimPooledRows(8);
     }
 
     private void OnDestroy() {

@@ -141,6 +141,62 @@ def test_ron_tile_is_recorded_once_without_guessing_from_hand_length(rule, hand,
     assert RecordSim(record).goto_action("round_index_1", 2) == frames[-1]
 
 
+def test_guangdong_doubles_replays_win_sources_tags_and_next_active_seat():
+    ticks = [
+        ["c", 22, "F"],
+        ["hu_first", 2, 1, ["GD|chicken|鸡和"], [0, 0, 0, 0], 22, 1, 0, 0],
+        ["hu_second", 1, 1, ["清一色"], [0, 0, 0, 0], 22, 1, 0, 1],
+        ["d", 24],
+    ]
+    record = _round("guangdong", "guangdong/mil2023-doubles", [22], [13], [14], [15], [24], ticks)
+    frames = RecordSim(record).apply_all("round_index_1")
+    first, second, draw = frames[2:]
+    assert first["players"]["0"]["discard_tiles"] == [22]
+    assert first["players"]["2"]["blood_win"] == {"tile": 22, "multi": True, "source": 0, "self_draw": False}
+    assert first["players"]["2"]["tag_list"] == ["gd_chicken"]
+    assert second["players"]["0"]["discard_tiles"] == []
+    assert second["players"]["1"]["tile_list"] == [13]
+    assert second["players"]["1"]["tag_list"] == ["gd_non_chicken"]
+    assert second["current_player_index"] == 3
+    assert draw["players"]["3"]["tile_list"] == [15, 24]
+    assert RecordSim(record).goto_action("round_index_1", len(ticks)) == draw
+
+
+def test_guangdong_robbed_kong_restores_pung_and_preserves_river():
+    record = _round("guangdong", "guangdong/mil2023-doubles", [], [14], [], [], [], [])
+    sim = RecordSim(record)
+    sim.load_round("round_index_1")
+    owner = sim.players[0]
+    owner.discard_tiles = [22]
+    owner.combination_tiles = ["g22"]
+    owner.combination_masks = [[0, 22, 3, 22, 1, 22, 0, 22]]
+    sim.last_jiagang_player_index = 0
+    sim.apply_tick(["hu_first", "1", "1", '["GD|rob_kong|抢杠"]', "[0,0,0,0]", "22"])
+    assert sim.players[1].blood_win["source"] == 0
+    assert owner.combination_tiles == ["k22"]
+    assert owner.combination_masks == [[0, 22, 1, 22, 0, 22]]
+    assert owner.discard_tiles == [22]
+
+
+@pytest.mark.parametrize("tile,river,flags", [
+    (22, [22, 23, 24], [False, True, True]),
+    (0, [22, 23, 22], [False, True, False]),
+    (29, [22, 23, 22], [False, True, False]),
+])
+def test_historical_ron_removes_last_matching_or_last_available_discard(tile, river, flags):
+    record = _round("guangdong", "guangdong/mil2023-doubles", [], [], [], [], [], [])
+    sim = RecordSim(record)
+    sim.load_round("round_index_1")
+    discarder = sim.players[0]
+    discarder.discard_tiles = [22, 23, 22, 24]
+    discarder.discard_is_moqie = [False, True, False, True]
+    discarder.discard_riichi_flags = [False, True, False, True]
+    sim.apply_tick(["hu_first", "1", "1", "[]", "[0,0,0,0]", str(tile), "0", "0"])
+    assert discarder.discard_tiles == river
+    assert discarder.discard_is_moqie == discarder.discard_riichi_flags == flags
+    assert not discarder.pending_riichi_horizontal
+
+
 def test_example_jsonc_replays_without_throwing():
     paths = sorted(_PUBLIC.glob("game_record_example_*.jsonc"))
     assert paths, "缺少本地示例牌谱"

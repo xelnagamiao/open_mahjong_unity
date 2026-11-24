@@ -10,7 +10,7 @@ from ...game_hongque.record import BASE_ID, COLOUR_CODES
 
 def extend_hongque_meld(hand, combinations, masks, tick, sub_rule):
     if len(tick) not in (4, 5):
-        raise ValueError("虹雀牌谱缺少杠牌目标组，请先运行一次性牌谱迁移脚本")
+        raise ValueError("虹雀牌谱缺少杠牌目标组，无法还原这次杠牌")
     first, index = int(tick[1]), int(tick[3])
     if not 0 <= index < min(len(combinations), len(masks)):
         raise ValueError("虹雀杠牌目标组无效")

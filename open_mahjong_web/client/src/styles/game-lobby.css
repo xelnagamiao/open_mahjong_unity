@@ -1,0 +1,199 @@
+.game-lobby {
+  --lobby-title-height: 38px;
+  --lobby-section-gap: 12px;
+  --lobby-rank-row-height: 50px;
+  --lobby-rank-list-height: calc(10 * var(--lobby-rank-row-height));
+}
+
+.lobby-columns {
+  --lobby-rank-panel-inset: 26px;
+  --lobby-column-limit: calc(var(--lobby-title-height) + var(--lobby-section-gap) + var(--lobby-rank-list-height) + var(--lobby-rank-panel-inset));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 16px;
+}
+
+.lobby-columns > * {
+  min-width: 0;
+}
+
+.game-lobby .lobby-section-title {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--lobby-title-height);
+  margin-block: 0 var(--lobby-section-gap);
+}
+
+.lobby-room-column,
+.lobby-room-section,
+.lobby-room-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lobby-room-column {
+  max-height: var(--lobby-column-limit);
+}
+
+.lobby-room-column > :not(.lobby-room-section, .lobby-room-panel),
+.lobby-room-section > :not(.lobby-room-panel),
+.lobby-room-panel > :not(.lobby-room-list) {
+  flex-shrink: 0;
+}
+
+.lobby-room-list,
+.lobby-rank-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.lobby-rank-list {
+  max-height: var(--lobby-rank-list-height);
+}
+
+.lobby-rank-list > li {
+  box-sizing: border-box;
+  height: var(--lobby-rank-row-height);
+  line-height: 1.25;
+}
+
+@media (max-width: 900px) {
+  .lobby-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lobby-room-column {
+    max-height: none;
+  }
+
+  .lobby-room-list {
+    max-height: min(55vh, var(--lobby-rank-list-height));
+  }
+}
+
+:where(.game-lobby) .side-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+:where(.game-lobby) .join-code {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: min(180px, 100%);
+}
+
+:where(.game-lobby) .join-code input {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+:where(.game-lobby) .room-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:where(.game-lobby) .room-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+:where(.game-lobby) .room-item.mine {
+  background: #f5faff;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+:where(.game-lobby) .room-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+:where(.game-lobby) .tag.you {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+:where(.game-lobby) .room-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+:where(.game-lobby) .room-main .code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.06em;
+}
+
+:where(.game-lobby) .room-players { display: flex; min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 6px; }
+:where(.game-lobby) .player-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: min(180px, 100%); padding: 4px 8px 4px 4px; border: 1px solid #d9ecff; border-radius: 18px; background: #f3f9ff; color: #303133; }
+:where(.game-lobby) .player-chip i { display: grid; flex: 0 0 24px; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #409eff; color: #fff; font-style: normal; font-weight: 700; }
+:where(.game-lobby) .player-chip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.game-lobby) .player-chip small { flex-shrink: 0; padding: 1px 4px; border-radius: 3px; background: #409eff; color: #fff; font-size: 10px; }
+:where(.game-lobby) .player-chip.waiting { border-style: dashed; background: #fafafa; color: #909399; }
+
+:where(.game-lobby) .room-main .meta {
+  color: #888;
+}
+
+:where(.game-lobby) .tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: #f0f0f0;
+  color: #666;
+}
+
+:where(.game-lobby) .panel-btn {
+  display: inline-block;
+  padding: 8px 14px;
+  background: #409eff;
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+:where(.game-lobby) .panel-btn:hover {
+  background: #66b1ff;
+}
+
+:where(.game-lobby) .panel-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:where(.game-lobby) .panel-btn.ghost {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+}
+
+:where(.game-lobby) .panel-btn.ghost:hover {
+  border-color: #409eff;
+  color: #409eff;
+}

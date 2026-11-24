@@ -9,6 +9,24 @@ public sealed class SanhuaGameState : TurnBasedGameState {
     internal static SanhuaGameState Active => RuleRegistry.ActiveGameState as SanhuaGameState;
     internal SanhuaInfo Info {get; private set;}
     internal static SanhuaInfo Context(bool replay) => replay ? GameRecordManager.Instance?.SanhuaRecordInfo : Active?.Info;
+
+    public override bool TryCutTile(int tileId) {
+        if (!IsSingleKongTile(tileId)) return false;
+        // A tile can still have its old selectable flag while the action window closes.
+        if (IsActive && !Session.IsRealtimeSpectator && GameRecordManager.Instance?.IsSpectating != true
+            && CanCutTile(tileId))
+            GameCanvas.Instance.ChooseAction("angang", tileId);
+        return true;
+    }
+
+    public override bool CanCutTile(int tileId) {
+        if (IsSingleKongTile(tileId))
+            return Clock.AllowActionList.Contains("angang") && Clock.IsKongCandidate("angang", tileId);
+        return base.CanCutTile(tileId);
+    }
+
+    private bool IsSingleKongTile(int tileId) =>
+        tileId == 45 || Info?.skin == tileId || Info?.joker == tileId;
     internal static readonly Dictionary<string,double> Fans = new Dictionary<string,double> {
         {"小屁和",0},{"杠上开花",1},{"硬和",1},{"七对",3},{"豪华七对",4},{"双豪华七对",5},{"三豪华七对",6},
         {"碰碰和",3},{"清一色",3},{"将一色",3},{"全求人",3},{"十三幺",10},{"明杠",1},{"暗杠",2},{"补杠",1},
@@ -25,6 +43,7 @@ public sealed class SanhuaGameState : TurnBasedGameState {
             ReplayFactory=r=>r.CreateSanhuaReplayModule(),RulebookKey="custom",
             RulebookPath=(s,c)=>"/rulebook/custom?sub_rule=new_chinese%2Fsanhua",
             OpeningHandHasDrawSlot=i=>i?.sanhua?.self_has_draw_slot==true,
+            FirstTenTileDiscardRow = _ => 4,
             HasFlowerReplacement=false,DefaultHepaiLimit=4,FaceDownAnkan=true,RecordDangerUsesWaitHint=true,
             RonWinTileTravelsFromRiver=true,SupportsRobbedAddedKongSource=true,
             Tingpai=SanhuaHand.Waiting,DescribeWaitingTile=SanhuaHand.Describe,
@@ -38,7 +57,7 @@ public sealed class SanhuaGameState : TurnBasedGameState {
             FanValueText=(r,n)=>Fans.TryGetValue(n,out double f)?$"{f:0.#}番":"",
             ScoreboardFanText=q=>$"{q.HuScore}点",ScoreboardMainFanRank=(r,n)=>Fans.TryGetValue(n,out double f)?f:0,
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"{q.WinnerPointDelta ?? q.HuScore}点"},
-            ActionCaption=a=>a=="buhua"?"杠":null,ActionVoice=a=>a=="buhua"?"gang":a=="hu_self"?"hu":null,
+            ActionCaption=a=>a=="angang"||a=="buhua"?"杠":null,ActionVoice=a=>a=="buhua"?"gang":a=="hu_self"?"hu":null,
             StatsFanNames=Fans.Keys.ToDictionary(k=>k,k=>k)
         });
     }
@@ -56,6 +75,23 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         }
     }
 
+    /// <summary>
+    /// 返回某个供牌者因报清而承担的锁清方向。
+    /// liable 按报清者记录供牌者，因此要反查，才能在供牌者的头像面板上显示。
+    /// </summary>
+    internal static string LockedClearText(SanhuaInfo info, int supplier) {
+        if (info?.liable == null || info.declared == null || supplier < 0 || supplier >= 4) return null;
+        bool LockedBy(int offset) {
+            int seat = (supplier + offset) % 4;
+            return seat < info.declared.Length && seat < info.liable.Length
+                && info.declared[seat] && info.liable[seat] == supplier;
+        }
+        string directions = LockedBy(3) ? "上" : "";
+        if (LockedBy(1)) directions += directions.Length > 0 ? "/下" : "下";
+        if (LockedBy(2)) directions += directions.Length > 0 ? "/对" : "对";
+        return directions.Length > 0 ? "被锁清：" + directions : null;
+    }
+
     public override bool HandleMessage(string suffix, Response response) {
         int? previousIndicator = Info?.indicator;
         if(response.game_info?.sanhua!=null) Info=response.game_info.sanhua;
@@ -65,6 +101,12 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         GameCanvas.Instance?.ShowSanhuaFans(Info,Mirror.IndexToPosition);
         return handled;
     }
+
+    public override void OnPlayerTagsRefreshed() {
+        base.OnPlayerTagsRefreshed();
+        GameCanvas.Instance?.ShowSanhuaFans(Info, Mirror.IndexToPosition);
+    }
+
     protected override void OnDoAction(Response r) {
         if(r.do_action_info?.action_list?.Contains("sanhua_rob")==true && r.game_info?.self_hand_tiles!=null) {
             Manager.InitializeGame(true,"",r.game_info);
@@ -74,8 +116,12 @@ public sealed class SanhuaGameState : TurnBasedGameState {
     }
     internal List<(int,List<int>)> Kongs(List<int> hand) {
         var list=new List<(int,List<int>)>();
-        if (Info!=null && TurnClock.Current.KongCandidates?.TryGetValue("angang",out var tiles)==true)
-            foreach(int t in tiles) list.Add((t,Enumerable.Repeat(t,t==45||t==Info.skin||t==Info.joker?1:4).ToList()));
+        foreach (var group in hand.GroupBy(tile => tile)) {
+            int tile = group.Key;
+            bool single = IsSingleKongTile(tile);
+            if ((single || group.Count() == 4) && Clock.IsKongCandidate("angang", tile))
+                list.Add((tile, Enumerable.Repeat(tile, single ? 1 : 4).ToList()));
+        }
         return list;
     }
 }
@@ -87,7 +133,9 @@ public partial class GameCanvas {
             var panel=GetPlayerPanelByPosition(seat.Value);
             bool valid=seat.Key>=0 && seat.Key<(info?.table_fans?.Length ?? 0);
             panel?.SetPlayerVariable(GamePlayerPanel.VariableLangyong,valid?$"{info.table_fans[seat.Key]:0.#}番":null);
-            panel?.SetPlayerVariable(GamePlayerPanel.VariableDeclaredReady,valid && info.declared[seat.Key]?"报清":null);
+            bool declared = seat.Key >= 0 && seat.Key < (info?.declared?.Length ?? 0) && info.declared[seat.Key];
+            panel?.SetPlayerVariable(GamePlayerPanel.VariableDeclaredReady,declared?"报清":null);
+            panel?.SetPlayerVariable(GamePlayerPanel.VariableChengbao, SanhuaGameState.LockedClearText(info, seat.Key));
         }
     }
 }

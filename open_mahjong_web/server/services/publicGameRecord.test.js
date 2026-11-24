@@ -20,6 +20,32 @@ test('legacy table link opens same aggregate and preserves selected table and cu
   assert.deepEqual(result.data.legacy_cursor_map.node_map.round_index_1, fixture.tables.closed.round_meta.round_index_1.legacy_node_map);
   assert.ok(db.calls[0].sql.includes('sichuan_duplicate_matches'), 'per-table authoritative access predicate is reused');
 });
+test('single-table exports expand only omitted fields and remove the storage marker', async () => {
+  const table = {
+    table_id: 'main', table_record_id: 'solo', players: [],
+    payload: {game_title: {}, game_round: {
+      first: {action_ticks: [['d', 11], ['end']], action_times_ms: [0, 1700000000000]},
+      second: {action_ticks: [['end']], action_times_ms: [12]},
+      last: {action_ticks: []},
+    }},
+    round_meta: {
+      first: {table_round_id: 'r1', legacy_node_map: [0, 0, 1, 2]},
+      second: {table_round_id: 'r2', action_meta: [{occurred_at_ms: 99, custom: true}]},
+      last: {table_round_id: 'r3'},
+    },
+  };
+  const body = {format: 'open_mahjong.match_record', schema_version: 2, match_format: 'single_table',
+    storage_codec: 'om.single_round_meta.v1', tables: {main: table}};
+  const {data} = await getPublicGameRecord('solo', database(['solo'], 'main', body));
+  assert.equal(Object.hasOwn(data.record, 'storage_codec'), false);
+  const meta = data.record.tables.main.round_meta;
+  assert.deepEqual(meta.first.action_meta, [0, 1700000000000].map(occurred_at_ms => ({
+    actor_original_seat: null, occurred_at_ms, wall_ref: null, wall_ref_basis: 'not_applicable',
+  })));
+  assert.deepEqual(meta.second.action_meta, table.round_meta.second.action_meta);
+  assert.deepEqual(meta.last.action_meta, []);
+  assert.deepEqual(data.legacy_cursor_map.node_map, {first: [0, 0, 1, 2], second: [0, 1], last: [0]});
+});
 function independentVisibleTable() {
   const body = structuredClone(fixture);
   const payload = body.tables.open.payload;

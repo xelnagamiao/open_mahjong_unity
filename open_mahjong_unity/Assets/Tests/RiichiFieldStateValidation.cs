@@ -113,8 +113,23 @@ public static class RiichiFieldStateValidation {
             }).ToArray();
         }
         float[] reference = null;
-        void Verify(string state, int[] faces, string[] roles) {
+        void VerifyCounters(string state, int? honba = null, int? sticks = null) {
+            var content = panel.transform.Find("Content");
+            var signs = content.Cast<Transform>().Where(t => t.name == "x").ToArray();
+            Check(signs.Length == 2, state + " missing authored multiplication signs");
+            foreach (var sign in signs)
+                Check(sign.gameObject.activeInHierarchy == honba.HasValue, state + " multiplication sign visibility");
+            foreach (var (prefix, count) in new[] { ("100", honba), ("1000", sticks) }) {
+                var icon = content.Find(prefix + "image").GetComponent<Image>();
+                var label = content.Find(prefix + "count").GetComponent<TMP_Text>();
+                Check(icon.isActiveAndEnabled == count.HasValue, state + " " + prefix + " stick icon");
+                Check(label.isActiveAndEnabled == count.HasValue, state + " " + prefix + " stick counter");
+                if (count.HasValue) Check(label.text == count.Value.ToString(), state + " " + prefix + " stick value");
+            }
+        }
+        void Verify(string state, int[] faces, string[] roles, int? honba = null, int? sticks = null) {
             Check(panel.gameObject.activeInHierarchy, state + " indicator panel is inactive");
+            VerifyCounters(state, honba, sticks);
             var centers = Centers();
             for (int i = 0; i < slots.Length; i++) {
                 var slot = slots[i];
@@ -135,7 +150,7 @@ public static class RiichiFieldStateValidation {
             var riichi = new GameInfo {room_rule="riichi", sub_rule="riichi/standard", room_type="custom",
                 current_round=1, max_round=4, dora_indicators=new[]{24}, kan_dora_indicators=new[]{24,16}};
             hud.UpdateRoomInfo(riichi, riichi.sub_rule);
-            Verify("riichi repeated dora", new[]{24,24,16,0,0}, new string[5]);
+            Verify("riichi repeated dora", new[]{24,24,16,0,0}, new string[5], 0, 0);
             reference = Centers();
             float pitch = row.rect.width / slots.Length;
             for (int i = 1; i < slots.Length; i++)
@@ -162,6 +177,7 @@ public static class RiichiFieldStateValidation {
                     declarations=Enumerable.Range(0,4).Select(_ => new FuzhouDeclaration {golden_middle=true}).ToArray()
                 }};
             hud.UpdateRoomInfo(fuzhou, fuzhou.sub_rule);
+            VerifyCounters("Fuzhou");
             Canvas.ForceUpdateCanvases();
             var status = panel.GetComponentsInChildren<TMP_Text>().Single(t => t.name=="Status");
             var strip = (RectTransform)status.transform.parent;
@@ -201,8 +217,10 @@ public static class RiichiFieldStateValidation {
                       lower.x>=strip.rect.xMin-1f && upper.x<=strip.rect.xMax+1f,
                       "public status glyph extends beyond the strip");
             }
+            riichi.honba = 2;
+            riichi.riichi_sticks = 3;
             hud.UpdateRoomInfo(riichi, riichi.sub_rule);
-            Verify("riichi after local rules", new[]{24,24,16,0,0}, new string[5]);
+            Verify("riichi after local rules", new[]{24,24,16,0,0}, new string[5], 2, 3);
             return new { checks, failures=Array.Empty<string>() };
         } finally {
             manager.GotoSelectRound(savedRound);

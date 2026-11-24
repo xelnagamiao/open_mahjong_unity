@@ -2,11 +2,13 @@ from collections import Counter
 from functools import lru_cache
 
 from ..jokers import JokerPolicy, ORPHANS, TILES, iter_winning_shapes
+from ..wuhan.rules import meld_tiles
 from .wall import RED, special_tiles
 
 SUB_RULE = "new_chinese/sanhua"
 VERSION = "sanhua-2026-11"
 PAIRS = ("七对", "豪华七对", "双豪华七对", "三豪华七对")
+JIANG = frozenset(t for t in TILES if t < 40 and t % 10 in (2, 5, 8))
 VALUES = {"小屁和": 0, "杠上开花": 1, "硬和": 1, **dict(zip(PAIRS, range(3, 7))),
           "碰碰和": 3, "清一色": 3, "将一色": 3, "全求人": 3, "十三幺": 10,
           "明杠": 1, "暗杠": 2, "补杠": 1, "红中杠": 1, "癞子杠": 2, "皮子杠": 1, "开口番": 0.5}
@@ -44,12 +46,19 @@ def _variants(hand, melds, indicator):
                 break
     if skin in counts or RED in counts:
         return tuple(variants)
+    if all(t == joker or t in JIANG for t in counts):
+        groups = [meld_tiles(code) for code in melds]
+        exposed = [t for group in groups for t in group]
+        if (all(groups) and all(t in JIANG and t not in (skin, joker) for t in exposed)
+                and all(n <= 4 for n in (counts + Counter(exposed)).values())):
+            suits = {t // 10 for t in (*hand, *exposed) if t != joker}
+            variants.add(("jiang", len(suits) == 1, True, False, False))
     domain = tuple(t for t in TILES if t not in (skin, RED))
     policy = JokerPolicy(joker_tiles=(joker,), logical_tiles=domain, shapes=("standard", "seven_pairs"), closed_cap=4)
     for shape in iter_winning_shapes(hand, melds, policy, equivalence="logical_structure"):
         logical = shape.logical_tiles
         pure = all(t < 40 and t // 10 == logical[0] // 10 for t in logical)
-        jiang = all(t < 40 and t % 10 in (2, 5, 8) for t in logical)
+        jiang = all(t in JIANG for t in logical)
         if shape.kind == "seven_pairs":
             name = PAIRS[min(3, sum(n == 4 for n in Counter(hand).values()))]
             variants.add((name, pure, jiang, False, False))
@@ -69,13 +78,16 @@ def score(hand, melds, indicator, winner, payer, table, *, declared=False, liabl
     _, joker = special_tiles(indicator)
     best = None
     opened = "开口番" in table[winner]
+    clear_payer = liable
+    if declared and liable is None and len(melds) == 2 and not rob:
+        clear_payer = payer
     for kind, pure, jiang, pung, eye in variants(hand, melds, indicator):
         if declared and not pure or rob and kind != "十三幺":
             continue
         if kind == "十三幺":
             return dict(fan_names=[kind], pair_fans=[0 if i == winner else 10 for i in range(4)],
                         changes=[600 if i == winner else -200 for i in range(4)], points=600, gold=False)
-        names = [] if kind == "standard" else [kind]
+        names = [kind] if kind in PAIRS else []
         if pung and opened:
             names.append("碰碰和")
         if pure and (declared or len(melds) < 2):
@@ -104,7 +116,7 @@ def score(hand, melds, indicator, winner, payer, table, *, declared=False, liabl
             if i == winner or payer is not None and not big and payer != i:
                 continue
             points = 60 if gold else 40 if fan >= 6 else 20 if fan >= 5 else 10 if fan >= 4 else 0
-            points *= 1 + int(i == liable and declared) + int(i == payer and "全求人" in names)
+            points *= 1 + int(i == clear_payer and declared) + int(i == payer and "全求人" in names)
             changes[i] = -points
         changes[winner] = -sum(changes)
         result = dict(fan_names=names, pair_fans=pairs, changes=changes, points=changes[winner], gold=gold)

@@ -14,8 +14,11 @@ public partial class GameRecordManager
             yield break;
         }
         int safeActionIndex = Mathf.Clamp(actionIndex, 0, roundData.actionTicks.Count);
-        if (EndResultPanel.Instance?.IsSichuanBoardVisible == true) ClearRecordRoundEndPanels();
-        if (IsExchangeSixRecord()) Game3DManager.Instance.ClearChangshaExchangeHands();
+        if (newChineseRecordSettled || EndResultPanel.Instance?.IsSichuanBoardVisible == true) ClearRecordRoundEndPanels();
+        if (IsExchangeSixRecord()) {
+            ResetExchangeSixRecord();
+            Game3DManager.Instance.ClearChangshaExchangeHands();
+        }
         InvalidateRecordDelayedAdvances();
 
         // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突

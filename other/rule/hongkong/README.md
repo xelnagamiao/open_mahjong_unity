@@ -6,8 +6,8 @@
 |---|---|---|
 | `hongkong/qingzhang` | 香港麻雀协会《香港麻雀总例》，2025 版权所有版 | `hkma-classical-2025-om1` |
 | `hongkong/new13_gametower`，新章十三（Wiki） | Mahjong Wiki 广东十三张 IGS 分栏；原始来源及校核记录见 SOURCES.md | `gd-new13-gametower-20260930-om1` |
-| `hongkong/new13_lianhuise`，新章十三（恋绘色） | 用户提供的[《香港新章规则书》](lianhuise-new13.docx)，原文自述主体内容来自维基百科 | `lianhuise-new13-20260930-om1` |
-| `hongkong/qingzhang_lianhuise`，新章十三（恋绘色魔改） | 用户于2026-10-04更新、增加速查表并明确高阶番种叠加不计附加分的[《香港新派清章（恋绘色魔改版）》](lianhuise-qingzhang-remix.docx) | `lianhuise-qingzhang-remix-20261002-om2` |
+| `hongkong/new13_lianhuise`，新章十三（恋绘色） | 用户提供的[《香港新章规则书》](../../../open_mahjong_web/client/public/rulebooks/香港新章规则书.docx)，原文自述主体内容来自维基百科 | `lianhuise-new13-20260930-om1` |
+| `hongkong/qingzhang_lianhuise`，新章十三（恋绘色魔改） | 用户于2026-10-04更新、增加速查表并明确高阶番种叠加不计附加分的[《香港新派清章（恋绘色魔改版）》](../../../open_mahjong_web/client/public/rulebooks/香港新派清章（恋绘色魔改版）.docx) | `lianhuise-qingzhang-remix-20261002-om2` |
 | `hongkong/new16` | 香港麻雀协会《港式十六张新章麻雀总例》，2025-07-28 修订，详述优先 | `hkma-modern16-20250728-detail-om1` |
 
 协会官网没有单列十三张新章规则。本项目不会把广东十三张新章称为“香港麻雀协会十三张新章”，也不以台湾十六张番表代替港式十六张新章。
@@ -20,8 +20,8 @@
 |---|---|
 | 清章十三 | [协会清章原文](https://docs.google.com/document/d/1TgdYpE_5Qiht_lBco3BqN_ijZJDRWugwzRzv946raq0/edit) |
 | 新章十三（Wiki） | [Mahjong Wiki：Guangdong Style Scoring，选择 IGS 分栏](https://mahjong.wikidot.com/rules:guangdong-style-scoring) |
-| 新章十三（恋绘色） | `/rulebooks/lianhuise-new13.docx` |
-| 新章十三（恋绘色魔改） | `/rulebooks/lianhuise-qingzhang-remix.docx` |
+| 新章十三（恋绘色） | `/rulebooks/香港新章规则书.docx` |
+| 新章十三（恋绘色魔改） | `/rulebooks/香港新派清章（恋绘色魔改版）.docx` |
 | 新章十六 | [协会十六张原文](https://docs.google.com/document/d/11WYyoWnJqe5eYpx-7DHE3OpvSRBwQd2NVcN9Ukcohyc/edit) |
 
 Wiki 版直接打开 Mahjong Wiki 的 IGS 分栏，默认 Avg 是多个版本的汇总。规则书页面只提供原文入口；旧 HTML 页面及兼容跳转已移除。来源追溯见 [SOURCES.md](SOURCES.md)。

@@ -94,7 +94,10 @@ public static class TileOutlineRibbonBaker
                 sourceDependencyHash=AssetDatabase.GetAssetDependencyHash(SourcePath).ToString()
             };
             var existing=AssetDatabase.LoadAssetAtPath<Mesh>(MeshPath);
-            if(!force && existing && HasCurrentMetadata(metadata))return;
+            if(!force && existing && HasCurrentMetadata(metadata)) {
+                EnsureMaterial(existing.bounds.size.x);
+                return;
+            }
             string previousGuid=null;long previousLocalId=0;
             if(existing)
                 Require(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(existing,out previousGuid,out previousLocalId),
@@ -104,9 +107,7 @@ public static class TileOutlineRibbonBaker
             generated.name="TileOutlineRibbon";
             generated.hideFlags=HideFlags.None;
             // Validate all inputs and build the complete mesh before modifying assets.
-            var shader=Shader.Find(ShaderName);
-            Require(shader,"Required ribbon shader is missing: "+ShaderName);
-            EnsureMaterial(shader);
+            EnsureMaterial(generated.bounds.size.x);
             if(existing) {
                 // Update the existing object, retaining its .meta GUID and local ID
                 // so prefab references survive all future model edits and bakes.
@@ -147,13 +148,18 @@ public static class TileOutlineRibbonBaker
         return found;
     }
 
-    static void EnsureMaterial(Shader shader)
+    static void EnsureMaterial(float sourceWidth)
     {
+        const string widthProperty = "_TileSourceWidthOS";
+        var shader=Shader.Find(ShaderName);
+        Require(shader,"Required ribbon shader is missing: "+ShaderName);
         var material=AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
         if(material) {
             Require(material.shader==shader,"Existing ribbon material uses a different shader: "+MaterialPath);
-            if(!material.enableInstancing) {
-                material.enableInstancing=true;EditorUtility.SetDirty(material);
+            if(!material.enableInstancing || material.GetFloat(widthProperty) != sourceWidth) {
+                material.enableInstancing=true;
+                material.SetFloat(widthProperty,sourceWidth);
+                EditorUtility.SetDirty(material);
                 AssetDatabase.SaveAssetIfDirty(material);
             }
             return;
@@ -161,6 +167,7 @@ public static class TileOutlineRibbonBaker
         Require(!AssetDatabase.LoadMainAssetAtPath(MaterialPath),"Ribbon material path is occupied by another asset: "+MaterialPath);
         EnsureFolder(Path.GetDirectoryName(MaterialPath).Replace('\\','/'));
         var created=new Material(shader) { name="TileOutlineRibbon",enableInstancing=true };
+        created.SetFloat(widthProperty,sourceWidth);
         AssetDatabase.CreateAsset(created,MaterialPath);
         AssetDatabase.SaveAssetIfDirty(created);
     }

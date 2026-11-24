@@ -121,6 +121,11 @@ public sealed class CardFaceScrollLayout : MonoBehaviour
         if (selectedFamily == 0) content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
     }
 
+    public void TrimPreviewPools()
+    {
+        familyPreview?.TrimPreviewPools();
+    }
+
     static void SelectOption(Button button, bool selected)
     {
         var card = button.GetComponent<CardSurfaceOptionView>();

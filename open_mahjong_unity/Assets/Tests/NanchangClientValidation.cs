@@ -18,14 +18,18 @@ public static class NanchangClientValidation {
         }){
             var solver=new NanchangLocal(new List<string>(),new JObject{["indicator"]=fixture.Item3,["index"]=1,["declared_jingdiao"]=true});
             var quote=solver.Describe(fixture.Item1.Concat(new[]{fixture.Item2}).ToList(),fixture.Item2);
-            Check((int)quote["self_draw_points"]==fixture.Item4,"jingdiao decomposition "+string.Join(",",fixture.Item1));
+            Check((int)quote["self_draw_points"]==fixture.Item4,"eligible jingdiao hand type "+string.Join(",",fixture.Item1));
         }
-        foreach(var fixture in new[]{
-            (new[]{29,29,29,21,21,14,17,41,42,43,45,46,47},new string[0],29,11),
-            (new[]{46,46,16,16,16,31,33},new[]{"k43","k24"},46,33)
+        foreach(var (before, melds, indicator, win, seat, points) in new[]{
+            (new[]{39,39,39,31,31,14,17,41,42,43,45,47,46},Array.Empty<string>(),39,11,1,31),
+            (new[]{47,47,16,16,16,21,23},new[]{"k43","k34"},47,23,1,31),
+            (new[]{47,47,16,16,16,21,23},new[]{"k43","k34"},47,22,1,62),
+            (new[]{41,41,42,31,31,33,12,12,12,23,23,47,47},Array.Empty<string>(),41,31,1,47),
+            (new[]{34,34,11,12,13,18,18,24,25,26,45,47,46},Array.Empty<string>(),33,18,0,78)
         }){
-            var solver=new NanchangLocal(fixture.Item2.ToList(),new JObject{["indicator"]=fixture.Item3,["index"]=1,["declared_jingdiao"]=true});
-            Check((int)solver.Describe(fixture.Item1.Concat(new[]{fixture.Item4}).ToList(),fixture.Item4)["self_draw_points"]==31,"video 26:37 original jingdiao example");
+            var solver=new NanchangLocal(melds.ToList(),new JObject{["indicator"]=indicator,["index"]=seat,["declared_jingdiao"]=true});
+            var quote=solver.Describe(before.Concat(new[]{win}).ToList(),win);
+            Check((int)quote["self_draw_points"]==points,"declared jingdiao draw "+win+" in "+string.Join(",",before));
         }
         NanchangRuleBootstrap.Register();
         var manifest=RuleRegistry.Resolve("nanchang","nanchang/mil2026");

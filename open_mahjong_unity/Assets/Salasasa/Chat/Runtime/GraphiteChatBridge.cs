@@ -12,6 +12,11 @@ namespace Salasasa.Chat
     [DefaultExecutionOrder(1000)]
     public sealed partial class GraphiteChatBridge : MonoBehaviour
     {
+        // These are viewport pools, not history limits. Older scene versions
+        // baked dozens of hidden rows into GraphiteF4 and kept them forever.
+        // Keep a small overscan window and let the data lists retain the full history.
+        const int ListRowPoolCapacity = 12;
+        const int MessageRowPoolCapacity = 24;
         public CompleteLobbyController lobby;
         public ChatMessageStore source;
         public RectTransform[] lobbyButtons;
@@ -78,6 +83,8 @@ namespace Salasasa.Chat
             layer=GetComponent<Canvas>();
             source.MessageReceived += Receive;
             source.Cleared += ClearHistory;
+            CompactListRows();
+            CompactMessageRows();
             InitializeFriendList();
             InitializeConversations();
             InitializeMessageRows();
@@ -99,6 +106,22 @@ namespace Salasasa.Chat
                 HidePopup();
             });
             HidePopup();Refresh();
+        }
+
+        void CompactListRows()
+        {
+            if (view == null || view.rows == null || view.rows.Length <= ListRowPoolCapacity) return;
+            for (int i = ListRowPoolCapacity; i < view.rows.Length; i++)
+                if (view.rows[i]) Destroy(view.rows[i].gameObject);
+            Array.Resize(ref view.rows, ListRowPoolCapacity);
+        }
+
+        void CompactMessageRows()
+        {
+            if (view == null || view.messages == null || view.messages.Length <= MessageRowPoolCapacity) return;
+            for (int i = MessageRowPoolCapacity; i < view.messages.Length; i++)
+                if (view.messages[i]) Destroy(view.messages[i].gameObject);
+            Array.Resize(ref view.messages, MessageRowPoolCapacity);
         }
         void OnDestroy()
         {

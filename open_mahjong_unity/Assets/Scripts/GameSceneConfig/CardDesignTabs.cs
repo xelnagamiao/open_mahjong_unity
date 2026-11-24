@@ -140,6 +140,12 @@ public sealed class CardDesignTabs : MonoBehaviour
         tableFacePage.SetActive(false);
     }
 
+    public void TrimPreviewPools()
+    {
+        scrollLayout?.TrimPreviewPools();
+        cardModelPreview?.GetComponent<CardDesignModelPreview>()?.ReleasePreviewResources();
+    }
+
     public void RefreshPanel()
     {
         if (faceDesignRoot.activeSelf) RestoreFace();

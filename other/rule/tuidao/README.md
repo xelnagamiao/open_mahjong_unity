@@ -2,7 +2,7 @@
 
 本平台底本为存档《推倒和麻将（推广）竞赛规则（试行2024版）》，由国际麻将联盟（MIL）规则委员会审定。采用正文无万能牌标准本，不启用第十五页地方补充规则。
 
-- 原始资料：`other/rule/MIL_rule/推倒和麻将（推广）竞赛规则（试行2024版）.pdf`，共16页。
+- 原始资料：`open_mahjong_web/client/public/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf`，共16页。
 - 主规则：`guangdong`；子规则：`guangdong/tuidao_mil2024`；细则版本：`mil-tuidao-2024-om1`。
 - 大厅归类为「广东麻将 → 推倒和（MIL 2024，无癞子）」。[麻将运动技术等级评定中心的介绍](https://www.mahjonget.com/official.html)将推倒和列为广东麻将的常见变种；本平台据此作入口归类。这里的计分与动作底本仍为独立的 MIL 推倒和2024文件。
 - 含鬼牌的 [MIL 广东2023版](../guangdong/README.md)是同一大类下的另一个独立子规则，与此处无癞子的 MIL 推倒和2024标准本分开实现。

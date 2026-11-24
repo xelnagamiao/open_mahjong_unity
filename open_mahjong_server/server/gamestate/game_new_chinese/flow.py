@@ -104,6 +104,10 @@ class HandFlow:
                 raise ValueError("宝牌展示尚未结束")
             if self.supplements and self.bao_discarded_three_times():
                 result = self.reveal_bao()
+            elif getattr(self, "_bao_resume_turn", None) is not None:
+                index, after_call = self._bao_resume_turn
+                self._bao_resume_turn = None
+                result = self.turn(index, after_call=after_call)
             else:
                 self.bao_offers = [i for i in self.ready_order if self.quote(i, self.bao, "seen")]
                 result = self.next_bao_offer()
@@ -193,13 +197,18 @@ class HandFlow:
         return self.next_bao_offer()
 
     def bao_discarded_three_times(self):
-        return sum(tile == self.bao for _, tile in self.discard_log) >= 3
+        return bool(
+            self.bao
+            and self.visible_counts()[self.bao] >= 3
+            and self.visible_counts()[self.bao] > getattr(self, "_bao_visible_count_at_reveal", 0)
+        )
 
     def reveal_bao(self):
         initial = not self.bao
         self.changed_bao = not initial
         self.bao = self.supplements.pop(self.rng.randrange(len(self.supplements)))
         self.bao_revision += 1
+        self._bao_visible_count_at_reveal = self.visible_counts()[self.bao]
         for p in self.player_list:
             if p.level == 4:
                 p.level = 3
@@ -276,6 +285,9 @@ class HandFlow:
             declare = action.endswith("_ting")
             self.meld(index, actor, tile, action.removesuffix("_ting"))
             self.must_declare = index if declare else None
+            if self.supplements and self.bao_discarded_three_times():
+                self._bao_resume_turn = (index, True)
+                return self.reveal_bao()
             return self.turn(index, after_call=True)
         if rob:
             return self.commit_kong(*self.pending_kong)
@@ -336,4 +348,8 @@ class HandFlow:
                 p.combination_tiles[i], p.combination_mask[i] = code, mask
             p.has_draw_slot = False
             self.event(kind, index, tile=tile, meld_code=code, combination_mask=mask, is_mo_gang=drawn)
-        return self.draw_for(index, kong=True)
+        result = self.draw_for(index, kong=True)
+        if self.supplements and self.bao_discarded_three_times():
+            self._bao_resume_turn = (index, False)
+            return self.reveal_bao()
+        return result

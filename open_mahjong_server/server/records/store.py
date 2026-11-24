@@ -6,6 +6,7 @@ import hashlib
 from psycopg2.extras import Json
 
 from .format import PAIRED_RULES, build_match, digest, match_identity, public_players, restore_source, validate_match
+from .storage_codec import compact_record, expand_record
 from .wall_alignment import RecordConflict
 
 
@@ -41,7 +42,7 @@ def ensure_tables(cursor):
     cursor.execute("""SELECT relkind FROM pg_class WHERE oid=to_regclass('game_records')""")
     existing = cursor.fetchone()
     if existing and existing[0] != "v":
-        raise RuntimeError("Existing game_records requires the one-time replay migration before startup")
+        raise RuntimeError("Unsupported legacy game_records table; expected the unified replay schema")
     create_replay_table(cursor)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS game_record_tables (
@@ -166,7 +167,7 @@ def publish_table(cursor, game_id, payload, players, *, snapshot=None):
     summary = summarize_match(record) if paired else None
     cursor.execute("""INSERT INTO game_replays(game_id,record,summary) VALUES(%s,%s,%s)
                       ON CONFLICT(game_id) DO UPDATE SET record=EXCLUDED.record,summary=EXCLUDED.summary""",
-                   (replay_id, Json(record), Json(summary) if summary is not None else None))
+                   (replay_id, Json(compact_record(record)), Json(summary) if summary is not None else None))
     cursor.execute("INSERT INTO game_record_tables(game_id,replay_id,table_id) VALUES(%s,%s,%s)",
                    (game_id, replay_id, table_id))
     return True
@@ -274,6 +275,7 @@ def read_record(db, game_id):
             names = {(side, uid): name for side, uid, name, _, _ in indexed}
     finally:
         db._put_connection(conn)
+    record = expand_record(record)
     present = {k: t for k,t in record["tables"].items() if t.get("payload") is not None}
     blocked = {key for key,t in present.items() if not _visible(db, t["payload"]["game_title"], t["table_record_id"])}
     available = [key for key in ("main","open","closed") if key in present and key not in blocked]

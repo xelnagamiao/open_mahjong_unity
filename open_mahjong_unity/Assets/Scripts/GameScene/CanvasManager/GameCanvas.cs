@@ -266,7 +266,10 @@ public partial class GameCanvas : MonoBehaviour {
         // 更新轮数面板信息
         if (roundPanel != null) {
             var gm = NormalGameStateManager.Instance;
-            string ruleForPanel = !string.IsNullOrEmpty(gm.subRule) ? gm.subRule : gameInfo?.sub_rule;
+            string ruleForPanel = !string.IsNullOrEmpty(gameInfo?.sub_rule)
+                ? gameInfo.sub_rule
+                : gameInfo?.room_rule;
+            if (string.IsNullOrEmpty(ruleForPanel)) ruleForPanel = gm?.subRule;
             roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
         } else {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");

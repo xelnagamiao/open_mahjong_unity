@@ -25,6 +25,7 @@ public sealed class FreeModeTileView : MonoBehaviour {
     private UnityAction clickHandler;
 
     private void OnEnable() {
+        TileArtworkSampling.Apply(face);
         TileFaceResolver.OnPackChanged += RefreshArtwork;
         if (hasBinding) RefreshArtwork();
     }

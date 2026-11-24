@@ -8,6 +8,7 @@ from ..game_beijing.runtime import Runtime
 from ..game_beijing.settlement import EndOfHand
 from ..game_new_chinese.flow import HandFlow as CommonFlow
 from ..game_new_chinese.state_machine import Phase as P, StateMachine
+from ..public.ai.auto_cut_policy import choose_auto_cut_action
 from ..game_zhongyong.ZhongyongGameState import ZhongyongGameState, ZhongyongPlayer
 from .protocol import Protocol
 
@@ -85,15 +86,29 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
     def opening_window(self):
         return self.turn(self.dealer_index)
 
-    def turn(self, seat):
+    def cut_tiles(self, seat):
+        tiles = set(self.player_list[seat].hand_tiles)
+        return tiles if self.tiles_list else tiles - {RED, self.skin, self.joker}
+
+    def _build_timeout_action(self, index):
+        result = super()._build_timeout_action(index)
+        if result and result["action_type"] == "cut" and result["TileId"] not in self.cut_tiles(index):
+            result.update(choose_auto_cut_action(self.player_list[index], ["cut"], self.cut_tiles(index)))
+        return result
+
+    def turn(self, seat, *, after_chow_or_pung=False):
         p = self.player_list[seat]
         self.current_player_index = seat
         self.hand_action_is_gang_draw[seat] = p.after_kong
-        choices = ["cut"]
+        choices = ["cut"] if self.cut_tiles(seat) else []
         if p.has_draw_slot and self.quote(seat, p.hand_tiles[-1]):
             choices.append("hu_self")
+        if "cut" not in choices:
+            if not choices:
+                return self.finish()
+            choices.append("pass")
         choices += [k for k in ("angang", "jiagang") if self.kong_tiles(seat, k)]
-        if not p.baoqing and len(p.calls) == 2 and p.calls[0] == p.calls[1] and p.calls[0] in (1, 2, 3):
+        if after_chow_or_pung and len(p.calls) == 2 and p.calls[0] == p.calls[1] and p.calls[0] in (1, 2, 3):
             choices.append("baoqing")
         return self.window(P.TURN if p.has_draw_slot else P.AFTER_MELD, seat, actions={seat: choices})
 
@@ -124,6 +139,8 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
         tile = data.get("TileId")
         if type(tile) != int or tile not in p.hand_tiles:
             raise ValueError("无效出牌")
+        if not self.tiles_list and tile in (RED, self.skin, self.joker):
+            raise ValueError("牌墙已空，不能单张杠")
         drawn = data.get("cutClass")
         if drawn is None:
             drawn = p.has_draw_slot and tile == p.hand_tiles[-1]
@@ -163,6 +180,8 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
         kind = data["action_type"]
         if kind == "hu_self":
             return self.settle(seat, p.hand_tiles[-1])
+        if kind == "pass":
+            return self.finish()
         if kind == "baoqing":
             p.baoqing = True
             self.event(kind, seat)
@@ -173,6 +192,11 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
                 return self.offer_kong(seat, tile, kind)
             return self.commit_kong(seat, tile, kind)
         pos, drawn = self.cut_position(p, data)
+        tile = p.hand_tiles[pos]
+        if tile in (RED, self.skin, self.joker):
+            # A special tile is a single-tile concealed kong. Even a stale or
+            # automated cut request must not discard it as an ordinary tile.
+            return self.offer_kong(seat, tile, "angang")
         tile = p.hand_tiles.pop(pos)
         p.hand_tiles.sort()
         p.discard_tiles.append(tile)
@@ -211,7 +235,7 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
                 if p.baoqing and len(p.calls) == 3:
                     p.liable = source
                 CommonFlow.meld(self, seat, source, tile, action)
-                return self.draw(seat, kong=True) if action == "gang" else self.turn(seat)
+                return self.draw(seat, kong=True) if action == "gang" else self.turn(seat, after_chow_or_pung=True)
         return self.draw((source + 1) % 4)
 
     def commit_kong(self, seat, tile, kind):

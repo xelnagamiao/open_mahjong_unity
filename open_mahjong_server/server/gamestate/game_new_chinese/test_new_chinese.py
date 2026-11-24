@@ -268,6 +268,58 @@ def test_base_only_win_shows_same_row_live_on_restore_and_in_replay(winner, poin
     assert collect_subrule_fans(s.game_record, p.original_player_index, rules.SUB_RULE) == {}
 
 
+@pytest.mark.parametrize("showdown", [False, True])
+def test_showdown_option_reveals_all_hands_on_exhaustion(showdown):
+    s = table()
+    s.detailed_config["showdown"] = showdown
+    s.bao = 17
+    s.player_list[0].declared = True
+    start(s, s.opening_window())
+    expected = {i: list(player.hand_tiles) for i, player in enumerate(s.player_list)}
+    for viewer in range(4):
+        live = s.build_game_start_payload(viewer)
+        assert live["game_info"]["new_chinese"]["bao"] == (17 if viewer == 0 else 0)
+        assert [player["hand_tiles"] for player in live["game_info"]["players_info"]] == [
+            expected[i] if i == viewer else None for i in range(4)
+        ]
+    s.finish()
+    for viewer in range(4):
+        final = s.build_final_settlement_payload(viewer)
+        restored = s.restore_payloads(viewer)
+        for payload in (final, *restored):
+            assert payload["game_info"]["new_chinese"]["bao"] == 17
+            assert [player["hand_tiles"] for player in payload["game_info"]["players_info"]] == [
+                expected[i] if showdown or i == viewer else None for i in range(4)
+            ]
+        for payload in (final, restored[1]):
+            assert payload["show_result_info"]["revealed_hands"] == (expected if showdown else {})
+
+
+def test_winning_hand_reveals_all_hands_without_showdown_option():
+    s = table()
+    winner = 1
+    tile = 39
+    s.player_list[0].hand_tiles[-1] = tile
+    player = s.player_list[winner]
+    player.hand_tiles = [11, 12, 13, 24, 25, 26, 27, 27, 37, 38]
+    player.combination_tiles, player.combination_mask = ["k42"], [[1, 42, 0, 42, 0, 42]]
+    player.declared = True
+    window = start(s, s.opening_window())
+    window = move(s, window, {0: dict(action_type="cut", TileId=tile, cutClass=True)})
+    assert "hu" in window["actions"][winner]
+    assert move(s, window, {winner: "hu"})["status"] == P.END
+
+    expected = {i: list(other.hand_tiles) for i, other in enumerate(s.player_list)}
+    expected[winner].append(tile)
+    for viewer in range(4):
+        final = s.build_final_settlement_payload(viewer)
+        for payload in (final, s.restore_payloads(viewer)[1]):
+            result = payload["show_result_info"]
+            assert result["hepai_player_index"] == winner
+            assert result["hepai_player_hand"] == expected[winner]
+            assert result["revealed_hands"] == expected
+
+
 @pytest.mark.parametrize(("hand", "melds", "winning", "fans"), [
     ([27,28,29,37,38,39,42,42,42,46], ["s18"], 46, {"精五门": 50}),
     ([11,12,13,21,22,23,31,32,33,41,41,41,45], [], 45, {"精五门": 50, "门清": 5}),
@@ -334,7 +386,7 @@ def test_consecutive_passes_are_by_face_and_new_bao_unlocks():
 
 
 @pytest.mark.parametrize("initial", [True, False])
-def test_bao_pauses_every_seat_and_chained_reveals_precede_ordered_offers(initial, monkeypatch):
+def test_bao_pauses_every_seat_and_existing_bao_does_not_retrigger(initial, monkeypatch):
     async def run():
         s = table()
         hand = [11,11,14,14,22,22,25,25,33,33,36,36,41]
@@ -362,7 +414,7 @@ def test_bao_pauses_every_seat_and_chained_reveals_precede_ordered_offers(initia
         showing = move(s, turn, {actor: dict(action_type="riichi_cut" if initial else "cut", TileId=18, cutClass=True)})
         wall = list(s.tiles_list)
         banks = [p.remaining_time for p in s.player_list]
-        for n, face in enumerate((19,41)):
+        for n, face in enumerate((19,)):
             assert showing["status"] == P.BAO_REVEAL and s.bao == face
             assert s.waiting_players_list == [] and s._action_clocks == {}
             name = "new_chinese_bao_reveal" if initial and n == 0 else "new_chinese_bao_change"
@@ -391,19 +443,9 @@ def test_bao_pauses_every_seat_and_chained_reveals_precede_ordered_offers(initia
             monkeypatch.setattr(asyncio, "sleep", finish_caption)
             s.outbound_payloads.clear()
             showing = await s.resolve_action_window(timeout=0)
-        assert showing["status"] == P.BAO and showing["player"] == 3
-        assert set(s._action_clocks) == {3}
-        assert all(p["player_index"] == 3 for p in s.outbound_payloads)
-        s.outbound_payloads.clear()
-        after = move(s, showing, {3: "pass"})
-        if initial:
-            assert after["status"] == P.RESPONSE
-        else:
-            assert after["status"] == P.BAO and after["player"] == 1
-            assert set(s._action_clocks) == {1}
-            assert all(p["player_index"] == 1 for p in s.outbound_payloads)
-            assert move(s, after, {1: "hu_self"})["status"] == P.END
-            assert s.tiles_list == wall
+        assert showing["status"] == P.RESPONSE
+        assert s.bao_revision == (1 if initial else 2)
+        assert s.supplements == [41]
     asyncio.run(run())
 
 
@@ -498,7 +540,12 @@ def test_chow_ready_counts_the_claimed_discard_but_not_tiles_from_hand(bao, earl
     now = w["deadline"]
     w = move(s, w, {})
     if bao == 12:
-        assert w["status"] == P.RESPONSE and s.bao_revision == 1 and s.supplements == [45]
+        assert w["status"] == P.RESPONSE and s.bao_revision == 1
+        assert s.bao == 12 and s.supplements == [45]
+        return
+    if earlier_discards == 2:
+        assert w["status"] == P.RESPONSE and s.bao_revision == 1
+        assert s.bao == 11 and s.supplements == [45]
         return
     if earlier_discards == 1:
         assert w["status"] == P.RESPONSE and s.bao_revision == 1
@@ -508,6 +555,40 @@ def test_chow_ready_counts_the_claimed_discard_but_not_tiles_from_hand(bao, earl
         assert s.player_list[3].riichi_flags == [True] and s.ready_order == [2,3]
     assert w["status"] == P.BAO_REVEAL and not w["initial"] and s.bao == 45
     assert s.bao_revision == 2 and s.supplements == []
+
+
+def test_exposed_old_bao_meld_triggers_change_before_post_meld_cut(monkeypatch):
+    s = table()
+    s.bao, s.bao_revision = 14, 1
+    s.supplements = [45, 46]
+    prior_discards(s, 0, 14, 14)
+    s.player_list[0].hand_tiles[-1] = 12
+    s.player_list[1].hand_tiles = [13, 14, 11, 15, 16, 17, 18, 25, 26, 27, 28, 29, 31]
+    monkeypatch.setattr(s.rng, "randrange", lambda size: 0)
+
+    w = start(s, s.opening_window())
+    w = move(s, w, {0: dict(action_type="cut", TileId=12, cutClass=True)})
+    w = move(s, w, {1: "chi_right"})
+
+    assert s.visible_counts()[14] == 3
+    assert s.bao == 45 and s.bao_revision == 2
+    assert w["status"] == P.BAO_REVEAL and not w["initial"]
+    assert s._bao_resume_turn == (1, True)
+
+    w["deadline"] = s._timing_now() - 1
+    w = move(s, w, {})
+    assert w["status"] == P.AFTER_MELD and w["player"] == 1
+    assert s._bao_resume_turn is None
+
+
+def test_exposed_pung_of_an_old_bao_counts_toward_the_next_change():
+    s = table()
+    s.bao, s.bao_revision = 12, 1
+    s.player_list[1].combination_tiles = ["k11"]
+    assert s.visible_counts()[11] == 3
+    assert not s.bao_discarded_three_times()
+    s.bao = 11
+    assert s.bao_discarded_three_times()
 
 
 def test_exhausted_supplements_keep_old_bao_and_offer_only_the_new_declarer():

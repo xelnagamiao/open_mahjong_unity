@@ -8,6 +8,7 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+import './styles/game-lobby.css'
 import './styles/admin-form.css'
 import './styles/compact-date-range.css'
 

@@ -66,6 +66,23 @@ def publish(db, table, entry):
         db._put_connection(conn)
 
 
+def test_single_stored_compact_reads_as_public_v2_with_original_cursor_map(db, monkeypatch):
+    monkeypatch.setattr("server.database.duplicate_walls.duplicate_record_is_visible", lambda *args: True)
+    payload = {"game_title": {"rule": "guobiao"}, "game_round": {"round_index_1": {
+        "action_ticks": [["d", 11], ["c", 11, "T"]], "action_times_ms": [0, 90]}}}
+    entry = {"game_id": "solo", "record": payload}
+    expected = build_match({"main": entry})
+    assert publish(db, "main", entry) and not publish(db, "main", entry)
+    stored = query(db, "SELECT record FROM game_replays WHERE game_id='solo'", one=True)[0]
+    physical = stored["tables"]["main"]["round_meta"]["round_index_1"]
+    assert "legacy_node_map" not in physical and "action_meta" not in physical
+    result = read_record(db, "solo")
+    assert result["record"] == expected
+    assert result["legacy_cursor_map"]["node_map"] == {"round_index_1": [0, 1, 2]}
+    query(db, "UPDATE game_replays SET record=%s WHERE game_id='solo'", (Json(expected),))
+    assert read_record(db, "solo") == result
+
+
 def test_concurrent_tables_and_retries_publish_one_body(db, monkeypatch):
     from ..database.duplicate_walls import DuplicateRecordLockedError
     source = records()
@@ -185,12 +202,6 @@ def test_archived_private_player_fields_never_leave_the_owners_list(db, monkeypa
     for buf in buffers:
         rosters.extend(t["players"] for t in buf["tables"].values())
     assert all("note" not in p and "is_favorite" not in p for roster in rosters for p in roster)
-    from .recompute import recompute_database
-    conn = db._get_connection()
-    try:
-        assert recompute_database(conn,dry_run=True)["changed"] == 0
-    finally:
-        db._put_connection(conn)
     assert query(db,"SELECT record,summary FROM game_replays",one=True) == (physical,summary)
 
 

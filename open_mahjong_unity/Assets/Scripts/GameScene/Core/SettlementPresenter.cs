@@ -205,18 +205,21 @@ public sealed class SettlementPresenter {
             finalPanel: env.FinalPanel,
             simultaneousHuHands: env.SimultaneousHuHands,
             skipHandReveal: env.SkipHandReveal,
-            afterHandReveal: env.AfterHandReveal);
+            afterHandReveal: env.AfterHandReveal,
+            holdAfterHandReveal: env.HoldAfterHandReveal,
+            publicBaoTile: env.PublicBaoTile);
     }
 
     /// <summary>流局字幕。</summary>
-    public void PresentLiuju(string caption) {
-        RoundEndPresentation.Instance.PresentLiuju(caption);
+    public void PresentLiuju(string caption, int publicBaoTile = 0) {
+        RoundEndPresentation.Instance.PresentLiuju(caption, publicBaoTile: publicBaoTile);
     }
 
     /// <summary>荒牌流局：亮听牌手 + 罚符面板。</summary>
     public void PresentDrawWall(string caption, SettlementEnvelope env) {
         ApplyScores(env.ScoresAfter);
-        RoundEndPresentation.Instance.PresentDrawWallLiujuAndPenalty(caption, env.ScoresAfter, env.ExtrasAs<RiichiEndResultExtras>());
+        RoundEndPresentation.Instance.PresentDrawWallLiujuAndPenalty(caption, env.ScoresAfter,
+            env.ExtrasAs<RiichiEndResultExtras>(), publicBaoTile: env.PublicBaoTile);
     }
 
     /// <summary>起手胡：只刷分数、动作字与飘分，不进结算面板。</summary>

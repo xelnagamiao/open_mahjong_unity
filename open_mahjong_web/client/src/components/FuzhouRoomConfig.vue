@@ -14,7 +14,7 @@
       <el-form-item label="底分"><el-select v-model="form.fuzhou_base_score"><el-option v-for="score in [10,15,20]" :key="score" :value="score" :label="`${score}分`" /></el-select></el-form-item>
     </div>
     <p class="source">{{ FUZHOU_DESCRIPTION }}</p>
-    <a href="/rulebooks/fuzhou.html" target="_blank" rel="noopener">阅读规则书及平台补则</a>
+    <a href="/rulebooks/福州麻将规则书.html" target="_blank" rel="noopener">阅读规则书及平台补则</a>
   </div>
 </template>
 <script setup>

@@ -8,14 +8,15 @@ param(
     [switch]$Validation,
     [int]$ValidationRelease = 0,
     [switch]$DryRun,
-    [switch]$SyncOnly
+    [switch]$SyncOnly,
+    [string]$UnpublishedApkReceipt
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repo 'open_mahjong_unity'
-$work = if ($WorkRoot) { [IO.Path]::GetFullPath($WorkRoot) } else { Join-Path $repo '.om_workspace/unity-batch-build' }
+$work = if ($WorkRoot) { [IO.Path]::GetFullPath($WorkRoot) } else { Join-Path $repo 'LOCAL_PROTECTED/build-cache/.om_workspace/main' }
 if (!$work.Replace('\','/').Contains('/.om_workspace/')) { throw 'WorkRoot must be inside a .om_workspace directory.' }
 $copy = Join-Path $work 'Project'
 $version = (Select-String -LiteralPath "$source/ProjectSettings/ProjectVersion.txt" -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
@@ -171,6 +172,17 @@ function Initialize-ApkVersionCounter([string]$Counter, [string[]]$PreviousApks)
 }
 
 Assert-NoLinks $work $true
+if ($UnpublishedApkReceipt) {
+    $privateRoot = [IO.Path]::GetFullPath((Join-Path $repo '.om_workspace')) + [IO.Path]::DirectorySeparatorChar
+    $UnpublishedApkReceipt = (Resolve-Path -LiteralPath $UnpublishedApkReceipt).Path
+    if ($Validation -or $SyncOnly -or $Targets.Count -ne 1 -or $Targets[0] -ne 'Android' -or !$OutputRoot -or
+        !$UnpublishedApkReceipt.StartsWith($privateRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        !([IO.Path]::GetFullPath($OutputRoot) + [IO.Path]::DirectorySeparatorChar).StartsWith($privateRoot,[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Unpublished APK replacement is restricted to a single non-validation APK with a private receipt and isolated output.'
+    }
+    Assert-NoLinks $UnpublishedApkReceipt $true
+    Assert-NoLinks ([IO.Path]::GetFullPath($OutputRoot))
+}
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 $lock = $null
 try {
@@ -296,6 +308,9 @@ try {
             $arguments = @('-batchmode', '-quit', '-projectPath', $copy, '-buildTarget', 'Android',
                 '-activeBuildProfile', $item.Profile, '-executeMethod', $method, '-omWork', $work, '-omOutput', $androidOutput, '-logFile', $log)
             if ($Validation) { $arguments += '-omValidation' }
+            if ($UnpublishedApkReceipt) {
+                $arguments += @('-omUnpublishedApkReceipt', $UnpublishedApkReceipt, '-omPublishedApk', $previousApk)
+            }
         }
         $exitCode = -1
         $errorText = $null

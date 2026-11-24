@@ -48,7 +48,12 @@ public partial class RoundPanel : MonoBehaviour, IPointerClickHandler {
     /// 初始化轮数面板。规则只提供本局已知的牌、待翻槽及局况数据。
     /// </summary>
     public void UpdateRoomInfo(GameInfo gameInfo, string roomRule, string masterSeed = null) {
-        if (string.IsNullOrEmpty(roomRule)) roomRule = !string.IsNullOrEmpty(gameInfo?.sub_rule) ? gameInfo.sub_rule : gameInfo?.room_rule ?? "";
+        // The snapshot is authoritative. The manager's cached sub-rule can still
+        // belong to the previous table during the first UI frame after a switch.
+        string snapshotRule = !string.IsNullOrEmpty(gameInfo?.sub_rule)
+            ? gameInfo.sub_rule : gameInfo?.room_rule;
+        if (!string.IsNullOrEmpty(snapshotRule)) roomRule = snapshotRule;
+        else if (roomRule == null) roomRule = "";
         pairedDuplicate = gameInfo?.duplicate_match != null;
         CancelCommitmentSaltDetail();
         _cachedCommitment = gameInfo?.commitment ?? "";

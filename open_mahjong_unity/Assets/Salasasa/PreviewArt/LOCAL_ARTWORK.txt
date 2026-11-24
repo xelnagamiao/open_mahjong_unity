@@ -31,7 +31,7 @@ Git 忽略规则不控制包体：本地素材完整时，开发版仍会包含�
 ------------------------
 把本地素材包中的 open_mahjong_unity/Assets/Salasasa/PreviewArt/ 目录
 按相同相对路径复制到工作区；图像与其 .meta 一起复制，保留原 GUID 和导入设置。
-备用头像对应 other/AvatarPortraits/Taisei/512/ 和 1024/，也按原路径复制。
+备用头像对应 LOCAL_PROTECTED/art-originals/Taisei/512/ 和 1024/，也按原路径复制。
 重入编辑器运行状态或重新构建开发版，即可使用已有切换界面。
 开发版独立播放器已经包含构建时可用的素材，不依赖原电脑的素材目录。
 

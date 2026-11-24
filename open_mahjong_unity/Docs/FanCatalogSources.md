@@ -4,11 +4,11 @@
 
 | 规则 | 内容 | 定义来源 |
 | --- | --- | --- |
-| 国标麻将 | 82 条，13 个番数分类 | `other/rule/inclued_rule/新编MCR.pdf`，第 30–58 页的【定义】与【限制】 |
-| 立直麻将 | 38 个役，1／2／3／6 番及役满 | Web 随附 `riichi-rulebook.pdf`（GGHK 香港麻将协会），第 23–26 页；立直说明另摘第 16–17 页 |
+| 国标麻将 | 82 条，13 个番数分类 | `open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf`，第 30–58 页的【定义】与【限制】 |
+| 立直麻将 | 38 个役，1／2／3／6 番及役满 | Web 随附 `立直麻将规则书（中文版）.pdf`（GGHK 香港麻将协会），第 23–26 页；立直说明另摘第 16–17 页 |
 | 青雀 | 89 条，书载十类及权重 | Web 随附 `qingque-rulebook.pdf`（青雀 14.1），第 4–7 页；83 个牌例来自 `qingque-paili.pdf`（牌例 3.1） |
 | 虹雀 | 基本规则 37 条 | Web 随附 `hongque-v1.6.pdf`，第 4–7 页；未混入第 9 页白牌变体番种 |
-| 川麻血战 | 10 个番种及平和 0 番 | Web 随附 `sichuan-sbr.pdf`（四川麻将 SBR 竞赛规则，试行 2025 版），第 20–21 页 |
+| 川麻血战 | 10 个番种及平和 0 番 | Web 随附 `mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf`（四川麻将 SBR 竞赛规则，试行 2025 版），第 20–21 页 |
 
 Web PDF 均在 `open_mahjong_web/client/public/rulebooks/`。国标 JSON 同步到 Web 的 `src/constants/guobiaoFanTable.json`，其余四套只在 Unity 展示。
 

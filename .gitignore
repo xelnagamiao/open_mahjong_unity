@@ -42,8 +42,6 @@
 !/open_mahjong_unity/Assets/Salasasa/PreviewArt/TaiseiCharacters/taisei-reimu.png.meta
 !/open_mahjong_unity/Assets/Salasasa/PreviewArt/BackgroundLibrary/minchi-cafe-1.jpg
 !/open_mahjong_unity/Assets/Salasasa/PreviewArt/BackgroundLibrary/minchi-cafe-1.jpg.meta
-/other/AvatarPortraits/Taisei/512/*.png
-/other/AvatarPortraits/Taisei/1024/*.png
 
 # Python 项目的源码入口；虚拟环境和本机部署文件不进入仓库。
 /open_mahjong_server/*
@@ -58,7 +56,6 @@
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py
-!/open_mahjong_server/scripts/recalculate_qingque_fans.py
 !/open_mahjong_server/scripts/sync_rule_display_catalog.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
 !/open_mahjong_server/scripts/validate_singapore_clients.py

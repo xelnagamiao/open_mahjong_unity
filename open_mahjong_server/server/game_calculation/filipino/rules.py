@@ -1,4 +1,4 @@
-"""Ging's 2010 sixteen-tile rules; decisions are in other/rules/filipino.md.
+"""Ging's 2010 sixteen-tile rules; decisions are in other/rule/filipino.md.
 
 All amounts are integer game points, never currency. A quarter-payment is one
 point and the configurable ordinary hand value defaults to four points.

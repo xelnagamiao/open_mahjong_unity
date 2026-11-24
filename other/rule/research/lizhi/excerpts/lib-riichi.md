@@ -1,6 +1,6 @@
 # lib-riichi
 
-来源：`/rulebooks/riichi-rulebook.pdf`  
+来源：`/rulebooks/立直麻将规则书（中文版）.pdf`  
 定位：封面；第 4 页「简则」
 
 香港麻雀协会《立直麻雀规则》，最后修订 2023-05-17。

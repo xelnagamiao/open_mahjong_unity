@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import send from 'send'
+import { serveRulePublication } from '../scripts/rule-publication.mjs'
 import { mcrSeoPlugin } from '../scripts/vite-mcr-seo.mjs'
 import { MCR_PAGES, mcrPageForPath } from '../src/seo/mcr-pages.js'
 import { STATIC_PAGES, staticPageForPath, pageAlternates } from '../src/seo/pages.js'
@@ -19,7 +21,7 @@ import { parse as parseHtml } from '@vue/compiler-dom'
 
 const client = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // Keep local validation output in the repository's ignored workspace.
-const workspace = resolve(client, '../../.om_workspace')
+const workspace = process.env.OM_TEST_ARTIFACTS || resolve(client, '../../.om_workspace')
 mkdirSync(workspace, { recursive: true })
 const output = mkdtempSync(resolve(workspace, 'mcr-seo-test-'))
 writeFileSync(resolve(output, 'index.html'), readFileSync(resolve(client, 'index.html'), 'utf8'))
@@ -91,8 +93,16 @@ test('sitemap lists actual translations reciprocally and excludes drafts and pri
   assert.ok(!existsSync(resolve(output, 'de/mcr/index.html')))
 })
 
+const rulebookServer = createServer((req, res) => serveRulePublication(req, res, () =>
+  send(req, req.url, { root: resolve(client, 'public') }).pipe(res)))
+test.before(async () => {
+  rulebookServer.listen(0, '127.0.0.1')
+  await once(rulebookServer, 'listening')
+})
+test.after(() => new Promise(resolve => rulebookServer.close(resolve)))
+
 for (const page of STATIC_PAGES) {
-  test(`${page.path}: complete, language-stable, connected static content`, () => {
+  test(`${page.path}: complete, language-stable, connected static content`, async () => {
     const html = readFileSync(resolve(output, page.path.slice(1), 'index.html'), 'utf8')
     assert.ok(html.includes(`<html lang="${page.locale}">`))
     assert.ok(html.includes(`<title>${escapeHtml(page.title)}</title>`))
@@ -115,7 +125,10 @@ for (const page of STATIC_PAGES) {
     for (const [, href] of html.matchAll(/\bhref="([^"]+)"/g)) {
       if (href.startsWith('#')) assert.ok(ids.has(href.slice(1)), `missing anchor ${href}`)
       if (/^\/(en|fr|zh)\//.test(href)) assert.ok(staticPageForPath(href), `unpublished internal link ${href}`)
-      if (/^\/rulebooks\//.test(href)) assert.ok(existsSync(resolve(client, 'public', href.slice(1))), `missing reference ${href}`)
+      if (href.startsWith('/rulebooks/')) {
+        const response = await fetch(`http://127.0.0.1:${rulebookServer.address().port}${href}`, { method: 'HEAD' })
+        assert.equal(response.status, 200, `missing reference ${href}`)
+      }
     }
     for (const alt of pageAlternates(page, 'https://salasasa.cn')) assert.ok(html.includes(`hreflang="${alt.language}" href="${alt.href}"`))
   })

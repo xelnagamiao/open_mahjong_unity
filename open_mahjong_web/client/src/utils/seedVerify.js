@@ -22,23 +22,28 @@ const SHA256_K = [
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ]
 
-/** 计算 UTF-8 字符串的 SHA-256，返回 64 位 hex 字符串 */
+/** 计算 UTF-8 字符串或原始字节的 SHA-256，返回 64 位 hex 字符串 */
 export function sha256Hex(message) {
-  const bytes = new TextEncoder().encode(message)
+  const bytes = message instanceof Uint8Array ? message : new TextEncoder().encode(message)
   const bitLen = bytes.length * 8
-  // 填充：0x80 + 0x00... + 64 位大端长度
-  const padded = new Uint8Array(((bytes.length + 8) >> 6 << 6) + 64)
-  padded.set(bytes)
-  padded[bytes.length] = 0x80
-  const view = new DataView(padded.buffer)
-  view.setUint32(padded.length - 8, Math.floor(bitLen / 0x100000000))
-  view.setUint32(padded.length - 4, bitLen >>> 0)
+  // 直接读取原始块，仅最后一至两个块需要复制并填充长度。
+  const tailLength = bytes.length % 64
+  const end = bytes.length - tailLength
+  const input = new DataView(bytes.buffer, bytes.byteOffset, end)
+  const tail = new Uint8Array(tailLength < 56 ? 64 : 128)
+  tail.set(bytes.subarray(end))
+  tail[tailLength] = 0x80
+  const padded = new DataView(tail.buffer)
+  padded.setUint32(tail.length - 8, Math.floor(bitLen / 0x100000000))
+  padded.setUint32(tail.length - 4, bitLen >>> 0)
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a
   let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19
   const w = new Array(64)
 
-  for (let offset = 0; offset < padded.length; offset += 64) {
+  for (let block = 0; block < end + tail.length; block += 64) {
+    const view = block < end ? input : padded
+    const offset = block < end ? block : block - end
     for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4)
     for (let i = 16; i < 64; i++) {
       const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3)

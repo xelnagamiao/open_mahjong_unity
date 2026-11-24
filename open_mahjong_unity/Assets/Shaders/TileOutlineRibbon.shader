@@ -1,5 +1,10 @@
 Shader "Hidden/Mahjong/TileOutlineRibbon"
 {
+    Properties
+    {
+        // The default also supports existing materials baked for the original tile mesh.
+        [HideInInspector] _TileSourceWidthOS ("Source mesh width", Float) = 0.02
+    }
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="Geometry" "RenderPipeline"="UniversalPipeline" }
@@ -21,6 +26,9 @@ Shader "Hidden/Mahjong/TileOutlineRibbon"
 
             float4 _TileHullOutlineColor;
             float _TileSilhouetteOutlineWidth;
+            CBUFFER_START(UnityPerMaterial)
+                float _TileSourceWidthOS;
+            CBUFFER_END
 
             struct RibbonAttributes
             {
@@ -34,6 +42,7 @@ Shader "Hidden/Mahjong/TileOutlineRibbon"
             struct RibbonVaryings
             {
                 float4 positionCS : SV_POSITION;
+                float2 coverageTimesW : TEXCOORD0;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -68,8 +77,7 @@ Shader "Hidden/Mahjong/TileOutlineRibbon"
                 }
                 float4 endpointCS = TransformWorldToHClip(endpointWS);
                 float4 otherCS = TransformWorldToHClip(otherWS);
-                // Keep this support stroke inside the existing outer hull width.
-                // The Renderer Feature supplies this width for all pooled instances.
+                // Physical stroke width in render-target pixels.
                 float outerWidth = max(_TileSilhouetteOutlineWidth, 0.0);
 
                 // Midpoint classification is identical at all four vertices;
@@ -98,21 +106,43 @@ Shader "Hidden/Mahjong/TileOutlineRibbon"
                 // The canonical tile is convex and centered at its origin, so
                 // its projected center always lies inside its silhouette.
                 screenPerpendicular *= dot(screenPerpendicular, centerToEdgePixel) >= 0.0 ? 1.0 : -1.0;
-                float signedOffset = outerWidth * (1.0 - input.ribbonSide.x);
+                // Integrate the outside edge over the projected pixel footprint.
+                // For narrow user-selected lines the center can be partially covered too.
+                float footprint = abs(screenPerpendicular.x) + abs(screenPerpendicular.y);
+                float signedOffset = (outerWidth + 0.5 * footprint) * (1.0 - input.ribbonSide.x);
+                float coverage = (outerWidth - signedOffset) / footprint + 0.5;
+                // Cancel perspective interpolation to keep the ramp linear in screen pixels.
+                output.coverageTimesW = float2(coverage, 1.0) * endpointCS.w;
                 float2 ribbonNDC = endpointNDC
                     + screenPerpendicular * (2.0 * signedOffset / _ScaledScreenParams.xy);
 
-                // Expand only outside the true visible silhouette and retain
-                // the physical edge's clip depth. No depth bias or ray-plane
-                // extrapolation, and no inverse projection dependency.
                 endpointCS.xy = ribbonNDC * endpointCS.w;
+                // An adjacent tile's bevel can cover parts of the support stroke.
+                // Bound the depth adjustment by both the rendered tile and the pixel footprint.
+                float tileWidthWS = _TileSourceWidthOS * length(TransformObjectToWorldDir(float3(1, 0, 0), false));
+                float pixelHeightWS = 2.0 * endpointCS.w / (abs(UNITY_MATRIX_P._m11) * _ScaledScreenParams.y);
+                float liftWS = min(0.05 * tileWidthWS, 1.65 * pixelHeightWS);
+                // Project the shift toward the camera in view space, retaining the original
+                // screen position and W. The projection handles forward and reversed depth.
+                float4 shiftCS = mul(UNITY_MATRIX_P, float4(0, 0, liftWS, 0));
+                float depthCS = endpointCS.z + (shiftCS.z * endpointCS.w - endpointCS.z * shiftCS.w)
+                    / max(endpointCS.w + shiftCS.w, 1e-5);
+                // Stop a visible endpoint at the near plane. Endpoints already clipped stay clipped.
+                float nearCS = UNITY_NEAR_CLIP_VALUE * endpointCS.w;
+                #if UNITY_REVERSED_Z
+                    endpointCS.z = min(depthCS, max(endpointCS.z, nearCS));
+                #else
+                    endpointCS.z = max(depthCS, min(endpointCS.z, nearCS));
+                #endif
                 output.positionCS = endpointCS;
                 return output;
             }
 
             half4 RibbonFrag(RibbonVaryings input) : SV_Target
             {
-                return _TileHullOutlineColor;
+                half4 color = _TileHullOutlineColor;
+                color.a *= saturate(input.coverageTimesW.x / input.coverageTimesW.y);
+                return color;
             }
             ENDHLSL
         }

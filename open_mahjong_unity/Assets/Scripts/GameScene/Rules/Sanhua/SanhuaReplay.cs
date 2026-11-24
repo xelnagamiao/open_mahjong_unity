@@ -7,6 +7,7 @@ public partial class GameRecordManager {
     internal RuleReplayModule CreateSanhuaReplayModule() => new RuleReplayModule("sanhua") {
         Reset=()=>SanhuaRecordInfo=gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var r)?r.sanhua:null,
         Clear=()=>{SanhuaRecordInfo=null; GameCanvas.Instance?.ShowSanhuaFans(null,indexToPosition);},
+        RefreshPlayerTags=()=>GameCanvas.Instance?.ShowSanhuaFans(SanhuaRecordInfo,indexToPosition),
         RefreshAfterAction=RefreshSanhua,RefreshAfterSeek=RefreshSanhua,AfterSilentMutation=_=>RefreshSanhua(),
         ApplyBeforeMutation=ApplySanhua,
         ConsumeWallTile=action=>{

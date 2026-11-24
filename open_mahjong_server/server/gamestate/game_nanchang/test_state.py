@@ -21,7 +21,7 @@ def state():
     return s
 
 
-def test_declared_jingdiao_draw_and_settlement_share_decomposition():
+def test_declared_jingdiao_draw_and_settlement_keep_the_eligible_hand_type():
     s = state()
     p = s.player_list[1]
     p.hand_tiles = [11,11,11,13,13,22,23,31,31,45,47,47,47]
@@ -36,6 +36,34 @@ def test_declared_jingdiao_draw_and_settlement_share_decomposition():
     s.settle_win(1, 'self_draw', 13)
     assert s.round_settlement['score']['shape'] == 'seven_pairs'
     assert s.round_settlement['win_changes'] == [-21,47,-13,-13]
+
+
+def test_dealer_jingdiao_german_reaches_result_panel_and_ledgers():
+    s = state()
+    s.indicator = 33
+    hands = [
+        [34,34,11,12,13,18,18,24,25,26,45,47,46],
+        [33,34,11,12,13,14,15,16,22,23,24,41,42],
+        [33,33,34,21,22,23,24,25,26,27,28,43,44],
+        [16,17,19,19,21,22,23,27,28,29,31,32,35],
+    ]
+    for player, hand in zip(s.player_list, hands):
+        player.hand_tiles = hand
+        player.has_draw_slot = False
+    s.declare_jingdiao(0)
+    s.tiles_list = [18,19]
+    window = s.open_action_window(s.draw_for(0))
+    assert "hu_self" in window["actions"][0]
+    s.apply_action_results(window, {0: dict(action_type="hu_self")})
+    panel = s.build_final_settlement_payload(0)["show_result_info"]
+    assert panel["hepai_tile"] == 18
+    assert panel["hu_score"] == 78
+    assert set(panel["hu_fan"]) == {"NC|1|番|德国", "NC|1|番|精吊"}
+    result = panel["nanchang_info"]["ledger"]
+    assert result["win_changes"] == [78,-26,-26,-26]
+    assert result["jing_changes"] == [-7,-3,25,-15]
+    assert result["kong_changes"] == [0,0,0,0]
+    assert result["changes"] == [71,-29,-1,-41]
 
 
 def cut(s,index,tile):

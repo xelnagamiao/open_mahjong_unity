@@ -7,7 +7,7 @@
   "sources": [
     {
       "id": "lib-changsha",
-      "url": "/rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "url": "/rulebooks/长沙麻将经典双鸟规则书.pdf",
       "title": "长沙麻将经典双鸟规则书（2026-07-09）",
       "type": "rulebook",
       "lang": "zh",
@@ -18,7 +18,7 @@
       "rules": ["changsha"],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "local_path": "rulebooks/长沙麻将经典双鸟规则书.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },

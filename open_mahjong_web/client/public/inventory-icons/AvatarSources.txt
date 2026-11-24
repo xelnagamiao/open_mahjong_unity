@@ -20,7 +20,7 @@ Original-image coordinates (bottom-left origin):
 Reimu, 1912 x 3072: Rect(180, 1910, 1120, 1120).
 Cirno, 2168 x 3072: Rect(430, 1940, 1050, 1050).
 Each shipped PNG is now 512 x 512, with a full-image Sprite rectangle.
-Reserve versions for all 11 current characters are stored outside the Unity project in other/AvatarPortraits/Taisei and are not included in the player build.
+Reserve versions for all 11 current characters are stored outside the Unity project in LOCAL_PROTECTED/art-originals/Taisei and are not included in the player build.
 
 Reimu and Cirno are Touhou Project characters by ZUN / Team Shanghai Alice. This use is an unofficial fan work and does not imply endorsement. The art license does not transfer the underlying character rights.
 Touhou fan-work guidelines: https://touhou-project.news/guideline/

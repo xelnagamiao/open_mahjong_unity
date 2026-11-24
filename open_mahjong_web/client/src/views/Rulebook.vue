@@ -109,19 +109,19 @@ const rules = [
       {
         title: '国标麻将（新编MCR）',
         desc: 'Natsuki 编著的《新编 MCR》。',
-        url: '/rulebooks/guobiao-mcr.pdf',
+        url: '/rulebooks/新编国标麻将规则.pdf',
         filename: '新编MCR.pdf'
       },
       {
         title: '国标麻将（小林改）',
         desc: '小林改版国标麻将（2026）：取消 8 番起胡和底分，点和×2，自摸番三。',
-        url: '/rulebooks/guobiao-kobayashi.pdf',
+        url: '/rulebooks/中国麻将（小林改版）规则书.pdf',
         filename: '中国麻将（小林改版）规则书.pdf'
       },
       {
         title: 'K神麻将',
         desc: '国标K神改。',
-        url: '/rulebooks/guobiao-kshen.pdf',
+        url: '/rulebooks/K神麻雀规则说明书.pdf',
         filename: 'K神麻雀规则_v2.63版_规范说明书.pdf'
       }
     ]
@@ -130,14 +130,14 @@ const rules = [
     key: 'guobiao-sixteen',
     label: '国标十六张',
     description: '依据《新编 MCR》推定的本站十六张扩展：十七张和牌、五组一对，八番起和。',
-    docs: [{ title: '国标十六张：扩展规则与牌例', desc: '逐番适用表、五面子复合计番、固定十四张特殊牌形及独听补则。', url: '/rulebooks/guobiao-sixteen.html' },
-      { title: '底本：新编 MCR', desc: 'Natsuki 编著，2025年8月版；十六张的扩展约定见上文。', url: '/rulebooks/guobiao-mcr.pdf', filename: '新编MCR.pdf' }],
+    docs: [{ title: '国标十六张：扩展规则与牌例', desc: '逐番适用表、五面子复合计番、固定十四张特殊牌形及独听补则。', url: '/rulebooks/国标十六张扩展规则与牌例.html' },
+      { title: '底本：新编 MCR', desc: 'Natsuki 编著，2025年8月版；十六张的扩展约定见上文。', url: '/rulebooks/新编国标麻将规则.pdf', filename: '新编MCR.pdf' }],
   },
   {
     key: 'guobiao-lanshi',
     label: '蓝十改',
     description: '采用《蓝十魔改规则第4版》的四人赛制：136张无花，5分起和、100分封顶，半全铳半分付。PDF中的三人赛制仅供阅读，本平台当前只提供四人房。',
-    docs: [{title: '蓝十魔改规则第4版', desc: '四人规则与番种牌例；线下赛事编排、裁判与纪律条款供参考。', url: '/rulebooks/guobiao-lanshi.pdf', filename: '蓝十魔改规则第4版.pdf'}]
+    docs: [{title: '蓝十魔改规则第4版', desc: '四人规则与番种牌例；线下赛事编排、裁判与纪律条款供参考。', url: '/rulebooks/蓝十魔改规则第4版.pdf', filename: '蓝十魔改规则第4版.pdf'}]
   },
   {
     key: 'guobiao-huahun',
@@ -150,13 +150,13 @@ const rules = [
     key: 'guobiao-four-jokers',
     label: '国标四癞子',
     description: '新增四张红花癞子，按合法替代的最高国标番计分。',
-    docs: [{ title: '国标四癞子：本站规则', desc: '红花留手、替代限制、八番起和、计分与牌例。', url: '/rulebooks/guobiao-four-jokers.html' }]
+    docs: [{ title: '国标四癞子：本站规则', desc: '红花留手、替代限制、八番起和、计分与牌例。', url: '/rulebooks/国标麻将四癞子规则.html' }]
   },
   {
     key: 'guobiao-transparent',
     label: '透明国标',
     description: '标准国标计番与补花流程，每种常规牌三张透明、一张不透明。',
-    docs: [{ title: '透明国标：本站规则与牌例', desc: '三透一暗、吃碰选牌、暗杠、八番起和与普通牌墙。', url: '/rulebooks/guobiao-transparent.html' }]
+    docs: [{ title: '透明国标：本站规则与牌例', desc: '三透一暗、吃碰选牌、暗杠、八番起和与普通牌墙。', url: '/rulebooks/透明国标麻将规则.html' }]
   },
   {
     key: 'riichi',
@@ -167,8 +167,8 @@ const rules = [
       {
         title: 'GGHK 立直麻将规则书',
         desc: '香港麻将协会发布的立直麻将规则书',
-        url: '/rulebooks/riichi-rulebook.pdf',
-        filename: 'GGHK-Riichi-Mahjong-Rulebook-CN.pdf'
+        url: '/rulebooks/立直麻将规则书（中文版）.pdf',
+        filename: '立直麻将规则书（中文版）.pdf'
       },
       FORMULA_RULEBOOK,
     ]
@@ -177,7 +177,7 @@ const rules = [
     key: 'washizu',
     label: '鹫巢麻将',
     description: '四人三透一暗，透明手牌公开；本站完整规则与外部资料。',
-    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、70次摸牌、实时手牌、双打主将制和回放说明。', url: '/rulebooks/washizu.html' },
+    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、70次摸牌、实时手牌、双打主将制和回放说明。', url: '/rulebooks/鹫巢麻将规则.html' },
       { title: '雀魂2021年明镜之战攻略（日文）', desc: '非官方活动说明，可参考透明牌和选牌方式；与本站的可配置日麻细则并非完全相同。', url: 'https://mahjongsoul.info/2021-10event/' },
       { title: '原作式鹫巢麻将规则（日文）', desc: '用于对照无牌山玩法；其70次弃牌计数与本站70次摸牌不同。', url: 'https://ketto.com/zw/wasirule.shtml' } ]
   },
@@ -190,19 +190,19 @@ const rules = [
       {
         title: '青雀一页纸',
         desc: '青雀第十四版一页纸，来自 mmcr.online。',
-        url: '/rulebooks/qingque-onepage.pdf',
+        url: '/rulebooks/青雀一页纸（14版）.pdf',
         filename: '青雀一页纸 14.pdf'
       },
       {
         title: '青雀牌例',
         desc: '青雀牌例第三版第一次修订，适用于第十四版，来自 mmcr.online。',
-        url: '/rulebooks/qingque-paili.pdf',
+        url: '/rulebooks/青雀牌例（3.1版）.pdf',
         filename: '青雀牌例 3.1.pdf'
       },
       {
         title: '青雀规则文档',
         desc: '青雀第十四版第一次修订，来自 mmcr.online。',
-        url: '/rulebooks/qingque-rulebook.pdf',
+        url: '/rulebooks/青雀规则书（14.1版）.pdf',
         filename: '青雀 14.1.pdf'
       }
     ]
@@ -216,20 +216,20 @@ const rules = [
       {
         title: '四川麻将（SBR）竞赛规则',
         desc: '四川麻将（血战到底）',
-        url: '/rulebooks/sichuan-sbr.pdf',
+        url: '/rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版）.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf'
       },
       {
         subRule: 'sichuan/xuezhan_exchange',
         title: '血战到底·换三张（MIL 2026）',
         desc: '使用万、饼、条共108张牌。四家先换三张同花色牌，再定缺。和牌者退出本副，三家和牌或牌墙摸完时结算。平和1分，自摸加一番，五番封顶32分。',
-        url: '/rulebooks/sbr-exchange-2026.pdf',
+        url: '/rulebooks/mil/血战换三张（推广）竞赛规则（试行2026版）.pdf',
         filename: '血战换三张（推广）竞赛规则（试行2026版）.pdf'
       },
       {
         title: '血流成河：弃三张与换三张',
         desc: '开局选牌、连续和牌、花区展示、当前番表与局终查叫。',
-        url: '/rulebooks/xueliu.html',
+        url: '/rulebooks/血流成河规则.html',
         filename: '血流成河规则.html'
       }
     ]
@@ -243,7 +243,7 @@ const rules = [
       {
         title: '长沙麻将（双鸟）规则书',
         desc: '本平台长沙麻将的规则说明（0709 更新）。',
-        url: '/rulebooks/changsha-classic-double-bird-rulebook.pdf',
+        url: '/rulebooks/长沙麻将经典双鸟规则书.pdf',
         filename: '长沙麻将规则书-0709更新.pdf'
       }
     ]
@@ -257,7 +257,7 @@ const rules = [
       {
         title: '台湾麻将台数表',
         desc: '本平台台湾麻将采用的台数参考表。',
-        url: '/rulebooks/taiwan-yaku-table.pdf',
+        url: '/rulebooks/台湾麻将台数表.pdf',
         filename: '台湾麻将台数表.pdf'
       }
     ]
@@ -271,7 +271,7 @@ const rules = [
       {
         title: '古典麻将',
         desc: '平台现行的古典麻将版本。',
-        url: '/rulebooks/classical-rulebook.pdf',
+        url: '/rulebooks/古典麻将规则.pdf',
         filename: '古典麻将规则.pdf'
       }
     ]
@@ -289,17 +289,17 @@ const rules = [
     docs: [{
       title: 'MIL 上海麻将（推广）竞赛规则（试行2024版）',
       desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。',
-      url: '/rulebooks/shanghai-qiaoma-2024.pdf',
+      url: '/rulebooks/mil/上海麻将（推广）竞赛规则（试行2024版）.pdf',
       filename: '上海麻将（推广）竞赛规则（试行2024版）.pdf'
     }, {
       title: '上海清混碰规则',
       desc: '上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
-      url: '/rulebooks/shanghai-qinghunpeng.docx',
+      url: '/rulebooks/上海清混碰规则.docx',
       filename: '上海清混碰规则.docx'
     }, {
       title: '上海垃圾和规则（2026-10-17 修订）',
       desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。',
-      url: '/rulebooks/shanghai-lajihe.docx?v=20261017',
+      url: '/rulebooks/上海垃圾和规则.docx?v=20261017',
       filename: '上海垃圾和规则.docx'
     }]
   },
@@ -316,7 +316,7 @@ const rules = [
     docs: [{
         title: '中庸麻将与南雀规则说明',
         desc: '标准中庸的计分与支付方法，以及南雀血战到底的差异。',
-        url: '/rulebooks/zhongyong.html',
+        url: '/rulebooks/中庸麻将与南雀规则说明.html',
         filename: '中庸麻将与南雀规则说明.html',
       }]
   },
@@ -329,10 +329,10 @@ const rules = [
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
     description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
     docs: [
-      { title: '宜兴麻将规则书', url: '/rulebooks/yixing.html' },
-      { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
-      { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
-      { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },
+      { title: '宜兴麻将规则书', url: '/rulebooks/宜兴麻将规则书.html' },
+      { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/宜兴麻将规则书.docx', filename: '宜兴麻将规则.docx' },
+      { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/宜兴麻将规则书.pdf' },
+      { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/宜兴麻将规则书.doc', filename: '宜兴麻将规则.doc' },
     ],
   },
   {
@@ -363,7 +363,7 @@ const rules = [
   {
     key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
     description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
-    docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
+    docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/九江麻将规则书.docx', filename: '九江麻将规则书.docx' }],
   },
   {
     key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
@@ -373,7 +373,7 @@ const rules = [
     key: 'malaysia', label: '马来西亚三人麻将', short: '马来三麻', categories: ['platform', 'local'], accent: '#316c64',
     description: '传统84张：筒、字、16花与4飞，东南西三席，5番起和；依据 Cheah / Sloper 定型文及平台补充条款。',
     docs: [
-      { title: '马来西亚三人麻将平台规则书', url: '/rulebooks/malaysia.html' },
+      { title: '马来西亚三人麻将平台规则书', url: '/rulebooks/马来西亚三人麻将规则.html' },
       { title: 'Cheah / Sloper 英文定型文', url: 'https://www.sloperama.com/mahjongg/malaysian.html' },
     ],
   },
@@ -411,15 +411,15 @@ const rules = [
     key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
     description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
     docs: [
-      { title: '福州麻将规则与平台补则', url: '/rulebooks/fuzhou.html', filename: 'fuzhou.html' },
-      { title: '福州麻将规则书原文', url: '/rulebooks/fuzhou.docx', filename: '福州麻将规则书.docx' },
+      { title: '福州麻将规则与平台补则', url: '/rulebooks/福州麻将规则书.html', filename: '福州麻将规则书.html' },
+      { title: '福州麻将规则书原文', url: '/rulebooks/福州麻将规则书.docx', filename: '福州麻将规则书.docx' },
     ],
   },
   {
     key: 'singapore', label: '新加坡四人麻将', short: '新加坡', categories: ['platform', 'local'], accent: '#247b68',
     description: 'SPGG 2024：148张，1台起和、5台封顶，花季与动物婚配即时支付；含平台补充约定。',
     docs: [
-      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/singapore-spgg2024.html', filename: 'singapore-spgg2024.html' },
+      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/新加坡四人麻将规则（SPGG 2024）.html', filename: '新加坡四人麻将规则（SPGG 2024）.html' },
       { title: 'SPGG 2024 英文原文', desc: 'Singapore Polytechnic Graduates Guild 发布。', url: 'https://www.spgg.org.sg/web/content/114907/', filename: 'spgg-2024.pdf' },
     ],
   },
@@ -432,7 +432,7 @@ const rules = [
       {
         title: '十样锦麻将规则书',
         desc: '十样锦麻将规则说明。',
-        url: '/rulebooks/shiyangjin.pdf',
+        url: '/rulebooks/十样锦麻将规则.pdf',
         filename: '十样锦麻将规则书.pdf'
       }
     ]

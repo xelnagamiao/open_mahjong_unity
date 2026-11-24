@@ -31,6 +31,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
     private readonly List<MatchButton> selected=new List<MatchButton>(MaximumSelections);
     private readonly int[] rememberedRules=System.Array.ConvertAll(RankedRules.FamilyRuleIndices,rules=>rules[0]);
     private Dictionary<string,int> playerCounts;
+    private bool playerCountsDirty;
     private int activeRule,renderedState=-1,lastSecond=-1;
     private int renderedVersion=-1;
     private bool bound;
@@ -56,6 +57,10 @@ public sealed class MatchLobbyView : MonoBehaviour {
     }
     public void UpdateRulePlayerCounts(Dictionary<string,int> counts){
         playerCounts=counts==null?null:new Dictionary<string,int>(counts);
+        playerCountsDirty=true;
+    }
+    private void ApplyRulePlayerCounts(){
+        playerCountsDirty=false;
         for(int i=0;i<rulePlayerCounts.Length;i++){
             int total=0;bool known=playerCounts!=null;
             foreach(int rule in RankedRules.FamilyRuleIndices[i]){
@@ -135,6 +140,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
         return network!=null&&network.IsJoinPending?1:0;
     }
     private void Update(){
+        if(playerCountsDirty)ApplyRulePlayerCounts();
         int code=StateCode();int version=MatchNetworkManager.Instance!=null?MatchNetworkManager.Instance.ViewVersion:0;
         if(code!=renderedState||version!=renderedVersion)RefreshState();
         if(code==2||code==3){int second=Mathf.FloorToInt(MatchStateManager.Instance.ElapsedTime);if(second!=lastSecond){lastSecond=second;elapsedText.text=$"{second/60:00}:{second%60:00}";}}

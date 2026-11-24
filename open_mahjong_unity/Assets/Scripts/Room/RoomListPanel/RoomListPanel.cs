@@ -94,7 +94,10 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     private void LateUpdate() { if (presenting) cards.Tick(); }
-    private void OnDisable() => SetPageVisible(false);
+    private void OnDisable() {
+        SetPageVisible(false);
+        cards?.TrimPooledRows(8);
+    }
     private void OnDestroy() {
         cards?.Dispose();
         if (Instance == this) Instance = null;

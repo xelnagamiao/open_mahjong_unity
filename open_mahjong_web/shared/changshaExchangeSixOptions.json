@@ -1,5 +1,5 @@
 {
-  "tactical_call": false,
+  "tactical_call": true,
   "open_kong_replacement_count": 4,
   "bird_count": 2,
   "dealer_bird": false,

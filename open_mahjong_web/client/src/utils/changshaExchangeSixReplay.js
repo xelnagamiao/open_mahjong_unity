@@ -32,8 +32,9 @@ export function exchangeSixInfoAt(round, node) {
       info.completedRounds = info.round
     }
     if (t[0] === 'changsha_declaration') {
-      if (t[2] === 'changsha_report_ready') info.ready.push(t[1])
-      if (t[2] === 'changsha_open_hand') info.open.push(t[1])
+      const openAndReady = t[2] === 'changsha_open_hand_ready'
+      if (openAndReady || t[2] === 'changsha_report_ready') info.ready.push(t[1])
+      if (openAndReady || t[2] === 'changsha_open_hand') info.open.push(t[1])
     }
     if (t[0] === 'changsha_lock_patterns') info.locks[t[1]] = t[2]
     if (t[0] === 'changsha_four_joy') info.fourJoy.push({ seat: t[1], tile: t[2], dice: t[3] })

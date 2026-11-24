@@ -44,6 +44,7 @@ public partial class CreatePanel {
         BakeShangraoDetailsPanel();
         BakeBeijingDetailsPanel();
         BakeNewChineseExchangeThreeControl();
+        BakeNewChineseShowdownControl();
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
         BakeGuangdongRoomControls();
@@ -75,6 +76,16 @@ public partial class CreatePanel {
         TableText.Set(GetToggleLabel(newChineseExchangeThreeToggle), "换三张", NewChineseGameState.RuleId);
         RoomGet<CreateRoomHelpTrigger>(newChineseExchangeThreeToggle.gameObject).Configure(this, "");
         newChineseExchangeThreeToggle.gameObject.SetActive(false);
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+
+    public void BakeNewChineseShowdownControl() {
+        newChineseShowdownToggle = EnsureClonedToggle(tipsToggle, newChineseShowdownToggle, "NewChineseShowdown", "摊牌", false);
+        newChineseShowdownToggle.group = null;
+        newChineseShowdownToggle.onValueChanged = new Toggle.ToggleEvent();
+        TableText.Set(GetToggleLabel(newChineseShowdownToggle), "摊牌", NewChineseGameState.RuleId);
+        RoomGet<CreateRoomHelpTrigger>(newChineseShowdownToggle.gameObject).Configure(this, "开启后，荒庄时展示四家手牌");
+        newChineseShowdownToggle.gameObject.SetActive(false);
         UnityEditor.EditorUtility.SetDirty(this);
     }
 

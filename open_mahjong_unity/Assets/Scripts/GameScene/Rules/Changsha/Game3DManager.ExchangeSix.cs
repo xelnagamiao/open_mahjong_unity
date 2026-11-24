@@ -49,7 +49,7 @@ public partial class Game3DManager {
         for (int index = 0; index < river.childCount; index++) {
             var child = river.GetChild(index);
             int row = index / 6, col = index % 6;
-            var position = DiscardRowOrigin(river, rowDirection) + rowDirection.normalized * ComputeRowCenterOffset(river, row, col, 6, false)
+            var position = DiscardRowOrigin(river, rowDirection) + rowDirection.normalized * ComputeRowCenterOffset(river, row * 6, col, false)
                 + nextRowDirection.normalized * heightSpacing * row;
             child.position = PlaceTileOnTable(position, child.rotation);
         }
@@ -131,6 +131,7 @@ public partial class Game3DManager {
     }
 
     public void ClearChangshaExchangeHands() {
+        ClearChangshaExchangeClaims();
         foreach (var update in exchangeSixRiverUpdates.Values) if (update != null) StopCoroutine(update);
         exchangeSixRiverUpdates.Clear();
         foreach (var update in exchangeSixHandUpdates.Values) if (update != null) StopCoroutine(update);

@@ -6,15 +6,24 @@ using Newtonsoft.Json;
 public partial class GameRecordManager {
     internal NewChineseInfo NewChineseRecordInfo {get; private set;}
     private const string NewChineseRecordChoicePhase = "showing_exchange_choices";
-    private bool newChineseRecordShowingChoices;
+    private bool newChineseRecordShowingChoices, newChineseRecordSettled;
+    private int NewChineseRecordSettlementBao => newChineseRecordSettled
+        ? NewChineseGameState.GetSettlementBao(NewChineseRecordInfo)
+        : 0;
 
     internal RuleReplayModule CreateNewChineseReplayModule() => new RuleReplayModule("new_chinese") {
         Reset = () => {
+            newChineseRecordSettled = false;
             GameCanvas.Instance?.FinishNewChineseExchangeChoices();
             GameCanvas.Instance?.FinishNewChineseReceipt();
             SetNewChineseRecordInfo(gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var round) ? round.newChinese : null);
         },
-        Clear = () => { GameCanvas.Instance?.FinishNewChineseReceipt(); SetNewChineseRecordInfo(null); RefreshNewChineseRecord(); },
+        Clear = () => {
+            newChineseRecordSettled = false;
+            GameCanvas.Instance?.FinishNewChineseReceipt();
+            SetNewChineseRecordInfo(null);
+            RefreshNewChineseRecord();
+        },
         IsSilentTick = IsNewChineseSilentRecordTick,
         AfterSilentMutation = tick => {
             if (!newChineseRecordShowingChoices) GameCanvas.Instance?.FinishNewChineseExchangeChoices();
@@ -57,7 +66,7 @@ public partial class GameRecordManager {
 
     private void RefreshNewChineseRecord() {
         int viewer = recordPlayer_to_info.TryGetValue("self",out var p) ? p.playerIndex : -1;
-        GameCanvas.Instance?.ShowNewChineseStatus(NewChineseRecordInfo,indexToPosition,viewer);
+        GameCanvas.Instance?.ShowNewChineseStatus(NewChineseRecordInfo, indexToPosition, viewer, newChineseRecordSettled);
         if (newChineseRecordShowingChoices)
             GameCanvas.Instance?.ShowNewChineseExchangeChoices(NewChineseRecordInfo, indexToPosition,
                 viewer >= 0 && viewer < (NewChineseRecordInfo.exchange_packets?.Length ?? 0) ? NewChineseRecordInfo.exchange_packets[viewer] : null);
@@ -66,6 +75,7 @@ public partial class GameRecordManager {
     }
 
     private bool ApplyNewChineseTick(IReadOnlyList<string> tick) {
+        newChineseRecordSettled |= tick[0] is "hu_self" or "hu_first" or "hu_second" or "hu_third" or "liuju" or "ryuukyoku" or "end";
         if (tick.Count < 2) return false;
         if (tick[0].StartsWith("hu")) {
             if (tick.Count > 8 && tick[8] == "1" && tick[0]!="hu_self" && tick.Count>7 && int.TryParse(tick[7],out var source) && int.TryParse(tick[5],out var face))

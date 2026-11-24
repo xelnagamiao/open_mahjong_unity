@@ -33,6 +33,8 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         self.ready_order, self.supplements = [], []
         self.candidate_cuts = {}
         self.must_declare = self.pending_kong = self.round_settlement = None
+        self._bao_resume_turn = None
+        self._bao_visible_count_at_reveal = 0
         self.round_start_scores = [0] * 4
 
     @property
@@ -75,6 +77,7 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
     def initialize_round(self, *, wall=None):
         self.reset_round_state()
         self.bao = self.bao_revision = 0
+        self._bao_resume_turn = None
         self.ready_order = []
         self.must_declare = self.pending_kong = self.round_settlement = None
         self.match_finishing = False
@@ -129,8 +132,6 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
         visible = self.visible_counts()[tile] - int(mode == "discard")
         if mode == "rob" and self.pending_kong and self.pending_kong[2] == "gang":
             visible -= 1
-        if mode not in ("seen",) and tile == self.bao:
-            visible += 1
         return rules.score(hand, p.combination_tiles, tile, source, after_kong=p.after_kong,
                            chain=max(p.chain, p.longest_chain), visible=visible, dealer=index == self.dealer_index,
                            payer_dealer=payer == self.dealer_index, hepai_limit=self.hepai_limit,

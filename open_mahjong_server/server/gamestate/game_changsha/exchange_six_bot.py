@@ -61,12 +61,12 @@ def choose_action(phase, hand, melds, visible, actions, targets, reported_ready=
     for action in actions:
         if action.startswith("hu_"):
             return dict(action_type=action)
-    for action in ("changsha_four_joy", "sea_bottom", "changsha_report_ready"):
+    for action in ("changsha_four_joy", "sea_bottom", "changsha_report_ready", "changsha_open_hand_ready"):
         if action in actions:
             choices = targets.get(action, ())
             tile = None
             if choices:
-                tile = max(choices, key=lambda t: _best_cut(hand, melds, visible, True, t)[1]) if action == "changsha_report_ready" else choices[0]
+                tile = max(choices, key=lambda t: _best_cut(hand, melds, visible, True, t)[1]) if action in ("changsha_report_ready", "changsha_open_hand_ready") else choices[0]
             return dict(action_type=action, target_tile=tile)
     if phase not in ("hand", "claims"):
         return dict(action_type="pass")

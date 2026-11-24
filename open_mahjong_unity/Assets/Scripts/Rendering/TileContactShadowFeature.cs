@@ -22,14 +22,15 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
     }
 
     public Settings settings = new Settings();
-    public Shader shader;
+    [SerializeField] private Material shadowMaterial;
     public int LastSubmittedTileCount => _pass != null ? _pass.tileCount : 0;
     public int LastSubmittedBatchCount => _pass != null ? _pass.batchCount : 0;
     private ContactPass _pass;
 
     public override void Create() {
         _pass?.Dispose();
-        _pass = new ContactPass(shader != null ? shader : Resources.Load<Shader>("Materials/Tiles/TileContactShadow"));
+        _pass = new ContactPass(shadowMaterial != null ? shadowMaterial
+            : Resources.Load<Material>("Materials/Tiles/TileContactShadow"));
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData) {
@@ -74,17 +75,14 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
             public float opacity, flatOpacityRatio, feather, fadeHeight, liftSpread;
         }
 
-        public ContactPass(Shader shader) {
+        public ContactPass(Material template) {
             renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
             requiresIntermediateTexture = false;
             ConfigureInput(ScriptableRenderPassInput.None);
-            if (shader == null) return;
-            // Keep the instanced shader variant in Player builds through the
-            // serialized template; runtime-only materials can be stripped.
-            Material template = Resources.Load<Material>("Materials/Tiles/TileContactShadow");
-            _material = template != null && template.shader == shader
-                ? new Material(template) { hideFlags = HideFlags.HideAndDontSave }
-                : CoreUtils.CreateEngineMaterial(shader);
+            if (template == null) return;
+            // The renderer is created before the WebGL content bundles are mounted.
+            // Its own material dependency keeps the instanced variant in the Player.
+            _material = new Material(template) { hideFlags = HideFlags.HideAndDontSave };
             _material.enableInstancing = true;
             _quad = new Mesh { name = "Tile Contact Shadow Quad", hideFlags = HideFlags.HideAndDontSave };
             _quad.vertices = new[] { new Vector3(-1, 0, -1), new Vector3(-1, 0, 1), new Vector3(1, 0, 1), new Vector3(1, 0, -1) };

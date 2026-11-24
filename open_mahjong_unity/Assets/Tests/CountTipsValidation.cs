@@ -32,7 +32,7 @@ public static class CountTipsValidation {
         var oldManifests = RuleRegistry.All.ToArray();
         bool oldFan = GameSession.Current.FanTips, oldCount = GameSession.Current.CountTips;
         var preview = EditorSceneManager.NewPreviewScene();
-        var root = new GameObject("CountTipsValidation", typeof(RectTransform));
+        var root = new GameObject("CountTipsValidation", typeof(RectTransform), typeof(Canvas));
         UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, preview);
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/GameScene/TipsFanCount.prefab");
         var view = UnityEngine.Object.Instantiate(prefab, root.transform).GetComponent<TipsFanCount>();
@@ -82,6 +82,17 @@ public static class CountTipsValidation {
             view.SetHint(WaitTileHint.Ron("点和1番\n自摸2番"), 3, true, true);
             Check("三行番数与枚数", Lines(view).SequenceEqual(new[] {"点和1番","自摸2番","3枚"}));
             Check("三行绿黄蓝", Colors(view).SequenceEqual(new[] {view.dianheColor,view.zimoColor,blue}));
+            foreach (var (labelField, chipField) in new[] {
+                ("tipsFanCountText", "firstChip"), ("secondHintText", "secondChip"), ("thirdHintText", "thirdChip")
+            }) {
+                var label = Field<TMP_Text>(view, labelField);
+                var chip = Field<TipsCornerFrame>(view, chipField).rectTransform;
+                label.ForceMeshUpdate();
+                var glyphs = label.textInfo.characterInfo.Take(label.textInfo.characterCount).Where(c => c.isVisible).ToArray();
+                float center = (glyphs.Min(c => c.bottomLeft.y) + glyphs.Max(c => c.topRight.y)) * .5f;
+                float chipCenter = label.rectTransform.InverseTransformPoint(chip.TransformPoint(chip.rect.center)).y;
+                Check(label.text + " 在色块内垂直居中", Mathf.Abs(center - chipCenter) < .5f);
+            }
             view.SetHint(WaitTileHint.TsumoOnly("1番\n自摸2分"), 2, true, true);
             Check("红中三行全为仅自摸色", Colors(view).All(color => color == view.zimoColor));
             view.SetHint(WaitTileHint.None("未满足"), 2, false, true);

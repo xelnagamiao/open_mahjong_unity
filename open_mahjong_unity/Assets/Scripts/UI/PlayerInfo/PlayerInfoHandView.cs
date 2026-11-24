@@ -58,6 +58,7 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
                     ? HongqueTileVisual.LoadSprite(id) : BuiltinTilePreviews.Load(TilePackIds.PackOfficial, id);
                 sprites[key] = sprite;
             }
+            TileArtworkSampling.Apply(face);
             face.texture = sprite != null ? sprite.texture : null;
             Vector4 uv = sprite != null ? UnityEngine.Sprites.DataUtility.GetOuterUV(sprite) : new Vector4(0, 0, 1, 1);
             face.uvRect = Rect.MinMaxRect(uv.x, uv.y, uv.z, uv.w);

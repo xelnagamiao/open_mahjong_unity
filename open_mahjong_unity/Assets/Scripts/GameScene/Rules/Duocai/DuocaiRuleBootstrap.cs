@@ -21,6 +21,7 @@ internal static class DuocaiRuleBootstrap {
                 {CreateRoomKeys.Tips,true},{CreateRoomKeys.CountTips,false},{CreateRoomKeys.PointerTips,true},{CreateRoomKeys.Password,false},
                 {CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true}},
             OpeningHandHasDrawSlot=info=>info?.duocai_info?.self_has_draw_slot==true,
+            FirstTenTileDiscardRow = _ => 4,
             Tingpai=q=>GameRecordManager.Instance?.ShouldShowRecordTips()==true?GameRecordManager.Instance.DuocaiWaiting(q):DuocaiGameState.Active?.Hints.Waiting(q)??new HashSet<int>(),
             DescribeWaitingTile=q=>q.Record!=null?GameRecordManager.Instance?.DescribeDuocaiWaiting(q):DuocaiGameState.Active?.DescribeWaiting(q),
             TileBadgeText=DuocaiTileVisual.Badge,PrepareHandDisplay=info=>DuocaiTableIndicators.Refresh(info?.duocai_info,info?.players_info),

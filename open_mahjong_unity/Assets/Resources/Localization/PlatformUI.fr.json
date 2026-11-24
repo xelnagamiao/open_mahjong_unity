@@ -1,10 +1,12 @@
 {
   "entries": [
+    {"key": "连接本地测试服务", "text": "Se connecter au serveur de test local"},
+    {"key": "连接远程服务器", "text": "Se connecter au serveur distant"},
     {"key": "换三张", "text": "Échanger trois tuiles"},
     {"key": "留空自动生成", "text": "Laisser vide pour générer automatiquement"},
     {"key": "按随机种子生成两室相同牌山，不创建复式密钥。", "text": "Les deux tables utilisent le même mur généré à partir de la graine. Aucune clé de duplicate n’est créée."},
     {"key": "使用对应类型的复式密钥，副数跟随密钥。", "text": "Utilisez une clé de duplicate du type choisi. La clé détermine le nombre de donnes."},
-    {"key": "广东麻将（推广）2V2 双打", "text": "Mahjong du Guangdong · double 2 contre 2"},
+    {"key": "广东麻将（推广）2V2 双打", "text": "Guangdong · double 2 contre 2"},
     {"key": "血战到底·换三张", "text": "Bataille avec échange de trois tuiles"},
     {"key": "牌谱不可用", "text": "Replay indisponible"},
     {"key": "上饶麻将（飞宝）", "text": "Mahjong de Shangrao (Feibao)"},
@@ -25018,8 +25020,8 @@
       "text": "Double Chow Pur"
     },
     {
-      "key": "other/rule/inclued_rule/新编MCR.pdf",
-      "text": "other/rule/inclued_rule/新编MCR.pdf"
+      "key": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf",
+      "text": "open_mahjong_web/client/public/rulebooks/新编国标麻将规则.pdf"
     },
     {
       "key": "在 Salasasa 免费在线玩国标麻将 MCR，支持自动算番、段位匹配和牌谱复盘。浏览器 2D 无需下载，另有多规则客户端与麻将学习工具。",

@@ -54,7 +54,11 @@ public static class HongqueTileVisual {
         if (TableTextureCache.TryGetValue(tileId, out Texture2D cached)) return cached;
         string path = TableResourcePath(tileId);
         Texture2D texture = path == null ? null : Resources.Load<Texture2D>(path);
-        if (texture != null) TableTextureCache[tileId] = texture;
+        if (texture != null) {
+            texture.filterMode = FilterMode.Trilinear;
+            texture.mipMapBias = 0f;
+            TableTextureCache[tileId] = texture;
+        }
         return texture;
     }
 
@@ -81,13 +85,9 @@ public static class HongqueTileVisual {
         if (SpriteCache.TryGetValue(tileId, out Sprite cached) && cached != null) return cached;
         Sprite sprite = tileId >= 1141 ? CreateColourlessHand(tileId) : null;
         if (sprite == null) sprite = BuiltinTileSprites.Hand("hongque", ToCode(tileId));
-        // SpriteAtlas has no authored mip bias; retain the original hand import setting.
-        if (sprite != null) {
-            sprite.texture.mipMapBias = -.5f;
-            if (cacheForGame) {
-                SpriteCache[tileId] = sprite;
-                if (tileId >= 1141 && sprite.texture != null) GeneratedHandIds.Add(tileId);
-            }
+        if (sprite != null && cacheForGame) {
+            SpriteCache[tileId] = sprite;
+            if (tileId >= 1141 && sprite.texture != null) GeneratedHandIds.Add(tileId);
         }
         return sprite;
     }

@@ -52,6 +52,9 @@ public sealed class MatchRecordSession {
     // The archive viewer owns a read-only snapshot. Live sessions and independent callers
     // can still request a detached copy before applying transport changes.
     internal static MatchRecordSession OpenArchive(JObject record, string selectedTable, bool copyTables) {
+        var expanded = MatchRecordCodec.ExpandStorage(record);
+        copyTables = copyTables && ReferenceEquals(expanded, record);
+        record = expanded;
         if ((string)record?["format"] != "open_mahjong.match_record" || (int?)record["schema_version"] != 2)
             throw new FormatException("Unsupported match record version");
         var all = record["tables"] as JObject ?? throw new FormatException("Missing tables");

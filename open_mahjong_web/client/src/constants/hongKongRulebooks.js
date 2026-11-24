@@ -18,12 +18,12 @@ export const hongKongRulebooks = [
   {
     subRule: 'hongkong/new13_lianhuise', label: '新章十三（恋绘色）',
     desc: '恋绘色《香港新章规则书》。',
-    url: '/rulebooks/lianhuise-new13.docx', filename: '香港新章规则书.docx',
+    url: '/rulebooks/香港新章规则书.docx', filename: '香港新章规则书.docx',
   },
   {
     subRule: 'hongkong/qingzhang_lianhuise', label: '新章十三（恋绘色魔改）',
     desc: '《香港新派清章（恋绘色魔改版）》原文。',
-    url: '/rulebooks/lianhuise-qingzhang-remix.docx', filename: '香港新派清章（恋绘色魔改版）.docx',
+    url: '/rulebooks/香港新派清章（恋绘色魔改版）.docx', filename: '香港新派清章（恋绘色魔改版）.docx',
   },
   {
     subRule: 'hongkong/new16', label: '新章十六',

@@ -2,7 +2,6 @@ from copy import deepcopy
 import pytest
 
 from server.records.format import build_match, validate_match
-from server.records.migrate import make_replay
 from server.records.test_format import records
 from server.records.wall_alignment import RecordConflict
 
@@ -53,15 +52,3 @@ def test_training_wall_source_and_seed_survive_legacy_conversion():
         assert title["duplicate_seed"] == "9123456789123456789"
         assert "duplicate_key" not in title
     assert source == before
-
-
-def test_explicit_migration_preserves_known_mode_and_quarantines_conflicts():
-    source = records()
-    source["closed"]["record"]["game_title"]["duplicate_sync_mode"] = False
-    before = deepcopy(source)
-    replay = make_replay(list(source.values()))
-    assert replay["sync_mode"] is False
-    assert source == before
-    source["open"]["record"]["game_title"]["duplicate_sync_mode"] = True
-    with pytest.raises(RecordConflict, match="synchronization"):
-        make_replay(list(source.values()))

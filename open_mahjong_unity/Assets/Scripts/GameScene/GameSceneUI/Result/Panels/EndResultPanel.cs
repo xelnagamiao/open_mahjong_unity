@@ -190,12 +190,13 @@ public partial class EndResultPanel : MonoBehaviour {
             RoundEndTiming.HuConfirmCountdownSeconds));
     }
 
-    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
+    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile, int publicBaoTile = 0) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, scoreChanges, suppressHandReveal, tileLayout);
+        if (publicBaoTile > 0) ShowSupplementalTileRow("宝牌", new[] { publicBaoTile });
     }
 
     public void PlayPreparedShowResult(double hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -407,7 +408,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null, int actualWinningTile = 0) {
+        int[] changshaBirdTiles = null, int actualWinningTile = 0, int publicBaoTile = 0) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -415,7 +416,7 @@ public partial class EndResultPanel : MonoBehaviour {
         DisplayRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
-            changshaBirdTiles, actualWinningTile);
+            changshaBirdTiles, actualWinningTile, publicBaoTile);
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -639,7 +640,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null, int actualWinningTile = 0) {
+        int[] changshaBirdTiles = null, int actualWinningTile = 0, int publicBaoTile = 0) {
         // InitGameRound 会 HidePresentationVisual，牌谱直出面板须先恢复父 CanvasGroup
         if (RoundEndPresentation.Instance != null) {
             RoundEndPresentation.Instance.gameObject.SetActive(true);
@@ -692,7 +693,8 @@ public partial class EndResultPanel : MonoBehaviour {
         ConfigureNanchangSettlement(roomType, GameRecordManager.Instance?.NanchangRecordInfo, hepai_player_index);
         hu_fan = AppendGuizhouEntries(hu_fan);
         SetChangshaBirdTiles(changshaBirdTiles);
-        ShowChangshaBirdPanel(this.changshaBirdTiles);
+        if (publicBaoTile > 0) ShowSupplementalTileRow("宝牌", new[] { publicBaoTile });
+        else ShowChangshaBirdPanel(this.changshaBirdTiles);
         if (RuleRegistry.Resolve(roomType,roomType)?.RuleId == HongzhongGameState.RuleId)
             ApplyGuobiaoConcealedKongs(guobiaoAngangCheckText,roomType,hu_fan);
         else HideGuobiaoConcealedKongs(guobiaoAngangCheckText);
@@ -1290,19 +1292,25 @@ public partial class EndResultPanel : MonoBehaviour {
         changshaBirdTiles = tiles != null && tiles.Length > 0 ? tiles : null;
     }
 
-    private void ShowChangshaBirdPanel(int[] birdTiles) {
-        bool show = birdTiles != null && birdTiles.Length > 0;
+    private void ShowChangshaBirdPanel(int[] birdTiles) => ShowSupplementalTileRow("扎鸟", birdTiles);
+
+    private void ShowSupplementalTileRow(string caption, int[] tiles) {
+        bool show = tiles != null && tiles.Length > 0;
         ClearChangshaBirdCards();
         if (ChangshaBirdPanel != null) {
             ChangshaBirdPanel.SetActive(show);
+            if (show) {
+                var label = ChangshaBirdPanel.transform.Find("ChangshaBirdLabel")?.GetComponent<TMP_Text>();
+                TableText.Set(label, caption);
+            }
         }
         if (!show || ChangshaBirdContainer == null || StaticCardPrefab == null) return;
-        for (int i = 0; i < birdTiles.Length; i++) {
+        for (int i = 0; i < tiles.Length; i++) {
             GameObject card = Instantiate(StaticCardPrefab, ChangshaBirdContainer);
             RectTransform rt = card.GetComponent<RectTransform>();
             if (rt != null) rt.sizeDelta = ChangshaBirdCardSize;
             StaticCard staticCard = card.GetComponent<StaticCard>();
-            if (staticCard != null) staticCard.SetTileOnlyImage(birdTiles[i]);
+            if (staticCard != null) staticCard.SetTileOnlyImage(tiles[i]);
         }
     }
 

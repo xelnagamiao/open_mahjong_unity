@@ -14,6 +14,16 @@ public partial class CreatePanel {
     private bool deferredLoading;
     private int deferredOpenVersion;
 
+    private void ReleaseDeferredPanels()
+    {
+        deferredOpenVersion++;
+        deferredQueue.Clear();
+        deferredRequests.Clear();
+        foreach (var view in deferredViews.Values)
+            if (view) Destroy(view);
+        deferredViews.Clear();
+    }
+
     private void PrewarmSelectedDetails() {
         if (!Application.isPlaying || !isActiveAndEnabled || !initialized) return;
         if (Array.IndexOf(DetailedRules, _ruleState) < 0) return;
@@ -41,7 +51,8 @@ public partial class CreatePanel {
             yield return null;
             if (!this) yield break;
             var key = deferredQueue.Dequeue();
-            if (deferredRequests[key].Count == 0 && (!isActiveAndEnabled || _ruleState != DeferredRule(key))) { deferredRequests.Remove(key); continue; }
+            if (!deferredRequests.TryGetValue(key, out var requests)) continue;
+            if (!isActiveAndEnabled || (requests.Count == 0 && _ruleState != DeferredRule(key))) { deferredRequests.Remove(key); continue; }
             var load = Resources.LoadAsync<GameObject>(DeferredResourceRoot + key);
             yield return load;
             if (!this) yield break;
@@ -84,7 +95,10 @@ public partial class CreatePanel {
                     Debug.LogException(error, this);
                 }
             } else Debug.LogError("Missing create-room panel: " + DeferredResourceRoot + key, this);
-            var callbacks = deferredRequests[key];
+            if (!deferredRequests.TryGetValue(key, out var callbacks)) {
+                if (instance) Destroy(instance);
+                continue;
+            }
             deferredRequests.Remove(key);
             foreach (var callback in callbacks) {
                 try { callback(instance); } catch (Exception error) { Debug.LogException(error, this); }

@@ -74,7 +74,10 @@ class InventoryDatabaseTests(unittest.TestCase):
     def test_minimal_catalog_does_not_reseed_retired_presets(self):
         self.ensure_schema()
         self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'金橙色'),(2202,'青色'),(2301,'默认头像'),(2302,'博丽灵梦'),(2303,'琪露诺'),(3001,'改名卡'),(3011,'草牌'),(3012,'好牌')])
-        self.assertEqual(self.sql('SELECT name FROM titles ORDER BY title_id'),[('最初的初段',),('冠绝一世',),('千恋万花',)])
+        self.assertCountEqual(
+            [name for name, in self.sql('SELECT name FROM titles')],
+            ['最初的初段', '冠绝一世', '千恋万花', '鲨国左护法', '鲨国右护法'],
+        )
         self.assertEqual(self.qty(1002,103),0)
         self.assertEqual(get_inventory(self.db,103)['appearance']['voice_id'],2)
         self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar','item_id':2301},{'slot':'avatar_frame','item_id':DEFAULT_AVATAR_FRAME_ID}])
@@ -172,28 +175,12 @@ class InventoryDatabaseTests(unittest.TestCase):
             self.assertEqual((state['appearance']['character_id'], state['appearance']['voice_id']), (2, 2))
             self.assertEqual(state['appearance']['profile_image_id'], 2302)
 
-    def test_suspend_avatars_repairs_equipment_and_independent_profile_settings_once(self):
-        self.sql("""DELETE FROM app_meta WHERE meta_key='inventory.suspend_touhou_avatars.v1';
-            UPDATE item_definitions SET use_enabled=TRUE,grant_enabled=TRUE WHERE item_id IN (2302,2303);
-            INSERT INTO user_equipment(user_id,slot,item_id) VALUES
-                (101,'avatar',2302),(101,'avatar_frame',2202),(103,'avatar',2303);
-            INSERT INTO user_inventory(user_id,item_id,quantity) VALUES (101,2302,1);
-            INSERT INTO users(user_id) VALUES (104);
-            INSERT INTO item_definitions(item_id,code,name,category,asset_key,slot,max_quantity,is_default)
-                VALUES (4010,'other_avatar','其他头像','cosmetic','avatar.default','avatar',1,TRUE);
-            INSERT INTO user_equipment(user_id,slot,item_id) VALUES (104,'avatar',4010);
-            INSERT INTO user_settings(user_id,profile_image_id) VALUES (104,2302);
-            UPDATE user_settings SET profile_image_id=2302 WHERE user_id=101;
-            UPDATE user_settings SET profile_image_id=2303 WHERE user_id=102;""")
+    def test_suspended_avatar_defaults_preserve_admin_changes_on_restart(self):
+        query = 'SELECT use_enabled,grant_enabled FROM item_definitions WHERE item_id IN (2302,2303) ORDER BY item_id'
+        self.assertEqual(self.sql(query), [(False, False), (False, False)])
+        self.sql('UPDATE item_definitions SET use_enabled=TRUE WHERE item_id=2302')
         self.ensure_schema()
-        self.ensure_schema()
-        self.assertEqual(self.sql('SELECT user_id,profile_image_id FROM user_settings ORDER BY user_id'),
-                         [(101,1),(102,1),(103,1),(104,4010)])
-        self.assertEqual(self.sql('SELECT user_id,slot,item_id FROM user_equipment ORDER BY user_id'),
-                         [(101,'avatar_frame',2202),(104,'avatar',4010)])
-        self.assertEqual(self.sql('SELECT user_id,item_id,quantity FROM user_inventory'),[(101,2302,1)])
-        self.assertEqual(self.sql('SELECT use_enabled,grant_enabled FROM item_definitions WHERE item_id IN (2302,2303)'),
-                         [(False,False),(False,False)])
+        self.assertEqual(self.sql(query), [(True, False), (False, False)])
 
     def test_idempotency_replay_conflict_and_revoke(self):
         body=dict(request_id=uuid.uuid4().hex,item_id=3001,quantity=3,reason='retry')

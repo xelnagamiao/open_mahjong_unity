@@ -56,11 +56,6 @@ public class WindowsManager : MonoBehaviour {
     private string lastLobbyTab = "menu";
     /// <summary>进入 game/recordscene 前 MainCanvas 正在显示的页。主菜单挂起与退出牌谱/对局都回到这里，挂起后点顶栏不改写。</summary>
     private string gameReturnWindow = "menu";
-    /// <summary>
-    /// 退出房间要回的页。顶栏「房间」进房保持 menu；活动房在进房瞬间记下当时的大厅页（通常是赛事）。
-    /// 不要在「点房间标签」时改写，否则牌谱/匹配点进房间页会把退出锚点冲掉。
-    /// </summary>
-    private string roomReturnWindow = "menu";
     private Coroutine _switchRoutine;
     private bool applicationPaused;
 
@@ -155,7 +150,6 @@ public class WindowsManager : MonoBehaviour {
         ApplyStreamerModePanels();
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
-        roomReturnWindow = "menu";
         CanReturnToGame = false;
         Debug.Log("[WindowsManager] 已重置到登录界面");
     }
@@ -323,51 +317,17 @@ public class WindowsManager : MonoBehaviour {
         return "menu";
     }
 
-    /// <summary>
-    /// 真正进入房间前调用（join/create 成功、尚未 SwitchWindow("room")）。
-    /// 当时若还在赛事等大厅页，退出房间回到该页；若已经在房间页（顶栏「房间」），保持主菜单。
-    /// </summary>
-    public void CaptureRoomReturnWindow() {
-        if (!string.IsNullOrEmpty(currentWindow) && currentWindow != "room" && IsLobbyTab(currentWindow)) {
-            roomReturnWindow = currentWindow;
-        }
-    }
-
-    /// <summary>
-    /// 退出房间：活动房回到进房前所在页；顶栏「房间」建的房回到主菜单。
-    /// 打完一把仍在房里时不要走这里，那条路径应保持房间信息面板。
-    /// </summary>
+    /// <summary>退出房间后打开大厅「房间」标签下的房间列表。</summary>
     public void ReturnAfterLeavingRoom() {
-        string target = ResolveRoomReturnWindow();
-        roomReturnWindow = "menu";
         if (gameReturnWindow == "room") {
-            gameReturnWindow = target;
+            gameReturnWindow = "menu";
         }
-        if (currentWindow == "game" || currentWindow == "recordscene") {
-            ExitGameTo(target);
-            return;
-        }
-        if (currentWindow == target) {
-            return;
-        }
-        SwitchWindow(target);
+        lobbyNavigation.owner.Open("room");
     }
 
-    /// <summary>创建房表单关闭：顶栏房间页的空表单，回主菜单。</summary>
+    /// <summary>取消创建房间后返回大厅的房间列表。</summary>
     public void DismissCreateRoomPanel() {
-        roomReturnWindow = "menu";
-        if (currentWindow == "menu") {
-            return;
-        }
-        SwitchWindow("menu");
-    }
-
-    private static bool IsValidRoomReturn(string window) {
-        return !string.IsNullOrEmpty(window) && window != "room" && IsLobbyTab(window);
-    }
-
-    private string ResolveRoomReturnWindow() {
-        return IsValidRoomReturn(roomReturnWindow) ? roomReturnWindow : "menu";
+        lobbyNavigation.owner.Open("room");
     }
 
     /// <summary>

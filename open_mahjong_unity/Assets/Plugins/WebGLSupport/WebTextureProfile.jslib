@@ -1,5 +1,9 @@
 mergeInto(LibraryManager.library, {
   OmUseWebTextureASTC: function (linear) {
+    var supplied = Module['omWebContent'];
+    if (supplied != null) {
+      return supplied['profile'] === 'ASTC' ? 1 : supplied['profile'] === 'DXT' ? 0 : -1;
+    }
     var astc = GLctx.getExtension('WEBGL_compressed_texture_astc');
     var dxt = GLctx.getExtension('WEBGL_compressed_texture_s3tc');
     var srgb = !linear || GLctx.getExtension('WEBGL_compressed_texture_s3tc_srgb');
@@ -13,6 +17,14 @@ mergeInto(LibraryManager.library, {
     var path = UTF8ToString(pathPtr);
     Module['omWebBundleProgress'] = 0;
     (async function () {
+      var supplied = Module['omWebContent'];
+      if (supplied != null) {
+        var staged = supplied['take'](url);
+        if (!(staged instanceof Uint8Array) || staged.byteLength !== size) {
+          throw new Error('Missing or incomplete preloaded bundle');
+        }
+        return staged;
+      }
       var response = await fetch(url);
       if (!response.ok) throw new Error('HTTP ' + response.status);
       var bytes;
@@ -35,10 +47,12 @@ mergeInto(LibraryManager.library, {
         bytes = new Uint8Array(await response.arrayBuffer());
         if (bytes.length !== size) throw new Error('Unexpected bundle length');
       }
+      return bytes;
+    })().then(function (bytes) {
       // Unity's own loader mounts its data with canOwn=true for the same reason.
       Module['FS_createDataFile'](path, null, bytes, true, false, true);
       Module['omWebBundleProgress'] = 1;
-    })().catch(function (error) {
+    }).catch(function (error) {
       console.error('[WebTexture] ' + url, error);
       Module['omWebBundleProgress'] = -1;
     });
@@ -46,5 +60,12 @@ mergeInto(LibraryManager.library, {
 
   OmWebBundleProgress: function () {
     return Module['omWebBundleProgress'];
+  },
+
+  OmNotifyWebTextureProgress: function (completed, total, progress, phase) {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent('unity-web-texture-progress', {
+      detail: { completed: completed, total: total, progress: progress, phase: phase }
+    }));
   }
 });

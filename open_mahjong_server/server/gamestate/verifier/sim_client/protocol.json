@@ -1,11 +1,12 @@
 {
-  "sim_client_version": 6,
+  "sim_client_version": 7,
   "replay_hand_state": {
     "ron_tile": "hasRonWinningTile records whether the replay state has appended the winning tile; never infer this from hand length or tile identity",
     "changsha_multiple_ron": "replace the previously appended winning tile when the same player wins on another kong replacement tile",
     "guobiao_opening_reset": "reset preserves draw source only for the first acting player; all visual draw slots merge into the hand",
     "shanghai_ordinary_draw": "After a discard, d belongs to the next seat after that discarder. An intervening bh or bd retains its explicit seat.",
-    "hongque_added_kong": "jg carries the first added tile, T/F draw flag, zero-based meld index and optional full list of added tiles. A missing index requires migration."
+    "hongque_added_kong": "jg carries the first added tile, T/F draw flag, zero-based meld index and optional full list of added tiles. A missing index requires migration.",
+    "guangdong_doubles_blood_win": "Keep the winning tile separate from the retired hand. Record multi-ron and the source seat (explicit, then added-kong owner, then last discarder); self draws have no source. After each win the next active seat follows that winner."
   },
   "sichuan_duplicate_claim_clock": {
     "sub_rules": ["sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"],
@@ -22,7 +23,13 @@
     "resume_cursor": ["stream_epoch", "applied_seq"],
     "wall_origin": ["board_instance_id", "zone", "source_original_seat", "offset"],
     "phases": ["before_draw", "after_draw"],
-    "ready_wait": "duplicate_match.waiting_for=comparison uses comparison_remaining_ms and disables readiness until both tables finish the board comparison."
+    "ready_wait": "duplicate_match.waiting_for=comparison uses comparison_remaining_ms and disables readiness until both tables finish the board comparison.",
+    "single_table_storage": "Before opening a single-table V2 archive, om.single_round_meta.v1 restores omitted per-action defaults and identity legacy_node_map. Explicit round metadata is retained. Paired V2 archives keep their explicit table metadata."
+  },
+  "sichuan_exchange_snapshot": {
+    "sub_rules": ["sichuan/xuezhan_exchange", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"],
+    "receipt": "The viewed seat can receive three sbr_received_tiles with sbr_exchange_direction and a positive exchange_receipt_seconds (default 0.75). Completed exchange snapshots close opening asks through their action_tick.",
+    "team_phase": "xueliu_exchange carries outgoing_tiles, dice and cards_face_down for the corresponding stage. Animating or committed selections do not expose a new choice; a delayed copy of the original ask must not reopen it."
   },
   "local_hint_transport": {
     "calculation": "client",
@@ -365,6 +372,7 @@
     "rule identifies the interactive lab session default; component and record regressions cover the listed additional profiles.",
     "Dedicated opening selectors do not extend the common hand-action or other-action button allowlists.",
     "Settlement label formatting is verified in Unity using the active replay rule context; component-state simulations do not render these labels.",
+    "Archive frame scheduling, paired table projection, optional record ranks and scores, the spectator list and regional settlement tile rows are covered by their storage, transport and Unity tests. The component simulator observes logical seat state and replay ticks.",
     "Hashes detect source drift; passing the lock is not a claim that every field or visual behavior has been tested."
   ],
   "meld_display_signs": {

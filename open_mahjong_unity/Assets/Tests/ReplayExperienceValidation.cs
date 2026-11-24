@@ -99,7 +99,9 @@ public static class ReplayExperienceValidation {
         manager.JumpToSharePosition(2, 0);
         var scorePanel = GameCanvas.Instance.GetComponentsInChildren<SichuanRoundScorePanel>(true).Single();
         var state = (SichuanRoundScoreState)typeof(SichuanRoundScorePanel).GetField("state", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(scorePanel);
-        Check(state.Unit == "IMP" && state.Blue == 0 && state.Red == 3, "HUD at board two contains board one IMP only");
+        var firstBoard = detail.record["settlements"].Single(board => (int)board["number"] == 1)["imp_scores"];
+        Check(state.Unit == "IMP" && state.Blue == (long)firstBoard[0] && state.Red == (long)firstBoard[1],
+            "HUD at board two contains board one IMP only");
         void CheckReadability(SichuanRoundScorePanel panel, string blue, string red) {
             void TextSize(string path, string expected, float minimum) {
                 var label = panel.transform.Find(path).GetComponent<TMP_Text>();
@@ -114,7 +116,7 @@ public static class ReplayExperienceValidation {
             Check(panel.GetComponentsInChildren<TMP_Text>(false).All(t => t.name == "TeamName" || t.name == "Score" || t.name == "Unit"),
                 "team scores have no supplementary caption");
         }
-        CheckReadability(scorePanel, "0", "3");
+        CheckReadability(scorePanel, firstBoard[0].ToString(), firstBoard[1].ToString());
         var live = UnityEngine.Object.Instantiate(scorePanel, scorePanel.transform.parent);
         try {
             live.Initialize(new GameInfo { duplicate_match = new DuplicateMatchInfo { id = "font-check", sync_mode = true } }, "sichuan/doubles_duplicate");

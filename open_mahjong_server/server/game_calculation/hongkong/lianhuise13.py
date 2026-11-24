@@ -1,6 +1,6 @@
 """恋绘色 thirteen-tile rules, transcribed from 香港新章规则书.docx.
 
-The source document lives in other/rule/hongkong/lianhuise-new13.docx.
+The source document lives in open_mahjong_web/client/public/rulebooks/香港新章规则书.docx.
 Limit hands replace all other fans; ordinary hands cap at the table's 13 fans.
 """
 

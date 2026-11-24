@@ -46,11 +46,12 @@ def ensure_inventory_tables(cursor):
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     for iid, code, name, description, key, default, config in SEEDS:
         asset = ASSETS[key]
+        enabled = key not in ('avatar.reimu', 'avatar.cirno')
         cursor.execute('''INSERT INTO item_definitions
-            (item_id,code,name,description,category,asset_key,slot,max_quantity,is_default,config)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (item_id) DO NOTHING''',
+            (item_id,code,name,description,category,asset_key,slot,max_quantity,is_default,config,use_enabled,grant_enabled)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (item_id) DO NOTHING''',
             (iid, code, name, description, asset['category'], key, asset['slot'],
-             1000000 if asset['category'] == 'item' else 1, default, Json(config)))
+             1000000 if asset['category'] == 'item' else 1, default, Json(config), enabled, enabled))
         if key in LEGACY_FRAME_DESCRIPTIONS:
             # Refresh only our previous built-in copy, preserving administrator edits.
             cursor.execute('''UPDATE item_definitions SET description=%s
@@ -64,8 +65,6 @@ def ensure_inventory_tables(cursor):
                 WHERE item_id=%s AND code=%s AND asset_key=%s AND description=%s''',
                 (description, iid, code, key, '使用后增加 1 次账号改名机会，可在网页账号中心改名。'))
 
-
-    cursor.execute(Path(__file__).with_name('suspend_touhou_avatars.sql').read_text(encoding='utf-8'))
     from .commerce import ensure_commerce_tables
     ensure_commerce_tables(cursor)
 

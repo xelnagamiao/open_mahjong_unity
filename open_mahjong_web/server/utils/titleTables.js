@@ -24,7 +24,9 @@ WHERE title_id = 2 AND name = '初段'
 INSERT INTO titles (name, description)
 SELECT seed.name, seed.description FROM (VALUES
     ('冠绝一世', '该头衔授予在国标麻将匹配中，第一个达成七段的玩家'),
-    ('千恋万花', '该头衔授予在国标麻将匹配中，在和牌时拥有八张花牌的玩家')
+    ('千恋万花', '该头衔授予在国标麻将匹配中，在和牌时拥有八张花牌的玩家'),
+    ('鲨国左护法', '赞助金额达到 100 元且低于 500 元的玩家'),
+    ('鲨国右护法', '赞助金额达到 500 元的玩家')
 ) AS seed(name, description)
 WHERE NOT EXISTS (SELECT 1 FROM titles WHERE name = seed.name)
 ON CONFLICT (name) DO NOTHING;
@@ -47,4 +49,28 @@ async function ensureTitleTables(db = require('../config/database')) {
   } finally { client.release(); }
 }
 
-module.exports = { TITLE_SCHEMA_SQL, ensureTitleTables };
+async function grantSponsorTitles(client, adminUserId, userId, amount, reason) {
+  const result = await client.query(`
+    INSERT INTO user_titles (user_id, title_id, granted_by, grant_reason)
+    SELECT $1, t.title_id, $2, $3
+    FROM titles t
+    WHERE (t.name = '鲨国左护法' AND $4::numeric >= 100 AND $4::numeric < 500)
+       OR (t.name = '鲨国右护法' AND $4::numeric >= 500)
+    ON CONFLICT (user_id, title_id) DO NOTHING
+    RETURNING *
+  `, [userId, adminUserId, reason, amount]);
+  return result.rows;
+}
+
+async function grantSponsorTitlesForAllUsers(db = require('../config/database')) {
+  await db.query(`
+    INSERT INTO user_titles (user_id, title_id, grant_reason)
+    SELECT u.user_id, t.title_id, '根据历史赞助金额自动授予头衔'
+    FROM users u
+    JOIN titles t ON (t.name = '鲨国左护法' AND u.sponsor_amount >= 100 AND u.sponsor_amount < 500)
+                 OR (t.name = '鲨国右护法' AND u.sponsor_amount >= 500)
+    ON CONFLICT (user_id, title_id) DO NOTHING
+  `);
+}
+
+module.exports = { TITLE_SCHEMA_SQL, ensureTitleTables, grantSponsorTitles, grantSponsorTitlesForAllUsers };

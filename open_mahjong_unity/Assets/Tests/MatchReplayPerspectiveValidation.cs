@@ -76,10 +76,11 @@ public static class MatchReplayPerspectiveValidation {
             var after = MatchReplayProjection.ScoreAt(replay, round, summary + 1);
             Check(after.Blue == blue && after.Red == red && after.SettledBoards == round, "cumulative archived IMP at summary " + round);
         }
-        Check(blue == 15 && red == 11, "real match final team IMP 15 to 11");
+        var finalImp = real["result"]["imp_scores"];
+        Check(blue == (long)finalImp["0"] && red == (long)finalImp["1"], "cumulative board IMP matches the recorded final team result");
         Check(MatchReplayProjection.ScoreAt(replay, 1, 0).Blue == 0, "seeking backward recomputes totals");
         replay.Manifest["rule_profile"]["scoring"] = "raw_difference";
-        Check(MatchReplayProjection.ScoreAt(replay, round, 9999).Blue == 15, "raw-difference official rule still displays replay IMP");
+        Check(MatchReplayProjection.ScoreAt(replay, round, 9999).Blue == (long)finalImp["0"], "raw-difference official rule still displays replay IMP");
         replay.Manifest["settlements"][0]["imp_scores"] = null;
         Check(!MatchReplayProjection.ScoreAt(replay, 2, 0).Available, "missing IMP never becomes zero or raw points");
         var unknown = MatchRecordSession.FromRecord(fixture);

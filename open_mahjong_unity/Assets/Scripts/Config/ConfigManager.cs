@@ -49,10 +49,10 @@ public partial class ConfigManager : MonoBehaviour {
         if (Array.IndexOf(Environment.GetCommandLineArgs(), "--local-services") >= 0) Debug = true;
 #endif
         SetLocalServices(Debug);
-        releaseVersion = 37; // 发行版号(验证客户端-服务器版本是否一致)
+        releaseVersion = 38; // 发行版号(验证客户端-服务器版本是否一致)
         base_version = 2; // 安卓框架基准版本(决定是否需要安装新 APK)
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.5.91.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.5.92.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
 #if UNITY_IOS && !UNITY_EDITOR
         mobileDownloadUrl = iosDownloadUrl;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 using OmUpdate;
 using UnityEditor;
 using UnityEditor.Build;
@@ -149,7 +150,20 @@ public static class WebTextureProfileBuild {
             InstallFile(source, target);
         }
         // The entry point becomes visible only after every file it can request.
-        InstallFile(Path.Combine(staging, "index.html"), Path.Combine(output, "index.html"));
+        string entry = Path.Combine(staging, "index.html");
+        string html = File.ReadAllText(entry);
+        if (!html.Contains("</head>")) throw new BuildFailedException("Missing HTML head in WebGL entry.");
+        var manifest = JsonConvert.SerializeObject(new {
+            version = 1,
+            linear = PlayerSettings.colorSpace == ColorSpace.Linear,
+            shellBytes = Directory.GetFiles(Path.Combine(staging, "Build"))
+                .ToDictionary(path => Path.GetFileName(path), path => new FileInfo(path).Length),
+            dxt = content.dxt.Select(b => new { b.name, b.file, b.bytes }),
+            astc = content.astc.Select(b => new { b.name, b.file, b.bytes })
+        }, new JsonSerializerSettings { StringEscapeHandling = StringEscapeHandling.EscapeHtml });
+        File.WriteAllText(entry, html.Replace("</head>", "<meta name=\"om-web-texture-progress\" content=\"1\">\n"
+            + "  <script type=\"application/json\" id=\"om-web-content\">" + manifest + "</script>\n  </head>"));
+        InstallFile(entry, Path.Combine(output, "index.html"));
         void RemoveOldFiles(string directory, string pattern) {
             if (!Directory.Exists(directory)) return;
             foreach (string path in Directory.GetFiles(directory))

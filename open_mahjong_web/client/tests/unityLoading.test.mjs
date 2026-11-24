@@ -1,69 +1,43 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { unityLoadingProgress, unityLoadingText, createUnityDownloadMeter, formatLoadingBytes, formatLoadingTime } from '../src/utils/unityLoading.js'
+import { unityEnginePercent, unityLoadingText, formatLoadingBytes, unityBundleProgress } from '../src/utils/unityLoading.js'
 
-test('Unity download and startup are separate and never claim ready before its promise', () => {
-  assert.deepEqual(unityLoadingProgress(0, 0.45), { progress: 0.45, percent: 40, phase: 'downloading' })
-  assert.equal(unityLoadingProgress(0.89, 0.9).phase, 'initializing')
-  assert.deepEqual(unityLoadingProgress(0.9, 1), { progress: 1, percent: 95, phase: 'initializing' })
-  assert.deepEqual(unityLoadingProgress(0.9, 0.9, false), { progress: 0.9, percent: 79, phase: 'downloading' })
-  assert.deepEqual(unityLoadingProgress(0.9, 0.9, true), { progress: 0.9, percent: 80, phase: 'initializing' })
-})
-
-test('regressive, invalid and out-of-range callbacks cannot reset or overflow the bar', () => {
-  for (const value of [0, -1, NaN, undefined, Infinity]) {
-    assert.deepEqual(unityLoadingProgress(0.6, value), { progress: 0.6, percent: 53, phase: 'downloading' })
+test('engine progress stays within the dedicated startup range until readiness is confirmed', () => {
+  for (const [split, start, mid, end] of [[true, 40, 60, 81], [false, 0, 49, 98]]) {
+    assert.equal(unityEnginePercent(0, 0, split), start)
+    assert.equal(unityEnginePercent(start, 0.5, split), mid)
+    for (const value of [0, -1, NaN, null, undefined, Infinity]) {
+      assert.equal(unityEnginePercent(mid, value, split), mid)
+    }
+    for (const value of [1, 4]) assert.equal(unityEnginePercent(mid, value, split), end)
   }
-  assert.equal(unityLoadingProgress(0, 4).percent, 95)
 })
 
-test('package sizes use server bytes and remain unknown until all headers are available', () => {
-  const meter = createUnityDownloadMeter()
-  meter.setSize('dataUrl', 74e6)
-  meter.setSize('codeUrl', 19e6)
-  assert.equal(formatLoadingBytes(meter.snapshot(0.4)), '')
-  meter.setSize('frameworkUrl', 0.2e6)
-  meter.complete('frameworkUrl')
-  const partial = meter.snapshot(0.45)
-  assert.equal(partial.total, 93.2e6)
-  assert.equal(formatLoadingBytes(partial), '37.2 / 93.2 MB')
-  assert.equal(meter.snapshot(0.2).loaded, partial.loaded)
+test('the same bar continues through mounting without counting completed bundles twice', () => {
+  assert.equal(unityBundleProgress({ completed: 0, total: 5, progress: 0 }), 82)
+  assert.equal(unityBundleProgress({ completed: 2, total: 5, progress: 1 }), 86)
+  assert.equal(unityBundleProgress({ completed: 2, total: 5, progress: 0.5 }), 88)
+  assert.equal(unityBundleProgress({ completed: 5, total: 5, progress: 1 }), 94)
 })
 
-test('estimated download never claims complete until every actual response finishes', () => {
-  const meter = createUnityDownloadMeter()
-  meter.setSize('dataUrl', 74e6)
-  meter.complete('codeUrl', 19e6)
-  meter.complete('frameworkUrl', 0.2e6)
-  assert.equal(meter.snapshot(1).complete, false)
-  assert.ok(meter.snapshot(1).loaded < meter.snapshot(1).total)
-  meter.complete('dataUrl', 74e6)
-  assert.deepEqual(meter.snapshot(1), { loaded: 93.2e6, total: 93.2e6, complete: true })
-  assert.equal(formatLoadingBytes(meter.snapshot(1)), '93.2 / 93.2 MB')
+test('download copy uses received bytes and the actual download total', () => {
+  const text = unityLoadingText('zh-CN')
+  assert.equal(text.artDownload + ' ' + formatLoadingBytes({ loaded: 17.6e6, total: 41.8e6 }), '正在下载牌桌资源 17.6 / 41.8 MB')
+  assert.equal(formatLoadingBytes({ loaded: 50e6, total: 41.8e6 }), '41.8 / 41.8 MB')
+  assert.equal(formatLoadingBytes({ loaded: 0, total: 0 }), '')
 })
 
-test('resource timing can fill missing headers; missing sizes never prevent completion', () => {
-  const meter = createUnityDownloadMeter()
-  meter.setSize('dataUrl', NaN)
-  meter.setSize('frameworkUrl', -1)
-  for (const key of ['dataUrl', 'codeUrl', 'frameworkUrl']) meter.complete(key)
-  assert.equal(meter.snapshot().complete, true)
-  assert.equal(formatLoadingBytes(meter.snapshot()), '')
-  meter.complete('dataUrl', 3e6)
-  meter.complete('codeUrl', 2e6)
-  meter.complete('frameworkUrl', 1e6)
-  assert.equal(formatLoadingBytes(meter.snapshot()), '6.0 / 6.0 MB')
+test('checking, cache hit, startup and ready states do not claim to be downloads', () => {
+  const text = unityLoadingText('zh-CN')
+  assert.equal(text.checking, '正在准备牌桌资源…')
+  assert.equal(text.artReady, '牌桌资源已就绪，正在启动游戏。')
+  assert.equal(text.starting, '正在启动游戏。')
+  assert.equal(text.ready, '准备完成，即将进入游戏。')
 })
 
-test('elapsed time remains real and formats minute rollover', () => {
-  assert.equal(formatLoadingTime(0), '0:00')
-  assert.equal(formatLoadingTime(-5), '0:00')
-  assert.equal(formatLoadingTime(65432), '1:05')
-})
-
-test('loading text uses the existing website locale without changing saved game language', () => {
-  assert.equal(unityLoadingText('zh-CN').downloading, '正在下载游戏资源…')
+test('all supported locales cover every loading phase, accessibility and retry action', () => {
+  const keys = Object.keys(unityLoadingText('zh-CN')).sort()
+  for (const locale of ['zh-TW', 'en']) assert.deepEqual(Object.keys(unityLoadingText(locale)).sort(), keys)
   assert.equal(unityLoadingText('zh-HK'), unityLoadingText('zh-TW'))
-  assert.equal(unityLoadingText('en').retry, 'Reload')
   assert.equal(unityLoadingText('ja'), unityLoadingText('en'))
 })

@@ -213,7 +213,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
   if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
   if (form.sub_rule === 'new_chinese/sanhua') return `散花天才麻将 · ${form.game_round}副 · 4番起和`
-  if (form.room_rule === 'new_chinese') return `${eventRoomSubRuleLabel(form)} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'} · ${newChineseWinLimit(form)}番起和`
+  if (form.room_rule === 'new_chinese') return `${eventRoomSubRuleLabel(form)} · ${form.game_round}圈 · ${form.exchange_three ? '换三张' : '不换牌'}${form.showdown ? ' · 摊牌' : ''} · ${newChineseWinLimit(form)}番起和`
   if (form.room_rule === 'beijing') return `${rule} · ${form.game_round}圈 · ${BEIJING_HUN_MODES[form.beijing_hun_mode]} · 庄和连庄`
   if (form.room_rule === 'duocai') return `${rule} · ${duocaiProfile(form.sub_rule)?.label || form.sub_rule} · ${duocaiProfile(form.sub_rule)?.roundLabel || ''} · 起始40000点`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
@@ -389,7 +389,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     if (round) { round.label = '副数'; round.value = `${form.game_round}副` }
     rows.push({ label: '起和番', value: '4番' })
   }
-  else if (form.room_rule === 'new_chinese') rows.push({ label: '换三张', value: enabled(form.exchange_three) }, { label: '起和番', value: `${newChineseWinLimit(form)}番` })
+  else if (form.room_rule === 'new_chinese') rows.push({ label: '换三张', value: enabled(form.exchange_three) }, { label: '摊牌', value: enabled(form.showdown) }, { label: '起和番', value: `${newChineseWinLimit(form)}番` })
   if (form.room_rule === 'beijing') {
     const timer = rows.find(row => row.label === '局时')
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }

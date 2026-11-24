@@ -19,6 +19,7 @@ Shader "Mahjong/Tile Contact Shadow"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma target 3.0
+            #pragma target 3.5 INSTANCING_ON
             #pragma multi_compile_instancing
             #pragma instancing_options forcemaxcount:128
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"

@@ -1,9 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile, access } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { hkProfiles } from '../src/utils/hongKongRoomConfig.js'
 import { hongKongRulebooks, hongKongRulebook } from '../src/constants/hongKongRulebooks.js'
 import { getLibraryRule } from '../src/constants/libraryRules.js'
+
+// Checksums of the author's originals before the published files were renamed.
+const originalHashes = {
+  'hongkong/new13_lianhuise': '79c5bfa3a3eacb693b9bcaf88f3bec768a52fb13e588bfee197dffc9cad30af9',
+  'hongkong/qingzhang_lianhuise': 'a3177ed0cdf377916a43373cd3470fb7f5901d4039b3a725bb26ae7260708126',
+}
 
 test('each playable Hong Kong profile has a unique reading source, also used by the library', async () => {
   assert.deepEqual(hongKongRulebooks.map(book => book.subRule), hkProfiles.map(profile => profile.value))
@@ -19,8 +26,7 @@ test('each playable Hong Kong profile has a unique reading source, also used by 
     assert.ok(book.filename.endsWith('.docx'))
     const original = await readFile(new URL(`../public${book.url}`, import.meta.url))
     assert.equal(original.subarray(0, 4).toString('hex'), '504b0304')
-    const archived = await readFile(new URL(`../../../other/rule/hongkong/${book.url.split('/').at(-1)}`, import.meta.url))
-    assert.deepEqual(original, archived)
+    assert.equal(createHash('sha256').update(original).digest('hex'), originalHashes[profile.value])
   }
 })
 

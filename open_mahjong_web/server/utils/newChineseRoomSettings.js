@@ -34,10 +34,10 @@ function normalizeNewChineseRoomConfig(raw, SettingsError) {
         (detail.rule_version !== undefined && detail.rule_version !== 'sanhua-2026-11')) invalid('无效的散花天才麻将配置');
     return { ...config, hepai_limit: 4, detailed_config: { rule_version: 'sanhua-2026-11' } };
   }
-  const detail = { rule_version: 'new-chinese-2026-11', exchange_three: false };
+  const detail = { rule_version: 'new-chinese-2026-11', exchange_three: false, showdown: false };
   if (!object(config.detailed_config) || Object.keys(config.detailed_config).some(key => !Object.hasOwn(detail, key))) invalid('不支持的新中式麻将选项');
   Object.assign(detail, config.detailed_config);
-  if (detail.rule_version !== 'new-chinese-2026-11' || typeof detail.exchange_three !== 'boolean') invalid('换三张设置或规则版本无效');
+  if (detail.rule_version !== 'new-chinese-2026-11' || typeof detail.exchange_three !== 'boolean' || typeof detail.showdown !== 'boolean') invalid('换三张、摊牌设置或规则版本无效');
   if (detail.exchange_three) config.hepai_limit = 15;
   config.detailed_config = detail;
   return config;

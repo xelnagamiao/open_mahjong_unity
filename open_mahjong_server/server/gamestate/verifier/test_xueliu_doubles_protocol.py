@@ -3,6 +3,58 @@ from .record_sim.flags import resolve_record_flags
 from .unity_sim import client
 
 
+def test_reconnect_receipt_belongs_to_the_viewed_seat_and_closes_old_exchange():
+    sim = sim_table()
+    start = table("sichuan/xuezhan_exchange")
+    start["type"] = "gamestate/sichuan/reconnect"
+    info = start["game_info"]
+    info.update(sbr_exchange_direction=2, exchange_receipt_seconds=.4)
+    info["players_info"][0]["sbr_received_tiles"] = [25, 26, 27]
+    info["players_info"][1]["sbr_received_tiles"] = [11, 12, 13]
+    sim.apply(start)
+    assert sim.opening["receipt"] == {"tiles": [25, 26, 27], "direction": 2, "seconds": .4}
+    ask = {"type": "gamestate/sichuan/broadcast_hand_action", "ask_hand_action_info": {
+        "action_list": ["xueliu_exchange_three"], "player_index": 0, "action_tick": 10,
+        "xueliu_exchange": {"selection_done": False},
+    }}
+    sim.apply(ask)
+    assert not sim.opening["three_tiles"] and not sim.gsm["IsSelfActionRequired"]
+    info["exchange_receipt_seconds"] = 0
+    sim.apply(start)
+    assert "receipt" not in sim.opening
+
+
+def test_repeated_exchange_ask_cannot_reopen_a_submitted_selection():
+    sim = sim_table("sichuan/xueliu_doubles")
+    request = {"type": "gamestate/sichuan/broadcast_hand_action", "ask_hand_action_info": {
+        "action_list": ["xueliu_exchange_three"], "player_index": 0, "action_tick": 12,
+        "xueliu_exchange": {"selection_done": True, "outgoing_tiles": [11, 12, 13]},
+    }}
+    sim.apply(request)
+    assert not sim.gsm["IsSelfActionRequired"]
+    request["ask_hand_action_info"]["xueliu_exchange"] = {"selection_done": False}
+    sim.apply(request)
+    assert sim.opening["team_exchange"]["outgoing_tiles"] == [11, 12, 13]
+    request["ask_hand_action_info"]["action_tick"] = 13
+    sim.apply(request)
+    assert sim.gsm["IsSelfActionRequired"]
+
+
+def test_doubles_snapshot_restores_team_assignments_and_blood_win_markers():
+    sim = sim_table()
+    start = table("guangdong/mil2023-doubles")
+    start["game_info"]["players_info"][0].update(team_id=1, is_hu=True, blood_hu_tile=23)
+    start["game_info"]["players_info"][2]["team_id"] = 0
+    sim.apply(start)
+    assert sim.canvas["team_ids"] == [1, -1, 0, -1]
+    assert sim.game3d["self"]["win_marker"] == 23
+    start = table("sichuan/doubles_duplicate")
+    start["game_info"]["players_info"][1].update(is_hu=True, blood_hu_tile=26)
+    sim.apply(start)
+    assert "team_ids" not in sim.canvas
+    assert sim.game3d["right"]["win_marker"] == 26
+
+
 def test_retained_duplicate_claim_survives_soft_expiry_until_the_next_action(monkeypatch):
     now = 100.0
     monkeypatch.setattr(client, "monotonic", lambda: now)

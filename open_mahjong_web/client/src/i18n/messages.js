@@ -7,6 +7,7 @@ import { statisticsMessages } from './statistics-messages.js'
 import { guobiaoRulesMessages } from './guobiao-rules-messages.js'
 import { calculatorMessages, calculatorTextPatterns } from './calculator-messages.js'
 import { renameCardMessages, renameCardTextPatterns } from './rename-card-messages.js'
+import { menchinEnglish, menchinEnglishPatterns } from './menchin-messages.js'
 
 const en = {
   '用户名 / 邮箱': 'Username / email',
@@ -1811,6 +1812,9 @@ for (const [language, target] of Object.entries({ en, fr, ja })) {
   }
 }
 Object.assign(en, auditEnglish, auditShared.en)
+for (const [source, translation] of Object.entries(menchinEnglish)) {
+  if (en[source] == null) en[source] = translation
+}
 Object.assign(fr, auditShared.fr)
 Object.assign(ja, auditShared.ja)
 for (const [language, target] of Object.entries({ en, fr, ja })) {
@@ -1828,6 +1832,7 @@ export const textPatterns = {
   es: extendedPatterns.es,
   fr: [...extendedPatterns.fr, ...renameCardTextPatterns('fr'), ...frTextPatterns, ...game2dTextPatterns('fr'), ...calculatorTextPatterns('fr', fr)],
   en: [
+    ...menchinEnglishPatterns,
     ...renameCardTextPatterns('en'),
     ...calculatorTextPatterns('en', en),
     ...game2dTextPatterns('en'),

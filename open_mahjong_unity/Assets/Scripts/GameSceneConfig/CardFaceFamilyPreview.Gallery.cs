@@ -8,6 +8,11 @@ public sealed partial class CardFaceFamilyPreview
 
     void OnPreviewScrolled(Vector2 _) => UpdateVisibleTiles(false);
 
+    public void TrimPreviewPools()
+    {
+        foreach (var gallery in galleries) gallery?.Trim();
+    }
+
     void UpdateVisibleTiles(bool force)
     {
         if (family == 0 || !hongqueHandTemplate || !isActiveAndEnabled) return;
@@ -78,6 +83,16 @@ public sealed partial class CardFaceFamilyPreview
         {
             foreach (var slot in visible.Values) Recycle(slot);
             visible.Clear();
+        }
+
+        public void Trim()
+        {
+            Clear();
+            while (unused.Count > 2)
+            {
+                var slot = unused.Pop();
+                if (slot) Object.Destroy(slot.gameObject);
+            }
         }
 
         void Recycle(CardFacePreviewSlot slot)

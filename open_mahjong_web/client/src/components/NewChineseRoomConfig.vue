@@ -5,6 +5,7 @@
     <div class="settings">
       <el-form-item :label="form.sub_rule === 'new_chinese/sanhua' ? '副数' : '圈数'"><el-select v-model="form.game_round" aria-label="新中式麻将圈数"><el-option v-for="n in [4,8,12,16]" :key="n" :value="n" :label="`${n}${form.sub_rule === 'new_chinese/sanhua' ? '副' : '圈'}`" /></el-select></el-form-item>
       <el-form-item v-if="form.sub_rule !== 'new_chinese/sanhua'" label="换三张"><el-switch v-model="form.exchange_three" aria-label="换三张" /></el-form-item>
+      <el-form-item v-if="form.sub_rule !== 'new_chinese/sanhua'" label="摊牌"><el-switch v-model="form.showdown" aria-label="摊牌" /></el-form-item>
       <el-form-item v-if="form.sub_rule !== 'new_chinese/sanhua'" label="起和番">
         <el-input-number :model-value="newChineseWinLimit(form)" :disabled="form.exchange_three" :min="0" :max="MAX_NEW_CHINESE_FAN"
           :precision="0" aria-label="起和番" @update:model-value="form.hepai_limit = $event" />

@@ -8,6 +8,7 @@ export function loadNewChineseForm(form, config = {}) {
   form.starting_score = 0
   const detail = config.detailed_config ?? {}
   form.exchange_three = detail.exchange_three ?? false
+  form.showdown = detail.showdown ?? false
   return form
 }
 
@@ -27,7 +28,7 @@ export function buildNewChineseRoomPayload(form) {
   if (![4, 8, 12, 16].includes(form.game_round)) throw new Error('圈数须为4、8、12或16')
   if (typeof (form.room_name ?? '') !== 'string' || (form.room_name ?? '').trim().length > 128) throw new Error('房间名必须是最多128字的文本')
   const roomName = (form.room_name ?? '').trim()
-  const detail = sanhua ? { rule_version: 'sanhua-2026-11' } : { rule_version: 'new-chinese-2026-11', exchange_three: boolean('exchange_three') }
+  const detail = sanhua ? { rule_version: 'sanhua-2026-11' } : { rule_version: 'new-chinese-2026-11', exchange_three: boolean('exchange_three'), showdown: boolean('showdown') }
   return {
     room_rule: 'new_chinese', password: String(form.password || '').trim(),
     room_config: {

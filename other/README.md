@@ -7,10 +7,10 @@
 | 牌面原画、可用牌包、布局参数与来源许可 | `tiles/` |
 | 麻将牌模型源文件与规范导出 | `3Dcard/` |
 | 桌布、桌框、缝线及可编辑源文件 | `Tablecloth/` |
-| 11 位角色的透明头像裁图、裁切清单及独立许可 | [AvatarPortraits/Taisei](AvatarPortraits/Taisei/README.txt) |
+| 游戏内 Taisei 头像的来源与许可 | [Unity 头像来源说明](../open_mahjong_unity/Assets/Resources/image/Profiles/AvatarSources.txt) |
 | 段位配表、PSD、商店展示素材 | 本目录配表、PSD 与 `steamstorepage/` |
 | 麻将规则支持、匹配与统计能力配表 | [麻将规则支持表.xlsx](麻将规则支持表.xlsx) |
-| 麻将规则与可追溯的参考资料 | `rule/` |
+| 麻将规则与可追溯的参考资料 | [在线规则书](https://salasasa.cn/rulebook) · [规则书文件](../open_mahjong_web/client/public/rulebooks/) · [研究资料](rule/) |
 | Unity Android / WebGL / Windows 三端构建工具 | [UnityBatchBuild](UnityBatchBuild/README.md) |
 
 保留真实源文件、必要的规格说明、来源和许可证。`UnityBatchBuild/` 是明确交付的共享构建工具，脚本、配置、说明与配套快捷方式可提交 Git；换电脑使用前按其说明调整输出路径。

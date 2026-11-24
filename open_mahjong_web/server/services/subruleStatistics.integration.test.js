@@ -8,7 +8,8 @@ const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 
 test('all supported fan profiles have a complete independent display catalog', () => {
   const enabled = STATISTICS_RULES.filter(rule => rule.fan_stats);
-  assert.equal(enabled.length, 30);
+  assert.equal(enabled.length, 31);
+  assert.equal(INFO_FAN_DICT['new_chinese/sanhua']['开口番'], '开口番');
   assert.equal(INFO_FAN_DICT['guangdong/mil2023-doubles']['鸡和'], '鸡和');
   assert(!INFO_FAN_DICT['guangdong/mil2023']?.['鸡和']);
   for (const rule of enabled) assert(Object.keys(INFO_FAN_DICT[rule.sub_rule]).length > 0, rule.sub_rule);

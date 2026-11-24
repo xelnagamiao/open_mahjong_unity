@@ -82,7 +82,7 @@
     },
     {
       "id": "lib-riichi",
-      "url": "/rulebooks/riichi-rulebook.pdf",
+      "url": "/rulebooks/立直麻将规则书（中文版）.pdf",
       "title": "GGHK 立直麻雀规则（香港麻雀协会，2023-05-17）",
       "type": "rulebook",
       "lang": "zh",
@@ -93,13 +93,13 @@
       "rules": ["riichi"],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/riichi-rulebook.pdf",
+      "local_path": "rulebooks/立直麻将规则书（中文版）.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },
     {
       "id": "mil-rcr",
-      "url": "/rulebooks/mil/立直麻将竞赛规则riichirules2016.pdf",
+      "url": "/rulebooks/mil/立直麻将竞赛规则（2016版）.pdf",
       "title": "EMA Rules for Japanese Mahjong（RCR 2016）",
       "type": "rulebook",
       "lang": "en",
@@ -110,7 +110,7 @@
       "rules": ["mil-riichi", "riichi"],
       "source_level": "primary",
       "reliability": "high",
-      "local_path": "rulebooks/mil/立直麻将竞赛规则riichirules2016.pdf",
+      "local_path": "rulebooks/mil/立直麻将竞赛规则（2016版）.pdf",
       "local_kind": "file",
       "local_status": "ok"
     },

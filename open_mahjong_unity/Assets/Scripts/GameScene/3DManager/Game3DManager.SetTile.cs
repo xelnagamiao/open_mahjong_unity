@@ -57,16 +57,15 @@ public partial class Game3DManager : MonoBehaviour {
     /// </summary>
     private float ComputeRowCenterOffset(
         Transform SetPosition,
-        int row,
+        int rowStartIndex,
         int col,
-        int cardsPerRow,
         bool selfHorizontal,
         bool useHandSpacing = false) {
         if (col == 0) return 0f;
         float cumOffset = 0f;
         float prevSlotWidth = -1f;
         for (int j = 0; j < col; j++) {
-            int childIndex = row * cardsPerRow + j;
+            int childIndex = rowStartIndex + j;
             if (childIndex >= SetPosition.childCount) break;
             Tile3D prevTile = SetPosition.GetChild(childIndex).GetComponent<Tile3D>();
             bool prevHorizontal = prevTile != null && prevTile.isRiichiHorizontal;
@@ -82,10 +81,23 @@ public partial class Game3DManager : MonoBehaviour {
     // 落牌和自由模式落点提示共用同一套槽位计算，包含换行和河牌横置占宽。
     private Vector3 TableTileSlotPosition(Transform target, Vector3 rowDirection, Vector3 nextRowDirection,
         int cardsPerRow, bool isDiscard, bool horizontal) {
-        int row = target.childCount / cardsPerRow;
-        int col = target.childCount % cardsPerRow;
+        int index = target.childCount;
+        int row = index / cardsPerRow;
+        int col = index % cardsPerRow;
+        if (isDiscard) {
+            GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
+            RuleManifest manifest = RuleRegistry.Resolve(roomRule, subRule) ?? RuleRegistry.Current;
+            string layoutSubRule = string.IsNullOrEmpty(subRule) ? roomRule ?? RuleRegistry.CurrentSubRule : subRule;
+            int firstTenTileRow = manifest?.FirstTenTileDiscardRow?.Invoke(layoutSubRule) ?? 0;
+            if (firstTenTileRow > 0 && row >= firstTenTileRow - 1) {
+                int firstRowIndex = firstTenTileRow - 1;
+                int offset = index - firstRowIndex * cardsPerRow;
+                row = firstRowIndex + offset / 10;
+                col = offset % 10;
+            }
+        }
         Vector3 origin = isDiscard ? DiscardRowOrigin(target, rowDirection) : target.position;
-        return origin + rowDirection.normalized * ComputeRowCenterOffset(target, row, col, cardsPerRow, horizontal)
+        return origin + rowDirection.normalized * ComputeRowCenterOffset(target, index - col, col, horizontal)
             + nextRowDirection.normalized * heightSpacing * row;
     }
 
@@ -261,7 +273,7 @@ public partial class Game3DManager : MonoBehaviour {
             int row = SetPosition.childCount / cardsPerRow;
             int col = SetPosition.childCount % cardsPerRow;
             currentPosition = HandRowOrigin(SetPosition, widthdirection)
-                + widthdirection.normalized * ComputeRowCenterOffset(SetPosition, row, col, cardsPerRow, useHorizontalLayout, true)
+                + widthdirection.normalized * ComputeRowCenterOffset(SetPosition, row * cardsPerRow, col, useHorizontalLayout, true)
                 + heightdirection.normalized * handRowStep * row;
         } else {
             currentPosition = TableTileSlotPosition(SetPosition, widthdirection, heightdirection,

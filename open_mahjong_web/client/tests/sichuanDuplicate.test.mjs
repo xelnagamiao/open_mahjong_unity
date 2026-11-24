@@ -6,7 +6,7 @@ import { isSichuanBloodFlow, sichuanDoublesSummary } from '../src/utils/sichuanR
 
 test('paired creation emits only event pair config and selected board count',()=>{
   for(const sub_rule of ['sichuan/doubles_duplicate','sichuan/xueliu_doubles_duplicate']) {
-    const form={...createEventRoomCreationForm(),room_rule:'sichuan',sub_rule,duplicate_round_count:8,room_count:3}
+    const form={...createEventRoomCreationForm({room_rule:'sichuan',room_config:{sub_rule,duplicate_round_count:8}}),room_count:3}
     const body=buildEventRoomCreation(form)
     assert.equal(body.room_config.sub_rule,sub_rule)
     assert.equal(body.room_config.duplicate_round_count,8)

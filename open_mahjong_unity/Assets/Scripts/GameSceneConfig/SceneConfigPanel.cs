@@ -32,6 +32,7 @@ public partial class SceneConfigPanel : MonoBehaviour
     private void OnDisable() {
         if (tableClothPanel != null) tableClothPanel.ReleaseGalleryPreviews();
         if (tableEdgePanel != null) tableEdgePanel.ReleaseGalleryPreviews();
+        cardDesignTabs?.TrimPreviewPools();
         // Leaving the whole appearance editor is the safe boundary for the
         // remaining shared Resources references. Individual selections use
         // targeted release and do not request this scan.

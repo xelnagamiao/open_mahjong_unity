@@ -62,7 +62,7 @@ public static class RecordRuleMetadataValidation {
             (AppLanguage.SimplifiedChinese, blood, doubles),
             (AppLanguage.TraditionalChinese, "血戰到底·換三張", "廣東麻將（推廣）2V2 雙打"),
             (AppLanguage.English, "Bloody Battle with Three-Tile Exchange", "Guangdong Mahjong · 2v2 Doubles"),
-            (AppLanguage.French, "Bataille avec échange de trois tuiles", "Mahjong du Guangdong · double 2 contre 2"),
+            (AppLanguage.French, "Bataille avec échange de trois tuiles", "Guangdong · double 2 contre 2"),
             (AppLanguage.German, "Blutiger Kampf mit Dreiertausch", "Guangdong-Mahjong · 2 gegen 2"),
             (AppLanguage.Russian, "Кровавая битва с обменом трёх", "Гуандунский маджонг · пары 2 на 2"),
             (AppLanguage.Japanese, "血戦到底・3枚交換", "広東麻雀・2対2ダブルス"),

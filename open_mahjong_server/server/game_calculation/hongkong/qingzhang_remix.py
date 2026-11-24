@@ -1,6 +1,6 @@
 """香港新派清章（恋绘色魔改版）: fan table plus additive points.
 
-Source document: other/rule/hongkong/lianhuise-qingzhang-remix.docx.
+Source document: open_mahjong_web/client/public/rulebooks/香港新派清章（恋绘色魔改版）.docx.
 Enumerate every decomposition, including duplicated pairs and knitted hands,
 then choose the highest legal basic score. Flower awards never qualify a win.
 """

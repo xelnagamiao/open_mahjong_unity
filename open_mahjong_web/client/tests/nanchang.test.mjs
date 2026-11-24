@@ -9,18 +9,20 @@ const {RecordReplay}=await import('data:text/javascript;base64,'+Buffer.from(com
 const localCompiled=await build({entryPoints:[fileURLToPath(new URL('../src/game2d/calc/nanchangLocal.ts',import.meta.url))],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'})
 const {NanchangLocal}=await import('data:text/javascript;base64,'+Buffer.from(localCompiled.outputFiles[0].text).toString('base64'))
 
-test('video third point original examples do not borrow another decomposition',()=>{
-  // BV1D6Wu6gEWZ at 26:37, transcribed from the slide.
-  for(const [before,melds,indicator,win] of [
-    [[29,29,29,21,21,14,17,41,42,43,45,46,47],[],29,11],
-    [[46,46,16,16,16,31,33],['k43','k24'],46,33],
+test('declared jingdiao quotes for the four video examples and the dealer screenshot',()=>{
+  for(const [before,melds,indicator,win,index,points] of [
+    [[39,39,39,31,31,14,17,41,42,43,45,47,46],[],39,11,1,31],
+    [[47,47,16,16,16,21,23],['k43','k34'],47,23,1,31],
+    [[47,47,16,16,16,21,23],['k43','k34'],47,22,1,62],
+    [[41,41,42,31,31,33,12,12,12,23,23,47,47],[],41,31,1,47],
+    [[34,34,11,12,13,18,18,24,25,26,45,47,46],[],33,18,0,78],
   ]){
-    const solver=new NanchangLocal(melds,{indicator,index:1,declared_jingdiao:true})
-    assert.equal(solver.describe([...before,win],win).self_draw_points,31)
+    const solver=new NanchangLocal(melds,{indicator,index,declared_jingdiao:true})
+    assert.equal(solver.describe([...before,win],win).self_draw_points,points)
   }
 })
 
-test('declared jingdiao quotes use the same decomposition as the server',()=>{
+test('declared jingdiao quotes score eligible hand types',()=>{
   const cases=[
     [[11,11,11,11,12,12,12,41,42,43,44,45,46],47,11,47],
     [[11,11,11,13,13,22,23,31,31,45,47,47,47],13,45,47],

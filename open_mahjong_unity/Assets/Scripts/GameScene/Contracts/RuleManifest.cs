@@ -39,6 +39,9 @@ public sealed class RuleManifest {
     /// <summary>副露组间保留额外间距；仅由规则内部启用，不提供玩家设置。</summary>
     public bool MeldSpacingEnabled;
 
+    /// <summary>按子规则指定牌河从第几排起每排十张（首排为 1）。未指定或返回 0 时每排六张。</summary>
+    public Func<string, int> FirstTenTileDiscardRow;
+
     // ---- 提示（TipsBlock / TileCard / TipsContainer / 牌谱危险张）----
 
     /// <summary>听牌计算。TipsProvidedByGameState 为 true 的族可不提供。</summary>

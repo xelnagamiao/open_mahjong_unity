@@ -1,6 +1,6 @@
 """Five-meld MCR extension, based on the platform's 新编 MCR (2025.08).
 
-See /rulebooks/guobiao-sixteen.html for the deliberate 17-tile interpretations.
+See /rulebooks/国标十六张扩展规则与牌例.html for the deliberate 17-tile interpretations.
 The shared exact hand solver supplies witnesses; this module scores whole
 witnesses and winning-tile placements, never selected 14-tile subsets.
 """

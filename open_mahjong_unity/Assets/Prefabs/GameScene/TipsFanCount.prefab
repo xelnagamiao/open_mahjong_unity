@@ -170,7 +170,7 @@ MonoBehaviour:
   m_fontSizeMax: 23
   m_fontStyle: 0
   m_HorizontalAlignment: 2
-  m_VerticalAlignment: 512
+  m_VerticalAlignment: 4096
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -327,7 +327,7 @@ MonoBehaviour:
   m_fontSizeMax: 23
   m_fontStyle: 0
   m_HorizontalAlignment: 2
-  m_VerticalAlignment: 512
+  m_VerticalAlignment: 4096
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -563,7 +563,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mode: 2
+  mode: 1
   row: {fileID: 0}
   designSize: 0
 --- !u!114 &1871093739643683976
@@ -578,6 +578,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da2e0dd92db102a44945aa5bc0df853d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mode: 2
+  mode: 1
   row: {fileID: 0}
   designSize: 0

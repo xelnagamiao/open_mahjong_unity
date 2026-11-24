@@ -15,8 +15,24 @@ internal static class ChangshaExchangeSixActions {
 
     private static string Group(string action) => action.StartsWith("chi_") ? "chi" : action;
     private static string Key(string word) => word.Substring(word.StartsWith(Single) ? Single.Length : Choice.Length).Split(':')[0];
-    private static string Label(string word) => Key(word) == "chi" || Key(word).StartsWith("chi_")
-        ? "吃" : GameCanvas.ExchangeSixCaption(Key(word));
+    internal static string TileLabel(int tile) {
+        if (tile % 10 < 1 || tile % 10 > 9 || tile / 10 < 1 || tile / 10 > 3) return "";
+        return "一二三四五六七八九"[tile % 10 - 1] + (tile / 10 == 1 ? "万" : tile / 10 == 2 ? "筒" : "条");
+    }
+
+    private static string Label(string word) {
+        string key = Key(word);
+        string caption = key == "chi" || key.StartsWith("chi_") ? "吃" : GameCanvas.ExchangeSixCaption(key);
+        var parts = word.Split(':');
+        if (parts.Length == 3 && int.TryParse(parts[2], out int tile) && tile > 0
+            && (key.StartsWith("chi_") || key == "peng" || key == "gang" || key == "buzhang"))
+            return caption + " " + TileLabel(tile);
+        if (key.StartsWith("hu_") && ChangshaGameState.Active?.ExchangeSixSnapshot?.private_state.targets != null
+            && ChangshaGameState.Active.ExchangeSixSnapshot.private_state.targets.TryGetValue(key, out var winning)
+            && winning.Length == 1) return caption + " " + TileLabel(winning[0]);
+        return caption;
+    }
+
     private static ActionWordKind Kind(string word) {
         string key = Key(word);
         if (key == "chi" || key.StartsWith("chi_")) return ActionWordKind.Chi;
@@ -36,6 +52,11 @@ internal static class ChangshaExchangeSixActions {
             if (Group(action) != group) continue;
             int[] targets = own.targets != null && own.targets.TryGetValue(action, out var values) && values.Length > 0
                 ? values : new[] {0};
+            // 同一开杠批次的多张胡牌一起结算，不能把胡按钮展开成只选其中一张。
+            if (action.StartsWith("hu_") && targets.Any(tile => tile > 0)) {
+                candidates.Add(new ActionCandidate(action, targets.Where(tile => tile > 0).ToArray(), 0));
+                continue;
+            }
             foreach (int tile in targets) {
                 int[] cards = tile == 0 ? Array.Empty<int>() : action == "chi_left" ? new[] {tile - 2, tile - 1, tile}
                     : action == "chi_mid" ? new[] {tile - 1, tile, tile + 1}

@@ -26,9 +26,9 @@
 ```text
 other/rule/
   RULE_RESEARCH_WORKFLOW.md       # 本设计与操作规范
-  inclued_rule/                   # 项目已经采用/定稿的规则书（保留现名）
-  MIL_rule/                       # 现有 MIL 资料
-  Rescoure/                       # 历史原典（保留现名）
+  rule 根目录                      # 规则实现依据、来源说明和研究资料
+  MIL_rule/                       # 四川 SBR 2025 发布原件
+  绘图麻雀牌谱.pdf                # 历史原典和各公开下载地址的共同来源
   research/
     _README.md                    # 当前进度和入口
     catalog/

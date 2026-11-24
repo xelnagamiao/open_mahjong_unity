@@ -144,6 +144,44 @@ public static class AndroidContentBuild {
     }
     public static void BuildApk() => Run(true);
     public static void BuildContent() => Run(false);
+    [Serializable] sealed class UnpublishedApkReceipt {
+        public string status, candidateApk, candidateSha256, publishedSha256;
+        public int releaseVersion, baseVersion, versionCode, publishedCode;
+    }
+    static int AllocateApkCode(int lastCode) {
+        string receiptPath = Arg("-omUnpublishedApkReceipt");
+        if (receiptPath == null) return checked(Math.Max(lastCode, PlayerSettings.Android.bundleVersionCode) + 1);
+        var repo = new DirectoryInfo(Work);
+        while (repo != null && !File.Exists(Path.Combine(repo.FullName, "other/UnityBatchBuild/outputs.json"))) repo = repo.Parent;
+        if (repo == null || Validation) throw new BuildFailedException("Unpublished APK replacement requires a private release build.");
+        string privateRoot = Path.GetFullPath(Path.Combine(repo.FullName, ".om_workspace")) + Path.DirectorySeparatorChar;
+        bool IsPrivate(string path) => !string.IsNullOrEmpty(path) && Path.GetFullPath(path).StartsWith(privateRoot, StringComparison.OrdinalIgnoreCase);
+        if (!IsPrivate(receiptPath) || !IsPrivate(Output)) throw new BuildFailedException("Replacement receipt and output must be private.");
+        var r = JsonUtility.FromJson<UnpublishedApkReceipt>(File.ReadAllText(receiptPath));
+        string livePath = Arg("-omPublishedApk");
+        if (r == null || r.status != "verified-unpublished" || !IsPrivate(r.candidateApk) || string.IsNullOrEmpty(livePath) || IsPrivate(livePath) ||
+            Path.GetFullPath(Path.GetDirectoryName(r.candidateApk)).Equals(Path.GetFullPath(Output), StringComparison.OrdinalIgnoreCase) ||
+            r.baseVersion != ConfigManager.base_version || r.releaseVersion != ConfigManager.releaseVersion ||
+            r.versionCode != lastCode || r.versionCode != PlayerSettings.Android.bundleVersionCode || r.publishedCode <= 0 || r.versionCode != checked(r.publishedCode + 1)) {
+            throw new BuildFailedException("APK replacement receipt does not identify the current unpublished version-code reservation.");
+        }
+        string package = PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android);
+        AndroidUpdateManifest Check(string path, string hash, int code) {
+            var m = JsonUtility.FromJson<AndroidUpdateManifest>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(path), "android-update.json")));
+            if (m == null || m.schemaVersion != 1 || m.packageName != package || m.file != Path.GetFileName(path) || m.versionCode != code ||
+                m.sizeBytes != new FileInfo(path).Length || m.sha256 != hash || ContentManifest.HashFile(path) != hash) {
+                throw new BuildFailedException("APK replacement proof does not match the APK and its manifest.");
+            }
+            return m;
+        }
+        var previous = Check(livePath, r.publishedSha256, r.publishedCode);
+        var priorCandidate = Check(r.candidateApk, r.candidateSha256, r.versionCode);
+        if (priorCandidate.releaseVersion != r.releaseVersion || priorCandidate.baseVersion != r.baseVersion ||
+            previous.releaseVersion >= r.releaseVersion || previous.baseVersion != r.baseVersion || r.candidateSha256 == r.publishedSha256) {
+            throw new BuildFailedException("Only the newest private candidate for a release not yet published may reuse its code.");
+        }
+        return lastCode;
+    }
     const string BootScene = "Assets/AndroidUpdate/AndroidBootstrap.unity";
     static void PrepareBootstrapScene() {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -253,7 +291,7 @@ public static class AndroidContentBuild {
                     AssetDatabase.Refresh();
                     string apkCodeFile = Path.Combine(Work, Validation ? "validation-apk-version-code.txt" : "apk-version-code.txt");
                     int lastCode = File.Exists(apkCodeFile) ? int.Parse(File.ReadAllText(apkCodeFile)) : 0;
-                    int nextCode = checked(Math.Max(lastCode, PlayerSettings.Android.bundleVersionCode) + 1);
+                    int nextCode = AllocateApkCode(lastCode);
                     PlayerSettings.Android.bundleVersionCode = nextCode;
                     ResetAndroidAssetStaging();
                     BuildReport report;

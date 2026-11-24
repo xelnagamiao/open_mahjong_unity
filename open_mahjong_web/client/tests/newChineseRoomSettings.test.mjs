@@ -66,6 +66,18 @@ test('换三张锁定15番，关闭后恢复本次编辑的起和番，旧预设
   assert.equal(normalizeNewChineseRoomConfig({hepai_limit:1800,detailed_config:{exchange_three:true}},SettingsError).hepai_limit,15)
 })
 
+test('摊牌选项仅写入标准新中式详细配置并在赛事摘要显示', () => {
+  const form = createEventRoomForm({ room_rule:'new_chinese', room_config:{ detailed_config:{ showdown:true } } })
+  assert.equal(form.showdown, true)
+  const payload = buildEventRoomSettings(form)
+  assert.deepEqual(payload.room_config.detailed_config, { rule_version:'new-chinese-2026-11', exchange_three:false, showdown:true })
+  const normalized = normalizeNewChineseRoomConfig(payload.room_config, SettingsError)
+  assert.equal(normalized.detailed_config.showdown, true)
+  assert.match(eventRoomSettingsSummary(payload, {new_chinese:'自定义规则'}), /摊牌/)
+  assert.equal(eventRoomSettingsRows(payload).find(row => row.label === '摊牌').value, '开启')
+  assert.throws(() => normalizeNewChineseRoomConfig({ detailed_config:{ showdown:'true' } }, SettingsError))
+})
+
 test('自定义起和番接受非负整数且可保存高番门槛', () => {
   const form = createEventRoomForm({room_rule:'new_chinese'})
   for (const limit of [0, 15, 1800, 2147483647]) {
@@ -100,7 +112,7 @@ test('散花建房与赛事使用副数、固定起和番，说明书保留红�
   const docs = customRulebooks.find(entry=>entry.subRule==='new_chinese/sanhua').docs
   const [web,word] = docs.map(doc=>readFileSync(new URL('../public'+doc.url, import.meta.url)))
   assert.equal(word.readUInt16LE(), 0x4b50)
-  for (const clause of ['单张特殊杠不算开口','第三次开口时锁定供牌者','该家共付三份','每家开口番累计最多 0.5 番']) {
+  for (const clause of ['单张特殊杠不算开口','若先由他家供牌完成第三次开口，则锁定该供牌者','该家共付三份','每家开口番累计最多 0.5 番']) {
     assert.ok(web.toString().split('<p class="addition">').some(p=>p.split('</p>')[0].includes(clause)), clause)
   }
 })

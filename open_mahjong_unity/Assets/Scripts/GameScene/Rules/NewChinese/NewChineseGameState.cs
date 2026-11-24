@@ -11,6 +11,7 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     private int exchangeTick = -1;
     private Coroutine baoPresentation;
     private readonly Queue<(string suffix, Response response)> afterBao = new Queue<(string, Response)>();
+    private int roundGeneration;
 
     public override bool HandleMessage(string suffix, Response response) {
         if (suffix == "game_start") ClearBaoPresentation();
@@ -89,6 +90,7 @@ public sealed class NewChineseGameState : TurnBasedGameState {
         GameCanvas.Instance?.HideXueliuThrowThreeSelection();
         GameCanvas.Instance?.ClearXueliuExchangePresentation();
         Accept(info);
+        roundGeneration++;
         exchangeTick = info?.action_tick ?? -1;
         if (Info?.phase == "waiting_exchange") {
             if (Info.exchange_outgoing != null && !Session.IsRealtimeSpectator) {
@@ -170,12 +172,51 @@ public sealed class NewChineseGameState : TurnBasedGameState {
 
     protected override void OnShowResult(Response response) {
         Accept(response.game_info);
+        var table = Game3DManager.Instance;
+        if (!SettlementSync.IsRestoring && response.show_result_info?.revealed_hands?.Count > 0
+                && table != null && table.HasPendingRecordTableAnimations) {
+            Manager.StartCoroutine(SettleWhenTableIdle(response, table, roundGeneration));
+            return;
+        }
         base.OnShowResult(response);
     }
 
+    private IEnumerator SettleWhenTableIdle(Response response, Game3DManager table, int generation) {
+        while (table != null && generation == roundGeneration && table.HasPendingRecordTableAnimations)
+            yield return null;
+        if (table != null && generation == roundGeneration) base.OnShowResult(response);
+    }
+
+    protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
+        var envelope = base.BuildEnvelope(info);
+        envelope.PublicBaoTile = GetSettlementBao(Info);
+        if (info.revealed_hands == null || info.revealed_hands.Count == 0) return envelope;
+        int? discarder = !SettlementSync.IsRestoring && envelope.RecycleDiscard == true ? envelope.RonDiscarderIndex : null;
+        envelope.SkipHandReveal = true;
+        envelope.HoldAfterHandReveal = true;
+        envelope.AfterHandReveal = () => {
+            RoundEndPresentation.Instance?.HideSelfGameplayControl(false);
+            Game3DManager.Instance?.RevealSichuanLiujuAllHands(info.revealed_hands, discarder, envelope.WinTile);
+        };
+        return envelope;
+    }
+
+    protected override void OnTableClosedForSettlement(SettlementEnvelope env) {
+        if (env.IsLiuju || env.HuClass == "ryuukyoku")
+            env.AfterHandReveal?.Invoke();
+    }
+
+    protected override void OnSettlementPresented(SettlementEnvelope env, ShowResultInfo info) {
+        if (env.IsHu && SettlementSync.IsRestoring)
+            env.AfterHandReveal?.Invoke();
+    }
+
+    internal static int GetSettlementBao(NewChineseInfo info) =>
+        info?.declared?.Any(declared => declared) == true ? info.bao : 0;
+
     public override void RefreshSelfStatusIndicators() {
-        if (GameCanvas.Instance != null)
-            GameCanvas.Instance.ShowNewChineseStatus(Info, Mirror.IndexToPosition, Session.SelfIndex);
+        bool settled = Info?.phase is "END" or "waiting_ready" or "finished";
+        GameCanvas.Instance?.ShowNewChineseStatus(Info, Mirror.IndexToPosition, Session.SelfIndex, settled);
     }
 
     public override void OnPlayerTagsRefreshed() {
@@ -189,13 +230,15 @@ public sealed class NewChineseGameState : TurnBasedGameState {
         GameCanvas.Instance?.HideNewChineseExchange();
         GameCanvas.Instance?.ShowNewChineseStatus(null, Mirror.IndexToPosition, -1);
         Info = null;
+        roundGeneration++;
     }
 }
 
 public partial class GameCanvas {
-    public void ShowNewChineseStatus(NewChineseInfo info, IReadOnlyDictionary<int,string> positions, int viewer) {
+    public void ShowNewChineseStatus(NewChineseInfo info, IReadOnlyDictionary<int,string> positions, int viewer, bool settled = false) {
         bool declared = viewer >= 0 && viewer < (info?.declared?.Length ?? 0) && info.declared[viewer];
-        SetSelfBaoIndicator(declared && info.bao > 0, declared ? info.bao : 0, false, false);
+        int bao = info?.bao ?? 0;
+        SetSelfBaoIndicator(!settled && declared && bao > 0, bao, false, false);
         int level = info?.levels != null && viewer >= 0 && viewer < info.levels.Length ? info.levels[viewer] : info?.pass_level ?? 0;
         string[] pass = {"", "过和", "过和 · 仅自摸", "过和 · 仅摸宝", "过和 · 等换宝"};
         SetSelfStatusIndicator(StatusSlotLangyongWave, level > 0, pass[Mathf.Clamp(level, 0, 4)]);

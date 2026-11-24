@@ -76,7 +76,7 @@ MonoBehaviour:
     featherRatio: 0.26
     fadeHeightRatio: 0.65
     liftSpreadRatio: 0.08
-  shader: {fileID: 4800000, guid: c2d7c4ea6ac63f64c8267a249bcf4efa, type: 3}
+  shadowMaterial: {fileID: 2100000, guid: 22da78218276a094c966abda5d636860, type: 2}
 --- !u!114 &3103451386769729995
 MonoBehaviour:
   m_ObjectHideFlags: 0

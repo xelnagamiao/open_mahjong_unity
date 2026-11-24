@@ -1,28 +1,25 @@
 <template>
   <div class="unity-game-container">
     <div id="unity-container" class="unity-container">
-      <canvas id="unity-canvas" ref="unityCanvas"></canvas>
+      <canvas id="unity-canvas" ref="unityCanvas" :class="{ 'waiting-for-content': loadingVisible }" :inert="loadingVisible"></canvas>
       <div v-if="loadingVisible" id="unity-loading-bar" class="unity-loading-bar" data-no-translate>
         <div class="unity-loading-title">open_mahjong_unity</div>
         <div id="unity-progress-bar-empty" class="unity-progress-bar-empty"
           role="progressbar" :aria-label="loadingText.progress" aria-valuemin="0" aria-valuemax="100"
-          :aria-valuenow="loadingPercent" :aria-valuetext="loadingText[loadingPhase]"
-          :class="{ 'is-starting': loadingPhase === 'initializing', 'is-error': loadingPhase === 'error' }">
+          :aria-valuenow="loadingPercent" :aria-valuetext="loadingPercent + '% · ' + loadingCaption"
+          :class="{ 'is-error': loadingPhase === 'error' }">
           <div id="unity-progress-bar-full" class="unity-progress-bar-full" :style="{ width: loadingPercent + '%' }"></div>
         </div>
         <div class="unity-loading-caption">
-          <span role="status" aria-live="polite">{{ loadingText[loadingPhase] }}</span>
-          <span v-if="loadingPhase !== 'error'" class="unity-loading-percent" aria-hidden="true">{{ loadingPercent }}%</span>
-        </div>
-        <div class="unity-loading-details">
-          <span>{{ downloadSizeText }}</span>
-          <span>{{ loadingText.elapsed }} {{ totalTimeText }}</span>
-        </div>
-        <div v-if="loadingPhase === 'initializing'" class="unity-loading-stage-time">
-          {{ loadingText.stageTime }} {{ stageTimeText }}
+          <span><span role="status">{{ loadingText[loadingPhase] }}</span><span v-if="downloadSizeText" class="unity-download-size">{{ downloadSizeText }}</span></span>
+          <span class="unity-loading-percent" aria-hidden="true">{{ loadingPercent }}%</span>
         </div>
         <button v-if="loadingPhase === 'error'" class="unity-loading-retry" @click="reloadGame">{{ loadingText.retry }}</button>
       </div>
+      <button v-if="noticeUrl" v-show="noticeVisible" type="button" class="unity-notice"
+        :aria-label="loadingText.dismissNotice" @click="dismissNotice">
+        <img :src="noticeUrl" :alt="loadingText.notice" @load="noticeLoaded = true" @error="dismissNotice">
+      </button>
       <div id="unity-warning" class="unity-warning"></div>
       <div id="unity-footer" class="unity-footer">
         <div id="unity-webgl-logo" class="unity-webgl-logo"></div>
@@ -38,92 +35,78 @@ import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { locale } from '@/i18n'
-import { unityLoadingProgress, unityLoadingText, createUnityDownloadMeter, formatLoadingBytes, formatLoadingTime } from '@/utils/unityLoading.js'
+import { prepareUnityContent } from '@/utils/unityContent.js'
+import { unityEnginePercent, unityLoadingText, formatLoadingBytes, unityBundleProgress } from '@/utils/unityLoading.js'
 
 const unityCanvas = ref(null)
 const loadingVisible = ref(true)
-const loadingPhase = ref('preparing')
+const loadingPhase = ref('checking')
 const loadingPercent = ref(0)
 const loadingText = computed(() => unityLoadingText(locale.value))
-let loadingProgress = 0
-const downloadSizeText = ref('')
-const clockTime = ref(0)
-const phaseStartedAt = ref(0)
-let loadingStartedAt = 0
-let loadingClock = null
-let downloadObserver = null
-let metadataAbort = null
-let downloadMeter = null
-const totalTimeText = computed(() => formatLoadingTime(clockTime.value - loadingStartedAt))
-const stageTimeText = computed(() => formatLoadingTime(clockTime.value - phaseStartedAt.value))
+const artDownload = ref(null)
+const downloadSizeText = computed(() => loadingPhase.value === 'artDownload' && artDownload.value
+  ? formatLoadingBytes(artDownload.value) : '')
+const loadingCaption = computed(() => [loadingText.value[loadingPhase.value], downloadSizeText.value].filter(Boolean).join(' '))
+let splitContent = false
+let mountingArt = false
+let sceneReady = false
+let readyTimer = null
+let contentAbort = null
+let preparedContent = null
+const noticeUrl = ref('')
+const noticeVisible = ref(false)
+let noticeLoaded = false
+let noticeTimer = null
 
-function setLoadingPhase(phase) {
-  if (loadingPhase.value !== phase) phaseStartedAt.value = performance.now()
-  loadingPhase.value = phase
+function dismissNotice() {
+  clearTimeout(noticeTimer)
+  noticeVisible.value = false
 }
-
 function stopLoadingMonitor() {
-  clearInterval(loadingClock)
-  loadingClock = null
-  downloadObserver?.disconnect()
-  downloadObserver = null
-  metadataAbort?.abort()
-  metadataAbort = null
+  clearTimeout(readyTimer)
+  readyTimer = null
+  contentAbort?.abort()
+  contentAbort = null
+  preparedContent?.dispose()
+  preparedContent = null
 }
 
-function updateLoadingProgress(progress = loadingProgress) {
-  if (!loadingVisible.value || loadingPhase.value === 'error' || leavingByHardNav) return
-  const meter = downloadMeter?.snapshot(progress)
-  const next = unityLoadingProgress(loadingProgress, progress, downloadObserver && meter ? meter.complete : null)
-  if (meter?.total && next.phase === 'downloading') next.percent = Math.min(79, Math.floor(meter.loaded / meter.total * 80))
-  loadingProgress = next.progress
-  loadingPercent.value = Math.max(loadingPercent.value, next.percent)
-  setLoadingPhase(next.phase)
-  if (meter) downloadSizeText.value = formatLoadingBytes(meter)
-}
-
-function monitorDownloads(fileConfig, gen) {
-  downloadMeter = createUnityDownloadMeter()
-  const files = ['dataUrl', 'codeUrl', 'frameworkUrl'].map(key => [new URL(fileConfig[key], location.href).href, key])
-  const keys = new Map(files)
-  if (typeof PerformanceObserver !== 'undefined') {
-    try {
-      downloadObserver = new PerformanceObserver(list => {
-        if (gen !== unityMountGeneration) return
-        let changed = false
-        for (const entry of list.getEntries()) {
-          const key = keys.get(entry.name)
-          if (key) {
-            downloadMeter.complete(key, entry.encodedBodySize)
-            changed = true
-          }
-        }
-        if (changed) updateLoadingProgress()
-      })
-      downloadObserver.observe({ type: 'resource' })
-    } catch {
-      downloadObserver = null
+function revealWhenLoaded() {
+  if (!loadingVisible.value || !unityInstance || (splitContent && !sceneReady) ||
+      loadingPhase.value === 'error' || loadingPhase.value === 'ready') return
+  loadingPercent.value = 100
+  loadingPhase.value = 'ready'
+  stopLoadingMonitor()
+  readyTimer = setTimeout(() => {
+    readyTimer = null
+    loadingVisible.value = false
+    if (noticeLoaded) {
+      noticeVisible.value = true
+      noticeTimer = setTimeout(dismissNotice, 2000)
     }
+  }, 400)
+}
+
+function onBundleProgress({ detail }) {
+  if (!splitContent || !loadingVisible.value || loadingPhase.value === 'error' || leavingByHardNav || !detail) return
+  if (detail.phase === 4) return failLoading('WebGL resource bundle failed')
+  if (loadingPhase.value === 'ready') return
+  mountingArt = true
+  if (detail.phase === 0) {
+    loadingPercent.value = Math.max(loadingPercent.value, unityBundleProgress(detail))
+  } else if (detail.phase === 1) {
+    loadingPercent.value = Math.max(loadingPercent.value, 95)
+  } else if (detail.phase === 2) {
+    loadingPercent.value = 98
+  } else if (detail.phase === 3) {
+    sceneReady = true
+    revealWhenLoaded()
   }
-  const controller = new AbortController()
-  metadataAbort = controller
-  const timeout = setTimeout(() => controller.abort(), 8000)
-  // Only headers are requested; downloading starts immediately in parallel.
-  // A separate query prevents HEAD timing entries from completing the GET meter.
-  Promise.allSettled(files.map(async ([url, key]) => {
-    const metadataUrl = new URL(url)
-    metadataUrl.searchParams.set('download-size', '1')
-    const response = await fetch(metadataUrl, { method: 'HEAD', signal: controller.signal })
-    if (response.ok && gen === unityMountGeneration && loadingVisible.value) {
-      downloadMeter.setSize(key, Number(response.headers.get('Content-Length')))
-      downloadSizeText.value = formatLoadingBytes(downloadMeter.snapshot(loadingProgress))
-    }
-  })).finally(() => clearTimeout(timeout))
 }
 
 function failLoading(error) {
   console.error('Unity 加载失败:', error)
-  setLoadingPhase('error')
+  loadingPhase.value = 'error'
   loadingVisible.value = true
   stopLoadingMonitor()
 }
@@ -180,6 +163,7 @@ async function askLeaveOrStay() {
 function hardNavigateAway(targetPath) {
   if (leavingByHardNav) return
   leavingByHardNav = true
+  stopLoadingMonitor()
   unityMountGeneration++
   unityInstance = null
 
@@ -240,9 +224,9 @@ function removeUnityLoaderScript() {
   if (el) el.remove()
 }
 
-async function parseUnityConfig() {
+async function parseUnityConfig(signal) {
   try {
-    const response = await fetch('/unity-game/index.html', { cache: 'no-store' })
+    const response = await fetch('/unity-game/index.html', { cache: 'no-store', signal })
     if (!response.ok) throw new Error(`Unity configuration: HTTP ${response.status}`)
     const html = await response.text()
 
@@ -252,8 +236,16 @@ async function parseUnityConfig() {
     const codeMatch = html.match(/codeUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
     const versionMatch = html.match(/\bproductVersion\s*:\s*(["'])([^"'\r\n]+)\1/)
 
+    const entry = new DOMParser().parseFromString(html, 'text/html')
+    const manifest = entry.getElementById('om-web-content')
+    const notice = html.match(/canvas\.style\.background\s*=\s*[^\r\n]*?buildUrl\s*\+\s*"\/([\w.-]+\.(?:jpg|png))'/)
+    if (!manifest && entry.querySelector('meta[name="om-web-texture-progress"]')) {
+      throw new Error('此 WebGL 构建缺少启动前资源清单')
+    }
     const buildUrl = '/unity-game/Build'
     return {
+      content: manifest ? JSON.parse(manifest.textContent) : null,
+      noticeUrl: notice ? buildUrl + '/' + notice[1] : '',
       loaderUrl: loaderMatch ? buildUrl + '/' + loaderMatch[1] : null,
       dataUrl: dataMatch ? buildUrl + '/' + dataMatch[1] : null,
       frameworkUrl: frameworkMatch ? buildUrl + '/' + frameworkMatch[1] : null,
@@ -327,16 +319,13 @@ async function loadUnityGame(gen) {
   const fullscreenButton = document.querySelector('#unity-fullscreen-button')
 
   loadingVisible.value = true
-  loadingPhase.value = 'preparing'
+  loadingPhase.value = 'checking'
   loadingPercent.value = 0
-  loadingProgress = 0
-  downloadSizeText.value = ''
-  loadingStartedAt = performance.now()
-  clockTime.value = loadingStartedAt
-  phaseStartedAt.value = loadingStartedAt
-  loadingClock = setInterval(() => { clockTime.value = performance.now() }, 250)
+  artDownload.value = null
 
-  const fileConfig = await parseUnityConfig()
+  contentAbort = new AbortController()
+  const signal = contentAbort.signal
+  const fileConfig = await parseUnityConfig(signal)
   if (gen !== unityMountGeneration) return
 
   if (!fileConfig || !fileConfig.loaderUrl || !fileConfig.dataUrl || !fileConfig.frameworkUrl || !fileConfig.codeUrl) {
@@ -356,16 +345,36 @@ async function loadUnityGame(gen) {
     showBanner: unityShowBanner
   }
 
-  monitorDownloads(fileConfig, gen)
+  splitContent = !!fileConfig.content
+  if (splitContent) noticeUrl.value = fileConfig.noticeUrl
+  if (splitContent) {
+    try {
+      const content = await prepareUnityContent(fileConfig.content, { signal,
+        onProgress({ loaded, total }) {
+          if (gen !== unityMountGeneration || signal.aborted) return
+          loadingPercent.value = Math.max(loadingPercent.value, Math.floor(40 * loaded / total))
+        },
+        onDownloadProgress({ loaded, total }) {
+          if (gen !== unityMountGeneration || signal.aborted) return
+          loadingPhase.value = total > 0 ? 'artDownload' : 'checking'
+          artDownload.value = total > 0 ? { loaded, total } : null
+        }
+      })
+      if (gen !== unityMountGeneration || signal.aborted) { content.dispose(); return }
+      config.omWebContent = preparedContent = content
+    } catch (error) {
+      if (gen === unityMountGeneration && !signal.aborted) failLoading(error)
+      return
+    }
+  }
 
   removeUnityLoaderScript()
   const script = document.createElement('script')
   script.id = UNITY_LOADER_SCRIPT_ID
   script.src = fileConfig.loaderUrl
-  setLoadingPhase('loader')
+  loadingPhase.value = splitContent ? 'artReady' : 'starting'
   script.onload = () => {
     if (gen !== unityMountGeneration) return
-    setLoadingPhase('downloading')
     requestAnimationFrame(() => {
       if (gen !== unityMountGeneration) return
       if (typeof createUnityInstance !== 'function') {
@@ -373,8 +382,9 @@ async function loadUnityGame(gen) {
         return
       }
       createUnityInstance(canvas, config, (progress) => {
-        if (gen !== unityMountGeneration || leavingByHardNav || loadingPhase.value === 'error') return
-        updateLoadingProgress(progress)
+        if (gen !== unityMountGeneration || leavingByHardNav || mountingArt || !loadingVisible.value ||
+            loadingPhase.value === 'error' || loadingPhase.value === 'ready') return
+        loadingPercent.value = unityEnginePercent(loadingPercent.value, progress, splitContent)
       })
         .then((instance) => {
           if (gen !== unityMountGeneration || leavingByHardNav) {
@@ -382,9 +392,7 @@ async function loadUnityGame(gen) {
             return
           }
           unityInstance = instance
-          loadingPercent.value = 100
-          loadingVisible.value = false
-          stopLoadingMonitor()
+          revealWhenLoaded()
           if (fullscreenButton) {
             fullscreenButton.onclick = () => {
               if (unityInstance) {
@@ -416,6 +424,7 @@ onMounted(() => {
   adjustUnityContainer()
   window.addEventListener('resize', adjustUnityContainer)
   window.addEventListener('orientationchange', onOrientationChange)
+  window.addEventListener('unity-web-texture-progress', onBundleProgress)
   installLeaveGuard()
 
   nextTick(() => {
@@ -433,8 +442,10 @@ onUnmounted(() => {
   unityMountGeneration++
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
+  window.removeEventListener('unity-web-texture-progress', onBundleProgress)
   removeLeaveGuard()
   stopLoadingMonitor()
+  dismissNotice()
 
   // 故意不调用 Quit：SPA 卸载时 Quit 会冻死主线程；硬跳转路径由浏览器整页回收
   unityInstance = null
@@ -465,17 +476,35 @@ onUnmounted(() => {
   background: #000000;
 }
 
+#unity-canvas.waiting-for-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unity-notice {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: pointer;
+}
+
+.unity-notice img { width: 100%; height: 100%; object-fit: contain; }
+
 .unity-loading-bar {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 84%;
-  max-width: 560px;
+  width: 80%;
+  max-width: 500px;
   box-sizing: border-box;
   z-index: 10;
   color: #dedede;
-  font-family: system-ui, sans-serif;
+  font-family: system-ui, "Microsoft YaHei", sans-serif;
   font-weight: 400;
 }
 
@@ -485,32 +514,22 @@ onUnmounted(() => {
   box-sizing: border-box;
   margin: 0 0 8px;
   color: #eeeeee;
-  font-size: 17px;
-  line-height: 1.4;
-  letter-spacing: 0.025em;
+  font-size: 20px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 
 .unity-progress-bar-empty {
   position: relative;
   width: 100%;
-  height: 12px;
+  height: 10px;
   box-sizing: border-box;
   margin-top: 0;
   padding: 2px;
   border: 1px solid #767676;
   background: #191919;
   overflow: hidden;
-}
-
-.unity-progress-bar-empty::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 80%;
-  width: 1px;
-  background: #191919;
 }
 
 .unity-progress-bar-full {
@@ -521,41 +540,24 @@ onUnmounted(() => {
 }
 
 .unity-loading-caption {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 10px;
-  font-size: 13px;
+  gap: 8px;
+  margin-top: 9px;
+  font-size: 14px;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
 }
 
 .unity-loading-percent {
-  flex: none;
-  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.unity-loading-details {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 5px;
-  color: #aaa;
-  font-size: 12px;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
-}
-
-.unity-loading-stage-time {
-  margin-top: 4px;
-  color: #aaa;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.is-starting .unity-progress-bar-full {
-  animation: unity-starting 1.6s ease-in-out infinite alternate;
+.unity-download-size {
+  margin-inline-start: 0.5em;
+  white-space: nowrap;
 }
 
 .is-error {
@@ -577,10 +579,6 @@ onUnmounted(() => {
 .unity-loading-retry:hover,
 .unity-loading-retry:focus-visible {
   background: #333333;
-}
-
-@keyframes unity-starting {
-  to { opacity: 0.5; }
 }
 
 @media (prefers-reduced-motion: reduce) {

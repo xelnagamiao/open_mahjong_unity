@@ -30,6 +30,10 @@ internal static class SanhuaHand {
         var hand = LocalJokerHand.Prepare(tiles,melds,policy);
         if (hand==null) return result;
         var external = melds.SelectMany(code=>LocalJokerHand.MeldTiles(code)).ToArray();
+        var ordinary = plain.Concat(external).ToArray();
+        if (ordinary.All(IsJiang)) {
+            result.Add(new Variant {Jiang=true, Pure=ordinary.All(t=>t/10==ordinary[0]/10)});
+        }
         var seen = new HashSet<(bool,bool,bool,bool,int)>();
         foreach (var shape in LocalJokerHand.Shapes(hand)) {
             var logical = shape.Tiles.Concat(external).ToArray();
@@ -54,6 +58,9 @@ internal static class SanhuaHand {
         if (info?.table_fans?.Length!=4 || info.declared?.Length!=4 || info.opened?.Length!=4 || seat<0 || seat>3)
             return result;
         melds = melds ?? new List<string>();
+        int clearPayer = info.liable != null && seat < info.liable.Length ? info.liable[seat] : -1;
+        if (info.declared[seat] && clearPayer < 0 && melds.Count == 2 && !rob)
+            clearPayer = payer ?? -1;
         foreach (var shape in Read(tiles,melds,info)) {
             if (info.declared[seat] && !shape.Pure || rob && !shape.Orphans) continue;
             if (shape.Orphans) return new Price {Points=600, Qualifies=true};
@@ -76,7 +83,7 @@ internal static class SanhuaHand {
                 double pair=fan+info.table_fans[i];
                 int points=gold?60:pair>=6?40:pair>=5?20:pair>=4?10:0;
                 int multiplier=1;
-                if (info.declared[seat] && info.liable?[seat]==i) multiplier++;
+                if (info.declared[seat] && clearPayer==i) multiplier++;
                 if (allCalled && payer==i) multiplier++;
                 total+=points*multiplier;
             }

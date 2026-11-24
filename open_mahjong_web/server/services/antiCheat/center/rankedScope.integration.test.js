@@ -10,12 +10,11 @@ const {
   SCOPE_VERSION,
   MODEL_VERSION,
 } = require("./rankedScope");
-const { migrateRankedScope } = require("./migrateRankedScope");
 const { createCenter } = require("./service");
 const { runUpdate } = require("./processor");
 const S = "anti_cheat_center";
 test(
-  "ranked scope migration reuses cached facts, rejects mixed snapshots and preserves excluded history",
+  "ranked scope update reuses cached facts, rejects mixed snapshots and preserves excluded history",
   { skip: process.env.ANTI_CHEAT_INTEGRATION !== "1" },
   async (t) => {
     require("dotenv").config({
@@ -161,12 +160,10 @@ test(
     assert.equal(oldOverview.summary.cached_games, 2);
     assert.equal(oldOverview.summary.player_count, 0);
     assert.equal(await readGame(pool, "custom"), null);
-    const result = await migrateRankedScope(pool);
-    assert.equal(result.version, MODEL_VERSION);
-    assert.equal(result.reused_cached_facts, true);
-    const again = await migrateRankedScope(pool);
-    assert.equal(again.already_current, true);
-    assert.equal(again.generation, result.generation);
+    const firstJob = await center.startUpdate(1);
+    await runUpdate(pool, firstJob.id, { throwErrors: true, asOf: "2026-11-14T12:00:00Z" });
+    const published = (await pool.query(`SELECT active_generation,model_version FROM ${S}.meta`)).rows[0];
+    assert.equal(published.model_version, MODEL_VERSION);
     assert.equal(
       Number((await pool.query(`SELECT count(*) n FROM ${S}.games`)).rows[0].n),
       specs.length,
@@ -183,7 +180,7 @@ test(
     const membership = (
       await pool.query(
         `SELECT game_id,source_hash FROM ${S}.published_scope_games WHERE generation=$1 ORDER BY game_id`,
-        [result.generation],
+        [published.active_generation],
       )
     ).rows;
     assert.deepEqual(
@@ -214,7 +211,7 @@ test(
     const current = (
       await pool.query(`SELECT active_generation FROM ${S}.meta`)
     ).rows[0].active_generation;
-    assert.notEqual(current, result.generation);
+    assert.notEqual(current, published.active_generation);
     assert.equal(
       (
         await pool.query(
@@ -228,7 +225,7 @@ test(
       (
         await pool.query(
           `SELECT count(*)::int n FROM ${S}.published_scope_games WHERE generation=$1`,
-          [result.generation],
+          [published.active_generation],
         )
       ).rows[0].n,
       2,

@@ -12,23 +12,29 @@ namespace OmUpdate {
     public sealed class WebTextureBootstrap : MonoBehaviour {
         public WebTextureManifest content;
 #if OM_WEB_TEXTURE_PROFILES && UNITY_WEBGL && !UNITY_EDITOR
-        string status;
-        bool failed;
         [DllImport("__Internal")] static extern int OmUseWebTextureASTC(int linear);
         [DllImport("__Internal")] static extern void OmMountWebBundle(string url, string path, int size);
         [DllImport("__Internal")] static extern float OmWebBundleProgress();
+        [DllImport("__Internal")] static extern void OmNotifyWebTextureProgress(int completed, int total, float progress, int phase);
         IEnumerator Start() {
-            bool useAstc = OmUseWebTextureASTC(QualitySettings.activeColorSpace == ColorSpace.Linear ? 1 : 0) != 0;
+            int selected = OmUseWebTextureASTC(QualitySettings.activeColorSpace == ColorSpace.Linear ? 1 : 0);
+            if (selected < 0) {
+                OmNotifyWebTextureProgress(0, 0, 0, 4);
+                Debug.LogError("[WebTexture] Invalid preloaded texture profile.");
+                yield break;
+            }
+            bool useAstc = selected != 0;
             var files = useAstc ? content.astc : content.dxt;
             string profile = useAstc ? "ASTC" : "DXT";
             var bundles = new Dictionary<string, AssetBundle>();
+            OmNotifyWebTextureProgress(0, files.Length, 0, 0);
             foreach (var file in files) {
                 string url = Application.streamingAssetsPath.TrimEnd('/') + "/WebGLContent/" + file.file;
                 string path = BundlePath(file);
                 OmMountWebBundle(url, path, file.bytes);
                 float progress;
                 while ((progress = OmWebBundleProgress()) >= 0 && progress < 1) {
-                    status = $"加载游戏资源 {bundles.Count + 1}/{files.Length}  {progress:P0}";
+                    OmNotifyWebTextureProgress(bundles.Count, files.Length, progress, 0);
                     yield return null;
                 }
                 AssetBundle bundle = null;
@@ -40,24 +46,32 @@ namespace OmUpdate {
                 if (!bundle) {
                     foreach (var loaded in bundles.Values) loaded.Unload(true);
                     foreach (var item in files) File.Delete(BundlePath(item));
-                    status = "游戏资源加载失败，点击重试";
-                    failed = true;
+                    OmNotifyWebTextureProgress(bundles.Count, files.Length, 0, 4);
                     Debug.LogError($"[WebTexture] {profile} failed to open {file.file}");
                     yield break;
                 }
                 bundles.Add(file.name, bundle);
+                OmNotifyWebTextureProgress(bundles.Count, files.Length, 1, 0);
             }
             ResourcesAPI.overrideAPI = new WebTextureResources(content.resources, bundles);
-            status = "正在准备牌桌渲染";
+            OmNotifyWebTextureProgress(files.Length, files.Length, 1, 1);
             double started = Time.realtimeSinceStartupAsDouble;
             yield return PrepareTilePasses();
             Debug.Log($"[WebTexture] Tile rendering prepared in {(Time.realtimeSinceStartupAsDouble - started) * 1000:F0} ms");
             // TMP can initialize against the boot scene before the content is mounted.
             var settings = Resources.Load<TMP_Settings>("TMP Settings");
             typeof(TMP_Settings).GetField("s_Instance", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, settings);
-            status = "正在进入游戏";
+            OmNotifyWebTextureProgress(files.Length, files.Length, 1, 2);
             Debug.Log($"[WebTexture] {profile}, {files.Length} bundles, loading {content.mainScene}");
-            yield return SceneManager.LoadSceneAsync(content.mainScene, LoadSceneMode.Single);
+            int total = files.Length;
+            var load = SceneManager.LoadSceneAsync(content.mainScene, LoadSceneMode.Single);
+            if (load == null) {
+                OmNotifyWebTextureProgress(total, total, 0, 4);
+                yield break;
+            }
+            // Single unloads this bootstrap and stops its coroutines. The operation
+            // owns the callback and can report readiness after the main scene activates.
+            load.completed += _ => OmNotifyWebTextureProgress(total, total, 1, 3);
         }
 
         // WebGL specializes instanced programs for the size of the draw. Warm the two
@@ -94,16 +108,6 @@ namespace OmUpdate {
         }
 
         static string BundlePath(WebTextureManifest.Bundle file) => "/om-web-" + file.name + ".bundle";
-
-        void OnGUI() {
-            var area = new Rect(0, Screen.height * .45f, Screen.width, 44);
-            if (!failed) {
-                GUI.Label(area, status, GUI.skin.GetStyle("box"));
-            } else if (GUI.Button(area, status)) {
-                failed = false;
-                StartCoroutine(Start());
-            }
-        }
 #endif
     }
 }

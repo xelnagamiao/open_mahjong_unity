@@ -578,7 +578,10 @@ public partial class CreatePanel {
 
     private Dictionary<string, object> BuildDetailedConfigValues(string ruleKey) {
         if (ruleKey == NewChineseGameState.RuleId)
-            return new Dictionary<string, object> { { CreateRoomKeys.ExchangeThree, newChineseExchangeThreeToggle.isOn } };
+            return new Dictionary<string, object> {
+                { CreateRoomKeys.ExchangeThree, newChineseExchangeThreeToggle.isOn },
+                { CreateRoomKeys.Showdown, newChineseShowdownToggle.isOn },
+            };
         if(ruleKey==FuzhouGameState.RuleId) return FuzhouConfigValues();
         DetailedConfigState state = GetDetailedConfigState(ruleKey);
         var result = new Dictionary<string, object>();

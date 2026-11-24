@@ -60,7 +60,7 @@ const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const { ensureRecordDownloadQuotaTable } = require('./utils/recordDownloadQuota');
 const { ensureTileContentTables } = require('./utils/tileContentTables');
 const { ensureDuplicateTables } = require('./utils/duplicateTables');
-const { ensureTitleTables } = require('./utils/titleTables');
+const { ensureTitleTables, grantSponsorTitlesForAllUsers } = require('./utils/titleTables');
 const libraryRoutes = require('./routes/library');
 const { registerGuessFanHandlers } = require('./guessfan/rooms');
 const { ensureSeedFiles, assetsDir } = require('./services/activityStore');
@@ -202,6 +202,8 @@ async function startServer() {
   try {
     await ensureSponsorAmountColumn();
     console.log('用户赞助金额字段已就绪');
+    await grantSponsorTitlesForAllUsers();
+    console.log('赞助金额头衔已同步');
   } catch (err) {
     console.error('用户赞助金额字段初始化失败:', err);
   }
@@ -226,6 +228,8 @@ async function startServer() {
   }
   // Never serve the new Elo formula against unconverted legacy ratings.
   await ensureGuessFanTables();
+  const { registerMenchinChallenges } = await import('./menchin/index.mjs');
+  await registerMenchinChallenges(io, pool, config.playerAuth);
   console.log('猜番对抗排行表及 Elo 版本已就绪');
   try {
     await ensureRecordDownloadQuotaTable();

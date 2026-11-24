@@ -71,7 +71,9 @@ def test_auto_cut_draws_only_and_full_record():
         responses = {i:choose(s,i,a) for i,a in w["actions"].items() if a}
         for i, d in responses.items():
             if d["action_type"] == "cut":
-                assert d["cutClass"] and d["TileId"] == s.player_list[i].hand_tiles[-1]
+                hand = s.player_list[i].hand_tiles
+                expected = next(tile for tile in reversed(hand) if tile in s.cut_tiles(i))
+                assert d["TileId"] == expected and d["cutClass"] == (hand[-1] == expected)
         w = s.apply_action_results(w,responses)
     assert s.ended_by == "wall" and s.round_changes == [0]*4
     s.finalize_round_recording()

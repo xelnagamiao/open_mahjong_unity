@@ -9,7 +9,7 @@ from ..game_new_chinese.actions import CHOWS, after_meld
 def choose(state, seat, actions):
     p = state.player_list[seat]
     if is_auto_cut_bot(p):
-        return choose_auto_cut_action(p, actions)
+        return choose_auto_cut_action(p, actions, state.cut_tiles(seat))
     for action in ("hu_self", "hu", "ready"):
         if action in actions:
             return dict(action_type=action)
@@ -21,10 +21,11 @@ def choose(state, seat, actions):
     def quality(hand, melds):
         ordinary = tuple(sorted(t for t in hand if t != state.joker))
         return -distance(ordinary, melds) + hand.count(state.joker)
-    def best_cut(hand, melds):
-        return max((quality(hand[:i] + hand[i+1:], melds), i) for i in range(len(hand)))
+    def best_cut(hand, melds, legal=None):
+        return max((quality(hand[:i] + hand[i+1:], melds), i) for i, tile in enumerate(hand)
+                   if legal is None or tile in legal)
     if "cut" in actions:
-        _, i = best_cut(p.hand_tiles, len(p.combination_tiles))
+        _, i = best_cut(p.hand_tiles, len(p.combination_tiles), state.cut_tiles(seat))
         return dict(action_type="cut", TileId=p.hand_tiles[i], cutIndex=i,
                     cutClass=p.has_draw_slot and i == len(p.hand_tiles)-1)
     best = quality(p.hand_tiles, len(p.combination_tiles))

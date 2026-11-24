@@ -4,7 +4,7 @@
 
 ## 1924 年上海游艺社《绘图麻雀牌谱》
 
-本机原件：`other/rule/绘图麻雀牌谱.pdf`；网站同哈希副本：`open_mahjong_web/client/public/rulebooks/drawing-mahjong.pdf`。共 63 PDF 页，正文 60 页，正文页码与 PDF 页码相差 1。版权页 PDF 62 标“中華民國十三年三月初版”。早先工作记录把十三误读为十二，已据放大原页纠正。
+本机原件：`other/rule/绘图麻雀牌谱.pdf`；网站同哈希副本：`open_mahjong_web/client/public/rulebooks/绘图麻雀牌谱.pdf`。共 63 PDF 页，正文 60 页，正文页码与 PDF 页码相差 1。版权页 PDF 62 标“中華民國十三年三月初版”。早先工作记录把十三误读为十二，已据放大原页纠正。
 
 外部书目：[NLC416-09jh003414-41132，Commons 所载国家图书馆扫描书目](https://commons.wikimedia.org/wiki/File:NLC416-09jh003414-41132_%E7%B9%AA%E5%9C%96%E9%BA%BB%E9%9B%80%E7%89%8C%E8%AD%9C.pdf)。1914 沈一帆本与本扫描的重印／增订关系尚未对校；下列规则只以亲见 1924 本为锚点。
 

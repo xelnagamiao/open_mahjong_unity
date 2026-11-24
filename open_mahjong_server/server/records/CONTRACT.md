@@ -131,6 +131,8 @@ match 的 body 是比赛 manifest：规则、同步模式、计划副数、公�
 
 ## 牌谱存储与读取
 
+普通单桌的数据库正文可带 `storage_codec="om.single_round_meta.v1"`。带此标记时，每小局缺省的 `action_meta` 按 `action_ticks` 的长度展开，`wall_ref` 与 `actor_original_seat` 为 null，`wall_ref_basis` 为 `not_applicable`，`occurred_at_ms` 取同位置的有效非负整数 `action_times_ms` 或 null。时间序列含浮点值或大于 JavaScript 安全整数上限的正整数时，写入端保留完整动作元数据。缺省的 `legacy_node_map` 展开为 0 至动作数。两项独立判断，写入时逐项核对，含扩展字段、实际定位信息或非恒等节点映射的数组照原样保存。公开 V2 正文维持完整数组并移除此存储标记。复式正文继续保存完整元数据。
+
 普通比赛用原 game_id，四川复式的公开号由内部比赛 ID 确定性生成。game_replays 每场只保存一份 V2 正文；game_record_tables 是每桌的定位索引，保留桌编号、桌别、比赛和时间关联。game_player_records 保留参赛成绩和本人的收藏、备注。正文、下载和公开参赛名单不能输出这两个私有字段。
 
 常规读取没有旧视图或逐桌还原函数。只计桌数、查日期时查定位索引；需要标题或回放时按 replay_id 和 table_id 取该桌 V2 字段。比赛列表按 replay_id 去重，按桌计的统计使用原桌编号。少数需要原始操作位置的证据、历史检查点和来源核验使用正文内的溯源信息，不另存一份牌谱。
@@ -139,34 +141,17 @@ match 的 body 是比赛 manifest：规则、同步模式、计划副数、公�
 
 桌面目录保存 `<game_id>.json`、索引和 `record-aliases.json`。WebGL 在浏览器自身的 IndexedDB 中处理对应数据。历史 ask_hand、ask_other 的位置和内容保存在 transport_actions 中，原记录中的时间戳数量差异由 source_round_fields 表示。以 restore_source 重建的逐桌数据可用 source_sha256 核对。
 
-## 一次性迁移
-
-在 open_mahjong_server 目录执行。PostgreSQL 的 OM_MATCH_MIGRATION_DSN 指向要迁移的数据库。先生成独立备份，在备份副本上完整演练并核对后执行实际切换。
-
-```text
-python -m server.records.migrate verify --backend postgres
-python -m server.records.migrate apply --backend postgres
-python -m server.records.migrate recompute --backend postgres --dry-run
-python -m server.records.migrate recompute --backend postgres
-python -m server.records.migrate verify --backend files --input <LocalRecords目录>
-python -m server.records.migrate apply --backend files --input <LocalRecords目录> --backup <独立备份目录>
-```
-
-旧物理库逐桌比较原文并保留原编号、外键；发行版 36 已统一的库不重搬正文。`verify` 在一致性快照中核对每桌来源 SHA-256，并预演依赖限制；`--receipt-out` 可保存本次已验证的指纹。切换时暂停旧写入，`apply --receipt` 在锁内核对所有键与内容指纹，只对新增或变更桌重新做完整校验。只使用自己刚验证的副本凭据。两个旧视图和 SQL 函数以 RESTRICT 在同一事务移除；未知依赖、来源冲突或锁超时均停止，不能跳过。重复执行不重建视图。退回发行版 36 程序时先从切换前备份恢复这三个对象的定义，而不是覆盖更新后的业务数据。
-
-`recompute` 按已保存动作、结算及可用快照补录可证明的复式派生字段，不重算其他规则 ELO 或重新发放奖励。`--dry-run` 可预览。桌面版逐份写入并读回核对，发生中断可重跑同一命令。Unity WebGL、网页本地牌谱和分析缓存在原站点、原浏览器配置文件中各自执行一次升级，手动导入导出使用 browser_migration.js 和同一 CLI 的 browser 后端。
+历史牌谱已完成迁移。玩家设备上的本地牌谱由客户端在读取时按需升级。
 
 规范哈希采用 UTF-8、对象键按 UTF-16 码元排序、无空格。整数精确保留；浮点数为 IEEE 754 binary64，非整数按 17 位有效数字展开十进制，整数值浮点数展开为其精确整数，去掉小数尾零和指数，负零归零。字符串只转义 JSON 必需的引号、反斜杠和 U+0000 至 U+001F，保留其他 Unicode 字符。Python、Unity 和浏览器桥使用同一规则。不要用带日期自动转换的 JSON 解析器改变原字符串。
 
 ## 验证入口
 
-Python：server/records/test_format.py、test_migrate.py、test_store.py、test_spectator.py、test_contract.py；test_store 仅在 OM_RECENT_TEST_DSN 指定的数据库中创建临时 schema，不改业务表。实际双桌游戏回归位于 server/gamestate/game_sichuan/test_duplicate_simulation.py。
+Python：server/records/test_format.py、test_store.py、test_spectator.py、test_contract.py；test_store 仅在 OM_RECENT_TEST_DSN 指定的数据库中创建临时 schema，不改业务表。实际双桌游戏回归位于 server/gamestate/game_sichuan/test_duplicate_simulation.py。
 
 在 open_mahjong_server 中用 `python -m pip install -r requirements-test.txt` 安装已验证的测试依赖，再运行 `python -m pytest server/records`。WebSocket 传输回归位于 test_spectator_wire.py。
 
-浏览器迁移：`node --test server/records/browser_migration.test.js`，测试依赖 fake-indexeddb，OM_TEST_PYTHON 指定 Python 可执行文件。Web 路由单测位于 open_mahjong_web/server/services/publicGameRecord.test.js。
-
-浏览器测试依赖单独锁定在 server/records/package.json / package-lock.json：在 open_mahjong_server 中执行 `npm ci --prefix server/records --ignore-scripts`。运行前设置 OM_TEST_PYTHON 和 OM_BROWSER_MIGRATION_TEST_DIR（后者指向 .om_workspace 下的绝对临时目录，或 CI 临时目录），随后执行 `npm test --prefix server/records`。这些 Node 依赖仅供测试，不参与 Python 服务端运行或浏览器迁移脚本发布。
+Web 路由单测位于 open_mahjong_web/server/services/publicGameRecord.test.js。
 
 Unity：MatchRecordValidation.Run 检查跨语言协议缓存和定位；MainScene Play Mode 中调用 MatchRecordSceneValidation.Run 并传入 Fixtures/PairedReplaySbr.json 内容，验证真实牌桌加载、按钮、摸牌前后、各桌光标、后台追加与退出。UI 使用现有 MainScene 和真实牌面，MatchSpectatorUiBaker 仅负责把正式控件和配对卡片写入场景。
 

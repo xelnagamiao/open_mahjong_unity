@@ -50,6 +50,15 @@ def test_custom_event_restored_and_recorded_threshold(exchange, configured, effe
     asyncio.run(run())
 
 
+def test_showdown_config_round_trips_and_rejects_non_boolean():
+    normalized = NewChineseRoomValidator(room_name="新中式").detailed_config
+    assert normalized["showdown"] is False
+    enabled = NewChineseRoomValidator(room_name="新中式", detailed_config={"showdown": True}).detailed_config
+    assert enabled["showdown"] is True
+    with pytest.raises(ValueError):
+        NewChineseRoomValidator(room_name="新中式", detailed_config={"showdown": "true"})
+
+
 @pytest.mark.parametrize("bad", [True, -1, 2_147_483_648, 5.5, "15"])
 def test_invalid_room_fan_limit(bad):
     with pytest.raises(ValueError):

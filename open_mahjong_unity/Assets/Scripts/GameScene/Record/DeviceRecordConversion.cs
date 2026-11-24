@@ -250,12 +250,7 @@ internal static class DeviceRecordConversion {
                     } else {
                         actions.Add(tick.DeepClone());
                         keptTimes.Add(Value(time));
-                        meta.Add(new JObject {
-                            ["actor_original_seat"] = null,
-                            ["occurred_at_ms"] = time?.Type == JTokenType.Integer && (long)time >= 0 ? Value(time) : null,
-                            ["wall_ref"] = null,
-                            ["wall_ref_basis"] = paired ? "unavailable" : "not_applicable"
-                        });
+                        meta.Add(MatchRecordCodec.InitialActionMeta(time, paired));
                     }
                     map.Add(actions.Count);
                 }

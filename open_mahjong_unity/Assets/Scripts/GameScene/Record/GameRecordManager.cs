@@ -1236,7 +1236,7 @@ public partial class GameRecordManager : MonoBehaviour {
             } else if (RecordHuTickFollowsShuhewei()) {
                 // 古典流局演出已在 shuhewei 里播过，这里不再弹流局面板。
             } else {
-                RoundEndPresentation.Instance.PresentLiuju("流局", false);
+                RoundEndPresentation.Instance.PresentLiuju("流局", false, publicBaoTile: NewChineseRecordSettlementBao);
                 HideRecordRiichiSticksOnLiuju();
                 StartCoroutine(AutoNextActionAfterDelay(2f));
             }
@@ -1891,7 +1891,7 @@ public partial class GameRecordManager : MonoBehaviour {
         GameSceneUIManager.Instance?.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
             playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList, riichiExtras,
-            changshaBirdTiles, actualWinningTile ?? 0);
+            changshaBirdTiles, actualWinningTile ?? 0, NewChineseRecordSettlementBao);
         } finally {
             EndRecordHuPresentation();
         }

@@ -175,9 +175,6 @@ async def lifespan(app: FastAPI):
     db_manager.init_database()
     from .match.qingque_session import recover_checkpoints, recovery_loop
     await asyncio.to_thread(recover_checkpoints, db_manager, True)
-    # 本版本首次升级完整回填番种，成功后只读完成标记；失败不开放服务。
-    from .database.statistics_fan_backfill import run_startup_fan_upgrade
-    await asyncio.to_thread(run_startup_fan_upgrade, db_manager)
     # 重试近期记录缓存中登记的失败项；不扫描历史牌谱重算统计。
     from .database.player_recent_records import retry_player_recent_record_errors
     await asyncio.to_thread(retry_player_recent_record_errors, db_manager)

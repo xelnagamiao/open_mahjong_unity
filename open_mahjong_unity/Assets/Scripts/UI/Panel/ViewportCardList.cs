@@ -243,6 +243,19 @@ public sealed class ViewportCardList<TKey, TRow> : IDisposable where TRow : Comp
         pending = true;
     }
 
+    /// <summary>
+    /// 收缩已经滚过的卡片缓存，保留少量热卡片避免长列表无限增长。
+    /// </summary>
+    public void TrimPooledRows(int maximumPerKind) {
+        maximumPerKind = Mathf.Max(0, maximumPerKind);
+        foreach (var pool in pools.Values) {
+            while (pool.Count > maximumPerKind) {
+                var row = pool.Pop();
+                if (row) UnityEngine.Object.Destroy(row.gameObject);
+            }
+        }
+    }
+
     public void Dispose() {
         foreach (var live in visible.Values)
             if (live.row) UnityEngine.Object.Destroy(live.row.gameObject);

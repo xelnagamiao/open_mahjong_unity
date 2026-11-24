@@ -1,5 +1,6 @@
 import { mergeReplayRows, stringifyReplayJSON } from '../browserRecordMigration.js'
 import { sha256Hex } from '../seedVerify.js'
+import { expandStoredReplay } from '../../../../shared/replayStorage.mjs'
 
 function scoreChange(tick) {
   const action = String(tick?.[0] ?? '')
@@ -29,7 +30,7 @@ function finalScores(rounds) {
 // Standalone external imports have no cloud ID. Their content gives them a stable local ID.
 export function convertedReplay(value) {
   const record = value.record || value
-  if (record.format === 'open_mahjong.match_record') return record
+  if (record.format === 'open_mahjong.match_record') return expandStoredReplay(record)
   const title = record.game_title || {}
   const rounds = record.game_round || {}
   if (!Object.keys(rounds).length) throw new Error('转换结果中没有可播放的小局')

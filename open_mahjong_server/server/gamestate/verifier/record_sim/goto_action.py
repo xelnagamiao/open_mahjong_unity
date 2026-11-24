@@ -115,6 +115,7 @@ class RecordPlayer:
     has_ron_winning_tile: bool = False
     is_riichi: bool = False
     is_hu: bool = False
+    blood_win: Optional[dict] = None
     pending_riichi_horizontal: bool = False
     ready_qualification: Optional[str] = None
     tag_list: List[str] = field(default_factory=list)
@@ -235,6 +236,7 @@ class RecordSim:
                     "score": player.score,
                     "is_riichi": player.is_riichi,
                     "is_hu": player.is_hu,
+                    "blood_win": dict(player.blood_win) if player.blood_win else None,
                     "show_hand_draw_slot_active": player.show_hand_draw_slot_active,
                     "has_ron_winning_tile": player.has_ron_winning_tile,
                     "ready_qualification": player.ready_qualification,
@@ -371,19 +373,53 @@ class RecordSim:
         player.combination_tiles.append(f"g{jiagang_tile}")
         player.combination_masks.append([0, jiagang_tile, 3, actual_jia, 1, jiagang_tile, 0, jiagang_tile])
 
-    def _remove_claimed_discard(self, claimed_tile: int) -> None:
-        if self.last_discard_player_index < 0:
+    def _remove_claimed_discard(self, claimed_tile: int, source: Optional[int] = None) -> None:
+        owner = self.players.get(self.last_discard_player_index if source is None else source)
+        if owner is None or not owner.discard_tiles:
             return
-        river = self.players[self.last_discard_player_index].discard_tiles
-        if not river:
-            return
-        if river[-1] == claimed_tile:
-            river.pop()
-            return
-        for i in range(len(river) - 1, -1, -1):
-            if river[i] == claimed_tile:
-                river.pop(i)
-                return
+        river = owner.discard_tiles
+        last = len(river) - 1
+        index = last
+        if claimed_tile >= 10 and river[last] != claimed_tile:
+            index = next((i for i in range(last - 1, -1, -1) if river[i] == claimed_tile), last)
+        river.pop(index)
+        # History seeks and ron collection both pass capturePendingRiichiHorizontal=false.
+        for flags in (owner.discard_is_moqie, owner.discard_riichi_flags):
+            if index < len(flags):
+                flags.pop(index)
+
+    def _capture_blood_win(self, tick, winner, self_draw):
+        tile = codec.parse_tick_int(tick, 5)
+        if tile < 10:
+            if not self_draw and self.last_winnable_tile_id >= 10:
+                tile = self.last_winnable_tile_id
+            elif winner.tile_list:
+                tile = winner.tile_list[-1]
+        source = codec.parse_tick_int(tick, 7) if len(tick) > 7 else -1
+        if source not in self.players:
+            source = self.last_jiagang_player_index if self.last_jiagang_player_index >= 0 else self.last_discard_player_index
+        multi = codec.parse_tick_int(tick, 6) != 0
+        winner.blood_win = {"tile": tile, "self_draw": self_draw, "multi": multi,
+                            "source": None if self_draw else source}
+        if winner.tile_list and winner.tile_list[-1] == tile:
+            winner.tile_list.pop()
+        winner.show_hand_draw_slot_active = winner.has_ron_winning_tile = False
+        fans = parse_hu_fan_list(tick, 3)
+        if title_str(self.game_title, "sub_rule") == "guangdong/mil2023-doubles":
+            tag = "gd_chicken" if any(f == "鸡和" or f.startswith("GD|chicken|") for f in fans) else "gd_non_chicken"
+            if tag not in winner.tag_list:
+                winner.tag_list.append(tag)
+        robbed = any(f in {"抢杠", "抢杠和", "chankan"} or f.startswith(("抢杠（", "抢杠胡（"))
+                     or f.startswith("GD|") and f.endswith("|抢杠") for f in fans)
+        if robbed and source in self.players:
+            owner = self.players[source]
+            for i, (name, mask) in enumerate(zip(owner.combination_tiles, owner.combination_masks)):
+                if name == f"g{tile}" and 3 in mask[::2]:
+                    start = 2 * mask[::2].index(3)
+                    del mask[start:start + 2]
+                    owner.combination_tiles[i] = f"k{tile}"
+        elif not self_draw and (not multi or codec.parse_tick_int(tick, 8) != 0):
+            self._remove_claimed_discard(tile, source)
 
     def _maybe_infer_dingque(self, player: RecordPlayer) -> None:
         if not self.flags.infers_dingque_from_discards or player.dingque_suit != 0:
@@ -578,15 +614,10 @@ class RecordSim:
                         hu_player.tile_list.append(win_tile)
                         hu_player.has_ron_winning_tile = True
             self._apply_score_array(parse_score_changes(tick, 4))
-            if self.is_sichuan(): next_player = self._next_player(hepai)
-            if self.is_concealed_blood():
-                winner = self.players[hepai]
-                if winner.tile_list:
-                    winner.tile_list.pop()
-                winner.show_hand_draw_slot_active = False
-                robbed = "chankan" in parse_hu_fan_list(tick, 3)
-                if action != "hu_self" and not robbed and parse_tick_bool(tick, 8):
-                    self._remove_claimed_discard(try_parse_hepai_tile(tick, self.rule_key()))
+            if self.is_sichuan() or title_str(self.game_title, "sub_rule") == "guangdong/mil2023-doubles":
+                next_player = self._next_player(hepai)
+            if self.is_sichuan_blood() or self.is_concealed_blood():
+                self._capture_blood_win(tick, self.players[hepai], action == "hu_self")
         elif action == "hu_riichi":
             hepai = codec.parse_tick_int(tick, 1)
             winner = self.players[hepai]

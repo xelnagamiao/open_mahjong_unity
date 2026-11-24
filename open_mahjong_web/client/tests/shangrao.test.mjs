@@ -32,9 +32,9 @@ test('bao keeps its printed identity without needing a wildcard pair',()=>{
 test('Shangrao publishes one rulebook directly readable in the page',async()=>{
   const {shangraoRulebooks}=await import('../src/constants/shangraoRulebooks.js')
   assert.equal(shangraoRulebooks.length,1)
-  assert.equal(shangraoRulebooks[0].url,'/rulebooks/shangrao/rules.html')
+  assert.equal(shangraoRulebooks[0].url,'/rulebooks/上饶麻将规则书.html')
   assert.equal(shangraoRulebooks[0].filename,undefined)
-  const html=fs.readFileSync(new URL('../public/rulebooks/shangrao/rules.html',import.meta.url),'utf8')
+  const html=fs.readFileSync(new URL('../public/rulebooks/上饶麻将规则书.html',import.meta.url),'utf8')
   assert.ok(html.includes('宝牌可以作为万能牌使用，也可以作为普通牌使用'))
   assert.doesNotMatch(html,/平台适用约定|历史资料|下载规则书原件|普通牌型、碰碰和保留既有用宝判定/)
 })

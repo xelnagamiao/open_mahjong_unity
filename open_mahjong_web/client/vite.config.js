@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import send from 'send'
 import { mcrSeoPlugin } from './scripts/vite-mcr-seo.mjs'
 import { cloudflareAnalyticsPlugin } from './scripts/cloudflare-analytics.mjs'
 import { rulePublicationPlugin } from './scripts/rule-publication.mjs'
@@ -22,6 +23,39 @@ const preserveStaticDirs = new Set([
   ...manualGamePackages,
   ...(deployConfig.preserveStaticDirs || [])
 ])
+
+function localWebGLPreview() {
+  const buildDir = resolve(__dirname, '../../open_mahjong_unity/build/buildweb')
+  return {
+    name: 'local-webgl-preview',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/unity-game', (req, res, next) => {
+        if (!existsSync(join(buildDir, 'index.html'))) return next()
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.writeHead(405, { Allow: 'GET, HEAD' }).end()
+          return
+        }
+        const path = req.url.split('?')[0]
+        const file = send(req, path, { root: buildDir, index: 'index.html' })
+        file.on('headers', (response, filename) => {
+          if (filename.endsWith('.html')) response.setHeader('Cache-Control', 'no-store')
+          const compressed = filename.match(/\.(wasm|js|data)\.(gz|br)$/)
+          if (!compressed) return
+          response.setHeader('Content-Encoding', compressed[2] === 'gz' ? 'gzip' : 'br')
+          response.setHeader('Content-Type', {
+            wasm: 'application/wasm', js: 'application/javascript', data: 'application/octet-stream'
+          }[compressed[1]])
+        })
+        file.on('error', error => {
+          if (!res.headersSent) res.writeHead(error.statusCode || 500)
+          res.end()
+        })
+        file.pipe(res)
+      })
+    }
+  }
+}
 
 /**
  * 读取 open_mahjong_web/deploy.config.json：
@@ -74,7 +108,7 @@ function skipManualGamePackages() {
 }
 
 export default defineConfig({
-  plugins: [vue(), skipManualGamePackages(), rulePublicationPlugin(), mcrSeoPlugin(), cloudflareAnalyticsPlugin()],
+  plugins: [vue(), localWebGLPreview(), skipManualGamePackages(), rulePublicationPlugin(), mcrSeoPlugin(), cloudflareAnalyticsPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

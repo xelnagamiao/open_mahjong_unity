@@ -187,6 +187,7 @@ class UnitySim:
         self.opening = {"three_tiles": False, "exchange": False, "dingque": False, "seconds": 0}
         self.last_xueliu_win_tick = 0
         self.snapshot_action_tick = 0
+        self.exchange_closed_through = -1
         self.retained_claim_tick = -1
         self.retained_claim_deadline = None
 
@@ -312,6 +313,8 @@ class UnitySim:
         self.gsm["subRule"] = info.get("sub_rule") or ""
         self.gsm["stepTime"] = _as_int(info.get("step_time"), 0)
         self.snapshot_action_tick = _as_int(info.get("action_tick"), 0)
+        direction = _as_int(info.get("sbr_exchange_direction"))
+        self.exchange_closed_through = self.snapshot_action_tick if direction > 0 else self.snapshot_action_tick - 1
         self.gsm["isDuplicate"] = bool(info.get("is_duplicate"))
         self.gsm["LastAskActionTick"] = self.snapshot_action_tick if self.gsm["isDuplicate"] else 0
         self.retained_claim_tick = -1
@@ -327,6 +330,11 @@ class UnitySim:
         self.end_result["show_result"] = False
         round_no = _as_int(info.get("current_round"), 1)
         self.board["round_text"] = f"第{round_no}局"
+        is_guangdong_doubles = self.gsm["subRule"] == "guangdong/mil2023-doubles"
+        if is_guangdong_doubles:
+            self.canvas["team_ids"] = [-1] * 4
+        else:
+            self.canvas.pop("team_ids", None)
         for player in players:
             seat = _as_int(player.get("player_index"), 0)
             pos = self.pos_of(seat)
@@ -353,9 +361,16 @@ class UnitySim:
                     "post_hu_lock": bool(player.get("post_hu_lock", False)),
                 }
             )
-            if self.gsm["subRule"] == "guangdong/mil2023-doubles":
-                self.game3d[pos]["win_marker"] = _as_int(player.get("blood_hu_tile")) if dest["is_hu"] else None
+            if is_guangdong_doubles and 0 <= seat < 4 and player.get("team_id") is not None:
+                self.canvas["team_ids"][seat] = player["team_id"]
+            if is_guangdong_doubles or self.gsm["subRule"] in {"sichuan/doubles", "sichuan/doubles_duplicate"}:
+                self.game3d[pos]["win_marker"] = player.get("blood_hu_tile") if dest["is_hu"] else None
             if pos == "self":
+                receipt = player.get("sbr_received_tiles") or []
+                seconds = info.get("exchange_receipt_seconds")
+                seconds = .75 if seconds is None else seconds
+                if self._uses_table_exchange() and len(receipt) == 3 and seconds > 0:
+                    self.opening["receipt"] = {"tiles": list(receipt), "direction": direction, "seconds": seconds}
                 self.gsm["selfHandTiles"] = list(hand)
                 dest["hand_tiles_count"] = len(self.gsm["selfHandTiles"])
         current = info.get("current_player_index")
@@ -366,6 +381,22 @@ class UnitySim:
     def _handle_ask_hand(self, message: Dict[str, Any]) -> None:
         info = message.get("ask_hand_action_info") or {}
         tick = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+        phase = info.get("xueliu_exchange")
+        actions = [str(item) for item in _as_list(info.get("action_list"))]
+        previous_tick = self.gsm["LastAskActionTick"]
+        if self._uses_table_exchange():
+            if 0 < tick <= self.exchange_closed_through:
+                return
+            if phase is not None or "xueliu_exchange_three" in actions:
+                if tick < previous_tick:
+                    return
+                previous = self.opening.get("team_exchange") or {}
+                if tick == previous_tick:
+                    if phase and phase.get("animating") and previous.get("animating"):
+                        return
+                    choosing_or_waiting = self.opening["three_tiles"] or previous.get("selection_done")
+                    if choosing_or_waiting and not (phase and (phase.get("animating") or phase.get("selection_done"))):
+                        return
         if self.retained_claim_tick >= 0 and tick < self.gsm["LastAskActionTick"]:
             return
         self._close_retained_claim(self.gsm["LastAskActionTick"])
@@ -374,12 +405,11 @@ class UnitySim:
         player_index = _as_int(info.get("player_index"), 0)
         pos = self.pos_of(player_index)
         remaining = _as_int(info.get("remaining_time"), 0)
-        actions = [str(item) for item in _as_list(info.get("action_list"))]
         self.gsm["CurrentPlayer"] = pos
-        phase = info.get("xueliu_exchange")
         if phase is not None:
             self.gsm["allowActionList"] = []
-            self.gsm["IsSelfActionRequired"] = pos == "self" and "xueliu_exchange_three" in actions
+            self.gsm["IsSelfActionRequired"] = (pos == "self" and "xueliu_exchange_three" in actions
+                                              and not phase.get("selection_done") and not phase.get("animating"))
             self._clear_buttons()
             self.opening.update(three_tiles=self.gsm["IsSelfActionRequired"], exchange=True,
                                 dingque=False, seconds=remaining, team_exchange=dict(phase))
@@ -670,6 +700,10 @@ class UnitySim:
     def _is_xueliu(self):
         return self.gsm.get("subRule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}
 
+    def _uses_table_exchange(self):
+        return self.gsm.get("subRule") in {"sichuan/xuezhan_exchange", "sichuan/xueliu_exchange",
+                                          "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}
+
     def _begin_timer(self, info):
         remaining = _as_int(info.get("remaining_time"), 0)
         step = _as_int(info.get("step_remaining"), self.gsm.get("stepTime", 0))
@@ -683,6 +717,7 @@ class UnitySim:
         self._clear_buttons()
         if done:
             self.opening["dingque"] = False
+            self.opening.pop("receipt", None)
             for seat, suit in (message.get("show_result_info", {}).get("player_to_dingque") or {}).items():
                 self._seat_info(self.pos_of(int(seat)))["dingque_suit"] = int(suit)
         else:
