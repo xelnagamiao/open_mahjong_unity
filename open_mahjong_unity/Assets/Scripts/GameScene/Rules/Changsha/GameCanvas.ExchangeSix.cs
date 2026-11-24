@@ -457,7 +457,8 @@ public partial class GameCanvas {
             : phase == "exchange_repeat_choice" ? $"是否再换一轮？最先提交的选择生效，{snapshot.remaining_time}秒无人选择则不换"
             : phase == "exchange" ? "第" + data.exchange_round + "轮换六张" : phase == "four_joy" ? "四喜" : phase == "declarations" ? "开局声明"
             : phase == "before_draw" ? "摸牌前选择闷杠" : phase == "blind_kong_declared" ? "已声明闷杠，即将开牌"
-            : phase == "blind_kong_view" ? "闷杠本家查看摸牌" : phase == "claims" ? "胡牌或鸣牌"
+            : phase == "blind_kong_view" ? "闷杠本家查看摸牌" : phase == "claims_recheck" ? "战术鸣牌：可重新选择优先操作"
+            : phase == "claims" ? "胡牌或鸣牌"
             : phase.StartsWith("sea_") || phase == "sea_bottom" ? "海底" : phase.Contains("kong") ? "开杠" : "换六张固定玩法";
         exchangeSixStatus.text = title + (phase == "exchange" ? "\n已选 " + exchangeSixSelection.Count + "/6，最多两种花色；选定后掷骰" : "")
             + (readOnly ? "\n回放" : "");

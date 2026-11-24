@@ -102,6 +102,7 @@ class ExchangeSixFlow:
         self.settlements = []
         self.kong_dice = []
         self.kong_positions = []
+        self.recheck_deadline = None
         self.round_scores_before = {p.original_player_index: p.score for p in self.state.player_list}
 
     def waits(self, seat, hand=None, melds=None, *, for_report=False):
@@ -190,6 +191,8 @@ class ExchangeSixFlow:
             return False
         if action not in state.action_dict.get(seat, []):
             return False
+        if self.phase == "claims_recheck" and (self.recheck_deadline is None or time.time() >= self.recheck_deadline):
+            return False
         if self.phase in EXCHANGE_CHOICE_PHASES:
             if self.exchange_choice is not None or get_ask_elapsed(state, seat) >= EXCHANGE_CHOICE_SECONDS:
                 return False
@@ -231,6 +234,9 @@ class ExchangeSixFlow:
         if self.phase == "exchange" or self.phase in EXCHANGE_CHOICE_PHASES:
             budget = EXCHANGE_CHOICE_SECONDS if self.phase in EXCHANGE_CHOICE_PHASES else state.exchange_selection_seconds
             bank = math.ceil(max(0, budget - get_ask_elapsed(state, seat))) if seat in state.waiting_players_list and not choice_locked else 0
+            step = 0
+        if self.phase == "claims_recheck":
+            bank = math.ceil(max(0, (self.recheck_deadline or 0) - time.time())) if seat in state.waiting_players_list else 0
             step = 0
         player = state.player_list[seat]
         cut_tiles = []
@@ -328,14 +334,18 @@ class ExchangeSixFlow:
                       else player.hand_tiles[-1] if player.open_kong_locked or seat in self.reported_ready else None)
         if is_auto_cut_bot(player):
             return choose_auto_cut_action(player, actions, [forced_cut] if forced_cut is not None else None)
-        return await run_room_bot_cpu(state, choose_action, self.phase, tuple(player.hand_tiles),
+        bot_phase = "claims" if self.phase == "claims_recheck" else self.phase
+        return await run_room_bot_cpu(state, choose_action, bot_phase, tuple(player.hand_tiles),
             tuple(player.combination_tiles), tuple(count_visible_tiles(state)), actions,
-            {a: tuple(t) for a, t in self.targets[seat].items()}, seat in self.reported_ready, forced_cut)
+            # 战术重开只允许更高优先级动作，不能把上一轮已排除的吃碰目标交给机器人。
+            {a: tuple(t) for a, t in self.targets[seat].items() if a in actions}, seat in self.reported_ready, forced_cut)
 
     async def run_stage(self, phase, actions, default_action):
         """选牌和全桌决定独立计时，暂停及重连不重置预算。"""
         state = self.state
         self.phase = phase
+        if phase == "claims_recheck":
+            self.recheck_deadline = time.time() + 5
         choice_phase = phase in EXCHANGE_CHOICE_PHASES
         if choice_phase:
             self.exchange_choice = None
@@ -360,6 +370,8 @@ class ExchangeSixFlow:
                 if pause_seconds > 0.1:
                     for seat in state.waiting_players_list:
                         state._ask_delivered_at[seat] += pause_seconds
+                    if self.recheck_deadline is not None:
+                        self.recheck_deadline += pause_seconds
                 if choice_phase:
                     if self.exchange_choice is not None:
                         answers[self.exchange_choice["seat"]] = {"action_type": self.exchange_choice["action"]}
@@ -382,19 +394,25 @@ class ExchangeSixFlow:
                     elapsed = get_ask_elapsed(state, seat)
                     budget = state.exchange_selection_seconds if phase == "exchange" else max(0, player.remaining_time) + state.step_time
                     expired = elapsed >= budget
+                    if phase == "claims_recheck":
+                        expired = time.time() >= self.recheck_deadline
                     if player.is_bot and not expired and elapsed < bot_delay(state):
                         continue
-                    if player.is_bot or "offline" in player.tag_list or expired:
+                    if (player.is_bot or "offline" in player.tag_list or expired) and not (
+                            phase == "claims_recheck" and not state.action_queues[seat].empty()):
                         if expired:
                             # 预算耗尽时先丢弃排队的晚到动作，不能让它抢在服务器超时决策之前。
                             while not state.action_queues[seat].empty():
                                 state.action_queues[seat].get_nowait()
                         tick = state.server_action_tick
-                        data = await self.bot_action(seat, default_action) if player.is_bot else default_action(seat)
+                        data = ({"action_type": "pass"} if phase == "claims_recheck" and expired else
+                                await self.bot_action(seat, default_action) if player.is_bot else default_action(seat))
                         if tick != state.server_action_tick or seat not in state.waiting_players_list:
                             continue
                         if expired and phase == "exchange":
                             # 晚到客户端请求被拒绝；服务器默认选牌仍走下方的牌归属校验。
+                            await state.action_queues[seat].put({**data, "_action_tick": state.server_action_tick})
+                        elif phase == "claims_recheck" and expired:
                             await state.action_queues[seat].put({**data, "_action_tick": state.server_action_tick})
                         else:
                             await self.submit(seat, data["action_type"], action_tick=state.server_action_tick,
@@ -419,7 +437,7 @@ class ExchangeSixFlow:
                                     self.pending_ready_discard = data["target_tile"]
                             append_action_tick(state, ["changsha_declaration", seat, data["action_type"], data.get("target_tile")])
                         answers[seat] = data
-                        if phase != "exchange":
+                        if phase not in ("exchange", "claims_recheck"):
                             player.remaining_time = max(0, player.remaining_time - max(0, int(elapsed - state.step_time)))
                         state.waiting_players_list.remove(seat)
                         state.action_dict[seat] = []
@@ -442,6 +460,8 @@ class ExchangeSixFlow:
                     await asyncio.gather(*tasks, return_exceptions=True)
             return answers
         finally:
+            if phase == "claims_recheck":
+                self.recheck_deadline = None
             state.waiting_players_list = []
             state.action_dict = {seat: [] for seat in range(4)}
             for seat in range(4):
@@ -647,6 +667,51 @@ class ExchangeSixFlow:
     def hand_pattern(fans):
         return tuple(sorted(fan for fan in fans if fan not in WAY_FANS and fan not in ("报听", "明牌", "小胡", "闷杠")))
 
+    @staticmethod
+    def claim_rank(action, seat, opener):
+        priority = (4 if action.startswith("hu_") else 3 if action == "gang"
+                    else 2 if action in ("peng", "buzhang") else 1 if action.startswith("chi_") else 0)
+        return priority, -((seat - opener) % 4)
+
+    async def tactical_claims(self, actions, answers, opener):
+        """只重开本张原本合法的高优先级选择；胡牌保留全部赢家，不恢复前张过胡资格。"""
+        state = self.state
+        announced = set()
+        while True:
+            accepted = [(seat, data) for seat, data in answers.items() if data["action_type"] != "pass"]
+            if not accepted:
+                return answers
+            current_seat, current = max(accepted, key=lambda item: self.claim_rank(item[1]["action_type"], item[0], opener))
+            rank = self.claim_rank(current["action_type"], current_seat, opener)
+            winners = {seat for seat, data in accepted if data["action_type"].startswith("hu_")}
+            for seat, data in accepted:
+                key = (seat, data["action_type"], data.get("target_tile"))
+                if key not in announced:
+                    announced.add(key)
+                    await state.broadcast_do_action(action_list=[data["action_type"]], action_player=seat,
+                        cut_tile=data.get("target_tile") or self.claim_tiles[0], cut_from_player=opener, is_claim=True)
+            recheck = {}
+            for seat, original in actions.items():
+                if seat in winners or seat == current_seat:
+                    continue
+                higher = [action for action in original if action != "pass" and (
+                    self.claim_rank(action, seat, opener) > rank or winners and action.startswith("hu_"))]
+                if higher:
+                    recheck[seat] = higher + ["pass"]
+            if not recheck:
+                return answers
+            def default(seat):
+                return {"action_type": recheck[seat][0] if state.player_list[seat].is_bot
+                        and recheck[seat][0].startswith("hu_") else "pass"}
+            updates = await self.run_stage("claims_recheck", recheck, default)
+            changed = False
+            for seat, data in updates.items():
+                if data["action_type"] != "pass":
+                    answers[seat] = data
+                    changed = True
+            if not changed:
+                return answers
+
     async def claims(self, tiles, *, kong=False, rob=False, only_thirteen=False, allow_meld=True, sea=False, suppress_hu=False):
         """保留每张公开牌的全部赢家；没人胡时按动作优先级及座位距离选一次副露。"""
         state = self.state
@@ -714,6 +779,7 @@ class ExchangeSixFlow:
                 return {"action_type": actions[seat][0]}
             return {"action_type": "pass"}
         answers = await self.run_stage("claims", actions, default)
+        answers = await self.tactical_claims(actions, answers, opener)
         winners = sorted((seat for seat, data in answers.items() if data["action_type"].startswith("hu_")),
                          key=lambda seat: (seat - opener) % 4)
         if winners:
@@ -757,16 +823,16 @@ class ExchangeSixFlow:
             if suppress_hu:
                 await state.broadcast_do_action(action_list=["changsha_batch_claim"], action_player=seat,
                                                 cut_tile=data["target_tile"], cut_from_player=opener)
-            await self.meld(seat, data["action_type"], data["target_tile"], opener)
+            await self.meld(seat, data["action_type"], data["target_tile"], opener, silent=True)
         elif not rob:
             state.game_status = "END" if not state.tiles_list else "deal_card"
         self.phase = "playing"
         return False
 
-    async def meld(self, seat, action, tile, discarder):
+    async def meld(self, seat, action, tile, discarder, *, silent=False):
         state = self.state
         if action in ("gang", "buzhang"):
-            await self.declare_kong(seat, tile, formal=action == "gang", claimed_from=discarder)
+            await self.declare_kong(seat, tile, formal=action == "gang", claimed_from=discarder, silent=silent)
             return
         player = state.player_list[seat]
         needed = {"peng": [tile, tile], "chi_left": [tile - 2, tile - 1],
@@ -792,10 +858,10 @@ class ExchangeSixFlow:
         state.current_claim_cut_tile = None
         player_action_record_chipenggang(state, action_type=action, mingpai_tile=tile, action_player=seat, combination_mask=mask)
         await state.broadcast_do_action(action_list=[action], action_player=seat, combination_mask=mask,
-                                        combination_target=combination, cut_from_player=discarder, cut_tile=tile)
+                                        combination_target=combination, cut_from_player=discarder, cut_tile=tile, silent=silent)
         state.game_status = "waiting_hand_action"
 
-    async def declare_kong(self, seat, tile, *, formal, claimed_from=None, defer_lock=False):
+    async def declare_kong(self, seat, tile, *, formal, claimed_from=None, defer_lock=False, silent=False):
         state = self.state
         player = state.player_list[seat]
         is_mo_gang = bool(player.has_draw_slot and player.hand_tiles and player.hand_tiles[-1] == tile)
@@ -819,7 +885,7 @@ class ExchangeSixFlow:
             state.player_list[claimed_from].discard_origin_tiles.append(tile)
             player_action_record_chipenggang(state, action_type="gang", mingpai_tile=tile, action_player=seat, combination_mask=mask)
             await state.broadcast_do_action(action_list=["gang"], action_player=seat, combination_mask=mask,
-                                            combination_target=f"g{tile}", cut_from_player=claimed_from, cut_tile=tile)
+                                            combination_target=f"g{tile}", cut_from_player=claimed_from, cut_tile=tile, silent=silent)
         elif added_index is not None:
             player.hand_tiles.remove(tile)
             player.combination_tiles[added_index] = f"g{tile}"
@@ -1161,6 +1227,8 @@ class ExchangeSixFlow:
             hepai_tile=self.wins[winner][0]["tiles"][0], multi_ron=len(winners) > 1,
             simultaneous_hu_hands={index: groups[0]["hand"] for index, groups in self.wins.items()} if len(winners) > 1 else None,
             ron_discarder_index=self.payer,
+            # 接炮已在战术申请阶段逐家报胡，结算不重复播放；自摸仍正常演出。
+            silent=self.payer is not None,
             next_status="match_end" if state.current_round >= state.max_round * 4 else "round_end_by_ready")
         self.phase = "settlement"
         self.settlements = settlements

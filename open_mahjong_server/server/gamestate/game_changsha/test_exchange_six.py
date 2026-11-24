@@ -539,14 +539,14 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
         manager._broadcast_room_info = AsyncMock()
         result = await manager.create_Changsha_room("connection", "换六张固定规则", 1, "", 20, 5, False,
             sub_rule=SUB_RULE, open_kong_replacement_count=99, bird_count=99,
-            small_hu_score=9999, big_hu_score=9999, tactical_call=True,
+            small_hu_score=9999, big_hu_score=9999, tactical_call=False,
             small_hu_self_draw_only=True, score_cap_type="stale", score_cap_value=-1,
             initial_hu_ban_ban_hu=True, dealer_bird=True, base_score_no_dealer=False)
         self.assertTrue(result.success, result.message)
         room = result.room_info
         self.assertEqual((room["open_kong_replacement_count"], room["bird_count"], room["small_hu_score"], room["big_hu_score"]), (4, 2, 2, 8))
         self.assertFalse(room["initial_hu_ban_ban_hu"])
-        self.assertFalse(room["tactical_call"])
+        self.assertTrue(room["tactical_call"])
         self.assertTrue(room["base_score_no_dealer"])
         self.assertFalse(room["small_hu_self_draw_only"])
         self.assertEqual((room["score_cap_type"], room["score_cap_value"]), ("none", 0))
