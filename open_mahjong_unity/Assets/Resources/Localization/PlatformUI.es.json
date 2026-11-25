@@ -11636,6 +11636,42 @@
       "text": "Restablecer fondo"
     },
     {
+      "key": "靛蓝·雾白",
+      "text": "Índigo · Niebla"
+    },
+    {
+      "key": "靛蓝·银灰",
+      "text": "Índigo · Plata"
+    },
+    {
+      "key": "靛蓝·亚麻",
+      "text": "Índigo · Lino"
+    },
+    {
+      "key": "靛蓝·岩灰",
+      "text": "Índigo · Piedra"
+    },
+    {
+      "key": "暖灰橙背",
+      "text": "Gris cálido · Dorso naranja"
+    },
+    {
+      "key": "冷灰蓝背",
+      "text": "Gris frío · Dorso azul"
+    },
+    {
+      "key": "米灰靛背",
+      "text": "Gris beige · Dorso índigo"
+    },
+    {
+      "key": "橙背宽边",
+      "text": "Borde naranja ancho"
+    },
+    {
+      "key": "蓝背宽边",
+      "text": "Borde azul ancho"
+    },
+    {
       "key": "靛蓝",
       "text": "Índigo"
     },
@@ -25240,8 +25276,8 @@
       "text": "Tras kong, las fichas de reposición se revelan en las posiciones indicadas por los dados. Kamo solo impide ganar por descarte con mano pequeña. El límite se aplica por ganador y pagador; las victorias de un mismo lote se acumulan para el límite."
     },
     {
-      "key": "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
-      "text": "Al inicio hay 3 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite."
+      "key": "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
+      "text": "Al inicio hay 2 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite."
     },
     {
       "key": "经典双鸟",

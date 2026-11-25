@@ -69,7 +69,28 @@ def claim_actions(state, actor, tile, *, rob=False):
 
 class ActionPolicy:
     def refresh_waiting_tiles(self, state, index, *, exclude_last_tile=False):
+        from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
         p = state.player_list[index]
         hand = p.hand_tiles[:-1] if exclude_last_tile else p.hand_tiles
-        p.waiting_tiles = set(book.logical_waits(tuple(sorted(hand)), tuple(p.combination_tiles), state.hun))
+        return sync_refresh_waiting_tiles_cached(
+            p,
+            "beijing",
+            hand,
+            p.combination_tiles,
+            lambda: set(book.logical_waits(tuple(sorted(hand)), tuple(p.combination_tiles), state.hun)),
+            extra=state.hun,
+        )
+
+    async def async_refresh_waiting_tiles(self, state, index, *, exclude_last_tile=False):
+        from ..public.async_tingpai import get_async_calc_service, waiting_cache_signature
+        p = state.player_list[index]
+        hand = p.hand_tiles[:-1] if exclude_last_tile else p.hand_tiles
+        sig = waiting_cache_signature("beijing", hand, p.combination_tiles, state.hun)
+        if getattr(p, "_waiting_cache_sig", None) == sig:
+            return p.waiting_tiles
+        waits = await get_async_calc_service(state).call_rule(
+            book.__name__, "logical_waits", sorted(hand), list(p.combination_tiles), state.hun
+        )
+        p.waiting_tiles = set(waits)
+        p._waiting_cache_sig = sig
         return p.waiting_tiles

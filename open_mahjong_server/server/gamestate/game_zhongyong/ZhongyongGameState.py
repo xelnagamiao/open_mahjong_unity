@@ -927,6 +927,14 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         if window.get("status") == "waiting_action_after_cut":
             await self.finish_claim_protection()
             # 受保护观众后续帧走 outbound_pipe，此处不再全局 sleep
+        async_refresh = getattr(self.action_policy, "async_refresh_waiting_tiles", None)
+        if callable(async_refresh) and window.get("status") in {"waiting_hand_action", "onlycut_after_action"}:
+            pidx = window.get("player")
+            act = (results.get(pidx) or {}).get("action_type")
+            if act in {"cut", "jiagang"}:
+                for other in self.player_list:
+                    if other.player_index != pidx and not other.is_hu:
+                        await async_refresh(self, other.player_index)
         return self.apply_action_results(window, results, settlements=settlements)
 
     def apply_action_results(

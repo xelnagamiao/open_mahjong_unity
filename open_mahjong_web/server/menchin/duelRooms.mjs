@@ -1,5 +1,6 @@
-import { randomInt, randomUUID } from 'node:crypto'
+import { createHash, randomInt, randomUUID } from 'node:crypto'
 import { createDuel, duelAct, duelTick, duelView } from './duel.mjs'
+import { chooseBotMove } from './duelBot.mjs'
 
 export function registerDuelRooms(ns, store, verify, options = {}) {
   const rooms = new Map()
@@ -9,6 +10,7 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
   const ratings = new Map()
   const now = options.now || Date.now
   const reconnectMs = options.reconnectMs ?? 30000
+  const botDelayMs = options.botDelayMs ?? 800
   const channel = id => 'duelist:' + id
   const online = id => ns.adapter.rooms.has(channel(id))
 
@@ -18,9 +20,10 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
       .map(room => ({ code: room.code, host: room.players[0].name }))
   }
 
-  function snapshot(id, listings = availableRooms()) {
+  function snapshot(id, listings) {
     const room = assigned.get(id)
-    const result = { serverNow: now(), rooms: listings, queued: queue.has(id), rating: ratings.get(id), room: null }
+    const result = { serverNow: now(), rooms: room?.bot || id.startsWith('guest:') ? [] : listings ?? availableRooms(),
+      queued: queue.has(id), rating: ratings.get(id) ?? null, room: null }
     if (!room) return result
     const seat = room.players.findIndex(p => p.id === id)
     const game = room.game ? duelView(room.game, seat) : null
@@ -31,15 +34,15 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
       game.actions = []
     }
     result.room = {
-      id: room.id, code: room.code, ranked: room.ranked, phase: room.phase, seat,
-      players: room.players.map(p => ({ id: p.id, name: p.name, online: online(p.id) })),
+      id: room.id, code: room.code, ranked: room.ranked, bot: room.bot, phase: room.phase, seat,
+      players: room.players.map(p => ({ id: p.id, name: p.name, online: p.bot || online(p.id), bot: !!p.bot })),
       game,
       winner: room.winner, forfeit: room.forfeit, changes: room.changes, saving: room.saving,
     }
     return result
   }
   function publishRoom(room) {
-    const listings = availableRooms()
+    const listings = room.bot ? [] : availableRooms()
     for (const { id } of room.players) {
       if (assigned.get(id) === room) ns.to(channel(id)).emit('state', snapshot(id, listings))
     }
@@ -47,18 +50,22 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
   function publishLobby() {
     const listings = availableRooms()
     options.roomsChanged?.(listings)
-    const ids = new Set([...ns.sockets.values()].map(s => s.data.actor.id))
+    const ids = new Set()
+    for (const socket of ns.sockets.values()) {
+      const { id, guest } = socket.data.actor
+      if (!guest && !assigned.get(id)?.bot) ids.add(id)
+    }
     for (const id of ids) ns.to(channel(id)).emit('state', snapshot(id, listings))
   }
   function create(players, ranked) {
     let code
     do { code = String(randomInt(100000, 1000000)) } while (rooms.has(code))
     const room = {
-      id: randomUUID(), code, players, ranked, phase: 'waiting', game: null, timer: null,
+      id: randomUUID(), code, players, ranked, bot: players.some(p => p.bot), phase: 'waiting', game: null, timer: null,
       winner: null, forfeit: null, changes: {}, saving: '',
     }
     rooms.set(code, room)
-    players.forEach(p => assigned.set(p.id, room))
+    for (const player of players) if (!player.bot) assigned.set(player.id, room)
     return room
   }
 
@@ -104,12 +111,17 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
       finish(room, a === b ? null : (a > b ? 0 : 1))
       return
     }
+    const game = room.game
+    const botTurn = room.players[game.turn]?.bot
+    const delay = game.deadline - now()
     room.timer = setTimeout(() => {
       if (room.phase !== 'playing') return
-      duelTick(room.game, now())
+      const move = botTurn && now() < game.deadline ? chooseBotMove(duelView(game, game.turn)) : null
+      const time = now()
+      if (!duelTick(game, time) && move) duelAct(game, game.turn, { ...move, revision: game.revision }, time)
       schedule(room)
       publishRoom(room)
-    }, Math.max(1, room.game.deadline - now())).unref()
+    }, Math.max(1, botTurn ? Math.min(delay, botDelayMs) : delay)).unref()
   }
   function expire(room) {
     if (room?.phase === 'playing' && duelTick(room.game, now())) {
@@ -130,7 +142,7 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
     expire(room)
     if (room.phase === 'playing') {
       const opponent = 1 - seat
-      finish(room, !online(id) && !online(room.players[opponent].id) ? null : opponent, seat)
+      finish(room, !room.bot && !online(id) && !online(room.players[opponent].id) ? null : opponent, seat)
     }
     assigned.delete(id)
     if (room.phase === 'waiting') {
@@ -146,6 +158,19 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
   function play(actor, data) {
     const id = actor.id
     const room = assigned.get(id)
+    if (actor.guest && !['bot', 'move', 'leave'].includes(data.action)) throw new Error('请使用可参与对战的平台账号登录')
+    if (data.action === 'bot') {
+      if (room) {
+        if (!room.bot || room.phase !== 'finished' || room.id !== data.roomId) throw new Error('请先退出当前房间或匹配')
+        leave(id)
+      }
+      queue.delete(id)
+      const bot = { id: 'bot:' + randomUUID(), name: '机器人', bot: true }
+      const practice = create([actor, bot], false)
+      start(practice)
+      publishRoom(practice)
+      return
+    }
     if (data.action === 'cancel') {
       queue.delete(id)
       ns.to(channel(id)).emit('state', snapshot(id))
@@ -174,7 +199,8 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
     if (!room || room.id !== data.roomId) throw new Error('对局已变更')
     if (data.action === 'leave') {
       leave(id)
-      publishLobby()
+      if (room.bot) ns.to(channel(id)).emit('state', snapshot(id))
+      else publishLobby()
       return
     }
     if (data.action === 'start') {
@@ -195,7 +221,12 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
 
   ns.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token
+      const { token, guestKey } = socket.handshake.auth ?? {}
+      if (!token && typeof guestKey === 'string' && /^[0-9a-f]{32}$/.test(guestKey)) {
+        const id = 'guest:' + createHash('sha256').update(guestKey).digest('hex')
+        socket.data.actor = { id, name: '游客', guest: true }
+        return next()
+      }
       const actor = await verify(token)
       if (actor.matchBanned) throw new Error()
       socket.data.actor = actor
@@ -207,11 +238,12 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
     const actor = socket.data.actor
     const id = actor.id
     socket.join(channel(id))
-    ratings.set(id, socket.data.rating)
+    if (!actor.guest) ratings.set(id, socket.data.rating)
     clearTimeout(offline.get(id))
     offline.delete(id)
     expire(assigned.get(id))
-    if (assigned.has(id)) publishLobby()
+    if (assigned.get(id)?.bot) publishRoom(assigned.get(id))
+    else if (assigned.has(id)) publishLobby()
     else socket.emit('state', snapshot(id))
     socket.on('sync', () => {
       expire(assigned.get(id))
@@ -219,6 +251,7 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
     })
     socket.on('standings', async reply => {
       if (typeof reply !== 'function') return
+      if (actor.guest) return reply({ ok: false, error: '请使用可参与对战的平台账号登录' })
       try { reply({ ok: true, rows: await store.duelStandings() }) }
       catch { reply({ ok: false, error: '排行榜读取失败' }) }
     })
@@ -227,7 +260,7 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
       try {
         if (actor.expiresAt && Date.now() >= actor.expiresAt * 1000) throw new Error('登录已过期')
         if (!data || typeof data !== 'object') throw new Error('操作无效')
-        if (['create', 'join', 'queue', 'start'].includes(data.action)) {
+        if (!actor.guest && ['bot', 'create', 'join', 'queue', 'start'].includes(data.action)) {
           const current = await verify(socket.handshake.auth.token)
           if (current.matchBanned) throw new Error('账号当前不能参加对战')
           if (!socket.connected) return
@@ -242,12 +275,13 @@ export function registerDuelRooms(ns, store, verify, options = {}) {
       if (online(id)) return
       queue.delete(id)
       ratings.delete(id)
-      if (!assigned.has(id)) return
-      publishLobby()
+      const room = assigned.get(id)
+      if (!room) return
+      if (!room.bot) publishLobby()
       offline.set(id, setTimeout(() => {
         offline.delete(id)
         leave(id)
-        publishLobby()
+        if (!room.bot) publishLobby()
       }, reconnectMs).unref())
     })
   })

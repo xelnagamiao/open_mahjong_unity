@@ -181,18 +181,40 @@ def check_only_cut(self, player_index):
 
 # 检查等待牌操作（使用古典麻将听牌检查）
 def refresh_waiting_tiles(self, player_index, is_first_action=False):
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
     player_item = self.player_list[player_index]
-    current_player_hand_tiles = player_item.hand_tiles
-    if is_first_action:
-        current_player_hand_tiles = player_item.hand_tiles[:-1]
+    current_player_hand_tiles = player_item.hand_tiles[:-1] if is_first_action else player_item.hand_tiles
     current_player_combination_tiles = player_item.combination_tiles
-    current_player_waiting_tiles = self.calculation_service.Classical_tingpai_check(
+    prev = player_item.waiting_tiles
+    waiting = sync_refresh_waiting_tiles_cached(
+        player_item,
+        "classical",
         current_player_hand_tiles,
-        current_player_combination_tiles
+        current_player_combination_tiles,
+        lambda: self.calculation_service.Classical_tingpai_check(
+            current_player_hand_tiles,
+            current_player_combination_tiles,
+        ),
     )
-    if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
-        self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
-        logger.info(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")
+    if waiting != prev:
+        logger.info(f"玩家{player_index}的等待牌更新为{waiting}")
+
+
+async def async_refresh_waiting_tiles(self, player_index, is_first_action=False):
+    """通过统一 CalcExecutor + L1 手牌缓存异步刷新古典麻将听牌表。"""
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
+    player_item = self.player_list[player_index]
+    current_player_hand_tiles = player_item.hand_tiles[:-1] if is_first_action else player_item.hand_tiles
+    prev = player_item.waiting_tiles
+    waiting = await _async_refresh(
+        self,
+        player_index,
+        "classical",
+        current_player_hand_tiles,
+        player_item.combination_tiles,
+    )
+    if waiting != prev:
+        logger.info(f"玩家{player_index}的等待牌更新为{waiting}")
 
 
 # 检查和牌操作（使用古典麻将和牌检查，返回4元组）

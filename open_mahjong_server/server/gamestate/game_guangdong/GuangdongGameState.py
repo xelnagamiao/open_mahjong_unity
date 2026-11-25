@@ -13,7 +13,7 @@ from ..game_taiwan.action_check import hu_action_for_player
 from ..game_taiwan.boardcast import broadcast_do_action
 from ..public.game_record_manager import append_action_tick
 from ..public.random_seed_manager import derive_round_seed
-from ..public.ai.bot_executor import run_room_bot_cpu
+from ...game_calculation.calc_executor import run_room_calc_cpu
 from .lifecycle import GuangdongMatchMixin
 from .client_context import GuangdongClientContextMixin
 from .timing import GuangdongTimingMixin
@@ -115,7 +115,7 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongC
         pending = [key for key in queries if key not in self._candidate_cache]
         if not pending:
             return
-        results = await run_room_bot_cpu(self, rules.evaluate_score_batch, pending)
+        results = await run_room_calc_cpu(self, rules.evaluate_score_batch, pending)
         if len(self._candidate_cache) + len(pending) > 32:
             self._candidate_cache.clear()
         self._candidate_cache.update(zip(pending, results))

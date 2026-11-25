@@ -36,6 +36,7 @@ Shader "Custom/ThreeDTiles"
         _BackTexExtendEdge ("Back Tex Extend Edge", Range(0, 1)) = 0
         _BackTilingOffset ("Back Tiling & Offset", Vector) = (1,1,0,0)
         _BackEdgeColor ("Back Edge Color (背面侧边)", Color) = (0.218, 0.372, 0.66, 1)
+        _BackLayerFraction ("Back layer fraction of tile depth (0 = authored seam)", Range(0,1)) = 0
 
         _SideTex ("Side Texture (侧面)", 2D) = "white" {}
         _SideColor ("Side Tint", Color) = (0.9019608,0.9019608,0.8941176,1)
@@ -272,11 +273,22 @@ Shader "Custom/ThreeDTiles"
                 // 背侧边顶点色为黑色(RGB 和<1)时显示 _BackColor 底色；
                 // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。
                 half backEdgeMask = saturate(1.0h - (input.color.r + input.color.g + input.color.b));
+                half sideMask = input.color.b;
+                if (_BackLayerFraction > 0.0h)
+                {
+                    // UV3.y runs from 0 at the front cap to 1 at the back cap.
+                    // Redistribute only the side wall; artwork, cap bevels and silhouette stay intact.
+                    half wall = sideMask + backEdgeMask;
+                    float transition = max(fwidth(input.uvSide.y), 0.0001);
+                    half backing = saturate((input.uvSide.y - (1.0h - _BackLayerFraction)) / transition + 0.5);
+                    backEdgeMask = wall * backing;
+                    sideMask = wall - backEdgeMask;
+                }
                 // 默认背面边缘用纯色；开启延伸后把牌背图铺到背部边缘，方便整张渐变图。
                 half extendEdge = saturate(_BackTexExtendEdge) * backTextureBlend * backSample.a;
                 half3 edgeRgb = lerp(backEdgeColor.rgb, backSample.rgb, extendEdge);
                 half4 col = front * input.color.r + back * input.color.g
-                          + side * input.color.b
+                          + side * sideMask
                           + half4(edgeRgb, 1.0h) * backEdgeMask;
 
                 // Flat caps and distinct bevel bands are authored in the mesh.

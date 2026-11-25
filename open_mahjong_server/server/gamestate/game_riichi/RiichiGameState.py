@@ -19,6 +19,7 @@ from ...game_calculation.riichi.win_requirements import meets_win_requirements
 from typing import Dict, List, Optional, Any
 
 from .action_check import (
+    async_refresh_waiting_tiles,
     check_action_hand_action,
     refresh_waiting_tiles,
     check_jiuzhongjiupai,
@@ -460,7 +461,7 @@ class RiichiGameState:
 
             # 闲家首次摸牌前即可荣和；先刷新每家的13张配牌听口。
             for player in self.player_list:
-                self.refresh_waiting_tiles(player.player_index)
+                await async_refresh_waiting_tiles(self, player.player_index)
             # 亲家（player_index=0）摸第 14 张
             self.player_list[0].get_tile(self.tiles_list)
             player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
@@ -498,7 +499,7 @@ class RiichiGameState:
                             self.player_list[self.current_player_index].temp_furiten = False
                             if self.sync_furiten_tags():
                                 await self.broadcast_refresh_player_tag_list()
-                        self.refresh_waiting_tiles(self.current_player_index)
+                        await async_refresh_waiting_tiles(self, self.current_player_index)
                         self.player_list[self.current_player_index].get_tile(self.tiles_list)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
                         await self.broadcast_do_action(
@@ -530,7 +531,7 @@ class RiichiGameState:
                             if len(players_with_kan) >= 2:
                                 self._pending_four_kan_abort = True
 
-                        self.refresh_waiting_tiles(self.current_player_index)
+                        await async_refresh_waiting_tiles(self, self.current_player_index)
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="nd" if is_nuki else "gd")
                         await self.broadcast_do_action(

@@ -96,10 +96,29 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         int? previousIndicator = Info?.indicator;
         if(response.game_info?.sanhua!=null) Info=response.game_info.sanhua;
         bool handled=base.HandleMessage(suffix,response);
+        if (suffix != "game_start" && response.game_info?.sanhua != null)
+            RefreshLiveWall(response.game_info);
         if (Info?.indicator != previousIndicator)
             RoundPanel.Instance?.RefreshIndicators(SubRule, Indicators(Info));
         GameCanvas.Instance?.ShowSanhuaFans(Info,Mirror.IndexToPosition);
         return handled;
+    }
+
+    protected override void OnRoundStarted(GameInfo info) {
+        Info = info.sanhua;
+        RefreshLiveWall(info);
+    }
+
+    private void RefreshLiveWall(GameInfo info) {
+        if (GameRecordManager.Instance?.ShouldShowRecordTips() == true) return;
+        if (Info?.wall_front_draws is int front && Info.wall_back_draws is int back)
+            Game3DManager.Instance?.ShowSanhuaWall(Info, info.dealer_index ?? Session.DealerIndex,
+                Mirror.IndexToPosition, front, back);
+    }
+
+    public override void OnSessionReset() {
+        Info = null;
+        base.OnSessionReset();
     }
 
     public override void OnPlayerTagsRefreshed() {

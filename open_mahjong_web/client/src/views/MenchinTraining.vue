@@ -8,7 +8,13 @@
         <nav class="action-grid" aria-label="模式选择">
           <router-link class="action-card practice" to="/menchin/practice"><span>休闲训练</span><small>不限时 · 随时换牌</small></router-link>
           <router-link class="action-card challenge" to="/menchin/challenge"><span>限时挑战</span><small>50 题 · 每题 20 秒</small></router-link>
-          <router-link class="action-card pvp" to="/menchin/pvp?entry=match"><span>PvP 匹配</span><small>双人万字 · 20 局</small></router-link>
+          <div class="action-card pvp">
+            <router-link class="match-entry" to="/menchin/pvp?entry=match"><span>PvP 匹配</span></router-link>
+            <div class="pvp-options">
+              <small>双人万字 · 20 局</small>
+              <router-link class="bot-entry" to="/menchin/pvp?entry=bot">机器人对战</router-link>
+            </div>
+          </div>
           <router-link class="action-card create" to="/menchin/pvp?entry=create"><span>开设房间</span><small>好友约战</small></router-link>
         </nav>
       </section>
@@ -27,6 +33,10 @@
               <div><dt>最高连对</dt><dd>{{ profile.bestStreak }}</dd></div>
             </dl>
             <p v-else role="status">{{ boardStatus === 'error' ? '成绩读取失败' : '正在读取成绩' }}</p>
+            <p v-if="auth.token && profile" class="ranked-record">
+              <template v-if="profile.matches">{{ tr('排位 Elo {rating} · {wins} 胜 {losses} 负', { rating: profile.rating, wins: profile.wins, losses: profile.matches - profile.wins }) }}</template>
+              <template v-else>尚无排位战绩</template>
+            </p>
           </section>
           <section class="rooms-section lobby-room-section" aria-labelledby="menchin-rooms-title">
             <h2 id="menchin-rooms-title" class="section-bar lobby-section-title">■ 房间列表</h2>
@@ -69,7 +79,7 @@
         <h2 id="menchin-guide-title" class="section-bar">■ 门清大战说明</h2>
         <div class="panel">
           <p>休闲训练可随时查看待牌或换牌。限时挑战每题 20 秒，越快答对，得分越高。</p>
-          <p>双人对战使用 36 张万字牌，20 局交替先手。和牌得 1 分，诈和给对手 1 分，流局双方 0 分。仅匹配计入 Elo。</p>
+          <p>双人对战使用 36 张万字牌，20 局交替先手。和牌得 1 分，诈和给对手 1 分，流局双方 0 分。机器人可直接开局，仅真人匹配计入 Elo。</p>
         </div>
       </section>
     </template>
@@ -104,9 +114,17 @@
               <span v-if="game.saving === 'retry'">正在重试保存成绩</span>
             </div>
           </template>
+          <MenchinHand v-if="game" :key="game.id + ':' + game.round" :hand="game.hand" :answer="player.answer"
+            :allow-no-wait="game.level === 2" :waits="game.waits || undefined"
+            :disabled="game.phase !== 'playing' || !connected || busy || remainingMs <= 0"
+            @answer="tiles => play('answer', { tiles })">
+            <span v-if="game.phase === 'playing' && game.round > 1" role="status">{{ tr('上题 +{points} 分', { points: game.lastPoints }) }}</span>
+          </MenchinHand>
           <template v-if="!game || game.phase === 'finished'">
-            <p class="instructions">每题限时 20 秒，最多 50 题。答对后自动出下一题，答错或超时结算。</p>
-            <p class="instructions">每剩 0.1 秒得 1 分，按难度倍率计分。中途退出不计成绩。</p>
+            <template v-if="!game">
+              <p class="instructions">每题限时 20 秒，最多 50 题。答对后自动出下一题，答错或超时结算。</p>
+              <p class="instructions">每剩 0.1 秒得 1 分，按难度倍率计分。中途退出不计成绩。</p>
+            </template>
             <div class="start-row">
               <label>难度
                 <select v-model.number="level">
@@ -117,12 +135,6 @@
               <span v-if="!connected && !error" role="status">正在连接挑战服务</span>
             </div>
           </template>
-          <MenchinHand v-if="game" :key="game.id + ':' + game.round" :hand="game.hand" :answer="player.answer"
-            :allow-no-wait="game.level === 2" :waits="game.waits || undefined"
-            :disabled="game.phase !== 'playing' || !connected || busy || remainingMs <= 0"
-            @answer="tiles => play('answer', { tiles })">
-            <span v-if="game.phase === 'playing' && game.round > 1" role="status">{{ tr('上题 +{points} 分', { points: game.lastPoints }) }}</span>
-          </MenchinHand>
         </section>
       </template>
 
@@ -132,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { tr } from '@/i18n'
 import { CHALLENGE_LEVELS, levelFor } from '../../../shared/menchin.mjs'
@@ -141,9 +153,9 @@ import MenchinPractice from './menchin/MenchinPractice.vue'
 import MenchinLeaderboard from './menchin/MenchinLeaderboard.vue'
 import { useMenchin } from './menchin/useMenchin'
 
-defineProps({ page: { type: String, default: 'home' } })
+const props = defineProps({ page: { type: String, default: 'home' } })
 const { auth, profile, game, scores, duelScores, boardStatus, rooms, roomsStatus, refreshRooms,
-  connected, busy, error, now, play, startChallenge, exitChallenge, retry } = useMenchin()
+  connected, busy, error, now, play, startChallenge, exitChallenge, retry } = useMenchin(toRef(props, 'page'))
 const router = useRouter()
 const roomCode = ref('')
 const validRoomCode = computed(() => /^\d{6}$/.test(roomCode.value))
@@ -182,9 +194,16 @@ onBeforeRouteLeave((to, from) => {
 .action-card small { font-size: 12px; line-height: 1.45; }
 .practice { background: #9b59b6; }
 .challenge { background: #45b7d1; }
-.pvp { background: #c0392b; }
+.pvp { position: relative; background: #c0392b; }
+.pvp a { color: inherit; }
+.match-entry { text-decoration: none; }
+.match-entry span { display: block; }
+.match-entry::after { content: ''; position: absolute; inset: 0; }
+.pvp-options { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; }
+.bot-entry { position: relative; font-size: 13px; text-underline-offset: 3px; }
+.bot-entry::after { content: ''; position: absolute; inset: -5px -3px; }
 .create { background: #e6a23c; }
-a.action-card:hover { filter: brightness(1.05); }
+a.action-card:hover, .pvp:hover { filter: brightness(1.05); }
 .panel { padding: 18px; background: white; border: 1px solid #ddd; }
 .navigation, .start-row, .result, .run-summary, .account { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .navigation { margin-bottom: 14px; gap: 8px; }
@@ -196,6 +215,7 @@ a.action-card:hover { filter: brightness(1.05); }
 .mc :is(a, button, select):focus-visible { outline: 2px solid #176ac4; outline-offset: 2px; }
 .account { justify-content: space-between; }
 .account a { color: #246aab; }
+.ranked-record { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid #eee; color: #606060; font-size: 13px; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 16px 0 0; }
 .stats dt, .instructions, .empty { color: #606060; }
 .stats dd { margin: 4px 0 0; font-size: 18px; }

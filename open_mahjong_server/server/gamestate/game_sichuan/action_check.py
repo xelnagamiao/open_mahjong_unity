@@ -106,8 +106,19 @@ def xueliu_post_hu_kong_candidates(self, player_index):
             if action in actions and _xueliu_post_hu_kong_allowed(self, player, action, tile)}
 
 
+def _sichuan_filter_waits(state, player_item, hand_tiles, waits):
+    dingque = getattr(player_item, "dingque_suit", 0)
+    if getattr(state, "is_doubles", False):
+        waits = {w for w in waits if has_missing_suit(list(hand_tiles) + [w], player_item.combination_tiles)}
+    if dingque in (1, 2, 3):
+        has_excluded = any(_suit(t) == dingque for t in hand_tiles) or any(int(m[1:]) // 10 == dingque for m in player_item.combination_tiles)
+        waits = set() if has_excluded else {w for w in waits if _suit(w) != dingque}
+    return waits
+
+
 def refresh_waiting_tiles(self, player_index, is_first_action=False):
     """更新听牌（四川：一般型 + 七对），并剔除定缺花色的听牌张。"""
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
     player_item = self.player_list[player_index]
     hand_tiles = player_item.hand_tiles
     if is_first_action or (
@@ -116,20 +127,56 @@ def refresh_waiting_tiles(self, player_index, is_first_action=False):
     ):
         # 和后出牌前忽略摸牌槽；杠后按实际手牌重算，不能恢复首次和牌的旧听口。
         hand_tiles = player_item.hand_tiles[:-1]
-    if getattr(self, "is_xueliu", False):
-        waits = self.calculation_service.Sichuan_xueliu_tingpai_check(
-            hand_tiles, player_item.combination_tiles, meld_count=getattr(self, "xueliu_meld_count", 3)
-        )
-    else:
-        waits = self.calculation_service.Sichuan_tingpai_check(hand_tiles, player_item.combination_tiles)
-    dingque = getattr(player_item, "dingque_suit", 0)
-    if getattr(self, "is_doubles", False):
-        waits = {w for w in waits if has_missing_suit(list(hand_tiles) + [w], player_item.combination_tiles)}
-    if dingque in (1, 2, 3):
-        has_excluded = any(_suit(t) == dingque for t in hand_tiles) or any(int(m[1:]) // 10 == dingque for m in player_item.combination_tiles)
-        waits = set() if has_excluded else {w for w in waits if _suit(w) != dingque}
-    if waits != player_item.waiting_tiles:
-        player_item.waiting_tiles = waits
+    is_xueliu = getattr(self, "is_xueliu", False)
+    rule_key = "sichuan/xueliu" if is_xueliu else "sichuan"
+    extra = {"meld_count": getattr(self, "xueliu_meld_count", 3)} if is_xueliu else None
+    cache_extra = {"extra": extra, "dingque": getattr(player_item, "dingque_suit", 0), "doubles": bool(getattr(self, "is_doubles", False))}
+    prev = player_item.waiting_tiles
+
+    def _compute():
+        if is_xueliu:
+            raw = self.calculation_service.Sichuan_xueliu_tingpai_check(
+                hand_tiles, player_item.combination_tiles, meld_count=getattr(self, "xueliu_meld_count", 3)
+            )
+        else:
+            raw = self.calculation_service.Sichuan_tingpai_check(hand_tiles, player_item.combination_tiles)
+        return _sichuan_filter_waits(self, player_item, hand_tiles, raw)
+
+    waits = sync_refresh_waiting_tiles_cached(
+        player_item, rule_key, hand_tiles, player_item.combination_tiles, _compute, extra=cache_extra
+    )
+    if waits != prev:
+        logger.info(f"四川玩家{player_index}听牌更新为{waits}")
+
+
+async def async_refresh_waiting_tiles(self, player_index, is_first_action=False):
+    """通过统一 CalcExecutor + L1 手牌缓存异步刷新四川听牌表。"""
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
+    player_item = self.player_list[player_index]
+    hand_tiles = player_item.hand_tiles
+    if is_first_action or (
+        getattr(self, "is_xueliu", False) and player_item.post_hu_lock
+        and get_valid_draw_slot_tile(player_item) is not None
+    ):
+        hand_tiles = player_item.hand_tiles[:-1]
+    is_xueliu = getattr(self, "is_xueliu", False)
+    rule_key = "sichuan/xueliu" if is_xueliu else "sichuan"
+    extra = {"meld_count": getattr(self, "xueliu_meld_count", 3)} if is_xueliu else None
+    prev = player_item.waiting_tiles
+    waits = await _async_refresh(
+        self,
+        player_index,
+        rule_key,
+        hand_tiles,
+        player_item.combination_tiles,
+        extra=extra,
+        tile_filter=lambda w: _sichuan_filter_waits(self, player_item, hand_tiles, w),
+    )
+    # Keep sync cache key aligned with dingque/doubles filters
+    from ..public.async_tingpai import waiting_cache_signature
+    cache_extra = {"extra": extra, "dingque": getattr(player_item, "dingque_suit", 0), "doubles": bool(getattr(self, "is_doubles", False))}
+    player_item._waiting_cache_sig = waiting_cache_signature(rule_key, hand_tiles, player_item.combination_tiles, cache_extra)
+    if waits != prev:
         logger.info(f"四川玩家{player_index}听牌更新为{waits}")
 
 

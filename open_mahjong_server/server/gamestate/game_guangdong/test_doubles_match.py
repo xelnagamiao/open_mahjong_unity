@@ -107,7 +107,7 @@ def play_match(monkeypatch, db_manager, game_round=2, forfeit_at=None, co_wins=F
     gs.db_manager = db_manager
     async def run_cpu(_gs, function, *args):
         return function(*args)
-    monkeypatch.setattr(import_module("server.gamestate.game_guangdong.GuangdongGameState"), "run_room_bot_cpu", run_cpu)
+    monkeypatch.setattr(import_module("server.gamestate.game_guangdong.GuangdongGameState"), "run_room_calc_cpu", run_cpu)
     asyncio.run(asyncio.wait_for(gs.game_loop_chinese(), 50))
     assert len(snapshots) == len(starts) * 4
     for uid, players in snapshots:

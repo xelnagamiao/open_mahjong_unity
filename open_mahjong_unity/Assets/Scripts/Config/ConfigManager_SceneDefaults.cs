@@ -33,7 +33,7 @@ public partial class ConfigManager
         Card3DPresetLibrary.Instance?.BeginEditing();
         Card3DPresetLibrary.Instance?.Flush();
         DeleteScenePreferences(KEY_CARD_BACK_COLOR, KEY_CARD_BACK_IMAGE_PATH, KEY_CARD_BACK_IMAGE_IS_CUSTOM,
-            KEY_SIDE_COLOR, KEY_SIDE_LIGHTING_VERSION, KEY_BACK_EDGE_COLOR, KEY_BACK_EDGE_SYNC, KEY_BACK_EDGE_MODE,
+            KEY_SIDE_COLOR, KEY_SIDE_LIGHTING_VERSION, BackLayerFractionKey, KEY_BACK_EDGE_COLOR, KEY_BACK_EDGE_SYNC, KEY_BACK_EDGE_MODE,
             KEY_TABLE_BG_PATH, KEY_TABLE_BG_IS_CUSTOM, KEY_USE_TABLE_FACE_BACKGROUND,
             KEY_FRONT_EDGE_COLOR, KEY_FRONT_EDGE_SYNC, KEY_FRONT_EDGE_MODE,
             KEY_FRONT_TEX_EXTEND_EDGE, KEY_FRONT_TEX_FOLLOW_TABLE_BG, KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE,
@@ -41,6 +41,7 @@ public partial class ConfigManager
             "CardBackBrightness", "TableFaceBrightness", "FrontEdgeBrightness", "BackEdgeBrightness");
         CardBackColor = DefaultCardBackColor;
         SideColor = DefaultSideColor;
+        BackLayerFraction = 0f;
         BackEdgeColor = DefaultBackEdgeColor;
         BackEdgeSyncEnabled = true;
         BackEdgeMode = CardEdgePanel.BackEdgeMode.FollowBack;

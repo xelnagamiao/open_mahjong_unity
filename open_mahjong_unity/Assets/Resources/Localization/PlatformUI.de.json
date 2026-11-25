@@ -11612,6 +11612,42 @@
       "text": "Standardhintergrund wiederherstellen"
     },
     {
+      "key": "靛蓝·雾白",
+      "text": "Indigo · Nebelweiß"
+    },
+    {
+      "key": "靛蓝·银灰",
+      "text": "Indigo · Silbergrau"
+    },
+    {
+      "key": "靛蓝·亚麻",
+      "text": "Indigo · Leinen"
+    },
+    {
+      "key": "靛蓝·岩灰",
+      "text": "Indigo · Steingrau"
+    },
+    {
+      "key": "暖灰橙背",
+      "text": "Warmgrau · Orange"
+    },
+    {
+      "key": "冷灰蓝背",
+      "text": "Kühlgrau · Blau"
+    },
+    {
+      "key": "米灰靛背",
+      "text": "Graubeige · Indigo"
+    },
+    {
+      "key": "橙背宽边",
+      "text": "Breiter oranger Rand"
+    },
+    {
+      "key": "蓝背宽边",
+      "text": "Breiter blauer Rand"
+    },
+    {
       "key": "靛蓝",
       "text": "Indigo"
     },
@@ -25220,8 +25256,8 @@
       "text": "Nach einem Kong werden Ersatzziegel gemäß Würfelposition öffentlich aufgedeckt. Kamo beschränkt nur kleine Abwurfgewinne. Die Grenze gilt je Gewinner und Zahler; mehrere Gewinne derselben Gruppe werden für die Grenze zusammengerechnet."
     },
     {
-      "key": "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
-      "text": "Zu Beginn bleiben 3 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung."
+      "key": "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。",
+      "text": "Zu Beginn bleiben 2 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung."
     },
     {
       "key": "经典双鸟",

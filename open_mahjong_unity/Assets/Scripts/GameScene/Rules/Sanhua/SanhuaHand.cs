@@ -10,6 +10,7 @@ internal static class SanhuaHand {
     internal sealed class Price {
         public int Points;
         public bool Qualifies;
+        public bool Orphans;
     }
     private static readonly Dictionary<string,List<Variant>> Cache = new Dictionary<string,List<Variant>>();
     internal static List<Variant> Read(List<int> tiles, List<string> melds, SanhuaInfo info) {
@@ -63,7 +64,7 @@ internal static class SanhuaHand {
             clearPayer = payer ?? -1;
         foreach (var shape in Read(tiles,melds,info)) {
             if (info.declared[seat] && !shape.Pure || rob && !shape.Orphans) continue;
-            if (shape.Orphans) return new Price {Points=600, Qualifies=true};
+            if (shape.Orphans) return new Price {Points = payer.HasValue ? 240 + 2 * 180 : 3 * 180, Qualifies = true, Orphans = true};
             double fan=shape.PairsFan;
             if (shape.Pung && info.opened[seat]) fan+=3;
             if (shape.Pure && (info.declared[seat] || melds.Count<2)) fan+=3;
@@ -118,6 +119,8 @@ internal static class SanhuaHand {
             qualifies|=ron.Qualifies;
             if(ron.Points>0) points.Add(ron.Points);
         }
+        if (self.Orphans && points.Count > 0)
+            return WaitTileHint.Ron($"点和{points[0]}点\n自摸{self.Points}点");
         if (points.Count>0) return WaitTileHint.Ron(points.Min()==points.Max()?$"{points[0]}点":$"{points.Min()}–{points.Max()}点");
         if (self.Points>0) return WaitTileHint.TsumoOnly($"仅自摸\n{self.Points}点");
         return WaitTileHint.None(qualifies?"未起和":"未满足");

@@ -9,6 +9,11 @@ export const menchinEnglish = {
   '双人万字对战 - 门清大战 - salasasa.cn': 'Two-player Characters - Menchin Battle - salasasa.cn',
   '模式选择': 'Select a mode', '■ 模式选择': '■ Select a mode', '模式导航': 'Modes',
   'PvP 匹配': 'PvP matchmaking', '开设房间': 'Create room', '■ PvP 排行榜': '■ PvP leaderboard',
+  '机器人对战': 'Play a bot', '■ 机器人对战': '■ Bot match', '■ 排位匹配': '■ Ranked match',
+  '机器人': 'Bot', '机器人对战不计入 Elo。': 'Bot matches are unrated.',
+  '正在匹配真人对手': 'Looking for a player', '与机器人对战': 'Play a bot', '登录参与匹配': 'Log in for matchmaking',
+  '再来一场': 'Play again', '退出练习': 'Leave practice', '本场练习将结束。': 'This practice match will end.',
+  '退出机器人对战？': 'Leave the bot match?',
   '退出并加入其他房间': 'Leave and join another room', '复制邀请链接': 'Copy invite link',
   '邀请链接已复制': 'Invite link copied', '邀请链接': 'Invite link',
   '休闲训练': 'Practice', '■ 休闲训练': '■ Practice', '不限时 · 随时换牌': 'Untimed · Switch hands anytime',
@@ -17,6 +22,8 @@ export const menchinEnglish = {
   '挑战排行榜': 'Challenge leaderboard', '■ 挑战排行榜': '■ Challenge leaderboard', '今日最高分': 'Today’s high scores',
   '■ 个人成绩': '■ My results', '本机成绩': 'Results on this device', '登录参与排行': 'Log in to enter the leaderboard',
   '等级': 'Level', '累计积分': 'Total points', '正确率': 'Accuracy', '最高连对': 'Best streak',
+  '尚无排位战绩': 'No ranked matches yet', '排位 Elo {rating} · {wins} 胜 {losses} 负': 'Ranked Elo {rating} · {wins} wins, {losses} losses',
+  '本次答对 {correct} / {answered} 题': 'Correct this session: {correct} / {answered}', '你的答案': 'Your answer',
   '成绩读取失败': 'Could not load results', '正在读取成绩': 'Loading results', '返回门清大战': 'Back to Menchin Battle',
   '十三张手牌': 'Your 13 tiles', '十三张门清手牌': 'Concealed 13-tile hand',
   '待牌（多选）': 'Winning tiles (select all)', '选择全部待牌': 'Select every winning tile',
@@ -48,8 +55,8 @@ export const menchinEnglish = {
   '■ 门清大战说明': '■ How to play Menchin Battle',
   '休闲训练可随时查看待牌或换牌。限时挑战每题 20 秒，越快答对，得分越高。':
     'In practice, reveal the waits or switch hands at any time. In timed challenges, each hand has a 20-second limit. Faster correct answers score more points.',
-  '双人对战使用 36 张万字牌，20 局交替先手。和牌得 1 分，诈和给对手 1 分，流局双方 0 分。仅匹配计入 Elo。':
-    'Play 20 hands with 36 Characters tiles, alternating the first draw. A win scores 1 point, a false win gives your opponent 1 point, and an exhaustive draw scores 0. Only matchmaking counts toward Elo.',
+  '双人对战使用 36 张万字牌，20 局交替先手。和牌得 1 分，诈和给对手 1 分，流局双方 0 分。机器人可直接开局，仅真人匹配计入 Elo。':
+    'Play 20 hands with 36 Characters tiles, alternating the first draw. A win scores 1 point, a false win gives your opponent 1 point, and an exhaustive draw scores 0. Play a bot immediately or enter matchmaking for a rated match against another player.',
   '房主': 'Host', '先手': 'Dealer', '离线': 'Offline', '等待对手加入': 'Waiting for an opponent to join',
   '开始对战': 'Start match', '等待房主开始': 'Waiting for the host to start',
   '我方退出': 'You forfeited', '对方退出': 'Opponent forfeited', 'Elo 不变': 'Elo unchanged',
@@ -86,6 +93,7 @@ const characterTile = value => ('一二三四五六七八九'.indexOf(value) + 1
 const declarations = { 自摸: 'self-draw', 荣和: 'win on discard', 抢杠和: 'robbed kong', 诈和: 'false win' }
 
 export const menchinEnglishPatterns = [
+  { match: /^(\d+) 秒后开始下一局$/, replace: n => `Next hand in ${n} s` },
   { match: /^第 (\d+) \/ (\d+) 局$/, replace: (round, total) => `Hand ${round} / ${total}` },
   { match: /^我方 (\d+) ∶ (\d+) 对方$/, replace: (own, other) => `You ${own} – ${other} Opponent` },
   { match: /^剩余 (\d+(?:\.\d+)?) 秒$/, replace: n => `${n} s left` },

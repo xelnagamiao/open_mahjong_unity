@@ -2959,6 +2959,9 @@ class TaiwanGameState:
 
     async def _prepare_hand_action_after_draw(self) -> None:
         player_index = self.current_player_index
+        if type(self) is TaiwanGameState and hasattr(self, "rules_dict"):
+            from .action_check import async_refresh_waiting_tiles
+            await async_refresh_waiting_tiles(self, player_index)
         self.result_dict = {}
         self.action_dict = self.check_hand_actions(player_index)
         auto_jiagang_tile = self._declared_ready_auto_jiagang_tile(player_index)

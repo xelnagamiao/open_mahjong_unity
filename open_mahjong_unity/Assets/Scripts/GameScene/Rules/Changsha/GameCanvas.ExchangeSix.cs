@@ -307,7 +307,7 @@ public partial class GameCanvas {
         bool threeSuits = exchangeSixSelection.Select(card => card.tileId / 10).Distinct().Count() == 3;
         string detail = readOnly ? "" : selecting ? waiting ? "等待其他玩家…" : threeSuits
             ? $"已选 {exchangeSixSelection.Count}/6 张 · 三门判相公" : $"已选 {exchangeSixSelection.Count}/6 张 · 最多两门"
-            : repeat ? "三秒内最先提交生效，超时不再换牌" : "三秒内无人选择则开始换牌";
+            : repeat ? "两秒内最先提交生效，超时不再换牌" : "两秒内无人选择则开始换牌";
         SetTableExchangeHud(prompt, detail);
         SetDingqueTip(string.Empty);
         if (dingqueCountdownText) dingqueCountdownText.text = string.Empty;

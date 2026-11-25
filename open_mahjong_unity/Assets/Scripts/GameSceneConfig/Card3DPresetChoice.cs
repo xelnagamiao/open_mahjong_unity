@@ -46,6 +46,7 @@ public static class Card3DPresetPreviewMaterial
         material.SetColor("_BackColor", back);
         material.SetColor("_SideColor", value.side);
         material.SetColor("_BackEdgeColor", backEdge);
+        material.SetFloat("_BackLayerFraction", value.backLayerFraction);
         material.SetColor("_FrontEdgeColor", frontEdge);
         material.SetTexture("_FrontBgTex", background);
         material.SetFloat("_FrontBgBlend", value.useBackground && !value.useSolid && background != null ? 1 : 0);

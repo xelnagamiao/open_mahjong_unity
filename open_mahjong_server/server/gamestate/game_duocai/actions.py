@@ -99,6 +99,14 @@ def claim_actions(state, actor, tile, rob=False):
 
 class ActionPolicy:
     def refresh_waiting_tiles(self, state, index, *, exclude_last_tile=False):
+        from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
         p = state.player_list[index]
-        p.waiting_tiles = set(logical_waits(tuple(p.hand_tiles[:-1] if exclude_last_tile else p.hand_tiles), tuple(p.melds), state.variant))
-        return p.waiting_tiles
+        hand = p.hand_tiles[:-1] if exclude_last_tile else p.hand_tiles
+        return sync_refresh_waiting_tiles_cached(
+            p,
+            "duocai",
+            hand,
+            p.melds,
+            lambda: set(logical_waits(tuple(hand), tuple(p.melds), state.variant)),
+            extra=state.variant,
+        )

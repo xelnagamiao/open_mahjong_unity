@@ -15,6 +15,7 @@ public sealed class HandSurfaceStylePicker : MonoBehaviour
     private Action<int, string> selected;
     private Action rename, delete;
     private bool bound;
+    private bool hasSelection, showsBack;
 
     public void Bind(TMP_FontAsset font, Action<int, string> onSelected, Action onRename, Action onDelete)
     {
@@ -35,18 +36,20 @@ public sealed class HandSurfaceStylePicker : MonoBehaviour
 
     public void RefreshSelection(string path, bool custom, bool back)
     {
+        hasSelection = true;
+        showsBack = back;
         dropdown.Hide(); ids.Clear(); builtinIndices.Clear();
         var names = new List<string>();
         void AddBuiltin(int builtin) {
             ids.Add(HandSurfaceStyles.ResourcePath(builtin, back));
-            names.Add(HandSurfaceStyles.DisplayName(builtin));
+            names.Add(PlatformText.Get(HandSurfaceStyles.DisplayName(builtin)));
             builtinIndices.Add(builtin);
         }
-        for (int i = 0; i < HandSurfaceStyles.Count; i++)
+        foreach (int i in HandSurfaceStyles.DisplayOrder(back))
             if (i != HandSurfaceStyles.ClassicIndex) AddBuiltin(i);
         foreach (var entry in HandSurfaceLibrary.GetEntries(back)) { ids.Add(entry.id); names.Add(entry.name); builtinIndices.Add(-1); }
         // 经典始终放在列表末尾；旧上传图片的临时选项也排在经典之前。
-        if (custom && !ids.Contains(path)) { ids.Add(path); names.Add("原有上传（待迁移）"); builtinIndices.Add(-1); }
+        if (custom && !ids.Contains(path)) { ids.Add(path); names.Add(PlatformText.Get("原有上传（待迁移）")); builtinIndices.Add(-1); }
         AddBuiltin(HandSurfaceStyles.ClassicIndex);
         int index = ids.IndexOf(path ?? "");
         dropdown.ClearOptions(); dropdown.AddOptions(names);
@@ -56,6 +59,24 @@ public sealed class HandSurfaceStylePicker : MonoBehaviour
         dropdown.interactable = HandSurfaceLibrary.Ready;
     }
 
-    private void OnDisable() => dropdown?.Hide();
+    private void OnEnable()
+    {
+        ConfigManager.OnLanguageChanged += RefreshLanguage;
+        RefreshLanguage();
+    }
+
+    private void RefreshLanguage()
+    {
+        var config = ConfigManager.Instance;
+        if (!hasSelection || config == null) return;
+        var current = showsBack ? config.GetSelectedHandBack() : config.GetSelectedHandBackground();
+        RefreshSelection(current.path, current.isCustom, showsBack);
+    }
+
+    private void OnDisable()
+    {
+        ConfigManager.OnLanguageChanged -= RefreshLanguage;
+        dropdown?.Hide();
+    }
     private void OnDestroy() { selected = null; rename = delete = null; }
 }

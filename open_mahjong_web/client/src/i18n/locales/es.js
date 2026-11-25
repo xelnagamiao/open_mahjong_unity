@@ -6322,7 +6322,7 @@ export default {
     "{count}大胡封顶（鸟另计）": "Límite: {count} jugadas grandes (pájaros aparte)",
     "{count}分封顶（含鸟）": "Límite: {count} puntos (con pájaros)",
     "开杠后按骰子位置公开补牌；卡摸仅限制小胡点和。封顶按每名和牌者、每名付款者计算，同批多次和牌累计计入封顶。": "Tras kong, las fichas de reposición se revelan en las posiciones indicadas por los dados. Kamo solo impide ganar por descarte con mano pequeña. El límite se aplica por ganador y pagador; las victorias de un mismo lote se acumulan para el límite.",
-    "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Al inicio hay 3 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite.",
+    "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Al inicio hay 2 segundos para elegir que nadie intercambie. Tras una ronda de intercambio se puede elegir otra, hasta un máximo de dos. Cada ronda se eligen seis fichas de un máximo de dos palos; elegir tres palos anula el derecho a ganar. Se fijan cuatro fichas de reposición tras kong, dos pájaros, 2 puntos por mano pequeña, desde 8 por grande y ningún límite.",
     "经典双鸟": "Clásico de dos pájaros",
     "换牌时间（秒）": "Tiempo de intercambio (segundos)",
     "社群二维码": "Código QR de la comunidad",

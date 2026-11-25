@@ -131,7 +131,14 @@ def rob_kong_actions(state,actor,tile,*,concealed=False):
 class HongKongActionPolicy:
     @staticmethod
     def refresh_waiting_tiles(state,index,*,exclude_last_tile=False):
+        from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
         p = state.player_list[index]
         hand = p.hand_tiles[:-1] if exclude_last_tile else p.hand_tiles
-        p.waiting_tiles = structural_waits(hand,p.combination_tiles,state.rules)
-        return p.waiting_tiles
+        return sync_refresh_waiting_tiles_cached(
+            p,
+            "hongkong",
+            hand,
+            p.combination_tiles,
+            lambda: structural_waits(hand,p.combination_tiles,state.rules),
+            extra=getattr(state, "sub_rule", ""),
+        )

@@ -3,7 +3,7 @@ import random
 import asyncio
 from typing import Any, Dict, List, Optional
 import logging
-from .action_check import check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
+from .action_check import async_refresh_waiting_tiles, check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -389,7 +389,7 @@ class ClassicalGameState:
                 self.current_player_index = 0
                 # 闲家的早期荣和也依赖听口判断边嵌吊、九莲及抢杠。
                 for player in self.player_list:
-                    self.refresh_waiting_tiles(player.player_index)
+                    await async_refresh_waiting_tiles(self, player.player_index)
                 self.player_list[0].get_tile(self.tiles_list)
                 player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
                 await self.broadcast_do_action(
@@ -412,7 +412,7 @@ class ClassicalGameState:
                                 self.game_status = "END"
                                 break
                             self.next_current_index()
-                            self.refresh_waiting_tiles(self.current_player_index)
+                            await async_refresh_waiting_tiles(self, self.current_player_index)
                             self.player_list[self.current_player_index].get_tile(self.tiles_list)
                             player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
                             await self.broadcast_do_action(
@@ -425,7 +425,7 @@ class ClassicalGameState:
 
                         case "deal_card_after_gang":
                             self.dihe_possible = False
-                            self.refresh_waiting_tiles(self.current_player_index)
+                            await async_refresh_waiting_tiles(self, self.current_player_index)
                             self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
                             player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="gd")
                             await self.broadcast_do_action(

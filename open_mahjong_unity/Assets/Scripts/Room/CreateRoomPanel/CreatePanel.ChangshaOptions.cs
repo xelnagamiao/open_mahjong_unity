@@ -30,35 +30,23 @@ public partial class CreatePanel {
             ChangshaKamoToggle.onValueChanged = new Toggle.ToggleEvent();
         }
         if (ChangshaCapRow == null) {
-            ChangshaCapRow = new GameObject("ChangshaCapRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-            ChangshaCapRow.transform.SetParent(ChangshaScoreRow != null ? ChangshaScoreRow.transform.parent : transform, false);
-            HorizontalLayoutGroup layout = ChangshaCapRow.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12f;
-            layout.childControlWidth = layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            ChangshaCapRow.GetComponent<LayoutElement>().minHeight = 44f;
+            ChangshaCapRow = new GameObject("ChangshaCapRow", typeof(RectTransform), typeof(CreateRoomAdaptiveGrid));
+            ChangshaCapRow.transform.SetParent(RoomContent, false);
             if (ChangshaScoreRow != null) ChangshaCapRow.transform.SetSiblingIndex(ChangshaScoreRow.transform.GetSiblingIndex() + 1);
+            var grid = ChangshaCapRow.GetComponent<CreateRoomAdaptiveGrid>();
+            grid.minimumCellWidth = 300f;
+            grid.cellSize = new Vector2(300f, 128f);
+            grid.spacing = new Vector2(16f, 8f);
+
+            ChangshaCapTypeDropdown = CreateChangshaCapField("ChangshaCapType", "封顶方式", ChangshaOpenKongDropdown, out ChangshaCapTypePanel);
+            ChangshaCapPresetDropdown = CreateChangshaCapField("ChangshaCapPreset", "常用封顶", ChangshaOpenKongDropdown, out ChangshaCapPresetPanel);
+            ChangshaCapValueInput = CreateChangshaCapField("ChangshaCapValue", "封顶数值", ChangshaBigHuScoreInput, out ChangshaCapValuePanel);
         }
-        ChangshaCapTypePanel = EnsureChangshaRuntimeDropdown(ChangshaCapTypePanel, "ChangshaCapType", "封顶方式");
-        ChangshaCapPresetPanel = EnsureChangshaRuntimeDropdown(ChangshaCapPresetPanel, "ChangshaCapPreset", "常用封顶");
-        ChangshaCapValuePanel = EnsureChangshaRuntimeInput(ChangshaCapValuePanel);
-        ChangshaCapValueInput = ChangshaCapValuePanel != null ? ChangshaCapValuePanel.GetComponentInChildren<TMP_InputField>(true) : null;
-        foreach (GameObject panel in new[] { ChangshaCapTypePanel, ChangshaCapPresetPanel, ChangshaCapValuePanel }) {
-            if (panel == null) continue;
-            panel.transform.SetParent(ChangshaCapRow.transform, false);
-            LayoutElement element = panel.GetComponent<LayoutElement>();
-            if (element == null) element = panel.AddComponent<LayoutElement>();
-            element.minWidth = 100f;
-            element.preferredWidth = 180f;
-            element.flexibleWidth = 1f;
-        }
-        ChangshaCapTypeDropdown = ChangshaCapTypePanel != null ? ChangshaCapTypePanel.GetComponentInChildren<TMP_Dropdown>(true) : null;
-        ChangshaCapPresetDropdown = ChangshaCapPresetPanel != null ? ChangshaCapPresetPanel.GetComponentInChildren<TMP_Dropdown>(true) : null;
         if (ChangshaCapTypeDropdown != null) {
             ChangshaCapTypeDropdown.onValueChanged = new TMP_Dropdown.DropdownEvent();
             ChangshaCapTypeDropdown.ClearOptions();
             ChangshaCapTypeDropdown.AddOptions(new List<string> { "不封顶", "大胡数量(鸟另计)", "最终分值(含鸟)" });
+            RoomDropdownTemplateHeight(ChangshaCapTypeDropdown);
             ChangshaCapTypeDropdown.onValueChanged.AddListener(OnChangshaCapTypeChanged);
         }
         if (ChangshaCapPresetDropdown != null) {
@@ -95,31 +83,23 @@ public partial class CreatePanel {
         return result;
     }
 
-    private GameObject EnsureChangshaRuntimeDropdown(GameObject existing, string name, string labelText) {
-        if (existing != null || HepaiWayPanel == null) return existing;
-        GameObject result = Instantiate(HepaiWayPanel, HepaiWayPanel.transform.parent);
-        result.name = name;
-        foreach (TMP_Text label in result.GetComponentsInChildren<TMP_Text>(true)) {
-            if (label.GetComponentInParent<TMP_Dropdown>(true) != null) continue;
-            label.text = labelText;
-            break;
-        }
-        result.SetActive(false);
-        return result;
-    }
+    private T CreateChangshaCapField<T>(string name, string title, T template, out GameObject panel) where T : Selectable {
+        panel = new GameObject(name, typeof(RectTransform));
+        panel.transform.SetParent(ChangshaCapRow.transform, false);
+        var label = Instantiate(SubRuleText, panel.transform);
+        label.name = "Label";
+        label.fontStyle = FontStyles.Normal;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.margin = Vector4.zero;
+        RoomSingleLine(label, 28f, 18f);
+        TableText.Set(label, title, "changsha");
+        RoomFill(label.rectTransform, 8f, 0f, 8f, 72f);
+        label.gameObject.SetActive(true);
 
-    private GameObject EnsureChangshaRuntimeInput(GameObject existing) {
-        if (existing != null || InputHepaiLimitPlane == null) return existing;
-        GameObject result = Instantiate(InputHepaiLimitPlane, InputHepaiLimitPlane.transform.parent);
-        result.name = "ChangshaCapValue";
-        foreach (TMP_Text label in result.GetComponentsInChildren<TMP_Text>(true)) {
-            if (label.GetComponentInParent<TMP_InputField>(true) != null) continue;
-            label.text = "封顶数值";
-            break;
-        }
-        TMP_InputField input = result.GetComponentInChildren<TMP_InputField>(true);
-        if (input != null) input.contentType = TMP_InputField.ContentType.IntegerNumber;
-        return result;
+        var field = Instantiate(template, panel.transform);
+        RoomFill((RectTransform)field.transform, 0f, 56f, 0f, 12f);
+        field.gameObject.SetActive(true);
+        return field;
     }
 
     private string GetChangshaScoreCapType() {
@@ -180,6 +160,7 @@ public partial class CreatePanel {
         labels.Add("自定义");
         ChangshaCapPresetDropdown.ClearOptions();
         ChangshaCapPresetDropdown.AddOptions(labels);
+        RoomDropdownTemplateHeight(ChangshaCapPresetDropdown);
         selected = Mathf.Clamp(selected, 0, labels.Count - 1);
         ChangshaCapPresetDropdown.SetValueWithoutNotify(selected);
         refreshingChangshaCaps = false;

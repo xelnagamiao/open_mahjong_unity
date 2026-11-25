@@ -85,8 +85,13 @@ def score(hand, melds, indicator, winner, payer, table, *, declared=False, liabl
         if declared and not pure or rob and kind != "十三幺":
             continue
         if kind == "十三幺":
+            changes = [-180] * 4
+            if payer is not None:
+                changes[payer] = -240
+            changes[winner] = 0
+            changes[winner] = -sum(changes)
             return dict(fan_names=[kind], pair_fans=[0 if i == winner else 10 for i in range(4)],
-                        changes=[600 if i == winner else -200 for i in range(4)], points=600, gold=False)
+                        changes=changes, points=changes[winner], gold=False)
         names = [kind] if kind in PAIRS else []
         if pung and opened:
             names.append("碰碰和")

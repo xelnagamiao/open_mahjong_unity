@@ -51,8 +51,9 @@ public class SichuanGameState : TurnBasedGameState {
         RoundEndPresentation.Instance?.HideSichuanDuplicateResult();
         ExchangeWindow = null;
         snapshotActionTick = gameInfo?.action_tick ?? 0;
+        // 操作序号按对局计数，新桌的第一次换牌询问可能只有 1。
+        Clock.LastAskActionTick = snapshotActionTick;
         sbrClosedThroughTick = gameInfo?.sbr_exchange_direction > 0 ? snapshotActionTick : snapshotActionTick - 1;
-        if (Session.IsDuplicate) Clock.LastAskActionTick = snapshotActionTick;
         RestoreDuplicateWall(gameInfo);
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;

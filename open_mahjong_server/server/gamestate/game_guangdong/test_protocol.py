@@ -16,7 +16,7 @@ from ...game_calculation.guangdong.settlement import kong_payments
 from ..game_taiwan import boardcast
 
 
-CPU_MODULE = "server.gamestate.public.ai.bot_executor"
+CPU_MODULE = "server.gamestate.game_guangdong.GuangdongGameState"
 TIME_MODULE = "server.gamestate.public.spectator_manager.time.time"
 MELDS = ("k11", "k22", "k33")
 
@@ -39,7 +39,7 @@ async def actual_cpu(_state, function, *args):
 
 @pytest.fixture
 def cpu():
-    with patch(f"{CPU_MODULE}.run_room_bot_cpu", new=AsyncMock(side_effect=actual_cpu)) as bridge:
+    with patch(f"{CPU_MODULE}.run_room_calc_cpu", new=AsyncMock(side_effect=actual_cpu)) as bridge:
         yield bridge
 
 

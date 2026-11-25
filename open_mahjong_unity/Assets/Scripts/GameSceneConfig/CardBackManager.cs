@@ -99,6 +99,8 @@ public static class CardBackManager
         mat.SetColor("_BackColor", CurrentColor);
         mat.SetColor("_SideColor", CurrentSideColor);
         mat.SetColor("_BackEdgeColor", CurrentBackEdgeColor);
+        if (mat.HasProperty("_BackLayerFraction"))
+            mat.SetFloat("_BackLayerFraction", ConfigManager.Instance != null ? ConfigManager.Instance.BackLayerFraction : 0f);
         mat.SetColor("_FrontEdgeColor", CurrentFrontEdgeColor);
         mat.SetTexture("_FrontBgTex", CurrentTableBackground);
         mat.SetFloat("_FrontBgBlend", useBg ? 1f : 0f);
@@ -240,15 +242,10 @@ public static class CardBackManager
         // 先确保共享材质上的 _FrontBgTex 与 CurrentTableBackground 已同步，
         // 再按 UseTableFaceBackground 开关只切 blend，不会清空已上传的纹理。
         ApplyFrontEdgeColor(ResolveFrontEdgeColor(FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
-#if UNITY_WEBGL && !UNITY_EDITOR
-        // Applying the saved visuals may finish after the preset edit has ended.
-        // Only repair inconsistent old flags. Writing unchanged preferences signals a new edit.
+        // Applying a temporary rotation must not save its flags over the player's working preset.
         if (ConfigManager.Instance.UseTableFaceBackground && ConfigManager.Instance.TableFaceUseSolidColor)
             ConfigManager.Instance.SetUseTableFaceBackground(true);
         RefreshFollowedFrontEdge();
-#else
-        SetTableFaceBackgroundEnabled(ConfigManager.Instance.UseTableFaceBackground);
-#endif
         ApplyInstanceVisualsToAllTiles();
     }
 

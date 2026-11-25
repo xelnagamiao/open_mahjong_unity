@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,7 +27,7 @@ public sealed class CardFaceScrollLayout : MonoBehaviour
     [SerializeField] RectTransform content;
     [SerializeField] CardFaceLayoutPresentation presentation;
     [SerializeField] CardFaceFamilyPreview familyPreview;
-    static readonly int[] BuiltinOrder = { 1, 2, 3, 0 };
+    int[] backgroundIndices, backIndices;
     string editingBackground;
     HandSurfaceLibrary.FaceLayout layout;
     HandSurfaceLibrary.FaceLayout handLayout;
@@ -45,11 +46,8 @@ public sealed class CardFaceScrollLayout : MonoBehaviour
             int index = i;
             familyTabs[i].onClick.AddListener(() => SelectFamily(index));
         }
-        for (int i = 0; i < BuiltinOrder.Length; i++) {
-            int index = BuiltinOrder[i];
-            backgroundOptions[i].onClick.AddListener(() => SelectSurface(index, false));
-            backOptions[i].onClick.AddListener(() => SelectSurface(index, true));
-        }
+        BindSurfaces(ref backgroundOptions, out backgroundIndices, false);
+        BindSurfaces(ref backOptions, out backIndices, true);
         horizontal.onValueChanged.AddListener(value => ChangeLayout(0, value));
         vertical.onValueChanged.AddListener(value => ChangeLayout(1, value));
         scale.onValueChanged.AddListener(value => ChangeLayout(2, FaceScaleSlider.ToScale(value) * 100f));
@@ -66,6 +64,52 @@ public sealed class CardFaceScrollLayout : MonoBehaviour
             tableSliders[i].onValueChanged.AddListener(value => ChangeTableLayout(axis, axis == 2 ? FaceScaleSlider.ToScale(value) * 100f : value));
             tableResets[i].onClick.AddListener(() => ResetTableAxis(axis));
         }
+    }
+
+    void BindSurfaces(ref Button[] options, out int[] indices, bool back)
+    {
+        // The four scene-authored options carry thumbnail artwork and localization bindings.
+        var template = options[0];
+        var originals = new[] { options[3], options[0], options[1], options[2] };
+        indices = new List<int>(HandSurfaceStyles.DisplayOrder(back)).ToArray();
+        options = new Button[indices.Length];
+        for (int i = 0; i < indices.Length; i++) {
+            int index = indices[i];
+            Button button;
+            if (index < originals.Length) button = originals[index];
+            else {
+                button = Instantiate(template, template.transform.parent, false);
+                button.name = (back ? "Back_" : "Background_") + index;
+                button.onClick = new Button.ButtonClickedEvent();
+                var image = button.transform.Find("SurfaceThumbnail").GetComponent<Image>();
+                image.sprite = Resources.Load<Sprite>(HandSurfaceStyles.ResourcePath(index, back));
+            }
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            CardFaceLayoutPresentation.Place(label.rectTransform, 56, 0, 88, 80);
+            label.textWrappingMode = TextWrappingModes.Normal;
+            string name = HandSurfaceStyles.DisplayName(index);
+            var localized = label.GetComponent<LocalizedPlatformLabel>();
+            if (localized != null) {
+                if (HandSurfaceStyles.IsIndigoTint(index)) {
+                    localized.authoredSize = 17;
+                    localized.authoredAutoSize = true;
+                }
+                localized.SetSource(name);
+            }
+            else label.text = name;
+            PlaceSurface((RectTransform)button.transform, i, false);
+            button.onClick.AddListener(() => SelectSurface(index, back));
+            options[i] = button;
+        }
+        PlaceSurface(backgroundPanel.HandUploadControl(back), indices.Length, true);
+        var picker = (RectTransform)(back ? backLibrary : backgroundLibrary).transform;
+        CardFaceLayoutPresentation.Place(picker, 0, 50 + (indices.Length / 4 + 1) * 86, 610, 34);
+    }
+
+    static void PlaceSurface(RectTransform rect, int i, bool upload)
+    {
+        CardFaceLayoutPresentation.Place(rect, i % 4 * 154, 50 + i / 4 * 86 + (upload ? 9 : 0),
+            upload ? 62 : 146, upload ? 62 : 80);
     }
 
     void OnEnable()
@@ -272,10 +316,10 @@ public sealed class CardFaceScrollLayout : MonoBehaviour
             backgroundAnchorResets[i].interactable = editable;
         }
         RefreshValues();
-        for (int i = 0; i < BuiltinOrder.Length; i++) {
-            SelectOption(backgroundOptions[i], !background.isCustom && HandSurfaceStyles.FindIndex(background.path, false) == BuiltinOrder[i]);
-            SelectOption(backOptions[i], !back.isCustom && HandSurfaceStyles.FindIndex(back.path, true) == BuiltinOrder[i]);
-        }
+        int selectedBackground = background.isCustom ? -1 : HandSurfaceStyles.FindIndex(background.path, false);
+        int selectedBack = back.isCustom ? -1 : HandSurfaceStyles.FindIndex(back.path, true);
+        for (int i = 0; i < backgroundOptions.Length; i++) SelectOption(backgroundOptions[i], selectedBackground == backgroundIndices[i]);
+        for (int i = 0; i < backOptions.Length; i++) SelectOption(backOptions[i], selectedBack == backIndices[i]);
         backgroundLibrary.gameObject.SetActive(HandSurfaceLibrary.GetEntries(false).Count > 0);
         backLibrary.gameObject.SetActive(HandSurfaceLibrary.GetEntries(true).Count > 0);
         faceLibrary.gameObject.SetActive(presentation.uploadedPacks == null && TilePackLibrary.GetEntries().Count > 0);

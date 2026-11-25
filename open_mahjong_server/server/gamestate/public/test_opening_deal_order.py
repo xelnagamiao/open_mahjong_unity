@@ -2,8 +2,13 @@
 from collections import Counter
 import pytest
 
+from ..game_beijing.BeijingGameState import BeijingGameState
+from ..game_duocai.DuocaiGameState import DuocaiGameState
 from ..game_hangzhou.HangzhouGameState import HangzhouGameState
 from ..game_guizhou.GuizhouGameState import GuizhouGameState
+from ..game_new_chinese.NewChineseGameState import NewChineseGameState
+from ..game_sanhua.SanhuaGameState import SanhuaGameState
+from ..game_shangrao.ShangraoGameState import ShangraoGameState
 from ..game_yixing.YixingGameState import YixingGameState
 from ..game_wenzhou.WenzhouGameState import WenzhouGameState
 from ..game_hongkong.HongKongGameState import HongKongGameState
@@ -14,7 +19,10 @@ CASES = [(HangzhouGameState,None,13),(GuizhouGameState,None,13),
          (HongKongGameState,'hongkong/new13_gametower',13),
          (HongKongGameState,'hongkong/new13_lianhuise',13),
          (HongKongGameState,'hongkong/qingzhang_lianhuise',13),
-         (HongKongGameState,'hongkong/new16',16)]
+         (HongKongGameState,'hongkong/new16',16),
+         (BeijingGameState,'beijing/chipengti',13),(ShangraoGameState,'shangrao/standard',13),
+         (DuocaiGameState,'duocai/guobiao',13),(DuocaiGameState,'duocai/riichi',13),
+         (NewChineseGameState,'new_chinese/standard',13),(SanhuaGameState,'new_chinese/sanhua',13)]
 
 def opening_state(cls,profile):
     room=cls._default_room_data()
@@ -30,9 +38,12 @@ def test_opening_preserves_unsorted_deal_in_viewer_safe_payload(cls,profile,size
     state=opening_state(cls,profile)
     before=[list(p.hand_tiles) for p in state.player_list]
     assert all(len(hand) in (size,size+1) for hand in before)
-    assert any(hand!=sorted(hand) for hand in before)
+    for player, hand in zip(state.player_list, before):
+        main = hand[:-1] if player.has_draw_slot else hand
+        assert main != sorted(main)
     for viewer in range(4):
         payload=state.build_game_start_payload(viewer)
+        assert payload['game_info']['self_hand_tiles'] == before[viewer]
         for player in payload['game_info']['players_info']:
             if player['player_index']==viewer:
                 assert player['hand_tiles']==before[viewer]

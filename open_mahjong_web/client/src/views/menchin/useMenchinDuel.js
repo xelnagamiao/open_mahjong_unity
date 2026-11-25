@@ -2,6 +2,17 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { io } from 'socket.io-client'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 
+function guestSessionKey() {
+  const storageKey = 'menchin.duel.guest.v1'
+  try {
+    const stored = sessionStorage.getItem(storageKey)
+    if (/^[a-f0-9]{32}$/.test(stored)) return stored
+  } catch {}
+  const key = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('')
+  try { sessionStorage.setItem(storageKey, key) } catch {}
+  return key
+}
+
 export function useMenchinDuel() {
   const auth = usePlayerAuthStore()
   const connected = ref(false)
@@ -16,7 +27,7 @@ export function useMenchinDuel() {
   const clock = ref(Date.now())
   let offset = 0
   let boardRequest = 0
-  let socket, interval, stopWatch
+  let socket, interval, stopWatch, guestKey
   const seconds = computed(() => Math.max(0, Math.ceil(((room.value?.game?.deadline ?? 0) - clock.value) / 1000)))
 
   function dispose() {
@@ -34,9 +45,9 @@ export function useMenchinDuel() {
     standingsStatus.value = 'idle'
     queued.value = connected.value = busy.value = false
     error.value = ''
-    if (!auth.token) return
+    if (!auth.token) guestKey ??= guestSessionKey()
     socket = io('/menchin-duel', {
-      path: '/api/socket.io', auth: { token: auth.token }, autoConnect: false,
+      path: '/api/socket.io', auth: auth.token ? { token: auth.token } : { guestKey }, autoConnect: false,
     })
     socket.on('state', state => {
       const first = !connected.value

@@ -205,16 +205,25 @@ public partial class CreatePanel {
         }
         ReflowRoomHelp();
         RefreshHongKongMainControls();
-        var details = transform.Find("DetailedConfigPanel_taiwan");
-        foreach (var overlay in new[] { details, details ? details.Find("FanTablePanel") : null, transform.Find("FanTablePanel"), transform.Find("DetailedConfigPanel_riichi") }) {
-            if (!overlay) continue;
-            var dialog = (RectTransform)overlay.Find("Dialog");
-            dialog.anchorMin = new Vector2(.5f, 0); dialog.anchorMax = new Vector2(.5f, 1); dialog.pivot = new Vector2(.5f, .5f);
-            dialog.anchoredPosition = new Vector2(0, 24); dialog.sizeDelta = new Vector2(Mathf.Min(1480, width - 80), -64);
-        }
+        float dialogWidth = Mathf.Min(1480, width - 80);
+        foreach (string rule in DetailedRules)
+            SizeSettingsDialog("DetailedConfigPanel_" + rule + "/Dialog", dialogWidth);
+        SizeSettingsDialog("DetailedConfigPanel_taiwan/FanTablePanel/Dialog", dialogWidth);
+        SizeSettingsDialog("FanTablePanel/Dialog", dialogWidth);
         ReflowJinluoWeather();
         LayoutRebuilder.MarkLayoutForRebuild(content);
     }
+
+    private void SizeSettingsDialog(string path, float width) {
+        var dialog = transform.Find(path) as RectTransform;
+        if (!dialog) return;
+        dialog.anchorMin = new Vector2(.5f, 0);
+        dialog.anchorMax = new Vector2(.5f, 1);
+        dialog.pivot = new Vector2(.5f, .5f);
+        dialog.anchoredPosition = new Vector2(0, 24);
+        dialog.sizeDelta = new Vector2(width, -64);
+    }
+
     private static void RoomSingleLine(TMP_Text label, float maximum, float minimum) {
         if (!label) return;
         label.textWrappingMode = TextWrappingModes.NoWrap;

@@ -93,7 +93,10 @@ class NewChineseGameState(HandFlow, Protocol, Runtime, ZhongyongGameState):
             deck = list(wall)
         for offset in range(4):
             p = self.player_list[(self.dealer_index + offset) % 4]
-            p.hand_tiles = sorted([deck[start + k] for start in (4*offset, 16+4*offset, 32+4*offset) for k in range(4)] + [deck[48+offset]])
+            p.hand_tiles = []
+            for start in (4 * offset, 16 + 4 * offset, 32 + 4 * offset):
+                p.hand_tiles.extend(deck[start:start + 4])
+            p.hand_tiles.append(deck[48 + offset])
         dealer = self.player_list[self.dealer_index]
         dealer.hand_tiles.append(deck[52])
         dealer.has_draw_slot = True

@@ -38,6 +38,7 @@ internal static class SichuanRuleBootstrap {
     }
 
     private static int FirstTenTileDiscardRow(string subRule) {
+        if (subRule == SichuanLobby.DoublesDuplicateSubRule) return 4;
         if (SichuanLobby.IsDoubles(subRule)) return 3;
         if (SichuanLobby.IsXueliuDoubles(subRule)) return 4;
         return 0;

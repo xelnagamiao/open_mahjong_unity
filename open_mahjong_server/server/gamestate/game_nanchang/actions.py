@@ -82,7 +82,14 @@ def claim_actions(state, actor, tile):
 
 class ActionPolicy:
     def refresh_waiting_tiles(self,state,index,*,exclude_last_tile=False):
+        from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
         p = state.player_list[index]
         hand = p.hand_tiles[:-1] if exclude_last_tile and p.has_draw_slot else p.hand_tiles
-        p.waiting_tiles = book.waiting_tiles(hand,p.combination_tiles,indicator=state.indicator)
-        return p.waiting_tiles
+        return sync_refresh_waiting_tiles_cached(
+            p,
+            "nanchang",
+            hand,
+            p.combination_tiles,
+            lambda: book.waiting_tiles(hand,p.combination_tiles,indicator=state.indicator),
+            extra=state.indicator,
+        )

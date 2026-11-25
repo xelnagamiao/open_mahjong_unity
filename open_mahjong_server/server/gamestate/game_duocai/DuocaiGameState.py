@@ -71,7 +71,6 @@ class DuocaiGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhongyo
                 p.hand_tiles.extend(self.wall.draw()[0] for _ in range(4))
         for p in self.player_list:
             p.hand_tiles.append(self.wall.draw()[0])
-            p.hand_tiles.sort()
         self.player_list[0].hand_tiles.append(self.wall.draw()[0])
         self.player_list[0].has_draw_slot, self.player_list[0].draw_kind = True, 'opening'
         self.current_player_index = self.dealer_index = 0

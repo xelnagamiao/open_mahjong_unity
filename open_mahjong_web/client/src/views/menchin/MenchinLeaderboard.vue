@@ -2,7 +2,7 @@
   <section class="board game-lobby" aria-label="排行榜">
     <div class="sec-h rank-sec-h lobby-section-title">
       <div class="rank-tabs">
-        <h2 class="rank-label">{{ hasTabs ? '排行榜' : '挑战排行榜' }}</h2>
+        <h2 class="rank-label">{{ hasTabs ? '排行榜' : showDuel ? '排位排行' : '挑战排行榜' }}</h2>
         <template v-if="hasTabs">
           <button type="button" class="rank-tab" :class="{ active: !showDuel }"
             :aria-pressed="!showDuel" @click="selected = 'challenge'">挑战</button>
@@ -51,15 +51,15 @@ import { computed, ref } from 'vue'
 import { CHALLENGE_LEVELS } from '../../../../shared/menchin.mjs'
 
 const props = defineProps({
-  rows: { type: Array, required: true },
+  rows: Array,
   duelRows: Array,
   status: { type: String, required: true },
 })
 defineEmits(['retry'])
 const selected = ref('challenge')
-const hasTabs = computed(() => Array.isArray(props.duelRows))
-const showDuel = computed(() => hasTabs.value && selected.value === 'duel')
-const entries = computed(() => showDuel.value ? props.duelRows : props.rows)
+const hasTabs = computed(() => Array.isArray(props.rows) && Array.isArray(props.duelRows))
+const showDuel = computed(() => Array.isArray(props.duelRows) && (!hasTabs.value || selected.value === 'duel'))
+const entries = computed(() => (showDuel.value ? props.duelRows : props.rows) || [])
 </script>
 
 <style scoped>

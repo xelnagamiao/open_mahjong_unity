@@ -6316,7 +6316,7 @@ export default {
     "{count}大胡封顶（鸟另计）": "Höchstens {count} große Gewinne (Vögel separat)",
     "{count}分封顶（含鸟）": "Höchstens {count} Punkte (mit Vögeln)",
     "开杠后按骰子位置公开补牌；卡摸仅限制小胡点和。封顶按每名和牌者、每名付款者计算，同批多次和牌累计计入封顶。": "Nach einem Kong werden Ersatzziegel gemäß Würfelposition öffentlich aufgedeckt. Kamo beschränkt nur kleine Abwurfgewinne. Die Grenze gilt je Gewinner und Zahler; mehrere Gewinne derselben Gruppe werden für die Grenze zusammengerechnet.",
-    "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Zu Beginn bleiben 3 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung.",
+    "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Zu Beginn bleiben 2 Sekunden, um am ganzen Tisch auf den Tausch zu verzichten. Nach einer Tauschrunde ist eine weitere wählbar, höchstens zwei insgesamt. Je Runde sechs Ziegel aus höchstens zwei Farben wählen; drei Farben kosten das Gewinnrecht. Fest vier Kongersatzziegel, zwei Vögel, kleiner Gewinn 2 Punkte, große Gewinne ab 8 Punkten, keine Begrenzung.",
     "经典双鸟": "Klassisch mit zwei Vögeln",
     "换牌时间（秒）": "Tauschzeit (Sekunden)",
     "社群二维码": "Community-QR-Code",

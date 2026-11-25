@@ -60,6 +60,12 @@ public static partial class HandSurfaceLibrary
         // 经典正面高约 344px，新版正面高约 376px，花纹等比放大至 109%。
         // 三套内置花纹共用此基准；经典及上传图保留原始基准。
         int builtin = HandSurfaceStyles.FindIndex(backgroundPath, false);
+        var style = HandSurfaceStyles.Reference(builtin);
+        if (style != null) {
+            // The upper rim ends at y=44 on indigo. Center ink on the new front face.
+            float shift = 3 + style.BackPixels + style.SidePixels - 44;
+            return new FaceLayout { y = -.02f - shift / (2 * 424f), scale = 1.09f * (376 - shift) / 376f };
+        }
         return builtin > 0 ? new FaceLayout { y = -.02f, scale = 1.09f } : FaceLayout.Default;
     }
     public static FaceLayout CurrentFaceLayout => ConfigManager.Instance == null ? FaceLayout.Default

@@ -275,16 +275,50 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
 
 def refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False):
     """刷新听牌表。与国标相同：在摸牌前调用（13 张手牌）；归一化后写入 waiting_tiles。"""
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
+    from .rule_logic import filter_waits
+
     player_item = self.player_list[player_index]
     current_hand = [_normalize(t) for t in player_item.hand_tiles]
     # 听牌算法输入应为 13 张（或 3n+1）；若误在摸牌后 14 张时调用则去掉刚摸入的一张
     if len(current_hand) % 3 == 2:
         current_hand = current_hand[:-1]
-    waiting = self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles)
+    prev = player_item.waiting_tiles
+    waiting = sync_refresh_waiting_tiles_cached(
+        player_item,
+        "riichi",
+        current_hand,
+        player_item.combination_tiles,
+        lambda: filter_waits(
+            self,
+            current_hand,
+            player_item.combination_tiles,
+            self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles),
+        ),
+    )
+    if waiting != prev:
+        logger.info(f"玩家{player_index}的等待牌更新为{sorted(player_item.waiting_tiles)}")
+
+
+async def async_refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False):
+    """通过统一 CalcExecutor + L1 手牌缓存异步刷新立直听牌表。"""
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
     from .rule_logic import filter_waits
-    waiting = filter_waits(self, current_hand, player_item.combination_tiles, waiting)
-    if waiting != player_item.waiting_tiles:
-        player_item.waiting_tiles = waiting
+
+    player_item = self.player_list[player_index]
+    current_hand = [_normalize(t) for t in player_item.hand_tiles]
+    if len(current_hand) % 3 == 2:
+        current_hand = current_hand[:-1]
+    prev = player_item.waiting_tiles
+    waiting = await _async_refresh(
+        self,
+        player_index,
+        "riichi",
+        current_hand,
+        player_item.combination_tiles,
+        tile_filter=lambda w: filter_waits(self, current_hand, player_item.combination_tiles, w),
+    )
+    if waiting != prev:
         logger.info(f"玩家{player_index}的等待牌更新为{sorted(player_item.waiting_tiles)}")
 
 

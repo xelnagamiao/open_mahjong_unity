@@ -14,7 +14,7 @@ public static partial class HandSurfaceLibrary
 
     static bool NameExists(string name, bool back, string exceptId = null)
     {
-        for (int i = 0; i < HandSurfaceStyles.Count; i++)
+        foreach (int i in HandSurfaceStyles.DisplayOrder(back))
             if (SameName(name, HandSurfaceStyles.DisplayName(i))) return true;
         foreach (var entry in entries.Values)
             if (entry.back == back && entry.id != exceptId && SameName(entry.name, name)) return true;

@@ -211,6 +211,52 @@ public static class XueliuExchangePresentationValidation {
         }
     }
 
+    public static IEnumerator CheckFirstExchangeAfterExit(Action<bool, string> check) {
+        if (!Application.isPlaying || !string.IsNullOrEmpty(UserDataManager.Instance.GamestateId))
+            throw new InvalidOperationException("需要空闲 Play Mode");
+        var manager = NormalGameStateManager.Instance;
+        var network = GameStateNetworkManager.Instance;
+        try {
+            manager.InitializeGame(true, "", SichuanPresentationValidation.Fixture("sichuan/standard"));
+            foreach (string sub in new[] { "sichuan/xueliu_exchange", SichuanLobby.SbrExchange, SichuanLobby.XueliuDoublesSubRule }) {
+                manager.LastAskActionTick = 100;
+                PlayerSession.Current.SetGamestateId("");
+                GameSceneTeardown.ResetToIdle();
+
+                const int self = 1;
+                var start = SichuanPresentationValidation.Fixture(sub, self);
+                start.gamestate_id += "-" + sub;
+                start.action_tick = 0;
+                network.HandleGameStateMessage(new Response {
+                    type = "gamestate/sichuan/game_start", success = true, gamestate_id = start.gamestate_id, game_info = start
+                });
+                var ask = new Response {
+                    type = "gamestate/sichuan/broadcast_hand_action", success = true, gamestate_id = start.gamestate_id,
+                    ask_hand_action_info = new AskHandActionGBInfo {
+                        player_index = self, action_tick = 1, remaining_time = 10, step_remaining = 0, remain_tiles = start.tile_count,
+                        action_list = new[] { "xueliu_exchange_three" },
+                        xueliu_exchange = sub == SichuanLobby.XueliuDoublesSubRule ? new XueliuExchangeInfo {
+                            stage = 1, active_players = new[] { 0, 1 }, direction = 2, outgoing_tiles = Array.Empty<int>()
+                        } : null
+                    }
+                };
+                network.HandleGameStateMessage(ask);
+                var canvas = GameCanvas.Instance;
+                check(manager.LastAskActionTick == 1 && canvas.IsSbrChoosingOrWaiting, sub + " 首局换牌询问被丢弃");
+                while (canvas.IsChangeHandCardProcessing) yield return null;
+                var picks = canvas.GetMainHandCardsOrdered().Where(card => card.tileId / 10 == 1).Take(3).ToArray();
+                foreach (var card in picks)
+                    check(canvas.TryHandleXueliuTileClick(card), sub + " 首局无法选择同花色手牌");
+                network.HandleGameStateMessage(ask);
+                check(picks.Length == 3 && picks.All(card => card.GetComponent<HoverEventTrigger>().SbrRaised)
+                    && Field<Button>(canvas, "dingqueWanButton").gameObject.activeInHierarchy, sub + " 重复询问清除了已选手牌");
+            }
+        } finally {
+            PlayerSession.Current.SetGamestateId("");
+            GameSceneTeardown.ResetToIdle();
+        }
+    }
+
     public static IEnumerator Run(Action<string> completed, string screenshots) {
         if (!Application.isPlaying || !string.IsNullOrEmpty(UserDataManager.Instance.GamestateId))
             throw new InvalidOperationException("需要空闲 Play Mode");
@@ -231,6 +277,7 @@ public static class XueliuExchangePresentationValidation {
         int tick=100;
         var originalStyle = SbrExchangeSuitBadge.PreviewStyle;
         try {
+            yield return CheckFirstExchangeAfterExit(Check);
             for (int round=1;round<=4;round++) for (int self=0;self<4;self++) {
                 SbrExchangeSuitBadge.PreviewStyle = round % 2 == 0 ? SbrExchangeSuitBadge.Style.SideTag : originalStyle;
                 bool duplicate = round > 2;

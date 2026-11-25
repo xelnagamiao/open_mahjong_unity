@@ -30,7 +30,7 @@ function writeSession(key, value) {
   } catch { return }
 }
 
-export function useMenchin() {
+export function useMenchin(page) {
   const auth = usePlayerAuthStore()
   const guest = ref(readGuest())
   const account = ref(null)
@@ -138,6 +138,7 @@ export function useMenchin() {
     roomsRevision++
     const current = socket
     if (!current) return
+    socket = null
     current.removeAllListeners()
     if (exitPacket) exitPacket.finally(() => current.disconnect())
     else current.disconnect()
@@ -151,6 +152,7 @@ export function useMenchin() {
     error.value = ''
     boardStatus.value = 'loading'
     clearRooms('loading')
+    if (page.value === 'practice') return
     socket = io('/menchin', {
       path: '/api/socket.io', auth: { token: auth.token, guestKey }, autoConnect: false,
     })
@@ -215,13 +217,13 @@ export function useMenchin() {
     play('challenge', { level, requestId: starting })
   }
   function retry() {
-    if (socket.connected) { socket.emit('sync'); refreshScores() }
-    else socket.connect()
+    if (socket?.connected) { socket.emit('sync'); refreshScores() }
+    else socket?.connect()
   }
   function storageChanged(event) {
     if (event.key === GUEST_STATS) guest.value = readGuest()
   }
-  watch(() => auth.token, connect)
+  watch([() => auth.token, () => page.value === 'practice'], connect)
   onMounted(() => {
     connect()
     clock = setInterval(() => { if (game.value?.phase === 'playing') now.value = Date.now() + offset }, 100)

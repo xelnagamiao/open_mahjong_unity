@@ -61,14 +61,14 @@ test('two-player Menchin rooms, hidden hands, deadlines, reconnects and Elo', {
   let offset = 0, hand = 0, alternating = false
   const now = () => Date.now() + offset
   await registerMenchinChallenges(io, pool, auth, { duel: {
-    now, reconnectMs: 450, wallFactory: () => testWall(++hand % 2 === 1 || !alternating),
+    now, reconnectMs: 450, botDelayMs: 15, wallFactory: () => testWall(++hand % 2 === 1 || !alternating),
   } })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   const url = 'http://127.0.0.1:' + server.address().port + '/menchin-duel'
-  function attach(id) {
+  function attach(id, guestKey) {
     const token = id ? jwt.signToken({ user_id: id, aud: auth.audience }, auth.jwtSecret, 180) : ''
-    const socket = connect(url, { path: '/api/socket.io', auth: { token }, autoConnect: false, reconnection: false, forceNew: true })
+    const socket = connect(url, { path: '/api/socket.io', auth: { token, guestKey }, autoConnect: false, reconnection: false, forceNew: true })
     const c = {
       socket, play: (action, data = {}) => socket.timeout(2000).emitWithAck('play', { action, roomId: c.state?.room?.id, ...data }),
       move: move => c.play('move', { version: c.state.room.game.revision, move }),
@@ -105,6 +105,61 @@ test('two-player Menchin rooms, hidden hands, deadlines, reconnects and Elo', {
   clients.push(home)
   home.connect()
   await once(home, 'connect')
+
+  await t.test('guest practice, automatic bot turns, reclaiming a seat, rematch and isolation from Elo', async () => {
+    const guestKey = randomUUID().replaceAll('-', '')
+    let practice = attach(null, guestKey)
+    const outsider = attach(null, randomUUID().replaceAll('-', ''))
+    await until(() => practice.state && outsider.state)
+    for (const action of ['create', 'queue', 'join', 'start', 'cancel']) await declined(practice.play(action))
+    await declined(practice.standings())
+    await ok(practice.play('bot'))
+    const original = practice.state.room
+    assert.ok(original.bot && original.players[1].bot && original.players[1].online)
+    assert.equal(original.ranked, false)
+    assert.equal(practice.state.rating, null)
+    assert.ok(!JSON.stringify(original).includes(guestKey))
+    await declined(practice.play('bot'))
+    await declined(outsider.play('leave', { roomId: original.id }))
+    await declined(b.play('join', { code: original.code }))
+    assert.deepEqual(await home.timeout(2000).emitWithAck('rooms'), [])
+    practice.socket.close()
+    practice = attach(null, guestKey)
+    await until(() => practice.state?.room)
+    assert.equal(practice.state.room.id, original.id)
+    assert.deepEqual(practice.state.room.game.hand, original.game.hand)
+    for (let round = 1; round <= 20; round++) {
+      await until(() => practice.state.room.game.round === round)
+      if (round % 2) await ok(practice.move({ type: 'win' }))
+      await until(() => !!practice.state.room.game.result)
+      assert.equal(practice.state.room.game.result.reason, 'tsumo')
+      if (round < 20) await expire(practice)
+    }
+    assert.equal(practice.state.room.phase, 'finished')
+    assert.deepEqual(practice.state.room.game.scores, [10, 10])
+    assert.equal(practice.state.room.saving, '')
+    await ok(practice.play('bot'))
+    assert.notEqual(practice.state.room.id, original.id)
+    assert.equal(practice.state.room.game.round, 1)
+    await declined(practice.play('leave', { roomId: original.id }))
+    practice.socket.close()
+    await delay(550)
+    practice = attach(null, guestKey)
+    await until(() => practice.state)
+    assert.equal(practice.state.room, null)
+    await ok(a.play('queue'))
+    await ok(a.play('bot'))
+    assert.ok(!a.state.queued && a.state.room.bot)
+    await ok(b.play('queue'))
+    assert.ok(b.state.queued && !b.state.room)
+    await ok(b.play('cancel'))
+    await ok(a.play('leave'))
+    assert.deepEqual((await a.standings()).rows, [])
+    assert.equal((await pool.query('SELECT COUNT(*) FROM menchin_results')).rows[0].count, '0')
+    assert.equal((await pool.query('SELECT COUNT(*) FROM menchin_players')).rows[0].count, '0')
+    practice.socket.close()
+    outsider.socket.close()
+  })
 
   await t.test('guest home lists open rooms on load and follows seats, disconnects and closure', async () => {
     const readRooms = () => home.timeout(2000).emitWithAck('rooms')

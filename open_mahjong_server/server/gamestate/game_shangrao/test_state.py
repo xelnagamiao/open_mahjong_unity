@@ -331,6 +331,24 @@ def test_socket_identity_and_exact_action_tick():
     asyncio.run(run())
 
 
+def test_timeout_after_first_discard_pung_uses_rightmost_dealt_tile():
+    room = dict(ShangraoGameState._default_room_data(), random_seed=80, step_timer=0, round_timer=0)
+    s = ShangraoGameState(room_data=room, calculation_service=object())
+    s.initialize_round(dice=[2, 3])
+    s.open_action_window(s.opening_window())
+    act(s, action_type="cut", TileId=21, cutClass=True)
+    act(s, {1: "peng"})
+
+    player = s.player_list[1]
+    assert s.machine.phase == P.AFTER_MELD and not player.has_draw_slot
+    assert player.hand_tiles[-1] == 32 and max(player.hand_tiles) == 47
+    responses = asyncio.run(s.wait_action())
+    cut = responses[1]
+    assert (cut["TileId"], cut["cutIndex"], cut["cutClass"], cut["is_timeout_action"]) == (32, 10, False, True)
+    s.apply_action_results(s.live_pending_window, responses)
+    assert player.discard_tiles == [32]
+
+
 def test_wait_action_preserves_early_reply_and_charges_fractional_bank():
     async def run():
         s=turn();s.player_list[0].remaining_time=5;s.step_time=1

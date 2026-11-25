@@ -72,15 +72,35 @@ def check_only_cut(game_state, player_index: int) -> Dict[int, list[str]]:
 
 
 def refresh_waiting_tiles(game_state, player_index: int, *, exclude_last_tile: bool = False) -> set[int]:
-    """Refresh a player's waiting-tile cache from the Nanque calculator."""
+    """Refresh a player's waiting-tile cache from the Nanque/Zhongyong calculator with L1 cache."""
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
     player = game_state.player_list[player_index]
     hand_tiles = player.hand_tiles[:-1] if exclude_last_tile else player.hand_tiles
     if game_state.is_nanque:
-        player.waiting_tiles = game_state.calculation_service.Nanque_tingpai_check(hand_tiles, player.combination_tiles)
-    else:
-        from ...game_calculation.zhongyong import tingpai_check
-        player.waiting_tiles = tingpai_check(hand_tiles, player.combination_tiles)
-    return player.waiting_tiles
+        return sync_refresh_waiting_tiles_cached(
+            player,
+            "nanque",
+            hand_tiles,
+            player.combination_tiles,
+            lambda: game_state.calculation_service.Nanque_tingpai_check(hand_tiles, player.combination_tiles),
+        )
+    from ...game_calculation.zhongyong import tingpai_check
+    return sync_refresh_waiting_tiles_cached(
+        player,
+        "server.game_calculation.zhongyong:tingpai_check",
+        hand_tiles,
+        player.combination_tiles,
+        lambda: tingpai_check(hand_tiles, player.combination_tiles),
+    )
+
+
+async def async_refresh_waiting_tiles(game_state, player_index: int, *, exclude_last_tile: bool = False) -> set[int]:
+    """Async refresh via CalcExecutor + L1 hand-dirty cache."""
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
+    player = game_state.player_list[player_index]
+    hand_tiles = player.hand_tiles[:-1] if exclude_last_tile else player.hand_tiles
+    rule_key = "nanque" if game_state.is_nanque else "server.game_calculation.zhongyong:tingpai_check"
+    return await _async_refresh(game_state, player_index, rule_key, hand_tiles, player.combination_tiles)
 
 
 def _add_chi_actions(game_state, actions: Dict[int, list[str]], cut_tile: int) -> None:

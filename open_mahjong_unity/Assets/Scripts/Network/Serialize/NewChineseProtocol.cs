@@ -25,6 +25,7 @@ public sealed class NewChineseInfo {
 [System.Serializable]
 public sealed class SanhuaInfo {
     public int indicator, skin, joker;
+    public int? wall_front_draws, wall_back_draws;
     public int[] dice, liable;
     public double[] table_fans;
     public bool[] opened, declared, after_kong;

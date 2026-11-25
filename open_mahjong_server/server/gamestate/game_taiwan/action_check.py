@@ -175,14 +175,34 @@ def _chi_leaves_legal_discard(
 
 
 def refresh_waiting_tiles(game_state, player_index: int) -> Set[int]:
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
     player = game_state.player_list[player_index]
-    waits = game_state.calculation_service.Taiwan_tingpai_check(
+    return sync_refresh_waiting_tiles_cached(
+        player,
+        "taiwan",
         player.hand_tiles,
         player.combination_tiles,
-        game_state.rules_dict,
+        lambda: game_state.calculation_service.Taiwan_tingpai_check(
+            player.hand_tiles,
+            player.combination_tiles,
+            game_state.rules_dict,
+        ),
+        extra=game_state.rules_dict,
     )
-    player.waiting_tiles = waits
-    return waits
+
+
+async def async_refresh_waiting_tiles(game_state, player_index: int) -> Set[int]:
+    """通过统一 CalcExecutor + L1 手牌缓存异步刷新台湾麻将听牌表。"""
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
+    player = game_state.player_list[player_index]
+    return await _async_refresh(
+        game_state,
+        player_index,
+        "taiwan",
+        player.hand_tiles,
+        player.combination_tiles,
+        extra=game_state.rules_dict,
+    )
 
 
 def _score_action_candidate(game_state, player_index: int, source: str, tile: Optional[int] = None):

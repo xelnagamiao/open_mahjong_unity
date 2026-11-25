@@ -305,6 +305,7 @@ public partial class ConfigManager : MonoBehaviour {
         }
         CardBackColor = LoadCardBackColor();
         SideColor = LoadSideColor();
+        BackLayerFraction = Mathf.Clamp01(PlayerPrefs.GetFloat(BackLayerFractionKey, 0f));
         BackEdgeColor = LoadBackEdgeColor();
         BackEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_BACK_EDGE_SYNC, 1) == 1;
         BackEdgeMode = (CardEdgePanel.BackEdgeMode)Mathf.Clamp(

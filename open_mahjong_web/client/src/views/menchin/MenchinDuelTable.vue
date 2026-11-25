@@ -3,10 +3,9 @@
     <div class="scoreline">
       <span>第 {{ game.round }} / {{ game.rounds }} 局</span>
       <span>我方 {{ game.scores[seat] }} ∶ {{ game.scores[other] }} 对方</span>
-      <span v-if="active" class="timer" role="timer">剩余 {{ seconds }} 秒</span>
     </div>
     <section class="side">
-      <h3>对方 · <span data-no-translate>{{ name(other) }}</span>
+      <h3>对方 · <span v-if="room.players[other]?.bot">机器人</span><span v-else data-no-translate>{{ name(other) }}</span>
         <small v-if="game.dealer === other">先手</small>
         <small v-if="!room.players[other]?.online">离线</small>
       </h3>
@@ -50,22 +49,25 @@
       </div>
       <div class="my-hand" role="group" aria-label="我方手牌">
         <button v-for="(tile, i) in game.hand" :key="i" type="button"
-          :aria-label="'打出' + TILE_NAME[tile]" :class="{ drawn: game.drawn && i === game.hand.length - 1 }"
+          :aria-label="discardable.has(tile) ? '打出' + TILE_NAME[tile] : TILE_NAME[tile]" :class="{ drawn: game.drawn && i === game.hand.length - 1 }"
           :disabled="!canAct || !discardable.has(tile)" @click="act({ type: 'discard', tile })">
           <TileChip :tile-id="tile" size="lg" aria-hidden="true" />
         </button>
       </div>
     </section>
-    <div v-if="active && game.phase !== 'between'" class="turn">
-      <span role="status">{{ turnText }}</span>
-      <template v-if="game.actions.length">
+    <div v-if="active && game.phase !== 'between'" class="turn" :class="{ 'my-turn': game.turn === seat }">
+      <div class="turn-status">
+        <span role="status">{{ turnText }}</span>
+        <span class="timer" :class="{ urgent: game.turn === seat && seconds <= 3 }" role="timer">剩余 {{ seconds }} 秒</span>
+      </div>
+      <div v-if="controls.length" class="move-options">
         <button v-for="move in controls" :key="move.type + ':' + (move.tile || '')" class="move" type="button"
           :class="{ win: move.type === 'win' }" :disabled="!canAct" @click="act(move)">{{ moveLabel(move) }}</button>
-      </template>
+      </div>
     </div>
     <div v-if="game.result" class="result" role="status">
       <span>{{ resultText }}</span>
-      <span v-if="active && game.phase === 'between'">下一局即将开始</span>
+      <span v-if="active && game.phase === 'between'" class="timer" role="timer">{{ seconds }} 秒后开始下一局</span>
       <div v-if="game.result.hand" class="open-hand" aria-label="宣和手牌">
         <span>{{ game.result.actor === seat ? '我方亮牌' : '对方亮牌' }}</span>
         <TileChip v-for="(tile, i) in game.result.hand" :key="i" :tile-id="tile" size="sm"
@@ -136,7 +138,8 @@ function moveLabel(move) {
 .scoreline, .turn, .result, .wall-row, .river-row, .side { padding: 9px 14px; }
 .scoreline, .turn, .result, .wall-row, .river-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .scoreline { background: #444; color: white; }
-.timer { margin-left: auto; font-variant-numeric: tabular-nums; }
+.timer { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.timer.urgent { color: #a6302a; }
 .side h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; font-size: 15px; font-weight: 400; margin: 0 0 8px; overflow-wrap: anywhere; }
 .side small, .meld > span { color: #686868; font-size: 13px; }
 .opponent-hand, .wall { display: flex; gap: 1px; align-items: center; }
@@ -162,8 +165,12 @@ function moveLabel(move) {
 .my-hand .drawn { margin-left: 5px; }
 .my-hand button:hover:enabled, .my-hand button:focus-visible { outline: 2px solid #2672a8; }
 .turn, .result { border-top: 1px solid var(--line); min-height: 40px; }
-.turn > span { color: #505050; }
-.move { padding: 7px 14px; border: 1px solid #aaa; color: #333; background: #fff; font: inherit; cursor: pointer; min-height: 40px; }
+.turn { color: #505050; }
+.turn.my-turn { background: #f2f7fb; }
+.turn-status, .move-options { display: flex; align-items: center; gap: 8px; }
+.turn-status { flex: 1 1 180px; }
+.move-options { flex-wrap: wrap; }
+.move { padding: 7px 14px; border: 1px solid #aaa; color: #333; background: #fff; font: inherit; cursor: pointer; min-height: 44px; }
 .move.win { background: #b8392c; border-color: #b8392c; color: white; }
 .move:disabled { opacity: .55; cursor: default; }
 .result { background: #f5f5f5; }
@@ -175,6 +182,7 @@ function moveLabel(move) {
   .scoreline, .turn, .wall-row, .river-row { gap: 5px 8px; }
   .river-row > span { min-width: 4.2em; }
   .river :deep(.tile-chip.sm) { width: 22px; height: 30px; }
-  .my-hand button { width: min(41px, calc((100% - 18px) / 7)); }
+  .my-hand { max-width: calc(7 * 44px + 18px); }
+  .my-hand button { width: min(44px, calc((100% - 18px) / 7)); }
 }
 </style>

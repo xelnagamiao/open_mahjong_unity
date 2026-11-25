@@ -25,7 +25,7 @@ from ..public.round_end_timing import liuju_ready_wait_seconds
 from ...database.fulu_utils import record_fulu_rounds_for_players
 from .result import broadcast_result
 from .action_score import prepare_draw_score
-from ..public.ai.bot_executor import run_room_bot_cpu
+from ...game_calculation.calc_executor import run_room_calc_cpu
 from .timing import ActionClock, TimedActionQueue, PHASES, collect_responses
 
 
@@ -181,7 +181,7 @@ class HongzhongGameState(TaiwanGameState):
         elif cached and cached[0] == key:
             payload, detail = hint_context("hongzhong", player.hand_tiles, player.combination_tiles), cached[1]
         else:
-            payload, detail = await run_room_bot_cpu(self, prepare_draw_score, *key)
+            payload, detail = await run_room_calc_cpu(self, prepare_draw_score, *key)
         # 计算不持有牌局锁；换局、轮庄或后续动作可能先于工作进程结束。
         # 丢弃过期结果，尤其不能将上一局手牌提示记录到新一局牌谱。
         if (generation != self._score_generation or round_index != self.round_index

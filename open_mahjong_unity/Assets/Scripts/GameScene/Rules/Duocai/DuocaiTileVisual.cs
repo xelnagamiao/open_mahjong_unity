@@ -62,6 +62,11 @@ public static class DuocaiTileVisual {
         var indigo=Resources.Load<Texture2D>("image/Cards/Surfaces/backgrounds/hand-indigo");
         float aspect=rect.width/rect.height;
         var mask=classic!=null&&indigo!=null&&Mathf.Abs(aspect-(float)classic.width/classic.height)<Mathf.Abs(aspect-(float)indigo.width/indigo.height)?classic:indigo;
+        if (ConfigManager.Instance != null) {
+            var selection = ConfigManager.Instance.GetSelectedHandBackground();
+            if (!selection.isCustom && HandSurfaceStyles.Reference(HandSurfaceStyles.FindIndex(selection.path, false)) != null)
+                mask = source.texture;
+        }
         material.SetTexture("_BackMask",mask);
         material.SetVector("_Rect",new Vector4(rect.x/source.texture.width,rect.y/source.texture.height,rect.width/source.texture.width,rect.height/source.texture.height));
         var target=RenderTexture.GetTemporary((int)rect.width,(int)rect.height,0,RenderTextureFormat.ARGB32,RenderTextureReadWrite.sRGB);

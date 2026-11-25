@@ -25,7 +25,7 @@ public sealed partial class Card3DPresetPanel
         presets = Dropdown("PresetDropdown", header, template);
         rotation = Dropdown("RotationDropdown", header, template);
         rotation.AddOptions(new List<string> { "无轮转", "两副轮转", "随机轮转" });
-        presets.AddOptions(new List<string> { "默认蓝色", "默认橙色" });
+        presets.AddOptions(new Card3DPresetData().All().Select(p => p.name).ToList());
         add = Button("AddPresetButton", header, "+", ShowCreate);
         remove = Button("DeletePresetButton", header, "删除", null);
         rotationTrigger = rotation.gameObject.AddComponent<EventTrigger>();

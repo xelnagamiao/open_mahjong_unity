@@ -136,24 +136,31 @@ def _append_kong_actions(player, actions):
             actions.append("jiagang")
 
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌
-def refresh_waiting_tiles(self,player_index,is_first_action=False):
-    # 获取QingquePlayer
+def refresh_waiting_tiles(self, player_index, is_first_action=False):
+    from ..public.async_tingpai import sync_refresh_waiting_tiles_cached
     player_item = self.player_list[player_index]
-    # 获取手牌
-    current_player_hand_tiles = player_item.hand_tiles
-    if is_first_action:
-        current_player_hand_tiles = player_item.hand_tiles[:-1] # 第一轮行动时只计算前13张牌
-    # 获取组合牌
-    current_player_combination_tiles = player_item.combination_tiles
-    # 调用听牌检查（使用计算服务类）
-    current_player_waiting_tiles = self.calculation_service.Qingque_tingpai_check(
-        current_player_hand_tiles,
-        current_player_combination_tiles
+    hand = player_item.hand_tiles[:-1] if is_first_action else player_item.hand_tiles
+    prev = player_item.waiting_tiles
+    waiting = sync_refresh_waiting_tiles_cached(
+        player_item,
+        "qingque",
+        hand,
+        player_item.combination_tiles,
+        lambda: self.calculation_service.Qingque_tingpai_check(hand, player_item.combination_tiles),
     )
-    # 更新等待牌
-    if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
-        self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
-        logger.info(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")
+    if waiting != prev:
+        logger.info(f"玩家{player_index}的等待牌更新为{waiting}")
+
+
+async def async_refresh_waiting_tiles(self, player_index, is_first_action=False):
+    from ..public.async_tingpai import async_refresh_waiting_tiles as _async_refresh
+    player_item = self.player_list[player_index]
+    hand = player_item.hand_tiles[:-1] if is_first_action else player_item.hand_tiles
+    prev = player_item.waiting_tiles
+    waiting = await _async_refresh(self, player_index, "qingque", hand, player_item.combination_tiles)
+    if waiting != prev:
+        logger.info(f"玩家{player_index}的等待牌更新为{waiting}")
+
 
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):

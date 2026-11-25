@@ -40,7 +40,5 @@ def deal(seed, dealer, *, wall=None, dice=None):
         hands[(dealer + packet) % 4].extend(deck[packet * 4:packet * 4 + 4])
     for offset in range(4):
         hands[(dealer + offset) % 4].append(deck[48 + offset])
-    for hand in hands:
-        hand.sort()
     hands[dealer].append(deck[52])
     return hands, deck[53:], marker - 53, deck[marker], dice

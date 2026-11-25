@@ -92,11 +92,7 @@ class BeijingGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhongy
         for i in (1, 2, 3):
             self.player_list[i].hand_tiles.append(final[i])
         self.indicator = final[5]
-        for p in self.player_list:
-            p.hand_tiles.sort()
         dealer = self.player_list[0]
-        dealer.hand_tiles.remove(final[4])
-        dealer.hand_tiles.append(final[4])
         dealer.has_draw_slot, dealer.draw_kind = True, "opening"
         self.dealer_index = self.current_player_index = 0
         self.wall_positions = list(range(54, 136))

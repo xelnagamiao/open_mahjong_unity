@@ -134,15 +134,12 @@ class HandFlow:
             original_draw = p.hand_tiles[-1] if p.has_draw_slot else None
             for t in submissions[index]:
                 p.hand_tiles.remove(t)
-            keep_draw = original_draw in p.hand_tiles
-            p.hand_tiles.extend(incoming)
-            if p.has_draw_slot:
-                draw = original_draw if keep_draw else incoming[-1]
-                p.hand_tiles.remove(draw)
-                p.hand_tiles.sort()
-                p.hand_tiles.append(draw)
+            # Removing first matches leaves the original draw last if any copy remains.
+            # Insert immediately before that slot, or let the final incoming tile fill it.
+            if p.has_draw_slot and original_draw in p.hand_tiles:
+                p.hand_tiles[-1:-1] = incoming
             else:
-                p.hand_tiles.sort()
+                p.hand_tiles.extend(incoming)
         return received
 
     def take_turn(self, index, data, offered):

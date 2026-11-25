@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ...database.pool_retry import run_with_pool_retry
 from ...database.record_persistence import store_single_table_record
-from .action_check import check_action_after_peng, check_action_hand_action, refresh_waiting_tiles
+from .action_check import async_refresh_waiting_tiles, check_action_after_peng, check_action_hand_action, refresh_waiting_tiles
 from .action_window import collect_tactical_recheck, validate_tactical_queued_action
 from .real_time import RealTimeClaimMixin
 from .wait_action import wait_action
@@ -455,8 +455,8 @@ class SichuanGameState(RealTimeClaimMixin):
             self.game_status = "waiting_hand_action"
             # 换牌/定缺完成后初始化所有听口，避免闲家首次摸牌前漏掉点和。
             for player in self.player_list:
-                refresh_waiting_tiles(self, player.player_index,
-                                      is_first_action=player.player_index == self.dealer_index)
+                await async_refresh_waiting_tiles(self, player.player_index,
+                                                  is_first_action=player.player_index == self.dealer_index)
             self.action_dict = check_action_hand_action(self, self.current_player_index, is_first_action=True)
             await self.broadcast_ask_hand_action()
             await self.wait_action()
@@ -471,7 +471,7 @@ class SichuanGameState(RealTimeClaimMixin):
                             self.game_status = "END"
                             break
                         self.current_player_index = nxt
-                        refresh_waiting_tiles(self, self.current_player_index)
+                        await async_refresh_waiting_tiles(self, self.current_player_index)
                         draw_player = self.player_list[self.current_player_index]
                         draw_player.get_tile(self.tiles_list)
                         if self.is_sbr_exchange:
@@ -490,7 +490,7 @@ class SichuanGameState(RealTimeClaimMixin):
                             self.ended_by = "liuju"
                             self.game_status = "END"
                             break
-                        refresh_waiting_tiles(self, self.current_player_index)
+                        await async_refresh_waiting_tiles(self, self.current_player_index)
                         gang_draw_player = self.player_list[self.current_player_index]
                         gang_draw_player.get_gang_tile(self.tiles_list, self)
                         if self.is_sbr_exchange:

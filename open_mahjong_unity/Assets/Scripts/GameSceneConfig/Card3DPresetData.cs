@@ -12,6 +12,8 @@ public sealed class Card3DAppearance
     public Color backEdge = ConfigManager.DefaultBackEdgeColor, frontEdge = Color.white;
     public Color face = ConfigManager.DefaultTableFaceColor;
     public float backBrightness, faceBrightness, frontEdgeBrightness, backEdgeBrightness;
+    // Zero keeps the mesh-authored color seam in older presets.
+    public float backLayerFraction;
     public int backEdgeMode = 1, frontEdgeMode;
     public bool useBackground, useSolid;
     public string backImage = "", backgroundImage = "";
@@ -43,7 +45,13 @@ public sealed class Card3DPresetData
     public string lastMatch = "", lastRound = "", lastRotationId = "";
     public int rotationStep;
 
-    public static bool IsBuiltin(string id) => id == BlueId || id == OrangeId;
+    public static bool IsBuiltin(string id)
+    {
+        if (id == BlueId || id == OrangeId) return true;
+        foreach (var style in HandSurfaceStyles.ReferenceStyles)
+            if (id == style.Id) return true;
+        return false;
+    }
     public List<Card3DPreset> All()
     {
         var orange = SceneConfigUi.PresetColors[2]; // Same system orange as the card-back swatch.
@@ -51,6 +59,19 @@ public sealed class Card3DPresetData
             new Card3DPreset { id = BlueId, name = "默认蓝色" },
             new Card3DPreset { id = OrangeId, name = "默认橙色", appearance = new Card3DAppearance { back = orange, backEdge = orange } }
         };
+        foreach (var style in HandSurfaceStyles.ReferenceStyles) {
+            Color back = style.TableBack ?? style.Back;
+            result.Add(new Card3DPreset {
+                id = style.Id, name = style.Name,
+                appearance = new Card3DAppearance {
+                    // The shader multiplies side and frontEdge on the entire pale wall and bevel.
+                    useSolid = true, face = style.TableFace ?? style.Face,
+                    side = style.TableSide ?? style.Side, frontEdge = Color.white,
+                    back = back, backEdge = back,
+                    backLayerFraction = style.BackLayerFraction
+                }
+            });
+        }
         result.AddRange(custom);
         return result;
     }
@@ -58,8 +79,8 @@ public sealed class Card3DPresetData
     public void Normalize()
     {
         custom ??= new List<Card3DPreset>(); rotationIds ??= new List<string>();
-        var seen = new HashSet<string> { BlueId, OrangeId };
-        custom.RemoveAll(p => p == null || string.IsNullOrWhiteSpace(p.id) || p.appearance == null || !seen.Add(p.id));
+        var seen = new HashSet<string>();
+        custom.RemoveAll(p => p == null || string.IsNullOrWhiteSpace(p.id) || p.appearance == null || IsBuiltin(p.id) || !seen.Add(p.id));
         foreach (var preset in custom) if (string.IsNullOrWhiteSpace(preset.name)) preset.name = "卡牌预设";
         if (Find(selectedId) == null) selectedId = BlueId;
         rotation = (Card3DRotationMode)Mathf.Clamp((int)rotation, 0, 2);

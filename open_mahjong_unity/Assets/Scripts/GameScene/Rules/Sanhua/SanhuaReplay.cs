@@ -6,8 +6,12 @@ public partial class GameRecordManager {
     internal SanhuaInfo SanhuaRecordInfo {get; private set;}
     internal RuleReplayModule CreateSanhuaReplayModule() => new RuleReplayModule("sanhua") {
         Reset=()=>SanhuaRecordInfo=gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var r)?r.sanhua:null,
-        Clear=()=>{SanhuaRecordInfo=null; GameCanvas.Instance?.ShowSanhuaFans(null,indexToPosition);},
-        RefreshPlayerTags=()=>GameCanvas.Instance?.ShowSanhuaFans(SanhuaRecordInfo,indexToPosition),
+        Clear = () => {
+            SanhuaRecordInfo = null;
+            GameCanvas.Instance?.ShowSanhuaFans(null, indexToPosition);
+            Game3DManager.Instance?.ClearSanhuaWall();
+        },
+        RefreshPlayerTags=RefreshSanhua,
         RefreshAfterAction=RefreshSanhua,RefreshAfterSeek=RefreshSanhua,AfterSilentMutation=_=>RefreshSanhua(),
         ApplyBeforeMutation=ApplySanhua,
         ConsumeWallTile=action=>{
@@ -24,6 +28,10 @@ public partial class GameRecordManager {
     private void RefreshSanhua() {
         GameCanvas.Instance?.ShowSanhuaFans(SanhuaRecordInfo,indexToPosition);
         RoundPanel.Instance?.RefreshIndicators(SanhuaGameState.SubRule, SanhuaGameState.Indicators(SanhuaRecordInfo));
+        // 以当前节点已经执行的摸牌和杠补为准，旧谱及遮蔽牌面的观战牌谱也保留这些动作。
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round))
+            Game3DManager.Instance?.ShowSanhuaWall(SanhuaRecordInfo, round.dealerIndex, indexToPosition,
+                consumedFromFront, consumedBackIndices.Count);
     }
     private bool ApplySanhua(IReadOnlyList<string> tick) {
         if(tick.Count<3 || tick[0]!="sanhua") return false;

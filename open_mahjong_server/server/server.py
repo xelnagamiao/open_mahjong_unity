@@ -33,6 +33,8 @@ from .chat_server.access import register_chat_access
 from .chat_server.conversation_router import handle_conversation_message
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
+from .game_calculation.async_calculation_service import AsyncCalculationService
+from .runtime.cpu_allocation import resolve_server_cpu_allocation
 from .match.match_manager import MatchManager
 import secrets
 import re
@@ -184,9 +186,16 @@ async def lifespan(app: FastAPI):
     # 测试环境下启动聊天服务器
     if Config.auto_create_chatserver:
         await chat_server.start_chat_server()
+    from .game_calculation.calc_executor import warm_calc_executor, shutdown_calc_executor
     from .gamestate.public.ai.bot_executor import warm_bot_executor, shutdown_bot_executor
+    cpu_allocation = resolve_server_cpu_allocation(getattr(Config, "cpu_budget", None))
+    logging.info(cpu_allocation.summary())
     try:
-        await warm_bot_executor()
+        await warm_calc_executor(cpu_allocation)
+    except Exception:
+        logging.exception("实时算牌执行器预热失败，服务将回退至 inline 模式继续启动")
+    try:
+        await warm_bot_executor(cpu_allocation)
     except Exception:
         # Warming is only an optimization. Keep the API available and let the
         # first bot request initialize the executor lazily if warm-up fails.
@@ -208,6 +217,7 @@ async def lifespan(app: FastAPI):
     qingque_recovery_task.cancel()
     await asyncio.gather(reset_task, sampler_task, stats_task, restore_task, ban_task,
                          qingque_recovery_task, return_exceptions=True)
+    await shutdown_calc_executor()
     await shutdown_bot_executor()
     # 关闭时执行（如果需要清理资源，在这里添加）
 
@@ -253,6 +263,8 @@ class GameServer:
         self.gamestate_manager = GameStateManager(self)
         # 全局计算服务
         self.calculation_service = GameCalculationService()
+        # 统一异步协程算牌服务（内置手牌脏标记缓存与 CalcExecutor 多核调度）
+        self.async_calculation_service = AsyncCalculationService(self.calculation_service)
         # 数据库管理器
         self.db_manager = db_manager
         # 聊天服务器

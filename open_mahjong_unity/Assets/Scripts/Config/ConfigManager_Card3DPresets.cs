@@ -4,6 +4,8 @@ using UnityEngine;
 public partial class ConfigManager
 {
     public event Action Card3DAppearanceChanged;
+    private const string BackLayerFractionKey = "CardBackLayerFraction";
+    public float BackLayerFraction { get; private set; }
     private Card3DAppearance runtimeCardAppearance;
     private void NotifyCard3DAppearanceChanged() => Card3DAppearanceChanged?.Invoke();
 
@@ -13,6 +15,7 @@ public partial class ConfigManager
         return new Card3DAppearance {
             back = CardBackColor, side = SideColor, backEdge = BackEdgeColor, frontEdge = FrontEdgeColor,
             face = TableFaceColor, backBrightness = CardBackBrightness, faceBrightness = TableFaceBrightness,
+            backLayerFraction = BackLayerFraction,
             frontEdgeBrightness = FrontEdgeBrightness, backEdgeBrightness = BackEdgeBrightness,
             backEdgeMode = (int)BackEdgeMode, frontEdgeMode = (int)FrontEdgeMode,
             useBackground = UseTableFaceBackground, useSolid = TableFaceUseSolidColor,
@@ -28,6 +31,7 @@ public partial class ConfigManager
         runtimeCardAppearance = persist ? null : value.Copy();
         CardBackColor = value.back; SideColor = value.side; BackEdgeColor = value.backEdge;
         FrontEdgeColor = value.frontEdge; TableFaceColor = value.face;
+        BackLayerFraction = Mathf.Clamp01(value.backLayerFraction);
         CardBackBrightness = Mathf.Clamp(value.backBrightness, -1, 1);
         TableFaceBrightness = Mathf.Clamp(value.faceBrightness, -1, 1);
         FrontEdgeBrightness = Mathf.Clamp(value.frontEdgeBrightness, -1, 1);
@@ -44,6 +48,7 @@ public partial class ConfigManager
         PlayerPrefs.SetString(KEY_BACK_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(BackEdgeColor));
         PlayerPrefs.SetString(KEY_FRONT_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(FrontEdgeColor));
         PlayerPrefs.SetString(KEY_TABLE_FACE_COLOR, ColorUtility.ToHtmlStringRGBA(TableFaceColor));
+        PlayerPrefs.SetFloat(BackLayerFractionKey, BackLayerFraction);
         PlayerPrefs.SetFloat("CardBackBrightness", CardBackBrightness); PlayerPrefs.SetFloat("TableFaceBrightness", TableFaceBrightness);
         PlayerPrefs.SetFloat("FrontEdgeBrightness", FrontEdgeBrightness); PlayerPrefs.SetFloat("BackEdgeBrightness", BackEdgeBrightness);
         PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)BackEdgeMode); PlayerPrefs.SetInt(KEY_FRONT_EDGE_MODE, (int)FrontEdgeMode);

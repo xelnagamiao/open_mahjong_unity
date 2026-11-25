@@ -107,7 +107,7 @@ def test_worker_completion_cannot_record_stale_hand_or_previous_round(mutation):
         async def delayed(_state, compute, *args):
             entered.set(); await release.wait()
             return compute(*args)
-        with patch(STATE + ".run_room_bot_cpu", side_effect=delayed):
+        with patch(STATE + ".run_room_calc_cpu", side_effect=delayed):
             task = asyncio.create_task(state._prepare_draw_score(0)); await entered.wait()
             if mutation == "reset": state._reset_hand_runtime()
             elif mutation == "round": state.round_index += 1; init_game_round(state)
@@ -142,7 +142,7 @@ def test_cut_inputs_and_repeated_draw_snapshots_do_not_schedule_preview_work():
         player = hand(state, 0, HAND)
         async def actual(_state, function, *args):
             return function(*args)
-        with patch(STATE + ".run_room_bot_cpu", side_effect=actual) as worker:
+        with patch(STATE + ".run_room_calc_cpu", side_effect=actual) as worker:
             await state._prepare_draw_score(0)
             worker.assert_not_awaited()
             assert state._local_contexts[0]['local_request']['hand'] == HAND

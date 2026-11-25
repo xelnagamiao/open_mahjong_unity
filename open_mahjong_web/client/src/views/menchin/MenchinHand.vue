@@ -15,16 +15,26 @@
     </div>
     <button v-if="allowNoWait" type="button" class="no-wait" :aria-pressed="noWaitPicked"
       :disabled="locked" @click="toggleNoWait">未听牌</button>
-    <div class="controls">
+    <div v-if="waits" class="reveal" aria-live="polite">
+      <div v-if="answer" class="answer-row">
+        <span class="verdict" :class="{ incorrect: !answer.correct }">{{ answer.correct ? '正确' : '错误' }}</span>
+        <template v-if="!answer.correct">
+          <span>你的答案</span>
+          <TileChip v-for="tile in [...answer.tiles].sort((a, b) => a - b)" :key="tile" :tile-id="tile" size="sm" />
+          <span v-if="!answer.tiles.length">未听牌</span>
+        </template>
+      </div>
+      <div class="answer-row">
+        <span>正确待牌</span>
+        <TileChip v-for="tile in waits" :key="tile" :tile-id="tile" size="sm" />
+        <span v-if="!waits.length">未听牌</span>
+      </div>
+    </div>
+    <div v-if="!waits || $slots.default" class="controls">
       <button v-if="!waits" type="button" class="submit" :disabled="locked || (!draft.length && !noWait)" @click="$emit('answer', [...draft])">
         {{ answer ? '已提交' : '提交答案' }}
       </button>
       <slot />
-    </div>
-    <div v-if="waits" class="reveal" aria-live="polite">
-      <span v-if="answer">{{ answer.correct ? '正确' : '错误' }}</span>
-      <span>{{ waits.length ? '正确待牌' : '未听牌' }}</span>
-      <TileChip v-for="tile in waits" :key="tile" :tile-id="tile" size="sm" />
     </div>
   </div>
 </template>
@@ -87,13 +97,17 @@ function toggleNoWait() {
 .choices button:disabled { cursor: default; }
 .choices .hit { border-color: #429d45; background: #edf7ee; }
 .choices .miss { border-color: #c0392b; background: #fff0ef; }
-.controls, .reveal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; font-size: 14px; }
+.controls, .answer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+.controls { margin-top: 16px; }
+.controls:empty { display: none; }
 .controls > span { color: #666; }
-.submit { border: 0; background: #409eff; padding: 8px 14px; color: white; font: inherit; cursor: pointer; }
+.submit { min-height: 40px; border: 0; background: #2475b9; padding: 8px 14px; color: white; font: inherit; cursor: pointer; }
 .submit:disabled { opacity: .5; cursor: default; }
 .no-wait { margin-top: 8px; padding: 7px 12px; border: 1px solid #ccc; color: #333; background: white; font: inherit; font-size: 14px; cursor: pointer; }
 .no-wait[aria-pressed="true"] { border-color: #409eff; background: #ecf5ff; }
-.reveal { border-top: 1px solid #eee; padding-top: 12px; }
+.reveal { display: grid; gap: 8px; margin-top: 16px; border-top: 1px solid #eee; padding-top: 12px; }
+.verdict { color: #28743c; }
+.verdict.incorrect { color: #a6302a; }
 @media (max-width: 600px) {
   .hand { gap: 1px; }
   .choices { grid-template-columns: repeat(5, minmax(0, 48px)); }

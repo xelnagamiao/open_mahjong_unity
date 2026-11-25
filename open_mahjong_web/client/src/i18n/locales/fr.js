@@ -6316,7 +6316,7 @@ export default {
     "{count}大胡封顶（鸟另计）": "Plafond de {count} grandes victoires (oiseaux séparés)",
     "{count}分封顶（含鸟）": "Plafond de {count} points (oiseaux inclus)",
     "开杠后按骰子位置公开补牌；卡摸仅限制小胡点和。封顶按每名和牌者、每名付款者计算，同批多次和牌累计计入封顶。": "Après kong, les remplacements sont révélés selon les positions des dés. Kamo limite uniquement les petites victoires sur écart. Le plafond s'applique à chaque gagnant et chaque payeur ; les victoires multiples du même lot y sont cumulées.",
-    "开局有3秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Au début, la table dispose de 3 secondes pour choisir de ne pas échanger. Après un premier échange, un second peut être choisi, avec deux tours au maximum. Chaque tour échange six tuiles d'au plus deux familles ; trois familles font perdre le droit de gagner. Quatre tuiles après kong, deux oiseaux, petite victoire à 2 points, grande à partir de 8, sans plafond.",
+    "开局有2秒可选择全桌不换；换完一轮后可选择再换一轮，最多两轮。每轮选六张、最多两种花色；三种花色失去和牌资格。固定四张开杠、双鸟、小胡2分、大胡8分起、不封顶。": "Au début, la table dispose de 2 secondes pour choisir de ne pas échanger. Après un premier échange, un second peut être choisi, avec deux tours au maximum. Chaque tour échange six tuiles d'au plus deux familles ; trois familles font perdre le droit de gagner. Quatre tuiles après kong, deux oiseaux, petite victoire à 2 points, grande à partir de 8, sans plafond.",
     "经典双鸟": "Deux oiseaux classiques",
     "换牌时间（秒）": "Temps d'échange (secondes)",
     "社群二维码": "QR code de la communauté",

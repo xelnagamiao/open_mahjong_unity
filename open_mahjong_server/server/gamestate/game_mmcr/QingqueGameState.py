@@ -3,7 +3,7 @@ import random
 import asyncio
 from typing import Any, Dict, List, Optional
 import logging
-from .action_check import check_action_hand_action, check_only_cut, refresh_waiting_tiles
+from .action_check import async_refresh_waiting_tiles, check_action_hand_action, check_only_cut, refresh_waiting_tiles
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -440,7 +440,7 @@ class QingqueGameState:
 
             # 所有座位先用13张配牌计算听牌，闲家在首次摸牌前也能铳和/抢杠。
             for player in self.player_list:
-                self.refresh_waiting_tiles(player.player_index)
+                await async_refresh_waiting_tiles(self, player.player_index)
             # 庄家（player 0）摸第14张牌
             self.player_list[0].get_tile(self.tiles_list) # 从牌山摸牌
             # 牌谱记录摸牌
@@ -467,7 +467,7 @@ class QingqueGameState:
                             self.game_status = "END" # 结束游戏
                             break
                         self.next_current_index() # 切换到下一个玩家
-                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
+                        await async_refresh_waiting_tiles(self, self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "d")
@@ -487,7 +487,7 @@ class QingqueGameState:
                         if not self.tiles_list:
                             self.game_status = "END"
                             break
-                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
+                        await async_refresh_waiting_tiles(self, self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 倒序摸牌
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "gd")

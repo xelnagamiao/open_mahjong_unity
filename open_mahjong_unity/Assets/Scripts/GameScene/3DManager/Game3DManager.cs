@@ -951,6 +951,7 @@ public partial class Game3DManager : MonoBehaviour {
         ClearDuocaiWall();
         ClearDuocaiDeclaredKongs();
         ClearSichuanWall();
+        ClearSanhuaWall();
         ClearWashizuPresentation();
         ClearChangshaOpenKongTilesImmediate();
         ClearAllLastDiscardAndJiagang();

@@ -44,7 +44,7 @@ def test_worker_uses_room_toggle_for_win_permission_and_snapshots(multi,case):
     s=state(joker_multi_wait=multi);s.current_player_index=0;s.player_list[0].discard_tiles=[win]
     p=s.player_list[1];p.hand_tiles=hand[:];p.hand_tiles.remove(win);p.combination_tiles=melds
     async def worker(_state,fn,*args,**kw):return fn(*args,**kw)
-    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_bot_cpu',worker):
+    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_calc_cpu',worker):
         actions=asyncio.run(evaluate_actions(s,check_action_after_cut,win))
     expected=multi if fan=='无番和' else not multi
     assert ('hu_first' in actions[1])==expected
@@ -89,7 +89,7 @@ def test_worker_scores_snapshot_and_applies_only_results():
     refresh_waiting_tiles(s,0,True)
     async def worker(_state,fn,*args,**kw):
         return await asyncio.to_thread(fn,*args,**kw)
-    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_bot_cpu',worker):
+    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_calc_cpu',worker):
         actions=asyncio.run(evaluate_actions(s,check_action_hand_action,0))
     assert 'hu_self' in actions[0]
     assert s.player_list[0].hand_tiles==BASE[:-1]+[59]

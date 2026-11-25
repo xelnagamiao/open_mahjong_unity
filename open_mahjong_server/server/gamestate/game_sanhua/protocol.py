@@ -12,6 +12,7 @@ class Protocol(WindowProtocol):
     def view(self, viewer=None):
         table = self.table()
         return dict(indicator=self.indicator, skin=self.skin, joker=self.joker, dice=list(self.dice),
+                    wall_front_draws=self.wall_front_draws, wall_back_draws=self.wall_back_draws,
                     table_fans=[sum(VALUES[n] for n in row) for row in table],
                     opened=["开口番" in row for row in table],
                     declared=[p.baoqing for p in self.player_list],

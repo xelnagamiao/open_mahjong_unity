@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { solveHand } from '../../client/src/utils/scoring/handShapes.ts'
 import { createDuel, duelAct, duelTick, duelView } from './duel.mjs'
+import { chooseBotMove } from './duelBot.mjs'
 
 const tiles = digits => [...digits].map(d => 10 + Number(d))
 const fullWall = () => Array.from({ length: 36 }, (_, i) => 11 + Math.floor(i / 4))
@@ -30,6 +31,31 @@ function assertConservation(d) {
     ...d.rivers.flat().filter(r => !r.claimed).map(r => r.tile)]
   assert.deepEqual(remaining.sort((a, b) => a - b), fullWall())
 }
+
+test('bot declares legal seven pairs, considers each available chow and keeps a better closed hand', () => {
+  for (const [hand, discard, expected] of [
+    ['1111224477889', 19, { type: 'win' }],
+    ['1223445668899', 17, { type: 'chi', tile: 16 }],
+    ['1445566778899', 19, { type: 'peng' }],
+    ['1234446667778', 15, { type: 'pass' }],
+  ]) {
+    const d = deal({ second: hand, draw: String(discard - 10) })
+    act(d, 'discard', discard)
+    const move = chooseBotMove(duelView(d, 1))
+    assert.deepEqual(move, expected)
+    act(d, move.type, move.tile)
+    assertConservation(d)
+    if (move.type === 'win') assert.equal(d.result.reason, 'ron')
+  }
+})
+
+test('bot uses remaining visible copies when ranking discards', () => {
+  const d = deal({ first: '1112245567889', draw: '9' })
+  const view = duelView(d, 0)
+  assert.deepEqual(chooseBotMove(view), { type: 'discard', tile: 15 })
+  view.rivers[1] = Array.from({ length: 3 }, () => ({ tile: 17, claimed: false }))
+  assert.deepEqual(chooseBotMove(view), { type: 'discard', tile: 18 })
+})
 
 test('36 tiles, only player-visible information, stale/invalid/late actions leave the state intact', () => {
   const d = deal()

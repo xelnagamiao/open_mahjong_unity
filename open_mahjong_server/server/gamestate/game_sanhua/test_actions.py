@@ -32,7 +32,20 @@ def test_call_precedence_and_automatic_first_win():
     s.player_list[0].riichi_flags=[False]
     w=s.window(Phase.RESPONSE,0,11,s.claims(0,11))
     invoke(s,w,{1:"pass",3:"hu"})
-    assert s.next_dealer==1 and s.round_changes==[-200,600,-200,-200]
+    assert s.next_dealer==1 and s.round_changes==[-240,600,-180,-180]
+
+
+def test_thirteen_orphans_self_draw_records_payments():
+    s = hand_state()
+    seat = 2
+    s.player_list[seat].hand_tiles = list(ORPHANS) + [11]
+    s.player_list[seat].has_draw_slot = True
+    invoke(s, s.turn(seat), {seat: "hu_self"})
+    changes = [-180, -180, 540, -180]
+    assert s.round_changes == changes
+    settlement = s.deferred_hu_settlements[-1]
+    assert settlement["source"] == "self_draw"
+    assert settlement["score_changes"] == changes and settlement["points"] == 540
 
 
 @pytest.mark.parametrize("kind,tile",[("angang",45),("angang",27),("angang",28),("jiagang",11)])
@@ -52,7 +65,7 @@ def test_only_orphans_can_rob_single_and_added_kongs(kind,tile):
     assert w["status"]==Phase.ROB_KONG
     invoke(s,w,{1:"hu"})
     assert not s.player_list[0].specials and not s.player_list[0].hand_tiles
-    assert s.next_dealer==1 and s.round_changes[1]==600
+    assert s.next_dealer==1 and s.round_changes==[-240,600,-180,-180]
     if kind=="jiagang": assert s.player_list[0].combination_tiles==["k11"]
 
 

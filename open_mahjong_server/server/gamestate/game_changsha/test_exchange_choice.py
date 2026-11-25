@@ -52,8 +52,8 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
                 deal, choice = [message["state"] for message in messages]
                 self.assertEqual((deal["phase"], choice["phase"]), ("deal_dice", "exchange_start_choice"))
                 self.assertFalse(deal["private_state"]["action_list"])
-                self.assertEqual(choice["remaining_time"], 3)
-            with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=2.8):
+                self.assertEqual(choice["remaining_time"], 2)
+            with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=1.8):
                 await self.action(state, 0, NO_EXCHANGE_ACTION)
             await self.wait_phase(state, "declarations")
             self.assertEqual(flow.completed_exchange_rounds, 0)
@@ -78,13 +78,13 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
             message = state.game_server.user_id_to_connection[100 + seat].websocket.messages[0]
             self.assertEqual(message["state"]["private_state"]["action_list"], [NO_EXCHANGE_ACTION])
 
-    async def test_real_initial_choice_timeout_is_three_seconds(self):
+    async def test_real_initial_choice_timeout_is_two_seconds(self):
         state = live_state()
         started = time.monotonic()
         self.assertTrue(await state.exchange_six.choose_exchange())
         elapsed = time.monotonic() - started
-        self.assertGreaterEqual(elapsed, 2.95)
-        self.assertLess(elapsed, 4.0)
+        self.assertGreaterEqual(elapsed, 1.95)
+        self.assertLess(elapsed, 3.0)
 
     async def wait_phase(self, state, phase, *, round_number=None):
         for _ in range(1000):
@@ -128,16 +128,16 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
         task = asyncio.create_task(flow.choose_exchange())
         await self.wait_phase(state, "exchange_start_choice")
         tick = state.server_action_tick
-        self.assertEqual(flow.packet(0).state.remaining_time, 3)
+        self.assertEqual(flow.packet(0).state.remaining_time, 2)
         self.assertEqual(flow.packet(0).state.step_remaining, 0)
         await self.action(state, 2, NO_EXCHANGE_ACTION, tick=tick - 1)
         self.assertIsNone(flow.exchange_choice)
-        with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=2.25):
+        with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=1.25):
             await reconnected_send_pending_ask(state, 100)
             packet = state.game_server.user_id_to_connection[100].websocket.messages[-1]["state"]
             self.assertEqual(packet["remaining_time"], 1)
             self.assertEqual(packet["action_tick"], tick)
-        with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=3):
+        with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=2):
             await self.action(state, 3, NO_EXCHANGE_ACTION)
             self.assertTrue(await asyncio.wait_for(task, 1.5))
         self.assertIsNone(flow.exchange_choice["seat"])
@@ -192,7 +192,7 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
         ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
         self.assertFalse(any(tick[0] == "changsha_exchange_six" for tick in ticks))
         self.assertIn(["changsha_exchange_decision", 0, 2, NO_EXCHANGE_ACTION], ticks)
-        self.assertIn(["changsha_exchange_choice_start", 0, 3], ticks)
+        self.assertIn(["changsha_exchange_choice_start", 0, 2], ticks)
 
     async def test_first_hand_must_be_received_before_second_choice_and_two_rounds_are_atomic(self):
         for repeat_action in (REPEAT_EXCHANGE_ACTION, NO_EXCHANGE_ACTION, None):
@@ -226,7 +226,7 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
                     for seat in range(4):
                         packet = flow.packet(seat).state
                         self.assertEqual(packet.private_state["hand_tiles"], first_hands[seat])
-                        self.assertEqual(packet.remaining_time, 3)
+                        self.assertEqual(packet.remaining_time, 2)
                     await self.action(state, 3, repeat_action)
                 expected_rounds = 2 if repeat_action == REPEAT_EXCHANGE_ACTION else 1
                 if expected_rounds == 2:

@@ -18,7 +18,7 @@ function shuffledWall() {
   return wall
 }
 
-function countsOf(hand) {
+export function countsOf(hand) {
   const counts = Array(9).fill(0)
   for (const tile of hand) counts[tile - 11]++
   return counts
@@ -40,15 +40,19 @@ function consistsOfMelds(counts) {
   return match
 }
 
-function canWin(hand, meldCount) {
-  if (hand.length + meldCount * 3 !== 14) return false
-  const counts = countsOf(hand)
+export function canWin(hand, meldCount) {
+  return completedShape(countsOf(hand), meldCount)
+}
+
+export function completedShape(counts, meldCount) {
+  if (counts.reduce((sum, n) => sum + n, meldCount * 3) !== 14) return false
   if (meldCount === 0 && counts.every(n => n % 2 === 0)) return true
   for (let i = 0; i < counts.length; i++) {
     if (counts[i] < 2) continue
     counts[i] -= 2
-    if (consistsOfMelds(counts)) return true
+    const complete = consistsOfMelds(counts)
     counts[i] += 2
+    if (complete) return true
   }
   return false
 }

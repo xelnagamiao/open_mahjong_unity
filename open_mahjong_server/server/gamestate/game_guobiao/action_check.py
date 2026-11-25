@@ -179,6 +179,7 @@ def check_only_cut(self,player_index):
 def refresh_waiting_tiles(self,player_index,is_first_action=False):
     if blood_battle.enabled(self) and getattr(self.player_list[player_index], "is_hu", False):
         self.player_list[player_index].waiting_tiles = set()
+        self.player_list[player_index]._waiting_cache_sig = None
         return
     # 获取GuobiaoPlayer
     player_item = self.player_list[player_index]
@@ -188,9 +189,20 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
         current_player_hand_tiles = player_item.hand_tiles[:-1] # 第一轮行动时只计算前13张牌
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
+    sub_rule = getattr(self, "sub_rule", "")
+    rule_key = (
+        "guobiao/sixteen" if sixteen.enabled(self)
+        else "guobiao/huahun" if huahun.enabled(self)
+        else "guobiao/four_jokers" if four_jokers.enabled(self)
+        else "guobiao/lanshi" if sub_rule == "guobiao/lanshi"
+        else "guobiao"
+    )
+    sig = (rule_key, tuple(sorted(int(t) for t in current_player_hand_tiles)), tuple(str(c) for c in current_player_combination_tiles), "")
+    if getattr(player_item, "_waiting_cache_sig", None) == sig:
+        return
     # 调用听牌检查（使用计算服务类）
     waiting_check = (self.calculation_service.GB_lanshi_tingpai_check
-                     if getattr(self, "sub_rule", "") == "guobiao/lanshi"
+                     if sub_rule == "guobiao/lanshi"
                      else self.calculation_service.GB_tingpai_check)
     if sixteen.enabled(self):
         waiting_check = sixteen.waiting_tiles
@@ -200,7 +212,8 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
         current_player_hand_tiles,
         current_player_combination_tiles
     )
-    current_player_waiting_tiles = set(filter_tiles(current_player_waiting_tiles, getattr(self, "sub_rule", "")))
+    current_player_waiting_tiles = set(filter_tiles(current_player_waiting_tiles, sub_rule))
+    player_item._waiting_cache_sig = sig
     # 更新等待牌
     if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
         self.player_list[player_index].waiting_tiles = current_player_waiting_tiles

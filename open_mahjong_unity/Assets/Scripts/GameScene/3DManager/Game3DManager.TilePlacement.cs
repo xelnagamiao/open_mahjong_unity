@@ -72,11 +72,21 @@ public partial class Game3DManager {
         normal = Vector3.up;
     }
 
-    // Shared live-wall layout: Duocai and Sichuan use the same table-centered
-    // radius, tile scale and stack spacing. Each rule supplies its own slot order.
+    // Each wall uses the same table-centered radius, tile scale and stack spacing.
     private const float AuthoredTableWallRadius = 120f;
     private float TableWallRadius => TableWorldScaleProfile.Length(AuthoredTableWallRadius);
     private const float TableWallScale = .82f;
+
+    private static bool ValidWallSeats(IDictionary<int, string> seats) {
+        if (seats == null || seats.Count != 4) return false;
+        var unique = new HashSet<string>();
+        for (int seat = 0; seat < 4; seat++) {
+            if (!seats.TryGetValue(seat, out string position)
+                || (position != "self" && position != "right" && position != "top" && position != "left")
+                || !unique.Add(position)) return false;
+        }
+        return true;
+    }
 
     private Vector3 WallSlotPosition(string seat, float centeredStack) {
         GetTileSurface(out Vector3 tableCenter, out _);
@@ -90,6 +100,31 @@ public partial class Game3DManager {
         Vector3 parent = tile.parent == null ? Vector3.one : tile.parent.lossyScale;
         tile.localScale = new Vector3(tileWorldScale.x / parent.x, tileWorldScale.y / parent.y,
             tileWorldScale.z / parent.z) * scale;
+    }
+
+    private GameObject CreateWallTile(Transform root, string tileName, string seat, Vector3 candidate,
+        bool upper, int publicFace) {
+        GameObject tile = MahjongObjectPool.Instance.CreatePresentationTile(publicFace == 0 ? 2 : publicFace, root);
+        if (tile == null) return null;
+        tile.name = tileName;
+        SetWallTileScale(tile.transform, TableWallScale);
+        Quaternion rotation = RiverTileWorldRotation(seat);
+        tile.transform.rotation = rotation;
+        Tile3D state = MahjongObjectPool.GetTile3D(tile);
+        Card3DHoverManager.Instance?.ResetAndUnregisterCard(tile);
+        state.SetConcealedFaceDown(publicFace == 0);
+        state.SetHoverPeekAllowed(false);
+        foreach (Collider collider in tile.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
+        GetTileSurface(out Vector3 plane, out Vector3 normal);
+        Matrix4x4 body = Matrix4x4.TRS(Vector3.zero, rotation, tileWorldScale * TableWallScale) * tileBodyFromRoot;
+        if (upper) {
+            float thickness = TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, normal)
+                - TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, normal);
+            plane += normal * (thickness + ScaledTileSurfaceClearance);
+        }
+        tile.transform.position = TileSurfacePlacement.PlaceOnPlane(candidate, tileBodyBounds,
+            Matrix4x4.Translate(candidate) * body, plane, normal, ScaledTileSurfaceClearance);
+        return tile;
     }
 
     private Matrix4x4 TileBodyAt(Vector3 rootPosition, Quaternion worldRotation) {

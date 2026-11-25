@@ -56,6 +56,7 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
         self.reset_round_state()
         hands, self.tiles_list, self.marker, self.indicator, self.dice = deal(
             self.round_random_seed, self.dealer_index, wall=wall, dice=dice)
+        self.wall_front_draws = self.wall_back_draws = 0
         self.skin, self.joker = special_tiles(self.indicator)
         for p, hand in zip(self.player_list, hands):
             p.hand_tiles = hand
@@ -274,6 +275,10 @@ class SanhuaGameState(Protocol, Runtime, ZhongyongGameState):
         revealed = self.marker == pos
         self.marker = -1 if revealed else self.marker - int(pos == 0 and self.marker >= 0)
         tile = self.tiles_list.pop(pos)
+        if kong:
+            self.wall_back_draws += 1
+        else:
+            self.wall_front_draws += 1
         p = self.player_list[seat]
         p.hand_tiles.sort()
         p.hand_tiles.append(tile)

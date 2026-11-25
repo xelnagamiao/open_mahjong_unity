@@ -35,6 +35,7 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private GameObject tilePreviewPrefab;
     [SerializeField] private Button uploadHandBgButton;
     [SerializeField] private Button uploadCardBackButton;
+    public RectTransform HandUploadControl(bool back) => (RectTransform)(back ? uploadCardBackButton : uploadHandBgButton).transform;
     [SerializeField] private Button uploadPairZipButton;
     [SerializeField] private Button restoreHandBgButton;
     [SerializeField] private Button clearCardBackButton;

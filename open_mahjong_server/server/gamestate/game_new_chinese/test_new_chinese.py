@@ -12,11 +12,11 @@ from .NewChineseGameState import NewChineseGameState
 from .state_machine import Phase as P
 
 
-def table(exchange=False):
+def table(exchange=False, *, wall=None):
     s = NewChineseGameState(room_data=dict(room_id=31, game_round=4, player_list=[101,102,103,104],
         room_rule="new_chinese", sub_rule=rules.SUB_RULE, random_seed=37, detailed_config={"exchange_three":exchange},
         round_timer=20, step_timer=5))
-    s.initialize_round()
+    s.initialize_round(wall=wall)
     return s
 
 
@@ -40,7 +40,14 @@ def prior_discards(state, index, *tiles):
 
 
 def test_deal_rounds_and_reserve():
-    s = table()
+    deck = sorted(rules.TILES, reverse=True) * 4
+    s = table(wall=deck)
+    for i, player in enumerate(s.player_list):
+        expected = deck[4*i:4*i+4] + deck[16+4*i:20+4*i] + deck[32+4*i:36+4*i] + [deck[48+i]]
+        if i == s.dealer_index:
+            expected.append(deck[52])
+        assert s.build_game_start_payload(i)["game_info"]["self_hand_tiles"] == player.hand_tiles == expected
+        assert player.has_draw_slot == (i == s.dealer_index)
     assert [len(p.hand_tiles) for p in s.player_list] == [14,13,13,13]
     assert len(s.supplements) == 10 and len(s.tiles_list) == 73
     assert Counter(t for p in s.player_list for t in p.hand_tiles)+Counter(s.tiles_list+s.supplements) == Counter({t:4 for t in rules.TILES})
@@ -56,6 +63,31 @@ def test_deal_rounds_and_reserve():
     for invalid in (1,3,5,15,True):
         with pytest.raises(ValueError):
             NewChineseRoomValidator(room_name="四人桌",game_round=invalid)
+
+
+@pytest.mark.parametrize("exchange_draw", [False, True])
+def test_exchange_keeps_main_hand_order_and_timeout_discards_the_draw(exchange_draw, monkeypatch):
+    s = table(True)
+    # The dealer has two 13s in the main hand and a third in the draw slot.
+    s.player_list[0].hand_tiles = [29, 13, 17, 11, 13, 36, 24, 22, 34, 19, 27, 32, 25, 13]
+    s.player_list[1].hand_tiles = [39, 13, 38, 16, 37, 41, 35, 21, 33, 18, 14, 23, 28]
+    outgoing = [13, 13, 13] if exchange_draw else [13, 13, 29]
+    incoming = [13, 16, 41]
+    now = 20.0
+    monkeypatch.setattr(s, "_timing_now", lambda: now)
+    opening = start(s, s.opening_window())
+    showing = move(s, opening, {0: dict(action_type="exchange_three", target_tile=outgoing),
+                                1: dict(action_type="exchange_three", target_tile=incoming)})
+    now = showing["deadline"]
+    receipt = move(s, showing, {})
+    main = [17, 11, 36, 24, 22, 34, 19, 27, 32, 25]
+    expected = [29, *main, *incoming] if exchange_draw else [*main, *incoming, 13]
+    assert s.build_game_start_payload(0)["game_info"]["self_hand_tiles"] == expected
+    assert s.player_list[1].hand_tiles == [39, 38, 37, 35, 21, 33, 18, 14, 23, 28, *outgoing]
+    now = receipt["deadline"]
+    move(s, receipt, {})
+    timed = s._build_timeout_action(0)
+    assert (timed["TileId"], timed["cutIndex"], timed["cutClass"]) == (expected[-1], 13, True)
 
 
 @pytest.mark.parametrize("mask", range(16))

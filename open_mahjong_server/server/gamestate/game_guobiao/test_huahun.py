@@ -50,7 +50,7 @@ def test_worker_settings_and_gate(bonus,progressive):
     s.current_player_index=0;s.player_list[0].discard_tiles=[24]
     p=s.player_list[1];p.hand_tiles=[24];p.combination_tiles=['k32','k16','k36','k28'];p.huapai_list=[55,56,57]
     async def worker(_,fn,*args,**kw):return fn(*args,**kw)
-    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_bot_cpu',worker):
+    with patch('server.gamestate.game_guobiao.four_jokers_runtime.run_room_calc_cpu',worker):
         actions=asyncio.run(evaluate_actions(s,check_action_after_cut,24))
     assert 'hu_first' in actions[1]
     expected=32+(16 if progressive else 3)

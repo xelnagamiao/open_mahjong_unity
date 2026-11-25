@@ -3,17 +3,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import multiprocessing
 import os
 import time
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from functools import partial
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
+from ....runtime.cpu_allocation import CpuAllocation, resolve_server_cpu_allocation
 from .shanten_cache_config import ShantenCacheBudgets, configured_shanten_cache_budgets
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
+
+_ALLOCATION: Optional[CpuAllocation] = None
 
 
 def _worker_count() -> int:
@@ -23,7 +27,8 @@ def _worker_count() -> int:
             return max(1, int(configured))
         except ValueError:
             pass
-    return max(1, min(4, (os.cpu_count() or 2) - 1))
+    alloc = _ALLOCATION if _ALLOCATION is not None else resolve_server_cpu_allocation()
+    return max(1, alloc.bot_workers)
 
 
 _EXECUTOR: Executor | None = None
@@ -46,8 +51,10 @@ def _warm_worker() -> int:
 def _process_executor() -> ProcessPoolExecutor:
     workers = _worker_count()
     cache_budgets = configured_shanten_cache_budgets().divided(workers)
+    ctx = multiprocessing.get_context("spawn")
     return ProcessPoolExecutor(
         max_workers=workers,
+        mp_context=ctx,
         initializer=_init_worker,
         initargs=(cache_budgets,),
     )
@@ -117,8 +124,11 @@ def bot_action_is_current(game_state: Any, player_index: int, expected_tick: Any
     )
 
 
-async def warm_bot_executor() -> None:
+async def warm_bot_executor(allocation: Optional[CpuAllocation] = None) -> None:
     """Start worker processes during server startup, before the first room action."""
+    global _ALLOCATION
+    if allocation is not None:
+        _ALLOCATION = allocation
     loop = asyncio.get_running_loop()
     for attempt in range(2):
         executor = _executor()
@@ -143,9 +153,10 @@ async def warm_bot_executor() -> None:
 
 
 async def shutdown_bot_executor() -> None:
-    global _EXECUTOR, _USE_THREAD_FALLBACK
+    global _EXECUTOR, _USE_THREAD_FALLBACK, _ALLOCATION
     executor = _EXECUTOR
     _EXECUTOR = None
+    _ALLOCATION = None
     _USE_THREAD_FALLBACK = False
     if executor is not None:
         await asyncio.to_thread(executor.shutdown, wait=True, cancel_futures=True)
