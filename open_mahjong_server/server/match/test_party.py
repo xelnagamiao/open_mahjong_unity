@@ -276,7 +276,7 @@ def test_four_loopback_websocket_peers_invite_prepare_and_commit_as_two_teams():
             try:
                 async for raw in ws:
                     result = await pm.handle(cid, json.loads(raw))
-                    await s.players[cid].websocket.send_json(result.dict(exclude_none=True))
+                    await s.players[cid].websocket.send_json(result.model_dump(exclude_none=True))
             finally:
                 s.user_id_to_connection.pop(uid, None); mm.player_disconnect(uid)
         async with websockets.serve(handle, '127.0.0.1', 0) as listener:

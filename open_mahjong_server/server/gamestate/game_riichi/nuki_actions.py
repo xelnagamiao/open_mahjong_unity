@@ -34,7 +34,7 @@ def check_nuki_ron(game):
 
 
 async def begin_nuki(game):
-    from .boardcast import broadcast_do_action
+    from .broadcast import broadcast_do_action
     from .kan_actions import commit_kan
     if not can_nuki(game, game.current_player_index):
         raise ValueError('当前状态不能拔北')
@@ -54,7 +54,7 @@ async def begin_nuki(game):
 
 async def commit_nuki(game, pending):
     from .wait_action import _clear_ippatsu_and_notify
-    from .boardcast import broadcast_do_action
+    from .broadcast import broadcast_do_action
     from ..public.hand_slot_utils import remove_cut_tile, has_draw_slot, clear_draw_slot
     from ..public.game_record_manager import append_action_tick
     p = game.player_list[game.current_player_index]

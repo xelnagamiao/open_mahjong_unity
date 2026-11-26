@@ -430,7 +430,7 @@ class RoomManager:
             self._apply_event_fields(room_data, event_id)
 
             # 将房间数据尾 添加到room_data中
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             # 存储room_data到房间字典中 如果有密码保存密码
@@ -575,7 +575,7 @@ class RoomManager:
             self._apply_event_fields(room_data, event_id)
 
             # 将房间数据尾 添加到room_data中
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             # 存储room_data到房间字典中 如果有密码保存密码
@@ -713,7 +713,7 @@ class RoomManager:
             }
             self._apply_event_fields(room_data, event_id)
 
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -823,7 +823,7 @@ class RoomManager:
                 "is_game_running": False,
             }
             self._apply_event_fields(room_data, event_id)
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -905,7 +905,7 @@ class RoomManager:
                 "host_name": player.username,
                 "is_game_running": False,
             }
-            room_data.update(validated.dict())
+            room_data.update(validated.model_dump())
             room_data.update(hongque_config)
             # Hongque exposes actual hand count to clients (4/8/12/16), unlike
             # wind-based rules whose game_round remains a 1-4 wind count.
@@ -990,7 +990,7 @@ class RoomManager:
                 "round_timer": 0,
                 "step_timer": 0,
             }
-            room_data.update(validated.dict())
+            room_data.update(validated.model_dump())
             room_data["min_players_to_start"] = 1
             room_data["is_player_set_random_seed"] = validated.random_seed != 0
             apply_duplicate_room_config(room_data)
@@ -1082,7 +1082,7 @@ class RoomManager:
             }
             self._apply_event_fields(room_data, event_id)
 
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -1183,7 +1183,7 @@ class RoomManager:
             }
             self._apply_event_fields(room_data, event_id)
 
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -1329,7 +1329,7 @@ class RoomManager:
             }
             self._apply_event_fields(room_data, event_id)
 
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -1488,7 +1488,7 @@ class RoomManager:
                 "is_game_running": False,
             }
             self._apply_event_fields(room_data, event_id)
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -1605,7 +1605,7 @@ class RoomManager:
             }
             self._apply_event_fields(room_data, event_id)
 
-            room_data.update(validated_config.dict())
+            room_data.update(validated_config.model_dump())
             room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             room_data["count_tips"] = count_tips
@@ -2038,7 +2038,7 @@ class RoomManager:
                     message="您已被房主移出房间"
                 )
                 try:
-                    await target_conn.websocket.send_json(kick_response.dict(exclude_none=True))
+                    await target_conn.websocket.send_json(kick_response.model_dump(exclude_none=True))
                 except Exception as e:
                     logger.error(f"向被移除玩家 user_id={target_user_id} 发送消息失败: {e}")
 
@@ -2397,7 +2397,7 @@ class RoomManager:
                     username = player_setting.get("username", f"用户{user_id}")
                     logger.debug(f"正在广播给玩家 user_id={user_id}, username={username}")
                     from ..gamestate.public.connection_delivery import send_bounded
-                    await send_bounded(player_conn.websocket, response.dict(exclude_none=True))
+                    await send_bounded(player_conn.websocket, response.model_dump(exclude_none=True))
                     logger.debug(f"广播成功")
                 except Exception as e:
                     logger.error(f"广播给玩家 user_id={user_id} 失败: {e}")
@@ -2670,7 +2670,7 @@ class RoomManager:
         if hepai_limit is not None:
             room_data["hepai_limit"] = hepai_limit
         self._apply_event_fields(room_data, event_id)
-        room_data.update(validated.dict())
+        room_data.update(validated.model_dump())
         room_data.update(duplicate_timing)
         for key, default in (("count_tips", False), ("pointer_tips", True)):
             value = room_config.get(key, default)

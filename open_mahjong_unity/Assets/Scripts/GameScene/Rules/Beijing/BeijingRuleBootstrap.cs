@@ -10,6 +10,9 @@ internal static class BeijingRuleBootstrap {
         RuleNameDictionary.WholeName[BeijingGameState.RuleId]="北京麻将（吃碰提）";
         RuleNameDictionary.WholeName[BeijingGameState.SubRule]="北京麻将（吃碰提）";
         RuleNameDictionary.ShortName[BeijingGameState.RuleId]=RuleNameDictionary.ShortName[BeijingGameState.SubRule]="北京";
+        RuleRecordCodecRegistry.RegisterRoundProperty("beijing", (round, token) => round.beijing = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<BeijingInfo>());
+        RuleRecordCodecRegistry.RegisterRoundProperty("beijing_hints", (round, token) => round.beijingHints = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<Dictionary<int, BeijingHints>>());
+        RuleRecordCodecRegistry.RegisterTickScoreHandler("beijing", (round, tick) => RuleRecordCodecRegistry.ApplyStartScoreDiff(round, tick, round.beijing?.start_scores));
         RuleRegistry.Register(new RuleManifest {
             RuleId=BeijingGameState.RuleId,DefaultSubRule=BeijingGameState.SubRule,DisplayName="北京麻将（吃碰提）",LobbyName="北京麻将",LobbyOrder=27,LobbyHasDetailedConfig=true,
             LobbySubRules=new[]{new RuleLobbySubRule(BeijingGameState.SubRule,"吃碰提",Description)},
@@ -22,6 +25,7 @@ internal static class BeijingRuleBootstrap {
             OpeningHandHasDrawSlot=info=>info?.beijing_info?.self_has_draw_slot==true,
             Tingpai=q=>GameRecordManager.Instance?.ShouldShowRecordTips()==true?GameRecordManager.Instance.BeijingWaiting(q):BeijingGameState.Active?.Hints.Waiting(q)??new HashSet<int>(),
             DescribeWaitingTile=q=>q.Record!=null?GameRecordManager.Instance?.DescribeBeijingWaiting(q):BeijingGameState.Active?.DescribeWaiting(q),
+            DeferWaitingTileHints=true,DeferInvisibleHintCells=_=>true,RetryNullDeferredHint=true,
             TileBadgeText=BeijingTableIndicators.Badge,
             HandJokerTiles=_=>BeijingTableIndicators.DisplayedInfo is BeijingInfo info?new[]{info.hun}:Array.Empty<int>(),
             PrepareHandDisplay=info=>BeijingTableIndicators.Refresh(info?.beijing_info),

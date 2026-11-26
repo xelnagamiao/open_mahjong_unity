@@ -143,7 +143,7 @@ def test_exchange_last_tile_bonus_is_self_draw_only():
 
 @pytest.mark.parametrize('exchange', [False, True])
 def test_opening_countdown_has_no_extra_normal_step_time(exchange):
-    from .boardcast import broadcast_xueliu_throw_three_ask
+    from .broadcast import broadcast_xueliu_throw_three_ask
     state, messages = state_for(exchange)
     state.step_time = 5
     state.action_dict = {i: [state.xueliu_opening_action] for i in range(4)}

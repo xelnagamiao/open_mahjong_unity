@@ -49,6 +49,14 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 设置倒计时初始值
         if (remianTimeText == null) return;
+        remianTimeText.gameObject.SetActive(true);
+        RectTransform timerRect = remianTimeText.rectTransform;
+        timerRect.anchorMin = timerRect.anchorMax = new Vector2(0.5f, 1f);
+        timerRect.pivot = new Vector2(0.5f, 1f);
+        timerRect.anchoredPosition = new Vector2(0f, -96f);
+        timerRect.sizeDelta = new Vector2(320f, 96f);
+        timerRect.localScale = Vector3.one;
+        timerRect.SetAsLastSibling();
         if (_retainClaimActionsAtZero && remainingTime <= 0) {
             _countdownCoroutine = StartCoroutine(WaitingForDraw());
             return;

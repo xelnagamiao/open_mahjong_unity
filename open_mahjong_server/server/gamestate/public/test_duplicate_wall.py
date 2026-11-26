@@ -182,7 +182,7 @@ def test_actual_end_payload_never_contains_seed_or_local_record(folder, name, su
         state.game_server.user_id_to_connection[player.user_id] = SimpleNamespace(websocket=SimpleNamespace(send_json=AsyncMock()))
     state._local_record_detail = {"private": "must never be sent"}
     if name == "Zhongyong":
-        from server.gamestate.game_zhongyong.boardcast import game_end_payload
+        from server.gamestate.game_zhongyong.broadcast import game_end_payload
         payload = game_end_payload(state, 0)
     else:
         asyncio.run(state.broadcast_game_end())

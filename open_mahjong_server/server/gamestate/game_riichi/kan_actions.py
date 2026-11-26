@@ -1,6 +1,6 @@
 """Declare a kan first; only consume four tiles after all robbing claims pass."""
 from .action_check import check_action_jiagang, check_action_ankan, _normalize
-from .boardcast import broadcast_do_action
+from .broadcast import broadcast_do_action
 from ..public.hand_slot_utils import has_draw_slot, clear_draw_slot, resolve_is_mo_gang, remove_angang_tiles, remove_cut_tile
 from ..public.game_record_manager import player_action_record_angang, player_action_record_jiagang, append_action_tick
 

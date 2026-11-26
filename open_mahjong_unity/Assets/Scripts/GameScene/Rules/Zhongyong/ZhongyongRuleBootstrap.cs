@@ -6,7 +6,7 @@ internal static class ZhongyongRuleBootstrap {
         var defaults = ZhongyongLobby.Defaults();
         defaults[CreateRoomKeys.SubRule] = 0;
         RuleRegistry.Register(new RuleManifest {
-            ReplayFactory = record => record.CreateZhongyongReplayModule(),
+            CreateReplayHandler = ctx => new ZhongyongReplayHandler(ctx),
             BuildRoom = ZhongyongRoomBuilder.Build,
             RuleId = ZhongyongGameState.RuleId,
             DefaultSubRule = "zhongyong/standard",

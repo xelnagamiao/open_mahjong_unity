@@ -73,7 +73,7 @@ class FriendManager:
             return False
         try:
             from ..gamestate.public.connection_delivery import send_bounded
-            await send_bounded(conn.websocket, response.dict(exclude_none=True))
+            await send_bounded(conn.websocket, response.model_dump(exclude_none=True))
             return True
         except Exception as exc:  # pragma: no cover
             logger.warning(f"FriendManager._send_to_user 发送失败 user_id={user_id}: {exc}")
@@ -727,7 +727,7 @@ class FriendManager:
             success=True,
             message="实时观战初始化",
             game_info=game_info,
-        ).dict(exclude_none=True))
+        ).model_dump(exclude_none=True))
         await self._send_realtime_pending_ask(game_state, req, host_player_index)
 
     def _build_realtime_player_info(self, player, host_player) -> dict:
@@ -785,7 +785,7 @@ class FriendManager:
                     riichi_candidate_cuts=getattr(player, "riichi_candidate_cuts", None) if "riichi_cut" in game_state.action_dict.get(host_player_index, []) else None,
                     forbidden_cut_tiles=list(player.kuikae_forbidden_tiles) if getattr(player, "kuikae_forbidden_tiles", None) else None,
                 ),
-            ).dict(exclude_none=True))
+            ).model_dump(exclude_none=True))
         elif game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and game_state.action_dict.get(host_player_index):
             cut_tile = game_state.player_list[game_state.current_player_index].discard_tiles[-1]
             await conn.websocket.send_json(Response(
@@ -800,7 +800,7 @@ class FriendManager:
                     action_tick=game_state.server_action_tick,
                     chi_candidates=getattr(player, "chi_candidates", None) if getattr(player, "chi_candidates", None) else None,
                 ),
-            ).dict(exclude_none=True))
+            ).model_dump(exclude_none=True))
 
     async def broadcast_realtime_spectators_changed(self, game_state):
         """把当前实时观战者列表推给桌上各座位玩家（每人仅看到观战自己的列表）。"""

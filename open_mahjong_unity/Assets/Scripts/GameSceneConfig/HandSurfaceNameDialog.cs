@@ -32,12 +32,12 @@ public sealed class HandSurfaceNameDialog : MonoBehaviour
         if (texture != null) dialog.previewAspect.aspectRatio = texture.width / (float)texture.height;
         dialog.confirm.onClick.AddListener(dialog.Confirm);
         dialog.cancel.onClick.AddListener(dialog.Cancel);
-        dialog.nameInput.onSubmit.AddListener(_ => dialog.Confirm());
+        dialog.nameInput.onSubmit.AddListener(_ => { if (InputFieldFeedback.IsDesktopKeyboardSubmit() && !dialog.nameInput.wasCanceled) dialog.Confirm(); });
         dialog.nameInput.onValueChanged.AddListener(_ => {
             dialog.RefreshValid();
             dialog.errorText.text = dialog.confirm.interactable ? "" : "请输入 1–24 个字的名称，不可换行";
         });
-        dialog.RefreshValid(); dialog.nameInput.ActivateInputField();
+        dialog.RefreshValid(); InputFieldFeedback.ActivateIfDesktop(dialog.nameInput);
         return dialog;
     }
     void RefreshValid() => confirm.interactable = !saving && HandSurfaceLibrary.TryName(nameInput.text, out _);

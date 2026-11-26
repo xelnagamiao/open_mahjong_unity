@@ -9,7 +9,7 @@ from ...game_calculation.changchun import rules as book
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
 from ..game_taiwan.wait_action import _collect_responses
-from ..game_taiwan.boardcast import broadcast_do_action
+from ..game_taiwan.broadcast import broadcast_do_action
 from ..public.game_record_manager import append_action_tick
 from .bao import BaoFlow
 from .special_kongs import SpecialKongFlow

@@ -1,21 +1,23 @@
-from ..game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
-from pydantic import StrictBool, StrictInt
 from dataclasses import asdict
-from pydantic import BaseModel, validator
-from typing import Optional, Union, Any, Dict
+from typing import Any, Dict, Optional, Union
 
-from ..gamestate.public.random_seed_manager import parse_user_master_seed
-from ..game_calculation.taiwan.rules import TaiwanRules
-from ..game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
+from pydantic import BaseModel, Field, StrictBool, StrictInt, ValidationInfo, field_validator
+
 from ..game_calculation.riichi.rule_config import normalize_riichi_config, validate_riichi_sub_rule
-from ..game_calculation.shanghai.qiaoma import normalize_room_config as normalize_qiaoma_config
+from ..game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 from ..game_calculation.shanghai import lajihe
+from ..game_calculation.shanghai.qiaoma import normalize_room_config as normalize_qiaoma_config
+from ..game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
+from ..game_calculation.taiwan.rules import TaiwanRules
+from ..gamestate.public.random_seed_manager import parse_user_master_seed
+
 
 class GBRoomValidator(BaseModel):
     jinluo_mode: StrictBool = False
     jinluo_weather: str = "dragon_pairs"
 
-    @validator("jinluo_weather", pre=True)
+    @field_validator("jinluo_weather", mode="before")
+    @classmethod
     def validate_jinluo_weather(cls, value):
         from ..game_calculation.guobiao_jinluo import WEATHERS
         if not isinstance(value, str) or value not in WEATHERS:
@@ -26,7 +28,8 @@ class GBRoomValidator(BaseModel):
     black_flower_progressive: StrictBool = True
     no_joker_bonus: str = "add8"
 
-    @validator("no_joker_bonus", pre=True)
+    @field_validator("no_joker_bonus", mode="before")
+    @classmethod
     def validate_no_joker_bonus(cls, value):
         if value not in ("add8", "double", "none"):
             raise ValueError("无癞子奖励必须为+8分、翻倍或不额外加分")
@@ -44,65 +47,77 @@ class GBRoomValidator(BaseModel):
     show_moqie_hint: bool = False
     tactical_call: bool = False
     claim_protection: StrictBool = True
-    
-    @validator('room_name')
+
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v < 1 or v > 4:
             raise ValueError('游戏圈数必须在1-4之间')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_timers(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('局时不能小于0或大于1000')
         return v
-    
-    @validator('step_timer')
+
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
         return v
-    
-    @validator('random_seed')
+
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
 
-    @validator('cuohe_type')
+    @field_validator('cuohe_type')
+    @classmethod
     def validate_cuohe_type(cls, v):
         if v not in (0, 1):
             raise ValueError('错和形式必须在 0 或 1 之间')
         return v
 
+
 class ShanghaiRoomValidator(GBRoomValidator):
     sub_rule: str = "shanghai/qiaoma"
     hepai_limit: int = 0  # 一番和：0 关闭，1 开启，仅敲麻可用。
-    detailed_config: Optional[Dict[str, object]] = None
+    detailed_config: Optional[Dict[str, object]] = Field(default=None, validate_default=True)
 
-    @validator('sub_rule')
+    @field_validator('sub_rule')
+    @classmethod
     def validate_sub_rule(cls, value):
         if value not in ("shanghai/qiaoma", "shanghai/qinghunpeng", "shanghai/lajihe"):
             raise ValueError('不支持的上海麻将子规则')
         return value
 
-    @validator("hepai_limit", pre=True)
-    def validate_hepai_limit(cls, value, values):
+    @field_validator("hepai_limit", mode="before")
+    @classmethod
+    def validate_hepai_limit(cls, value, info: ValidationInfo):
+        values = info.data
         if type(value) is not int or value not in (0, 1):
             raise ValueError("一番和配置必须为 0（关闭）或 1（开启）")
         if value and values.get("sub_rule") != "shanghai/qiaoma":
             raise ValueError("一番和仅适用于上海敲麻")
         return value
 
-    @validator("detailed_config", pre=True, always=True)
-    def validate_detailed_config(cls, value, values):
+    @field_validator("detailed_config", mode="before")
+    @classmethod
+    def validate_detailed_config(cls, value, info: ValidationInfo):
+        values = info.data
         sub_rule = values.get("sub_rule", "shanghai/qiaoma")
         if sub_rule == lajihe.SUB_RULE:
             config = {} if value is None else value
@@ -121,31 +136,36 @@ class ShanghaiRoomValidator(GBRoomValidator):
 class RiichiRoomValidator(BaseModel):
     claim_protection: StrictBool = False
     sub_rule: str = 'riichi/standard'
-    detailed_config: Dict[str, object] = {}
+    detailed_config: Dict[str, object] = Field(default_factory=dict, validate_default=True)
 
-    @validator('sub_rule')
+    @field_validator('sub_rule')
+    @classmethod
     def validate_sub_rule(cls, value):
         return validate_riichi_sub_rule(value)
 
-    @validator('detailed_config', pre=True, always=True)
-    def validate_detailed_config(cls, value, values):
-        return normalize_riichi_config(value, values.get('sub_rule'))
+    @field_validator('detailed_config', mode="before")
+    @classmethod
+    def validate_detailed_config(cls, value, info: ValidationInfo):
+        return normalize_riichi_config(value, info.data.get('sub_rule'))
 
-    @validator('open_tobi', pre=True, always=True)
-    def captain_tobi(cls, value, values):
-        return True if values.get('sub_rule') == 'riichi/washizu_doubles' else value
+    @field_validator('open_tobi', mode="before")
+    @classmethod
+    def captain_tobi(cls, value, info: ValidationInfo):
+        return True if info.data.get('sub_rule') == 'riichi/washizu_doubles' else value
 
-    starting_score: int = None
+    starting_score: Optional[int] = Field(default=None, validate_default=True)
 
-    @validator('red_dora', 'open_xiru', pre=True, always=True)
-    def washizu_fixed_flags(cls, value, values):
-        return False if values.get('sub_rule') in WASHIZU_SUB_RULES else value
+    @field_validator('red_dora', 'open_xiru', mode="before")
+    @classmethod
+    def washizu_fixed_flags(cls, value, info: ValidationInfo):
+        return False if info.data.get('sub_rule') in WASHIZU_SUB_RULES else value
 
-    @validator('starting_score', pre=True, always=True)
-    def validate_starting_score(cls, v, values):
+    @field_validator('starting_score', mode="before")
+    @classmethod
+    def validate_starting_score(cls, v, info: ValidationInfo):
         if v is None:
             from ..game_calculation.riichi.sanma import starting_score
-            v = starting_score(values.get('sub_rule'))
+            v = starting_score(info.data.get('sub_rule'))
         if type(v) is not int or not 1000 <= v <= 1000000 or v % 100:
             raise ValueError('起始点数必须为 1000–1000000 之间的整数，且为 100 的倍数')
         return v
@@ -158,58 +178,66 @@ class RiichiRoomValidator(BaseModel):
     open_cuohe: bool = False
     show_moqie_hint: bool = False
     hepai_limit: int = 1  # 只计算实际役番，不含宝牌；起和线另由 detailed_config.minimum_win_score 控制。
-    red_dora: bool = True
+    red_dora: bool = Field(default=True, validate_default=True)
     allow_kuikae: bool = False  # 允许食替（吃什么打什么）；默认关即标准日麻禁切
-    hepai_way: str = "multi_ron"  # head_bump / multi_ron / three_ron_abort
-    open_xiru: bool = True   # 西入（非全庄时预定局数打完后按点数/连庄延长）
-    open_tobi: bool = True   # 击飞（任一家低于 0 分则本局结束后整场终了）
+    hepai_way: str = Field(default="multi_ron", validate_default=True)  # head_bump / multi_ron / three_ron_abort
+    open_xiru: bool = Field(default=True, validate_default=True)   # 西入（非全庄时预定局数打完后按点数/连庄延长）
+    open_tobi: bool = Field(default=True, validate_default=True)   # 击飞（任一家低于 0 分则本局结束后整场终了）
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v < 1 or v > 4:
             raise ValueError('游戏圈数必须在1-4之间')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_timers(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('局时不能小于0或大于1000')
         return v
 
-    @validator('step_timer')
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
         return v
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
 
-    @validator('hepai_way', always=True)
-    def validate_hepai_way(cls, v, values):
+    @field_validator('hepai_way')
+    @classmethod
+    def validate_hepai_way(cls, v, info: ValidationInfo):
         if v not in ("head_bump", "multi_ron", "three_ron_abort"):
             raise ValueError('hepai_way 必须在 head_bump / multi_ron / three_ron_abort 中')
-        return 'head_bump' if values.get('sub_rule') in WASHIZU_SUB_RULES else v
+        return 'head_bump' if info.data.get('sub_rule') in WASHIZU_SUB_RULES else v
 
-    @validator('hepai_limit')
+    @field_validator('hepai_limit')
+    @classmethod
     def validate_hepai_limit(cls, v):
         if v < 1 or v > 64:
             raise ValueError('起和番数必须在 1-64 之间')
         return v
 
+
 class SichuanRoomValidator(BaseModel):
     sub_rule: str = "sichuan/standard"
-    hepai_limit: int = 0  # 0 番允许平和，沿用川麻默认规则。
+    hepai_limit: int = Field(default=0, validate_default=True)  # 0 番允许平和，沿用川麻默认规则。
     room_name: str
     game_round: int
     round_timer: int
@@ -218,51 +246,60 @@ class SichuanRoomValidator(BaseModel):
     show_moqie_hint: bool = False
     tactical_call: bool = True
     claim_protection: StrictBool = True
-    blood_battle: bool = True  # 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
+    blood_battle: bool = Field(default=True, validate_default=True)  # 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
 
-    @validator('sub_rule')
+    @field_validator('sub_rule')
+    @classmethod
     def validate_sub_rule(cls, v):
         return validate_sichuan_sub_rule(v)
 
-    @validator('hepai_limit', pre=True, always=True)
-    def validate_hepai_limit(cls, v, values):
+    @field_validator('hepai_limit', mode="before")
+    @classmethod
+    def validate_hepai_limit(cls, v, info: ValidationInfo):
         if type(v) is not int or not 0 <= v <= 64:
             raise ValueError('起和番数必须是 0-64 之间的整数')
-        if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'):
+        if info.data.get('sub_rule') in ('sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'):
             return 0
         return v
 
-    @validator('blood_battle', always=True)
-    def doubles_blood_battle(cls, v, values):
-        if values.get('sub_rule') in ('sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate'):
+    @field_validator('blood_battle')
+    @classmethod
+    def doubles_blood_battle(cls, v, info: ValidationInfo):
+        sub_rule = info.data.get('sub_rule')
+        if sub_rule in ('sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate'):
             return False
-        return True if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/doubles_duplicate', 'sichuan/xuezhan_exchange') else v
+        return True if sub_rule in ('sichuan/doubles', 'sichuan/doubles_duplicate', 'sichuan/xuezhan_exchange') else v
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v < 1 or v > 4:
             raise ValueError('游戏圈数必须在1-4之间')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_timers(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('局时不能小于0或大于1000')
         return v
 
-    @validator('step_timer')
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
         return v
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
@@ -273,7 +310,8 @@ class SichuanRoomValidator(BaseModel):
 class ChangshaRoomValidator(BaseModel):
     exchange_selection_seconds: int = 30
 
-    @validator('exchange_selection_seconds', pre=True)
+    @field_validator('exchange_selection_seconds', mode="before")
+    @classmethod
     def validate_exchange_selection_seconds(cls, v):
         if type(v) is not int or not 10 <= v <= 60:
             raise ValueError('选六张时间必须为10到60秒的整数')
@@ -301,68 +339,78 @@ class ChangshaRoomValidator(BaseModel):
     big_hu_score: int = 8
     small_hu_self_draw_only: StrictBool = False
     score_cap_type: str = "none"
-    score_cap_value: StrictInt = 0
+    score_cap_value: StrictInt = Field(default=0, validate_default=True)
     count_tips: StrictBool = False
     pointer_tips: StrictBool = True
 
-    @validator('score_cap_type')
+    @field_validator('score_cap_type')
+    @classmethod
     def validate_score_cap_type(cls, v):
         if v not in ("none", "big_hu", "score"):
             raise ValueError('长沙封顶类型无效')
         return v
 
-    @validator('score_cap_value', always=True)
-    def validate_score_cap_value(cls, v, values):
-        if values.get('score_cap_type') == 'none':
+    @field_validator('score_cap_value')
+    @classmethod
+    def validate_score_cap_value(cls, v, info: ValidationInfo):
+        if info.data.get('score_cap_type') == 'none':
             return 0
         if not 1 <= v <= 1000000:
             raise ValueError('长沙封顶数值必须在1到1000000之间')
         return v
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('room_name must not be empty')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v not in (1, 2, 4):
             raise ValueError('changsha game_round must be 1, 2, or 4 for 4/8/16 hands')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_timers(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('round_timer must be between 0 and 1000')
         return v
 
-    @validator('step_timer')
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('step_timer must be between 0 and 100')
         return v
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
 
-    @validator('open_kong_replacement_count')
+    @field_validator('open_kong_replacement_count')
+    @classmethod
     def validate_open_kong_replacement_count(cls, v):
         if v not in (2, 4):
             raise ValueError('长沙开杠张数必须是2或4')
         return v
 
-    @validator('bird_count')
+    @field_validator('bird_count')
+    @classmethod
     def validate_bird_count(cls, v):
         if v not in (0, 1, 2, 4):
             raise ValueError('bird_count must be 0, 1, 2, or 4')
         return v
 
-    @validator('small_hu_score', 'big_hu_score')
+    @field_validator('small_hu_score', 'big_hu_score')
+    @classmethod
     def validate_base_score(cls, v):
         if v < 1 or v > 999:
             raise ValueError('长沙基础分必须在1到999之间')
@@ -380,31 +428,36 @@ class ZhongyongRoomValidator(BaseModel):
     tactical_call: bool = False
     claim_protection: StrictBool = True
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v < 1 or v > 4:
             raise ValueError('游戏圈数必须在1-4之间')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_round_timer(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('局时不能小于0或大于1000')
         return v
 
-    @validator('step_timer')
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
         return v
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
@@ -422,58 +475,67 @@ class TaiwanRoomValidator(BaseModel):
     open_cuohe: bool = False
     cuohe_type: int = 0
     sub_rule: str = "taiwan/standard"
-    detailed_config: Optional[Dict[str, Any]] = None
+    detailed_config: Optional[Dict[str, Any]] = Field(default=None, validate_default=True)
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('game_round')
+    @field_validator('game_round')
+    @classmethod
     def validate_game_round(cls, v):
         if v < 1 or v > 4:
             raise ValueError('游戏圈数必须在1-4之间')
         return v
 
-    @validator('round_timer')
+    @field_validator('round_timer')
+    @classmethod
     def validate_round_timer(cls, v):
         if v < 0 or v > 1000:
             raise ValueError('局时不能小于0或大于1000')
         return v
 
-    @validator('step_timer')
+    @field_validator('step_timer')
+    @classmethod
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
         return v
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
 
-    @validator('open_cuohe')
-    def validate_tips_and_cuohe(cls, v, values):
-        if v and values.get('tips'):
+    @field_validator('open_cuohe')
+    @classmethod
+    def validate_tips_and_cuohe(cls, v, info: ValidationInfo):
+        if v and info.data.get('tips'):
             raise ValueError('提示与错和不能同时开启')
         return v
 
-    @validator('cuohe_type')
+    @field_validator('cuohe_type')
+    @classmethod
     def validate_cuohe_type(cls, v):
         if v not in (0, 1):
             raise ValueError('错和形式必须在 0 或 1 之间')
         return v
 
-    @validator('sub_rule')
+    @field_validator('sub_rule')
+    @classmethod
     def validate_sub_rule(cls, v):
         if v != "taiwan/standard":
             raise ValueError('台湾麻将仅支持 taiwan/standard 子规则')
         return v
 
-    @validator('detailed_config', pre=True, always=True)
+    @field_validator('detailed_config', mode="before")
+    @classmethod
     def validate_detailed_config(cls, v):
         return asdict(TaiwanRules.from_dict(v))
 
@@ -490,13 +552,15 @@ class FreeRoomValidator(BaseModel):
     wall_dragons: bool = True
     wall_flowers: bool = True
 
-    @validator('room_name')
+    @field_validator('room_name')
+    @classmethod
     def validate_room_name(cls, v):
         if not v.strip():
             raise ValueError('房间名不能为空')
         return v.strip()
 
-    @validator('random_seed')
+    @field_validator('random_seed')
+    @classmethod
     def validate_random_seed(cls, v):
         try:
             return parse_user_master_seed(v)

@@ -8,7 +8,7 @@ from .SingaporeGameState import SingaporeGameState
 from ...game_calculation.singapore import rules as r
 from ...game_calculation.singapore.test_rules import PLAIN
 from ..public.game_record_manager import init_game_record, init_game_round
-from ..game_taiwan.boardcast import broadcast_do_action, send_reconnect_game_state
+from ..game_taiwan.broadcast import broadcast_do_action, send_reconnect_game_state
 
 
 def make_state():

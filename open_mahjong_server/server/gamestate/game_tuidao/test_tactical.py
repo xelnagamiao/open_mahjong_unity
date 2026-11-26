@@ -8,7 +8,7 @@ from server.gamestate.game_tuidao.test_state import make_state, hand, HAND
 from server.gamestate.game_tuidao.test_timing import ControlledClock, window
 from server.gamestate.game_tuidao.test_adapters import room_manager, Socket
 from server.gamestate.game_tuidao import timing
-from server.gamestate.game_taiwan import boardcast
+from server.gamestate.game_taiwan import broadcast
 from server.gamestate.game_tuidao.tactical import broadcast_recheck
 from server.gamestate.public.ai.get_action import get_action
 from server.room.tuidao_room import TuidaoRoomValidator, enforce_tuidao_tactical_room, create_tuidao_room
@@ -77,7 +77,7 @@ def setup_state(clock, actions, *, phase='waiting_action_after_cut', callback=No
     state.game_status = phase
     state.action_dict = {i: list(actions.get(i, [])) for i in range(4)}
     state.prepare_action_window()
-    asyncio.run(boardcast.broadcast_ask_other_action(state))
+    asyncio.run(broadcast.broadcast_ask_other_action(state))
     return state, asks, claims
 
 
@@ -116,7 +116,7 @@ def test_recheck_spectators_project_same_independent_deadline(clock, phase, fano
         assert first['action_tick'] == last['action_tick']
         assert state.action_clock_manager.windows[1].deadline == 105
         assert state.action_clock_manager.bank(state.player_list[1]) == 42
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 999, 1)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 999, 1)
         restored = following.messages[-1]['ask_other_action_info']
         assert restored['is_tactical_recheck'] is True
         assert restored['remaining_time_ms'] == last['remaining_time_ms']
@@ -242,7 +242,7 @@ def test_actual_start_path_and_game_reconnect_broadcast_effective_option(players
         assert room['tactical_call'] is expected and state.tactical_call is expected
         state.master_seed=1
         state.init_tiles()
-        await boardcast.send_reconnect_game_state(state,state.player_list[0])
+        await broadcast.send_reconnect_game_state(state,state.player_list[0])
         assert socket.messages[-1]['game_info']['tactical_call'] is expected
     asyncio.run(scenario())
 
@@ -328,7 +328,7 @@ def test_recheck_reconnect_keeps_exact_budget_and_phase_without_bank_cost(clock)
             async def reconnect():
                 before = state.action_clock_manager.bank(state.player_list[2])
                 socket=state.game_server.user_id_to_connection[103].websocket
-                await boardcast.reconnected_send_pending_ask(state,103)
+                await broadcast.reconnected_send_pending_ask(state,103)
                 recorded.append(socket.messages[-1]['ask_other_action_info'])
                 assert state.action_clock_manager.bank(state.player_list[2])==before
             clock.later(1.25,reconnect)
@@ -375,7 +375,7 @@ def test_actual_rule_actions_upgrade_claim_then_resolve_single_winner(clock):
     assert 'chi_left' in state.action_dict[1] and 'hu_first' in state.action_dict[1]
     assert 'peng' in state.action_dict[2]
     state.prepare_action_window()
-    asyncio.run(boardcast.broadcast_ask_other_action(state))
+    asyncio.run(broadcast.broadcast_ask_other_action(state))
     clock.submit(state,1,2,'pass')
     clock.submit(state,2,1,'chi_left')
     asyncio.run(state.wait_action())

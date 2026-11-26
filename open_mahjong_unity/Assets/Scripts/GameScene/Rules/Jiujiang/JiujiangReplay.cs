@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 
 public partial class GameRecordManager {
     internal RuleReplayModule CreateJiujiangReplayModule() => new RuleReplayModule("jiujiang") {
+        ClearDrawSlotOnAnyKong = true,
         Reset = ResetJiujiangRecordState,
         Clear = ResetJiujiangRecordState,
         ApplyBeforeMutation = ApplyJiujiangRecordAction,

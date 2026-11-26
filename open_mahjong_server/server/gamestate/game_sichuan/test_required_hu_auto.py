@@ -4,7 +4,7 @@ import asyncio
 import pytest
 
 from .action_check import check_action_after_cut, check_action_jiagang
-from .boardcast import reconnected_send_pending_ask
+from .broadcast import reconnected_send_pending_ask
 from .test_xueliu_doubles import make_state
 from .test_action_window import submit
 from .wait_action import wait_action

@@ -3,12 +3,37 @@ using System.Linq;
 
 public partial class GameRecordManager {
     internal RuleReplayModule CreateHongqueReplayModule() => new RuleReplayModule("hongque") {
+        SuppressJiagangVoiceAndDisplay = true,
+        EmptyHandRevealDelaySeconds = HepaiRevealTiming.HongqueEmptyHandDeclarationHoldSeconds,
+        PrepareRecordAssets = () => HongqueTileVisual.PrepareHandSprites().GetEnumerator(),
         InitializePlayers = () => {
             int dealer = gameRecord.gameRound.rounds[currentRoundIndex].startPlayerIndex;
             foreach (var player in recordPlayerList)
                 player.showHandDrawSlotActive = player.playerIndex == dealer && player.tileList.Count > 0;
         },
+        TryHandleCustomAddedKong = (tick, player, position) => {
+            int jiagangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
+            List<int> removedTiles = HongqueReplayKong.RemoveTiles(player.tileList, tick);
+            int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            lastWinnableTileId = actualJia;
+            lastJiagangPlayerIndex = player.playerIndex;
+            int[] combinationMask = BuildJiagangMask(player, jiagangTile, actualJia, tick);
+            Game3DManager.Instance.ExtendHongqueReplayMeld(position, removedTiles, combinationMask, isMoGang, ParseTickInt(tick, 3));
+            if (isMoGang) player.showHandDrawSlotActive = false;
+            return true;
+        },
+        WaitBeforeHuPresentation = WaitForHongqueWinAnnouncement,
     };
+
+    private System.Collections.IEnumerator WaitForHongqueWinAnnouncement() {
+        if (Game3DManager.Instance == null) yield break;
+        int generation = Game3DManager.Instance.RecordHandAnimationVersion;
+        while (Game3DManager.Instance.HasPendingHongqueWinAnnouncement) {
+            yield return null;
+            if (generation != Game3DManager.Instance.RecordHandAnimationVersion) yield break;
+        }
+    }
 }
 
 /// <summary>牌谱沿用实战本地计分，按实际摸牌槽和完整副露处理变长组合。</summary>

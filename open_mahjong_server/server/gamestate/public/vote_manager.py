@@ -416,7 +416,7 @@ class VoteManager:
             message=reason,
             vote_info=info,
         )
-        return response.dict(exclude_none=True)
+        return response.model_dump(exclude_none=True)
 
     async def sync_to_user(self, user_id):
         """重连补发：若投票/暂停非 idle，向该玩家单独发送当前状态。"""
@@ -457,7 +457,7 @@ class VoteManager:
             success=True,
             message="投票结束对局通过",
             gamestate_id=self.gs.gamestate_id,
-        ).dict(exclude_none=True)
+        ).model_dump(exclude_none=True)
         game_server = self.gs.game_server
         for player in self.gs.player_list:
             try:

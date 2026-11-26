@@ -10,6 +10,27 @@ public partial class GameRecordManager {
             recordGuangdongState = null; recordGuangdongResult = null; recordGuangdongHorses = null;
         },
         ApplyBeforeMutation = ApplyGuangdongRecordAction,
+        AnnounceBeforeAction = (tick, position, voice) => {
+            if (tick.Count > 1 && tick[0] == "c" && int.TryParse(tick[1], out int tile) && GuangdongMilRules.IsGhost(tile)) {
+                SoundManager.Instance.PlayActionSound(position, "ghost_discard", voice);
+            }
+        },
+        TryHandleCustomActionTick = tick => {
+            if (tick[0] == "blood" && IsBloodBattleRecord()) {
+                HandleSichuanLiujuStepReplay(tick);
+                return true;
+            }
+            return false;
+        },
+        PopulateRecordTipsContext = (ctx, selfPlayer, roundData) => {
+            if (ctx.SubRule == GuangdongMilRules.Doubles && recordGuangdongState?.ghost_discard_counts?.Length == 4) {
+                int seat = selfPlayer.playerIndex;
+                int partner = (seat + 2) % 4;
+                ctx.GuangdongTeamGhosts = recordGuangdongState.ghost_discard_counts[seat] + recordGuangdongState.ghost_discard_counts[partner];
+                if (indexToPosition.TryGetValue(partner, out var partnerPosition) && recordPlayer_to_info.TryGetValue(partnerPosition, out var teammate))
+                    ctx.GuangdongChickenAvailable = !teammate.tagList.Contains("gd_chicken");
+            }
+        },
         AfterSilentMutation = tick => {
             SyncRecordBoardScores();
             if (indexToPosition.TryGetValue(currentPlayerIndex, out string position))

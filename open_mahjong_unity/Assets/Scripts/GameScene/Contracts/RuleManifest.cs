@@ -27,6 +27,18 @@ public sealed class RuleManifest {
     /// <summary>同一大厅规则下具有独立状态机的子规则工厂；优先于族工厂。</summary>
     public Func<string, IGameState> SubRuleGameStateFactory;
 
+    /// <summary>规则专属牌桌 HUD 扩展工厂（替代 partial class GameCanvas）。</summary>
+    public Func<ITableHudHost, IRuleCanvasExtension> CreateCanvasExtension;
+
+    /// <summary>规则专属 3D 牌桌扩展工厂（替代 partial class Game3DManager）。</summary>
+    public Func<ITable3DHost, IRule3DExtension> Create3DExtension;
+
+    /// <summary>独立规则回放处理器工厂（替代 partial class GameRecordManager）。</summary>
+    public Func<IRecordReplayContext, IRuleReplayHandler> CreateReplayHandler;
+
+    /// <summary>建房面板规则专属选项声明式 Schema（替代 CreatePanel.* 规则分部类）。</summary>
+    public IReadOnlyList<RoomOptionField> RoomOptionSchema;
+
     /// <summary>
     /// 回合制出站通道段：<c>gamestate/{OutboundChannel}/cut_tile</c>、<c>send_action</c>。
     /// 大多数回合制族共用服务端的 "GB" 通道；南雀旧兼容族保留 "nanque"。虹雀等自带协议的族不使用。
@@ -56,6 +68,42 @@ public sealed class RuleManifest {
     public Func<List<int[]>, IEnumerable<int>> RecordVisibleMeldTiles;
     /// <summary>一种牌的实体总数；未声明时沿用普通麻将的四张规则。</summary>
     public Func<int, int> TileCopies;
+
+    /// <summary>按子规则返回一种牌的实体总数；优先于 TileCopies。</summary>
+    public Func<string, int, int> TileCopiesForSubRule;
+
+    /// <summary>单张提示格宽度（像素）；为 null 或返回 <= 0 时沿用默认 84f。</summary>
+    public Func<string, float> HintCellWidth;
+
+    /// <summary>完整起手/摸牌张数（含副露按每组3张折算）；为 null 时默认 14。</summary>
+    public Func<string, int> FullHandTileCount;
+
+    /// <summary>是否在切牌/听牌提示面板里按帧延迟计番（大计算量规则置 true）。</summary>
+    public bool DeferWaitingTileHints;
+
+    /// <summary>延迟计番时是否只解析当前可见页的提示格（多页百搭规则置 true）。</summary>
+    public Func<string, bool> DeferInvisibleHintCells;
+
+    /// <summary>同步命中缓存直接返回；未命中返回 null。</summary>
+    public Func<WaitHintQuery, WaitTileHint> TryDescribeWaitingTileCached;
+
+    /// <summary>异步/协程解析单张听牌提示（返回 null 时回退同步 DescribeWaitingTile）。</summary>
+    public Func<WaitHintQuery, Action<WaitTileHint>, System.Collections.IEnumerator> DescribeWaitingTileAsync;
+
+    /// <summary>延迟解析返回 null 时是否重新入队等待下一帧重试（如服务端异步推送提示快照的规则）。</summary>
+    public bool RetryNullDeferredHint;
+
+    /// <summary>将物理听牌张集合按当前摸牌张归并为提示面板展示张；null 时默认按牌面匹配并升序展示。</summary>
+    public Func<IReadOnlyList<int>, int, int[]> SelectDisplayWaitingTiles;
+
+    /// <summary>单个展示张对应的物理听牌变体数组（用于汇总余张）；null 表示仅自身。</summary>
+    public Func<IReadOnlyList<int>, int, int[]> ResolveWaitingVariants;
+
+    /// <summary>
+    /// 实时对局统计单家额外可见牌（如三麻拔北、透明副露掩码、自定义副露掩码）。
+    /// 返回 true 表示已接管该家副露可见牌统计，跳过默认的 combination_tiles 解析。
+    /// </summary>
+    public Func<PlayerInfoClass, bool, Action<int>, bool> CollectLivePlayerVisibleTiles;
 
     /// <summary>
     /// 计数/排序前把牌 id 归一：同一张牌有多个 id 的规则（日麻赤宝牌 15/25/35）在此声明；null 表示 id 即牌。
@@ -235,6 +283,9 @@ public sealed class RuleManifest {
     /// </summary>
     public bool UsesDedicatedActionButtonContainer;
 
+    /// <summary>操作按钮点击后直接发送单一动作，不展开吃碰杠候选子按钮（自由模式喊话）。</summary>
+    public bool SkipActionCandidateExpansion;
+
     /// <summary>个人信息页番种统计用的 key→中文名表。null 表示该规则不展示番种达成。</summary>
     public IReadOnlyDictionary<string, string> StatsFanNames;
 
@@ -245,6 +296,9 @@ public sealed class RuleManifest {
 
     /// <summary>Creates the rule's replay interpreter and presentation hooks for one record manager.</summary>
     public Func<GameRecordManager, RuleReplayModule> ReplayFactory;
+
+    /// <summary>创建该规则的牌谱计分板结算提取编解码器；null 使用默认通用提取逻辑。</summary>
+    public Func<RuleRecordSettlementCodec> CreateSettlementCodec;
 
     /// <summary>牌谱杠动作的 gs 字段即时结算，和牌 tick 不重复包含该杠分。</summary>
     public bool RecordUsesInlineKongScores;

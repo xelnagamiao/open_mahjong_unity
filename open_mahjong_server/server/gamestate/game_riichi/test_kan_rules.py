@@ -7,7 +7,7 @@ from .test_rule_branches import game
 from .action_check import refresh_waiting_tiles
 from .kan_actions import begin_kan, commit_kan
 from .wait_action import _broadcast_hu_and_end
-from .boardcast import broadcast_ask_other_action
+from .broadcast import broadcast_ask_other_action
 from .rule_logic import ankan_allowed
 
 

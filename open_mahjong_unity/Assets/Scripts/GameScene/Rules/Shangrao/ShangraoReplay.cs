@@ -18,6 +18,7 @@ public partial class GameRecordManager {
         RefreshAfterAction = RefreshShangraoTable,
         RefreshAfterSeek = () => { lastWinnableTileId = -1; lastJiagangPlayerIndex = -1; RefreshShangraoTable(); },
         AfterSilentMutation = _ => SyncRecordBoardScores(),
+        GetVisibleIndicators = ShangraoRecordVisibleTiles,
     };
     private void ResetShangraoRecord() {
         recordShangraoInfo = null; recordShangraoHints.Clear(); recordShangraoIndicatorSlot = -1;

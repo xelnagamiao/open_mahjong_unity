@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from .boardcast import _auto_xueliu_throw_three, broadcast_xueliu_throw_three_ask, broadcast_dingque_done
+from .broadcast import _auto_xueliu_throw_three, broadcast_xueliu_throw_three_ask, broadcast_dingque_done
 from .test_action_window import submit
 from .test_xueliu_doubles import make_state
 from ..public.lifecycle import cancel_auxiliary_tasks, start_owned_task
@@ -30,7 +30,7 @@ def test_dingque_reveal_is_broadcast_before_presentation_wait(doubles, expected_
             waiting.set()
             await finish.wait()
 
-        with patch(__package__ + '.boardcast.asyncio.sleep', sleep):
+        with patch(__package__ + '.broadcast.asyncio.sleep', sleep):
             task = asyncio.create_task(broadcast_dingque_done(state))
             try:
                 await asyncio.wait_for(waiting.wait(), 1)
@@ -131,8 +131,8 @@ def test_second_group_waits_in_parallel_after_all_human_prompts(speed):
             await release.wait()
 
         try:
-            with patch(__package__ + '.boardcast._send_ask_response_to_viewer', send), \
-                 patch(__package__ + '.boardcast.asyncio.sleep', sleep):
+            with patch(__package__ + '.broadcast._send_ask_response_to_viewer', send), \
+                 patch(__package__ + '.broadcast.asyncio.sleep', sleep):
                 await broadcast_xueliu_throw_three_ask(state)
                 await asyncio.wait_for(both_waiting.wait(), 1)
                 assert delays == [3.0, 3.0]
@@ -163,7 +163,7 @@ def test_delayed_selection_cannot_submit_to_an_expired_window(change):
             await release.wait()
 
         try:
-            with patch(__package__ + '.boardcast.asyncio.sleep', sleep):
+            with patch(__package__ + '.broadcast.asyncio.sleep', sleep):
                 task = start_owned_task(state, _auto_xueliu_throw_three(state, 0))
                 await asyncio.wait_for(waiting.wait(), 1)
                 if change == 'new_tick':
@@ -194,7 +194,7 @@ def test_game_cleanup_cancels_pending_second_group_selection():
             waiting.set()
             await asyncio.Event().wait()
 
-        with patch(__package__ + '.boardcast.asyncio.sleep', sleep):
+        with patch(__package__ + '.broadcast.asyncio.sleep', sleep):
             task = start_owned_task(state, _auto_xueliu_throw_three(state, 0))
             await asyncio.wait_for(waiting.wait(), 1)
             await cancel_auxiliary_tasks(state)
@@ -214,7 +214,7 @@ def test_first_group_and_other_blood_flow_openings_have_no_extra_wait(doubles, s
         async def unexpected_wait(delay):
             raise AssertionError('Only the doubles second group should wait')
 
-        with patch(__package__ + '.boardcast.asyncio.sleep', unexpected_wait):
+        with patch(__package__ + '.broadcast.asyncio.sleep', unexpected_wait):
             await _auto_xueliu_throw_three(state, 0)
         assert state.action_events[0].is_set()
         assert len(state.action_queues[0].get_nowait()['selected_tiles']) == 3

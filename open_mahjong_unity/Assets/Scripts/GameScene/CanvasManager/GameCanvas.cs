@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 
-public partial class GameCanvas : MonoBehaviour {
+public partial class GameCanvas : MonoBehaviour, ITableHudHost {
     [Header("左上房间信息")]
     [SerializeField] private Button openScoreRecordPanelButton; // 点击打开计分板的面板/按钮
     [SerializeField] private TMP_Text openScoreRecordButtonText; // 按钮文本（可不填：会自动从按钮子节点找）
@@ -76,11 +76,34 @@ public partial class GameCanvas : MonoBehaviour {
     private float tileCardWidth; // 手牌预制体宽度
 
     public static GameCanvas Instance { get; private set; }
+    private Transform ruleHintOverlayRoot;
     public Transform HandCardsContainer => handCardsContainer;
     public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
     public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
     public bool IsHandReflowAnimating => _handReflowAnimDepth > 0 || _drawReflowAnimation != null;
     public void SetHandArranged(bool value) { isArranged = value; }
+
+    /// <summary>
+    /// 规则纯展示提示层统一挂载点：自带 CanvasGroup(blocksRaycasts = false, interactable = false)，
+    /// 保证动态提示面板、公开牌与声明浮层在任何状态下都不会拦截下方吃碰杠等操作点击。
+    /// </summary>
+    protected Transform GetRuleHintOverlayRoot() {
+        if (ruleHintOverlayRoot == null) {
+            var go = new GameObject("RuleHintOverlayRoot", typeof(RectTransform), typeof(CanvasGroup));
+            go.layer = gameObject.layer;
+            go.transform.SetParent(transform, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var group = go.GetComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            ruleHintOverlayRoot = go.transform;
+        }
+        return ruleHintOverlayRoot;
+    }
 
     private int _handReflowAnimDepth;
     private int _handLayoutAnimEpoch;
@@ -784,6 +807,80 @@ public partial class GameCanvas : MonoBehaviour {
         targetTileCard.TriggerClick();
         Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}，规则限切={restricted}");
         return true;
+    }
+
+    // ---- ITableHudHost 与统一生命周期调度 ----
+
+    private IRuleCanvasExtension _activeRuleExtension;
+    private RuleManifest _activeRuleExtensionManifest;
+    private string _activeRuleExtensionSubRule;
+
+    public IRuleCanvasExtension ActiveRuleExtension => _activeRuleExtension;
+    Transform ITableHudHost.RootTransform => transform;
+    RectTransform ITableHudHost.RootRect => transform as RectTransform;
+    Transform ITableHudHost.RuleHintOverlayRoot => GetRuleHintOverlayRoot();
+    Transform ITableHudHost.ActionButtonHost => ActionButtonHost;
+    Transform ITableHudHost.ActionBlockContainer => ActionBlockContenter;
+    GameObject ITableHudHost.StaticCardPrefab => StaticCardPrefab;
+    bool ITableHudHost.IsActiveAndEnabled => isActiveAndEnabled;
+    Coroutine ITableHudHost.StartHostCoroutine(System.Collections.IEnumerator routine) => StartCoroutine(routine);
+    void ITableHudHost.StopHostCoroutine(Coroutine routine) { if (routine != null) StopCoroutine(routine); }
+    void ITableHudHost.ClearActionButtons() => ClearActionButton();
+    void ITableHudHost.SetActionButtons(List<string> words) => SetActionButton(words);
+
+    public GamePlayerPanel GetPlayerPanel(string position) {
+        switch (position) {
+            case "self": return playerSelfPanel;
+            case "left": return playerLeftPanel;
+            case "top": return playerTopPanel;
+            case "right": return playerRightPanel;
+            default: return null;
+        }
+    }
+
+    public void SyncRuleCanvasExtension() {
+        RuleManifest manifest = RuleRegistry.Current;
+        string subRule = RuleRegistry.CurrentSubRule;
+        if (_activeRuleExtensionManifest == manifest && _activeRuleExtensionSubRule == subRule) return;
+        _activeRuleExtension?.Dispose();
+        _activeRuleExtension = null;
+        _activeRuleExtensionManifest = manifest;
+        _activeRuleExtensionSubRule = subRule;
+        if (manifest?.CreateCanvasExtension != null) {
+            _activeRuleExtension = manifest.CreateCanvasExtension(this);
+            _activeRuleExtension?.Attach(this);
+            if (isActiveAndEnabled) _activeRuleExtension?.OnHostEnabled();
+        }
+    }
+
+    private void OnEnable() {
+        RuleRegistry.CurrentChanged -= SyncRuleCanvasExtension;
+        RuleRegistry.CurrentChanged += SyncRuleCanvasExtension;
+        SyncRuleCanvasExtension();
+        OnStickerHostEnabled();
+        _activeRuleExtension?.OnHostEnabled();
+    }
+
+    private void LateUpdate() {
+        _activeRuleExtension?.OnLateTick();
+        OnExchangeSixLateTick();
+    }
+
+    private void OnDisable() {
+        if (_retainClaimActionsAtZero || IsWaitingForDraw) StopTimeRunning();
+        CancelDingqueReveal(finish: true);
+        ClearXueliuExchangePresentation();
+        OnExchangeSixHostDisabled();
+        _activeRuleExtension?.OnHostDisabled();
+    }
+
+    private void OnDestroy() {
+        RuleRegistry.CurrentChanged -= SyncRuleCanvasExtension;
+        OnStickerHostDestroyed();
+        _activeRuleExtension?.Dispose();
+        _activeRuleExtension = null;
+        _activeRuleExtensionManifest = null;
+        _activeRuleExtensionSubRule = null;
     }
 
 }

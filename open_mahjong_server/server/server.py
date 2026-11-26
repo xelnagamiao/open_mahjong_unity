@@ -359,7 +359,7 @@ class GameServer:
                     content=reason or "服务器管理员已将您的账号踢下线",
                 ),
             )
-            await player.websocket.send_json(kick_message.dict(exclude_none=True))
+            await player.websocket.send_json(kick_message.model_dump(exclude_none=True))
         except Exception as exc:
             logging.warning(f"向 user_id={user_id} 发送踢下线消息失败: {exc}")
         await self.disconnect(connect_id)
@@ -432,7 +432,7 @@ class GameServer:
     # 加入房间
     async def join_room(self, Connect_id: str, room_id: str, password: str):
         response = await self.room_manager.join_room(Connect_id, room_id, password)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 离开房间
     async def leave_room(self, Connect_id: str, room_id: str):
@@ -445,40 +445,40 @@ class GameServer:
         if (response.success and leaving_active_game
                 and self.gamestate_manager.get_game_state_by_user_id(player.user_id) is state):
             await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
-        await player.websocket.send_json(response.dict(exclude_none=True))
+        await player.websocket.send_json(response.model_dump(exclude_none=True))
 
     # 添加机器人到房间
     async def add_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
         response = await self.room_manager.add_bot_to_room(Connect_id, room_id, seat_index)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 添加牌效机器人到房间
     async def add_smart_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
         response = await self.room_manager.add_smart_bot_to_room(Connect_id, room_id, seat_index)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 添加国标启发式机器人（高性能罗伯特）到房间
     async def add_guobiao_heuristic_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
         response = await self.room_manager.add_guobiao_heuristic_bot_to_room(Connect_id, room_id, seat_index)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 房主移除玩家
     async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int, seat_index=None):
         response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id, seat_index)
-        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+        await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 设置玩家准备状态
     async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool, roster_revision=None):
         response = await self.room_manager.set_player_ready(Connect_id, room_id, ready, roster_revision=roster_revision)
         if response:
-            await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+            await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str, roster_revision=None):
         """开始游戏（委托给游戏状态管理器）"""
         response = await self.gamestate_manager.start_game(Connect_id, room_id, roster_revision=roster_revision)
         if response:
-            await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+            await self.players[Connect_id].websocket.send_json(response.model_dump(exclude_none=True))
 
     async def check_player_reconnect(self, Connect_id: str, user_id: int):
         """检查玩家是否需要重连并发送提示（委托给游戏状态管理器）"""
@@ -586,7 +586,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             )
                         )
                     )
-                    await websocket.send_json(response.dict(exclude_none=True))
+                    await websocket.send_json(response.model_dump(exclude_none=True))
                     # 断开连接
                     await websocket.close()
                     break
@@ -641,7 +641,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                                     content=f"您的账户已于{current_time}在其他地方登录。如果不是您本人行为，可能账户已被他人冒用，请及时修改密码以确保账户安全。"
                                 )
                             )
-                            await old_player.websocket.send_json(kickout_message.dict(exclude_none=True))
+                            await old_player.websocket.send_json(kickout_message.model_dump(exclude_none=True))
                             logging.info(f"已向旧连接 {old_connect_id} 发送账户被顶替提示")
                         except Exception as e:
                             logging.error(f"向旧连接发送提示消息失败: {e}")
@@ -660,7 +660,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     game_server.store_player_session(Connect_id, user_id, response.login_info.username, is_tourist=is_tourist)
                     
                     # 发送登录成功的响应
-                    await websocket.send_json(response.dict(exclude_none=True))
+                    await websocket.send_json(response.model_dump(exclude_none=True))
                     
                     # 检测玩家是否需要重连并发送 message 类型的通知
                     await handle_title_message(game_server, Connect_id, {"type": "title/get"}, websocket)
@@ -669,11 +669,11 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     await game_server.party_manager.reconnected(user_id)
                     continue
                 
-                await websocket.send_json(response.dict(exclude_none=True))
+                await websocket.send_json(response.model_dump(exclude_none=True))
 
             elif message.get("type", "").startswith("party/"):
                 response = await game_server.party_manager.handle(Connect_id, message)
-                await websocket.send_json(response.dict(exclude_none=True))
+                await websocket.send_json(response.model_dump(exclude_none=True))
             elif message.get("type", "").startswith("chat/"):
                 await handle_conversation_message(game_server, Connect_id, message, websocket)
             elif message.get("type", "").startswith("reward/"):
@@ -726,7 +726,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message="pong",
                     client_ts=int(message.get("client_ts", 0)),
                 )
-                await websocket.send_json(pong.dict(exclude_none=True))
+                await websocket.send_json(pong.model_dump(exclude_none=True))
 
             elif message["type"] == "get_server_stats":
                 # 获取服务器统计数据
@@ -745,7 +745,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message="获取服务器统计成功",
                     server_stats=server_stats
                 )
-                await websocket.send_json(response.dict(exclude_none=True))
+                await websocket.send_json(response.model_dump(exclude_none=True))
 
             elif message["type"] == "reconnect_response":
                 player = game_server.players.get(Connect_id)
@@ -758,7 +758,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             success=False,
                             message="当前没有可重连的对局"
                         )
-                        await player.websocket.send_json(response.dict(exclude_none=True))
+                        await player.websocket.send_json(response.model_dump(exclude_none=True))
                         logging.info(f"玩家 {user_id} 请求重连，但未找到对应 game_state")
                         continue
 
@@ -774,7 +774,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             success=True,
                             message="重连成功，返回游戏"
                         )
-                        await player.websocket.send_json(response.dict(exclude_none=True))
+                        await player.websocket.send_json(response.model_dump(exclude_none=True))
                         logging.info(f"玩家 {user_id} 重连成功")
                     else:
                         # 放弃后取消重连资格、退出大厅房间，对局结束前仍保留占位。
@@ -784,7 +784,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             success=True,
                             message="已放弃重连"
                         )
-                        await player.websocket.send_json(response.dict(exclude_none=True))
+                        await player.websocket.send_json(response.model_dump(exclude_none=True))
                         logging.info(f"玩家 {user_id} 放弃重连，对局占位保留至结束")
     
     except Exception as e:

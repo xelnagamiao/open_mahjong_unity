@@ -10,7 +10,9 @@ internal static class ShenyangRuleBootstrap {
         RuleNameDictionary.WholeName[SubRule]="沈阳麻将（MIL 2025）";
         RuleNameDictionary.ShortName[RuleId]="沈阳";
         RuleNameDictionary.ShortName[SubRule]="沈阳";
+        ShenyangRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new ShenyangRecordSettlementCodec(),
             RuleId=RuleId, DefaultSubRule=SubRule, DisplayName="沈阳麻将", LobbyOrder=21, OutboundChannel=RuleId,
             BuildRoom=ShenyangRoomBuilder.Build, GameStateFactory=()=>new ShenyangGameState(),
             ReplayFactory=record=>record.CreateShenyangReplayModule(),

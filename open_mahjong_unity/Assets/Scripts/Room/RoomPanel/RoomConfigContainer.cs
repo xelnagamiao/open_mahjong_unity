@@ -13,12 +13,32 @@ public class RoomConfigContainer : MonoBehaviour {
 
     [SerializeField] private ConfigItem configItemPrefab;
 
-    // 每条规则需要显示的配置项及其顺序。未登记的规则回退到 default 列表
+    private static readonly List<string> DefaultDisplayFields = new List<string> {
+        "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+        "tips", "has_password", "tourist_limit", "allow_spectator",
+    };
+
+    private static readonly List<string> DefaultWithTacticalFields = new List<string> {
+        "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+        "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+    };
+
+    private static readonly List<string> DefaultWithHepaiLimitFields = new List<string> {
+        "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+        "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
+    };
+
+    // 每条规则需要显示的配置项及其顺序。未登记的规则回退到 DefaultDisplayFields
     private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
-        { "guangdong", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
-        } },
+        { "guangdong", DefaultWithTacticalFields },
+        { "qingque", DefaultWithTacticalFields },
+        { "classical", DefaultWithTacticalFields },
+        { "guizhou", DefaultWithTacticalFields },
+        { "hangzhou", DefaultWithTacticalFields },
+        { "changchun", DefaultWithTacticalFields },
+        { "zhongyong", DefaultDisplayFields },
+        { "shanghai", DefaultWithHepaiLimitFields },
+        { "new_chinese", DefaultWithHepaiLimitFields },
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "use_flowers", "tian_di_ren_he", "jinluo_mode", "jinluo_weather", "joker_multi_wait", "no_joker_bonus", "black_flower_progressive", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
@@ -27,14 +47,6 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit",
             "starting_score", "red_dora", "allow_kuikae", "open_xiru", "open_tobi", "hepai_way", "allow_spectator",
-        } },
-        { "qingque", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "classical", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "hongque", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -49,43 +61,14 @@ public class RoomConfigContainer : MonoBehaviour {
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
             "dealer_bird", "base_score", "small_hu_self_draw_only", "score_cap", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
-        { "guizhou", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "hangzhou", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "zhongyong", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "shanghai", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "new_chinese", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
-        } },
         { "taiwan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "cuohe_type", "has_password", "tourist_limit", "allow_spectator",
-        } },
-        { "changchun", new List<string> {
-            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "free", new List<string> {
             "room_type", "random_seed", "has_password", "tourist_limit",
             "wall_wan", "wall_tong", "wall_suo", "wall_winds", "wall_dragons", "wall_flowers",
         } },
-    };
-
-    private static readonly List<string> DefaultDisplayFields = new List<string> {
-        "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-        "tips", "has_password", "tourist_limit", "allow_spectator",
     };
 
     public static RoomConfigContainer Instance { get; private set; }

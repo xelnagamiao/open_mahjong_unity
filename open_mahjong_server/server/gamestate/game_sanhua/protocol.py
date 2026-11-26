@@ -1,5 +1,5 @@
 import math
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ..game_zhongyong.recording import RoundRecording
 from ..game_new_chinese.protocol import Protocol as WindowProtocol
 from ..game_new_chinese.state_machine import Phase as P

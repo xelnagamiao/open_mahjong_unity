@@ -518,7 +518,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="缺少 gamestate_id"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 获取游戏状态
@@ -530,7 +530,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="游戏状态不存在"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 获取用户ID
@@ -541,7 +541,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="连接不存在"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         player_connection = game_server.players[Connect_id]
@@ -554,7 +554,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="请先登录"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
 
         if game_server.match_manager.blocks_spectator(user_id):
@@ -563,7 +563,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="正在匹配队列中，请先取消匹配再进入观战"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 检查是否已经是玩家
@@ -575,7 +575,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
                 success=False,
                 message="您已经是游戏玩家，不能观战"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
 
         # 同一用户只能挂一场延时观战，避免多场推流串台
@@ -595,7 +595,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
             message=f"添加观战失败: {str(e)}"
         )
         try:
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
         except:
             pass
 
@@ -610,7 +610,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
                 success=False,
                 message="缺少 gamestate_id"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 获取游戏状态
@@ -622,7 +622,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
                 success=False,
                 message="游戏状态不存在"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 获取用户ID
@@ -633,7 +633,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
                 success=False,
                 message="连接不存在"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         player_connection = game_server.players[Connect_id]
@@ -646,7 +646,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
                 success=False,
                 message="请先登录"
             )
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
             return
         
         # 移除观战玩家
@@ -658,7 +658,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
             success=True,
             message="已成功退出观战"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         
     except Exception as e:
         logger.error(f"处理移除观战请求失败: {e}", exc_info=True)
@@ -668,7 +668,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
             message=f"移除观战失败: {str(e)}"
         )
         try:
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
         except:
             pass
 
@@ -683,7 +683,7 @@ async def handle_get_spectator_list(game_server, Connect_id: str, message: dict,
             message=f"获取到 {len(spectator_list)} 个可观战游戏",
             spectator_list=spectator_list
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
     except Exception as e:
         logger.error(f"处理获取观战列表请求失败: {e}", exc_info=True)
         response = Response(
@@ -692,7 +692,7 @@ async def handle_get_spectator_list(game_server, Connect_id: str, message: dict,
             message=f"获取观战列表失败: {str(e)}"
         )
         try:
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
         except:
             pass
 
@@ -785,7 +785,7 @@ async def _send_vote_tip(websocket, msg_type, success, message):
     # 用客户端已识别的 error_message 通道回执失败提示，避免下发客户端无法识别的 vote_* 类型
     try:
         response = Response(type="error_message", success=success, message=message)
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
     except Exception:
         pass
 

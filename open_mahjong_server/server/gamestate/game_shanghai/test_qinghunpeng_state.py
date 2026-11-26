@@ -332,7 +332,7 @@ def test_last_discard_is_lezi_and_rob_kong_can_be_declined():
 
 
 def test_reconnect_preserves_subrule_contract_and_forced_flower_action():
-    from ..game_taiwan.boardcast import send_reconnect_game_state, reconnected_send_pending_ask_for_viewer
+    from ..game_taiwan.broadcast import send_reconnect_game_state, reconnected_send_pending_ask_for_viewer
     async def run():
         state = make_state()
         socket = AsyncMock()

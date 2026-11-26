@@ -66,7 +66,7 @@ public partial class GameRecordManager {
 
     private void RefreshNewChineseRecord() {
         int viewer = recordPlayer_to_info.TryGetValue("self",out var p) ? p.playerIndex : -1;
-        GameCanvas.Instance?.ShowNewChineseStatus(NewChineseRecordInfo, indexToPosition, viewer, newChineseRecordSettled);
+        NewChineseGameState.ShowStatus(GameCanvas.Instance, NewChineseRecordInfo, indexToPosition, viewer, newChineseRecordSettled);
         if (newChineseRecordShowingChoices)
             GameCanvas.Instance?.ShowNewChineseExchangeChoices(NewChineseRecordInfo, indexToPosition,
                 viewer >= 0 && viewer < (NewChineseRecordInfo.exchange_packets?.Length ?? 0) ? NewChineseRecordInfo.exchange_packets[viewer] : null);

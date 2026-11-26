@@ -10,7 +10,9 @@ internal static class NanchangRuleBootstrap {
         RuleNameDictionary.WholeName[NanchangGameState.SubRule]="南昌麻将（MIL 2026）";
         RuleNameDictionary.ShortName[NanchangGameState.RuleId]="南昌";
         RuleNameDictionary.ShortName[NanchangGameState.SubRule]="南昌";
+        NanchangRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new NanchangRecordSettlementCodec(),
             RuleId=NanchangGameState.RuleId,DefaultSubRule=NanchangGameState.SubRule,
             DisplayName="南昌麻将",LobbyName="南昌麻将",LobbyOrder=24,
             LobbySubRules=new[]{new RuleLobbySubRule(NanchangGameState.SubRule,"MIL 2026（单打）",Description)},

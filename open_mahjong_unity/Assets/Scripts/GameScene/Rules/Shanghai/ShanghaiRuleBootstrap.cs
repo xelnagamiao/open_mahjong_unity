@@ -8,8 +8,10 @@ internal static class ShanghaiRuleBootstrap {
             Label = _ => "八花收分·流局" });
         ActionWords.Register(new ActionWordSpec { Word = "lajihe_flower_continue", Kind = ActionWordKind.Pass,
             BlocksAutoCut = true, Label = _ => "八花收分·继续" });
+        ShanghaiRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateShanghaiReplayModule(),
+            CreateSettlementCodec = () => new ShanghaiRecordSettlementCodec(),
             BuildRoom = ShanghaiRoomBuilder.Build,
             RuleId = "shanghai",
             DefaultSubRule = "shanghai/qiaoma",

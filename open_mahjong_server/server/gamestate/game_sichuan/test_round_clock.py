@@ -5,7 +5,7 @@ import pytest
 
 from .SichuanGameState import SichuanGameState
 from .DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState
-from .boardcast import _base_game_info, _build_players_info
+from .broadcast import _base_game_info, _build_players_info
 from .test_duplicate import pair
 from ..verifier.host import build_db_manager, build_game_server, build_room_data
 from ...game_calculation.sichuan.duplicate_rules import SBR_DUPLICATE, XUELIU_DUPLICATE, team_by_seat

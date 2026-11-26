@@ -22,8 +22,8 @@ public static class WuhanPresentation {
         }
         RoundPanel.Instance?.RefreshIndicators(WuhanGameState.RuleId, Indicators(info));
         if (!refreshBadges) return;
-        foreach (var card in Object.FindObjectsByType<TileCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card, card.tileId);
-        foreach (var card in Object.FindObjectsByType<StaticCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card.transform, card.TileId);
-        foreach (var tile in Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None)) tile.RefreshRuleBadge();
+        TileInstances<TileCard>.ForEach(card => RuleTileBadge.Apply(card, card.tileId));
+        TileInstances<StaticCard>.ForEach(card => RuleTileBadge.Apply(card.transform, card.TileId));
+        TileInstances<Tile3D>.ForEach(tile => tile.RefreshRuleBadge());
     }
 }

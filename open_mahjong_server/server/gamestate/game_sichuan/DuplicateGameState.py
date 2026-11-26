@@ -103,7 +103,7 @@ class DuplicateMixin:
         self.waiting_players_list = []
         changes = self.team_round_history[-1]["score_changes"]
         self.team_round_history[-1]["pair_adjustments"] = list(self.duplicate_adjustments)
-        from .boardcast import broadcast_duplicate_status
+        from .broadcast import broadcast_duplicate_status
         await broadcast_duplicate_status(self)
         await self.duplicate_match.submit(self.duplicate_table, self.current_round,
                                          [changes[0], changes[1]], self.duplicate_adjustments,
@@ -120,7 +120,7 @@ class DuplicateMixin:
         if not self.duplicate_match.synchronous:
             return await super()._ready_phase(liuju)
         from ..public.ready_phase import run_result_ready_phase
-        from .boardcast import broadcast_ready_status, broadcast_duplicate_status
+        from .broadcast import broadcast_ready_status, broadcast_duplicate_status
         from .board_settlement import ready_seconds
         await run_result_ready_phase(self, ready_seconds(self), broadcast_ready_status)
         await self._comparison_phase()
@@ -135,7 +135,7 @@ class DuplicateMixin:
 
     async def _comparison_phase(self):
         """Local ready skips only the timeline; every table gets its comparison."""
-        from .boardcast import broadcast_duplicate_status
+        from .broadcast import broadcast_duplicate_status
         if self.duplicate_match.data["status"] not in ("running", "completed"):
             raise RuntimeError("复式对局已中断，本场已结束")
         self.game_status = "duplicate_wait"

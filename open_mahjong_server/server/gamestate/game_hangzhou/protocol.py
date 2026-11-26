@@ -3,7 +3,7 @@ from ..public.settlement_sync import send_game_packet
 
 import math
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ...game_calculation.hangzhou.rules import JOKER
 from .actions import kong_tiles, legal_cuts
 from .client_context import private_context

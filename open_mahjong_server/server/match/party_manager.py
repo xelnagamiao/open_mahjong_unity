@@ -95,7 +95,7 @@ class PartyManager:
         if conn:
             try:
                 from ..gamestate.public.connection_delivery import send_bounded
-                await send_bounded(conn.websocket, response.dict(exclude_none=True))
+                await send_bounded(conn.websocket, response.model_dump(exclude_none=True))
                 return True
             except Exception:
                 log.warning('队伍通知发送失败: %s', uid)

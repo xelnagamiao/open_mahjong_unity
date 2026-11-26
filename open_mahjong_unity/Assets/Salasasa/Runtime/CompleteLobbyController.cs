@@ -222,7 +222,7 @@ namespace Salasasa.Home
                 case "ranked": windows.SwitchWindow("match");break;
                 case "event": windows.SwitchWindow("event");break;
                 case "friends":
-                    windows.SwitchWindow("friend");FriendNetworkManager.Instance.ListAllFriendPanels();break;
+                    windows.SwitchWindow("friend");break;
                 case "game": windows.ResumeSuspendedGame();break;
                 case "logout":
                     NotificationManager.Instance.ShowMessage("登出","确定要登出当前账号吗？","logout_confirm");break;

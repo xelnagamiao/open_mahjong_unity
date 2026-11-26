@@ -4,11 +4,19 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using Riichi;
 
 public partial class TipsContainer : MonoBehaviour
 {
-    private float HintWidth => GuangdongMilRules.IsMil(_recordTipsContext?.SubRule ?? GameSession.Current.SubRule) ? 100f : 84f;
+    private float HintWidth {
+        get {
+            string roomRule = _recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule;
+            string subRule = _recordTipsContext?.SubRule ?? GameSession.Current.SubRule;
+            RuleRegistry.TryResolve(roomRule, subRule, out RuleManifest manifest);
+            float custom = manifest?.HintCellWidth?.Invoke(subRule) ?? 0f;
+            return custom > 0f ? custom : 84f;
+        }
+    }
+
     [SerializeField] private GameObject TileContainer;
     [SerializeField] private StaticCard TilePrefab;
     [SerializeField] private GameObject FanPrefab;
@@ -21,8 +29,6 @@ public partial class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedHandTiles = new List<int>();
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
-    private HongqueScoreHintInfo[] _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
-    private HongqueScoreHintInfo _cachedHongqueWinHint;
     private RecordTipsContext _recordTipsContext;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
@@ -85,17 +91,21 @@ public partial class TipsContainer : MonoBehaviour
             PendingFanHint pending = _pendingFanHints.Dequeue();
             if (pending.View == null) continue;
             // Large joker hands can need multiple pages. Resolve only visible cells.
-            if ((GuobiaoGameState.UsesAsyncLocalTips(pending.Query.SubRule) || pending.Manifest?.RuleId == "duocai" || pending.Manifest?.RuleId == "beijing") && !pending.View.gameObject.activeInHierarchy) {
+            if (pending.Manifest?.DeferInvisibleHintCells?.Invoke(pending.Query.SubRule) == true
+                && !pending.View.gameObject.activeInHierarchy) {
                 _pendingFanHints.Enqueue(pending);
                 yield return null;
                 continue;
             }
-            bool cached = GuobiaoTips.TryDescribeCached(pending.Query, out WaitTileHint hint);
-            if (!cached && GuobiaoGameState.UsesAsyncLocalTips(pending.Query.SubRule)) {
-                yield return FourJokersTips.Resolve(pending.Query, result => hint = result);
-            } else if (!cached) hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
+            WaitTileHint hint = pending.Manifest?.TryDescribeWaitingTileCached?.Invoke(pending.Query);
+            bool cached = hint != null;
+            if (!cached) {
+                IEnumerator asyncResolve = pending.Manifest?.DescribeWaitingTileAsync?.Invoke(pending.Query, result => hint = result);
+                if (asyncResolve != null) yield return asyncResolve;
+                else hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
+            }
             if (generation != _fanHintGeneration) yield break;
-            if(hint==null&&(pending.Manifest?.RuleId=="duocai"||pending.Manifest?.RuleId=="beijing")) {
+            if (hint == null && pending.Manifest?.RetryNullDeferredHint == true) {
                 _pendingFanHints.Enqueue(pending);
                 yield return null;
                 continue;
@@ -127,34 +137,43 @@ public partial class TipsContainer : MonoBehaviour
         _hasCachedTenpaiTips = false;
         _cachedHandTiles.Clear();
         _cachedWaitingTiles.Clear();
-        _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
-        _cachedHongqueWinHint = null;
         waitingTiles.Clear();
+        RuleRegistry.ActiveGameState?.ClearProvidedTenpaiTips();
     }
 
-    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips
-        && (_cachedWaitingTiles.Count > 0 || _cachedHongqueWinHint != null);
+    public bool HasCachedTenpaiTips => RuleRegistry.Current?.TipsProvidedByGameState == true
+        ? RuleRegistry.ActiveGameState?.HasProvidedTenpaiTips == true
+        : _hasCachedTenpaiTips && _cachedWaitingTiles.Count > 0;
 
-    /// <summary>缓存虹雀本地听牌与即时可和提示；可和资格仍来自服务端动作。</summary>
-    public void CacheHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
-        _cachedHongqueWaitHints = waitHints ?? Array.Empty<HongqueScoreHintInfo>();
-        _cachedHongqueWinHint = winHint;
+    /// <summary>供自绘提示的规则同步当前听牌张集合。</summary>
+    public void SetCustomWaitingTiles(IReadOnlyList<int> tiles) {
         _cachedHandTiles.Clear();
         _cachedWaitingTiles.Clear();
-        foreach (HongqueScoreHintInfo hint in _cachedHongqueWaitHints) {
-            if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
-            int tileId = HongqueTileVisual.FromCode(hint.tile);
-            if (tileId != 0) _cachedWaitingTiles.Add(tileId);
+        waitingTiles.Clear();
+        if (tiles != null) {
+            _cachedWaitingTiles.AddRange(tiles);
+            waitingTiles.AddRange(tiles);
         }
-        if (winHint != null && !string.IsNullOrEmpty(winHint.tile)) {
-            int tileId = HongqueTileVisual.FromCode(winHint.tile);
-            if (tileId != 0 && !_cachedWaitingTiles.Contains(tileId)) {
-                _cachedWaitingTiles.Add(tileId);
+        _hasCachedTenpaiTips = _cachedWaitingTiles.Count > 0;
+    }
+
+    /// <summary>通用自绘提示行渲染原语，供 TipsProvidedByGameState 规则渲染听牌/切牌预览。</summary>
+    public void RenderCustomHints(IReadOnlyList<(int tileId, WaitTileHint hint, int remaining)> rows, string subRule, int? pendingCutTileId = null) {
+        visibleHintSubRule = subRule;
+        CancelPendingFanHints();
+        _pendingCutTileId = pendingCutTileId;
+        ClearHintRows();
+        if (rows != null) {
+            foreach (var row in rows) {
+                if (!ShowFanTips && !ShowCountTips) continue;
+                if (row.tileId != 0) {
+                    InstantiateTipsTile(row.tileId);
+                }
+                GameObject fanObject = InstantiateTipsFan();
+                fanObject.GetComponent<TipsFanCount>().SetHint(row.hint, row.remaining, ShowFanTips, ShowCountTips);
             }
         }
-        waitingTiles.Clear();
-        waitingTiles.AddRange(_cachedWaitingTiles);
-        _hasCachedTenpaiTips = _cachedHongqueWaitHints.Length > 0 || winHint != null;
+        UpdateContainerSize();
     }
 
     /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
@@ -165,8 +184,7 @@ public partial class TipsContainer : MonoBehaviour
         if (gameManager == null || !gameManager.tips) return;
         _pendingCutTileId = null;
         if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByGameState) {
-            // 族自绘的稳定提示按缓存重绘
-            SetHongqueTips(_cachedHongqueWaitHints, _cachedHongqueWinHint);
+            RuleRegistry.ActiveGameState?.RefreshProvidedTenpaiTips();
             return;
         }
         if (syncHandFromLiveState) {
@@ -218,87 +236,19 @@ public partial class TipsContainer : MonoBehaviour
         SetTipsWithHand(gameManager.selfHandTiles, waitingTiles);
     }
 
-    /// <summary>
-    /// 虹雀提示使用 C# 本地牌型与计分；实际和牌仍由 Python 服务端权威结算。
-    /// 结果渲染进与其他规则相同的 TileContainer/FanContainer。
-    /// </summary>
-    public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
-        visibleHintSubRule = HongqueWTips.IsActive ? HongqueWScoring.SubRule : "hongque";
-        CancelPendingFanHints();
-        ClearHintRows();
-
-        HongqueScoreHintInfo[] hints = winHint != null
-            ? new[] { winHint }
-            : (waitHints ?? Array.Empty<HongqueScoreHintInfo>());
-        // 虹雀每张牌唯一：听牌等待张若已在任一玩家牌河或副露，则永远无法再摸到/点和，按灰色显示；
-        // 当前可直接和（含刚打出可点和的 win_hint）不受影响。
-        HashSet<int> unavailableTiles = winHint == null ? CollectHongqueUnavailableTiles() : null;
-        foreach (HongqueScoreHintInfo hint in hints) {
-            if (hint == null) continue;
-            if (!ShowFanTips && !ShowCountTips) continue;
-            int tileId = string.IsNullOrEmpty(hint.tile) ? 0 : HongqueTileVisual.FromCode(hint.tile);
-            if (tileId != 0) {
-                InstantiateTipsTile(tileId);
-            }
-            GameObject fanObject = InstantiateTipsFan();
-            // 只显示直接分值，不展示底/番公式。
-            string label = $"{hint.points}分";
-            fanObject.GetComponent<TipsFanCount>().SetHint(
-                HongqueWTips.IsActive ? HongqueWTips.Describe(hint) : hint.self_draw_only ? WaitTileHint.TsumoOnly(label) : WaitTileHint.Ron(label),
-                HongqueWTips.IsActive ? (winHint == null ? HongqueWTips.Remaining(tileId) : 1) : unavailableTiles != null && unavailableTiles.Contains(tileId) ? 0 : 1, ShowFanTips, ShowCountTips);
+    private static int[] SelectDisplayTiles(RuleManifest manifest, List<int> waitingTiles, int actualDraw, out List<int> filteredWaiting) {
+        if (manifest?.SelectDisplayWaitingTiles != null) {
+            filteredWaiting = actualDraw > 0 ? waitingTiles.Where(tile => tile == actualDraw).ToList() : waitingTiles;
+            return manifest.SelectDisplayWaitingTiles(waitingTiles, actualDraw);
         }
-        UpdateContainerSize();
-    }
-
-    /// <summary>
-    /// 虹雀假想弃牌预览：渲染统一 C# 计分入口的结果，和实际弃牌后的右侧听牌共用同一路径。
-    /// </summary>
-    public void SetHongqueCutPreviewHints(HongqueScoreHintInfo[] waitHints, int pendingCutTileId) {
-        visibleHintSubRule = HongqueWTips.IsActive ? HongqueWScoring.SubRule : "hongque";
-        CancelPendingFanHints();
-        _pendingCutTileId = pendingCutTileId;
-        ClearHintRows();
-
-        HashSet<int> unavailableTiles = CollectHongqueUnavailableTiles();
-        unavailableTiles.Add(pendingCutTileId);
-        foreach (HongqueScoreHintInfo hint in waitHints ?? Array.Empty<HongqueScoreHintInfo>()) {
-            if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
-            if (!ShowFanTips && !ShowCountTips) continue;
-            int tileId = HongqueTileVisual.FromCode(hint.tile);
-            if (tileId == 0) continue;
-            InstantiateTipsTile(tileId);
-            GameObject fanObject = InstantiateTipsFan();
-            string label = $"{hint.points}分";
-            fanObject.GetComponent<TipsFanCount>().SetHint(
-                HongqueWTips.IsActive ? HongqueWTips.Describe(hint) : hint.self_draw_only ? WaitTileHint.TsumoOnly(label) : WaitTileHint.Ron(label),
-                HongqueWTips.IsActive ? HongqueWTips.Remaining(tileId) : unavailableTiles.Contains(tileId) ? 0 : 1, ShowFanTips, ShowCountTips);
+        if (actualDraw > 0) {
+            int normalizedDraw = manifest?.NormalizeTileId != null ? manifest.NormalizeTileId(actualDraw) : actualDraw;
+            filteredWaiting = waitingTiles.Where(tile =>
+                (manifest?.NormalizeTileId != null ? manifest.NormalizeTileId(tile) : tile) == normalizedDraw).ToList();
+        } else {
+            filteredWaiting = waitingTiles;
         }
-        UpdateContainerSize();
-    }
-
-    /// <summary>收集全部玩家牌河与副露中的牌（虹雀每张唯一，已公开的听牌张无法再获得）。</summary>
-    private static HashSet<int> CollectHongqueUnavailableTiles() {
-        HashSet<int> unavailable = new HashSet<int>();
-        NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        if (gsm == null || gsm.player_to_info == null) return unavailable;
-        foreach (KeyValuePair<string, PlayerInfoClass> kv in gsm.player_to_info) {
-            PlayerInfoClass info = kv.Value;
-            if (info == null) continue;
-            if (info.discard_tiles != null) {
-                foreach (int tileId in info.discard_tiles) {
-                    if (tileId > 0) unavailable.Add(tileId);
-                }
-            }
-            if (info.combination_masks == null) continue;
-            foreach (int[] meldMask in info.combination_masks) {
-                if (meldMask == null) continue;
-                // 副露掩码按 [flag, tileId] 成对保存；虹雀的竖立标记 flag=0 也必须计入。
-                for (int i = 1; i < meldMask.Length; i += 2) {
-                    if (meldMask[i] > 0) unavailable.Add(meldMask[i]);
-                }
-            }
-        }
-        return unavailable;
+        return filteredWaiting.OrderBy(tile => tile).ToArray();
     }
 
     /// <summary>
@@ -321,15 +271,10 @@ public partial class TipsContainer : MonoBehaviour
         }
 
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
+        RuleManifest manifest = RuleRegistry.Current;
         waitingTiles.Sort();
-        GuobiaoHintTiming guobiaoTiming = pendingCutTileId.HasValue ? null : GuobiaoGameState.Active?.BuildHintTiming();
-        bool duocai = gameManager.roomRule == "duocai";
-        var sbrWindow = pendingCutTileId.HasValue ? null : SichuanGameState.Active?.ExchangeWindow;
-        int actualDraw = pendingCutTileId.HasValue ? 0 : sbrWindow?.draw == true ? sbrWindow.tile
-            : DuocaiGameState.Active?.Hints.CurrentDrawTile ?? guobiaoTiming?.DrawTile ?? 0;
-        var displayedWaiting = actualDraw > 0
-            ? waitingTiles.Where(tile => duocai?tile==actualDraw:WashizuTile.Face(tile)==WashizuTile.Face(actualDraw)).ToList() : waitingTiles;
-        var displayTiles=duocai?DuocaiHintPresentation.DisplayTiles(displayedWaiting):displayedWaiting.ToArray();
+        int actualDraw = RuleRegistry.ActiveGameState?.GetCurrentHintDrawTile(pendingCutTileId) ?? 0;
+        int[] displayTiles = SelectDisplayTiles(manifest, waitingTiles, actualDraw, out List<int> displayedWaiting);
         PrepareHintRows(gameManager.subRule, displayTiles);
         var visibleHand = new List<int>(handTiles);
         if (actualDraw > 0) visibleHand.Add(actualDraw);
@@ -381,10 +326,10 @@ public partial class TipsContainer : MonoBehaviour
             PlayerInfoClass selfInfo = gameManager.player_to_info["self"];
             List<string> combinationList = new List<string>(selfInfo.combination_tiles ?? new List<string>());
 
-            RenderWaitingTile(RuleRegistry.Current, new WaitHintQuery {
+            var query = new WaitHintQuery {
                 HepaiTile = hepaiTile,
                 PendingCutTileId = pendingCutTileId,
-                WaitingVariants = duocai?DuocaiHintPresentation.Variants(displayedWaiting,hepaiTile):null,
+                WaitingVariants = manifest?.ResolveWaitingVariants?.Invoke(displayedWaiting, hepaiTile),
                 HandWithWin = handList,
                 Melds = combinationList,
                 MeldMasks = selfInfo.combination_masks,
@@ -394,18 +339,20 @@ public partial class TipsContainer : MonoBehaviour
                 HuapaiCount = selfInfo.huapai_list?.Count ?? 0,
                 SubRule = gameManager.subRule,
                 HepaiLimit = gameManager.hepaiLimit,
-                JinluoMode = GameSession.Current.JinluoMode, JinluoWeather = GameSession.Current.JinluoWeather,
-                GuobiaoTiming = guobiaoTiming, SbrWindow = sbrWindow,
-                SbrPassedFan = gameManager.subRule == SichuanLobby.SbrExchange ? SbrExchangeTips.PassedFan(selfInfo.tag_list) : -1,
+                JinluoMode = GameSession.Current.JinluoMode,
+                JinluoWeather = GameSession.Current.JinluoWeather,
                 JokerMultiWait = GameSession.Current.JokerMultiWait,
-                NoJokerBonus = GameSession.Current.NoJokerBonus, BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
+                NoJokerBonus = GameSession.Current.NoJokerBonus,
+                BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
                 SelfIndex = gameManager.selfIndex,
                 CurrentRound = gameManager.currentRound,
                 SelfFlowers = selfInfo.huapai_list != null ? new List<int>(selfInfo.huapai_list) : new List<int>(),
                 DetailedConfig = gameManager.detailedConfig,
                 ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
                 Record = null,
-            });
+            };
+            RuleRegistry.ActiveGameState?.PopulateLiveWaitHintQuery(query, pendingCutTileId);
+            RenderWaitingTile(manifest, query);
         }
         UpdateContainerSize();
     }
@@ -415,15 +362,15 @@ public partial class TipsContainer : MonoBehaviour
         visibleHintSubRule = query.SubRule;
         WaitTileHint hint = null;
         bool needsHint = ShowFanTips || ShowCountTips;
-        bool defer = needsHint && (manifest?.RuleId == "guobiao" || manifest?.RuleId == "duocai" || manifest?.RuleId == "beijing")
+        bool defer = needsHint && manifest?.DeferWaitingTileHints == true
             && WindowsManager.Instance != null && WindowsManager.Instance.isActiveAndEnabled
-            && !GuobiaoTips.TryDescribeCached(query, out hint);
+            && (hint = manifest.TryDescribeWaitingTileCached?.Invoke(query)) == null;
         if (needsHint && !defer && hint == null) hint = RuleTips.DescribeWaitingTile(manifest, query);
         InstantiateTipsTile(query.HepaiTile);
         if (hint == null && !ShowCountTips && !defer) return;
         GameObject fanObject = InstantiateTipsFan();
         if (defer) {
-            fanObject.GetComponent<TipsFanCount>().SetHint(null,GetWaitingQueryRemaining(query),ShowFanTips,ShowCountTips);
+            fanObject.GetComponent<TipsFanCount>().SetHint(null, GetWaitingQueryRemaining(query), ShowFanTips, ShowCountTips);
             _pendingFanHints.Enqueue(new PendingFanHint {
                 Manifest = manifest, Query = query, View = fanObject.GetComponent<TipsFanCount>(),
                 Remaining = GetWaitingQueryRemaining(query), ShowFan = ShowFanTips, ShowCount = ShowCountTips,
@@ -434,7 +381,7 @@ public partial class TipsContainer : MonoBehaviour
             }
             return;
         }
-        fanObject.GetComponent<TipsFanCount>().SetHint(hint,GetWaitingQueryRemaining(query),ShowFanTips,ShowCountTips);
+        fanObject.GetComponent<TipsFanCount>().SetHint(hint, GetWaitingQueryRemaining(query), ShowFanTips, ShowCountTips);
     }
 
     /// <summary>牌谱/延时观战：基于 RecordTipsContext 展示听牌与番数提示。</summary>
@@ -444,20 +391,20 @@ public partial class TipsContainer : MonoBehaviour
         _recordTipsContext = ctx;
         _pendingCutTileId = pendingCutTileId;
 
-        bool duocai=ctx.RoomRule=="duocai";
-        int actualDraw=duocai&&!pendingCutTileId.HasValue?GameRecordManager.Instance?.DuocaiRecordCurrentDrawTile(ctx.SelfPlayerIndex)??0:0;
-        var physicalWaiting=actualDraw>0?waitingTiles.Where(tile=>tile==actualDraw).ToList():waitingTiles;
-        var displayTiles=duocai?DuocaiHintPresentation.DisplayTiles(physicalWaiting):physicalWaiting.OrderBy(tile=>tile).ToArray();
+        RuleRegistry.TryResolve(ctx.RoomRule, ctx.SubRule, out RuleManifest manifest);
+        int actualDraw = !pendingCutTileId.HasValue
+            ? GameRecordManager.Instance?.GetRecordCurrentDrawTile(ctx.SelfPlayerIndex) ?? 0
+            : 0;
+        int[] displayTiles = SelectDisplayTiles(manifest, waitingTiles, actualDraw, out List<int> physicalWaiting);
         PrepareHintRows(ctx.SubRule, displayTiles);
 
-        var visibleHand=new List<int>(handTiles);
-        if(actualDraw>0)visibleHand.Add(actualDraw);
+        var visibleHand = new List<int>(handTiles);
+        if (actualDraw > 0) visibleHand.Add(actualDraw);
         BuildVisibleTileCountsFromRecord(ctx, visibleHand);
 
-        RuleRegistry.TryResolve(ctx.RoomRule, ctx.SubRule, out RuleManifest manifest);
         foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, handTiles, displayTiles.ToList(), _pendingCutTileId)) {
-            query.PendingCutTileId=pendingCutTileId;
-            query.WaitingVariants=duocai?DuocaiHintPresentation.Variants(physicalWaiting,query.HepaiTile):null;
+            query.PendingCutTileId = pendingCutTileId;
+            query.WaitingVariants = manifest?.ResolveWaitingVariants?.Invoke(physicalWaiting, query.HepaiTile);
             RenderWaitingTile(manifest, query);
         }
 
@@ -497,16 +444,7 @@ public partial class TipsContainer : MonoBehaviour
         _visibleTileCounts.Clear();
         string roomRule = gameManager.roomRule;
         RuleRegistry.TryResolve(roomRule, out RuleManifest visibleManifest);
-        foreach (int tile in visibleManifest?.LiveVisibleIndicators?.Invoke() ?? System.Array.Empty<int>()) AddVisibleTile(tile, roomRule);
-        if (WenzhouGameState.Active?.Info != null) AddVisibleTile(WenzhouGameState.Active.Info.indicator, roomRule);
-        RiichiGameState riichi = RiichiGameState.Active;
-        if (riichi != null) {
-            foreach (int tile in riichi.DoraIndicators) AddVisibleTile(tile, roomRule);
-            foreach (int tile in riichi.KanDoraIndicators) AddVisibleTile(tile, roomRule);
-            foreach (int tile in riichi.PublicOpponentHandTiles()) AddVisibleTile(tile, roomRule);
-        }
-        if (GuobiaoGameState.Active != null)
-            foreach (int tile in GuobiaoGameState.Active.PublicOpponentHandTiles()) AddVisibleTile(tile, roomRule);
+        foreach (int tile in visibleManifest?.LiveVisibleIndicators?.Invoke() ?? Array.Empty<int>()) AddVisibleTile(tile, roomRule);
         if (gameManager.player_to_info.TryGetValue("self", out var selfInfo))
             foreach (int tile in selfInfo.known_concealed_discards) AddVisibleTile(tile, roomRule);
         foreach (int tile in selfHandTiles) {
@@ -515,28 +453,20 @@ public partial class TipsContainer : MonoBehaviour
         if (_pendingCutTileId.HasValue) {
             AddVisibleTile(_pendingCutTileId.Value, roomRule);
         }
+        Action<int> addVisible = tile => AddVisibleTile(tile, roomRule);
         foreach (var playerInfo in gameManager.player_to_info.Values) {
+            bool isSelf = playerInfo == selfInfo;
             if (playerInfo.discard_tiles != null) {
                 foreach (int tile in playerInfo.discard_tiles) {
                     AddVisibleTile(tile, roomRule);
                 }
             }
-            // 拔北存于花牌区，仍占用北的四张供给；自家手牌此时已移除该牌。
-            if (GameSession.Current.SubRule == "riichi/sanma" && playerInfo.huapai_list != null) {
-                foreach (int tile in playerInfo.huapai_list) AddVisibleTile(tile, roomRule);
-            }
-            if (WashizuTile.UsesTransparentHands(GameSession.Current.SubRule) && playerInfo.combination_masks != null) {
-                foreach (var mask in playerInfo.combination_masks)
-                    foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) AddVisibleTile(tile, roomRule);
-                continue;
-            }
-            if ((roomRule == WenzhouGameState.RuleId || roomRule == VietnameseGameState.RuleId || roomRule == "duocai") && playerInfo.combination_masks != null) {
-                foreach (var mask in playerInfo.combination_masks) for (int i = 1; mask != null && i < mask.Length; i += 2) AddVisibleTile(mask[i], roomRule);
+            if (visibleManifest?.CollectLivePlayerVisibleTiles?.Invoke(playerInfo, isSelf, addVisible) == true) {
                 continue;
             }
             if (playerInfo.combination_tiles == null) continue;
             foreach (string combination in playerInfo.combination_tiles) {
-                int[] explicitTiles = visibleManifest?.VisibleMeldTiles?.Invoke(combination, playerInfo == gameManager.player_to_info["self"]);
+                int[] explicitTiles = visibleManifest?.VisibleMeldTiles?.Invoke(combination, isSelf);
                 if (explicitTiles != null) foreach (int tile in explicitTiles) AddVisibleTile(tile, roomRule);
                 else AddVisibleTilesFromCombination(combination, roomRule);
             }
@@ -582,15 +512,19 @@ public partial class TipsContainer : MonoBehaviour
         }
     }
 
-    private int GetWaitingQueryRemaining(WaitHintQuery query)=>(query.WaitingVariants??new[]{query.HepaiTile}).Sum(GetWaitingTileRemaining);
+    private int GetWaitingQueryRemaining(WaitHintQuery query) => (query.WaitingVariants ?? new[] { query.HepaiTile }).Sum(GetWaitingTileRemaining);
 
     private int GetWaitingTileRemaining(int waitingTile) {
-        int key = GetVisibleCountKey(waitingTile, _recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule);
+        string roomRule = _recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule;
+        string subRule = _recordTipsContext?.SubRule ?? GameSession.Current.SubRule;
+        int key = GetVisibleCountKey(waitingTile, roomRule);
         int used = _visibleTileCounts.TryGetValue(key, out int count) ? count : 0;
-        int supply = GuangdongMilRules.IsMil(_recordTipsContext?.SubRule ?? GameSession.Current.SubRule) && GuangdongMilRules.IsGhost(waitingTile) ? 1 : 4;
-        if ((_recordTipsContext?.SubRule ?? GameSession.Current.SubRule) == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(waitingTile)) supply = 1;
-        RuleRegistry.TryResolve(_recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule, out RuleManifest manifest);
-        if (manifest?.TileCopies != null) supply = Mathf.Max(0, manifest.TileCopies(waitingTile));
+        RuleRegistry.TryResolve(roomRule, subRule, out RuleManifest manifest);
+        int supply = manifest?.TileCopiesForSubRule != null
+            ? Mathf.Max(0, manifest.TileCopiesForSubRule(subRule, waitingTile))
+            : manifest?.TileCopies != null
+                ? Mathf.Max(0, manifest.TileCopies(waitingTile))
+                : 4;
         return Mathf.Clamp(supply - used, 0, supply);
     }
 
@@ -627,7 +561,7 @@ public partial class TipsContainer : MonoBehaviour
     }
 
     public void ShowTips(){
-        shangraoTipOpeningVersion++;
+        tipOpeningVersion++;
         gameObject.SetActive(true);
         UpdateContainerSize();
     }

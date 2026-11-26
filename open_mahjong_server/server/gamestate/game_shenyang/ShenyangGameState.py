@@ -4,7 +4,7 @@ from dataclasses import replace
 from ...game_calculation.shenyang import rules as book
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan.action_check import hu_action_for_player
-from ..game_taiwan.boardcast import broadcast_do_action, broadcast_ready_status
+from ..game_taiwan.broadcast import broadcast_do_action, broadcast_ready_status
 from ..game_taiwan.wait_action import _collect_responses
 from ..game_shanxi.clock import RoomActionClock, TimedActionQueue
 from ..game_shanxi.result import restore_terminal_result

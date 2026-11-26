@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from .test_protocol import connected
-from .boardcast import broadcast_game_end
+from .broadcast import broadcast_game_end
 from ...match.riichi_rank_calculator import riichi_pt_details
 
 

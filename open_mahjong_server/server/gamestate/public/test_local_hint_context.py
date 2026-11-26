@@ -28,7 +28,7 @@ def test_nested_inputs_survive_later_draws_claims_and_context_changes():
 def test_guobiao_preview_does_not_enqueue_server_cpu(sub_rule, monkeypatch):
     from ..game_guobiao import four_jokers_runtime as runtime
     from ..game_guobiao.test_sanma import sanma
-    from ..game_guobiao.boardcast import _build_game_start_payload_for_viewer
+    from ..game_guobiao.broadcast import _build_game_start_payload_for_viewer
     cpu = AsyncMock(side_effect=AssertionError('UI preview must be computed by the client'))
     monkeypatch.setattr(runtime, 'run_room_bot_cpu', cpu)
     state = sanma(sub_rule=sub_rule)

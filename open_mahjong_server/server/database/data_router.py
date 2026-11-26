@@ -101,7 +101,7 @@ async def handle_get_player_recent_records(game_server, Connect_id: str, message
             user_id=target_user_id, request_id=request_id, rules=rules,
         ),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_get_record_list(game_server, Connect_id: str, message: dict, websocket):
@@ -156,7 +156,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             success=False,
             message="用户未登录"
         )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_update_record_favorite(game_server, Connect_id: str, message: dict, websocket):
     """处理更新牌谱收藏请求"""
@@ -167,7 +167,7 @@ async def handle_update_record_favorite(game_server, Connect_id: str, message: d
             success=False,
             message="用户未登录",
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
 
     game_id = (message.get("game_id") or "").strip()
@@ -180,7 +180,7 @@ async def handle_update_record_favorite(game_server, Connect_id: str, message: d
         game_id=game_id,
         is_favorite=result.get("is_favorite", False),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_update_record_note(game_server, Connect_id: str, message: dict, websocket):
     """处理更新牌谱备注请求"""
@@ -191,7 +191,7 @@ async def handle_update_record_note(game_server, Connect_id: str, message: dict,
             success=False,
             message="用户未登录",
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
 
     game_id = (message.get("game_id") or "").strip()
@@ -208,7 +208,7 @@ async def handle_update_record_note(game_server, Connect_id: str, message: dict,
         game_id=game_id,
         note=result.get("note", ""),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_rule_stats(game_server, connect_id, message, websocket):
     from .get_rule_stats import get_custom_rule_history, validate_selection
@@ -238,7 +238,7 @@ async def handle_get_rule_stats(game_server, connect_id, message, websocket):
     except Exception:
         logger.exception("获取自定义玩法统计失败")
         response.message = "获取统计失败，请重试"
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
@@ -267,7 +267,7 @@ async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
     except Exception:
         logger.exception('获取匹配统计失败')
         response.message = '获取匹配统计失败，请重试'
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_get_rank_record_list(game_server, Connect_id: str, message: dict, websocket):
@@ -297,7 +297,7 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
     except Exception:
         logger.exception("读取规则对局失败")
         response.message = "读取最近对局失败，请重试"
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_get_leaderboard(game_server, Connect_id: str, message: dict, websocket):
@@ -323,7 +323,7 @@ async def handle_get_leaderboard(game_server, Connect_id: str, message: dict, we
     except Exception:
         logger.exception("读取规则排行榜失败")
         response.message = "读取排行榜失败，请重试"
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, websocket):
     """处理按ID获取完整牌谱记录请求"""
@@ -334,7 +334,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
             success=False,
             message="用户未登录"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     
     game_id = message.get("game_id", "").strip()
@@ -344,7 +344,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
             success=False,
             message="缺少牌谱ID"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     
     try:
@@ -355,7 +355,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
             success=False,
             message=str(error),
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     if result is None:
         response = Response(
@@ -385,7 +385,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
             message="获取牌谱成功",
             record_detail=detail
         )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_player_info_by_name(game_server, Connect_id: str, message: dict, websocket):
     """Resolve legacy chat senders without interpreting numeric usernames as IDs."""
@@ -418,7 +418,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
             success=False,
             message="无效的用户ID"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     
     # 检查是否需要玩家信息
@@ -494,7 +494,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
         rule_stats=rule_stats_response,
         player_info=player_info
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, websocket):
     """读取日麻逐局摘要，返回局制、行为、流局、点数及役种统计。"""
@@ -506,7 +506,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
             success=False,
             message="无效的用户ID"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     
     # 检查是否需要玩家信息
@@ -555,7 +555,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
         rule_stats=rule_stats_response,
         player_info=player_info
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, websocket):
     """处理获取青雀统计数据请求"""
@@ -568,7 +568,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
             success=False,
             message="无效的用户ID"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
     
     # 检查是否需要玩家信息
@@ -638,7 +638,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
         rule_stats=rule_stats_response,
         player_info=player_info
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_get_classical_stats(game_server, Connect_id: str, message: dict, websocket):
     """处理获取古典麻将统计数据请求"""
@@ -651,7 +651,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
             success=False,
             message="无效的用户ID"
         )
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return
 
     need_player_info = message.get("need_player_info", False)
@@ -717,4 +717,4 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
         rule_stats=rule_stats_response,
         player_info=player_info
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))

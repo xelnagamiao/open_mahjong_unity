@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 from .exchange_six import ExchangeSixFlow, EXCHANGE_ACTION, NO_EXCHANGE_ACTION, REPEAT_EXCHANGE_ACTION
 from .test_exchange_six import make_state
 from ..public.ai.get_action import get_action
-from .boardcast import reconnected_send_pending_ask
+from .broadcast import reconnected_send_pending_ask
 
 
 def live_state(bot_seats=()):

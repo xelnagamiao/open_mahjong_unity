@@ -7,7 +7,7 @@ import pytest
 from . import guobiao_heuristic_ai as ai
 from .guobiao_heuristic_logic import context_from_game, count_visible_from_game
 from .pacing import BOT_SPEEDS
-from ...game_guobiao import blood_battle as blood, boardcast
+from ...game_guobiao import blood_battle as blood, broadcast
 from ...game_guobiao.action_check import check_action_after_cut, check_action_hand_action
 from ...game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ...game_guobiao.test_blood_battle import state_for_test
@@ -117,8 +117,8 @@ def test_broadcast_only_dispatches_active_heuristic_bots(retired, phase):
         tasks = []
         def dispatch(_state, coro):
             tasks.append(asyncio.create_task(coro))
-        with patch.object(boardcast, "guobiao_heuristic_action", AsyncMock()) as bot, \
-                patch.object(boardcast, "start_owned_task", dispatch):
+        with patch.object(broadcast, "guobiao_heuristic_action", AsyncMock()) as bot, \
+                patch.object(broadcast, "start_owned_task", dispatch):
             if phase == "waiting_hand_action":
                 await state.broadcast_ask_hand_action()
             else:

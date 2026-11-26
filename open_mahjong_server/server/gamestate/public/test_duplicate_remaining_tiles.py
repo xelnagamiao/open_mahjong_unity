@@ -155,7 +155,7 @@ def test_ordinary_start_action_reconnect_and_end_omit_duplicate_counts(sub_rule)
 @pytest.mark.parametrize("exhausted", [False, True])
 def test_duplicate_end_follows_queued_action_even_when_websocket_yields(exhausted):
     """A queued old count must reach the wire before the terminal snapshot."""
-    from ..game_guobiao.boardcast import _build_do_action_payload, _deliver_do_action_payload_to_viewer
+    from ..game_guobiao.broadcast import _build_do_action_payload, _deliver_do_action_payload_to_viewer
     from .outbound_pipe import close_outbound_pipes, schedule_viewer_send
 
     async def run():
@@ -207,7 +207,7 @@ def test_duplicate_end_follows_queued_action_even_when_websocket_yields(exhauste
 
 @pytest.mark.parametrize("flush_mode", ["pending", "same_task", "concurrent"])
 def test_duplicate_terminal_waits_for_all_reserved_protected_cut_sends(flush_mode):
-    from ..game_guobiao.boardcast import _send_do_action_payload_to_viewer
+    from ..game_guobiao.broadcast import _send_do_action_payload_to_viewer
     from .claim_protection import flush_protected_cut
     from .outbound_pipe import close_outbound_pipes
 

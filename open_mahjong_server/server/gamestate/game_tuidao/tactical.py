@@ -1,5 +1,5 @@
 """MIL claim upgrades using the shared tactical priority/recheck state machine."""
-from ..game_taiwan.boardcast import broadcast_do_action, broadcast_ask_other_action
+from ..game_taiwan.broadcast import broadcast_do_action, broadcast_ask_other_action
 from ..public.tactical_claim import (init_tactical_round_state, clear_tactical_round_state,
     apply_tactical_claim_if_needed, is_decline_action, tactical_mark_player_force_passed,
     tactical_mark_player_passed_in_grace)

@@ -7,6 +7,10 @@ using UnityEngine;
 using UnityEngine.UI;
 public partial class CreatePanel {
     public void BakeBeijingDetailsPanel() => BakeRegionalDetailsPanel("beijing", "北京麻将");
+    public void BakeFilipinoDetailsPanel() => BakeRegionalDetailsPanel("filipino", "菲律宾麻将");
+    public void BakeHongqueDetailsPanel() => BakeRegionalDetailsPanel("hongque", "虹雀 W");
+    public void BakeShangraoDetailsPanel() => BakeRegionalDetailsPanel("shangrao", "上饶麻将");
+    public void BakeVietnameseDetailsPanel() => BakeRegionalDetailsPanel("vietnamese", "越南麻将");
 
     public void BakeRegionalDetailsPanel(string key, string title) {
         if (transform.Find("DetailedConfigPanel_" + key)) { return; }

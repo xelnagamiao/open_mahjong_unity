@@ -42,7 +42,7 @@ def make_state(adapter):
     state.game_status = "waiting_action_after_cut"
     init_game_record(state)
     init_game_round(state)
-    broadcaster = importlib.import_module(f"server.gamestate.{module}.boardcast")
+    broadcaster = importlib.import_module(f"server.gamestate.{module}.broadcast")
     waiter = importlib.import_module(f"server.gamestate.{module}.wait_action").wait_action
     return state, broadcaster, waiter
 

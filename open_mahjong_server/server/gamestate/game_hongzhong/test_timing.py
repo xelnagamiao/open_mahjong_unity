@@ -8,7 +8,7 @@ import pytest
 
 from .test_flow import make_state, hand, draw, HAND
 from .timing import collect_responses
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     reconnected_send_pending_ask_for_viewer, send_realtime_spectator_snapshot,
 )
 from ..public.ask_timing import begin_ask_round, note_ask_delivered

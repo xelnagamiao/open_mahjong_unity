@@ -25,7 +25,7 @@ from .action_window import collect_tactical_recheck, validate_tactical_queued_ac
 from .real_time import RealTimeClaimMixin
 from .wait_action import wait_action
 from .shunhe import clear_shunhe
-from .boardcast import (
+from .broadcast import (
     broadcast_game_start, broadcast_ask_hand_action, broadcast_ask_other_action,
     broadcast_do_action, broadcast_result, broadcast_game_end,
     broadcast_refresh_player_tag_list, broadcast_ready_status,
@@ -349,7 +349,7 @@ class SichuanGameState(RealTimeClaimMixin):
                 await broadcast_refresh_player_tag_list(self)
             if user_id in self.game_server.user_id_to_connection:
                 from ...response import Response, GameInfo
-                from .boardcast import _base_game_info, _build_players_info
+                from .broadcast import _base_game_info, _build_players_info
                 player_conn = self.game_server.user_id_to_connection[user_id]
                 game_info = GameInfo(
                     **{**_base_game_info(self), 'players_info': _build_players_info(self, user_id)},
@@ -357,7 +357,7 @@ class SichuanGameState(RealTimeClaimMixin):
                 )
                 response = Response(type="gamestate/sichuan/game_start", success=True,
                                     message="重连成功，游戏继续", game_info=game_info)
-                await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
+                await send_game_packet(self, player_conn.websocket, response.model_dump(exclude_none=True))
                 await reconnected_send_pending_ask(self, user_id)
             break
 

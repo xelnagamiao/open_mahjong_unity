@@ -7,7 +7,7 @@ import pytest
 
 from .test_state import hand, make_state
 from ...game_calculation.changchun.test_rules import READY
-from ..game_taiwan.boardcast import broadcast_do_action, send_realtime_spectator_snapshot
+from ..game_taiwan.broadcast import broadcast_do_action, send_realtime_spectator_snapshot
 
 
 def tail_state(owner, remaining):

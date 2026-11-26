@@ -11,12 +11,12 @@ from unittest.mock import AsyncMock
 
 from server.response import GameInfo
 from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
-from server.gamestate.game_changsha.boardcast import (
+from server.gamestate.game_changsha.broadcast import (
     _build_game_start_payload_for_viewer as _changsha_payload,
 )
 from server.gamestate.game_classical.ClassicalGameState import ClassicalGameState
 from server.gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
-from server.gamestate.game_guobiao.boardcast import (
+from server.gamestate.game_guobiao.broadcast import (
     _build_game_start_payload_for_viewer as _guobiao_payload,
 )
 from server.gamestate.game_zhongyong.NanqueGameState import NanqueGameState
@@ -132,7 +132,7 @@ class RealtimeSpectatorSnapshotTest(unittest.TestCase):
         expected_payload["view_player_index"] = 1
         self.assertEqual(
             snapshot["game_info"],
-            GameInfo(**expected_payload).dict(exclude_none=True),
+            GameInfo(**expected_payload).model_dump(exclude_none=True),
         )
 
     def test_changsha_snapshot_equals_host_game_start_and_preserves_rule_data(self):
@@ -194,16 +194,16 @@ class RealtimeSpectatorSnapshotTest(unittest.TestCase):
         expected_payload["view_player_index"] = 1
         self.assertEqual(
             snapshot["game_info"],
-            GameInfo(**expected_payload).dict(exclude_none=True),
+            GameInfo(**expected_payload).model_dump(exclude_none=True),
         )
 
     def test_all_realtime_rules_mount_rule_local_snapshot(self):
         expected = {
-            GuobiaoGameState: "server.gamestate.game_guobiao.boardcast",
-            ChangshaGameState: "server.gamestate.game_changsha.boardcast",
-            ClassicalGameState: "server.gamestate.game_classical.boardcast",
-            QingqueGameState: "server.gamestate.game_mmcr.boardcast",
-            SichuanGameState: "server.gamestate.game_sichuan.boardcast",
+            GuobiaoGameState: "server.gamestate.game_guobiao.broadcast",
+            ChangshaGameState: "server.gamestate.game_changsha.broadcast",
+            ClassicalGameState: "server.gamestate.game_classical.broadcast",
+            QingqueGameState: "server.gamestate.game_mmcr.broadcast",
+            SichuanGameState: "server.gamestate.game_sichuan.broadcast",
             NanqueGameState: "server.gamestate.game_zhongyong.ZhongyongGameState",
         }
         for cls, module in expected.items():

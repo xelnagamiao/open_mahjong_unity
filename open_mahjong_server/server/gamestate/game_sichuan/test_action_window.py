@@ -7,7 +7,7 @@ import pytest
 from .SichuanGameState import SichuanGameState
 from .XueliuGameState import XueliuGameState
 from .XueliuDoublesGameState import XueliuDoublesGameState
-from . import boardcast
+from . import broadcast
 from .wait_action import wait_action
 from ..gamestate_router import handle_gamestate_message
 from ..public.claim_protection import begin_claim_protection_interval, mark_post_meld_gap
@@ -237,7 +237,7 @@ def test_ready_click_during_first_status_broadcast_is_not_lost(mode):
                         await submit(state, seat, "ready")
 
                 socket.send_json = send
-            await boardcast.broadcast_ready_status(state)
+            await broadcast.broadcast_ready_status(state)
             assert all(q.qsize() == 1 for q in state.action_queues.values())
             assert await asyncio.wait_for(wait_action(state), 1) is True
             while any(state.action_dict.values()):
@@ -395,7 +395,7 @@ def test_reconnect_can_submit_before_wait_starts(mode):
             await state.broadcast_ask_other_action()
             tick = state.server_action_tick
             reply_on_ask(state, 1, "peng")
-            await boardcast.reconnected_send_pending_ask(state, state.player_list[1].user_id)
+            await broadcast.reconnected_send_pending_ask(state, state.player_list[1].user_id)
             assert state.server_action_tick == tick
             await asyncio.wait_for(wait_action(state), 1)
             assert state.player_list[1].combination_tiles == ["k15"]
@@ -420,7 +420,7 @@ def test_timeout_advances_without_consuming_stale_packets(mode, status):
                 await state.broadcast_ask_hand_action()
             elif status == "waiting_ready":
                 state.action_dict = {i: ["ready"] for i in range(4)}
-                await boardcast.broadcast_ready_status(state)
+                await broadcast.broadcast_ready_status(state)
             else:
                 await state.broadcast_ask_other_action()
             await asyncio.wait_for(wait_action(state), 1)

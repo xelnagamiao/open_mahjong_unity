@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import Field, StrictBool, StrictInt, validator
+from pydantic import Field, StrictBool, StrictInt, field_validator
 
 from .room_validators import GBRoomValidator
 from .standard_room import create_standard_room, handle_create_standard_room
@@ -25,25 +25,29 @@ class BeijingRoomValidator(GBRoomValidator):
     open_cuohe: StrictBool = False
     tactical_call: StrictBool = False
     tian_di_ren_he: StrictBool = False
-    detailed_config: dict[str, Any] = Field(default_factory=normalize_beijing_config)
+    detailed_config: dict[str, Any] = Field(default_factory=normalize_beijing_config, validate_default=True)
 
-    @validator("starting_score", "hepai_limit")
+    @field_validator("starting_score", "hepai_limit")
+    @classmethod
     def zero_start(cls, value):
         if value != 0:
             raise ValueError("北京麻将固定0起始分、0翻起和")
         return value
 
-    @validator("sub_rule")
+    @field_validator("sub_rule")
+    @classmethod
     def valid_profile(cls, value):
         if value != SUB_RULE:
             raise ValueError("北京麻将子规则无效")
         return value
 
-    @validator("detailed_config", pre=True, always=True)
+    @field_validator("detailed_config", mode="before")
+    @classmethod
     def valid_config(cls, value):
         return normalize_beijing_config(value)
 
-    @validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @field_validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @classmethod
     def fixed_false(cls, value):
         if value:
             raise ValueError("北京规则 不支持此选项")

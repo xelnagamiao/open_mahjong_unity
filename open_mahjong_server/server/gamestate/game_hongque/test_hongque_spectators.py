@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from .HongqueGameState import HongqueGameState
-from .boardcast import broadcast_game_end
+from .broadcast import broadcast_game_end
 from .record import snapshot_round_header, record_cut
 from ...friend.friend_manager import FriendManager
 from ..test_spectator_lobby import listing

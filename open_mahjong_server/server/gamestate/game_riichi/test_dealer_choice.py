@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from . import dealer_choice
 from .test_washizu_doubles import captain_game
-from .boardcast import broadcast_result
+from .broadcast import broadcast_result
 from ..public.settlement_sync import snapshot, restore_result
 
 

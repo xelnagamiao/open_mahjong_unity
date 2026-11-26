@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from .boardcast import _build_players_info, broadcast_do_action, broadcast_result
+from .broadcast import _build_players_info, broadcast_do_action, broadcast_result
 from .test_xueliu_integration import full_state, WIN_HAND
 from .test_xueliu_doubles import make_state as doubles_state, WIN
 

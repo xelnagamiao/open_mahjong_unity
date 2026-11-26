@@ -257,7 +257,7 @@ def make_derived_state(rule, name):
 @pytest.mark.parametrize('rule,name', DERIVED_RULES, ids=[x[0] for x in DERIVED_RULES])
 def test_public_terminal_family_binds_clock_before_any_player_reconnects(rule, name):
     from ..game_tuidao.result import broadcast_result as public_result
-    from ..game_taiwan.boardcast import broadcast_result as projected_result
+    from ..game_taiwan.broadcast import broadcast_result as projected_result
     broadcast_result = projected_result if rule == 'shanghai' else public_result
     async def run():
         state = make_derived_state(rule, name)

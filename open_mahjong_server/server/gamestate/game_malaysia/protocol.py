@@ -1,6 +1,6 @@
 """Use existing turn messages; only recipient-private hints contain the hand."""
 from ..public.settlement_sync import send_game_packet
-from ..game_zhongyong import boardcast as W
+from ..game_zhongyong import broadcast as W
 from ...game_calculation.malaysia import rules as R
 from .phases import P
 from . import actions as A

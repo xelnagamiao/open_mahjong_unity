@@ -6,11 +6,11 @@ import pytest
 
 from .rating_rules import QUEUES
 from .test_lifecycle import USERS, server_fixture
-from ..gamestate.game_guobiao.boardcast import _build_game_start_payload_for_viewer as guobiao_snapshot
-from ..gamestate.game_mmcr.boardcast import _build_game_start_payload_for_viewer as qingque_snapshot
-from ..gamestate.game_riichi.boardcast import _build_player_info as riichi_player_info
-from ..gamestate.game_sichuan.boardcast import _build_players_info as sichuan_players_info
-from ..gamestate.game_hongque.boardcast import build_state as hongque_snapshot
+from ..gamestate.game_guobiao.broadcast import _build_game_start_payload_for_viewer as guobiao_snapshot
+from ..gamestate.game_mmcr.broadcast import _build_game_start_payload_for_viewer as qingque_snapshot
+from ..gamestate.game_riichi.broadcast import _build_player_info as riichi_player_info
+from ..gamestate.game_sichuan.broadcast import _build_players_info as sichuan_players_info
+from ..gamestate.game_hongque.broadcast import build_state as hongque_snapshot
 from ..gamestate.public.game_record_manager import build_player_record_infos
 from ..response import PlayerInfo
 

@@ -20,6 +20,15 @@ public class SichuanGameState : TurnBasedGameState {
     public int SelfDingqueSuit { get; set; }
     public SbrExchangeWindow ExchangeWindow { get; private set; }
 
+    public override int GetCurrentHintDrawTile(int? pendingCutTileId) =>
+        pendingCutTileId.HasValue ? 0 : (ExchangeWindow?.draw == true ? ExchangeWindow.tile : 0);
+
+    public override void PopulateLiveWaitHintQuery(WaitHintQuery query, int? pendingCutTileId) {
+        if (!pendingCutTileId.HasValue) query.SbrWindow = ExchangeWindow;
+        if (Session.SubRule == SichuanLobby.SbrExchange)
+            query.SbrPassedFan = SbrExchangeTips.PassedFan(Mirror.Self?.tag_list);
+    }
+
     /// <summary>血战到底：收到 round_continues=true 的和牌结算后挂起，待下次询问时恢复行牌。</summary>
     public bool PendingContinueAfterResult { get; private set; }
 

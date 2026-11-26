@@ -183,7 +183,7 @@ def test_queue_config_and_real_game_construction(queue):
         assert game.count_tips==expected_count
         if spec.rule=='riichi':
             from ..game_calculation.riichi.rule_config import preset_room_config
-            from ..gamestate.game_riichi.boardcast import _build_base_game_info
+            from ..gamestate.game_riichi.broadcast import _build_base_game_info
             preset = preset_room_config('sanma_tenhou' if spec.player_count == 3 else 'mleague')
             assert game.detailed_config == preset['detailed_config']
             for key, value in preset.items():

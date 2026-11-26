@@ -8,7 +8,7 @@ import pytest
 from .test_state import make_state, hand, draw, HAND
 from . import bot
 from .result import broadcast_result as terminal_result
-from ..game_taiwan.boardcast import send_reconnect_game_state
+from ..game_taiwan.broadcast import send_reconnect_game_state
 from ..gamestate_manager import GameStateManager
 from ...room.tuidao_room import create_tuidao_room, handle_create_tuidao_room, CONFIG
 from ...room.tuidao_room import TuidaoRoomValidator

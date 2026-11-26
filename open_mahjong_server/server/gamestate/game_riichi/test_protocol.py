@@ -7,7 +7,7 @@ import pytest
 
 from .test_rule_branches import game
 from .test_double_riichi import declare, make_game
-from .boardcast import broadcast_game_start, broadcast_do_action, reconnected_send_pending_ask, broadcast_refresh_player_tag_list, broadcast_game_end, broadcast_switch_seat, broadcast_ready_status
+from .broadcast import broadcast_game_start, broadcast_do_action, reconnected_send_pending_ask, broadcast_refresh_player_tag_list, broadcast_game_end, broadcast_switch_seat, broadcast_ready_status
 from ..public.ai.get_action import get_action
 from .wait_action import _is_valid_cut_action, _commit_pending_riichi
 

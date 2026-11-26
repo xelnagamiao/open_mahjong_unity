@@ -1,7 +1,7 @@
 from typing import Any
 from ..game_calculation.sanhua import rules as sanhua
 
-from pydantic import Field, StrictBool, StrictInt, model_validator, validator
+from pydantic import Field, StrictBool, StrictInt, model_validator, field_validator, ValidationInfo
 
 from .room_validators import GBRoomValidator
 from .standard_room import create_standard_room, handle_create_standard_room
@@ -26,15 +26,17 @@ class NewChineseRoomValidator(GBRoomValidator):
     open_cuohe: StrictBool = False
     tactical_call: StrictBool = False
     tian_di_ren_he: StrictBool = False
-    detailed_config: dict[str, Any] = Field(default_factory=normalize_new_chinese_config)
+    detailed_config: dict[str, Any] = Field(default_factory=normalize_new_chinese_config, validate_default=True)
 
-    @validator("game_round")
+    @field_validator("game_round")
+    @classmethod
     def validate_game_round(cls, value):
         if value not in (4, 8, 12, 16):
             raise ValueError("圈数须为4、8、12或16")
         return value
 
-    @validator("starting_score")
+    @field_validator("starting_score")
+    @classmethod
     def zero_start(cls, value):
         if value != 0:
             raise ValueError("新中式麻将固定0起始分")
@@ -56,19 +58,22 @@ class NewChineseRoomValidator(GBRoomValidator):
         self.hepai_limit = room_fan_limit(self.hepai_limit, self.detailed_config["exchange_three"])
         return self
 
-    @validator("sub_rule")
+    @field_validator("sub_rule")
+    @classmethod
     def valid_profile(cls, value):
         if value not in (SUB_RULE, sanhua.SUB_RULE):
             raise ValueError("新中式麻将子规则无效")
         return value
 
-    @validator("detailed_config", pre=True, always=True)
-    def valid_config(cls, value, values):
-        if values.get("sub_rule") == sanhua.SUB_RULE:
+    @field_validator("detailed_config", mode="before")
+    @classmethod
+    def valid_config(cls, value, info: ValidationInfo):
+        if info.data.get("sub_rule") == sanhua.SUB_RULE:
             return {"rule_version": sanhua.VERSION}
         return normalize_new_chinese_config(value)
 
-    @validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @field_validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @classmethod
     def fixed_false(cls, value):
         if value:
             raise ValueError("新中式规则 不支持此选项")

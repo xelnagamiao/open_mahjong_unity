@@ -53,7 +53,7 @@ def test_room_config_accepts_only_actual_switch_values(cls,value):
 @pytest.mark.parametrize('value',[None,False,True])
 def test_riichi_creation_router_forwards_switch_with_legacy_default_off(value):
     async def run():
-        server=NS(players={},create_Riichi_room=AsyncMock(return_value=NS(dict=lambda **kw:{})))
+        server=NS(players={},create_Riichi_room=AsyncMock(return_value=NS(model_dump=lambda **kw:{})))
         socket=NS(send_json=AsyncMock())
         msg=dict(roomname='test',gameround=1,password='',roundTimerValue=20,stepTimerValue=5,tips=False)
         if value is not None:msg['claim_protection']=value

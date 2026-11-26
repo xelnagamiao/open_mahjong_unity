@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import logging
 from .action_check import check_action_after_cut, check_action_buhua, check_action_hand_action, refresh_waiting_tiles
 from .wait_action import wait_action
-from .boardcast import (
+from .broadcast import (
     broadcast_game_start,
     broadcast_ask_hand_action,
     broadcast_ask_other_action,
@@ -431,7 +431,7 @@ class GuobiaoGameState:
                     )
 
                     if blood_battle.enabled(self):
-                        from .boardcast import _build_game_start_payload_for_viewer
+                        from .broadcast import _build_game_start_payload_for_viewer
                         game_info = GameInfo(**_build_game_start_payload_for_viewer(self, p.player_index))
 
                     response = Response(
@@ -441,7 +441,7 @@ class GuobiaoGameState:
                         game_info=game_info
                     )
 
-                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.model_dump(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break

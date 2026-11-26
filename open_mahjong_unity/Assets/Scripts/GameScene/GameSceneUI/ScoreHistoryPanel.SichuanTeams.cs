@@ -56,7 +56,7 @@ public partial class ScoreHistoryPanel {
             }
             if (record?.gameRound?.rounds != null) {
                 foreach (var round in record.gameRound.GetRoundsList()) {
-                    if (!ScoreHistoryRecordSettlementExtractor.TryGetSichuanBoardSummary(round, out var board) || board.players == null) continue;
+                    if (!SichuanRecordSettlementCodec.TryGetBoardSummary(round, out var board) || board.players == null) continue;
                     int[] teams = { -1, -1, -1, -1 };
                     foreach (var player in board.players) {
                         if (player == null || player.original_seat < 0 || player.original_seat >= 4) continue;

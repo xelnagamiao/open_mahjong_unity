@@ -21,12 +21,12 @@ public partial class GameCanvas {
     private Vector2 stickerAnchorMin, stickerAnchorMax, stickerPivot, stickerPosition, stickerSize;
     private bool stickerLayoutCaptured, stickerEnglishLayout;
 
-    private void OnEnable() {
+    private void OnStickerHostEnabled() {
         ConfigManager.OnLanguageChanged -= RefreshStickerLanguage;
         ConfigManager.OnLanguageChanged += RefreshStickerLanguage;
         RefreshStickerLanguage();
     }
-    private void OnDestroy() => ConfigManager.OnLanguageChanged -= RefreshStickerLanguage;
+    private void OnStickerHostDestroyed() => ConfigManager.OnLanguageChanged -= RefreshStickerLanguage;
 
     private void RefreshStickerLanguage() {
         if (!openStickerPanelButton) return;

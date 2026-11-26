@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from .boardcast import broadcast_game_start
+from .broadcast import broadcast_game_start
 from .test_double_riichi import declare, WAITING_HAND
 from .test_execution_paths import result
 from .test_protocol import connected

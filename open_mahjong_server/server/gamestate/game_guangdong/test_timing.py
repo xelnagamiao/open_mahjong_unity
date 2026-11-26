@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from .test_state import make_state, hand, HAND
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..game_taiwan.wait_action import _collect_responses, _build_ask_deadlines
 from ..public.ai.get_action import get_action
 from ..public.ask_timing import begin_ask_round, note_ask_delivered
@@ -88,7 +88,7 @@ def test_prompt_reply_during_broadcast_is_not_rejected(clock):
                                  action_tick=payload["ask_other_action_info"]["action_tick"])
 
         state.game_server.user_id_to_connection[102].websocket.callback = answer
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         assert not state.action_queues[1].empty()
         responses, _ = await collect(state)
         assert responses[1]["action_type"] == "pass"
@@ -126,7 +126,7 @@ def test_answered_seat_does_not_get_a_reconnect_prompt_while_other_seat_waits(cl
                 clock.advance(8)
                 submit(state, 1)
             else:
-                await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+                await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
                 captured.extend(state.game_server.user_id_to_connection[102].websocket.messages)
                 submit(state, 2)
             await asyncio.sleep(0)
@@ -216,7 +216,7 @@ def test_actual_reconnect_packet_retains_deadline_without_debit(clock, bank, ste
         origin, deadline = state._action_windows[1].origin, state._action_windows[1].deadline
         clock.advance(elapsed)
         for _ in range(3):
-            await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+            await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
             packet = state.game_server.user_id_to_connection[102].websocket.messages[-1]["ask_other_action_info"]
             assert (packet["remaining_time"], packet["step_remaining"]) == expected
             note_ask_delivered(state, 1)  # Duplicate delivery does not restart the clock.
@@ -239,12 +239,12 @@ def test_hand_reconnect_uses_remaining_step_and_expired_window_has_no_prompt(clo
         state.action_dict = {i: ["cut"] if i == 1 else [] for i in range(4)}
         deliver(state, (1,))
         clock.advance(5)
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
         messages = state.game_server.user_id_to_connection[102].websocket.messages
         info = messages[-1]["ask_hand_action_info"]
         assert (info["remaining_time"], info["step_remaining"]) == (0, 3)
         clock.advance(3)
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
         assert len(messages) == 1
 
     asyncio.run(run())
@@ -256,7 +256,7 @@ def test_wall_clock_adjustment_does_not_change_monotonic_deadline(clock):
         deliver(state, (1,))
         clock.advance(8)
         with patch("time.time", return_value=99999999):
-            await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+            await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
             packet = state.game_server.user_id_to_connection[102].websocket.messages[-1]["ask_other_action_info"]
             assert (packet["remaining_time"], packet["step_remaining"]) == (17, 0)
             submit(state, 1)
@@ -346,7 +346,7 @@ def test_reconnect_during_first_send_delay_does_not_expire_unsent_window(clock):
         begin_ask_round(state)
         clock.advance(30)  # Another socket is still sending, this seat has not been sent yet.
         assert state.is_action_pending(1)
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
         messages = state.game_server.user_id_to_connection[102].websocket.messages
         assert messages[-1]["ask_other_action_info"]["remaining_time"] == 20
         assert messages[-1]["ask_other_action_info"]["step_remaining"] == 5
@@ -464,7 +464,7 @@ def test_real_broadcast_packets_and_each_seat_delivery_have_matching_budgets(clo
 
         state.send_to_realtime_spectators = slow_spectator
         state.prepare_action_window()
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         assert state._action_windows[1].deadline == 112
         assert state._action_windows[2].deadline == 116
         for index in (1, 2):
@@ -487,7 +487,7 @@ def test_realtime_spectator_resnapshot_uses_same_clock_without_mutating_owner(cl
         deliver(state, (1,))
         clock.advance(8)
         origin, deadline = state._action_windows[1].origin, state._action_windows[1].deadline
-        await boardcast.send_realtime_spectator_snapshot(state, 201, 1)
+        await broadcast.send_realtime_spectator_snapshot(state, 201, 1)
         packet = viewer.websocket.messages[-1]["ask_other_action_info"]
         assert (packet["remaining_time"], packet["step_remaining"]) == (17, 0)
         assert state._action_windows[1].origin == origin
@@ -495,7 +495,7 @@ def test_realtime_spectator_resnapshot_uses_same_clock_without_mutating_owner(cl
         assert state.player_list[1].remaining_time == 20
         submit(state, 1)
         await collect(state)
-        await boardcast.send_realtime_spectator_snapshot(state, 201, 1)
+        await broadcast.send_realtime_spectator_snapshot(state, 201, 1)
         assert viewer.websocket.messages[-1]["type"].endswith("game_start")
         assert state.player_list[1].remaining_time == 17
 
@@ -547,7 +547,7 @@ def test_normal_zero_bank_claim_keeps_custom_step_and_no_recheck_flag(clock):
     async def run():
         state = state_for_claim(round_timer=0, step_timer=8)
         state.prepare_action_window()
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         packet = state.game_server.user_id_to_connection[102].websocket.messages[-1]
         info = packet["ask_other_action_info"]
         assert (info["remaining_time"], info["step_remaining"]) == (0, 8)
@@ -573,7 +573,7 @@ def test_exact_wire_clock_matches_fractional_bank_and_reconnect_deadline(clock, 
         player = state.player_list[1]
         player._guangdong_exact_bank, player.remaining_time = 18.2, 19
         state.prepare_action_window()
-        broadcaster = boardcast.broadcast_ask_hand_action if status == "waiting_hand_action" else boardcast.broadcast_ask_other_action
+        broadcaster = broadcast.broadcast_ask_hand_action if status == "waiting_hand_action" else broadcast.broadcast_ask_other_action
         await broadcaster(state)
         name = "ask_hand_action_info" if status == "waiting_hand_action" else "ask_other_action_info"
         messages = state.game_server.user_id_to_connection[102].websocket.messages
@@ -583,7 +583,7 @@ def test_exact_wire_clock_matches_fractional_bank_and_reconnect_deadline(clock, 
         assert clock.now + (initial["remaining_time_ms"] + initial["step_remaining_ms"]) / 1000 == pytest.approx(deadline)
         for elapsed in (.35, 6.9):
             clock.advance(elapsed)
-            await boardcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
+            await broadcast.reconnected_send_pending_ask_for_viewer(state, 102, 1)
             info = messages[-1][name]
             wire_deadline = clock.now + (info["remaining_time_ms"] + info["step_remaining_ms"]) / 1000
             assert wire_deadline == pytest.approx(deadline, abs=.001)

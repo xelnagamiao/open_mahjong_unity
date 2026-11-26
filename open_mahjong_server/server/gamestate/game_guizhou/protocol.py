@@ -4,7 +4,7 @@ from ..public.settlement_sync import send_game_packet
 from dataclasses import asdict
 import math
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ...game_calculation.guizhou.rules import RULE_VERSION, waiting_tiles
 from .actions import legal_cuts, ready_cuts, kong_tiles
 from .state_machine import Phase as P

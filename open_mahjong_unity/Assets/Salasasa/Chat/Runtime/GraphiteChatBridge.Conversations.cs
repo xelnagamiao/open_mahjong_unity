@@ -76,6 +76,9 @@ namespace Salasasa.Chat
         }
 
         public void SelectConversation(string key, bool keepSidebar = false)
+            => SelectConversation(key, keepSidebar, historyIncluded: false);
+
+        void SelectConversation(string key, bool keepSidebar, bool historyIncluded)
         {
             if (string.IsNullOrEmpty(key)) return;
             if (!ChatConversationListModel.IsFixed(key) && !source.Conversations.Any(item => item.key == key)) return;
@@ -85,7 +88,8 @@ namespace Salasasa.Chat
             if (!keepSidebar) { SidebarTab = 0; query = ""; view.search.SetTextWithoutNotify(""); ResetFriendScroll(); }
             view.composer.SetTextWithoutNotify(drafts.TryGetValue(DraftKey, out var text) ? text : "");
             HidePopup(); Refresh();
-            if (!ChatConversationListModel.IsFixed(key)) ChatManager.Instance?.RequestConversationHistory(key);
+            if (!historyIncluded && !ChatConversationListModel.IsFixed(key) && !source.HasLatestHistory(key))
+                ChatManager.Instance?.RequestConversationHistory(key);
             MarkSelectedRead();
             RenderMessages(true);
         }
@@ -117,7 +121,8 @@ namespace Salasasa.Chat
         {
             if (conversation == null || conversation.key != pendingOpenKey) return;
             pendingRemoval.Remove(conversation.key);
-            SelectConversation(conversation.key, SidebarTab == 2 && conversation.kind == "dm" || SidebarTab == 1 && conversation.kind == "venue");
+            bool keepSidebar = SidebarTab == 2 && conversation.kind == "dm" || SidebarTab == 1 && conversation.kind == "venue";
+            SelectConversation(conversation.key, keepSidebar, historyIncluded: true);
         }
 
         public void RemoveConversation(string key)
@@ -154,6 +159,15 @@ namespace Salasasa.Chat
             if(type=="chat/send")pendingOutgoingKey=pendingOutgoingText="";
             Refresh();
             if (!string.IsNullOrWhiteSpace(message)) GameHost.Current.ShowTip(PlatformText.Get("聊天"), false, PlatformText.Get(message));
+        }
+
+        void RequestEarlierConversationMessages()
+        {
+            string key = SelectedConversationKey;
+            long beforeId = source.GetEarlierHistoryCursor(key);
+            var manager = ChatManager.Instance;
+            if (beforeId > 0 && manager && manager.CanSendConversations)
+                manager.RequestConversationHistory(key, beforeId);
         }
 
         void ConversationMessageReceived(ConversationChatMessage message)

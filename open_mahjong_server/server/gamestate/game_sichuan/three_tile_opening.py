@@ -18,7 +18,7 @@ class ThreeTileOpening:
                 except Exception:
                     break
             self.action_events[i].clear()
-        from .boardcast import broadcast_xueliu_throw_three_ask
+        from .broadcast import broadcast_xueliu_throw_three_ask
         self.xueliu_throw_deadline = time.time() + max(self.step_time, 10)
         await broadcast_xueliu_throw_three_ask(self)
         pending = set(seats)

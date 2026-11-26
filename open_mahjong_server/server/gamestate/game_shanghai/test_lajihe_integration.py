@@ -13,7 +13,7 @@ from .LajiheGameState import LajiheGameState
 from ..public.ai.get_action import get_ai_action
 from ..public.ai.smart_bot_logic import count_visible_tiles, find_best_cut
 from ..public.hand_slot_utils import has_draw_slot, infer_bot_cut_class
-from ..game_taiwan.boardcast import send_reconnect_game_state, reconnected_send_pending_ask_for_viewer, broadcast_do_action
+from ..game_taiwan.broadcast import send_reconnect_game_state, reconnected_send_pending_ask_for_viewer, broadcast_do_action
 from ..gamestate_router import handle_gamestate_message
 
 
@@ -103,7 +103,7 @@ def test_extra_base_create_start_reconnect_spectator_and_record(configured):
     from ...room.room_router import handle_room_message
     from ...game_calculation.shanghai import lajihe as rule
     from ..test_room_lifecycle import make_server, USERS
-    from ..game_taiwan.boardcast import broadcast_game_start, send_realtime_spectator_snapshot
+    from ..game_taiwan.broadcast import broadcast_game_start, send_realtime_spectator_snapshot
     async def run():
         server=make_server(USERS)
         server.db_manager.get_user_settings.return_value={"username":"lajihe-test"}

@@ -3,7 +3,7 @@ from ..public.settlement_sync import send_game_packet
 
 import math
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from .actions import legal_cuts, kong_tiles
 from .state_machine import Phase as P
 from .client_context import local_context

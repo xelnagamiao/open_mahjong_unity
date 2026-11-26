@@ -87,13 +87,13 @@ async def broadcast_end(state):
         state.emit_game_end_payloads()
         await state.flush_outbound_payloads()
     elif state.room_rule == "hongque":
-        from .game_hongque.boardcast import broadcast_game_end
+        from .game_hongque.broadcast import broadcast_game_end
         await broadcast_game_end(state)
     elif state.room_rule == "free":
-        from .game_free.boardcast import broadcast_game_end
+        from .game_free.broadcast import broadcast_game_end
         await broadcast_game_end(state)
     else:
-        from .game_taiwan.boardcast import broadcast_game_end
+        from .game_taiwan.broadcast import broadcast_game_end
         await broadcast_game_end(state)
 
 

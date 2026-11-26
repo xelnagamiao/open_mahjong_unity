@@ -92,7 +92,7 @@ def test_reconnect_restores_terminal_result_without_recounting_or_replaying_voic
 
 
 def test_opening_and_midhand_payloads_keep_other_players_hands_private():
-    from ..game_taiwan.boardcast import broadcast_game_start, send_reconnect_game_state
+    from ..game_taiwan.broadcast import broadcast_game_start, send_reconnect_game_state
     state=make_state(); sockets(state)
     state.init_tiles()
     asyncio.run(broadcast_game_start(state))
@@ -103,7 +103,7 @@ def test_opening_and_midhand_payloads_keep_other_players_hands_private():
             if player['player_index']==viewer.player_index:
                 assert player['hand_tiles']==viewer.hand_tiles
             else: assert 'hand_tiles' not in player
-    with patch('server.gamestate.game_taiwan.boardcast.reconnected_send_pending_ask',new_callable=AsyncMock):
+    with patch('server.gamestate.game_taiwan.broadcast.reconnected_send_pending_ask',new_callable=AsyncMock):
         asyncio.run(send_reconnect_game_state(state,state.player_list[0]))
     info=state.game_server.user_id_to_connection[state.player_list[0].user_id].websocket.send_json.await_args.args[0]['game_info']
     assert 'revealed_hands' not in info

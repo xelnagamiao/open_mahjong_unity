@@ -8,6 +8,14 @@ internal static class GuizhouRuleBootstrap {
         RuleNameDictionary.WholeName[GuizhouGameState.SubRule] = "贵州麻将（MIL）";
         RuleNameDictionary.ShortName[GuizhouGameState.RuleId] = "贵州";
         RuleNameDictionary.ShortName[GuizhouGameState.SubRule] = "贵州";
+        RuleRecordCodecRegistry.RegisterRoundProperty("guizhou", (round, token) => round.guizhou = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<GuizhouInfo>());
+        RuleRecordCodecRegistry.RegisterTickScoreHandler("guizhou", (round, tick) => {
+            if (tick.Count >= 3 && tick[1] == "draw_score") {
+                RuleRecordCodecRegistry.AddSeatScoreChanges(round, RuleRecordCodecRegistry.ParseScoreChangesArray(tick, 2));
+                return true;
+            }
+            return false;
+        });
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateGuizhouReplayModule(),
             BuildRoom = GuizhouRoomBuilder.Build,

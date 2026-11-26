@@ -16,6 +16,7 @@ internal static class VietnameseRuleBootstrap {
             RulebookPath=(sub,config)=>"https://drive.google.com/file/d/1ETjCEPo-fVDKkcQwZ_mK3qCsop5fhagD/view",
             ReplayFactory=record=>record.CreateVietnameseReplayModule(),Tingpai=VietnameseShape.Waiting,
             DescribeWaitingTile=q=>WaitTileHint.None("牌形听牌"),OpeningHandHasDrawSlot=info=>info.vietnamese_info?.self_has_draw_slot==true,
+            CollectLivePlayerVisibleTiles=(p,isSelf,add)=>{if(p.combination_masks==null)return false;foreach(var mask in p.combination_masks)for(int i=1;mask!=null&&i<mask.Length;i+=2)add(mask[i]);return true;},
             HasFlowerReplacement=true,ReplacementFromTailEnd=true,PublicReadyStateReplay=true,SupportsRobbedAddedKongSource=true,
             TileBadgeText=t=>VietnameseTileVisual.IsExtra(t)?VietnameseTileVisual.Name(t):null,
             RoundName=RoundTextDictionary.WindNumberRoundName,RoundStatusText=i=>RoundTextDictionary.WindNumberRoundName(i.current_round),

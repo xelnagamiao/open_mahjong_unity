@@ -109,12 +109,12 @@ public sealed class MobileViewportLayout : MonoBehaviour {
                 if (page.Find("NavigateBarPanel") && !page.GetComponent<MobileSidebarPageLayout>())
                     page.gameObject.AddComponent<MobileSidebarPageLayout>();
         }
-#if UNITY_IOS && !UNITY_EDITOR
-        // iOS does not move this landscape canvas above the keyboard. Keep the
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+        // Mobile landscape canvases do not shift above the soft keyboard. Keep the
         // native text editor visible, including on inactive templates later cloned.
         foreach (var root in owner.scene.GetRootGameObjects())
             foreach (var input in root.GetComponentsInChildren<TMPro.TMP_InputField>(true))
-                ShowIosNativeInput(input);
+                ShowMobileNativeInput(input);
 #endif
         instance.Refresh(true);
 #endif
@@ -143,16 +143,16 @@ public sealed class MobileViewportLayout : MonoBehaviour {
     // it, before the child layout components run their LateUpdate methods.
     void LateUpdate() {
         ApplyContentArea();
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
         // Run before TMP's default-order LateUpdate opens the keyboard. This also
         // covers inputs created at runtime, without shifting the entire game UI.
         var events=UnityEngine.EventSystems.EventSystem.current;
         var selected=events ? events.currentSelectedGameObject : null;
-        if (selected) ShowIosNativeInput(selected.GetComponent<TMPro.TMP_InputField>());
+        if (selected) ShowMobileNativeInput(selected.GetComponent<TMPro.TMP_InputField>());
 #endif
     }
-#if UNITY_IOS && !UNITY_EDITOR
-    static void ShowIosNativeInput(TMPro.TMP_InputField input) {
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+    static void ShowMobileNativeInput(TMPro.TMP_InputField input) {
         // Preserve explicit keyboard suppression, password mode and multiline.
         if (input && !input.shouldHideSoftKeyboard && input.shouldHideMobileInput)
             input.shouldHideMobileInput=false;

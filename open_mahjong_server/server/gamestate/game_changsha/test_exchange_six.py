@@ -12,7 +12,7 @@ from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
 from server.gamestate.game_changsha.exchange_six import EXCHANGE_ACTION, ChangshaExchangeSixResponse
 from server.gamestate.game_changsha.exchange_six_config import SUB_RULE, normalize_config
 from server.gamestate.game_changsha.init_tiles import init_changsha_tiles
-from server.gamestate.game_changsha.boardcast import reconnected_send_pending_ask
+from server.gamestate.game_changsha.broadcast import reconnected_send_pending_ask
 from server.gamestate.public.ai.get_action import get_action
 from server.gamestate.public.ai.pacing import configure_bot_pacing
 
@@ -510,11 +510,11 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0)
             await reconnected_send_pending_ask(state, 100)
             own = state.game_server.user_id_to_connection[100].websocket.messages[-1]
-            other = state.exchange_six.packet(1).dict()
+            other = state.exchange_six.packet(1).model_dump()
             self.assertEqual(own["state"]["private_state"]["selected_tiles"], selected)
             self.assertEqual(other["state"]["private_state"]["selected_tiles"], [])
             self.assertEqual(own["state"]["action_tick"], state.server_action_tick)
-            self.assertEqual(ChangshaExchangeSixResponse(**own).dict(), own)
+            self.assertEqual(ChangshaExchangeSixResponse(**own).model_dump(), own)
         finally:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)

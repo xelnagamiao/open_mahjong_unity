@@ -8,7 +8,7 @@ from dataclasses import replace
 from ...game_calculation.wuhan import rules as book
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan.action_check import hu_action_for_player
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_do_action, broadcast_game_end
+from ..game_taiwan.broadcast import broadcast_game_start, broadcast_do_action, broadcast_game_end
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (
     append_action_tick, capture_player_entry_order, init_game_record, init_game_round,

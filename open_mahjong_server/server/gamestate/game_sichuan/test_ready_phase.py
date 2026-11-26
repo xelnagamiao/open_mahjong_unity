@@ -3,7 +3,7 @@ import asyncio
 
 import pytest
 
-from . import boardcast
+from . import broadcast
 from .test_action_window import MODES, make_state, submit
 from ..gamestate_router import handle_gamestate_message
 from ..public.lifecycle import cancel_auxiliary_tasks
@@ -21,7 +21,7 @@ async def present_result(state, messages, final_panel):
         info = entry["message"].get("ask_hand_action_info")
         if info:
             client_ticks[entry["user_id"]] = info["action_tick"]
-    await boardcast.broadcast_result(
+    await broadcast.broadcast_result(
         state, hu_class="liuju", liuju_step="chajiao", liuju_status_final=final_panel,
         next_status="round_end_by_ready", player_to_score={i: p.score for i, p in enumerate(state.player_list)},
     )
@@ -109,7 +109,7 @@ def test_ready_from_previous_tick_is_bound_to_current_ready_window(mode):
             client_ticks = await present_result(state, messages, True)
             state.game_status = "waiting_ready"
             state.action_dict = {i: ["ready"] for i in range(4)}
-            await boardcast.broadcast_ready_status(state)
+            await broadcast.broadcast_ready_status(state)
             await send_ready(state, 0, "unity", client_ticks)
             packet = state.action_queues[0].get_nowait()
             assert packet["_action_tick"] == state.server_action_tick

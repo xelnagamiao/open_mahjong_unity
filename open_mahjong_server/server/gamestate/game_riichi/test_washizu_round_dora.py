@@ -10,7 +10,7 @@ from .test_washizu_doubles import captain_game
 from .test_kan_dora_flow import run_kan_case, AuditFinished
 from .init_tiles import init_riichi_tiles
 from .wait_action import _execute_cut
-from .boardcast import broadcast_game_start
+from .broadcast import broadcast_game_start
 from .action_check import refresh_waiting_tiles
 from .kan_actions import begin_kan
 from .wait_action import _broadcast_hu_and_end

@@ -69,7 +69,7 @@ def test_late_table_ready_cannot_skip_its_own_comparison(monkeypatch, table):
                 await submit(state, seat, "ready", tick=0)
             assert all(queue.empty() for queue in state.action_queues.values())
             assert state.duplicate_waiting_for == "comparison" and not task.done()
-            from .boardcast import _base_game_info
+            from .broadcast import _base_game_info
             state._duplicate_comparison_deadline -= 2
             reconnect = _base_game_info(state)["duplicate_match"]
             assert reconnect["waiting_for"] == "comparison"
@@ -254,7 +254,7 @@ def test_bots_and_ready_timeout_still_receive_comparison(monkeypatch, humans):
 
 def test_delayed_broadcast_cannot_consume_comparison_duration(monkeypatch):
     async def run():
-        from . import boardcast
+        from . import broadcast
         state, _, match = await prepare_table()
         match.board_ready[1] = {"open"}
         broadcast_release, display_release = asyncio.Event(), asyncio.Event()
@@ -265,14 +265,14 @@ def test_delayed_broadcast_cannot_consume_comparison_duration(monkeypatch):
         async def slow_broadcast(current):
             if current.duplicate_waiting_for == "comparison":
                 assert current._duplicate_comparison_deadline is None
-                assert boardcast.duplicate_match_info(current)["comparison_remaining_ms"] == 8000
+                assert broadcast.duplicate_match_info(current)["comparison_remaining_ms"] == 8000
                 await broadcast_release.wait()
 
         async def comparison_sleep(seconds):
             sleeps.append(seconds)
             await display_release.wait()
 
-        monkeypatch.setattr(boardcast, "broadcast_duplicate_status", slow_broadcast)
+        monkeypatch.setattr(broadcast, "broadcast_duplicate_status", slow_broadcast)
         monkeypatch.setattr(duplicate_module, "asyncio", SimpleNamespace(sleep=comparison_sleep))
         task = asyncio.create_task(state._ready_phase(liuju=True))
         try:
@@ -280,7 +280,7 @@ def test_delayed_broadcast_cannot_consume_comparison_duration(monkeypatch):
             await wait_until(lambda: state.duplicate_waiting_for == "comparison")
             clock[0] += 12
             assert not task.done() and sleeps == []
-            assert boardcast.duplicate_match_info(state)["comparison_remaining_ms"] == 8000
+            assert broadcast.duplicate_match_info(state)["comparison_remaining_ms"] == 8000
             broadcast_release.set()
             await wait_until(lambda: bool(sleeps))
             assert sleeps == [8] and state._duplicate_comparison_deadline == 120

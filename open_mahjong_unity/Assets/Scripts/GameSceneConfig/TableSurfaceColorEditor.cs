@@ -40,7 +40,7 @@ public sealed partial class TableSurfaceColorEditor : MonoBehaviour
         bound = true;
         mode.onValueChanged.AddListener(index => { if (index == 1) Begin(); else RefreshSelection(); });
         back.onClick.AddListener(Cancel); confirm.onClick.AddListener(Confirm);
-        nameInput.onSubmit.AddListener(_ => Confirm());
+        nameInput.onSubmit.AddListener(_ => { if (InputFieldFeedback.IsDesktopKeyboardSubmit() && !nameInput.wasCanceled) Confirm(); });
         for (int i = 0; i < channels.Length; i++) {
             int channel = i;
             channels[i].onValueChanged.AddListener(value => Edit(channel, value));
@@ -107,7 +107,7 @@ public sealed partial class TableSurfaceColorEditor : MonoBehaviour
     {
         if(!editing||saving)return;
         string name = nameInput.text.Trim();
-        if (string.IsNullOrWhiteSpace(name)) { SceneConfigUi.ShowTip("请输入预设名称"); nameInput?.ActivateInputField(); return; }
+        if (string.IsNullOrWhiteSpace(name)) { SceneConfigUi.ShowTip("请输入预设名称"); InputFieldFeedback.ActivateIfDesktop(nameInput); return; }
         saving=true;back.interactable=confirm.interactable=false;
         nameInput.interactable=false;
         foreach(var slider in channels)slider.interactable=false;

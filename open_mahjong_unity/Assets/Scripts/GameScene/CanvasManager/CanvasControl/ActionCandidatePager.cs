@@ -26,7 +26,7 @@ public static class ActionCandidatePager {
             + Mathf.Max(0, groups.Length - 1) * 22f;
     }
 
-    static float ChoiceWidth(ActionCandidate choice) => Mathf.Max(324f, TilesWidth(choice) + 32f);
+    const float MaxCaptionChoiceWidth = 324f;
 
     static RectTransform BuildChoice(Transform parent, ActionCandidate choice, GameObject blockPrefab, GameObject cardPrefab, TMP_Text labelTemplate) {
             var go = Object.Instantiate(blockPrefab, parent);
@@ -38,7 +38,6 @@ public static class ActionCandidatePager {
             var groups = Groups(choice);
             const float groupGap = 22f;
             float tilesWidth = TilesWidth(choice);
-            float width = ChoiceWidth(choice);
             float tileHeight = 0;
             var cards = new List<RectTransform>();
             float x = -tilesWidth * .5f + ActionBlock.TileWidth * .5f;
@@ -49,10 +48,15 @@ public static class ActionCandidatePager {
                     tileHeight = Mathf.Max(tileHeight, r.rect.height);
                     cards.Add(r);
                     r.anchorMin = r.anchorMax = r.pivot = new Vector2(.5f, 1);
-                    r.anchoredPosition = new Vector2(x, -38);
+                    r.anchoredPosition = new Vector2(x, -10);
                     x += ActionBlock.TileWidth + ActionBlock.TileSpacing;
                 }
                 x += groupGap - ActionBlock.TileSpacing;
+            }
+            if (string.IsNullOrEmpty(choice.Caption)) {
+                float compactWidth = Mathf.Max(ActionBlock.TileWidth + 32f, tilesWidth + 32f);
+                ((RectTransform)go.transform).sizeDelta = new Vector2(compactWidth, tileHeight + 23f);
+                return (RectTransform)go.transform;
             }
             var label = Object.Instantiate(labelTemplate, go.transform);
             label.name = "CandidateLabel"; label.text = choice.Caption;
@@ -72,9 +76,11 @@ public static class ActionCandidatePager {
             label.textWrappingMode = TextWrappingModes.Normal; label.overflowMode = TextOverflowModes.Overflow;
             label.alignment = TextAlignmentOptions.Center;
             label.rectTransform.anchorMin = label.rectTransform.anchorMax = label.rectTransform.pivot = new Vector2(.5f, 1);
+            Vector2 preferred = label.GetPreferredValues(label.text ?? "", MaxCaptionChoiceWidth - 12f, Mathf.Infinity);
+            float width = Mathf.Max(tilesWidth + 32f, Mathf.Min(MaxCaptionChoiceWidth, Mathf.Ceil(preferred.x) + 24f));
             float labelHeight = choice.TileGroups != null ? 32f
-                : Mathf.Max(32, label.GetPreferredValues(label.text ?? "", width - 12, Mathf.Infinity).y);
-            label.rectTransform.sizeDelta = new Vector2(width - 12, labelHeight);
+                : Mathf.Max(32f, label.GetPreferredValues(label.text ?? "", width - 12f, Mathf.Infinity).y);
+            label.rectTransform.sizeDelta = new Vector2(width - 12f, labelHeight);
             label.rectTransform.anchoredPosition = new Vector2(0, -2);
             foreach (var card in cards) card.anchoredPosition = new Vector2(card.anchoredPosition.x, -labelHeight - 6);
             ((RectTransform)go.transform).sizeDelta = new Vector2(width, tileHeight + labelHeight + 19);

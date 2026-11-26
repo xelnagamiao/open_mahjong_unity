@@ -16,6 +16,25 @@ public partial class GameRecordManager {
             SyncRecordBoardScores();
             if (tick.Count > 1 && (tick[1] == "meld" || tick[1] == "kong_claim_source")) RefreshGuizhouRecordMelds();
         },
+        IsRobKongWin = _ => recordWenzhouWinSource == "rob_kong",
+        GetVisibleIndicators = () => recordWenzhouInfo != null ? new[] { recordWenzhouInfo.indicator } : System.Array.Empty<int>(),
+        TryHandleCustomAddedKong = (tick, player, position) => {
+            if (tick.Count <= 3) return false;
+            int jiagangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
+            List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(player.tileList, ParseTickInt(tick, 3), 1, preferDrawSlotFirst: isMoGang);
+            int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            lastWinnableTileId = actualJia;
+            lastJiagangPlayerIndex = player.playerIndex;
+            int[] combinationMask = BuildJiagangMask(player, jiagangTile, actualJia, tick);
+            if (position == "self") {
+                GameCanvas.Instance.ChangeHandCards(isMoGang ? "RemoveGetCard" : "RemoveJiagangCard", actualJia, null, null);
+            }
+            Game3DManager.Instance.Change3DTile("jiagang", actualJia, 1, position, isMoGang, combinationMask);
+            if (isMoGang) player.showHandDrawSlotActive = false;
+            GameCanvas.Instance.ShowActionDisplay(position, "jiagang");
+            return true;
+        },
     };
 
     private WenzhouInfo recordWenzhouInfo;

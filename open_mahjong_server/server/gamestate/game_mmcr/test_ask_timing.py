@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from .QingqueGameState import QingqueGameState
-from . import boardcast
+from . import broadcast
 from .action_check import check_only_cut
 from .wait_action import wait_action
 from ..public.ai.get_action import get_action
@@ -70,9 +70,9 @@ def test_reply_during_ask_delivery_is_accepted(phase):
         state.game_server.user_id_to_connection[100 + seat].websocket.send_json = send
         try:
             if phase == "hand":
-                await boardcast.broadcast_ask_hand_action(state)
+                await broadcast.broadcast_ask_hand_action(state)
             else:
-                await boardcast.broadcast_ask_other_action(state)
+                await broadcast.broadcast_ask_other_action(state)
             await drain_all(state)
             assert seen == [([seat], 13)]
             assert state.action_queues[seat].qsize() == 1
@@ -124,10 +124,10 @@ def test_claim_prompt_is_not_held_behind_protected_observers(action):
         task = None
         try:
             begin_claim_protection_interval(state, state.action_dict, 0)
-            await boardcast.broadcast_do_action(state, ["cut"], 0, cut_tile=13)
+            await broadcast.broadcast_do_action(state, ["cut"], 0, cut_tile=13)
             assert seen[3][-1]["do_action_info"]["cut_tile"] == 13
             assert not seen[1]  # This observer is still waiting for the protected discard.
-            task = asyncio.create_task(boardcast.broadcast_ask_other_action(state))
+            task = asyncio.create_task(broadcast.broadcast_ask_other_action(state))
             await asyncio.wait_for(prompt.wait(), .3)
             assert not seen[1], "the actor's prompt must precede the observer's delayed discard"
             await task
@@ -150,8 +150,8 @@ def test_online_claim_clock_starts_on_delivery_not_wait_entry():
         schedule_viewer_send(state, 1, gate.wait)
         wait = None
         try:
-            broadcast = asyncio.create_task(boardcast.broadcast_ask_other_action(state))
-            await asyncio.wait_for(broadcast, .3)
+            broadcast_task = asyncio.create_task(broadcast.broadcast_ask_other_action(state))
+            await asyncio.wait_for(broadcast_task, .3)
             wait = asyncio.create_task(wait_action(state))
             await asyncio.sleep(.02)
             assert 1 not in state._ask_delivered_at
@@ -198,14 +198,14 @@ def test_fast_double_click_chi_then_immediate_discard(action, protection, tactic
         state.game_server.user_id_to_connection[101].websocket.send_json = send
         try:
             begin_claim_protection_interval(state, state.action_dict, 0)
-            await boardcast.broadcast_do_action(state, ["cut"], 0, cut_tile=13)
-            await boardcast.broadcast_ask_other_action(state)
+            await broadcast.broadcast_do_action(state, ["cut"], 0, cut_tile=13)
+            await broadcast.broadcast_ask_other_action(state)
             await asyncio.wait_for(wait_action(state), .5)
             assert state.game_status == "onlycut_after_action"
             assert len(state.player_list[1].combination_tiles) == 1
             state.action_dict = check_only_cut(state, 1)
             state.game_status = "waiting_hand_action"
-            await boardcast.broadcast_ask_hand_action(state)
+            await broadcast.broadcast_ask_hand_action(state)
             await asyncio.wait_for(wait_action(state), .5)
             await drain_all(state)
             assert state.player_list[1].discard_tiles == [41]
@@ -252,7 +252,7 @@ def test_failed_ask_delivery_keeps_timeout_fallback(caplog):
         state.game_server.user_id_to_connection[101].websocket.send_json = AsyncMock(
             side_effect=ConnectionError("test connection closed"))
         try:
-            await boardcast.broadcast_ask_other_action(state)
+            await broadcast.broadcast_ask_other_action(state)
             await drain_all(state)
             assert 1 in state._ask_delivered_at
             assert "outbound send failed viewer=1" in caplog.text

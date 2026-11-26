@@ -9,7 +9,7 @@ from ...game_calculation.shanghai import qiaoma
 from ...room.room_manager import RoomManager
 from ...room.room_router import handle_room_message
 from ...room.room_validators import ShanghaiRoomValidator
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_game_start, send_reconnect_game_state, send_realtime_spectator_snapshot,
 )
 from .test_shanghai_state import make_state, lock

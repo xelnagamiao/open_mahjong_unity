@@ -35,7 +35,7 @@ async def send_game_tip(gamestate, player_index: int, message: str = TILE_NOT_IN
             success=False,
             message=message,
         )
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await player_conn.websocket.send_json(response.model_dump(exclude_none=True))
     except Exception as e:
         logger.warning("send_game_tip 失败 player=%s: %s", player_index, e)
 

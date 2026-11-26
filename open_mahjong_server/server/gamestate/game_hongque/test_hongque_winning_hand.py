@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from .boardcast import state_packet
+from .broadcast import state_packet
 from .test_hongque_reconnect import stage_fixture, pass_pending
 from .record import code_to_id
 

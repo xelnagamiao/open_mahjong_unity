@@ -2,7 +2,7 @@
 import asyncio
 import logging
 
-from .boardcast import broadcast_do_action
+from .broadcast import broadcast_do_action
 from .rule_logic import option
 from ...game_calculation.riichi.win_requirements import meets_win_requirements
 

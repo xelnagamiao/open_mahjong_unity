@@ -13,6 +13,7 @@ public partial class GameRecordManager {
         RefreshPlayerTags = RefreshYixingRecordFlowers,
         RefreshAfterAction = RefreshYixingRecordFlowers,
         AfterSilentMutation = tick => SyncRecordBoardScores(),
+        IsRobKongWin = _ => recordYixingWinSource == "rob_kong",
     };
 
     private YixingInfo recordYixingInfo;

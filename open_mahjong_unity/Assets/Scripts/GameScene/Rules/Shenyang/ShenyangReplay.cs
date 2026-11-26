@@ -21,7 +21,8 @@ public partial class GameRecordManager {
             int original=currentOriginalIndices[pos];currentTilesList.RemoveAt(pos);currentOriginalIndices.RemoveAt(pos);
             if(action=="d") consumedFromFront++;else consumedBackIndices.Add(original);
             return true;
-        }
+        },
+        IsRobKongWin=_=>recordSyRobbed,
     };
     private void ResetShenyangRecord() {foreach(var h in recordSyHints) h.Reset();recordSyTail.Clear();recordSyRevealed=recordSyRobbed=false;}
     public HashSet<int> ShenyangWaiting(TingpaiQuery q) {

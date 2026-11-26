@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 /// <summary>
@@ -8,6 +9,11 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class RuleReplayModule {
     public int ReservedWallTiles;
+    public bool SuppressDrawSlotOnRegularDraw;
+    public bool ClearDrawSlotOnAnyKong;
+    public bool SuppressJiagangVoiceAndDisplay;
+    public float? EmptyHandRevealDelaySeconds;
+
     public Action Reset;
     public Action Clear;
     public Action InitializePlayers;
@@ -29,6 +35,34 @@ public sealed class RuleReplayModule {
     public Action<IReadOnlyList<string>> AfterVisibleMutation;
     public Action<IReadOnlyList<string>> AfterSilentMutation;
     public Action<IReadOnlyList<string>> AnnounceAfterSilentAction;
+
+    // ---- Custom replay tick & presentation hooks (eliminating rule branches in GameRecordManager) ----
+    public Func<IEnumerator> PrepareRecordAssets;
+    public Func<int, string> CustomRoundName;
+    public Func<List<string>, GameRecordManager.RecordPlayer, string, bool> TryHandleCustomDraw;
+    public Action<List<string>, int, GameRecordManager.RecordPlayer, string> OnAfterCutMutation;
+    public Func<List<string>, GameRecordManager.RecordPlayer, string, bool> TryHandleCustomAddedKong;
+    public Func<List<string>, bool> TryHandleCustomActionTick;
+    public Func<List<string>, GameRecordManager.RecordPlayer, bool> TryApplyRecordRonHuHand;
+    public Func<GameRecordManager.RecordPlayer, int, bool> TryBuildRecordWinningHand;
+    public Func<List<string>, int[]> GetHuBirdTiles;
+    internal Func<List<string>, ChangshaRonRecord> GetHuBatchRon;
+    public Func<RiichiEndResultExtras> GetHuResultExtras;
+    public Func<IEnumerator> WaitBeforeHuPresentation;
+    public Func<IEnumerator> PrepareHuReveal;
+    public Func<string, bool> IsRobKongWin;
+    public Func<bool> IsForcedOrFlowerWin;
+    public Func<string, int[], bool> TryHandleCustomHuReveal;
+    public Action<HepaiPresentationRequest, string, int> AdjustRecordHuRequest;
+    public Func<bool> SkipDefaultRonDiscardSync;
+    public Action<string, int> OnSyncCustomRonDiscard;
+
+    // ---- Record tips hooks (eliminating rule branches in GameRecordManager.RecordTips) ----
+    public Func<int, int> GetCurrentDrawTile;
+    public Func<IEnumerable<int>> GetVisibleIndicators;
+    public Action<RecordTipsContext, GameRecordManager.RecordPlayer, Round> PopulateRecordTipsContext;
+    public Func<Dictionary<string, object>> OverrideDetailedConfigSnapshot;
+
     public readonly HashSet<string> StateActions = new HashSet<string>(StringComparer.Ordinal);
     public readonly HashSet<string> SilentActions = new HashSet<string>(StringComparer.Ordinal);
 

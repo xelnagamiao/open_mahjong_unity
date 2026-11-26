@@ -126,13 +126,13 @@ public partial class GameRecordManager {
     [SerializeField] private Transform last14TilesContainer;
     [SerializeField] private GameObject tileRowGroupPrefab;
 
-    private void OnEnable() {
+    private void OnTileListViewEnabled() {
         TileFaceResolver.OnPackChanged += RefreshTileListLayout;
         RefreshTileListLayout();
         RefreshRecordPlayerWaits();
     }
 
-    private void OnDisable() {
+    private void OnTileListViewDisabled() {
         HideRecordMatchResult();
         CancelPendingRecordStepInput();
         TileFaceResolver.OnPackChanged -= RefreshTileListLayout;

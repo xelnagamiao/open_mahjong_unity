@@ -58,8 +58,12 @@ namespace Salasasa.Chat
         readonly List<MessageRowBinding> shown = new List<MessageRowBinding>();
         readonly Dictionary<object, MessageRowBinding> boundRows = new Dictionary<object, MessageRowBinding>();
         readonly Stack<MessageRowBinding> freeRows = new Stack<MessageRowBinding>();
-        readonly List<object> requestedMessages = new List<object>();
-        readonly HashSet<object> requestedKeys = new HashSet<object>();
+        readonly Dictionary<object, float> messageHeights = new Dictionary<object, float>();
+        float[] messageTops = Array.Empty<float>();
+        string displayedConversation;
+        float lastMessageOffset;
+        readonly List<object> messageItems = new List<object>();
+        readonly HashSet<object> windowKeys = new HashSet<object>();
         bool headerDirty, listDirty, messagesDirty, messageStyleDirty, scrollToEnd, followIncoming;
         string query = "", observedRoom = "";
         int observedUser, layoutSide = -1;
@@ -130,7 +134,7 @@ namespace Salasasa.Chat
             if(source){source.MessageReceived-=Receive;source.Cleared-=ClearHistory;}
             if(registeredInput)registeredInput.UnregisterAdditionalUiRoot((RectTransform)view.transform);
         }
-        void ClearHistory(){history.Clear();drafts.Clear();ClearConversationState();view.composer.SetTextWithoutNotify("");tableLauncher?.Clear();Refresh();}
+        void ClearHistory(){history.Clear();drafts.Clear();messageHeights.Clear();ClearConversationState();view.composer.SetTextWithoutNotify("");tableLauncher?.Clear();Refresh();}
         void UpdateVisibility(bool visible)
         {
             if(visibilityTarget!=visible){
@@ -200,7 +204,8 @@ namespace Salasasa.Chat
                 listDirty = false;
                 if (FriendsVisible) RefreshFriends(); else RefreshConversationList();
             }
-            if (messagesDirty) FlushMessages();
+            if (messagesDirty || !Mathf.Approximately(lastMessageOffset, view.messageContent.anchoredPosition.y))
+                FlushMessages();
             UpdateComposer();previousVisible=true;
         }
         public RectTransform LobbyButton => lobbyButtons!=null && lobbyButtons.Length>0 ? lobbyButtons[0] : null;
@@ -301,8 +306,13 @@ namespace Salasasa.Chat
                 conversationKey=room==0&&type!="RoomSendFailed"?ChatConversationListModel.LobbyKey:ChatConversationListModel.RoomKey};
             history.Add(message);
             if(notify && tableLauncher)tableLauncher.Receive(message);
-            while(history.Count(m=>m.conversationKey==message.conversationKey)>50)history.RemoveAt(history.FindIndex(m=>m.conversationKey==message.conversationKey));
-            while(history.Count>150)history.RemoveAt(0);
+            while(history.Count(m=>m.conversationKey==message.conversationKey)>50)
+            {
+                int oldest = history.FindIndex(m=>m.conversationKey==message.conversationKey);
+                messageHeights.Remove(history[oldest]);
+                history.RemoveAt(oldest);
+            }
+            while(history.Count>150){messageHeights.Remove(history[0]);history.RemoveAt(0);}
             if(notify)ReceiveLegacyUnread(message);
             if (message.conversationKey == SelectedConversationKey) QueueIncomingMessage();
             RefreshList();
@@ -376,95 +386,159 @@ namespace Salasasa.Chat
 
         void CollectMessages()
         {
-            requestedMessages.Clear();
-            int capacity = view.messages.Length;
-            if (SelectedChannel < 2) {
-                for (int i = history.Count - 1; i >= 0 && requestedMessages.Count < capacity; i--)
-                    if (history[i].conversationKey == SelectedConversationKey) requestedMessages.Add(history[i]);
-                requestedMessages.Reverse();
-            } else {
-                var entries = source.GetConversationMessages(SelectedConversationKey);
-                for (int i = Mathf.Max(0, entries.Count - capacity); i < entries.Count; i++)
-                    requestedMessages.Add(entries[i]);
+            messageItems.Clear();
+            if (SelectedChannel < 2)
+            {
+                foreach (var item in history)
+                    if (item.conversationKey == SelectedConversationKey) messageItems.Add(item);
             }
+            else
+            {
+                var entries = source.GetConversationMessages(SelectedConversationKey);
+                for (int i = 0; i < entries.Count; i++) messageItems.Add(entries[i]);
+            }
+            if (messageTops.Length <= messageItems.Count)
+                Array.Resize(ref messageTops, Mathf.NextPowerOfTwo(messageItems.Count + 1));
+            UpdateMessageTops(0);
+        }
+
+        void UpdateMessageTops(int first)
+        {
+            if (first == 0) messageTops[0] = 6f;
+            for (int i = first; i < messageItems.Count; i++)
+            {
+                var item = messageItems[i];
+                // LayoutBubble has a 34-unit minimum bubble, a header and an 8-unit gap.
+                // Starting with the minimum reserves enough pooled rows to fill the viewport.
+                if (!messageHeights.TryGetValue(item, out float height))
+                    height = item is Message legacy && IsMessageDivider(legacy) ? view.messageLineHeight + view.messageGap : 44f;
+                messageTops[i + 1] = messageTops[i] + height;
+            }
+        }
+
+        static bool IsMessageDivider(Message message) =>
+            message.type == "LoginTime" || message.type == "RoomJoined" || message.type == "RoomLeft";
+
+        int MessageIndexAt(float offset)
+        {
+            int low = 0, high = messageItems.Count - 1;
+            while (low < high)
+            {
+                int middle = (low + high + 1) / 2;
+                if (messageTops[middle] <= offset) low = middle;
+                else high = middle - 1;
+            }
+            return low;
         }
 
         void FlushMessages()
         {
-            messagesDirty = false;
-            CollectMessages();
             var content = view.messageContent;
+            var scroll = view.messageScroll;
+            var viewport = scroll.viewport ? scroll.viewport : (RectTransform)scroll.transform;
+            float viewportHeight = viewport.rect.height;
+            float offset = content.anchoredPosition.y;
+            float oldRange = Mathf.Max(0, content.rect.height - viewportHeight);
+            bool sameConversation = displayedConversation == SelectedConversationKey;
+            bool bottom = scrollToEnd || !sameConversation || messageItems.Count == 0 ||
+                (followIncoming && offset >= oldRange - 8f);
+
+            if (sameConversation && !bottom && SelectedChannel >= 2 && offset < lastMessageOffset && offset <= 48f)
+                RequestEarlierConversationMessages();
+            if (scrollToEnd) scroll.StopMovement();
+
+            int anchorIndex = MessageIndexAt(offset);
+            object anchor = sameConversation && messageItems.Count > 0 ? messageItems[anchorIndex] : null;
+            float inset = anchor == null ? 0f : offset - messageTops[anchorIndex];
             float width = content.rect.width;
             bool rebind = messageStyleDirty || Mathf.Abs(width - messageWidth) > .5f;
-            messageStyleDirty = false;
+            if (rebind || !sameConversation) messageHeights.Clear();
+            if (messagesDirty || rebind || !sameConversation)
+            {
+                CollectMessages();
+                if (!bottom && anchor != null) anchorIndex = messageItems.IndexOf(anchor);
+                if (anchorIndex < 0) { anchorIndex = 0; inset = 0f; }
+            }
+            scrollToEnd = followIncoming = messageStyleDirty = messagesDirty = false;
+            displayedConversation = SelectedConversationKey;
             messageWidth = width;
-            var viewport = view.messageScroll.viewport ? view.messageScroll.viewport : (RectTransform)view.messageScroll.transform;
-            float viewportHeight = viewport.rect.height;
-            float oldRange = Mathf.Max(0, content.rect.height - viewportHeight);
-            float offset = content.anchoredPosition.y;
-            bool bottom = scrollToEnd || (followIncoming && (shown.Count == 0 || offset >= oldRange * .92f));
-            if (scrollToEnd) view.messageScroll.StopMovement();
-            scrollToEnd = followIncoming = false;
 
-            requestedKeys.Clear();
-            requestedKeys.UnionWith(requestedMessages);
-            MessageRowBinding anchor = null;
-            float anchorOffset = 0;
-            foreach (var binding in shown) {
-                if (!requestedKeys.Contains(binding.source)) {
-                    boundRows.Remove(binding.source);
-                    binding.source = binding.display = null;
-                    freeRows.Push(binding);
-                    continue;
-                }
-                float top = -((RectTransform)binding.row.transform).anchoredPosition.y;
-                if (!bottom && anchor == null && top + binding.height > offset) {
-                    anchor = binding;
-                    anchorOffset = offset - top;
-                }
+            int count = messageItems.Count;
+            float range = Mathf.Max(0, messageTops[count] + 4f - viewportHeight);
+            offset = bottom ? range : Mathf.Clamp(messageTops[anchorIndex] + inset, 0f, range);
+            int firstVisible = MessageIndexAt(offset);
+            int lastVisible = MessageIndexAt(offset + viewportHeight);
+            int capacity = view.messages.Length;
+            int first = Mathf.Max(0, firstVisible - 1);
+            int end = Mathf.Min(count, lastVisible + 2);
+            if (end - first > capacity)
+            {
+                first = bottom ? end - capacity : firstVisible;
+                end = Mathf.Min(count, first + capacity);
             }
 
+            windowKeys.Clear();
+            for (int i = first; i < end; i++) windowKeys.Add(messageItems[i]);
+            foreach (var binding in shown)
+            {
+                if (windowKeys.Contains(binding.source)) continue;
+                boundRows.Remove(binding.source);
+                binding.source = binding.display = null;
+                freeRows.Push(binding);
+            }
             shown.Clear();
-            float y = 6;
-            foreach (var key in requestedMessages) {
+            int firstChanged = count;
+            for (int i = first; i < end; i++)
+            {
+                var key = messageItems[i];
                 bool existing = boundRows.TryGetValue(key, out var binding);
-                if (!existing) {
+                if (!existing)
+                {
                     binding = freeRows.Pop();
                     binding.source = key;
                     binding.row.gameObject.SetActive(true);
                     boundRows.Add(key, binding);
                 }
-                if (!existing || rebind) {
+                if (!existing || rebind)
+                {
                     binding.display = key as Message ?? ToDisplayMessage((ConversationChatMessage)key);
-                    binding.height = BindMessage(binding, width, y);
-                } else {
-                    var rect = (RectTransform)binding.row.transform;
-                    if (!Mathf.Approximately(rect.anchoredPosition.y, -y)) rect.anchoredPosition = new Vector2(0, -y);
+                    binding.height = BindMessage(binding, width, messageTops[i]);
+                    if (!messageHeights.TryGetValue(key, out float oldHeight) || !Mathf.Approximately(oldHeight, binding.height))
+                    {
+                        messageHeights[key] = binding.height;
+                        firstChanged = Mathf.Min(firstChanged, i);
+                    }
                 }
-                if (binding == anchor) offset = y + anchorOffset;
                 binding.row.boundIndex = shown.Count;
                 shown.Add(binding);
-                y += binding.height;
             }
-            VisibleMessageCount = shown.Count;
-            foreach (var unused in freeRows) {
+            if (firstChanged < count) UpdateMessageTops(firstChanged);
+            for (int i = 0; i < shown.Count; i++)
+            {
+                var rect = (RectTransform)shown[i].row.transform;
+                float y = -messageTops[first + i];
+                if (!Mathf.Approximately(rect.anchoredPosition.y, y)) rect.anchoredPosition = new Vector2(0, y);
+            }
+            foreach (var unused in freeRows)
+            {
                 if (unused.row.gameObject.activeSelf) unused.row.gameObject.SetActive(false);
                 unused.row.boundIndex = -1;
             }
-            float height = y + 4;
+            VisibleMessageCount = shown.Count;
+            float height = messageTops[count] + 4f;
             if (!Mathf.Approximately(content.rect.height, height))
                 content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            float range = Mathf.Max(0, height - viewportHeight);
-            float target = bottom ? range : Mathf.Clamp(offset, 0, range);
-            if (!Mathf.Approximately(target, content.anchoredPosition.y))
-                content.anchoredPosition = new Vector2(content.anchoredPosition.x, target);
+            range = Mathf.Max(0, height - viewportHeight);
+            lastMessageOffset = bottom ? range : Mathf.Clamp(messageTops[anchorIndex] + inset, 0f, range);
+            if (!Mathf.Approximately(lastMessageOffset, content.anchoredPosition.y))
+                content.anchoredPosition = new Vector2(content.anchoredPosition.x, lastMessageOffset);
         }
 
         float BindMessage(MessageRowBinding binding, float width, float top)
         {
             var row = binding.row;
             var message = binding.display;
-            bool divider = message.type == "LoginTime" || message.type == "RoomJoined" || message.type == "RoomLeft";
+            bool divider = IsMessageDivider(message);
             row.author.gameObject.SetActive(!divider);
             row.time.gameObject.SetActive(!divider);
             row.portrait.gameObject.SetActive(!divider);
@@ -486,7 +560,7 @@ namespace Salasasa.Chat
                 row.body.fontSize = view.timestampFontSize;
                 row.body.color = view.muted;
                 row.body.text = "────────  " + message.text + "  ────────";
-                binding.initial.gameObject.SetActive(false);
+                if (binding.initial) binding.initial.gameObject.SetActive(false);
                 return view.messageLineHeight + view.messageGap;
             }
 
@@ -494,8 +568,11 @@ namespace Salasasa.Chat
             if (message.HasPlayerSender && profileId <= 0)
                 profileId = message.mine && renderedSelfPortrait > 0 ? renderedSelfPortrait : ConfigManager.DefaultAvatarItemId;
             bool hasPortrait = ConfigManager.SetProfilePortrait(row.portrait, profileId, style.row);
-            binding.initial.gameObject.SetActive(!hasPortrait);
-            if (!hasPortrait) binding.initial.text = FirstCharacter(message.author);
+            if (binding.initial)
+            {
+                binding.initial.gameObject.SetActive(!hasPortrait);
+                if (!hasPortrait) binding.initial.text = FirstCharacter(message.author);
+            }
             row.author.text = message.author;
             row.author.richText = false;
             row.author.overflowMode = TextOverflowModes.Ellipsis;

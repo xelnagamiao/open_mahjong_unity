@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from .action_check import check_action_hand_action, hand_kong_candidates, refresh_waiting_tiles
-from .boardcast import broadcast_ask_hand_action, reconnected_send_pending_ask_for_viewer
+from .broadcast import broadcast_ask_hand_action, reconnected_send_pending_ask_for_viewer
 from .test_rule_branches import game
 from .test_sanma import sanma
 from .wait_action import _is_valid_cut_action, wait_action

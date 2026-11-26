@@ -7,7 +7,7 @@ import pytest
 
 from .test_state import make_state, hand, draw, HAND
 from . import timing
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..public.ask_timing import begin_ask_round, note_ask_delivered
 from ..public.ai.get_action import get_action
 from ...room.tuidao_room import handle_create_tuidao_room, TuidaoRoomValidator
@@ -192,7 +192,7 @@ def test_reconnect_repeat_is_read_only_and_completed_seat_is_not_asked(clock):
         clock.advance(8)
         deadline = manager.windows[1].deadline
         for _ in range(3):
-            await boardcast.reconnected_send_pending_ask(state, player.user_id)
+            await broadcast.reconnected_send_pending_ask(state, player.user_id)
         clocks = [m['ask_other_action_info'] for m in socket.messages]
         assert [(m['remaining_time'], m['step_remaining']) for m in clocks] == [(17, 0)] * 3
         assert player.remaining_time == 20 and manager.windows[1].deadline == deadline
@@ -200,7 +200,7 @@ def test_reconnect_repeat_is_read_only_and_completed_seat_is_not_asked(clock):
         async def wait_after_first_reply(tasks, timeout):
             assert player.remaining_time == 17 and 1 not in state.waiting_players_list
             before = len(socket.messages)
-            await boardcast.reconnected_send_pending_ask(state, player.user_id)
+            await broadcast.reconnected_send_pending_ask(state, player.user_id)
             assert len(socket.messages) == before
             return await clock.wait(tasks, timeout)
         clock.schedule(state, 2, 2, 'pass')
@@ -325,7 +325,7 @@ def test_actual_serialized_first_and_reconnect_clocks(clock, phase, bank, step):
                              else ['pass'] if i == 1 and phase != 'waiting_hand_action'
                              else [] for i in range(4)}
         state.prepare_action_window()
-        send = boardcast.broadcast_ask_hand_action if phase == 'waiting_hand_action' else boardcast.broadcast_ask_other_action
+        send = broadcast.broadcast_ask_hand_action if phase == 'waiting_hand_action' else broadcast.broadcast_ask_other_action
         await send(state)
         field = 'ask_hand_action_info' if phase == 'waiting_hand_action' else 'ask_other_action_info'
         first = socket.messages[-1][field]
@@ -333,7 +333,7 @@ def test_actual_serialized_first_and_reconnect_clocks(clock, phase, bank, step):
         deadline = state.action_clock_manager.windows[player.player_index].deadline
         assert deadline == 100 + bank + step
         clock.advance(7)
-        await boardcast.reconnected_send_pending_ask(state, player.user_id)
+        await broadcast.reconnected_send_pending_ask(state, player.user_id)
         reconnect = socket.messages[-1][field]
         expected = (max(0, bank - max(0, 7 - step)), max(0, step - 7))
         assert (reconnect['remaining_time'], reconnect['step_remaining']) == expected
@@ -361,7 +361,7 @@ def test_ingress_during_fanout_is_accepted_and_not_timed_at_processing(clock):
         slow = SlowOtherSocket()
         state.game_server.user_id_to_connection = {
             102: SimpleNamespace(websocket=first), 103: SimpleNamespace(websocket=slow)}
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         manager = state.action_clock_manager
         assert manager.windows[1].deadline == 125
         assert manager.windows[2].deadline == 159
@@ -382,11 +382,11 @@ def test_realtime_spectator_sees_host_clock_without_starting_a_new_window(clock)
         state.game_status = 'waiting_action_after_cut'
         state.action_dict = {0: [], 1: ['pass'], 2: [], 3: []}
         state.player_list[0].discard_tiles = [11]
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         manager = state.action_clock_manager
         assert host.messages[-1] == spectator.messages[-1]
         clock.advance(8)
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 999, 1)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 999, 1)
         ask = spectator.messages[-1]['ask_other_action_info']
         assert (ask['remaining_time'], ask['step_remaining']) == (17, 0)
         assert manager.windows[1].deadline == 125
@@ -554,8 +554,8 @@ def test_serialized_exact_budget_survives_fractional_bank_and_reconnect(
         state.action_dict = {i: ['cut' if index == 0 else 'pass'] if i == index else []
                              for i in range(4)}
         state.prepare_action_window()
-        broadcast = boardcast.broadcast_ask_hand_action if index == 0 else boardcast.broadcast_ask_other_action
-        await broadcast(state)
+        send_ask = broadcast.broadcast_ask_hand_action if index == 0 else broadcast.broadcast_ask_other_action
+        await send_ask(state)
         field = 'ask_hand_action_info' if index == 0 else 'ask_other_action_info'
         initial = socket.messages[-1][field]
         assert initial['remaining_time'] == 19 and initial['step_remaining'] == 5
@@ -566,7 +566,7 @@ def test_serialized_exact_budget_survives_fractional_bank_and_reconnect(
         assert deadline == pytest.approx(123.8)
         clock.advance(elapsed)
         for _ in range(2):
-            await boardcast.reconnected_send_pending_ask(state, player.user_id)
+            await broadcast.reconnected_send_pending_ask(state, player.user_id)
             reply = socket.messages[-1][field]
             assert reply['remaining_time_ms'] == expected_bank_ms
             assert reply['step_remaining_ms'] == expected_step_ms
@@ -597,8 +597,8 @@ def test_each_realtime_spectator_gets_current_host_budget_after_slow_fanout(cloc
         state.player_list[0].discard_tiles = [11]
         state.jiagang_tile = 11
         state.action_dict = {i: ['cut' if index == 0 else 'pass'] if i == index else [] for i in range(4)}
-        broadcast = boardcast.broadcast_ask_hand_action if index == 0 else boardcast.broadcast_ask_other_action
-        await broadcast(state)
+        send_ask = broadcast.broadcast_ask_hand_action if index == 0 else broadcast.broadcast_ask_other_action
+        await send_ask(state)
         field = 'ask_hand_action_info' if index == 0 else 'ask_other_action_info'
         assert (host.messages[-1][field]['remaining_time'], host.messages[-1][field]['step_remaining']) == (20,5)
         assert (slow.messages[-1][field]['remaining_time'], slow.messages[-1][field]['step_remaining']) == (20,5)

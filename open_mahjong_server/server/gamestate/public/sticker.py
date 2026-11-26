@@ -46,7 +46,7 @@ async def broadcast_sticker(
             sticker=sticker,
         ),
     )
-    payload = response.dict(exclude_none=True)
+    payload = response.model_dump(exclude_none=True)
     game_server = game_state.game_server
     sent_user_ids = set()
 

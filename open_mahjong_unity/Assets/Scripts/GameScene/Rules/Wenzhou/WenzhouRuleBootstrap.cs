@@ -9,8 +9,10 @@ internal static class WenzhouRuleBootstrap {
         RuleNameDictionary.WholeName[WenzhouGameState.SubRule] = "温州麻将（MIL 2024）";
         RuleNameDictionary.ShortName[WenzhouGameState.RuleId] = "温州";
         RuleNameDictionary.ShortName[WenzhouGameState.SubRule] = "温州";
+        WenzhouRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateWenzhouReplayModule(),
+            CreateSettlementCodec = () => new WenzhouRecordSettlementCodec(),
             BuildRoom = WenzhouRoomBuilder.Build,
             RuleId = WenzhouGameState.RuleId, DefaultSubRule = WenzhouGameState.SubRule,
             DisplayName = "温州麻将", LobbyName = "温州麻将", LobbyOrder = 21,
@@ -29,6 +31,13 @@ internal static class WenzhouRuleBootstrap {
             RecordHandJokerTiles = round => round?.wenzhou is WenzhouInfo info
                 ? new[] { info.caishen } : System.Array.Empty<int>(),
             Tingpai = WenzhouGameState.Waiting, DescribeWaitingTile = WenzhouGameState.Describe,
+            LiveVisibleIndicators = () => WenzhouGameState.Active?.Info != null ? new[] { WenzhouGameState.Active.Info.indicator } : System.Array.Empty<int>(),
+            CollectLivePlayerVisibleTiles = (p, isSelf, add) => {
+                if (p.combination_masks == null) return false;
+                foreach (var mask in p.combination_masks)
+                    for (int i = 1; mask != null && i < mask.Length; i += 2) add(mask[i]);
+                return true;
+            },
             FanNameText = (rule, label) => WenzhouText.FanName(label),
             FanValueText = (rule, label) => WenzhouText.FanValue(label),
             SettlementTotal = q => new SettlementTotalDisplay {

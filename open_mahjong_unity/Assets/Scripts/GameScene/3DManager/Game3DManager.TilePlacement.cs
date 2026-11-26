@@ -184,7 +184,7 @@ public partial class Game3DManager {
     }
 
     // Animator 在 Update 后采样，这里仅处理正在倒牌的组。静止牌没有每帧放置开销。
-    private void LateUpdate() {
+    private void OnTilePlacementLateTick() {
         RefreshPendingMeldSpacing();
         RefreshWashizuPresentation();
         RefreshTileLightingFrame();
@@ -234,13 +234,69 @@ public partial class Game3DManager {
         }
     }
 
-    private void OnDisable() {
+    private void OnTilePlacementDisabled() {
         ResetTileLightingFrame();
         // 组件被禁用也视为取消倒牌，Animator与补偿一起复位，不能让Cube继续播到错误落点。
         while (revealingHandPlacements.Count > 0) {
             PosPanel3D panel = revealingHandPlacements[revealingHandPlacements.Count - 1].panel;
             if (panel != null && panel.handRevealAnimator != null) ForceHandRevealIdle(panel);
             else revealingHandPlacements.RemoveAt(revealingHandPlacements.Count - 1);
+        }
+    }
+
+    internal void GetDiceTablePlane(out Vector3 point, out Vector3 normal) {
+        InitializeTilePlacement();
+        GetTileSurface(out point, out normal);
+    }
+
+    internal float SbrWorldWidth(Camera camera, Vector2 screen, float pixels) {
+        InitializeTilePlacement();
+        GetTileSurface(out Vector3 origin, out Vector3 normal);
+        var plane = new Plane(normal, origin);
+        var a = camera.ScreenPointToRay(screen);
+        var b = camera.ScreenPointToRay(screen + Vector2.right * pixels);
+        return plane.Raycast(a, out float da) && plane.Raycast(b, out float db)
+            ? Vector3.Distance(a.GetPoint(da), b.GetPoint(db)) : cardWidth;
+    }
+
+    internal void PlaceSbrPacket(Transform[] tiles, Camera camera, Vector2 screen, float width, float angle,
+            float roll, bool viewerPacket, float stretch) {
+        if (!placementInitialized || width <= 0) return;
+        Quaternion facing = Quaternion.AngleAxis(angle, Vector3.up);
+        Quaternion standing = viewerPacket ? SelfHandStandingRotation() : Quaternion.identity;
+        Quaternion rotation = facing * Quaternion.Euler(-90f * roll, 0, 0) * standing;
+        GetTileSurface(out Vector3 origin, out Vector3 normal);
+        Matrix4x4 baseBody = TileBodyAt(Vector3.zero, Quaternion.identity);
+        float nativeWidth = TileSurfacePlacement.MaximumProjection(tileBodyBounds, baseBody, Vector3.right)
+            - TileSurfacePlacement.MinimumProjection(tileBodyBounds, baseBody, Vector3.right);
+        if (nativeWidth <= .001f) return;
+        float scale = width / nativeWidth;
+        Vector3 dimensions = Vector3.Scale(tileWorldScale * scale, new Vector3(stretch, .957f, .64f));
+        Matrix4x4 body = Matrix4x4.TRS(Vector3.zero, rotation, dimensions) * tileBodyFromRoot;
+        Vector3 foldOffset = Vector3.zero;
+        if (roll < 1f) {
+            Quaternion flat = facing * Quaternion.Euler(-90f, 0f, 0f) * standing;
+            Quaternion halfFold = facing * Quaternion.Euler(-45f, 0f, 0f) * standing;
+            var midway = Matrix4x4.TRS(Vector3.zero, halfFold, dimensions) * tileBodyFromRoot;
+            var flatBody = Matrix4x4.TRS(Vector3.zero, flat, dimensions) * tileBodyFromRoot;
+            Vector3 up = midway.transpose.MultiplyVector(normal).normalized;
+            Vector3 hinge = tileBodyBounds.center;
+            for (int axis = 0; axis < 3; axis++)
+                if (Mathf.Abs(up[axis]) > .0001f) hinge[axis] -= Mathf.Sign(up[axis]) * tileBodyBounds.extents[axis];
+            foldOffset = flatBody.MultiplyPoint3x4(hinge) - body.MultiplyPoint3x4(hinge);
+            body = flatBody;
+        }
+        float halfHeight = (TileSurfacePlacement.MaximumProjection(tileBodyBounds, body, normal)
+            - TileSurfacePlacement.MinimumProjection(tileBodyBounds, body, normal)) * .5f;
+        Ray ray = camera.ScreenPointToRay(screen);
+        if (!new Plane(normal, origin + normal * (halfHeight + ScaledTileSurfaceClearance)).Raycast(ray, out float distance)) return;
+        Vector3 center = ray.GetPoint(distance) - body.MultiplyPoint3x4(tileBodyBounds.center);
+        Vector3 across = facing * Vector3.right * (width * stretch * 1.025f);
+        for (int i = 0; i < tiles.Length; i++) {
+            if (!tiles[i]) continue;
+            Vector3 parent = tiles[i].parent.lossyScale;
+            tiles[i].localScale = new Vector3(dimensions.x / parent.x, dimensions.y / parent.y, dimensions.z / parent.z);
+            tiles[i].SetPositionAndRotation(center + foldOffset + (i - (tiles.Length - 1) * .5f) * across, rotation);
         }
     }
 }

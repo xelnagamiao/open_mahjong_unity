@@ -9,7 +9,7 @@ from ...game_calculation.sichuan.duplicate_rules import make_board
 from ...response import Do_action_info, GameInfo
 from .SichuanGameState import SichuanPlayer
 from .duplicate_wall import init_duplicate_board, wall_display_masks
-from .boardcast import _build_do_action_payload, _base_game_info, _build_players_info
+from .broadcast import _build_do_action_payload, _base_game_info, _build_players_info
 from .test_xueliu_integration import full_state
 
 

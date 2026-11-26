@@ -7,7 +7,7 @@ from ...game_calculation.guangdong.config import DOUBLES_SUB_RULE, EDITION
 from ..public.hand_slot_utils import mark_draw_slot
 from ...game_calculation.guangdong.settlement import winning_horses, win_payments, refund_kongs
 from ..game_tuidao.result import broadcast_result
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
+from ..game_taiwan.broadcast import broadcast_game_start, broadcast_game_end
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (capture_player_entry_order, init_game_record, init_game_round,
     append_action_tick, player_action_record_hu, player_action_record_round_end,

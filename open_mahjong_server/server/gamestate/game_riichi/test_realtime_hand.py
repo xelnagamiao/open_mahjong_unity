@@ -10,7 +10,7 @@ from . import realtime_hand as live
 from .test_protocol import connected
 from .washizu import public_hands
 from .init_tiles import init_riichi_tiles
-from .boardcast import broadcast_game_start, broadcast_do_action
+from .broadcast import broadcast_game_start, broadcast_do_action
 from ...game_calculation.riichi.washizu_tiles import REALTIME_SUB_RULE, make_tiles
 from ..gamestate_router import handle_gamestate_message
 

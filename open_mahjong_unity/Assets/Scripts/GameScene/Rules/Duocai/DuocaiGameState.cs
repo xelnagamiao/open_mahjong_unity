@@ -22,6 +22,9 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     private bool transitionHeld;
     private readonly Queue<(string suffix,Response response)> transitionMessages=new Queue<(string,Response)>();
 
+    public override int GetCurrentHintDrawTile(int? pendingCutTileId) =>
+        pendingCutTileId.HasValue ? 0 : Hints.CurrentDrawTile;
+
     public override bool HandleMessage(string suffix,Response response) {
         if(transitionMessages.Count>0||(transitionHeld&&(suffix=="game_start"||suffix=="game_end"))) {
             transitionMessages.Enqueue((suffix,response));return true;

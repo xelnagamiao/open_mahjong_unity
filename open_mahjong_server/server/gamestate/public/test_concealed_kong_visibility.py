@@ -5,14 +5,14 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from server.gamestate.game_classical import boardcast as classical
+from server.gamestate.game_classical import broadcast as classical
 from server.gamestate.game_classical.ClassicalGameState import ClassicalGameState
 from server.gamestate.game_classical.wait_action import wait_action as wait_classical_action
-from server.gamestate.game_mmcr import boardcast as qingque
+from server.gamestate.game_mmcr import broadcast as qingque
 from server.gamestate.game_mmcr.QingqueGameState import QingqueGameState
 from server.gamestate.game_mmcr.unlimited_session import UnlimitedSession
 from server.gamestate.game_mmcr.wait_action import wait_action as wait_qingque_action
-from server.gamestate.game_taiwan.boardcast import _build_do_action_payload
+from server.gamestate.game_taiwan.broadcast import _build_do_action_payload
 from server.gamestate.public.test_realtime_spectator_snapshot import DummyPlayer, _attach_angang
 from server.response import GameInfo
 

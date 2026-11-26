@@ -11,7 +11,7 @@ from ..public.action_window import prepare_action_window, start_waiting_clocks
 from ..public.lifecycle import start_owned_task
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles, _xueliu_post_hu_kong_allowed, is_xueliu_required_hu
-from .boardcast import broadcast_refresh_player_tag_list
+from .broadcast import broadcast_refresh_player_tag_list
 from .shunhe import (
     activate_shunhe_if_tenpai_discard,
     apply_passed_win_shunhe,
@@ -19,7 +19,7 @@ from .shunhe import (
     record_passed_self_draw_shunhe,
     ron_hu_eligible_indexes,
 )
-from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
+from .broadcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.game_record_manager import (
     player_action_record_cut, player_action_record_angang,
     player_action_record_jiagang, player_action_record_chipenggang,
@@ -42,7 +42,7 @@ from ..public.tactical_claim import (
     tactical_mark_player_committed,
 )
 from ..public.ask_timing import get_ask_elapsed
-from .boardcast import _send_do_action_payload_to_viewer
+from .broadcast import _send_do_action_payload_to_viewer
 from .real_time import initial_real_time, collect_real_time_claims, close_claim_clock
 
 logger = logging.getLogger(__name__)

@@ -11,8 +11,10 @@ internal static class ChangchunRuleBootstrap {
         RuleNameDictionary.WholeName["changchun/mil2024"] = "长春麻将（MIL 2024）";
         RuleNameDictionary.ShortName[RuleId] = "长春";
         RuleNameDictionary.ShortName["changchun/mil2024"] = "长春";
+        ChangchunRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateChangchunReplayModule(),
+            CreateSettlementCodec = () => new ChangchunRecordSettlementCodec(),
             BuildRoom = ChangchunRoomBuilder.Build,
             RuleId = RuleId, DefaultSubRule = "changchun/mil2024", DisplayName = "长春麻将", LobbyOrder = 16, OutboundChannel="changchun",
             LobbySubRules = new[] { new RuleLobbySubRule("changchun/mil2024", "MIL 2024",

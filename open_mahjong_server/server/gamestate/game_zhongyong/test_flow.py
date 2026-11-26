@@ -1,7 +1,7 @@
 import pytest
 
 from . import ZhongyongGameState, NanqueGameState
-from .boardcast import final_settlement_payloads, mid_win_payload
+from .broadcast import final_settlement_payloads, mid_win_payload
 from .settlement import ZhongyongSettlementPolicy
 
 

@@ -7,7 +7,7 @@ import logging
 from ...game_calculation.singapore import rules as book
 from ...response import Response, Show_result_info
 from ...database.fulu_utils import record_fulu_rounds_for_players
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
+from ..game_taiwan.broadcast import broadcast_game_start, broadcast_game_end
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (capture_player_entry_order, init_game_record, init_game_round,
     player_action_record_hu, player_action_record_round_end, end_game_record, remember_local_record_detail, append_action_tick)

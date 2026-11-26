@@ -194,8 +194,6 @@ MonoBehaviour:
   m_FontFeatureTable:
     m_MultipleSubstitutionRecords: []
     m_LigatureSubstitutionRecords:
-    - m_ComponentGlyphIDs: 0f37000064580000
-      m_LigatureGlyphID: 2320
     - m_ComponentGlyphIDs: 434f0000b15a0000
       m_LigatureGlyphID: 2321
     - m_ComponentGlyphIDs: 434f0000b25a0000

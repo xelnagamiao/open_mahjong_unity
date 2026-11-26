@@ -48,7 +48,7 @@ class Recording:
                         self._settlement_payer_index(entry) if self._settlement_payer_index(entry) is not None else -1,
                         entry["source"],tile or 0,self.fuzhou_info(),
                         entry["forced"],entry["recycle_discard"],entry["fan_names"],entry["payment_source"]])
-                    from ..game_zhongyong.boardcast import _settlement_hu_class
+                    from ..game_zhongyong.broadcast import _settlement_hu_class
                     hu_class = "hu_self" if entry["payment_source"]=="self_draw" else _settlement_hu_class(entry)
                     record.player_action_record_hu(self,hu_class,entry["points"],entry["fan_names"],actor,
                         entry["score_changes"],hepai_tile=tile or 0,multi_ron=False,

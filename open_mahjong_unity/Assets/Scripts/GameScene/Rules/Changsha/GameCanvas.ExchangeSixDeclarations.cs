@@ -59,7 +59,7 @@ public partial class GameCanvas {
             if (declaration.tiles.Length > 0) {
                 // 四喜单独放在桌面内侧，四家都能看清，不能压在本人的手牌和副露上。
                 var popup = (RectTransform)view.transform;
-                popup.SetParent(transform, false);
+                popup.SetParent(GetRuleHintOverlayRoot(), false);
                 popup.anchorMin = popup.anchorMax = new Vector2(.5f, .5f);
                 popup.pivot = new Vector2(.5f, .5f);
                 popup.anchoredPosition = new Vector2(-100, 200);

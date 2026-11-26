@@ -14,8 +14,10 @@ internal static class HongzhongRuleBootstrap {
         RuleNameDictionary.WholeName[HongzhongGameState.SubRule] = "红中麻将（MIL 2024）";
         RuleNameDictionary.ShortName[HongzhongGameState.RuleId] = "红中";
         RuleNameDictionary.ShortName[HongzhongGameState.SubRule] = "红中";
+        HongzhongRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateHongzhongReplayModule(),
+            CreateSettlementCodec = () => new HongzhongRecordSettlementCodec(),
             BuildRoom = HongzhongRoomBuilder.Build,
             RuleId = HongzhongGameState.RuleId, DefaultSubRule = HongzhongGameState.SubRule,
             DisplayName = "红中麻将", LobbyName = "红中麻将", LobbyOrder = 14,

@@ -3,8 +3,10 @@ using UnityEngine;
 internal static class ChangshaRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
+        ChangshaRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
-            ReplayFactory = record => record.CreateStandardReplayModule(),
+            ReplayFactory = record => record.CreateChangshaReplayModule(),
+            CreateSettlementCodec = () => new ChangshaRecordSettlementCodec(),
             BuildRoom = ChangshaRoomBuilder.Build,
             RuleId = ChangshaGameState.RuleId,
             DefaultSubRule = "changsha/classic_double_bird",

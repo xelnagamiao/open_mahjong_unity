@@ -53,7 +53,7 @@ def cancel_kong(state, record, reason='gang_shang_pao'):
 
 
 async def broadcast_reveals(state):
-    from .boardcast import broadcast_do_action
+    from .broadcast import broadcast_do_action
     from ..public.game_record_manager import append_action_tick
 
     pending, state.pending_kong_reveals = state.pending_kong_reveals, []

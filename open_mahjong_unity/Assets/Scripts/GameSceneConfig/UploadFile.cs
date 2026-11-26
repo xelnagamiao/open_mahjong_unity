@@ -10,7 +10,7 @@ public class UploadFile : MonoBehaviour {
     // "Application.persistentDataPath/Tablecloths" = 桌布完整路径
     // "Application.persistentDataPath/TableEdges" = 边框完整路径
 
-    private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp";
+    private const string ImageAccept = "image/png,image/jpeg,image/jpg";
 
     private void Start() {
         uploadButton.onClick.AddListener(OnUploadButtonClick);

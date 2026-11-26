@@ -22,6 +22,16 @@ public sealed class WuhanGameState : TurnBasedGameState {
 
     public WaitTileHint DescribeWaiting(WaitHintQuery query) => Hints.Describe(query, SeatHasTag("self", tag => tag == "peida"));
 
+    public override bool TryCollectKongOptions(string actionType, List<int> handTiles, List<string> combinations,
+        out List<(int targetTile, List<int> displayTiles)> options) {
+        if (actionType == "angang") {
+            options = CollectAngangOptions(handTiles);
+            return true;
+        }
+        options = null;
+        return false;
+    }
+
     public static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> hand) {
         var result = new List<(int, List<int>)>();
         var candidates = TurnClock.Current.KongCandidates;

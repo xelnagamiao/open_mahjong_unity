@@ -8,7 +8,7 @@ import asyncio
 
 from ..public import tactical_claim as tactical
 from ..public import game_record_manager as record
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from .clock import ActionClock
 from .state_machine import Phase as P
 

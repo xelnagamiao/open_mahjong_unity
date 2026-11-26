@@ -11,6 +11,7 @@ internal static class HangzhouRuleBootstrap {
         RuleNameDictionary.WholeName[HangzhouGameState.SubRule] = "MIL 杭州（2025）";
         RuleNameDictionary.ShortName[HangzhouGameState.RuleId] = "杭州";
         RuleNameDictionary.ShortName[HangzhouGameState.SubRule] = "杭州";
+        RuleRecordCodecRegistry.RegisterRoundProperty("hangzhou", (round, token) => round.hangzhou = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<HangzhouInfo>());
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateHangzhouReplayModule(),
             BuildRoom = HangzhouRoomBuilder.Build,

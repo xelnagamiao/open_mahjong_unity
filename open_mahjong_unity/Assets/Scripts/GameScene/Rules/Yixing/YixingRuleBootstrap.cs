@@ -10,8 +10,10 @@ internal static class YixingRuleBootstrap {
         RuleNameDictionary.WholeName[YixingGameState.SubRule] = "宜兴麻将";
         RuleNameDictionary.ShortName[YixingGameState.RuleId] = "宜兴";
         RuleNameDictionary.ShortName[YixingGameState.SubRule] = "宜兴";
+        YixingRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateYixingReplayModule(),
+            CreateSettlementCodec = () => new YixingRecordSettlementCodec(),
             BuildRoom = YixingRoomBuilder.Build,
             RuleId = YixingGameState.RuleId, DefaultSubRule = YixingGameState.SubRule,
             DisplayName = "宜兴麻将", LobbyName = "宜兴麻将", LobbyOrder = 10,

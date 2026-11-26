@@ -17,6 +17,8 @@ public partial class GameRecordManager {
         AnnounceBeforeAction = (tick, position, voice) => PlayChangchunRecordAnnouncement(tick),
         AfterVisibleMutation = RefreshChangchunRecordEvent,
         RefreshAfterSeek = () => { RefreshChangchunRecordBadge(); RefreshChangchunRecordReveals(); },
+        IsRobKongWin = _ => recordCcWinSource == "robbing_kong",
+        GetVisibleIndicators = GetChangchunRecordVisibleIndicators,
     };
 
     private int recordCcBaoSlot=-1,recordCcBaoTile,recordCcBaoRevision;

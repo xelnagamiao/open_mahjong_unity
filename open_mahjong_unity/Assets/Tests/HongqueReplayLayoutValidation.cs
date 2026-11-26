@@ -23,7 +23,7 @@ public static class HongqueReplayLayoutValidation {
         root.SetActive(false);
         UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root,scene);
         try {
-            RuleRegistry.Register(new RuleManifest {RuleId="hongque",DefaultSubRule="hongque/v1.6",RecordKongHasMeldIndex=true,VerticalMelds=true});
+            RuleRegistry.Register(new RuleManifest {RuleId="hongque",DefaultSubRule="hongque/v1.6",RecordKongHasMeldIndex=true,VerticalMelds=true,CreateSettlementCodec=()=>new HongqueRecordSettlementCodec()});
             var canvas = root.AddComponent<GameCanvas>();
             var container = new GameObject("Hand",typeof(RectTransform));
             container.transform.SetParent(root.transform,false);

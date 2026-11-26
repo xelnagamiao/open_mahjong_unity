@@ -20,7 +20,7 @@ from .action_check import (
 )
 from .init_tiles import init_taiwan_tiles
 from .wait_action import wait_action
-from .boardcast import (
+from .broadcast import (
     broadcast_ask_hand_action,
     broadcast_ask_other_action,
     broadcast_do_action,

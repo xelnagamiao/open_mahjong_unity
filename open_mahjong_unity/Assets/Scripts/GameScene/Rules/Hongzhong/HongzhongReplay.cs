@@ -3,6 +3,8 @@ using Newtonsoft.Json;
 
 public partial class GameRecordManager {
     internal RuleReplayModule CreateHongzhongReplayModule() => new RuleReplayModule("hongzhong") {
+        ClearDrawSlotOnAnyKong = true,
+        GetHuBirdTiles = _ => HongzhongRecordInfo?.bird_tiles,
         Reset = ResetHongzhongRecordState,
         Clear = ResetHongzhongRecordState,
         InitializePlayers = () => {

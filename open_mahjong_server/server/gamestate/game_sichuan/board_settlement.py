@@ -99,7 +99,7 @@ class BoardSettlement:
 
 
 async def publish_board(state, builder, statuses, max_fans, skip_chajiao):
-    from .boardcast import broadcast_result
+    from .broadcast import broadcast_result
     from ..public.game_record_manager import player_action_record_sichuan_liuju_step
     import json
 

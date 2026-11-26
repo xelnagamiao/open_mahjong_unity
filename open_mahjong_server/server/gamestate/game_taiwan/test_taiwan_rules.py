@@ -45,7 +45,7 @@ from server.gamestate.game_taiwan.action_check import (
     check_action_jiagang,
     strict_kuikae_forbidden,
 )
-from server.gamestate.game_taiwan.boardcast import (
+from server.gamestate.game_taiwan.broadcast import (
     broadcast_ask_hand_action,
     broadcast_ask_other_action,
     broadcast_do_action,
@@ -5442,19 +5442,19 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
     def test_taiwan_uses_rule_local_broadcast_module(self):
         self.assertEqual(
             TaiwanGameState.broadcast_game_start.__module__,
-            "server.gamestate.game_taiwan.boardcast",
+            "server.gamestate.game_taiwan.broadcast",
         )
         self.assertEqual(
             TaiwanGameState.broadcast_do_action.__module__,
-            "server.gamestate.game_taiwan.boardcast",
+            "server.gamestate.game_taiwan.broadcast",
         )
         self.assertEqual(
             TaiwanGameState.reconnected_send_pending_ask.__module__,
-            "server.gamestate.game_taiwan.boardcast",
+            "server.gamestate.game_taiwan.broadcast",
         )
         self.assertEqual(
             TaiwanGameState.send_realtime_spectator_snapshot.__module__,
-            "server.gamestate.game_taiwan.boardcast",
+            "server.gamestate.game_taiwan.broadcast",
         )
 
     def test_hand_ask_broadcast_keeps_private_info_and_delivery_timing(self):

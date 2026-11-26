@@ -40,7 +40,7 @@ class PointerTipsTests(unittest.IsolatedAsyncioTestCase):
                     module = importlib.import_module(f"server.gamestate.game_{folder}.{class_prefix}GameState")
                     state = getattr(module, class_prefix + "GameState")(server, response.room_info, None, None, "pointer-test")
                     self.assertEqual(state.pointer_tips, expected)
-                    broadcaster = importlib.import_module(f"server.gamestate.game_{folder}.boardcast")
+                    broadcaster = importlib.import_module(f"server.gamestate.game_{folder}.broadcast")
                     if hasattr(broadcaster, "_build_base_game_info"):
                         self.assertEqual(broadcaster._build_base_game_info(state)["pointer_tips"], expected)
                     elif hasattr(broadcaster, "_base_game_info"):

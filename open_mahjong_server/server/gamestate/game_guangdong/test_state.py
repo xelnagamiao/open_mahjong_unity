@@ -7,7 +7,7 @@ import pytest
 
 from .GuangdongGameState import GuangdongGameState
 from ...game_calculation.guangdong.config import TILES, GHOSTS, SUB_RULE
-from ..game_taiwan.boardcast import broadcast_do_action
+from ..game_taiwan.broadcast import broadcast_do_action
 from ..public.game_record_manager import init_game_record, init_game_round
 
 HAND = [11, 11, 11, 22, 22, 22, 33, 33, 33, 41, 41, 41, 45]
@@ -85,7 +85,7 @@ def test_no_chow_and_mandatory_cut_after_pung():
 
 def test_live_ghost_discard_broadcast_marks_horizontal():
     state = make_state(); state.game_server.user_id_to_connection = {101: object(), 102: object(), 103: object(), 104: object()}
-    with patch("server.gamestate.game_taiwan.boardcast._send_do_action_payload_to_viewer", new_callable=AsyncMock) as send:
+    with patch("server.gamestate.game_taiwan.broadcast._send_do_action_payload_to_viewer", new_callable=AsyncMock) as send:
         asyncio.run(broadcast_do_action(state, ["cut"], 0, cut_tile=55, cut_class=True))
         assert send.await_count == 4
         assert send.await_args_list[0].args[2]["is_riichi_horizontal"] is True

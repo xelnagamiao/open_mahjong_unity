@@ -182,7 +182,7 @@ public class RecordPanel : MonoBehaviour {
         _recordIdSubmitted = false;
         recordIdInputPopup.Show(() => {
             RecordIdInputField.text = "";
-            RecordIdInputField.ActivateInputField();
+            InputFieldFeedback.ActivateIfDesktop(RecordIdInputField);
         });
     }
 
@@ -191,6 +191,7 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void SubmitRecordId(string _) {
+        if (!InputFieldFeedback.IsDesktopKeyboardSubmit() || RecordIdInputField.wasCanceled) return;
         if (recordIdInputPopup.gameObject.activeInHierarchy && ConfirmLoadButton.interactable)
             ConfirmLoadRecordById();
     }

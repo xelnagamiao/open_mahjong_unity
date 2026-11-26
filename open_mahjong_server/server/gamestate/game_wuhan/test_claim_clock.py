@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from .test_flow import PURE, hand, indicator, make_state
-from ..game_taiwan.boardcast import reconnected_send_pending_ask
+from ..game_taiwan.broadcast import reconnected_send_pending_ask
 
 
 async def claim_window(action, bank=20, step=5):

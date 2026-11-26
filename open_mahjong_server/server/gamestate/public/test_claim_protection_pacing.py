@@ -51,7 +51,7 @@ async def begin(s,b):
 @pytest.mark.parametrize('bot',[False,True])
 def test_wire_timing_matrix(monkeypatch,caplog,rule,module,enabled,speed,outcome,bot):
     async def run():
-        b=importlib.import_module('server.gamestate.'+module+'.boardcast')
+        b=importlib.import_module('server.gamestate.'+module+'.broadcast')
         s,w=wire_state(monkeypatch,rule,speed,enabled,bot=bot)
         try:
             await begin(s,b)
@@ -84,7 +84,7 @@ def test_wire_timing_matrix(monkeypatch,caplog,rule,module,enabled,speed,outcome
 @pytest.mark.parametrize('bot',[False,True])
 def test_timer_reconnect_and_cleanup(monkeypatch,rule,module,bot):
     async def run():
-        b=importlib.import_module('server.gamestate.'+module+'.boardcast')
+        b=importlib.import_module('server.gamestate.'+module+'.broadcast')
         s,w=wire_state(monkeypatch,rule,bot=bot)
         try:
             await begin(s,b)
@@ -119,7 +119,7 @@ def test_human_metadata_after_meld_retains_one_post_gap(monkeypatch,rule,module)
     from .outbound_pipe import schedule_viewer_send
     from .claim_protection import take_post_meld_gap_delay
     async def run():
-        b=importlib.import_module('server.gamestate.'+module+'.boardcast')
+        b=importlib.import_module('server.gamestate.'+module+'.broadcast')
         s,w=wire_state(monkeypatch,rule)
         monkeypatch.setitem(pacing.BOT_SPEEDS,'fast',.10)
         s.claim_meld_post_gap=.07

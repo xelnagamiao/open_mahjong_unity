@@ -9,8 +9,10 @@ internal static class HongKongRuleBootstrap {
         defaults[CreateRoomKeys.SubRule] = 0;
         defaults.Remove(CreateRoomKeys.Cuohe);
         defaults.Remove(CreateRoomKeys.CuoheType);
+        HongKongRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateHongKongReplayModule(),
+            CreateSettlementCodec = () => new HongKongRecordSettlementCodec(),
             BuildRoom = HongKongRoomBuilder.Build,
             RuleId=HongKongGameState.RuleId, DefaultSubRule=HongKongGameState.Qingzhang,
             DisplayName="香港麻将", LobbyName="香港麻将", LobbyOrder=6,

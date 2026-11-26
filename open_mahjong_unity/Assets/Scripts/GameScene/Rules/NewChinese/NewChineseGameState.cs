@@ -6,8 +6,10 @@ using UnityEngine;
 
 public sealed class NewChineseGameState : TurnBasedGameState {
     public const string RuleId = "new_chinese", SubRule = "new_chinese/standard";
+    public const string ChiTingGroupWord = "new_chinese_chi_ting";
     public static NewChineseGameState Active => RuleRegistry.ActiveGameState as NewChineseGameState;
     public NewChineseInfo Info {get; private set;}
+    public string[] ChiTingWords {get; private set;} = Array.Empty<string>();
     private int exchangeTick = -1;
     private Coroutine baoPresentation;
     private readonly Queue<(string suffix, Response response)> afterBao = new Queue<(string, Response)>();
@@ -137,8 +139,31 @@ public sealed class NewChineseGameState : TurnBasedGameState {
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
         Clock.PendingAskFromJiagang = Info?.phase == "waiting_action_qianggang";
+        var ask = response.ask_other_action_info;
+        if (ask?.action_list != null) {
+            var chiTing = ask.action_list.Where(IsChiTingWord).Distinct().ToArray();
+            ChiTingWords = chiTing;
+            if (chiTing.Length > 1) {
+                var merged = new List<string>(ask.action_list.Length);
+                bool added = false;
+                foreach (string word in ask.action_list) {
+                    if (IsChiTingWord(word)) {
+                        if (!added) { merged.Add(ChiTingGroupWord); added = true; }
+                    } else merged.Add(word);
+                }
+                ask.action_list = merged.ToArray();
+            }
+        } else ChiTingWords = Array.Empty<string>();
         base.OnAskClaim(response);
         RefreshHints(response.game_info);
+    }
+
+    private static bool IsChiTingWord(string word) =>
+        word == "chi_left_ting" || word == "chi_mid_ting" || word == "chi_right_ting";
+
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        ChiTingWords = Array.Empty<string>();
+        base.OnAskWindowClosed(reason);
     }
 
     protected override void OnDoAction(Response response) {
@@ -216,7 +241,7 @@ public sealed class NewChineseGameState : TurnBasedGameState {
 
     public override void RefreshSelfStatusIndicators() {
         bool settled = Info?.phase is "END" or "waiting_ready" or "finished";
-        GameCanvas.Instance?.ShowNewChineseStatus(Info, Mirror.IndexToPosition, Session.SelfIndex, settled);
+        ShowStatus(GameCanvas.Instance, Info, Mirror.IndexToPosition, Session.SelfIndex, settled);
     }
 
     public override void OnPlayerTagsRefreshed() {
@@ -228,23 +253,23 @@ public sealed class NewChineseGameState : TurnBasedGameState {
         ClearBaoPresentation();
         GameCanvas.Instance?.ClearXueliuExchangePresentation();
         GameCanvas.Instance?.HideNewChineseExchange();
-        GameCanvas.Instance?.ShowNewChineseStatus(null, Mirror.IndexToPosition, -1);
+        ShowStatus(GameCanvas.Instance, null, Mirror.IndexToPosition, -1);
         Info = null;
+        ChiTingWords = Array.Empty<string>();
         roundGeneration++;
     }
-}
 
-public partial class GameCanvas {
-    public void ShowNewChineseStatus(NewChineseInfo info, IReadOnlyDictionary<int,string> positions, int viewer, bool settled = false) {
+    internal static void ShowStatus(GameCanvas canvas, NewChineseInfo info, IReadOnlyDictionary<int, string> positions, int viewer, bool settled = false) {
+        if (canvas == null) return;
         bool declared = viewer >= 0 && viewer < (info?.declared?.Length ?? 0) && info.declared[viewer];
         int bao = info?.bao ?? 0;
-        SetSelfBaoIndicator(!settled && declared && bao > 0, bao, false, false);
+        canvas.SetSelfBaoIndicator(!settled && declared && bao > 0, bao, false, false);
         int level = info?.levels != null && viewer >= 0 && viewer < info.levels.Length ? info.levels[viewer] : info?.pass_level ?? 0;
         string[] pass = {"", "过和", "过和 · 仅自摸", "过和 · 仅摸宝", "过和 · 等换宝"};
-        SetSelfStatusIndicator(StatusSlotLangyongWave, level > 0, pass[Mathf.Clamp(level, 0, 4)]);
+        canvas.SetSelfStatusIndicator(GameCanvas.StatusSlotLangyongWave, level > 0, pass[Mathf.Clamp(level, 0, 4)]);
         if (positions == null) return;
         foreach (var seat in positions) {
-            var panel = GetPlayerPanelByPosition(seat.Value);
+            var panel = canvas.GetPlayerPanel(seat.Value);
             int count = seat.Key >= 0 && seat.Key < (info?.chains?.Length ?? 0) ? info.chains[seat.Key] : 0;
             panel?.SetPlayerVariable(GamePlayerPanel.VariableLangyong, count > 0 ? $"连杠：{count}" : null);
             bool ready = seat.Key >= 0 && seat.Key < (info?.declared?.Length ?? 0) && info.declared[seat.Key];

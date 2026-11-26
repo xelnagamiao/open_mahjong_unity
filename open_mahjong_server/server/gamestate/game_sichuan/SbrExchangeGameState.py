@@ -5,7 +5,7 @@ from random import Random
 
 from .SichuanGameState import SichuanGameState
 from .three_tile_opening import ThreeTileOpening
-from .boardcast import broadcast_dingque_done, broadcast_xueliu_exchange_animation
+from .broadcast import broadcast_dingque_done, broadcast_xueliu_exchange_animation
 from ..public.game_record_manager import init_game_round
 from ...game_calculation.sichuan.sbr_exchange import ExchangeChajiao, basic_points
 from ...game_calculation.sichuan.xueliu_rules import SBR_EXCHANGE_SUB_RULE

@@ -21,7 +21,7 @@ from .test_claim_protection_pacing import ADAPTERS
 @pytest.mark.parametrize("enabled", [False, True])
 def test_two_humans_receive_bot_cut_together_before_any_response(monkeypatch, rule, module, humans, tactical, enabled):
     async def run():
-        b = importlib.import_module(f"server.gamestate.{module}.boardcast")
+        b = importlib.import_module(f"server.gamestate.{module}.broadcast")
         bot_seats = [i for i in range(4) if i not in humans]
         actor, claimant, observer = bot_seats[0], humans[0], humans[1]
         wire = {i: [] for i in range(4)}

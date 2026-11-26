@@ -16,6 +16,8 @@ public sealed class Card3DAppearance
     public float backLayerFraction;
     public int backEdgeMode = 1, frontEdgeMode;
     public bool useBackground, useSolid;
+    // Built-in white-face references replace only the light face materials.
+    public bool faceToneOnly;
     public string backImage = "", backgroundImage = "";
     public bool backImageCustom, backgroundImageCustom;
     public Card3DAppearance Copy() => JsonUtility.FromJson<Card3DAppearance>(JsonUtility.ToJson(this));
@@ -32,6 +34,11 @@ public sealed class Card3DPreset
 public sealed class Card3DPresetData
 {
     public const string BlueId = "default-blue", OrangeId = "default-orange";
+    public const string PorcelainId = "face-porcelain";
+    public const string SoulGlazeId = "face-soul-glaze";
+    public const string CityWhiteId = "face-city-white";
+    public const string TenhouIvoryId = "face-tenhou-ivory";
+    public const string MistWhiteId = "face-mist-white";
     public int version = 2;
     public List<Card3DPreset> custom = new List<Card3DPreset>();
     public string selectedId = BlueId;
@@ -48,9 +55,43 @@ public sealed class Card3DPresetData
     public static bool IsBuiltin(string id)
     {
         if (id == BlueId || id == OrangeId) return true;
+        if (IsFaceTone(id)) return true;
         foreach (var style in HandSurfaceStyles.ReferenceStyles)
             if (id == style.Id) return true;
         return false;
+    }
+    public static bool IsFaceTone(string id)
+    {
+        return id == PorcelainId || id == SoulGlazeId || id == CityWhiteId
+            || id == TenhouIvoryId || id == MistWhiteId;
+    }
+    private static string MigrateLegacyFaceToneId(string id)
+    {
+        switch (id) {
+            case "warm-amber":
+            case "wide-amber": return SoulGlazeId;
+            case "cool-cyan":
+            case "wide-cyan": return CityWhiteId;
+            case "linen-navy": return TenhouIvoryId;
+            default: return id;
+        }
+    }
+    private static Color Html(string value)
+    {
+        Color color;
+        return ColorUtility.TryParseHtmlString(value, out color) ? color : ConfigManager.DefaultTableFaceColor;
+    }
+    private static Card3DPreset FaceTone(string id, string name, string color)
+    {
+        Color face = Html(color);
+        return new Card3DPreset {
+            id = id, name = name,
+            appearance = new Card3DAppearance {
+                faceToneOnly = true, useSolid = true, useBackground = false,
+                face = face, side = face, frontEdge = Color.white,
+                back = ConfigManager.DefaultCardBackColor, backEdge = ConfigManager.DefaultBackEdgeColor
+            }
+        };
     }
     public List<Card3DPreset> All()
     {
@@ -59,19 +100,13 @@ public sealed class Card3DPresetData
             new Card3DPreset { id = BlueId, name = "默认蓝色" },
             new Card3DPreset { id = OrangeId, name = "默认橙色", appearance = new Card3DAppearance { back = orange, backEdge = orange } }
         };
-        foreach (var style in HandSurfaceStyles.ReferenceStyles) {
-            Color back = style.TableBack ?? style.Back;
-            result.Add(new Card3DPreset {
-                id = style.Id, name = style.Name,
-                appearance = new Card3DAppearance {
-                    // The shader multiplies side and frontEdge on the entire pale wall and bevel.
-                    useSolid = true, face = style.TableFace ?? style.Face,
-                    side = style.TableSide ?? style.Side, frontEdge = Color.white,
-                    back = back, backEdge = back,
-                    backLayerFraction = style.BackLayerFraction
-                }
-            });
-        }
+        // These are calibrated input colors for the current white-card shader.
+        // They stay bright and differ only in the 3D face tone.
+        result.Add(FaceTone(PorcelainId, "白釉·瓷白", "#FAFAF8"));
+        result.Add(FaceTone(SoulGlazeId, "白釉·雀魂", "#E7E7E6"));
+        result.Add(FaceTone(CityWhiteId, "白釉·一番街", "#F5F5F5"));
+        result.Add(FaceTone(TenhouIvoryId, "白釉·天凤", "#E2E3D5"));
+        result.Add(FaceTone(MistWhiteId, "白釉·雾灰", "#EEEEEB"));
         result.AddRange(custom);
         return result;
     }
@@ -79,6 +114,17 @@ public sealed class Card3DPresetData
     public void Normalize()
     {
         custom ??= new List<Card3DPreset>(); rotationIds ??= new List<string>();
+        selectedId = MigrateLegacyFaceToneId(selectedId);
+        for (int i = 0; i < rotationIds.Count; i++) rotationIds[i] = MigrateLegacyFaceToneId(rotationIds[i]);
+        confirmedPresets ??= new List<Card3DPreset>();
+        foreach (var preset in confirmedPresets) {
+            if (preset == null) continue;
+            string migrated = MigrateLegacyFaceToneId(preset.id);
+            if (migrated == preset.id) continue;
+            var source = new Card3DPresetData().All().Find(p => p.id == migrated);
+            if (source == null) continue;
+            preset.id = source.id; preset.name = source.name; preset.appearance = source.appearance.Copy();
+        }
         var seen = new HashSet<string>();
         custom.RemoveAll(p => p == null || string.IsNullOrWhiteSpace(p.id) || p.appearance == null || IsBuiltin(p.id) || !seen.Add(p.id));
         foreach (var preset in custom) if (string.IsNullOrWhiteSpace(preset.name)) preset.name = "卡牌预设";
@@ -86,7 +132,6 @@ public sealed class Card3DPresetData
         rotation = (Card3DRotationMode)Mathf.Clamp((int)rotation, 0, 2);
         seen.Clear(); rotationIds.RemoveAll(id => Find(id) == null || !seen.Add(id));
         if (rotation == Card3DRotationMode.Alternating && rotationIds.Count > 2) rotationIds.RemoveRange(2, rotationIds.Count - 2);
-        confirmedPresets ??= new List<Card3DPreset>();
         if (version < 2) {
             version = 2; confirmedRotation = Card3DRotationMode.None;
             confirmedPresets.Clear(); ResetRotationCursor(); // Legacy auto-saved selections remain a draft.

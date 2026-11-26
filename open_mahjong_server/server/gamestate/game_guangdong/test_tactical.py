@@ -5,7 +5,7 @@ import pytest
 
 from .test_timing import clock, state_for_claim, deliver, submit
 from .test_state import HAND, hand, ticks, draw
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..public.ai.get_action import get_action
 from ..public.ask_timing import note_ask_delivered
 from ..public.tactical_claim import get_higher_priority_snapshot
@@ -62,7 +62,7 @@ def test_actual_bot_disables_requested_tactical(uid):
 def test_effective_setting_in_actual_game_info_reconnect_and_replay_title(clock,switch,players,expected):
     async def run():
         state=state_for_claim(tactical_call=switch,player_list=players,step_timer=8,round_timer=31)
-        await boardcast.broadcast_game_start(state)
+        await broadcast.broadcast_game_start(state)
         info=state.game_server.user_id_to_connection[101].websocket.messages[-1]['game_info']
         assert info['tactical_call'] is expected
         fields=state.build_record_title_fields()
@@ -206,7 +206,7 @@ def test_independent_recheck_timeout_then_pung_gets_fresh_configured_step(clock)
         state.game_status = 'waiting_hand_action'
         state.action_dict = state.after_claim_actions()
         state.prepare_action_window()
-        await boardcast.broadcast_ask_hand_action(state)
+        await broadcast.broadcast_ask_hand_action(state)
         packet = state.game_server.user_id_to_connection[102].websocket.messages[-1]['ask_hand_action_info']
         assert (packet['remaining_time_ms'],packet['step_remaining_ms']) == (27500,8000)
         state._reset_hand_runtime()
@@ -302,7 +302,7 @@ def test_real_added_kong_robbed_head_bump_or_nearer_declines(clock,nearer_wins):
         await state.execute_jiagang(0,45)
         assert state.game_status == 'waiting_action_qianggang'
         state.prepare_action_window()
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
         submit(state,2,'hu_second')
         replies,allowed = await state.collect_action_responses()
         async def answer(payload):
@@ -340,7 +340,7 @@ def test_recheck_has_five_seconds_no_bank_debit_and_reconnect(clock):
         assert (info['remaining_time'], info['step_remaining'], info['remaining_time_ms'], info['step_remaining_ms']) == (5, 0, 5000, 0)
         assert info['is_tactical_recheck'] is True
         clock.advance(2.125)
-        await boardcast.reconnected_send_pending_ask_for_viewer(state, 103, 2)
+        await broadcast.reconnected_send_pending_ask_for_viewer(state, 103, 2)
         info = state.game_server.user_id_to_connection[103].websocket.messages[-1]['ask_other_action_info']
         assert (info['remaining_time_ms'], info['step_remaining_ms']) == (2875, 0)
         assert info['is_tactical_recheck'] is True and state._bank_seconds(state.player_list[2]) == bank

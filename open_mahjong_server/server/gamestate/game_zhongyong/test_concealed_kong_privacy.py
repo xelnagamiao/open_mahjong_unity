@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from . import NanqueGameState, ZhongyongGameState
-from .boardcast import ask_action_payload, visible_action_payload
+from .broadcast import ask_action_payload, visible_action_payload
 
 
 TILE = 13

@@ -25,7 +25,7 @@ from ..public.game_record_manager import (
 from ..public.hand_slot_utils import clear_draw_slot
 from ..public.hand_action_notify import apply_player_cut
 from ..public.logic_common import get_index_relative_position
-from .boardcast import broadcast_result
+from .broadcast import broadcast_result
 
 
 logger = logging.getLogger(__name__)
@@ -312,7 +312,7 @@ class ExchangeSixFlow:
             response = self.packet(view_seat, private_notices=connection_user_id == self.state.player_list[view_seat].user_id,
                                    restoring=restoring)
         try:
-            await connection.websocket.send_json(response.dict(exclude_none=True))
+            await connection.websocket.send_json(response.model_dump(exclude_none=True))
         except Exception:
             logger.warning("换六张状态发送失败 user=%s", connection_user_id, exc_info=True)
 

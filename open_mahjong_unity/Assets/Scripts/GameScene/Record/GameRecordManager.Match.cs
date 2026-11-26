@@ -183,17 +183,20 @@ public partial class GameRecordManager {
             var rounds = (JObject)table["payload"]["game_round"];
             var updates = new JArray();
             bool replacedEpoch = renderedMatchEpoch != MatchSession.Epoch(streamId);
+            bool appendOnly = !replacedEpoch && MatchSession.IsAppendOnlyUpdate(streamId);
             bool rebuild = gameRecord == null || replacedEpoch || (!renderedMatchFinal && (string)table["record_state"] == "complete");
             foreach (var round in rounds.Properties()) {
                 int index = (int)table["round_meta"][round.Name]["round_index"];
                 var ticks = (JArray)round.Value["action_ticks"];
                 if (gameRecord != null && gameRecord.gameRound.rounds.TryGetValue(index, out Round old)) {
                     if (old.actionTicks.Count > ticks.Count) { rebuild = true; break; }
-                    // Comparing the already displayed prefix also catches a restarted board.
-                    for (int i = 0; i < old.actionTicks.Count; i++) {
-                        if (!old.actionTicks[i].SequenceEqual(ConvertTickArrayToList((JArray)ticks[i]))) { rebuild = true; break; }
+                    if (!appendOnly) {
+                        // Comparing the already displayed prefix catches a restarted board on non-append updates.
+                        for (int i = 0; i < old.actionTicks.Count; i++) {
+                            if (!old.actionTicks[i].SequenceEqual(ConvertTickArrayToList((JArray)ticks[i]))) { rebuild = true; break; }
+                        }
+                        if (rebuild) break;
                     }
-                    if (rebuild) break;
                     if (old.actionTicks.Count < ticks.Count) updates.Add(new JObject {
                         ["type"] = "ticks", ["round_index"] = index,
                         ["new_ticks"] = new JArray(ticks.Skip(old.actionTicks.Count).Select(t => t.DeepClone())) });

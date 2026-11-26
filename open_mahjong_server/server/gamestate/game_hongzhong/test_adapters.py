@@ -10,7 +10,7 @@ from tests.local_hint_oracles import hongzhong as hints
 from . import bot, result
 from .test_flow import HAND, draw, hand, make_state, ticks
 from ...game_calculation.hongzhong import rules as book
-from ..game_taiwan.boardcast import (broadcast_game_start, send_realtime_spectator_snapshot,
+from ..game_taiwan.broadcast import (broadcast_game_start, send_realtime_spectator_snapshot,
     _build_do_action_payload)
 
 STATE = "server.gamestate.game_hongzhong.HongzhongGameState"

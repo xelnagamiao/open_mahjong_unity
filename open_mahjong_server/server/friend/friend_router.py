@@ -19,7 +19,7 @@ def _require_login(game_server, Connect_id: str) -> Optional[tuple]:
 
 async def _send(websocket, response: Response):
     try:
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
     except Exception as exc:  # pragma: no cover
         logger.warning(f"_send 发送失败: {exc}")
 

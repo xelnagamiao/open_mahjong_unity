@@ -3,7 +3,7 @@ from ..public.settlement_sync import send_game_packet
 
 from copy import deepcopy
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from .state_machine import HongKongPhase as P
 from .action_check import ready_discards
 from ...game_calculation.hongkong import structural_waits

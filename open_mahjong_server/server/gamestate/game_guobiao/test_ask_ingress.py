@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from .test_sanma import sanma
-from . import boardcast
+from . import broadcast
 from .wait_action import wait_action
 from ..public.ai.get_action import get_action
 
@@ -30,9 +30,9 @@ def test_reply_arriving_during_broadcast_is_accepted_and_consumed(sub_rule,phase
             await get_action(state,'immediate-client','pass',False,None,None,None,action_tick=state.server_action_tick-1)
             assert state.action_queues[seat].empty()
             await get_action(state,'immediate-client','pass',False,None,None,None,action_tick=state.server_action_tick)
-        with patch.object(boardcast,'_send_ask_response_to_viewer',deliver):
-            if phase=='hand':await boardcast.broadcast_ask_hand_action(g)
-            else:await boardcast.broadcast_ask_other_action(g)
+        with patch.object(broadcast,'_send_ask_response_to_viewer',deliver):
+            if phase=='hand':await broadcast.broadcast_ask_hand_action(g)
+            else:await broadcast.broadcast_ask_other_action(g)
         assert ingress==[([seat],13)]
         assert g.action_queues[seat].qsize()==1
         await asyncio.wait_for(wait_action(g),1)

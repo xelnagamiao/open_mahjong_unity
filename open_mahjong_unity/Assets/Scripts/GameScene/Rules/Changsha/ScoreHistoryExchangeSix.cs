@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 public static partial class ScoreHistoryRecordSettlementExtractor {
     // 计分板使用服务器记录的胡牌手牌和付款明细，不从换牌前的起手牌重新算分。
-    private static void ExtractExchangeSixRoundRows(Round round, Dictionary<string, object> title, List<RecordScoreRow> output) {
+    internal static void ExtractExchangeSixRoundRows(Round round, Dictionary<string, object> title, List<RecordScoreRow> output) {
         ChangshaExchangeSixSettlement[] wins = null;
         int[] drawChanges = null;
         foreach (var tick in round.actionTicks) {

@@ -9,7 +9,7 @@ from .test_flow import make_state,indicator,hand,draw,HAND,PURE
 from . import bot
 from ...room.wuhan_room import WuhanRoomValidator
 from ..public.ai.get_action import get_ai_action,get_action
-from ..game_taiwan.boardcast import broadcast_game_start,send_realtime_spectator_snapshot,_build_do_action_payload
+from ..game_taiwan.broadcast import broadcast_game_start,send_realtime_spectator_snapshot,_build_do_action_payload
 
 
 @pytest.mark.parametrize('kwargs',[{'sub_rule':'wuhan/standard'},{'use_flowers':True},{'open_cuohe':True},

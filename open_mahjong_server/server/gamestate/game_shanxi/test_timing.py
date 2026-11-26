@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from .test_state import BASE, make_state, ready
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_ask_hand_action, broadcast_ask_other_action,
     reconnected_send_pending_ask_for_viewer,
 )

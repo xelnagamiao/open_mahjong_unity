@@ -20,7 +20,7 @@ def test_ready_router_preserves_other_seats_and_restoration(rule, count):
         server = build_game_server(db, messages=[])
         if rule == "guobiao":
             from ..game_guobiao.GuobiaoGameState import GuobiaoGameState
-            from ..game_guobiao.boardcast import broadcast_result
+            from ..game_guobiao.broadcast import broadcast_result
             room = build_room_data(seed=20261115, room_id="825016", tips=False)
             room.update(sub_rule="guobiao/sanma", player_list=room["player_list"][:3])
             state = GuobiaoGameState(server, room, server.calculation_service, db, "variant-ready")

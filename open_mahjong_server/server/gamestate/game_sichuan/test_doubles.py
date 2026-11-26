@@ -7,7 +7,7 @@ import pytest
 
 from .SichuanGameState import SichuanGameState
 from .action_check import check_hepai, refresh_waiting_tiles
-from .boardcast import _base_game_info, _build_players_info
+from .broadcast import _base_game_info, _build_players_info
 from .shunhe import apply_passed_win_shunhe, record_passed_self_draw_shunhe
 from ..public.game_record_manager import init_game_record, init_game_round
 from ..verifier.host import build_db_manager, build_game_server, build_room_data

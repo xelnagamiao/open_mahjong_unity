@@ -1,7 +1,7 @@
 """Public gold/flower state and private declaration choices share one wire model."""
 from ..public.settlement_sync import send_game_packet
 import math
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from .actions import legal_cuts, kong_tiles, declaration_cuts
 from .client_context import local_context
 from .state_machine import Phase as P

@@ -133,7 +133,7 @@ def test_timeout_completes_exchange_when_some_players_do_not_submit(responders):
                 await enqueue(current, i, current.xueliu_opening_action, selected_tiles=[11,12,13])
             # 首轮读取有效提交，第二轮进入自动选牌。
             asyncio.get_running_loop().call_soon(lambda: now.__setitem__(0, 111.0))
-        with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask), \
+        with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', ask), \
              patch(__package__+'.XueliuGameState.time.time', lambda: now[0]):
             await state._xueliu_throw_three_phase()
         assert [len(p.hand_tiles) for p in state.player_list] == [14,13,13,13]
@@ -156,7 +156,7 @@ def test_exchange_opening_drains_old_requests_and_rejects_invalid_batch_before_v
                 await enqueue(current, i, current.xueliu_opening_action, selected_tiles=[11,12,21])
                 await enqueue(current, i, current.xueliu_opening_action,
                     selected_tiles=[21,22,23], _action_tick=current.server_action_tick)
-        with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask):
+        with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', ask):
             await state._xueliu_throw_three_phase()
         assert all(p.xueliu_throw_tiles == [21,22,23] for p in state.player_list)
         assert state.waiting_players_list == [] and all(not actions for actions in state.action_dict.values())
@@ -181,7 +181,7 @@ def test_invalid_exchange_choice_keeps_the_player_pending_until_a_later_valid_re
                 assert current.action_dict[0] == [current.xueliu_opening_action]
                 await enqueue(current, 0, current.xueliu_opening_action, selected_tiles=[21,22,23])
             retry = asyncio.create_task(correct())
-        with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask):
+        with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', ask):
             await asyncio.wait_for(state._xueliu_throw_three_phase(), state.exchange_animation_seconds + 2)
             await retry
         assert state.player_list[0].xueliu_throw_tiles == [21,22,23]

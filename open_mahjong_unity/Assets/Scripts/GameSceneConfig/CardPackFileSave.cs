@@ -14,6 +14,7 @@ public sealed class CardPackFileSave : MonoBehaviour
         try {
 #if UNITY_WEBGL && !UNITY_EDITOR
             var request = new GameObject("CardPackExport_" + Guid.NewGuid().ToString("N")).AddComponent<CardPackFileSave>();
+            request.Invoke(nameof(OnTimeout), 10f);
             DownloadCardPack(request.name, nameof(OnSaved), filename, bytes, bytes.Length);
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
             string path = Path.Combine(Application.temporaryCachePath, Guid.NewGuid().ToString("N") + "-" + filename);
@@ -30,5 +31,17 @@ public sealed class CardPackFileSave : MonoBehaviour
 #endif
         } catch (Exception e) { SceneConfigUi.ShowTip("导出失败：" + e.Message); }
     }
-    public void OnSaved(string result) { SceneConfigUi.ShowTip("牌包已导出"); Destroy(gameObject); }
+    private bool finished;
+    public void OnSaved(string result) {
+        if (finished) return;
+        finished = true;
+        CancelInvoke(nameof(OnTimeout));
+        SceneConfigUi.ShowTip(result == "failed" ? "导出失败" : "牌包已导出");
+        Destroy(gameObject);
+    }
+    private void OnTimeout() {
+        if (finished) return;
+        finished = true;
+        Destroy(gameObject);
+    }
 }

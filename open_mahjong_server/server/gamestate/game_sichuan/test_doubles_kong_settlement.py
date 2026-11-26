@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from .test_doubles import make_state, settle
-from .boardcast import _build_players_info
+from .broadcast import _build_players_info
 
 
 def kong(state, kind, payer=None, tile=11):

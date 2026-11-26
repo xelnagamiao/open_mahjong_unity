@@ -214,7 +214,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 放置3D卡牌 id-位置-类型-玩家位置
-    private void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false, bool isRiichi = false, bool usePresentationCopy = false) {
+    internal void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false, bool isRiichi = false, bool usePresentationCopy = false) {
         Debug.Log($"Set3DTile:{tileId} {SetType}, {PlayerPosition}, riichi={isRiichi}");
 
         Vector3 currentPosition = SetPosition.position;

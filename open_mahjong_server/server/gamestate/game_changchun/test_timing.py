@@ -7,7 +7,7 @@ import pytest
 
 from .test_state import make_state, hand
 from .test_integration import room_manager
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..game_taiwan.wait_action import _build_ask_deadlines, _collect_responses
 from ..public.ask_timing import begin_ask_round, note_ask_delivered
 from ...room.changchun_room import handle_create_changchun_room
@@ -165,11 +165,11 @@ def test_full_snapshot_serializes_fractional_bank_without_changing_authoritative
         socket = SimpleNamespace(send_json=AsyncMock())
         state.game_server.user_id_to_connection[uid] = SimpleNamespace(websocket=socket)
         if kind == 'player_reconnect':
-            await boardcast.send_reconnect_game_state(state, state.player_list[1])
+            await broadcast.send_reconnect_game_state(state, state.player_list[1])
         elif kind == 'spectator_snapshot':
-            await boardcast.send_realtime_spectator_snapshot(state, uid, 1)
+            await broadcast.send_realtime_spectator_snapshot(state, uid, 1)
         else:
-            await boardcast.broadcast_game_start(state)
+            await broadcast.broadcast_game_start(state)
         packets = [c.args[0] for c in socket.send_json.call_args_list]
         start = next(p['game_info'] for p in packets if p.get('game_info'))
         assert start['players_info'][1]['remaining_time'] == 20
@@ -197,15 +197,15 @@ def test_fractional_bank_and_reconnect_send_exact_wire_budget(status, seat, fiel
         with patch('time.time', side_effect=clock.now), patch('time.monotonic', side_effect=clock.now):
             state.prepare_action_window()
             if seat == 0:
-                await boardcast.broadcast_ask_hand_action(state)
+                await broadcast.broadcast_ask_hand_action(state)
             else:
-                await boardcast.broadcast_ask_other_action(state)
+                await broadcast.broadcast_ask_other_action(state)
             first = socket.send_json.call_args.args[0][field]
             assert first.get('remaining_time_ms') == 19250
             assert first.get('step_remaining_ms') == 5000
             deadline = state.action_clock_manager.windows[seat].deadline
             clock.value += elapsed
-            await boardcast.reconnected_send_pending_ask_for_viewer(state, uid, seat)
+            await broadcast.reconnected_send_pending_ask_for_viewer(state, uid, seat)
             info = socket.send_json.call_args.args[0][field]
             assert info.get('remaining_time_ms') == bank_ms
             assert info.get('step_remaining_ms') == step_ms
@@ -301,7 +301,7 @@ def test_reconnect_does_not_reset_or_double_debit_and_does_not_reask_resolved_se
         async def reconnect(clock):
             delivered_before.update(state._ask_delivered_at)
             for i in (1, 2):
-                await boardcast.reconnected_send_pending_ask_for_viewer(state, state.player_list[i].user_id, i)
+                await broadcast.reconnected_send_pending_ask_for_viewer(state, state.player_list[i].user_id, i)
             assert state._ask_delivered_at == delivered_before
             assert state.player_list[1].remaining_time == 17
         (responses, _), _ = await collect_at(state,
@@ -443,7 +443,7 @@ def test_production_broadcast_admits_early_human_reply_and_preserves_per_seat_de
         state.send_to_realtime_spectators = spectators
         with patch('time.time', side_effect=clock.now), patch('time.monotonic', side_effect=clock.now):
             state.prepare_action_window()
-            await boardcast.broadcast_ask_other_action(state)
+            await broadcast.broadcast_ask_other_action(state)
             clock.value = 1032
             await get_action(state, 'c2', 'pass', False, None, None, None,
                              action_tick=state.server_action_tick)
@@ -477,7 +477,7 @@ def test_reconnect_and_realtime_spectator_use_same_remaining_bank_and_step(statu
             deadline = state.action_clock_manager.windows[seat].deadline
             clock.value += elapsed
             for uid in ids:
-                await boardcast.reconnected_send_pending_ask_for_viewer(state, uid, seat)
+                await broadcast.reconnected_send_pending_ask_for_viewer(state, uid, seat)
             first = [socket.send_json.call_args.args[0][field] for socket in sockets]
             assert [(a['remaining_time'],a['step_remaining']) for a in first] == [expected] * 2
             assert state.player_list[seat].remaining_time == bank

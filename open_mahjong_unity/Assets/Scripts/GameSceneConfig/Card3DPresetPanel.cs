@@ -66,7 +66,7 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         backRotation.onClick.AddListener(() => { CancelRotation(); owner.ShowCardBackPanel(); });
         createCancel.onClick.AddListener(() => createModal.gameObject.SetActive(false));
         createSave.onClick.AddListener(SaveCreated);
-        presetName.onSubmit.AddListener(_ => SaveCreated());
+        presetName.onSubmit.AddListener(_ => { if (InputFieldFeedback.IsDesktopKeyboardSubmit() && !presetName.wasCanceled) SaveCreated(); });
         rotationTrigger.triggers.Clear();
         presets.interactable = rotation.interactable = add.interactable = remove.interactable = false;
         BindLibrary();
@@ -282,7 +282,7 @@ public sealed partial class Card3DPresetPanel : MonoBehaviour
         int number = 1; var names = new HashSet<string>(library.Data.All().Select(p=>p.name));
         while (names.Contains("卡牌预设 " + number)) number++;
         presetName.SetTextWithoutNotify("卡牌预设 " + number);
-        createModal.SetAsLastSibling(); createModal.gameObject.SetActive(true); presetName.ActivateInputField();
+        createModal.SetAsLastSibling(); createModal.gameObject.SetActive(true); InputFieldFeedback.ActivateIfDesktop(presetName);
     }
     private void SaveCreated()
     {

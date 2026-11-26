@@ -24,6 +24,7 @@ public partial class GameRecordManager {
             }
             return true;
         },
+        GetVisibleIndicators = () => recordRiichiDoraIndicators,
     };
 
     private bool IsSanmaRecord() => ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "riichi/sanma";

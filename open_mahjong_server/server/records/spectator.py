@@ -3,11 +3,13 @@ import asyncio
 from collections import deque
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
+import hashlib
 import logging
 import time
 import uuid
 
-from .format import build_match
+from .format import board_from_record, build_match, identity
+from .wall_alignment import RecordConflict, RoundOriginTracker
 from ..gamestate.public.connection_delivery import send_bounded
 from ..gamestate.public.spectator_rules import duplicate_spectator_blocked, too_many_ai_for_spectator
 
@@ -29,10 +31,10 @@ class PublishedStream:
         self.events.clear()
         self.body = deepcopy(body)
 
-    def publish(self, event, body):
+    def publish(self, event, body, *, owned_body=False):
         self.seq += 1
         self.events.append((self.seq, deepcopy(event)))
-        self.body = deepcopy(body)
+        self.body = body if owned_body else deepcopy(body)
 
     def fork(self):
         # Bodies and retained events are replaced or appended, never edited in place.
@@ -61,7 +63,7 @@ def snapshot_fields(fields, previous):
             for key, value in fields.items()}
 
 
-def visible_record(state, now, previous):
+def visible_record(state, now, previous, *, cursors=None):
     source = state.spectator_manager
     cutoff = now - source.spectator_delay
     if not source.game_title:
@@ -72,8 +74,16 @@ def visible_record(state, now, previous):
             break
         # Recorded ticks are append-only. Freeze the visible range before yielding
         # to another coroutine, including when only the delay cutoff has advanced.
-        entries = [e for e in source.round_ticks.get(index, ())
-                   if e["timestamp"] <= cutoff and e["tick"][0] not in ("ask_hand", "ask_other")]
+        raw_ticks = source.round_ticks.get(index, ())
+        raw_cursor = 0
+        entries = []
+        for i, e in enumerate(raw_ticks):
+            if e["timestamp"] <= cutoff:
+                raw_cursor = i + 1
+                if e["tick"][0] not in ("ask_hand", "ask_other"):
+                    entries.append(e)
+        if cursors is not None:
+            cursors[index] = raw_cursor
         key = f"round_index_{index}"
         rd = snapshot_fields(header["data"], previous.get("game_round", {}).get(key, {}))
         rd["action_ticks"] = [e["tick"] for e in entries]
@@ -103,11 +113,92 @@ def table_body(table):
             "table_phase": "ended" if table["record_state"] == "complete" else "playing"}
 
 
+@dataclass
+class _RoundFeedState:
+    round_index: int
+    round_key: str
+    header_data: dict
+    raw_cursor: int
+    table_round_id: str
+    board_instance_id: object
+    tracker: object
+
+
+@dataclass
+class _TableFeedState:
+    game_title: dict
+    players_settings: list
+    game_id: object
+    rounds: dict
+
+    def shallow_copy(self):
+        return _TableFeedState(self.game_title, self.players_settings, self.game_id, dict(self.rounds))
+
+
+def _resolve_layout(title, header_data):
+    layout = header_data.get("duplicate_wall_layout") or (title.get("duplicate_profile") or {}).get("wall_layout", "standard")
+    if title.get("sub_rule") == "sichuan/xueliu_doubles_duplicate":
+        layout = "xueliu"
+    return layout
+
+
+def _board_for_number(snapshot, title, header_data, number):
+    if snapshot and number <= len(snapshot.get("boards", [])):
+        return snapshot["boards"][number - 1]
+    return board_from_record(title, header_data, number)
+
+
+def _seed_table_states(sources, raw_cursors, bundle, snapshot):
+    """Build incremental per-table state from a full build_match() result."""
+    states = {}
+    if not bundle:
+        return states
+    for table, entry in sources.items():
+        tr = bundle["tables"].get(table)
+        if not tr or tr.get("record_state") == "missing":
+            continue
+        raw_rec = entry["record"]
+        title = deepcopy(raw_rec["game_title"])
+        players_settings = deepcopy(raw_rec.get("players_settings", []))
+        rounds = {}
+        table_cursors = raw_cursors.get(table, {})
+        for key, rd in tr["payload"]["game_round"].items():
+            meta = tr["round_meta"][key]
+            index = meta["round_index"]
+            header_data = {k: deepcopy(v) for k, v in raw_rec["game_round"][key].items()
+                           if k not in ("action_ticks", "action_times_ms")}
+            instance = meta.get("board_instance_id")
+            tracker = None
+            if instance:
+                number = header_data.get("current_round", index)
+                layout = _resolve_layout(title, header_data)
+                board = _board_for_number(snapshot, title, header_data, number)
+                tracker = RoundOriginTracker(rd, instance, layout=layout, board=board)
+                tracker.advance(rd["action_ticks"], rd.get("action_times_ms"))
+            rounds[index] = _RoundFeedState(
+                round_index=index,
+                round_key=key,
+                header_data=header_data,
+                raw_cursor=table_cursors.get(index, len(rd["action_ticks"])),
+                table_round_id=meta["table_round_id"],
+                board_instance_id=instance,
+                tracker=tracker,
+            )
+        states[table] = _TableFeedState(title, players_settings, entry.get("game_id"), rounds)
+    return states
+
+
+def _rolling_partial_sha(previous_sha, round_count, head_node, delta_count):
+    token = f"{previous_sha}:{round_count}:{head_node}:{delta_count}".encode("ascii")
+    return hashlib.sha256(token).hexdigest()
+
+
 class MatchFeed:
     def __init__(self, pair):
         self.pair = pair
         self.streams = {}
-        self._last_inputs = None
+        self._table_states = {}
+        self._last_snapshot = None
         self._refresh_lock = asyncio.Lock()
         self.last_poll = 0.0
         self.last_used = time.monotonic()
@@ -118,42 +209,178 @@ class MatchFeed:
             self.last_used = time.monotonic()
             if now is None and self.streams and self.last_used - self.last_poll < 0.25:
                 return self.streams
-            inputs = self._released_inputs(time.time() if now is None else now)
-            if inputs != self._last_inputs:
-                sources, snapshot, complete = inputs
-                streams = await asyncio.to_thread(self._build_streams, sources, snapshot, complete,
-                                                  self.streams, self.complete)
-                self.streams, self.complete = streams, complete
-                self._last_inputs = inputs
+            if self.complete:
+                self.last_poll = self.last_used
+                return self.streams
+            plan = self._plan_refresh(time.time() if now is None else now)
+            if plan is not None:
+                streams, table_states, snapshot, complete = await asyncio.to_thread(
+                    self._build_streams, plan, self.streams, self._table_states, self.complete
+                )
+                self.streams = streams
+                self._table_states = table_states
+                self._last_snapshot = snapshot
+                self.complete = complete
             self.last_poll = self.last_used
             return self.streams
 
-    def _released_inputs(self, now):
+    def _collect_full_sources(self, now, complete):
         data = self.pair.data
         states = self.pair.states
         finals = data.get("final_records", {})
-        previous_sources, previous_snapshot, _ = self._last_inputs or ({}, {}, False)
-        complete = (self.pair.completed and all(t in states and t in finals and released_all(states[t], now)
-                                              for t in ("open", "closed")))
         sources = {}
+        raw_cursors = {}
         for table, state in states.items():
             if (table not in ("open", "closed") or duplicate_spectator_blocked(state)
                     or too_many_ai_for_spectator(state.player_list)):
                 continue
-            previous = previous_sources.get(table, {}).get("record", {})
-            payload = finals[table] if complete else visible_record(state, now, previous)
+            cursors = {}
+            payload = finals[table] if complete else visible_record(state, now, {}, cursors=cursors)
             if payload is not None:
                 sources[table] = {"record": payload, "game_id": data.get("record_ids", {}).get(table),
                                   "players": data.get("final_players", {}).get(table) if complete else None}
+                raw_cursors[table] = cursors
+        return sources, raw_cursors
+
+    def _plan_refresh(self, now):
+        data = self.pair.data
+        states = self.pair.states
+        finals = data.get("final_records", {})
+        complete = (self.pair.completed and all(t in states and t in finals and released_all(states[t], now)
+                                                for t in ("open", "closed")))
         # PairedMatch replaces its persisted state on update. Capture only the
         # fields used by this view, excluding live scores and private pending actions.
         fields = ("id", "profile", "planned_boards", "board_instances", "boards", "sync_mode")
+        previous_snapshot = self._last_snapshot or {}
         snapshot = snapshot_fields({k: data[k] for k in fields if k in data}, previous_snapshot)
         snapshot["phase"] = "completed" if complete else ("interrupted" if data["status"] == "interrupted" else "running")
-        return sources, snapshot, complete
+        snapshot_changed = self._last_snapshot is None or snapshot != self._last_snapshot
+
+        if complete or not self.streams:
+            sources, raw_cursors = self._collect_full_sources(now, complete)
+            return ("full", sources, raw_cursors, snapshot, complete)
+
+        prev_inst = previous_snapshot.get("board_instances", [])
+        cur_inst = snapshot.get("board_instances", [])
+        prev_boards = previous_snapshot.get("boards", [])
+        cur_boards = snapshot.get("boards", [])
+        needs_full = (
+            snapshot.get("id") != previous_snapshot.get("id")
+            or snapshot.get("profile") != previous_snapshot.get("profile")
+            or snapshot.get("sync_mode") != previous_snapshot.get("sync_mode")
+            or len(cur_inst) < len(prev_inst)
+            or cur_inst[:len(prev_inst)] != prev_inst
+            or len(cur_boards) < len(prev_boards)
+            or cur_boards[:len(prev_boards)] != prev_boards
+        )
+
+        eligible = {}
+        for table, state in states.items():
+            if (table not in ("open", "closed") or duplicate_spectator_blocked(state)
+                    or too_many_ai_for_spectator(state.player_list)):
+                continue
+            eligible[table] = state
+
+        table_deltas = {}
+        if not needs_full:
+            for table in ("open", "closed"):
+                tstate = self._table_states.get(table)
+                state = eligible.get(table)
+                if state is None:
+                    if tstate is not None:
+                        needs_full = True
+                        break
+                    continue
+                source = state.spectator_manager
+                cutoff = now - source.spectator_delay
+                if not source.game_title:
+                    if tstate is not None:
+                        needs_full = True
+                        break
+                    continue
+                if tstate is None:
+                    if any(h["timestamp"] <= cutoff for h in source.round_headers.values()):
+                        needs_full = True
+                        break
+                    continue
+                game_id = data.get("record_ids", {}).get(table)
+                if (source.game_title != tstate.game_title
+                        or source.players_settings != tstate.players_settings
+                        or game_id != tstate.game_id):
+                    needs_full = True
+                    break
+
+                released_indices = []
+                for index, header in sorted(source.round_headers.items()):
+                    if header["timestamp"] > cutoff:
+                        break
+                    released_indices.append((index, header))
+                released_set = {idx for idx, _ in released_indices}
+                if any(idx not in released_set for idx in tstate.rounds):
+                    needs_full = True
+                    break
+
+                appends = []
+                new_rounds = []
+                for index, header in released_indices:
+                    raw_ticks = source.round_ticks.get(index, ())
+                    if index in tstate.rounds:
+                        rstate = tstate.rounds[index]
+                        if header["data"] != rstate.header_data or len(raw_ticks) < rstate.raw_cursor:
+                            needs_full = True
+                            break
+                        new_cursor = rstate.raw_cursor
+                        delta_ticks = []
+                        delta_times_ms = []
+                        for i in range(rstate.raw_cursor, len(raw_ticks)):
+                            entry = raw_ticks[i]
+                            if entry["timestamp"] > cutoff:
+                                break
+                            new_cursor = i + 1
+                            tick = entry["tick"]
+                            if tick[0] not in ("ask_hand", "ask_other"):
+                                delta_ticks.append(deepcopy(tick))
+                                delta_times_ms.append(int(entry["timestamp"] * 1000))
+                        if delta_ticks:
+                            appends.append((index, new_cursor, delta_ticks, delta_times_ms))
+                        elif new_cursor > rstate.raw_cursor:
+                            # Only private ask ticks crossed cutoff; advance cursor without rebuilding.
+                            rstate.raw_cursor = new_cursor
+                    else:
+                        new_cursor = 0
+                        ticks = []
+                        times_ms = []
+                        for i, entry in enumerate(raw_ticks):
+                            if entry["timestamp"] > cutoff:
+                                break
+                            new_cursor = i + 1
+                            tick = entry["tick"]
+                            if tick[0] not in ("ask_hand", "ask_other"):
+                                ticks.append(deepcopy(tick))
+                                times_ms.append(int(entry["timestamp"] * 1000))
+                        new_rounds.append((index, new_cursor, deepcopy(header["data"]), ticks, times_ms))
+                if needs_full:
+                    break
+                if appends or new_rounds:
+                    table_deltas[table] = (appends, new_rounds)
+
+        if needs_full:
+            sources, raw_cursors = self._collect_full_sources(now, False)
+            return ("full", sources, raw_cursors, snapshot, False)
+        if not table_deltas and not snapshot_changed:
+            return None
+        return ("incremental", table_deltas, snapshot, False)
 
     @staticmethod
-    def _build_streams(sources, snapshot, complete, previous_streams, was_complete):
+    def _build_streams(plan, previous_streams, previous_table_states, was_complete):
+        if plan[0] == "incremental":
+            _, table_deltas, snapshot, _ = plan
+            return MatchFeed._build_incremental(table_deltas, snapshot, previous_streams, previous_table_states)
+        _, sources, raw_cursors, snapshot, complete = plan
+        return MatchFeed._build_full(sources, raw_cursors, snapshot, complete, previous_streams, was_complete)
+
+    @staticmethod
+    def _build_full(sources, raw_cursors, snapshot, complete, previous_streams, was_complete):
         streams = {key: stream.fork() for key, stream in previous_streams.items()}
         bundle = build_match(sources, match_id=snapshot["id"], snapshot=snapshot, complete=complete) if sources else None
         for table in ("open", "closed"):
@@ -187,7 +414,177 @@ class MatchFeed:
             streams["match"].publish({"kind": "manifest_updated", "manifest": manifest}, manifest)
         if complete and not was_complete:
             streams["match"].publish({"kind": "record_ready", "manifest": manifest}, manifest)
-        return streams
+        table_states = {} if complete else _seed_table_states(sources, raw_cursors, bundle, snapshot)
+        return streams, table_states, snapshot, complete
+
+    @staticmethod
+    def _build_incremental(table_deltas, snapshot, previous_streams, previous_table_states):
+        streams = {key: stream.fork() for key, stream in previous_streams.items()}
+        table_states = {t: ts.shallow_copy() for t, ts in previous_table_states.items()}
+        match_id = snapshot["id"]
+        old_manifest = streams["match"].body
+        manifest = None
+        catalog_by_no = {b["board_no"]: b for b in old_manifest.get("board_catalog", [])}
+
+        if (old_manifest.get("phase") != snapshot["phase"]
+                or old_manifest.get("planned_boards") != snapshot["planned_boards"]):
+            manifest = {**old_manifest, "phase": snapshot["phase"], "planned_boards": snapshot["planned_boards"]}
+
+        for table, (appends, new_rounds) in table_deltas.items():
+            tstate = table_states[table]
+            stream = streams[table]
+            old_body = stream.body
+            old_tr = old_body["table_record"]
+            old_payload = old_tr["payload"]
+            new_rounds_dict = dict(old_payload["game_round"])
+            new_round_meta = dict(old_tr["round_meta"])
+            new_payload = {**old_payload, "game_round": new_rounds_dict}
+            new_tr = {**old_tr, "payload": new_payload, "round_meta": new_round_meta}
+            events = []
+            total_added = 0
+
+            for index, new_cursor, delta_ticks, delta_times_ms in appends:
+                rstate = tstate.rounds[index]
+                key = rstate.round_key
+                old_rd = new_rounds_dict[key]
+                old_meta = new_round_meta[key]
+                start = len(old_rd["action_ticks"])
+                if rstate.tracker is not None:
+                    tracker = rstate.tracker.fork()
+                    delta_meta = tracker.advance(delta_ticks, delta_times_ms)
+                    alignment_status = tracker.alignment_status
+                    alignment_reason = tracker.alignment_reason
+                else:
+                    tracker = None
+                    delta_meta = [
+                        {"actor_original_seat": None,
+                         "occurred_at_ms": ts if type(ts) is int and ts >= 0 else None,
+                         "wall_ref": None, "wall_ref_basis": "unavailable"}
+                        for ts in delta_times_ms
+                    ]
+                    alignment_status = old_meta["alignment_status"]
+                    alignment_reason = old_meta["alignment_reason"]
+
+                new_rounds_dict[key] = {
+                    **old_rd,
+                    "action_ticks": old_rd["action_ticks"] + delta_ticks,
+                    "action_times_ms": old_rd.get("action_times_ms", []) + delta_times_ms,
+                }
+                new_round_meta[key] = {
+                    **old_meta,
+                    "action_meta": old_meta["action_meta"] + delta_meta,
+                    "legacy_node_map": old_meta["legacy_node_map"] + list(range(start + 1, start + len(delta_ticks) + 1)),
+                    "alignment_status": alignment_status,
+                    "alignment_reason": alignment_reason,
+                }
+                tstate.rounds[index] = _RoundFeedState(
+                    round_index=index,
+                    round_key=key,
+                    header_data=rstate.header_data,
+                    raw_cursor=new_cursor,
+                    table_round_id=rstate.table_round_id,
+                    board_instance_id=rstate.board_instance_id,
+                    tracker=tracker,
+                )
+                total_added += len(delta_ticks)
+                events.append({
+                    "kind": "actions_appended",
+                    "table_round_id": rstate.table_round_id,
+                    "start_node": start,
+                    "ticks": delta_ticks,
+                    "action_meta": delta_meta,
+                })
+
+            for index, new_cursor, header_data, ticks, times_ms in new_rounds:
+                key = f"round_index_{index}"
+                number = header_data.get("current_round", index)
+                if type(number) is not int or number < 1:
+                    raise RecordConflict("Invalid paired board number")
+                descriptor = (snapshot["board_instances"][number - 1]
+                              if number <= len(snapshot.get("board_instances", [])) else None)
+                instance = header_data.get("board_instance_id") or (descriptor or {}).get("board_instance_id")
+                if descriptor and instance and instance != descriptor["board_instance_id"]:
+                    raise RecordConflict("Snapshot and live record board attempts disagree")
+                existing_cat = catalog_by_no.get(number)
+                if existing_cat and instance and existing_cat["board_instance_id"] != instance:
+                    raise RecordConflict("Paired records refer to different board attempts")
+
+                layout = _resolve_layout(tstate.game_title, header_data)
+                board = _board_for_number(snapshot, tstate.game_title, header_data, number)
+                round_id = header_data.get("table_round_id") or identity("round", match_id, table, instance or key)
+                node_map = list(range(len(ticks) + 1))
+                tracker = None
+                if instance:
+                    tracker = RoundOriginTracker(header_data, instance, layout=layout, board=board)
+                    action_meta = tracker.advance(ticks, times_ms)
+                    initial_anchors = tracker.initial_anchors
+                    alignment_status = tracker.alignment_status
+                    alignment_reason = tracker.alignment_reason
+                else:
+                    action_meta = [
+                        {"actor_original_seat": None,
+                         "occurred_at_ms": ts if type(ts) is int and ts >= 0 else None,
+                         "wall_ref": None, "wall_ref_basis": "unavailable"}
+                        for ts in times_ms
+                    ]
+                    initial_anchors = []
+                    alignment_status = "unavailable"
+                    alignment_reason = "board_instance_unverified"
+
+                new_rd = {**header_data, "action_ticks": ticks, "action_times_ms": times_ms}
+                new_meta = {
+                    "table_round_id": round_id,
+                    "board_instance_id": instance,
+                    "round_index": index,
+                    "legacy_node_map": node_map,
+                    "initial_anchors": initial_anchors,
+                    "action_meta": action_meta,
+                    "alignment_status": alignment_status,
+                    "alignment_reason": alignment_reason,
+                }
+                new_rounds_dict[key] = new_rd
+                new_round_meta[key] = new_meta
+                tstate.rounds[index] = _RoundFeedState(
+                    round_index=index,
+                    round_key=key,
+                    header_data=header_data,
+                    raw_cursor=new_cursor,
+                    table_round_id=round_id,
+                    board_instance_id=instance,
+                    tracker=tracker,
+                )
+                if instance and number not in catalog_by_no:
+                    attempt = descriptor.get("attempt") if descriptor else header_data.get("board_attempt")
+                    catalog_by_no[number] = {
+                        "board_instance_id": instance,
+                        "board_no": number,
+                        "attempt": attempt,
+                        "wall_layout": layout,
+                        "status": "playing",
+                    }
+                    base = manifest if manifest is not None else dict(old_manifest)
+                    base["board_catalog"] = [catalog_by_no[k] for k in sorted(catalog_by_no)]
+                    manifest = base
+                total_added += max(1, len(ticks))
+                events.append({
+                    "kind": "round_opened",
+                    "round_key": key,
+                    "round_header": new_rd,
+                    "round_meta": new_meta,
+                })
+
+            new_body = table_body(new_tr)
+            head_node = (new_body["released_head"] or {}).get("node", 0)
+            new_tr["source_sha256"] = _rolling_partial_sha(
+                old_tr["source_sha256"], len(new_rounds_dict), head_node, total_added
+            )
+            for event in events:
+                stream.publish(event, new_body, owned_body=True)
+
+        if manifest is not None and manifest != old_manifest:
+            streams["match"].publish({"kind": "manifest_updated", "manifest": manifest}, manifest, owned_body=True)
+
+        return streams, table_states, snapshot, False
 
     @staticmethod
     def _update_table(streams, table, body):
@@ -229,9 +626,9 @@ class MatchFeed:
                                "start_node": start, "ticks": rd["action_ticks"][start:],
                                "action_meta": new["round_meta"][key]["action_meta"][start:]})
         for event in events:
-            stream.publish(event, body)
+            stream.publish(event, body, owned_body=True)
         if not events and old != new:
-            stream.publish({"kind": "table_available", "body": body}, body)
+            stream.publish({"kind": "table_available", "body": body}, body, owned_body=True)
 
 
 @dataclass

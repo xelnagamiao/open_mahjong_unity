@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional
 import uuid
 
-from pydantic import validator
+from pydantic import field_validator, ValidationInfo, Field
 
 from .room_validators import GBRoomValidator
 from ..game_calculation.hongkong.models import HongKongRules, PROFILES, SUPPORTED_PROFILES
@@ -13,21 +13,24 @@ from ..response import Response
 class HongKongRoomValidator(GBRoomValidator):
     tips: bool = True
     sub_rule: str = PROFILES[0]
-    detailed_config: Optional[Dict[str, Any]] = None
+    detailed_config: Optional[Dict[str, Any]] = Field(default=None, validate_default=True)
     claim_protection: bool = False
 
-    @validator('sub_rule')
+    @field_validator('sub_rule')
+    @classmethod
     def validate_hongkong_profile(cls, value):
         if value not in SUPPORTED_PROFILES:
             raise ValueError('香港麻将子规则须为清章、新章十三张或新章十六张')
         return value
 
-    @validator('detailed_config', pre=True, always=True)
-    def validate_hongkong_config(cls, value, values):
-        rules = HongKongRules.from_room(dict(sub_rule=values.get('sub_rule',PROFILES[0]),detailed_config=value))
+    @field_validator('detailed_config', mode="before")
+    @classmethod
+    def validate_hongkong_config(cls, value, info: ValidationInfo):
+        rules = HongKongRules.from_room(dict(sub_rule=info.data.get('sub_rule',PROFILES[0]),detailed_config=value))
         return rules.room_config()
 
-    @validator('open_cuohe', 'tactical_call')
+    @field_validator('open_cuohe', 'tactical_call')
+    @classmethod
     def no_illegal_hand_variants(cls, value):
         if value:
             raise ValueError('本规则版本仅接受合法和牌及正常吃碰杠')

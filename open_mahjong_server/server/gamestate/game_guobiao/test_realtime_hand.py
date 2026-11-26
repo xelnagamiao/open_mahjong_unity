@@ -8,7 +8,7 @@ import pytest
 
 from .test_sanma import sanma
 from . import transparent
-from .boardcast import _build_game_start_payload_for_viewer, broadcast_result
+from .broadcast import _build_game_start_payload_for_viewer, broadcast_result
 from .buhua_broadcast import perform_buhua_and_broadcast
 from ..game_riichi import realtime_hand as live
 from ..game_riichi.test_realtime_hand import request

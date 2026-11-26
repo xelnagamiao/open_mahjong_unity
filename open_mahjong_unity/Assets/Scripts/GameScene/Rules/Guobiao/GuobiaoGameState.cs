@@ -13,6 +13,30 @@ public partial class GuobiaoGameState : TurnBasedGameState {
 
     public static GuobiaoGameState Active => RuleRegistry.ActiveGameState as GuobiaoGameState;
 
+    public override bool UsesClaimCandidates(string actionType) =>
+        actionType == "peng" && IsTransparentSubRule(Session.SubRule);
+
+    public override int GetCurrentHintDrawTile(int? pendingCutTileId) =>
+        pendingCutTileId.HasValue ? 0 : BuildHintTiming()?.DrawTile ?? 0;
+
+    public override void PopulateLiveWaitHintQuery(WaitHintQuery query, int? pendingCutTileId) {
+        if (!pendingCutTileId.HasValue) query.GuobiaoTiming = BuildHintTiming();
+    }
+
+    public override bool TryCollectKongOptions(string actionType, System.Collections.Generic.List<int> handTiles,
+        System.Collections.Generic.List<string> combinations,
+        out System.Collections.Generic.List<(int targetTile, System.Collections.Generic.List<int> displayTiles)> options) {
+        if (actionType == "angang" && Session.SubRule == HuahunSubRule) {
+            options = new System.Collections.Generic.List<(int, System.Collections.Generic.List<int>)>();
+            if (HuahunRules.CanFlowerKong(handTiles))
+                options.Add((51, new System.Collections.Generic.List<int> { 51, 52, 53, 54 }));
+            options.AddRange(ActionButton.CollectStandardAngangOptions(handTiles));
+            return true;
+        }
+        options = null;
+        return false;
+    }
+
     private readonly CuoheContinuation cuohe = new CuoheContinuation();
 
     /// <summary>国标局终亮杠快照，供和牌/流局结算面板读取（EndResultPanel / EndLiujuPanel）。</summary>

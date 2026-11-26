@@ -16,13 +16,13 @@ async def handle_match_message(game_server, connect_id: str, message: dict, webs
         response = await game_server.match_manager.join_queue(connect_id, queue_type)
         request_id = message.get("match_request_id")
         response.match_request_id = request_id if isinstance(request_id, str) else None
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
 
     elif message_type == "match/leave_queue":
         response = await game_server.match_manager.leave_queue(connect_id, message.get("queue_type"))
         request_id = message.get("match_request_id")
         response.match_request_id = request_id if isinstance(request_id, str) else None
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
 
     elif message_type == "match/get_queue_status":
         status = game_server.match_manager.get_queue_status()
@@ -35,7 +35,7 @@ async def handle_match_message(game_server, connect_id: str, message: dict, webs
             match_player_count=len(game_server.match_manager.user_to_queues) + len(game_server.match_manager.committed_users),
             **game_server.match_manager.snapshot(user_id),
         )
-        response_dict = response.dict(exclude_none=True)
+        response_dict = response.model_dump(exclude_none=True)
         response_dict["queue_status"] = status
         response_dict["match_rule_player_counts"] = game_server.match_manager.get_rule_player_counts()
         await websocket.send_json(response_dict)

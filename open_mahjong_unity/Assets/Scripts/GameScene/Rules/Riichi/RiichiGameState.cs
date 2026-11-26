@@ -28,10 +28,27 @@ public class RiichiGameState : TurnBasedGameState {
             foreach (int tile in pair.Value) if (tile != 0) yield return tile;
         }
     }
+
+    public IEnumerable<int> LiveVisibleIndicatorTiles() {
+        foreach (int tile in DoraIndicators) yield return tile;
+        foreach (int tile in KanDoraIndicators) yield return tile;
+        foreach (int tile in PublicOpponentHandTiles()) yield return tile;
+    }
     public int DealerIndex { get; private set; }
     private readonly HashSet<int> acceptedRiichiPlayers = new HashSet<int>();
 
     public static bool IsReadyLockTag(string tag) => tag == "riichi" || tag == "daburu_riichi";
+
+    public override bool UsesClaimCandidates(string actionType) =>
+        actionType == "peng" && WashizuTile.UsesTransparentHands(Session.SubRule);
+
+    public override bool TryHandleActionButtonClick(string actionType) {
+        if (actionType == "riichi_cut") {
+            RiichiCutSelectionController.Instance.EnterRiichiCutMode();
+            return true;
+        }
+        return false;
+    }
 
     // =====================================================================
     // 开局

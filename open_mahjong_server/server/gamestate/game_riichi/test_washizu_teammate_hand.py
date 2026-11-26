@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from .test_washizu_doubles import captain_game
-from .boardcast import broadcast_game_start, broadcast_do_action
+from .broadcast import broadcast_game_start, broadcast_do_action
 from .washizu import public_hands
 from . import doubles
 from ..public.ai.smart_bot_logic import count_visible_tiles, tile_to_34

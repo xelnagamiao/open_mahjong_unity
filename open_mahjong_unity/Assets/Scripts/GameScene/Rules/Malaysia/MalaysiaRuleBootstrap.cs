@@ -9,7 +9,9 @@ internal static class MalaysiaRuleBootstrap {
             RuleNameDictionary.WholeName[id] = "马来西亚三人麻将";
             RuleNameDictionary.ShortName[id] = "马来三麻";
         }
+        MalaysiaRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new MalaysiaRecordSettlementCodec(),
             RuleId=MalaysiaGameState.RuleId, DefaultSubRule=MalaysiaGameState.SubRule,
             DisplayName="马来西亚三人麻将", LobbyName="马来西亚三人麻将", LobbyOrder=20,
             LobbySubRules=new[] { new RuleLobbySubRule(MalaysiaGameState.SubRule,"传统84张",Description) },

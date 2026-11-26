@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 public partial class GameRecordManager {
     internal RuleReplayModule CreateShanghaiReplayModule() => new RuleReplayModule("lajihe_eight_flowers") {
+        SuppressDrawSlotOnRegularDraw = true,
         ApplyBeforeMutation = ApplyLajiheRecordAction,
         // Opening flowers can belong to any opponent after the first discard.
         // Their supplement draws leave the ordinary turn with the discarder’s next seat.

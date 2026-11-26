@@ -12,6 +12,7 @@ internal static class HongqueRuleBootstrap {
         RuleNameDictionary.ShortName[HongqueWScoring.SubRule] = "虹雀 W";
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateHongqueReplayModule(),
+            CreateSettlementCodec = () => new HongqueRecordSettlementCodec(),
             BuildRoom = HongqueRoomBuilder.Build,
             RuleId = HongqueGameState.RuleId,
             DefaultSubRule = "hongque/v1.6",

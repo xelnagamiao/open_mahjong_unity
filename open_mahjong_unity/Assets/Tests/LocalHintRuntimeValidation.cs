@@ -140,7 +140,7 @@ public sealed class LocalHintRuntimeValidation : MonoBehaviour {
         Check(hongqueHint!=null&&hongqueHint.points==185,"Hongque current winning score is computed locally");
         GameSession.Current.SubRule="hongque/v1.6";
         GameSession.Current.FanTips=true;
-        view.SetHongqueTips(Array.Empty<HongqueScoreHintInfo>(),hongqueHint);view.ShowTips();
+        HongqueTipsRenderer.Render(view,Array.Empty<HongqueScoreHintInfo>(),hongqueHint);view.ShowTips();
         yield return null;yield return null;
         Check(view.GetComponentsInChildren<TMP_Text>().Any(t=>t.text=="185分"),"Hongque locally scored win is rendered by the client hint UI");
         Check(hongqueHand.Count==3,"Hongque current win preview does not mutate live hand");

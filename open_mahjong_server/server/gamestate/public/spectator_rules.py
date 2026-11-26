@@ -41,7 +41,7 @@ async def deliver_realtime_spectator_message(game_state, broadcast_player_index:
     spectators = getattr(game_state, "realtime_spectators", None)
     if not spectators:
         return
-    base_payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
+    base_payload = response.model_dump(exclude_none=True) if hasattr(response, "dict") else response
     if not isinstance(base_payload, dict):
         base_payload = dict(base_payload)
     for sp in list(spectators):

@@ -10,7 +10,7 @@ from .test_shanghai_state import make_state
 from ..public.ai.get_action import get_ai_action
 from ..public.ai.smart_bot_logic import count_visible_tiles, find_best_cut
 from ..public.hand_slot_utils import has_draw_slot, infer_bot_cut_class
-from ..game_taiwan.boardcast import send_reconnect_game_state
+from ..game_taiwan.broadcast import send_reconnect_game_state
 from ...room.room_manager import RoomManager
 
 
@@ -106,7 +106,7 @@ def test_four_clients_complete_four_hands(seed):
 def test_claim_broadcast_and_reconnect_use_room_step_then_bank():
     from . import action_timing
     from ..public import ask_timing
-    from ..game_taiwan.boardcast import broadcast_ask_other_action, reconnected_send_pending_ask_for_viewer
+    from ..game_taiwan.broadcast import broadcast_ask_other_action, reconnected_send_pending_ask_for_viewer
     async def run():
         state = make_state()
         state.game_status = "waiting_action_after_cut"

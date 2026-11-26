@@ -7,7 +7,7 @@ import pytest
 from .test_rule_branches import game
 from .action_check import check_hepai
 from .ron_resolution import valid_ron_result, should_interrupt_wait_for_action
-from .boardcast import _build_base_game_info
+from .broadcast import _build_base_game_info
 
 
 def ready(minimum_han=1, minimum_score=8000, chombo=False):

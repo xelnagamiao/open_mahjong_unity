@@ -18,7 +18,7 @@ from .nuki_actions import can_nuki, begin_nuki, check_nuki_ron
 from .kan_actions import commit_kan, rob_pending_kan
 from .rule_logic import draw_payments, finalize_scores, is_first_draw, apply_pao
 from .wait_action import wait_action, _is_valid_cut_action
-from .boardcast import broadcast_game_start, reconnected_send_pending_ask
+from .broadcast import broadcast_game_start, reconnected_send_pending_ask
 from ..public.ai.get_action import get_ai_action
 from ...game_calculation.riichi.rule_config import preset_room_config, normalize_riichi_config
 from ...game_calculation.riichi.sanma import tsumo_payments

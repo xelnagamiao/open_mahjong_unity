@@ -4,7 +4,7 @@ from dataclasses import replace
 from ...game_calculation.singapore import rules as book
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
-from ..game_taiwan.boardcast import broadcast_do_action
+from ..game_taiwan.broadcast import broadcast_do_action
 from ..public.game_record_manager import append_action_tick
 from ..public.hand_slot_utils import has_draw_slot, retain_opening_first_player_draw_slot
 from .lifecycle import SingaporeLifecycle

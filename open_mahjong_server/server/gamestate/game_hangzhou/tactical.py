@@ -1,6 +1,6 @@
 """MIL declaration upgrades on the shared tactical claim/recheck pipeline."""
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ..public import game_record_manager as record
 from ..game_guobiao.wait_action import select_tactical_initial_submission
 from ..public.tactical_claim import (apply_tactical_claim_if_needed, clear_tactical_round_state,

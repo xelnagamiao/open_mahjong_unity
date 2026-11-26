@@ -307,7 +307,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         if self.game_status in {"END", "waiting_ready"}:
             await send_game_packet(self, conn.websocket, self.build_final_settlement_payload(view_player_index))
             if self.game_status == "waiting_ready":
-                from .boardcast import ready_status_payload
+                from .broadcast import ready_status_payload
                 await send_game_packet(self, conn.websocket, ready_status_payload(self, view_player_index))
         else:
             pending = self.build_pending_action_payload(view_player_index)
@@ -382,7 +382,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                         self.build_final_settlement_payload(player.player_index),
                     )
                     if self.game_status == "waiting_ready":
-                        from .boardcast import ready_status_payload
+                        from .broadcast import ready_status_payload
                         await self.send_payload_to_player(
                             player.player_index, ready_status_payload(self, player.player_index)
                         )
@@ -628,7 +628,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
     def emit_window_payloads(self, window: dict) -> list[dict]:
         """Build and queue payloads for the active action window."""
-        from .boardcast import ask_action_payload, final_settlement_payloads
+        from .broadcast import ask_action_payload, final_settlement_payloads
 
         payloads: list[dict] = []
         if window.get("status") == "END":
@@ -660,7 +660,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         return payloads
 
     def emit_visible_action_payloads(self, action_info: dict, *, reveal_final: bool = False) -> list[dict]:
-        from .boardcast import visible_action_payload
+        from .broadcast import visible_action_payload
 
         self.record_visible_action(action_info)
         if action_info.get("action") == "cut":
@@ -668,7 +668,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             begin_discard(self, action_info["player"])
         if action_info.get("action", "").startswith("hu"):
             if self.is_nanque:
-                from .boardcast import mid_win_payload
+                from .broadcast import mid_win_payload
                 payloads = [mid_win_payload(self, idx, action_info["player"]) for idx in range(len(self.player_list))]
                 self.outbound_payloads.extend(payloads)
                 self.outbound_payloads.append({"_pause": 1.7})
@@ -699,7 +699,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
 
     def build_game_start_payload(self, player_index: int) -> dict:
-        from .boardcast import game_start_payload
+        from .broadcast import game_start_payload
 
         return game_start_payload(self, player_index, reveal_final=self.game_status in {"END", "waiting_ready"})
 
@@ -709,24 +709,24 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         return payloads
 
     def build_pending_action_payload(self, player_index: int) -> Optional[dict]:
-        from .boardcast import pending_action_payload
+        from .broadcast import pending_action_payload
 
         return pending_action_payload(self, player_index)
 
     def build_final_settlement_payload(self, player_index: int) -> dict:
-        from .boardcast import final_settlement_payloads
+        from .broadcast import final_settlement_payloads
 
         return final_settlement_payloads(self, player_index)[-1]
 
     def emit_ready_status_payloads(self) -> list[dict]:
-        from .boardcast import ready_status_payload
+        from .broadcast import ready_status_payload
 
         payloads = [ready_status_payload(self, idx) for idx in range(len(self.player_list))]
         self.outbound_payloads.extend(payloads)
         return payloads
 
     def emit_game_end_payloads(self) -> list[dict]:
-        from .boardcast import game_end_payload
+        from .broadcast import game_end_payload
         from ..public.logic_common import assign_strict_final_ranks
 
         assign_strict_final_ranks(list(self.player_list))
@@ -865,7 +865,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             await self.present_final_settlements()
 
     async def present_final_settlements(self):
-        from .boardcast import final_settlement_payloads
+        from .broadcast import final_settlement_payloads
         from ..public.round_end_timing import hu_result_ready_pre_panel_seconds, sichuan_settle_hu_panel_wait_seconds
         self.apply_deferred_score_changes()
         views = [final_settlement_payloads(self, idx) for idx in range(len(self.player_list))]
@@ -1086,7 +1086,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
     def _hu_action_for_settlement(settlement: Optional[dict]) -> str:
         if settlement is None:
             return "hu_first"
-        from .boardcast import _settlement_hu_class
+        from .broadcast import _settlement_hu_class
 
         return _settlement_hu_class(settlement)
 

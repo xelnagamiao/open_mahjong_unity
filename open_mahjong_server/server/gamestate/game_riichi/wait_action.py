@@ -1,7 +1,7 @@
 from ..public.ask_timing import get_ask_elapsed
 from ..public.action_window import prepare_action_window, start_waiting_clocks
 from ..public.claim_protection import begin_claim_protection_interval, finalize_claim_protection
-from .boardcast import _send_do_action_payload_to_viewer, broadcast_update_dora
+from .broadcast import _send_do_action_payload_to_viewer, broadcast_update_dora
 """
 立直麻将等待行为：在古典逻辑基础上新增 riichi_cut 动作处理。
 """
@@ -17,7 +17,7 @@ from .action_check import (
     _chi_pair_has_valid_discard,
     hand_kong_candidates,
 )
-from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_riichi_accepted, broadcast_refresh_player_tag_list
+from .broadcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_riichi_accepted, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -176,7 +176,7 @@ async def wait_action(self):
                     if self.game_status in ('waiting_hand_action', 'onlycut_after_action'):
                         # The client closes its controls on submission. Restore
                         # this same ask without advancing its tick or restarting time.
-                        from .boardcast import reconnected_send_pending_ask
+                        from .broadcast import reconnected_send_pending_ask
                         await reconnected_send_pending_ask(self, self.player_list[temp_player_index].user_id)
                     continue
 

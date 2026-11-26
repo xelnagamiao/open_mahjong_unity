@@ -7,7 +7,7 @@ from ..public.tactical_claim import (
     clear_tactical_round_state,
 )
 from ..public.game_record_manager import flush_unexecuted_claim_applications, track_claim_application
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_ask_other_action, _build_do_action_payload, _send_do_action_payload_to_viewer,
 )
 

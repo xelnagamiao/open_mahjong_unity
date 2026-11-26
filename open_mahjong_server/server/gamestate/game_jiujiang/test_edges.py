@@ -12,7 +12,7 @@ from tests.local_hint_oracles.jiujiang import compute_hand
 from .result import broadcast_result
 from ...game_calculation.jiujiang.test_scoring import PLAIN
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
-from ..game_taiwan.boardcast import broadcast_game_start
+from ..game_taiwan.broadcast import broadcast_game_start
 
 MODULE='server.gamestate.game_jiujiang.JiujiangGameState'
 

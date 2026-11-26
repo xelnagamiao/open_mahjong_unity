@@ -105,7 +105,7 @@ def test_wins_still_settle_winner_and_other_players(monkeypatch, outcome):
 
 def test_final_draw_packet_tells_clients_to_finish_match(monkeypatch):
     game, _, _ = run_hand(monkeypatch, "liuju", final=True)
-    broadcaster = importlib.import_module("server.gamestate.game_classical.boardcast")
+    broadcaster = importlib.import_module("server.gamestate.game_classical.broadcast")
     send = AsyncMock()
     monkeypatch.setattr(broadcaster, "send_game_packet", send)
     game.game_server.user_id_to_connection = {

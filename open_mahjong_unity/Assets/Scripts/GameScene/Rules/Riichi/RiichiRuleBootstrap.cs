@@ -4,8 +4,10 @@ using UnityEngine;
 internal static class RiichiRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
+        RiichiRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateRiichiReplayModule(),
+            CreateSettlementCodec = () => new RiichiRecordSettlementCodec(),
             BuildRoom = RiichiRoomBuilder.Build,
             RuleId = RiichiGameState.RuleId,
             DefaultSubRule = "riichi/standard",
@@ -25,6 +27,15 @@ internal static class RiichiRuleBootstrap {
             GameStateFactory = () => new RiichiGameState(),
             Tingpai = RiichiTips.Tingpai,
             DescribeWaitingTile = RiichiTips.Describe,
+            LiveVisibleIndicators = () => RiichiGameState.Active != null ? RiichiGameState.Active.LiveVisibleIndicatorTiles() : System.Array.Empty<int>(),
+            CollectLivePlayerVisibleTiles = (p, isSelf, add) => {
+                if (GameSession.Current.SubRule == "riichi/sanma" && p.huapai_list != null)
+                    foreach (int tile in p.huapai_list) add(tile);
+                if (!WashizuTile.UsesTransparentHands(GameSession.Current.SubRule) || p.combination_masks == null) return false;
+                foreach (var mask in p.combination_masks)
+                    foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) add(tile);
+                return true;
+            },
             FanNameText = RiichiFanText.FanName,
             FanValueText = RiichiFanText.FanValue,
             RoundName = RiichiRoundText.Name,

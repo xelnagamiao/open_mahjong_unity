@@ -7,7 +7,7 @@ from ...game_calculation.jiujiang import scoring
 from ...room.jiujiang_room import CONFIG
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
-from ..game_taiwan.boardcast import broadcast_do_action, broadcast_refresh_player_tag_list
+from ..game_taiwan.broadcast import broadcast_do_action, broadcast_refresh_player_tag_list
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import has_draw_slot
 from ..public.game_record_manager import append_action_tick, player_action_record_cut

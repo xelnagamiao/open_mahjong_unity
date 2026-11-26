@@ -10,7 +10,9 @@ internal static class FuzhouRuleBootstrap {
         foreach(string key in new[]{FuzhouGameState.RuleId,FuzhouGameState.SubRule}) {
             RuleNameDictionary.WholeName[key]="福州麻将";RuleNameDictionary.ShortName[key]="福州";
         }
+        FuzhouRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new FuzhouRecordSettlementCodec(),
             RuleId=FuzhouGameState.RuleId,DefaultSubRule=FuzhouGameState.SubRule,
             DisplayName="福州麻将",LobbyName="福州麻将",LobbyOrder=29,OutboundChannel="fuzhou",
             LobbySubRules=new[]{new RuleLobbySubRule(FuzhouGameState.SubRule,"福州十六张",Description)},
@@ -91,8 +93,8 @@ public static class FuzhouTableIndicators {
         GameCanvas.Instance?.RefreshRuleHandOrder();
         Game3DManager.Instance?.RefreshRecordJokerHandOrder();
         GameRecordManager.Instance?.RefreshInitialHandJokerOrder();
-        foreach(var card in UnityEngine.Object.FindObjectsByType<TileCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card,card.tileId);
-        foreach(var card in UnityEngine.Object.FindObjectsByType<StaticCard>(FindObjectsSortMode.None)) RuleTileBadge.Apply(card.transform,card.TileId);
-        foreach(var tile in UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None)) tile.RefreshRuleBadge();
+        TileInstances<TileCard>.ForEach(card => RuleTileBadge.Apply(card, card.tileId));
+        TileInstances<StaticCard>.ForEach(card => RuleTileBadge.Apply(card.transform, card.TileId));
+        TileInstances<Tile3D>.ForEach(tile => tile.RefreshRuleBadge());
     }
 }

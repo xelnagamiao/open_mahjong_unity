@@ -18,7 +18,7 @@ public partial class GameRecordManager {
     private bool IsPairedMatchReplay => MatchSession != null && (MatchSession.Table("open") != null || MatchSession.Table("closed") != null || MatchSession.IsLiveSession);
     private string ComparisonPhase => comparePhaseDropdown && comparePhaseDropdown.value == 1 ? "before_draw" : "after_draw";
 
-    private void LateUpdate() => RefreshReplayPresentation();
+    private void OnInfoLateTick() => RefreshReplayPresentation();
 
     private string ReplayPlaybackState {
         get {

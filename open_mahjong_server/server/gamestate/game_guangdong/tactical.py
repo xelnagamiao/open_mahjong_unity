@@ -4,7 +4,7 @@ import logging
 
 from ...response import Response, Do_action_info
 
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..public import tactical_claim as tactical
 from ..public.claim_protection import has_bot_players
 from ..public.game_record_manager import track_claim_application, flush_unexecuted_claim_applications
@@ -56,7 +56,7 @@ class GuangdongTacticalMixin:
         state._guangdong_tactical_recheck = True
         # Shared phase already drains pre-submitted claims before this new tick.
         state.prepare_action_window()
-        await boardcast.broadcast_ask_other_action(state, remaining_time_override=remaining_time_override,
+        await broadcast.broadcast_ask_other_action(state, remaining_time_override=remaining_time_override,
                                                  is_tactical_recheck=is_tactical_recheck)
 
     @staticmethod
@@ -66,7 +66,7 @@ class GuangdongTacticalMixin:
         state.server_action_tick += 1
         track_claim_application(state, action_player, action_list[0], cut_tile)
         for index in range(4):
-            payload = boardcast._build_do_action_payload(state, action_list, action_player, index, cut_tile=cut_tile)
+            payload = broadcast._build_do_action_payload(state, action_list, action_player, index, cut_tile=cut_tile)
             payload['is_claim'] = True
             response = Response(type='gamestate/guangdong/do_action', success=True, message='返回操作内容',
                                 do_action_info=Do_action_info(**payload))

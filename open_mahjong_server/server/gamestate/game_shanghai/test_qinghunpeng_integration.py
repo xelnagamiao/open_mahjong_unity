@@ -10,7 +10,7 @@ from .test_qinghunpeng_state import make_state
 from ..public.ai.get_action import get_ai_action
 from ..public.ai.smart_bot_logic import count_visible_tiles, find_best_cut
 from ..public.hand_slot_utils import has_draw_slot, infer_bot_cut_class
-from ..game_taiwan.boardcast import send_reconnect_game_state
+from ..game_taiwan.broadcast import send_reconnect_game_state
 from ...room.room_manager import RoomManager
 
 

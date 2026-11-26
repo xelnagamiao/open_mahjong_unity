@@ -5,7 +5,7 @@ import copy
 import pytest
 
 from .action_check import check_action_after_cut
-from .boardcast import state_packet
+from .broadcast import state_packet
 from .record import code_to_id
 from .rules import classify_meld
 from .scoring import all_win_results

@@ -8,7 +8,7 @@ import pytest
 
 from .XueliuDoublesGameState import XueliuDoublesGameState
 from .action_check import check_action_after_cut, refresh_waiting_tiles
-from .boardcast import _base_game_info, _build_players_info, reconnected_send_pending_ask
+from .broadcast import _base_game_info, _build_players_info, reconnected_send_pending_ask
 from .shunhe import apply_passed_win_shunhe
 from .wait_action import _prepare_dingque_cut_action, wait_action
 from .test_action_window import submit
@@ -92,7 +92,7 @@ def test_exchange_two_stages_rotate_preserve_tiles_and_hide_teammate_ranks(round
             for tick, tiles in [(current.server_action_tick-1, chosen), (current.server_action_tick, [99,99,99]), (current.server_action_tick, chosen)]:
                 await current.action_queues[index].put(dict(action_type='xueliu_exchange_three', selected_tiles=tiles, _action_tick=tick))
             current.action_events[index].set()
-    with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', respond):
+    with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', respond):
         asyncio.run(state._xueliu_throw_three_phase())
     start = (round_number-1)%4
     assert asks == [[start,(start+1)%4],[(start+2)%4,(start+3)%4]]
@@ -110,7 +110,7 @@ def test_phase_timeout_only_selects_active_group_and_bot_avoids_incoming_suit():
     state.player_list[1].xueliu_throw_tiles = [21,22,23]
     async def expire(current):
         current.xueliu_throw_deadline = 0
-    with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', expire):
+    with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', expire):
         asyncio.run(state._collect_xueliu_selection([2,3]))
     assert state.player_list[0].xueliu_throw_tiles == [11,12,13]
     assert all(t//10 != 1 for t in state.player_list[2].xueliu_throw_tiles)

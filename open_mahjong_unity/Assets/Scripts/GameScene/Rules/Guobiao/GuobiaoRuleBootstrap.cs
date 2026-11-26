@@ -5,6 +5,7 @@ internal static class GuobiaoRuleBootstrap {
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateGuobiaoReplayModule(),
+            CreateSettlementCodec = () => new SichuanRecordSettlementCodec(isSichuanFamily: false),
             BuildRoom = GuobiaoRoomBuilder.Build,
             RuleId = GuobiaoGameState.RuleId,
             DefaultSubRule = "guobiao/standard",
@@ -25,6 +26,19 @@ internal static class GuobiaoRuleBootstrap {
             TileBadgeText = tile => RuleRegistry.CurrentSubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(tile) ? "癞" : RuleRegistry.CurrentSubRule == GuobiaoGameState.FourJokersSubRule && tile == 59 ? "癞" : null,
             Tingpai = GuobiaoTips.Tingpai,
             DescribeWaitingTile = GuobiaoTips.Describe,
+            FullHandTileCount = sub => sub == GuobiaoGameState.SixteenSubRule ? 17 : 14,
+            DeferWaitingTileHints = true,
+            DeferInvisibleHintCells = GuobiaoGameState.UsesAsyncLocalTips,
+            TryDescribeWaitingTileCached = q => GuobiaoTips.TryDescribeCached(q, out WaitTileHint hint) ? hint : null,
+            DescribeWaitingTileAsync = (q, cb) => GuobiaoGameState.UsesAsyncLocalTips(q.SubRule) ? FourJokersTips.Resolve(q, cb) : null,
+            TileCopiesForSubRule = (sub, tile) => sub == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(tile) ? 1 : 4,
+            LiveVisibleIndicators = () => GuobiaoGameState.Active != null ? GuobiaoGameState.Active.PublicOpponentHandTiles() : System.Array.Empty<int>(),
+            CollectLivePlayerVisibleTiles = (p, isSelf, add) => {
+                if (!WashizuTile.UsesTransparentHands(GameSession.Current.SubRule) || p.combination_masks == null) return false;
+                foreach (var mask in p.combination_masks)
+                    foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) add(tile);
+                return true;
+            },
             ReplayConcealedKongMask = HuahunRules.ReplayKongMask,
             FanNameText = GuobiaoFanText.FanName,
             FanValueText = GuobiaoFanText.FanValue,

@@ -29,6 +29,7 @@ public static class ClipboardUtility {
     public static void CopyAndNotify(string text, string title, string successMessage) {
         Copy(text, ok => {
             if (ok) NotificationManager.Instance?.ShowTip(title, true, successMessage);
+            else NotificationManager.Instance?.ShowTip(title, false, "复制失败，请手动复制");
         });
     }
 }

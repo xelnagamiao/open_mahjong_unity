@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from . import real_time, boardcast
+from . import real_time, broadcast as broadcast_mod
 from .DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState
 from .test_duplicate import pair
 from .test_action_window import submit
@@ -170,7 +170,7 @@ def test_reconnect_restores_partial_short_time_and_soft_wait(clock, sub_rule):
             clock.now += 2.25
             for passed, expected_mode, expected_seconds in ((0, "real_time", 2.75), (4, "waiting_draw", 0)):
                 clock.now += passed
-                await boardcast.reconnected_send_pending_ask(state, state.player_list[2].user_id)
+                await broadcast_mod.reconnected_send_pending_ask(state, state.player_list[2].user_id)
                 info = messages[-1]["message"]["ask_other_action_info"]
                 assert info["action_tick"] == tick
                 assert info["claim_wait_mode"] == expected_mode
@@ -277,7 +277,7 @@ def test_tactical_recheck_uses_fresh_hard_deadline_and_reconnect(clock, sub_rule
             await asyncio.gather(*(drain_viewer(state, seat) for seat in range(4)))
             await wait_until(lambda: state._real_time_claim_clocks[1].delivered is not None)
             clock.now += 3
-            await boardcast.reconnected_send_pending_ask(state, state.player_list[1].user_id)
+            await broadcast_mod.reconnected_send_pending_ask(state, state.player_list[1].user_id)
             info = messages[-1]["message"]["ask_other_action_info"]
             assert info["remaining_time"] == 5 and info["step_remaining"] == 0
             assert info["is_tactical_recheck"] is True
@@ -492,16 +492,16 @@ def test_player_reconnect_starts_undelivered_clock_once_but_spectator_does_not(c
             clock.now += 1
             spectator_id = 999
             state.game_server.user_id_to_connection[spectator_id] = SimpleNamespace(websocket=CaptureSocket(spectator_id, messages))
-            await boardcast.reconnected_send_pending_ask_for_viewer(state, spectator_id, 2)
+            await broadcast_mod.reconnected_send_pending_ask_for_viewer(state, spectator_id, 2)
             assert state._real_time_claim_clocks[2].delivered is None
             conn.websocket = CaptureSocket(player.user_id, messages)
-            await boardcast.reconnected_send_pending_ask(state, player.user_id)
+            await broadcast_mod.reconnected_send_pending_ask(state, player.user_id)
             assert state._real_time_claim_clocks[2].delivered == 101
             clock.now += 3
             assert real_time.claim_clock_fields(state, 2)["claim_seconds_remaining"] == 2
             release.set()
             await drain_viewer(state, 2)
-            await boardcast.reconnected_send_pending_ask(state, player.user_id)
+            await broadcast_mod.reconnected_send_pending_ask(state, player.user_id)
             assert state._real_time_claim_clocks[2].delivered == 101
         finally:
             release.set()
@@ -524,7 +524,7 @@ def test_slow_bot_or_offline_recheck_has_a_hard_deadline(clock, monkeypatch, off
         async def slow(*args):
             await release.wait()
 
-        monkeypatch.setattr(boardcast, "offline_auto_action" if offline else "smart_bot_action", slow)
+        monkeypatch.setattr(broadcast_mod, "offline_auto_action" if offline else "smart_bot_action", slow)
         task = None
         try:
             await broadcast(state)

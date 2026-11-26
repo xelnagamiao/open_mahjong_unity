@@ -8,7 +8,7 @@ public partial class GameRecordManager {
         Reset=()=>SanhuaRecordInfo=gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out var r)?r.sanhua:null,
         Clear = () => {
             SanhuaRecordInfo = null;
-            GameCanvas.Instance?.ShowSanhuaFans(null, indexToPosition);
+            SanhuaGameState.ShowFans(GameCanvas.Instance, null, indexToPosition);
             Game3DManager.Instance?.ClearSanhuaWall();
         },
         RefreshPlayerTags=RefreshSanhua,
@@ -26,7 +26,7 @@ public partial class GameRecordManager {
         }
     };
     private void RefreshSanhua() {
-        GameCanvas.Instance?.ShowSanhuaFans(SanhuaRecordInfo,indexToPosition);
+        SanhuaGameState.ShowFans(GameCanvas.Instance, SanhuaRecordInfo, indexToPosition);
         RoundPanel.Instance?.RefreshIndicators(SanhuaGameState.SubRule, SanhuaGameState.Indicators(SanhuaRecordInfo));
         // 以当前节点已经执行的摸牌和杠补为准，旧谱及遮蔽牌面的观战牌谱也保留这些动作。
         if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round))

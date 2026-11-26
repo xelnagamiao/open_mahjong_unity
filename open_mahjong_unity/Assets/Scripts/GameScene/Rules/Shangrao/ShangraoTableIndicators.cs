@@ -35,18 +35,16 @@ public sealed class ShangraoRiverOverlay : MonoBehaviour {
             if (seat.Key < 0 || seat.Key >= Info.burnt_river_indices.Length) continue;
             IReadOnlyList<int> tiles = Rivers != null && Rivers.TryGetValue(seat.Key, out var recorded)
                 ? recorded : TableMirror.Current.Info(seat.Value)?.discard_tiles;
-            manager.ShowShangraoBurntRiver(seat.Value, tiles, Info.burnt_river_indices[seat.Key]);
+            ShowBurntRiver(manager, seat.Value, tiles, Info.burnt_river_indices[seat.Key]);
         }
     }
-}
 
-public partial class Game3DManager {
-    internal void ShowShangraoBurntRiver(string position, IReadOnlyList<int> tiles, int[] indices) {
-        var river = GetPosPanel(position)?.discardsPosition;
+    private static void ShowBurntRiver(Game3DManager manager, string position, IReadOnlyList<int> tiles, int[] indices) {
+        var river = manager.GetPosPanel(position)?.discardsPosition;
         if (river == null || tiles == null || indices == null) return;
         foreach (int index in indices) {
             if (index < 0 || index >= tiles.Count) continue;
-            if (river.childCount == index) Set3DTile(tiles[index], river, "DiscardWithoutAnimation", position);
+            if (river.childCount == index) manager.Set3DTile(tiles[index], river, "DiscardWithoutAnimation", position);
             if (river.childCount <= index) continue;
             var card = river.GetChild(index).gameObject;
             if (card.GetComponent<Tile3D>()?.GetTileId() != tiles[index]) continue;

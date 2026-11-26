@@ -218,12 +218,12 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
         response = await game_server.room_manager.set_sichuan_real_time(
             Connect_id, message.get("room_id"), message.get("real_time"), message.get("tactical_grace_seconds"))
         if response:
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
     elif message_type == "room/set_claim_protection":
         response = await game_server.room_manager.set_claim_protection(
             Connect_id, message.get("room_id"), message.get("claim_protection"))
         if response is not None:
-            await websocket.send_json(response.dict(exclude_none=True))
+            await websocket.send_json(response.model_dump(exclude_none=True))
     elif message_type == "room/set_bot_speed":
         response = await game_server.room_manager.set_bot_speed(
             Connect_id, str(message.get("room_id", "")), message.get("bot_speed"))
@@ -242,7 +242,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_GB_room(
@@ -273,7 +273,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         no_joker_bonus=message.get("no_joker_bonus", "add8"),
         black_flower_progressive=message.get("black_flower_progressive", True),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建青雀房间请求"""
@@ -283,7 +283,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Qingque_room(
@@ -305,7 +305,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         pointer_tips=message.get("pointer_tips", True),
         unlimited_rounds=message.get("unlimited_rounds", False),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Changsha_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建长沙麻将房间请求"""
@@ -314,7 +314,7 @@ async def handle_create_Changsha_room(game_server, Connect_id: str, message: dic
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Changsha_room(
@@ -350,7 +350,7 @@ async def handle_create_Changsha_room(game_server, Connect_id: str, message: dic
         score_cap_value=message.get("score_cap_value", 0),
         exchange_selection_seconds=message.get("exchange_selection_seconds", 30),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_create_Zhongyong_room(game_server, Connect_id: str, message: dict, websocket):
@@ -360,7 +360,7 @@ async def handle_create_Zhongyong_room(game_server, Connect_id: str, message: di
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Zhongyong_room(
@@ -381,7 +381,7 @@ async def handle_create_Zhongyong_room(game_server, Connect_id: str, message: di
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict, websocket):
@@ -389,7 +389,7 @@ async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict
     if Connect_id in game_server.players:
         blocked = _reject_room_entry(game_server, game_server.players[Connect_id])
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
     response = await game_server.create_Hongque_room(
         Connect_id,
@@ -410,7 +410,7 @@ async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict
         hongque_min_fan=message.get("hongque_min_fan", 0),
         hongque_min_points=message.get("hongque_min_points", 0),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_create_Free_room(game_server, Connect_id: str, message: dict, websocket):
@@ -418,7 +418,7 @@ async def handle_create_Free_room(game_server, Connect_id: str, message: dict, w
     if Connect_id in game_server.players:
         blocked = _reject_room_entry(game_server, game_server.players[Connect_id])
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
     response = await game_server.create_Free_room(
         Connect_id,
@@ -435,7 +435,7 @@ async def handle_create_Free_room(game_server, Connect_id: str, message: dict, w
         message.get("wall_flowers", True),
         pointer_tips=message.get("pointer_tips", True),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Classical_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建古典麻将房间请求"""
@@ -444,7 +444,7 @@ async def handle_create_Classical_room(game_server, Connect_id: str, message: di
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Classical_room(
@@ -463,7 +463,7 @@ async def handle_create_Classical_room(game_server, Connect_id: str, message: di
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Shanghai_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建上海敲麻麻将房间请求"""
@@ -472,7 +472,7 @@ async def handle_create_Shanghai_room(game_server, Connect_id: str, message: dic
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Shanghai_room(
@@ -493,7 +493,7 @@ async def handle_create_Shanghai_room(game_server, Connect_id: str, message: dic
         hepai_limit=message.get("hepai_limit", 0),
         detailed_config=message.get("detailed_config"),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建四川麻将（血战到底）房间请求"""
@@ -502,7 +502,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Sichuan_room(
@@ -532,7 +532,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         real_time=message.get("real_time", False),
         tactical_grace_seconds=message.get("tactical_grace_seconds", 5),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_create_Taiwan_room(game_server, Connect_id: str, message: dict, websocket):
     """处理创建台湾麻将房间请求。"""
@@ -541,7 +541,7 @@ async def handle_create_Taiwan_room(game_server, Connect_id: str, message: dict,
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Taiwan_room(
@@ -563,7 +563,7 @@ async def handle_create_Taiwan_room(game_server, Connect_id: str, message: dict,
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict, websocket):
@@ -573,7 +573,7 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)
         if blocked:
-            await websocket.send_json(blocked.dict(exclude_none=True))
+            await websocket.send_json(blocked.model_dump(exclude_none=True))
             return
 
     response = await game_server.create_Riichi_room(
@@ -602,7 +602,7 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
         detailed_config=message.get("detailed_config"),
         claim_protection=message.get("claim_protection", False),
     )
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 
 async def handle_get_room_list(game_server, Connect_id: str, message: dict, websocket):
@@ -610,7 +610,7 @@ async def handle_get_room_list(game_server, Connect_id: str, message: dict, webs
     show_tip = message.get("show_tip", False)
     event_id = message.get("event_id")
     response = game_server.get_room_list(show_tip=show_tip, event_id=event_id)
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))
 
 async def handle_join_room(game_server, Connect_id: str, message: dict, websocket):
     """处理加入房间请求"""
@@ -652,4 +652,4 @@ async def handle_set_ready(game_server, Connect_id: str, message: dict, websocke
 async def handle_sync_my_room(game_server, Connect_id: str, websocket):
     """处理同步当前玩家房间状态请求"""
     response = await game_server.sync_my_room(Connect_id)
-    await websocket.send_json(response.dict(exclude_none=True))
+    await websocket.send_json(response.model_dump(exclude_none=True))

@@ -9,7 +9,7 @@ import pytest
 from .test_sanma import sanma
 from .test_double_riichi import make_game
 from .wait_action import wait_action
-from .boardcast import broadcast_game_start
+from .broadcast import broadcast_game_start
 from ..public.ai.get_action import get_ai_action
 from ...game_calculation.riichi.washizu_tiles import SUB_RULES, make_tiles, normalize
 

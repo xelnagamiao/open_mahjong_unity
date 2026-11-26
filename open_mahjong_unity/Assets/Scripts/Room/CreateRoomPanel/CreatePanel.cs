@@ -29,6 +29,8 @@ public partial class CreatePanel : MonoBehaviour {
     /// <summary>规则状态：与 RuleManifest.RuleId 一致。</summary>
     private string _ruleState = "guobiao";
     private string _venueEventId;
+    private readonly RoomOptionFormRenderer _optionFormRenderer = new RoomOptionFormRenderer();
+    public RoomOptionFormRenderer OptionFormRenderer => _optionFormRenderer;
 
     [Header("Dropdown")]
     [SerializeField] private TMP_Dropdown chooseRule;
@@ -823,7 +825,7 @@ public partial class CreatePanel : MonoBehaviour {
     private void CreateRoom() {
         RoomCreationRequest request = BuildRoomRequest();
         if (!request.IsValid) {
-            if (request.FocusHepaiLimit) HepaiLimitInput.ActivateInputField();
+            if (request.FocusHepaiLimit) InputFieldFeedback.ActivateIfDesktop(HepaiLimitInput);
             NotificationManager.Instance.ShowTip("create_room", false, request.Error, -1f, _ruleState);
             return;
         }

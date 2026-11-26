@@ -50,30 +50,36 @@ public class ActionButton : MonoBehaviour {
         text.alignment = TextAlignmentOptions.Center;
     }
 
-    // 判定当前按钮是否为吃牌按钮
-    private bool IsChiButton(){
+    // 判定当前按钮是否按服务端/顺子候选集合处理（标准吃牌，或规则声明使用 chi_candidates 的鸣牌动作）
+    private bool UsesClaimCandidateFlow(){
+        var state = RuleRegistry.ActiveGameState;
+        var chiCandidates = NormalGameStateManager.Instance.chiCandidates;
         foreach (string a in actionTypeList){
             if (a == "chi_left" || a == "chi_mid" || a == "chi_right") return true;
-            if (a == "peng" && WashizuTile.UsesTransparentHands(GameSession.Current.SubRule)) return true;
+            if (state != null && state.UsesClaimCandidates(a)
+                && chiCandidates != null && chiCandidates.TryGetValue(a, out int[][] pairs) && pairs != null && pairs.Length > 0)
+                return true;
         }
         return false;
     }
 
-    // 汇总当前吃牌按钮所有方向的候选组合
+    // 汇总当前吃牌/候选鸣牌按钮所有方向的候选组合
     // 每项：(actionType, chiComboIndex, [tileA, tileB]) — 两张真实牌 ID（含赤 5 的 105/205/305）
-    private List<(string action, int comboIndex, int[] pair)> CollectChiCandidates(){
+    private List<(string action, int comboIndex, int[] pair)> CollectClaimCandidates(){
         List<(string, int, int[])> result = new List<(string, int, int[])>();
         int lastCutTile = NormalGameStateManager.Instance.lastCutCardID;
         var chiCandidates = NormalGameStateManager.Instance.chiCandidates;
+        var state = RuleRegistry.ActiveGameState;
         foreach (string action in actionTypeList){
-            if (action != "chi_left" && action != "chi_mid" && action != "chi_right" && action != "peng") continue;
+            bool isChiAction = action == "chi_left" || action == "chi_mid" || action == "chi_right";
+            bool ruleClaimAction = !isChiAction && state != null && state.UsesClaimCandidates(action);
+            if (!isChiAction && !ruleClaimAction) continue;
             int[][] pairs;
             if (chiCandidates != null && chiCandidates.TryGetValue(action, out pairs) && pairs != null && pairs.Length > 0){
                 for (int i = 0; i < pairs.Length; i++){
                     result.Add((action, i, pairs[i]));
                 }
-            } else {
-                if (WenzhouGameState.Active != null || action == "peng") continue;
+            } else if (isChiAction) {
                 int[] fallback;
                 switch (action){
                     case "chi_left": fallback = new int[] { lastCutTile - 2, lastCutTile - 1 }; break;
@@ -88,8 +94,8 @@ public class ActionButton : MonoBehaviour {
 
     // 按钮点击事件
     void OnClick(){
-        // 自由模式的吃碰杠等只是喊话，不展开规则对局的候选牌。
-        if (FreeGameState.Active != null && actionTypeList.Count == 1) {
+        // 规则声明不展开候选子按钮（如自由模式喊话）：直接发送单一动作。
+        if (RuleRegistry.Current?.SkipActionCandidateExpansion == true && actionTypeList.Count == 1) {
             GameCanvas.Instance.ChooseAction(actionTypeList[0], 0);
             return;
         }
@@ -99,18 +105,18 @@ public class ActionButton : MonoBehaviour {
             ToggleModuleCandidates(actionTypeList[0], moduleCandidates);
             return;
         }
-        // 立直按钮：进入立直选牌模式（隐藏其他按钮、按候选切牌变暗手牌、点击切牌发送 riichi_cut）
-        if (actionTypeList.Count == 1 && actionTypeList[0] == "riichi_cut") {
-            RiichiCutSelectionController.Instance.EnterRiichiCutMode();
+        // 规则自定义点击交互（如日麻立直选牌模式）
+        if (actionTypeList.Count == 1
+            && RuleRegistry.ActiveGameState?.TryHandleActionButtonClick(actionTypeList[0]) == true) {
             return;
         }
-        bool isChi = IsChiButton();
-        List<(string action, int comboIndex, int[] pair)> chiCands = isChi ? CollectChiCandidates() : null;
+        bool usesClaimCandidates = UsesClaimCandidateFlow();
+        List<(string action, int comboIndex, int[] pair)> claimCands = usesClaimCandidates ? CollectClaimCandidates() : null;
         bool isAngang = actionTypeList.Contains("angang");
         bool isBuzhang = actionTypeList.Contains("buzhang");
         bool isJiagang = actionTypeList.Contains("jiagang");
         var gsm = NormalGameStateManager.Instance;
-        var angangOptions = isAngang ? CollectAngangOptions(gsm.selfHandTiles) : null;
+        var angangOptions = isAngang ? CollectAngangOptions(gsm.selfHandTiles, gsm.player_to_info["self"].combination_tiles) : null;
         var buzhangOptions = isBuzhang
             ? CollectBuzhangOptions(gsm.selfHandTiles, gsm.player_to_info["self"].combination_tiles)
             : null;
@@ -118,16 +124,16 @@ public class ActionButton : MonoBehaviour {
             ? CollectJiagangOptions(gsm.selfHandTiles, gsm.player_to_info["self"].combination_tiles)
             : null;
 
-        // 展开条件：多种吃牌候选，或手牌中实际存在多种暗杠/加杠目标。
+        // 展开条件：多种吃牌/鸣牌候选，或手牌中实际存在多种暗杠/加杠目标。
         // 服务端会对每个可杠牌各下发一条 "angang"/"jiagang"，不能按 actionTypeList 条数展开。
-        bool expandSubButtons = (isChi && chiCands.Count > 1)
+        bool expandSubButtons = (usesClaimCandidates && claimCands.Count > 1)
             || (angangOptions != null && angangOptions.Count > 1)
             || (buzhangOptions != null && buzhangOptions.Count > 1)
             || (jiagangOptions != null && jiagangOptions.Count > 1);
 
         if (expandSubButtons){
             string currentButtonType = "None";
-            if (isChi){
+            if (usesClaimCandidates){
                 currentButtonType = actionTypeList.Contains("peng") ? "peng" : "chi";
             } else if (actionTypeList.Contains("angang")){
                 currentButtonType = "angang";
@@ -155,8 +161,8 @@ public class ActionButton : MonoBehaviour {
                 }
             }
 
-            if (isChi){
-                foreach (var cand in chiCands){
+            if (usesClaimCandidates){
+                foreach (var cand in claimCands){
                     CreateChiCandidateBlock(cand.action, cand.comboIndex, cand.pair);
                 }
             } else {
@@ -176,14 +182,15 @@ public class ActionButton : MonoBehaviour {
                     }
                 }
             }
+            ActionBlockContenter.SetAsLastSibling();
             UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
             return;
         }
 
         // 单一候选：直接发送
-        if (isChi){
-            if (chiCands.Count == 0) return;
-            var only = chiCands[0];
+        if (usesClaimCandidates){
+            if (claimCands.Count == 0) return;
+            var only = claimCands[0];
             Debug.Log($"选择了行动 {only.action} chiComboIndex={only.comboIndex}");
             GameCanvas.Instance.ChooseAction(only.action, 0, only.comboIndex);
             return;
@@ -223,6 +230,7 @@ public class ActionButton : MonoBehaviour {
             return;
         }
         GameCanvas.Instance.ActionBlockContainerState = groupWord;
+        ActionBlockContenter.SetAsLastSibling();
         if (candidates.Any(c => !string.IsNullOrEmpty(c.Caption))) {
             bool usesPanel = ActionCandidatePager.Build(ActionBlockContenter, candidates, ActionBlockPrefab, StaticCardPrefab, textObject, (RectTransform)transform);
             if (!usesPanel) UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
@@ -243,12 +251,17 @@ public class ActionButton : MonoBehaviour {
         UpwardPopupLayout.ForActions(ActionBlockContenter, textObject);
     }
 
-    private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
-        if (SanhuaGameState.Active != null) return SanhuaGameState.Active.Kongs(handTiles);
-        if (WuhanGameState.Active != null) return WuhanGameState.CollectAngangOptions(handTiles);
+    private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(
+        List<int> handTiles, List<string> combinations) {
+        if (RuleRegistry.ActiveGameState != null
+            && RuleRegistry.ActiveGameState.TryCollectKongOptions("angang", handTiles, combinations, out var custom))
+            return custom;
+        return CollectStandardAngangOptions(handTiles);
+    }
+
+    internal static List<(int targetTile, List<int> displayTiles)> CollectStandardAngangOptions(
+        List<int> handTiles) {
         var options = new List<(int, List<int>)>();
-        if (GameSession.Current.SubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.CanFlowerKong(handTiles))
-            options.Add((51, new List<int> {51,52,53,54}));
         var processedNorms = new HashSet<int>();
         // 不可和的花色（四川定缺）不能暗杠
         int excludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0;
@@ -267,7 +280,9 @@ public class ActionButton : MonoBehaviour {
 
     private static List<(int targetTile, List<int> displayTiles)> CollectJiagangOptions(
         List<int> handTiles, List<string> combinations) {
-        if (WenzhouGameState.Active != null) return WenzhouGameState.CollectJiagangOptions(handTiles, combinations);
+        if (RuleRegistry.ActiveGameState != null
+            && RuleRegistry.ActiveGameState.TryCollectKongOptions("jiagang", handTiles, combinations, out var custom))
+            return custom;
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
         foreach (int tileID in handTiles) {
@@ -283,7 +298,9 @@ public class ActionButton : MonoBehaviour {
 
     private static List<(int targetTile, List<int> displayTiles)> CollectBuzhangOptions(
         List<int> handTiles, List<string> combinations) {
-        if (WenzhouGameState.Active != null) return WenzhouGameState.CollectJiagangOptions(handTiles, combinations);
+        if (RuleRegistry.ActiveGameState != null
+            && RuleRegistry.ActiveGameState.TryCollectKongOptions("buzhang", handTiles, combinations, out var custom))
+            return custom;
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
         foreach (var option in CollectJiagangOptions(handTiles, combinations)) {
@@ -292,7 +309,7 @@ public class ActionButton : MonoBehaviour {
                 options.Add(option);
             }
         }
-        foreach (var option in CollectAngangOptions(handTiles)) {
+        foreach (var option in CollectAngangOptions(handTiles, combinations)) {
             int norm = RiichiTileUtil.Normalize(option.targetTile);
             if (processedNorms.Add(norm)) {
                 options.Add(option);

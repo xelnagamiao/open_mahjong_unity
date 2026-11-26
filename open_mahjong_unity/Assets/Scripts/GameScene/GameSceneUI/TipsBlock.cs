@@ -26,11 +26,13 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         var sourceHand = new List<int>(selfHandTiles);
         combinationTiles = new List<string>(combinationTiles);
         string subRule = GameSession.Current.SubRule;
-        int actualDraw = DuocaiGameState.Active?.Hints.CurrentDrawTile ?? GuobiaoGameState.Active?.BuildHintTiming().DrawTile ?? 0;
-        bool currentGuobiaoHand = actualDraw > 0
-            && selfHandTiles.Count + combinationTiles.Count * 3 == (subRule == GuobiaoGameState.SixteenSubRule ? 17 : 14);
-        if (currentGuobiaoHand && !selfHandTiles.Remove(actualDraw)) currentGuobiaoHand = false;
-        HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+        RuleManifest manifest = RuleRegistry.Current;
+        int actualDraw = RuleRegistry.ActiveGameState?.GetCurrentHintDrawTile(null) ?? 0;
+        int fullHandCount = manifest?.FullHandTileCount?.Invoke(subRule) ?? 14;
+        bool currentDrawHand = actualDraw > 0
+            && selfHandTiles.Count + combinationTiles.Count * 3 == fullHandCount;
+        if (currentDrawHand && !selfHandTiles.Remove(actualDraw)) currentDrawHand = false;
+        HashSet<int> waitingTiles = RuleTips.ComputeWaiting(manifest, new TingpaiQuery {
             OnReady = () => {
                 if (this != null && GameSession.Current.SubRule == subRule && TableMirror.Current.SelfHandTiles != null
                     && TableMirror.Current.SelfHandTiles.OrderBy(t => t).SequenceEqual(sourceHand.OrderBy(t => t)))
@@ -42,8 +44,9 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             DetailedConfig = GameSession.Current.DetailedConfig,
             ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
         });
+        int normalizedDraw = manifest?.NormalizeTileId != null ? manifest.NormalizeTileId(actualDraw) : actualDraw;
         // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0 && (!currentGuobiaoHand || waitingTiles.Contains(DuocaiGameState.Active!=null?actualDraw:WashizuTile.Face(actualDraw)))){
+        if (waitingTiles.Count > 0 && (!currentDrawHand || waitingTiles.Contains(normalizedDraw))){
             var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);
             TipsContainer.Instance.CacheTenpaiTips(selfHandTiles, waitingList);
@@ -65,15 +68,8 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         TipsContainer.Instance.SetTipsWithRecordContext(ctx, handTiles, waitingTiles);
     }
 
-    public void ShowHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
-        bool hasWaits = waitHints != null && waitHints.Any(hint => hint != null);
-        if (!hasWaits && winHint == null) {
-            HideTipsBlock();
-            return;
-        }
+    public void ShowProvidedTips() {
         gameObject.SetActive(true);
-        TipsContainer.Instance.CacheHongqueTips(waitHints, winHint);
-        TipsContainer.Instance.SetHongqueTips(waitHints, winHint);
     }
 
     public void HideTipsBlock(){

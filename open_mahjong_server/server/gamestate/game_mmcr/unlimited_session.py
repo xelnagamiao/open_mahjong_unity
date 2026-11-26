@@ -108,7 +108,7 @@ class UnlimitedSession:
         response = Response(type="gamestate/unlimited_update", success=True, message="无固定时限状态更新",
                             gamestate_id=self.gs.gamestate_id,
                             unlimited_info=self.snapshot())
-        payload = response.dict(exclude_none=True)
+        payload = response.model_dump(exclude_none=True)
         for player in self.gs.player_list:
             connection = self.gs.game_server.user_id_to_connection.get(player.user_id)
             if player.user_id <= 10 or connection is None:

@@ -65,7 +65,13 @@ public partial class ChatManager
     public void RequestChatVenues() => SendConversation(new ChatConversationRequest { type = "chat/venues" });
     public void OpenDirectConversation(int userId) => SendConversation(new ChatConversationRequest { type = "chat/open_direct", peer_user_id = userId });
     public void OpenVenueConversation(string eventId, Action<string> completed = null) => SendConversation(new ChatConversationRequest { type = "chat/open_venue", event_id = eventId }, completed);
-    public void RequestConversationHistory(string key, long beforeId = 0) => SendConversation(new ChatConversationRequest { type = "chat/history", conversation_key = key, before_id = beforeId });
+    public void RequestConversationHistory(string key, long beforeId = 0)
+    {
+        foreach (var pending in conversationRequests.Values)
+            if (pending.request.type == "chat/history" && pending.request.conversation_key == key && pending.request.before_id == beforeId)
+                return;
+        SendConversation(new ChatConversationRequest { type = "chat/history", conversation_key = key, before_id = beforeId });
+    }
     public void SendConversationMessage(string key, string content, Action<string> completed = null) => SendConversation(new ChatConversationRequest { type = "chat/send", conversation_key = key, content = content }, completed);
     public void RemoveConversation(string key) => SendConversation(new ChatConversationRequest { type = "chat/remove", conversation_key = key });
     public void MarkConversationRead(string key)
@@ -106,7 +112,7 @@ public partial class ChatManager
         conversationRequests.Remove(response.request_id);
         if (!response.success)
         { pending.Fail(response.message); return; }
-        ChatMessageStore.Instance?.ApplyConversationResponse(response, response.request_id == latestConversationOpen);
+        ChatMessageStore.Instance?.ApplyConversationResponse(response, response.request_id == latestConversationOpen, pending.request.before_id);
         pending.completed?.Invoke(null);
     }
 }

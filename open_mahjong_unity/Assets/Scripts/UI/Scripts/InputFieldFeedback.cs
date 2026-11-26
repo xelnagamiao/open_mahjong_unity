@@ -25,4 +25,19 @@ public sealed class InputFieldFeedback : MonoBehaviour, ISelectHandler, IDeselec
     public void OnSelect(BaseEventData _) { if (focusOutline) focusOutline.enabled = true; }
     public void OnDeselect(BaseEventData _) { if (focusOutline) focusOutline.enabled = false; }
     void OnDisable() { if (focusOutline) focusOutline.enabled = false; }
+
+    /// <summary>
+    /// 触屏设备上 TouchScreenKeyboard 在失焦/收起/平板异常状态下也会触发 onSubmit，
+    /// 仅在桌面端或明确按下物理回车键时允许自动提交或跳转焦点。
+    /// </summary>
+    public static bool IsDesktopKeyboardSubmit() {
+        return !TouchScreenKeyboard.isSupported
+            || Input.GetKeyDown(KeyCode.Return)
+            || Input.GetKeyDown(KeyCode.KeypadEnter);
+    }
+
+    /// <summary>仅在桌面端自动激活输入框，避免移动/平板端打开弹窗即强弹软键盘。</summary>
+    public static void ActivateIfDesktop(TMP_InputField field) {
+        if (field != null && !TouchScreenKeyboard.isSupported) field.ActivateInputField();
+    }
 }

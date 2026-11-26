@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-from . import boardcast
+from . import broadcast
 from .test_free_state import _make_state
 
 
@@ -57,7 +57,7 @@ def test_transfer_any_subset_is_atomic_and_only_reveals_hidden_faces_to_taker(ch
                 original[i]["tile"] if index == 1 or not original[i]["face_down"] else 0 for i in chosen]
             assert msg["do_action_info"]["transfer_slots"] == [i + 1 for i in chosen]
             assert msg["free_table_info"]["hand_counts"]["1"] == len(chosen)
-            hand = boardcast.game_info_payload(state, index)["players_info"][1]["hand_tiles"]
+            hand = broadcast.game_info_payload(state, index)["players_info"][1]["hand_tiles"]
             assert hand == (expected if index == 1 or not hidden else None)
     asyncio.run(scenario())
 
@@ -118,7 +118,7 @@ def test_hidden_area_placement_recall_reconnect_and_stale_tokens(flower):
             assert snap["game_info"]["players_info"][0][key] == [0, 0]
             if not flower:
                 assert snap["free_table_info"]["last_river_tile"] == 0
-        tokens = boardcast.free_table_payload(state)[token_key]["0"]
+        tokens = broadcast.free_table_payload(state)[token_key]["0"]
         await state.handle_command(101, {"action": "reveal"})
         await state.handle_command(101, {"action": recall, "index": 0, "tile": 0, "token": tokens[0]})
         assert not player.revealed and player.hand_tiles == [37, 19]
@@ -132,7 +132,7 @@ def test_hidden_area_placement_recall_reconnect_and_stale_tokens(flower):
             assert state.action_tick == tick
         await state.handle_command(101, {"action": recall, "index": 0, "tile": 0, "token": tokens[1]})
         assert player.hand_tiles == [37, 19, 28]
-        assert boardcast.player_info_payload(state, 0, 1)[key] == []
+        assert broadcast.player_info_payload(state, 0, 1)[key] == []
     asyncio.run(scenario())
 
 
@@ -147,7 +147,7 @@ def test_hidden_river_cannot_be_guessed_into_meld_and_duplicate_faces_remain_ali
         await state.handle_command(101, {"action": "cut", "tile": 11})
         await state.handle_command(102, {"action": "create_meld", "mask": [0, 11, 0, 11, 1, 11], "include_river": True})
         assert len(state.player_list[1].combination_mask) == 1
-        assert boardcast.player_info_payload(state, 0, 1)["discard_tiles"] == [0]
-        assert boardcast.free_table_payload(state)["last_river_tile"] == 0
-        assert boardcast.free_table_payload(state)["hand_counts"] == {"0": 0, "1": 0, "2": 0, "3": 0}
+        assert broadcast.player_info_payload(state, 0, 1)["discard_tiles"] == [0]
+        assert broadcast.free_table_payload(state)["last_river_tile"] == 0
+        assert broadcast.free_table_payload(state)["hand_counts"] == {"0": 0, "1": 0, "2": 0, "3": 0}
     asyncio.run(scenario())

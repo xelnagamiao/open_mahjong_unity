@@ -94,7 +94,7 @@ class ExchangeSixOpeningChoiceTests(unittest.IsolatedAsyncioTestCase):
             await self.wait_phase(state, "declarations")
             self.assertIn("changsha_open_hand_ready", state.action_dict[0])
             own = flow.packet(0).state.private_state
-            self.declaration_packet = flow.packet(0).dict(exclude_none=True)
+            self.declaration_packet = flow.packet(0).model_dump(exclude_none=True)
             self.assertNotIn("changsha_open_hand_ready", own["targets"])
             self.assertNotIn("changsha_report_ready", own["targets"])
             await self.choose(state, 0, "changsha_open_hand_ready")

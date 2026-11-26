@@ -17,8 +17,10 @@ internal static class TuidaoRuleBootstrap {
         RuleNameDictionary.WholeName[GuangdongMilRules.Doubles] = "广东麻将（推广）2V2 双打";
         RuleNameDictionary.ShortName[GuangdongMilRules.Doubles] = "广东双打";
         RuleNameDictionary.ShortName[GuangdongMilRules.SubRule] = "广东花鬼";
+        GuangdongRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateTuidaoReplayModule(),
+            CreateSettlementCodec = () => new GuangdongRecordSettlementCodec(),
             BuildRoom = TuidaoRoomBuilder.Build,
             RuleId = RuleId, DefaultSubRule = SubRule, DisplayName = "广东麻将", LobbyOrder = 15,
             LobbySubRules = new[] { new RuleLobbySubRule(SubRule, "MIL 2024（推倒和）",
@@ -41,6 +43,8 @@ internal static class TuidaoRuleBootstrap {
             SubRuleGameStateFactory = subRule => GuangdongMilRules.IsMil(subRule) ? (IGameState)new GuangdongMilGameState() : new TuidaoGameState(),
             Tingpai = query => GuangdongMilRules.IsMil(query.SubRule) ? GuangdongServerTips.Waiting(query) : TuidaoHandCalculator.Waits(query.Hand, query.Melds),
             DescribeWaitingTile = query => GuangdongMilRules.IsMil(query.SubRule) ? GuangdongServerTips.Describe(query) : TuidaoHandCalculator.Describe(query),
+            HintCellWidth = sub => GuangdongMilRules.IsMil(sub) ? 100f : 84f,
+            TileCopiesForSubRule = (sub, tile) => GuangdongMilRules.IsMil(sub) && GuangdongMilRules.IsGhost(tile) ? 1 : 4,
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds * 4}局",
             RoundSupplementText = info => GuangdongMilRules.IsMil(info.sub_rule) ? "花鬼" : "无癞子",
             HandJokerTiles = subRule => GuangdongMilRules.IsMil(subRule) ? new[] {55,56,57,58} : System.Array.Empty<int>(),

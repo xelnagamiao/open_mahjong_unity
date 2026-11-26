@@ -1,6 +1,6 @@
 from ..public.settlement_sync import send_game_packet
 import math
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ...game_calculation.nanchang import rules as book
 from .actions import CHOWS,claim_tiles,legal_cuts,kong_tiles
 from .client_context import private_context

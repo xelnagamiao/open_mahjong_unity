@@ -4,6 +4,13 @@ internal static class FilipinoRuleBootstrap {
     private static void Register() {
         var defaults=TaiwanLobby.Defaults(); defaults[CreateRoomKeys.SubRule]=0;
         defaults.Remove(CreateRoomKeys.Cuohe); defaults.Remove(CreateRoomKeys.CuoheType);
+        RuleRecordCodecRegistry.RegisterTickScoreHandler("filipino", (round, tick) => {
+            if (tick.Count >= 5 && tick[1] == "score") {
+                RuleRecordCodecRegistry.AddSeatScoreChanges(round, RuleRecordCodecRegistry.ParseScoreChangesArray(tick, 4));
+                return true;
+            }
+            return false;
+        });
         RuleRegistry.Register(new RuleManifest {
             RuleId=FilipinoGameState.RuleId, DefaultSubRule=FilipinoGameState.Classic16,
             DisplayName="菲律宾麻将", LobbyName="菲律宾麻将", LobbyOrder=34,

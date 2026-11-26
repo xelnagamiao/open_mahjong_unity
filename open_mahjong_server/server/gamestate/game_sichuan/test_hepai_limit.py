@@ -4,7 +4,7 @@ import pytest
 from .SichuanGameState import SichuanGameState
 from .XueliuGameState import XueliuGameState
 from .action_check import check_hepai, refresh_waiting_tiles
-from .boardcast import _base_game_info
+from .broadcast import _base_game_info
 from ..public.game_record_manager import init_game_record
 from ..verifier.host import build_db_manager, build_game_server, build_room_data
 

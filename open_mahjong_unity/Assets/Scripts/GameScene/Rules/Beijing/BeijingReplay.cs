@@ -18,7 +18,14 @@ public partial class GameRecordManager {
         NextPlayer=(tick,current)=>tick.Count>2&&tick[0]=="beijing"&&tick[1]=="action"?(int)JObject.Parse(tick[2])["player"]:current,
         RefreshAfterAction=RefreshBeijingRecord,RefreshAfterSeek=RefreshBeijingRecord,
         AfterSilentMutation=_=>{SyncRecordBoardScores();if(recordBeijingEnded)RefreshBeijingRecordMelds();},
-        AfterVisibleMutation=tick=>{if(tick.Count>1&&tick[0]=="beijing"&&tick[1]=="action")Game3DManager.Instance?.RefreshRecordHandDisplay();}
+        AfterVisibleMutation=tick=>{if(tick.Count>1&&tick[0]=="beijing"&&tick[1]=="action")Game3DManager.Instance?.RefreshRecordHandDisplay();},
+        IsRobKongWin=_=>recordBeijingRobbed,
+        SkipDefaultRonDiscardSync=()=>recordBeijingMulti&&!recordBeijingRecycle,
+        AdjustRecordHuRequest=(request,_,__)=>{
+            request.RecycleDiscardAfterPresent=recordBeijingRecycle;
+            if(recordBeijingMulti&&!recordBeijingRecycle)request.DiscardPlayerPosition=null;
+        },
+        GetVisibleIndicators=()=>recordBeijingInfo!=null?new[]{recordBeijingInfo.indicator}:Array.Empty<int>(),
     };
     private void ResetBeijingRecord() {
         recordBeijingInfo=null;recordBeijingRobbed=recordBeijingRecycle=recordBeijingMulti=recordBeijingEnded=false;recordBeijingHints.Clear();

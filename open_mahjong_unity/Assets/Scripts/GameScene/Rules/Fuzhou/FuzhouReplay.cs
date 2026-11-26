@@ -13,6 +13,10 @@ public partial class GameRecordManager {
         RefreshAfterSeek=()=>{RefreshFuzhouRecordPresentation();if(recordFuzhouWinApplied){lastWinnableTileId=-1;lastJiagangPlayerIndex=-1;}},
         AfterSilentMutation=PresentFuzhouSilentAction,
         InitializePlayers=()=>{foreach(var player in recordPlayerList) player.showHandDrawSlotActive=player.tileList.Count==17;},
+        CustomRoundName=FuzhouRecordRoundName,
+        IsRobKongWin=_=>recordFuzhouWinSource=="rob_kong",
+        IsForcedOrFlowerWin=()=>recordFuzhouForced,
+        GetVisibleIndicators=FuzhouRecordVisibleIndicators,
     };
     private FuzhouInfo recordFuzhouInfo;
     private string recordFuzhouWinSource;

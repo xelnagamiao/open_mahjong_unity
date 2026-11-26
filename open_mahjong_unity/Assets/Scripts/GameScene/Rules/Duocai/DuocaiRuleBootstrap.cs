@@ -12,6 +12,9 @@ internal static class DuocaiRuleBootstrap {
             RuleNameDictionary.WholeName["duocai/"+variant]="夺彩麻将 · "+(variant=="guobiao"?"国标":"立直");
             RuleNameDictionary.ShortName["duocai/"+variant]="夺彩"+(variant=="guobiao"?"国标":"立直");
         }
+        RuleRecordCodecRegistry.RegisterRoundProperty("duocai", (round, token) => round.duocai = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<DuocaiInfo>());
+        RuleRecordCodecRegistry.RegisterRoundProperty("duocai_hints", (round, token) => round.duocaiHints = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<Dictionary<int, DuocaiHints>>());
+        RuleRecordCodecRegistry.RegisterTickScoreHandler("duocai", (round, tick) => RuleRecordCodecRegistry.ApplyStartScoreDiff(round, tick, round.duocai?.start_scores));
         RuleRegistry.Register(new RuleManifest {
             RuleId="duocai",DefaultSubRule="duocai/guobiao",DisplayName="夺彩麻将",LobbyName="夺彩麻将",LobbyOrder=26,
             LobbySubRules=new[]{new RuleLobbySubRule("duocai/guobiao","国标",Description),new RuleLobbySubRule("duocai/riichi","立直",Description)},
@@ -24,6 +27,10 @@ internal static class DuocaiRuleBootstrap {
             FirstTenTileDiscardRow = _ => 4,
             Tingpai=q=>GameRecordManager.Instance?.ShouldShowRecordTips()==true?GameRecordManager.Instance.DuocaiWaiting(q):DuocaiGameState.Active?.Hints.Waiting(q)??new HashSet<int>(),
             DescribeWaitingTile=q=>q.Record!=null?GameRecordManager.Instance?.DescribeDuocaiWaiting(q):DuocaiGameState.Active?.DescribeWaiting(q),
+            DeferWaitingTileHints=true,DeferInvisibleHintCells=_=>true,RetryNullDeferredHint=true,
+            SelectDisplayWaitingTiles=(waits,draw)=>DuocaiHintPresentation.DisplayTiles(draw>0?waits.Where(t=>t==draw).ToList():waits),
+            ResolveWaitingVariants=(waits,tile)=>DuocaiHintPresentation.Variants(waits,tile),
+            CollectLivePlayerVisibleTiles=(p,isSelf,add)=>{if(p.combination_masks==null)return false;foreach(var mask in p.combination_masks)for(int i=1;mask!=null&&i<mask.Length;i+=2)add(mask[i]);return true;},
             TileBadgeText=DuocaiTileVisual.Badge,PrepareHandDisplay=info=>DuocaiTableIndicators.Refresh(info?.duocai_info,info?.players_info),
             NormalizeTileId=tile=>tile,TileCopies=DuocaiTiles.Supply,
             RecordVisibleMeldTiles=masks=>masks?.Where(mask=>mask!=null).SelectMany(mask=>mask.Where((tile,index)=>index%2==1&&tile>0))??Enumerable.Empty<int>(),

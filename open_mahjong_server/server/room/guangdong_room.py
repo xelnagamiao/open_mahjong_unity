@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from pydantic import Field, StrictBool, StrictInt, validator
+from pydantic import Field, StrictBool, StrictInt, field_validator, ValidationInfo
 
 from .room_validators import GBRoomValidator
 from .tuidao_room import TuidaoRoomValidator, create_tuidao_room
@@ -41,25 +41,29 @@ class GuangdongMilRoomValidator(GBRoomValidator):
     tactical_call: StrictBool = True
     tian_di_ren_he: StrictBool = False
     hepai_limit: StrictInt = 2
-    detailed_config: dict[str, Any] = Field(default_factory=dict)
+    detailed_config: dict[str, Any] = Field(default_factory=dict, validate_default=True)
 
-    @validator("sub_rule")
+    @field_validator("sub_rule")
+    @classmethod
     def valid_profile(cls, value):
         if value not in (SUB_RULE, DOUBLES_SUB_RULE):
             raise ValueError("不支持的广东花鬼子规则")
         return value
 
-    @validator("detailed_config", pre=True, always=True)
-    def valid_config(cls, value, values):
-        return normalize_config(value, values.get("sub_rule", SUB_RULE))
+    @field_validator("detailed_config", mode="before")
+    @classmethod
+    def valid_config(cls, value, info: ValidationInfo):
+        return normalize_config(value, info.data.get("sub_rule", SUB_RULE))
 
-    @validator(*FIXED_OPTIONS)
+    @field_validator(*FIXED_OPTIONS)
+    @classmethod
     def fixed_false(cls, value):
         if value:
             raise ValueError("MIL 广东花鬼不支持此选项；四张花鬼留在手中，不补花")
         return False
 
-    @validator("hepai_limit")
+    @field_validator("hepai_limit")
+    @classmethod
     def fixed_minimum_fan(cls, value):
         if value != 2:
             raise ValueError("MIL 广东花鬼固定两番起和")

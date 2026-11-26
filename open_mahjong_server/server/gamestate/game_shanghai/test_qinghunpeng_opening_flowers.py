@@ -8,7 +8,7 @@ import pytest
 
 from .test_qinghunpeng_state import make_state
 from .bot import shanghai_smart_bot_action
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_ask_hand_action, broadcast_ask_other_action,
     reconnected_send_pending_ask_for_viewer, send_reconnect_game_state,
     send_realtime_spectator_snapshot,

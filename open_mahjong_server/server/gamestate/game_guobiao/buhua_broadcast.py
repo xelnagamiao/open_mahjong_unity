@@ -3,7 +3,7 @@ import asyncio
 
 from ..public.hand_slot_utils import has_draw_slot, resolve_is_mo_buhua
 from ..public.game_record_manager import player_action_record_buhua, player_action_record_deal
-from .boardcast import broadcast_do_action
+from .broadcast import broadcast_do_action
 from . import transparent
 from ..game_riichi import realtime_hand
 from ...game_calculation import guobiao_four_jokers as joker_rules

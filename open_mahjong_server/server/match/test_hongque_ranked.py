@@ -7,7 +7,7 @@ import pytest
 from .rank_calculator import queue_type_to_room_config
 from .test_lifecycle import server_fixture, USERS
 from ..gamestate.game_hongque.HongqueGameState import HongqueGameState
-from ..gamestate.game_hongque.boardcast import broadcast_game_end, build_state
+from ..gamestate.game_hongque.broadcast import broadcast_game_end, build_state
 from ..gamestate.game_hongque.record import persist_and_remember
 from ..gamestate.public.game_record_manager import init_game_record
 

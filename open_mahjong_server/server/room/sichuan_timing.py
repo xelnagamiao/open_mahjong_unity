@@ -1,5 +1,5 @@
 """Room-bound validation for Sichuan duplicate claim clocks."""
-from pydantic import BaseModel, StrictBool, StrictInt, validator
+from pydantic import BaseModel, StrictBool, StrictInt, field_validator
 
 from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
 
@@ -11,7 +11,8 @@ class SichuanDuplicateTiming(BaseModel):
     real_time: StrictBool = False
     tactical_grace_seconds: StrictInt = 5
 
-    @validator("tactical_grace_seconds")
+    @field_validator("tactical_grace_seconds")
+    @classmethod
     def validate_seconds(cls, value):
         if value not in SECOND_WAIT_SECONDS:
             raise ValueError("第二等待时间必须为 3、5、8、10、15 或 20 秒")

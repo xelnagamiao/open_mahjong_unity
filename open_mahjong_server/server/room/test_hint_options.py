@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 from .room_manager import RoomManager
 from ..response import GameInfo
 from ..gamestate.game_riichi.RiichiGameState import RiichiGameState
-from ..gamestate.game_riichi.boardcast import _build_base_game_info
+from ..gamestate.game_riichi.broadcast import _build_base_game_info
 
 
 class HintOptionsTests(unittest.IsolatedAsyncioTestCase):

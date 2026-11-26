@@ -39,7 +39,7 @@ class RoundRecording:
             player_action_record_cut, player_action_record_deal, player_action_record_jiagang,
             player_action_record_hu,
         )
-        from .boardcast import _settlement_hu_class
+        from .broadcast import _settlement_hu_class
         action, tile, actor = action_info.get("action"), action_info.get("tile"), action_info.get("player")
         if action in {"deal_tile", "deal_gang_tile"}:
             # An explicit pointer survives retired seats and multi-ron in every replay consumer.
@@ -66,7 +66,7 @@ class RoundRecording:
     def finalize_round_recording(self):
         if not self._has_active_round_record(): return
         from ..public.game_record_manager import append_action_tick, player_action_record_round_end, player_action_record_liuju
-        from .boardcast import _settlement_hu_class
+        from .broadcast import _settlement_hu_class
         self.apply_deferred_score_changes()
         for player in self.player_list:
             if any(m[0] in {"s","k","g"} for m in player.combination_tiles): player.record_counter.fulu_times += 1

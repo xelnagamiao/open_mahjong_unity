@@ -234,3 +234,68 @@ def test_existing_training_spectator_can_finish_after_both_rooms_close():
         hub.authorize(9002, pair.data["id"], ["open"])
     with pytest.raises(PermissionError, match="MATCH_UNAVAILABLE"):
         hub.authorize(9001, "other", ["open"], subscription=admitted)
+
+
+def test_incremental_append_and_round_open_avoid_full_match_rebuild_and_match_full_output():
+    from . import spectator as spectator_mod
+    from .format import build_match, identity
+    from .test_contract import validator
+
+    _, pair = server_fixture(delay=0)
+    board2 = make_board("v2-fixture", 2)
+    pair.data["planned_boards"] = 2
+    pair.data["boards"].append(board2)
+    b2_id = identity("board", "test-match", 2, "initial")
+    pair.data["board_instances"].append({"board_instance_id": b2_id, "board_no": 2, "attempt": 1})
+
+    feed = MatchFeed(pair)
+    asyncio.run(feed.refresh(110))
+    closed_before = feed.streams["closed"].body
+    closed_seq_before = feed.streams["closed"].seq
+    open_cursor = {"stream_epoch": feed.streams["open"].epoch, "applied_seq": feed.streams["open"].seq}
+    match_cursor = {"stream_epoch": feed.streams["match"].epoch, "applied_seq": feed.streams["match"].seq}
+
+    open_spec = pair.states["open"].spectator_manager
+    with patch.object(spectator_mod, "build_match", side_effect=AssertionError("should stay incremental")):
+        # 1) Append actions on existing round 1 (including a recorded draw).
+        open_spec.record_tick(["c", 27, "T"], timestamp=120)
+        board1 = pair.data["boards"][0]
+        open_spec.record_tick(["d", board1["walls"][2][0], "dw", 2, 0, 2], timestamp=121)
+        asyncio.run(feed.refresh(122))
+        assert feed.streams["closed"].seq == closed_seq_before
+        assert feed.streams["closed"].body is closed_before
+
+        # 2) Open round 2 on open table and append its first tick.
+        hands2 = deepcopy(board2["hands"])
+        hands2[0].append(board2["walls"][0][0])
+        rd2_header = {
+            "round_index": 2, "current_round": 2, "seats": [0, 1, 2, 3],
+            "dealer_index": 0, "start_player_index": 0, "duplicate_wall_layout": "standard",
+            "board_instance_id": b2_id,
+            **{f"p{i}_tiles": h for i, h in enumerate(hands2)},
+        }
+        open_spec.round_headers[2] = {"timestamp": 130, "data": rd2_header}
+        open_spec.round_ticks[2] = [
+            {"timestamp": 131, "tick": ["c", hands2[0][-1], "T"]},
+            {"timestamp": 132, "tick": ["d", board2["walls"][1][0], "dw", 1, 0, 1]},
+        ]
+        open_spec.current_round_index = 2
+        asyncio.run(feed.refresh(135))
+
+    # Validate emitted deltas and current snapshot against the V2 spectator schema.
+    check = validator("match-spectator-v2.schema.json")
+    open_delta = feed.streams["open"].packet(open_cursor)
+    assert [e["kind"] for e in open_delta["events"]] == ["actions_appended", "round_opened"]
+    for pkt in (open_delta, feed.streams["open"].packet(None), feed.streams["match"].packet(match_cursor)):
+        check.validate({"protocol_version": 2, "success": True, "match_id": "test-match", "subscription_id": "s1", **pkt})
+
+    # Cross-check incremental result against a fresh full build_match().
+    sources, _ = feed._collect_full_sources(135, False)
+    full_bundle = build_match(sources, match_id="test-match", snapshot=feed._last_snapshot, complete=False)
+    inc_table = feed.streams["open"].body["table_record"]
+    full_table = full_bundle["tables"]["open"]
+    assert inc_table["payload"] == full_table["payload"]
+    assert inc_table["round_meta"] == full_table["round_meta"]
+    assert len(inc_table["source_sha256"]) == 64
+    full_catalog = [{k: v for k, v in b.items() if k != "wall_definition"} for b in full_bundle["board_catalog"]]
+    assert feed.streams["match"].body["board_catalog"] == full_catalog

@@ -5,7 +5,7 @@ import asyncio
 from ..public.lifecycle import start_owned_task
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
-from .boardcast import broadcast_do_action, broadcast_ready_status
+from .broadcast import broadcast_do_action, broadcast_ready_status
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,

@@ -6,7 +6,7 @@ import pytest
 
 from . import xueliu_bot
 from .action_check import check_action_after_cut, check_action_jiagang
-from .boardcast import _base_game_info
+from .broadcast import _base_game_info
 from .init_tiles import init_sichuan_tiles
 from .test_doubles import WIN
 from .test_post_peng_jiagang import make_state

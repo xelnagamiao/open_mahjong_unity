@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import pytest
 
-from . import boardcast
+from . import broadcast
 from .test_free_state import _make_state
 
 
@@ -27,7 +27,7 @@ def test_face_down_meld_tiles_are_private_in_broadcast_reconnect_and_recall(owne
             expected = [value if viewer == owner or revealed or index % 2 == 0 or mask[index - 1] != 2 else 0
                         for index, value in enumerate(mask)]
             assert socket.messages[-1]["do_action_info"]["combination_mask"] == expected
-            snapshot = boardcast.game_info_payload(state, viewer)["players_info"][owner]
+            snapshot = broadcast.game_info_payload(state, viewer)["players_info"][owner]
             snapshot_mask = [value if viewer == owner or index % 2 == 0 or mask[index - 1] != 2 else 0
                              for index, value in enumerate(mask)]
             assert snapshot["combination_mask"] == [snapshot_mask]

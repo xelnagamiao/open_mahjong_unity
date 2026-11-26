@@ -8,7 +8,7 @@ import pytest
 
 from .test_lajihe_state import make_state, ticks, PLAIN, HONORS
 from ..public.ai.get_action import get_ai_action
-from ..game_taiwan.boardcast import send_reconnect_game_state
+from ..game_taiwan.broadcast import send_reconnect_game_state
 from ..verifier.record_sim import RecordSim, stringify_tick
 from ..verifier.protocol import filter_client_actions
 from .LajiheGameState import lajihe_bot

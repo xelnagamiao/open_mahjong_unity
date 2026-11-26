@@ -34,7 +34,9 @@ internal sealed class ChangshaTableDice : MonoBehaviour {
         Vector2 center = Pixel(Vector3.zero);
         float pixels = (Pixel(Vector3.right) - center).magnitude;
         float edge = table.SbrWorldWidth(tableCamera, center + Vector2.down * (64f * pixels), 29f * pixels);
-        table.GetDiceTablePlane(out Vector3 point, out Vector3 normal);
+        ITable3DHost host = table;
+        host.InitializeTilePlacement();
+        host.GetTileSurface(out Vector3 point, out Vector3 normal);
         var plane = new Plane(normal, point);
         var forward = Vector3.ProjectOnPlane(tableCamera.transform.forward, normal);
         var frame = Quaternion.LookRotation(forward.sqrMagnitude > .001f ? forward : tableCamera.transform.up, normal);
@@ -57,12 +59,5 @@ internal sealed class ChangshaTableDice : MonoBehaviour {
             die.localScale = Vector3.one * edge;
             die.SetPositionAndRotation(ray.GetPoint(distance) + normal * ((support + bounce) * edge), rotation);
         }
-    }
-}
-
-public partial class Game3DManager {
-    internal void GetDiceTablePlane(out Vector3 point, out Vector3 normal) {
-        InitializeTilePlacement();
-        GetTileSurface(out point, out normal);
     }
 }

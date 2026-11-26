@@ -15,7 +15,7 @@ from .action_check import (check_action_after_cut, check_action_hand_action, che
 from .init_tiles import init_guobiao_tiles
 from .four_jokers_runtime import evaluate_actions
 from .four_jokers_bot import choose_action, choose_cut
-from .boardcast import _build_game_start_payload_for_viewer
+from .broadcast import _build_game_start_payload_for_viewer
 from ...game_calculation import guobiao_sixteen as rule
 from ...game_calculation.test_guobiao_sixteen import tiles
 

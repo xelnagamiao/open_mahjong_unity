@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from .QingqueGameState import QingqueGameState
-from .boardcast import _build_game_start_payload_for_viewer
+from .broadcast import _build_game_start_payload_for_viewer
 from .unlimited_session import UnlimitedSession
 from ..gamestate_router import handle_unlimited_end, handle_vote_start
 from ..public.lifecycle import cancel_auxiliary_tasks
@@ -64,7 +64,7 @@ def test_room_rejects_invalid_flags(value):
 @pytest.mark.parametrize("enabled", [None, False, True])
 def test_creation_router_preserves_legacy_default(enabled):
     async def run():
-        server = NS(players={}, create_Qingque_room=AsyncMock(return_value=NS(dict=lambda **kw: {})))
+        server = NS(players={}, create_Qingque_room=AsyncMock(return_value=NS(model_dump=lambda **kw: {})))
         payload = dict(roomname="青雀", gameround=4, password="", roundTimerValue=20, stepTimerValue=5, tips=False)
         if enabled is not None:
             payload["unlimited_rounds"] = enabled
@@ -135,7 +135,7 @@ def test_game_start_and_reconnect_preserve_request_after_seat_change(monkeypatch
         await state.unlimited_session.set_withdrawn(100, True)
         state.player_list[0].player_index, state.player_list[1].player_index = 1, 0
         state.player_list.sort(key=lambda p: p.player_index)
-        payload = GameInfo(**_build_game_start_payload_for_viewer(state, 1)).dict()
+        payload = GameInfo(**_build_game_start_payload_for_viewer(state, 1)).model_dump()
         assert payload["unlimited_rounds"] is True
         assert payload["unlimited_info"]["withdrawn_players"][0]["user_id"] == 100
         module = importlib.import_module(QingqueGameState.__module__)

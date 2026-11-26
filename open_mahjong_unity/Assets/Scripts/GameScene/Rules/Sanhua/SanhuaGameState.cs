@@ -37,6 +37,7 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         RuleNameDictionary.WholeName[SubRule]="散花天才麻将";
         RuleNameDictionary.ShortName[SubRule]="散花天才";
         ActionWords.Register(new ActionWordSpec {Word="baoqing",Label=_=>"报清",BlocksAutoCut=true});
+        RuleRecordCodecRegistry.RegisterRoundProperty("sanhua", (round, token) => round.sanhua = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<SanhuaInfo>());
         RuleRegistry.RegisterSubRule(SubRule,new RuleManifest {
             RuleId=NewChineseGameState.RuleId,DefaultSubRule=SubRule,DisplayName="散花天才麻将",OutboundChannel=NewChineseGameState.RuleId,
             GameStateFactory=()=>new SanhuaGameState(),BuildRoom=NewChineseRoomBuilder.Build,
@@ -100,7 +101,7 @@ public sealed class SanhuaGameState : TurnBasedGameState {
             RefreshLiveWall(response.game_info);
         if (Info?.indicator != previousIndicator)
             RoundPanel.Instance?.RefreshIndicators(SubRule, Indicators(Info));
-        GameCanvas.Instance?.ShowSanhuaFans(Info,Mirror.IndexToPosition);
+        ShowFans(GameCanvas.Instance, Info, Mirror.IndexToPosition);
         return handled;
     }
 
@@ -123,7 +124,7 @@ public sealed class SanhuaGameState : TurnBasedGameState {
 
     public override void OnPlayerTagsRefreshed() {
         base.OnPlayerTagsRefreshed();
-        GameCanvas.Instance?.ShowSanhuaFans(Info, Mirror.IndexToPosition);
+        ShowFans(GameCanvas.Instance, Info, Mirror.IndexToPosition);
     }
 
     protected override void OnDoAction(Response r) {
@@ -133,6 +134,16 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         }
         base.OnDoAction(r);
     }
+    public override bool TryCollectKongOptions(string actionType, List<int> handTiles, List<string> combinations,
+        out List<(int targetTile, List<int> displayTiles)> options) {
+        if (actionType == "angang") {
+            options = Kongs(handTiles);
+            return true;
+        }
+        options = null;
+        return false;
+    }
+
     internal List<(int,List<int>)> Kongs(List<int> hand) {
         var list=new List<(int,List<int>)>();
         foreach (var group in hand.GroupBy(tile => tile)) {
@@ -143,18 +154,16 @@ public sealed class SanhuaGameState : TurnBasedGameState {
         }
         return list;
     }
-}
 
-public partial class GameCanvas {
-    internal void ShowSanhuaFans(SanhuaInfo info,IReadOnlyDictionary<int,string> positions) {
-        if(positions==null) return;
-        foreach(var seat in positions) {
-            var panel=GetPlayerPanelByPosition(seat.Value);
-            bool valid=seat.Key>=0 && seat.Key<(info?.table_fans?.Length ?? 0);
-            panel?.SetPlayerVariable(GamePlayerPanel.VariableLangyong,valid?$"{info.table_fans[seat.Key]:0.#}番":null);
+    internal static void ShowFans(GameCanvas canvas, SanhuaInfo info, IReadOnlyDictionary<int, string> positions) {
+        if (canvas == null || positions == null) return;
+        foreach (var seat in positions) {
+            var panel = canvas.GetPlayerPanel(seat.Value);
+            bool valid = seat.Key >= 0 && seat.Key < (info?.table_fans?.Length ?? 0);
+            panel?.SetPlayerVariable(GamePlayerPanel.VariableLangyong, valid ? $"{info.table_fans[seat.Key]:0.#}番" : null);
             bool declared = seat.Key >= 0 && seat.Key < (info?.declared?.Length ?? 0) && info.declared[seat.Key];
-            panel?.SetPlayerVariable(GamePlayerPanel.VariableDeclaredReady,declared?"报清":null);
-            panel?.SetPlayerVariable(GamePlayerPanel.VariableChengbao, SanhuaGameState.LockedClearText(info, seat.Key));
+            panel?.SetPlayerVariable(GamePlayerPanel.VariableDeclaredReady, declared ? "报清" : null);
+            panel?.SetPlayerVariable(GamePlayerPanel.VariableChengbao, LockedClearText(info, seat.Key));
         }
     }
 }

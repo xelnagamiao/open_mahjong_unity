@@ -34,140 +34,189 @@ def validate_ref(ref, layout):
         raise RecordConflict("Wall origin outside frozen layout")
 
 
+class RoundOriginTracker:
+    """Stateful wall-origin aligner supporting O(delta) incremental advancement."""
+
+    def __init__(self, round_data, instance, *, layout="standard", reconstruct=False, board=None):
+        seats = round_data.get("seats")
+        if not isinstance(seats, list) or sorted(seats) != [0, 1, 2, 3]:
+            raise RecordConflict("Invalid original-to-current seat mapping")
+        self.instance = instance
+        self.layout = layout
+        self.reconstruct = reconstruct
+        self.board = board
+        self.inverse = {current: original for original, current in enumerate(seats)}
+        self.current = round_data.get("start_player_index")
+        dealer = round_data.get("dealer_index")
+        if self.current not in self.inverse or dealer not in self.inverse:
+            raise RecordConflict("Missing initial player/dealer")
+        dealer_original = self.inverse[dealer]
+        self.consumed = [0] * 4
+        self.consumed[dealer_original] = 1
+        self.retired = set()
+        self.shared = None
+        self.size = 8 if layout == "xueliu" else 14
+        self.used = {(dealer_original, 0)}
+        self.initial_anchors = [{
+            "kind": "dealer_initial_draw",
+            "wall_ref": wall_ref(instance, dealer_original, 0),
+            "actor_original_seat": dealer_original,
+            "node": 0,
+            "phase": "after_draw",
+        }]
+        self.reliable = True
+        self.missing = False
+
+    def fork(self):
+        cloned = RoundOriginTracker.__new__(RoundOriginTracker)
+        cloned.instance = self.instance
+        cloned.layout = self.layout
+        cloned.reconstruct = self.reconstruct
+        cloned.board = self.board
+        cloned.inverse = self.inverse
+        cloned.current = self.current
+        cloned.consumed = list(self.consumed)
+        cloned.retired = set(self.retired)
+        cloned.shared = list(self.shared) if self.shared is not None else None
+        cloned.size = self.size
+        cloned.used = set(self.used)
+        cloned.initial_anchors = self.initial_anchors
+        cloned.reliable = self.reliable
+        cloned.missing = self.missing
+        return cloned
+
+    @property
+    def alignment_status(self):
+        return "partial" if self.missing else "exact"
+
+    @property
+    def alignment_reason(self):
+        return "missing_draw_origin" if self.missing else None
+
+    def _next_player(self, player):
+        for offset in range(1, 5):
+            candidate = (player + offset) % 4
+            if self.inverse[candidate] not in self.retired:
+                return candidate
+        return player
+
+    def _source_for(self, actor):
+        if self.shared is not None:
+            return self.shared[0] if self.shared else None
+        if self.consumed[actor] < self.size:
+            return actor, self.consumed[actor]
+        partner = (actor + 2) % 4
+        if self.layout != "xueliu" and partner in self.retired and self.consumed[partner] < self.size:
+            return partner, self.consumed[partner]
+        return None
+
+    def _consume(self, source):
+        seat, offset = source
+        if self.shared is not None:
+            if not self.shared or self.shared[0] != source:
+                raise RecordConflict("Shared wall consumption order conflicts")
+            self.shared.pop(0)
+        else:
+            if seat < 0 or offset != self.consumed[seat]:
+                raise RecordConflict("Fixed wall consumption order conflicts")
+            self.consumed[seat] += 1
+            if self.layout == "xueliu" and self.consumed[seat] == self.size:
+                self.shared = [(s, i) for s in range(4) for i in range(self.consumed[s], self.size)]
+                self.shared.extend((-1, i) for i in range(24))
+
+    def advance(self, ticks, times_ms=None):
+        metadata = []
+        for idx, tick in enumerate(ticks):
+            if not isinstance(tick, list) or not tick or not isinstance(tick[0], str):
+                raise RecordConflict("Invalid action tick")
+            code = tick[0]
+            actor = self.inverse.get(self.current)
+            occurred = None
+            if times_ms is not None and idx < len(times_ms):
+                ts = times_ms[idx]
+                occurred = ts if type(ts) is int and ts >= 0 else None
+            meta = {"actor_original_seat": actor, "occurred_at_ms": occurred,
+                    "wall_ref": None, "wall_ref_basis": "not_applicable"}
+            if code in ("d", "gd"):
+                recorded = len(tick) >= 6 and tick[2] == "dw"
+                if recorded:
+                    if tick[5] not in self.inverse:
+                        raise RecordConflict("Invalid draw actor")
+                    self.current = tick[5]
+                    actor = self.inverse[self.current]
+                    source = (tick[3], tick[4])
+                    basis = "recorded"
+                elif self.reconstruct and self.board is not None and self.reliable:
+                    # Blood battle can skip exhausted/retired walls without a tick.
+                    source = self._source_for(actor)
+                    for _ in range(4):
+                        if source is not None:
+                            break
+                        self.current = self._next_player(self.current)
+                        actor = self.inverse[self.current]
+                        source = self._source_for(actor)
+                    basis = "reconstructed"
+                else:
+                    source, basis = None, "unavailable"
+                    self.reliable = False
+                meta.update(actor_original_seat=actor, wall_ref_basis=basis)
+                if basis == "unavailable":
+                    self.missing = True
+                if source is not None:
+                    ref = wall_ref(self.instance, *source)
+                    validate_ref(ref, self.layout)
+                    if source in self.used:
+                        raise RecordConflict("Physical wall slot consumed twice")
+                    if self.board is not None:
+                        origin_tiles = self.board.get("common_wall", []) if source[0] == -1 else self.board["walls"][source[0]]
+                        if source[1] >= len(origin_tiles) or origin_tiles[source[1]] != tick[1]:
+                            raise RecordConflict("Draw tile conflicts with original wall")
+                    if self.reliable:
+                        expected = self._source_for(actor)
+                        if source != expected:
+                            raise RecordConflict("Draw origin conflicts with frozen wall policy")
+                        self._consume(source)
+                    self.used.add(source)
+                    meta["wall_ref"] = ref
+            elif code in ("p", "g", "cl", "cm", "cr", "bh"):
+                if len(tick) > 2 and type(tick[2]) is int and tick[2] in self.inverse:
+                    self.current = tick[2]
+                    meta["actor_original_seat"] = self.inverse[self.current]
+            elif code == "c":
+                self.current = self._next_player(self.current)
+            elif code == "reset":
+                if len(tick) < 2 or tick[1] not in self.inverse:
+                    raise RecordConflict("Invalid reset actor")
+                self.current = tick[1]
+                meta["actor_original_seat"] = None
+            elif code.startswith("hu_"):
+                if len(tick) > 1 and type(tick[1]) is int and tick[1] in self.inverse:
+                    winner = tick[1]
+                    meta["actor_original_seat"] = self.inverse[winner]
+                    if self.layout != "xueliu":
+                        self.retired.add(self.inverse[winner])
+                    if code == "hu_self":
+                        self.current = self._next_player(winner)
+                    elif self.inverse.get(self.current) in self.retired:
+                        self.current = self._next_player(self.current)
+            elif code in ("ask_hand", "ask_other"):
+                raise RecordConflict("Transient ask ticks must be migrated before indexing")
+            elif code not in ("ag", "jg", "ca"):
+                meta["actor_original_seat"] = None
+            metadata.append(meta)
+        return metadata
+
+
 def round_origins(round_data, instance, *, layout="standard", reconstruct=False, board=None):
     """Normalize recorded dw; deterministically replay missing dw only with a full board.
 
     Current-player indices are inverted using seats. Remaining-wall array offsets
     are never mistaken for original slots (the dealer has already drawn slot 0).
     """
-    seats = round_data.get("seats")
-    if not isinstance(seats, list) or sorted(seats) != [0, 1, 2, 3]:
-        raise RecordConflict("Invalid original-to-current seat mapping")
-    inverse = {current: original for original, current in enumerate(seats)}
-    current = round_data.get("start_player_index")
-    dealer = round_data.get("dealer_index")
-    if current not in inverse or dealer not in inverse:
-        raise RecordConflict("Missing initial player/dealer")
-    dealer_original = inverse[dealer]
-    consumed = [0] * 4
-    consumed[dealer_original] = 1
-    retired = set()
-    shared = None
-    size = 8 if layout == "xueliu" else 14
-    used = {(dealer_original, 0)}
-    initial = [{"kind": "dealer_initial_draw", "wall_ref": wall_ref(instance, dealer_original, 0),
-                "actor_original_seat": dealer_original, "node": 0, "phase": "after_draw"}]
-    metadata = []
-    reliable = True
-
-    def next_player(player):
-        for offset in range(1, 5):
-            candidate = (player + offset) % 4
-            if inverse[candidate] not in retired:
-                return candidate
-        return player
-
-    def source_for(actor):
-        nonlocal shared
-        if shared is not None:
-            return shared[0] if shared else None
-        if consumed[actor] < size:
-            return actor, consumed[actor]
-        partner = (actor + 2) % 4
-        if layout != "xueliu" and partner in retired and consumed[partner] < size:
-            return partner, consumed[partner]
-        return None
-
-    def consume(source):
-        nonlocal shared
-        seat, offset = source
-        if shared is not None:
-            if not shared or shared[0] != source:
-                raise RecordConflict("Shared wall consumption order conflicts")
-            shared.pop(0)
-        else:
-            if seat < 0 or offset != consumed[seat]:
-                raise RecordConflict("Fixed wall consumption order conflicts")
-            consumed[seat] += 1
-            if layout == "xueliu" and consumed[seat] == size:
-                shared = [(s, i) for s in range(4) for i in range(consumed[s], size)]
-                shared.extend((-1, i) for i in range(24))
-
-    for index, tick in enumerate(round_data.get("action_ticks", [])):
-        if not isinstance(tick, list) or not tick or not isinstance(tick[0], str):
-            raise RecordConflict("Invalid action tick")
-        code = tick[0]
-        actor = inverse.get(current)
-        meta = {"actor_original_seat": actor, "occurred_at_ms": None,
-                "wall_ref": None, "wall_ref_basis": "not_applicable"}
-        if code in ("d", "gd"):
-            recorded = len(tick) >= 6 and tick[2] == "dw"
-            if recorded:
-                if tick[5] not in inverse:
-                    raise RecordConflict("Invalid draw actor")
-                current = tick[5]
-                actor = inverse[current]
-                source = (tick[3], tick[4])
-                basis = "recorded"
-            elif reconstruct and board is not None and reliable:
-                # Blood battle can skip exhausted/retired walls without a tick.
-                source = source_for(actor)
-                for _ in range(4):
-                    if source is not None:
-                        break
-                    current = next_player(current)
-                    actor = inverse[current]
-                    source = source_for(actor)
-                basis = "reconstructed"
-            else:
-                source, basis = None, "unavailable"
-                reliable = False
-            meta.update(actor_original_seat=actor, wall_ref_basis=basis)
-            if source is not None:
-                ref = wall_ref(instance, *source)
-                validate_ref(ref, layout)
-                if source in used:
-                    raise RecordConflict("Physical wall slot consumed twice")
-                if board is not None:
-                    origin_tiles = board.get("common_wall", []) if source[0] == -1 else board["walls"][source[0]]
-                    if source[1] >= len(origin_tiles) or origin_tiles[source[1]] != tick[1]:
-                        raise RecordConflict("Draw tile conflicts with original wall")
-                if reliable:
-                    expected = source_for(actor)
-                    if source != expected:
-                        raise RecordConflict("Draw origin conflicts with frozen wall policy")
-                    consume(source)
-                used.add(source)
-                meta["wall_ref"] = ref
-        elif code in ("p", "g", "cl", "cm", "cr", "bh"):
-            if len(tick) > 2 and type(tick[2]) is int and tick[2] in inverse:
-                current = tick[2]
-                meta["actor_original_seat"] = inverse[current]
-        elif code == "c":
-            current = next_player(current)
-        elif code == "reset":
-            if len(tick) < 2 or tick[1] not in inverse:
-                raise RecordConflict("Invalid reset actor")
-            current = tick[1]
-            meta["actor_original_seat"] = None
-        elif code.startswith("hu_"):
-            if len(tick) > 1 and type(tick[1]) is int and tick[1] in inverse:
-                winner = tick[1]
-                meta["actor_original_seat"] = inverse[winner]
-                if layout != "xueliu":
-                    retired.add(inverse[winner])
-                if code == "hu_self":
-                    current = next_player(winner)
-                elif inverse.get(current) in retired:
-                    current = next_player(current)
-        elif code in ("ask_hand", "ask_other"):
-            raise RecordConflict("Transient ask ticks must be migrated before indexing")
-        elif code not in ("ag", "jg", "ca"):
-            meta["actor_original_seat"] = None
-        metadata.append(meta)
-    missing = any(m["wall_ref_basis"] == "unavailable" for m in metadata)
-    return {"initial_anchors": initial, "action_meta": metadata,
-            "alignment_status": "partial" if missing else "exact", "alignment_reason": "missing_draw_origin" if missing else None}
+    tracker = RoundOriginTracker(round_data, instance, layout=layout, reconstruct=reconstruct, board=board)
+    metadata = tracker.advance(round_data.get("action_ticks", []))
+    return {"initial_anchors": tracker.initial_anchors, "action_meta": metadata,
+            "alignment_status": tracker.alignment_status, "alignment_reason": tracker.alignment_reason}
 
 
 def locate(table, ref, phase="after_draw"):

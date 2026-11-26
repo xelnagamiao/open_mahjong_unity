@@ -9,7 +9,7 @@ import pytest
 
 from server.database.duplicate_walls import apply_duplicate_room_config, validate_duplicate_wall
 from server.gamestate.game_guobiao.init_tiles import init_guobiao_tiles
-from server.gamestate.game_guobiao.boardcast import _build_game_start_payload_for_viewer
+from server.gamestate.game_guobiao.broadcast import _build_game_start_payload_for_viewer
 from server.gamestate.public.game_record_manager import init_game_record, init_game_round, end_game_record
 from server.gamestate.public.next_game_round import next_game_round_guobiao_switchseat
 from server.gamestate.public.test_duplicate_wall import game, wall_tiles

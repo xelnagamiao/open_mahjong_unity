@@ -9,7 +9,7 @@ from .clock import RoomActionClock, TimedActionQueue
 from ...game_calculation.shanxi import rules as sx
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan.action_check import hu_action_for_player
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
+from ..game_taiwan.broadcast import broadcast_game_start, broadcast_game_end
 from .result import broadcast_result, restore_terminal_result
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (

@@ -10,7 +10,7 @@ from ...game_calculation.shanghai import lajihe as rule
 from ...game_calculation.shanghai.test_lajihe import PLAIN, HONORS, PAIRS
 from ...room.room_validators import ShanghaiRoomValidator
 from ..public.game_record_manager import init_game_record, init_game_round
-from ..game_taiwan.boardcast import send_reconnect_game_state, broadcast_do_action
+from ..game_taiwan.broadcast import send_reconnect_game_state, broadcast_do_action
 
 MODULE = "server.gamestate.game_shanghai.LajiheGameState"
 

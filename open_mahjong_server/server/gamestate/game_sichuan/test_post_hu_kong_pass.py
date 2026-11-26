@@ -9,7 +9,7 @@ from .action_check import (
     check_action_jiagang, is_xueliu_required_hu, refresh_waiting_tiles,
     xueliu_ron_preserves_kong,
 )
-from .boardcast import reconnected_send_pending_ask
+from .broadcast import reconnected_send_pending_ask
 from .DuplicateGameState import XueliuDuplicateGameState
 from .duplicate_wall import SichuanDuplicateWall, init_duplicate_board
 from .shunhe import record_passed_self_draw_shunhe

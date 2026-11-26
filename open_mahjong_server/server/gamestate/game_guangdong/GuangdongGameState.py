@@ -10,7 +10,7 @@ from ...game_calculation.guangdong.scoring import Context
 from ...game_calculation.guangdong.settlement import kong_payments
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan.action_check import hu_action_for_player
-from ..game_taiwan.boardcast import broadcast_do_action
+from ..game_taiwan.broadcast import broadcast_do_action
 from ..public.game_record_manager import append_action_tick
 from ..public.random_seed_manager import derive_round_seed
 from ...game_calculation.calc_executor import run_room_calc_cpu

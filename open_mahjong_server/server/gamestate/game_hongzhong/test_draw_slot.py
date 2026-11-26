@@ -10,7 +10,7 @@ import pytest
 from .test_flow import HAND, make_state
 from ...game_calculation.hongzhong import rules as book
 from ..public.game_record_manager import init_game_round
-from ..game_taiwan.boardcast import (broadcast_game_start, broadcast_ask_hand_action,
+from ..game_taiwan.broadcast import (broadcast_game_start, broadcast_ask_hand_action,
                                     send_realtime_spectator_snapshot, _build_do_action_payload)
 
 SEQ = [21, 22, 23, 24, 25, 26, 31, 32, 33, 39]

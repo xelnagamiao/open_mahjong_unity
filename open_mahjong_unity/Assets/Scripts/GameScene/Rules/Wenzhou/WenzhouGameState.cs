@@ -205,6 +205,16 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         if (pendingSettlement) { pendingReadyStatus = response; return; }
         base.OnReadyStatus(response);
     }
+    public override bool TryCollectKongOptions(string actionType, List<int> handTiles, List<string> combinations,
+        out List<(int targetTile, List<int> displayTiles)> options) {
+        if (actionType == "jiagang" || actionType == "buzhang") {
+            options = CollectJiagangOptions(handTiles, combinations);
+            return true;
+        }
+        options = null;
+        return false;
+    }
+
     public static List<(int targetTile, List<int> displayTiles)> CollectJiagangOptions(List<int> hand, List<string> combinations) {
         var result = new List<(int, List<int>)>();
         var info = Active?.Info;

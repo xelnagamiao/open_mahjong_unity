@@ -10,7 +10,7 @@ from ...game_calculation.sichuan.doubles_rules import match_result, team_scores
 from ...response import Refresh_player_tag_list_info, Response, Show_result_info
 from ..game_guobiao.blood_battle import HU_TAGS, next_active_index, player_snapshot
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..game_tuidao.result import broadcast_result
 from ..public.game_record_manager import (
     append_action_tick, player_action_record_hu, player_action_record_round_end,
@@ -306,7 +306,7 @@ class GuangdongDoublesGameState(DoublesClaimMixin, GuangdongGameState):
         self.server_action_tick += 1
         index = item["index"]
         self_draw = item["source"] == "self_draw"
-        await boardcast.broadcast_refresh_player_tag_list(self)
+        await broadcast.broadcast_refresh_player_tag_list(self)
         for p in self.player_list:
             self.record_local_context(p.player_index)
             info = Show_result_info(hu_class=item["hu_class"], hepai_player_index=index,

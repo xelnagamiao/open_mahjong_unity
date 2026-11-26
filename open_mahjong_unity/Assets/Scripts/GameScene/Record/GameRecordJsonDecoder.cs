@@ -145,37 +145,8 @@ public static class GameRecordJsonDecoder {
         round.dealerIndex = roundData["dealer_index"].Value<int>();
         round.startPlayerIndex = roundData["start_player_index"].Value<int>();
 
-        round.washizu = (roundData["washizu"] as JObject)?.ToObject<WashizuRoundExtras>();
-        round.hongkong = (roundData["hongkong"] as JObject)?.ToObject<HongKongInfo>();
-        round.guizhou = (roundData["guizhou"] as JObject)?.ToObject<GuizhouInfo>();
-        round.yixing = (roundData["yixing"] as JObject)?.ToObject<YixingInfo>();
-        round.malaysia = (roundData["malaysia"] as JObject)?.ToObject<MalaysiaInfo>();
-        round.nanjing = (roundData["nanjing"] as JObject)?.ToObject<NanjingInfo>();
-        round.fuzhou = (roundData["fuzhou"] as JObject)?.ToObject<FuzhouInfo>();
-        round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
-        round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
-        round.shangrao = (roundData["shangrao"] as JObject)?.ToObject<ShangraoInfo>();
-        round.sanhua = (roundData["sanhua"] as JObject)?.ToObject<SanhuaInfo>();
-        round.newChinese = (roundData["new_chinese"] as JObject)?.ToObject<NewChineseInfo>();
-        round.beijing = (roundData["beijing"] as JObject)?.ToObject<BeijingInfo>();
-        round.beijingHints = (roundData["beijing_hints"] as JObject)?.ToObject<Dictionary<int,BeijingHints>>();
-        round.duocai = (roundData["duocai"] as JObject)?.ToObject<DuocaiInfo>();
-        round.duocaiHints = (roundData["duocai_hints"] as JObject)?.ToObject<Dictionary<int,DuocaiHints>>();
-        round.shangraoHints = (roundData["shangrao_hints"] as JObject)?.ToObject<Dictionary<int, ShangraoHints>>();
-        round.nanchangHints = (roundData["nanchang_hints"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, NanchangWait[]>>>();
-        round.wenzhou = (roundData["wenzhou"] as JObject)?.ToObject<WenzhouInfo>();
-        round.wenzhouWaits = (roundData["wenzhou_waits"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, WenzhouWait[]>>>();
         round.detailedConfig = (roundData["detailed_config"] as JObject)?.ToObject<Dictionary<string, object>>();
-        if (roundData["riichi"] is JObject riichiObj) {
-            round.riichi = new RiichiRoundExtras {
-                honba = riichiObj["honba"]?.Value<int>() ?? 0,
-                riichiSticks = riichiObj["riichi_sticks"]?.Value<int>() ?? 0,
-                doraMarker = riichiObj["dora_marker"]?.Value<int>() ?? 0,
-            };
-        }
-
-        round.dingqueSuits = (roundData["dingque_suits"] as JObject)?.ToObject<Dictionary<int, int>>();
-        round.sbrPassedFans = (roundData["sbr_passed_fans"] as JObject)?.ToObject<Dictionary<int, SortedDictionary<int, int>>>();
+        RuleRecordCodecRegistry.DecodeRoundProperties(round, roundData);
         if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>() ?? new List<int>();
@@ -205,124 +176,20 @@ public static class GameRecordJsonDecoder {
     }
 
     /// <summary>
-    /// 从单条 tick 累计本局 score_changes（hu_* / hu_riichi / ryuukyoku，以及川麻 gs/gr/终局分步）。
+    /// 从单条 tick 累计本局 score_changes（通用和牌/流局/内联杠分 + 规则注册的专属分值处理器）。
     /// 供牌谱初次解析与观战增量解析共用，确保跨局起手分不为 0。
     /// </summary>
     public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
         if (round == null || tick == null || tick.Count == 0) return;
-        if (GameRecordManager.AccumulateExchangeSixDrawScore(round, tick)) return;
+        if (RuleRecordCodecRegistry.TryApplyTickScoreChange(round, tick)) return;
         string act = tick[0];
-        if (act == "malaysia" && tick.Count >= 3 && tick[1] == "payment") {
-            int[] payment = JArray.Parse(tick[2]).ToObject<int[]>();
-            int[] original = ConvertPlayerIndexScoreChangesToOriginal(payment, round.seats);
-            round.scoreChanges ??= new List<int>(new int[4]);
-            for (int i=0; i<original.Length; i++) round.scoreChanges[i] += original[i];
-            return;
-        }
-
-        if (act == "wenzhou" && tick.Count >= 4 && tick[1] == "state" && round.wenzhou?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.wenzhou.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
-        if (act == "duocai" && tick.Count >= 4 && tick[1] == "state" && round.duocai?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.duocai.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
-        if (act == "shangrao" && tick.Count >= 4 && tick[1] == "state" && round.shangrao?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.shangrao.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
-        if (act == "beijing" && tick.Count >= 4 && tick[1] == "state" && round.beijing?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.beijing.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
-        if (act == "nanchang" && tick.Count >= 4 && tick[1] == "state" && round.nanchang?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanchang.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
-        if (act == "nanjing" && tick.Count >= 4 && tick[1] == "state" && round.nanjing?.start_scores?.Length == 4) {
-            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
-            if (scores?.Length == 4) {
-                var changes = new int[4];
-                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanjing.start_scores[i];
-                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
-            }
-            return;
-        }
         int[] sc = null;
-        if (act == "singapore" && tick.Count >= 3 && tick[1] == "payment") {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else
-        if (act == "filipino" && tick.Count >= 5 && tick[1] == "score") {
+        if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
             sc = ParseScoreChangesFromTick(tick, 4);
-        } else if (act == "nanjing" && tick.Count >= 3 && tick[1] == "score") {
-            sc = ParseInlineGangScoreChanges(tick);
-        } else if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third" || act == "lajihe_eight_flowers")) {
-            sc = ParseScoreChangesFromTick(tick, 4);
-        } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs" || tick[1] == "penalty")) {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "wuhan" && tick.Count >= 3 && tick[1] == "bonus") {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "hongzhong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "kong_refund")) {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "sy" && tick.Count >= 2) {
-            var e = Newtonsoft.Json.Linq.JObject.Parse(tick[1]);
-            if ((string)e["kind"] == "egg") {
-                sc = new int[4];
-                for (int i=0;i<4;i++) sc[i]=(int?)e["changes"]?[i.ToString()]??0;
-            }
-        } else if (act == "cc" && tick.Count >= 2) {
-            var e = Newtonsoft.Json.Linq.JObject.Parse(tick[1]);
-            if ((string)e["kind"] == "kong_score") {
-                sc = new int[4];
-                for (int i=0;i<4;i++) sc[i]=(int?)e["delta"]?[i.ToString()]??0;
-            }
-        } else if (act == "tuidao" && tick.Count >= 3 && tick[1] == "kong_score") {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "guizhou" && tick.Count >= 3 && tick[1] == "draw_score") {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "hongkong" && tick.Count >= 3 && tick[1] == "score") {
-            sc = ParseScoreChangesFromTick(tick, 2);
-        } else if (act == "riichi" && tick.Count >= 2) {
-            if (int.TryParse(tick[1], out int seat) && seat >= 0 && seat < 4) {
-                sc = new int[4]; sc[seat] = -1000;
-            }
-        } else if (act == "hu_riichi" && tick.Count >= 7) {
-            sc = ParseScoreChangesFromTick(tick, 6);
         } else if (act == "ryuukyoku" && tick.Count >= 3) {
             sc = ParseScoreChangesFromTick(tick, 2);
         } else if (act == "ag" || act == "jg" || act == "g" || act == "gr") {
             sc = ParseInlineGangScoreChanges(tick);
-        } else if ((act == "liuju" || act == "blood") && tick.Count >= 2) {
-            string step = tick[1];
-            if (step == "settle_hu") sc = ParseScoreChangesFromTick(tick, 6);
-            else if (step == "chajiao") sc = ParseScoreChangesFromTick(tick, 5);
-            else if (step == "cha_refund" || step == "settle_gang") sc = ParseScoreChangesFromTick(tick, 2);
         }
         if (sc == null) return;
         AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));

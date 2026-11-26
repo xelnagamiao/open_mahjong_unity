@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import logging
 from .action_check import check_action_after_cut, check_action_after_gang_forced_cut, check_action_after_batch_gang_forced_cut, check_action_after_batch_gang_meld, check_action_hand_action, check_hepai, check_only_cut, refresh_waiting_tiles, filter_open_kong_replacement_actions
 from .wait_action import wait_action
-from .boardcast import (
+from .broadcast import (
     broadcast_game_start,
     broadcast_ask_hand_action,
     broadcast_ask_other_action,
@@ -406,7 +406,7 @@ class ChangshaGameState:
                         game_info=game_info
                     )
 
-                    await send_game_packet(self, player_conn.websocket, response.dict(exclude_none=True))
+                    await send_game_packet(self, player_conn.websocket, response.model_dump(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
                     await reconnected_send_pending_ask(self, user_id)
                 break

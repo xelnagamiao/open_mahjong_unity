@@ -2,7 +2,7 @@ from ..public.settlement_sync import send_game_packet
 import math
 from dataclasses import asdict
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ...game_calculation.duocai import tiles as t
 from .actions import KINDS, legal_cuts, riichi_cuts
 from .client_context import private_context

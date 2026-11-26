@@ -16,6 +16,14 @@ public partial class GameRecordManager {
         RefreshPlayerTags = RefreshHangzhouRecordPlayerStatus,
         AnnounceBeforeAction = PlayHangzhouRecordAnnouncement,
         AfterSilentMutation = tick => SyncRecordBoardScores(),
+        TryHandleCustomHuReveal = (huPosition, hand) => {
+            if (recordHangzhouWinSource != "ten_winds") return false;
+            if (recordPlayer_to_info.TryGetValue(huPosition, out RecordPlayer winner)) {
+                RoundEndPresentation.Instance?.HideSelfGameplayControl(false);
+                Game3DManager.Instance?.RevealSichuanLiujuAllHands(new Dictionary<int, int[]> { { winner.playerIndex, hand } });
+            }
+            return true;
+        },
     };
 
     private HangzhouInfo recordHangzhouInfo;

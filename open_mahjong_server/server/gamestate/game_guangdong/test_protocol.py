@@ -13,7 +13,7 @@ from .test_state import HAND, draw, hand, make_state, ticks
 from ...game_calculation.guangdong import rules
 from ...game_calculation.guangdong.scoring import Context
 from ...game_calculation.guangdong.settlement import kong_payments
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 
 
 CPU_MODULE = "server.gamestate.game_guangdong.GuangdongGameState"
@@ -121,7 +121,7 @@ def test_nonwinning_14_hand_excludes_discards_without_legal_waits():
 def test_hint_switches_supply_structure_for_count_only_rooms(cpu, fan, count):
     state = protocol_state(tips=fan, count_tips=count)
     player = hand(state, 0, [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 41, 41, 55])
-    asyncio.run(boardcast.broadcast_game_start(state))
+    asyncio.run(broadcast.broadcast_game_start(state))
     fields = inbox(state, 0)[0]["game_info"]
     if not fan and not count:
         assert "guangdong_tips" not in fields and cpu.await_count == 0
@@ -130,7 +130,7 @@ def test_hint_switches_supply_structure_for_count_only_rooms(cpu, fan, count):
     assert payload["local_request"]["hand"] == sorted(player.hand_tiles)
     assert not {"waits", "discard_waits"} & payload.keys()
     cpu.assert_not_awaited()
-    asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
+    asyncio.run(broadcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
     own = inbox(state, 0)[-1]["do_action_info"]["guangdong_tips"]
     assert own["hand"] == sorted(player.hand_tiles)
     assert any(tick[2] == 0 and tick[3]["local_request"] == payload["local_request"] for tick in tip_ticks(state))
@@ -195,11 +195,11 @@ def test_each_packet_captures_current_inputs_without_shared_result_cache(cpu):
 def test_tips_disabled_never_computes_transmits_or_records_private_tips(cpu, event):
     state = protocol_state(tips=False)
     if event == "start":
-        asyncio.run(boardcast.broadcast_game_start(state))
+        asyncio.run(broadcast.broadcast_game_start(state))
     elif event == "ask":
-        asyncio.run(boardcast.broadcast_ask_hand_action(state))
+        asyncio.run(broadcast.broadcast_ask_hand_action(state))
     elif event == "do":
-        asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 0, cut_tile=45))
+        asyncio.run(broadcast.broadcast_do_action(state, ["cut"], 0, cut_tile=45))
     else:
         asyncio.run(state.player_reconnect(101))
     cpu.assert_not_awaited()
@@ -213,7 +213,7 @@ def test_tips_disabled_never_computes_transmits_or_records_private_tips(cpu, eve
 
 def test_all_four_start_and_reconnect_messages_have_only_their_own_hand_and_tips(cpu):
     state = protocol_state()
-    asyncio.run(boardcast.broadcast_game_start(state))
+    asyncio.run(broadcast.broadcast_game_start(state))
     assert cpu.await_count == 0
     for index in range(4):
         assert_private_hand(inbox(state, index)[0]["game_info"], state, index)
@@ -229,7 +229,7 @@ def test_ask_only_contains_active_seat_private_tips(cpu, active):
     state = protocol_state()
     state.current_player_index = active
     state.action_dict = {i: ["cut"] if i == active else [] for i in range(4)}
-    asyncio.run(boardcast.broadcast_ask_hand_action(state))
+    asyncio.run(broadcast.broadcast_ask_hand_action(state))
     for index in range(4):
         info = inbox(state, index)[-1]["ask_hand_action_info"]
         assert info["player_index"] == active
@@ -245,7 +245,7 @@ def test_ask_only_contains_active_seat_private_tips(cpu, active):
 def test_do_action_uses_viewer_tips_and_hides_other_players_draw(cpu, actor):
     state = protocol_state()
     draw(state.player_list[actor], 55)
-    asyncio.run(boardcast.broadcast_do_action(state, ["deal_tile"], actor, deal_tile=55))
+    asyncio.run(broadcast.broadcast_do_action(state, ["deal_tile"], actor, deal_tile=55))
     for index in range(4):
         info = inbox(state, index)[-1]["do_action_info"]
         assert info["action_player"] == actor
@@ -268,7 +268,7 @@ def test_authorized_realtime_spectators_follow_host_identity_after_seat_rotation
         state.game_server.user_id_to_connection[uid] = connection()
         spectators.append(SimpleNamespace(user_id=uid, host_user_id=state.player_list[index].user_id))
     state.realtime_spectators = spectators
-    asyncio.run(boardcast.broadcast_game_start(state))
+    asyncio.run(broadcast.broadcast_game_start(state))
     for index, spectator in enumerate(spectators):
         messages = state.game_server.user_id_to_connection[spectator.user_id].websocket.messages
         assert len(messages) == 1
@@ -278,7 +278,7 @@ def test_authorized_realtime_spectators_follow_host_identity_after_seat_rotation
     state.player_list = state.player_list[1:] + state.player_list[:1]
     for index, player in enumerate(state.player_list):
         player.player_index = index
-    asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
+    asyncio.run(broadcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
     for original, spectator in enumerate(spectators):
         view = (original - 1) % 4
         info = state.game_server.user_id_to_connection[spectator.user_id].websocket.messages[-1]["do_action_info"]
@@ -294,7 +294,7 @@ def test_realtime_initial_snapshot_and_pending_ask_keep_authorized_view(cpu, vie
     state.realtime_spectators = [SimpleNamespace(user_id=uid, host_user_id=state.player_list[view].user_id)]
     state.current_player_index = view
     state.action_dict = {i: ["cut"] if i == view else [] for i in range(4)}
-    asyncio.run(boardcast.send_realtime_spectator_snapshot(state, uid, view))
+    asyncio.run(broadcast.send_realtime_spectator_snapshot(state, uid, view))
     messages = state.game_server.user_id_to_connection[uid].websocket.messages
     assert len(messages) == 2
     assert_private_hand(messages[0]["game_info"], state, view)
@@ -307,12 +307,12 @@ def test_spectator_removal_and_match_block_prevent_future_private_delivery(cpu):
     spectator = SimpleNamespace(user_id=901, host_user_id=101)
     state.realtime_spectators = [spectator]
     state.game_server.match_manager = SimpleNamespace(blocks_spectator=lambda uid: uid == 901)
-    asyncio.run(boardcast.broadcast_game_start(state))
+    asyncio.run(broadcast.broadcast_game_start(state))
     messages = state.game_server.user_id_to_connection[901].websocket.messages
     assert messages == []
     state.game_server.match_manager.blocks_spectator = lambda uid: False
     state.realtime_spectators.clear()
-    asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 0, cut_tile=45))
+    asyncio.run(broadcast.broadcast_do_action(state, ["cut"], 0, cut_tile=45))
     assert messages == []
 
 
@@ -325,7 +325,7 @@ def test_concealed_kong_has_public_middle_tiles_and_ledger_for_all_viewers(cpu):
                          dict(player=3, kind="added", payer=None, tile=44,
                               changes=kong_payments(3, "added"))]
     state._score_event = {"gang_score_changes": {0: 6, 1: -2, 2: -2, 3: -2}, "gang_score_type": "concealed"}
-    asyncio.run(boardcast.broadcast_do_action(state, ["angang"], 0,
+    asyncio.run(broadcast.broadcast_do_action(state, ["angang"], 0,
         combination_mask=[2, 41, 0, 41, 0, 41, 2, 41], combination_target="G41"))
     for index in range(4):
         info = inbox(state, index)[-1]["do_action_info"]
@@ -347,16 +347,16 @@ def test_real_concealed_kong_snapshot_reconnect_and_record_keep_public_faces(cpu
         expected = [2, 11, 0, 11, 0, 11, 2, 11]
         assert player.combination_mask == [expected]
         assert ["ag", 11, "T", 11, 11, 11, 11] in ticks(state)
-        await boardcast.broadcast_game_start(state)
+        await broadcast.broadcast_game_start(state)
         for viewer in range(4):
-            await boardcast.send_reconnect_game_state(state, state.player_list[viewer])
+            await broadcast.send_reconnect_game_state(state, state.player_list[viewer])
             info = next(m["game_info"] for m in reversed(inbox(state, viewer)) if "game_info" in m)
             assert info["players_info"][0]["combination_tiles"] == ["G11"]
             assert info["players_info"][0]["combination_mask"] == [expected]
             if viewer != 0:
                 assert "hand_tiles" not in info["players_info"][0]
         state.game_server.user_id_to_connection[501] = connection()
-        await boardcast.send_realtime_spectator_snapshot(state, 501, 1)
+        await broadcast.send_realtime_spectator_snapshot(state, 501, 1)
         info = state.game_server.user_id_to_connection[501].websocket.messages[0]["game_info"]
         assert info["players_info"][0]["combination_mask"] == [expected]
         assert "hand_tiles" not in info["players_info"][0]
@@ -367,7 +367,7 @@ def test_record_deduplicates_tips_and_ordinary_spectator_waits_full_delay(cpu):
     state = protocol_state()
     manager = state.spectator_manager
     with patch(TIME_MODULE, return_value=1000):
-        asyncio.run(boardcast.broadcast_game_start(state))
+        asyncio.run(broadcast.broadcast_game_start(state))
     with patch(TIME_MODULE, return_value=1010):
         state.record_local_context(0)
         state.record_local_context(0)

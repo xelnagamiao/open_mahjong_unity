@@ -8,7 +8,7 @@ import pytest
 from .test_xueliu_doubles import make_state
 from .test_xueliu_exchange import exchange_state, EXCHANGE_WIN
 from .test_action_window import submit
-from .boardcast import broadcast_game_start, broadcast_xueliu_exchange_animation, reconnected_send_pending_ask, _build_players_info
+from .broadcast import broadcast_game_start, broadcast_xueliu_exchange_animation, reconnected_send_pending_ask, _build_players_info
 
 
 @pytest.mark.parametrize('direction', [1, 2, 3])
@@ -41,8 +41,8 @@ def test_solo_exchange_animates_authoritative_direction_then_receives_private_ti
                 assert [p.get('sbr_received_tiles') for p in view] == [
                     choices[(i-direction)%4] if seat == i else None for seat in range(4)]
         with patch.object(state, '_opening_exchange_direction', return_value=direction), \
-             patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', choose), \
-             patch(__package__+'.boardcast.broadcast_xueliu_exchange_animation', animate), \
+             patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', choose), \
+             patch(__package__+'.broadcast.broadcast_xueliu_exchange_animation', animate), \
              patch.object(state, 'broadcast_game_start', receive), patch.object(state, '_dingque_phase'), \
              patch(__package__+'.XueliuGameState.broadcast_dingque_done'):
             await state._opening_phase()
@@ -71,8 +71,8 @@ def test_both_selections_then_animation_then_next_pair(round_number):
             await submit(state, index, 'xueliu_exchange_three',
                          selected_tiles=state._default_xueliu_throw_tiles(index))
 
-        with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask), \
-             patch(__package__+'.boardcast.broadcast_xueliu_exchange_animation', animate):
+        with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', ask), \
+             patch(__package__+'.broadcast.broadcast_xueliu_exchange_animation', animate):
             task = asyncio.create_task(state._xueliu_throw_three_phase())
             try:
                 for stage, group in enumerate(groups, 1):
@@ -145,8 +145,8 @@ def test_cancel_during_animation_does_not_open_second_group():
             reached.set()
             await asyncio.Event().wait()
 
-        with patch(__package__+'.boardcast.broadcast_xueliu_throw_three_ask', ask), \
-             patch(__package__+'.boardcast.broadcast_xueliu_exchange_animation', animate):
+        with patch(__package__+'.broadcast.broadcast_xueliu_throw_three_ask', ask), \
+             patch(__package__+'.broadcast.broadcast_xueliu_exchange_animation', animate):
             task=asyncio.create_task(state._xueliu_throw_three_phase())
             await asyncio.wait_for(reached.wait(), 2)
             task.cancel()

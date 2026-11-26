@@ -9,7 +9,7 @@ from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState, 
 from server.gamestate.game_changsha.action_check import check_action_hand_action
 from server.gamestate.game_changsha.get_action import get_action
 from server.gamestate.game_changsha.open_kong import open_kong_tile_positions, normalize_open_kong_count, roll_open_kong_dice
-from server.gamestate.game_changsha.boardcast import reconnected_send_pending_ask_for_viewer
+from server.gamestate.game_changsha.broadcast import reconnected_send_pending_ask_for_viewer
 from server.gamestate.public.claim_protection import init_claim_protection_state
 from server.room.room_validators import ChangshaRoomValidator
 
@@ -209,7 +209,7 @@ class ChangshaDiceKongTest(unittest.TestCase):
         asyncio.run(run())
 
     def test_reconnect_and_realtime_snapshot_restore_all_public_tiles(self):
-        from server.gamestate.game_changsha.boardcast import _build_game_start_payload_for_viewer
+        from server.gamestate.game_changsha.broadcast import _build_game_start_payload_for_viewer
         async def run():
             state = make_batch_state(winners=(1,))
             await declare_and_draw(state)
@@ -407,7 +407,7 @@ class ChangshaDiceKongTest(unittest.TestCase):
         asyncio.run(run())
 
     def test_open_kong_replacement_payload_is_public_but_supplement_is_hidden(self):
-        from server.gamestate.game_changsha.boardcast import _build_do_action_payload
+        from server.gamestate.game_changsha.broadcast import _build_do_action_payload
         state = make_batch_state(winners=(1,))
         asyncio.run(declare_and_draw(state))
         payload = _build_do_action_payload(state, ['deal_gang_tile'], 0, 1, deal_tile=22, deal_tiles=[21, 22])

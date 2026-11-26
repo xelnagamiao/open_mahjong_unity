@@ -148,7 +148,7 @@ async def test_personal_all_bot_child_finish_preserves_host_and_existing_group_c
 async def test_socket_dispatch_preserves_duplicate_options(rooms, sub):
     from .room_router import handle_room_message
     server = rooms.game_server
-    server.create_Sichuan_room = AsyncMock(return_value=NS(dict=lambda **_: {"success": True}))
+    server.create_Sichuan_room = AsyncMock(return_value=NS(model_dump=lambda **_: {"success": True}))
     socket = NS(send_json=AsyncMock())
     await handle_room_message(server, "missing", dict(type="room/create_Sichuan_room", sub_rule=sub,
         roomname="八人", gameround=1, password="", roundTimerValue=127, stepTimerValue=17, tips=True,

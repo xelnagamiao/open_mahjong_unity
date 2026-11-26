@@ -6,7 +6,7 @@ import pytest
 
 from .action_check import (check_action_after_cut, check_action_hand_action,
                            refresh_waiting_tiles, _xueliu_post_hu_kong_allowed)
-from .boardcast import reconnected_send_pending_ask
+from .broadcast import reconnected_send_pending_ask
 from .test_post_peng_jiagang import FLOW_MODES, make_state, ReachedFollowup
 from .test_action_window import submit
 from .wait_action import wait_action

@@ -12,7 +12,7 @@ from .test_integration import room_manager
 from ..public.ask_timing import begin_ask_round, note_ask_delivered
 from ..public.ai.get_action import get_action
 from ..public.tactical_claim import get_higher_priority_snapshot
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ...room.changchun_room import (
     ChangchunRoomValidator, create_changchun_room, enforce_changchun_tactical_room,
     handle_create_changchun_room,
@@ -259,7 +259,7 @@ def test_recheck_wire_and_reconnect_show_five_plus_zero_without_resetting_deadli
             assert (ask['remaining_time_ms'],ask['step_remaining_ms']) == (5000,0)
             deadline = state.action_clock_manager.windows[1].deadline
             # Viewer 1 passed normally then becomes a higher competitor after player 2's application.
-            await boardcast.reconnected_send_pending_ask_for_viewer(state,102,1)
+            await broadcast.reconnected_send_pending_ask_for_viewer(state,102,1)
             packets.append(socket.send_json.call_args.args[0])
             assert state.action_clock_manager.windows[1].deadline == deadline
             reconnect = packets[-1]['ask_other_action_info']
@@ -336,7 +336,7 @@ def test_actual_start_manager_guards_saved_room_and_reconnect_flag(enabled,bot):
                 for index,player in enumerate(state.player_list):
                     player.player_index=player.original_player_index=index
                 state.game_status='deal_card'
-                await boardcast.send_reconnect_game_state(state,state.player_list[0])
+                await broadcast.send_reconnect_game_state(state,state.player_list[0])
                 data = server.players[str(users[0])].websocket.send_json.call_args.args[0]
                 assert data['game_info']['tactical_call'] is expected
             finally:

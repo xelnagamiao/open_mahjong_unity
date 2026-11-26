@@ -210,7 +210,7 @@ async def handle_reorder(game_server, connection_id, message, websocket):
     request_id = message.get('request_id')
     if type(request_id) is not int:
         request_id = None
-    from .boardcast import _send_response
+    from .broadcast import _send_response
     if changed:
         from ..public.game_record_manager import append_action_tick
         append_action_tick(game, ['wo', player.player_index, json.dumps(message['tiles']),

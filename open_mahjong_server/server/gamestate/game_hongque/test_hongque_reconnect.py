@@ -196,7 +196,7 @@ async def export_client_fixtures(output):
     """Export actual packets and records for HongqueRuntimeValidation, without a DB."""
     import json
     from pathlib import Path
-    from .boardcast import state_packet
+    from .broadcast import state_packet
     folder = Path(output)
     cases, replays = [], []
     replay_stages = {"turn", "claim", "tactical", "onlycut", "supplement", "ron", "multi_ron"}

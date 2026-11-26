@@ -390,7 +390,7 @@ def test_cancelled_opening_or_tactical_phase_drains_child_waits(phase_name):
                 broadcaster = "server.gamestate.game_sichuan.SichuanGameState.broadcast_dingque_ask"
                 coroutine = state._dingque_phase()
             elif phase_name == "xueliu":
-                broadcaster = "server.gamestate.game_sichuan.boardcast.broadcast_xueliu_throw_three_ask"
+                broadcaster = "server.gamestate.game_sichuan.broadcast.broadcast_xueliu_throw_three_ask"
                 coroutine = state._xueliu_throw_three_phase()
             else:
                 from server.gamestate.public.tactical_claim import tactical_grace_phase, init_tactical_round_state
@@ -398,7 +398,7 @@ def test_cancelled_opening_or_tactical_phase_drains_child_waits(phase_name):
                 state.tactical_grace_seconds = 60
                 state._tactical_action_snapshot = {0: ["chi_left"], 1: ["peng"], 2: [], 3: []}
                 state.action_dict = dict(state._tactical_action_snapshot)
-                broadcaster = "server.gamestate.game_guobiao.boardcast.broadcast_ask_other_action"
+                broadcaster = "server.gamestate.game_guobiao.broadcast.broadcast_ask_other_action"
                 coroutine = tactical_grace_phase(
                     state, "chi_left", 0, {"action_type": "chi_left"}, 33,
                     broadcast_do_action=AsyncMock(), broadcast_ask_other_action=AsyncMock(),

@@ -6,7 +6,7 @@ import random
 import logging
 import time
 from typing import Dict, List, Optional, Tuple, Set
-from .boardcast import broadcast_result, broadcast_xueliu_continue, broadcast_dingque_done
+from .broadcast import broadcast_result, broadcast_xueliu_continue, broadcast_dingque_done
 from ..public.game_record_manager import player_action_record_hu, player_action_record_liuju, player_action_record_sichuan_liuju_step, player_action_record_gang_refund
 from ..public.round_end_timing import ROUND_END_HAND_REVEAL_SEC, sichuan_chajiao_panel_wait_seconds
 from ...game_calculation.sichuan.xueliu_rules import XUELIU_RULE_PROFILE, XUELIU_EXCHANGE_RULE_PROFILE, is_xueliu_sub_rule
@@ -76,7 +76,7 @@ class XueliuGameState(ThreeTileOpening, SichuanGameState):
         self.waiting_players_list = []
 
     async def _show_exchange_animation(self):
-        from .boardcast import broadcast_xueliu_exchange_animation
+        from .broadcast import broadcast_xueliu_exchange_animation
         self.game_status = "xueliu_exchange_animation"
         self.server_action_tick += 1
         self.action_dict = {i: [] for i in range(4)}

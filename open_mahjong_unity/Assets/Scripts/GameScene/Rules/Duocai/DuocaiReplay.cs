@@ -10,6 +10,12 @@ public partial class GameRecordManager {
     private ShowResultInfo recordDuocaiResult;
     private int recordDuocaiDeclaredActor=-1,recordDuocaiDeclaredMeld=-1,recordDuocaiDeclaredTile;
     public RiichiEndResultExtras DuocaiRecordResultExtras()=>recordDuocaiResult==null?null:DuocaiResultPresentation.BuildExtras(recordDuocaiResult);
+    internal int DuocaiRecordCurrentDrawTile(int playerIndex) {
+        if (!recordDuocaiHints.TryGetValue(playerIndex, out var cache)) return 0;
+        var player = recordPlayerList.FirstOrDefault(p => p.playerIndex == playerIndex);
+        int tile = cache.CurrentDrawTile;
+        return player?.showHandDrawSlotActive == true && player.tileList.Count % 3 == 2 && player.tileList.Contains(tile) ? tile : 0;
+    }
     private bool IsDuocaiRecordRobWin=>RecordRuleManifest?.RuleId=="duocai"&&recordDuocaiRobbed;
     private readonly Dictionary<int,DuocaiHintsCache> recordDuocaiHints=new Dictionary<int,DuocaiHintsCache>();
     private readonly Dictionary<int,int> recordDuocaiWallIndices=new Dictionary<int,int>();
@@ -21,7 +27,11 @@ public partial class GameRecordManager {
         RemainingTiles=()=>recordDuocaiInfo?.wall?.Count(t=>!t.removed&&!t.dead)??0,
         RefreshAfterAction=RefreshDuocaiRecord,RefreshAfterSeek=RefreshDuocaiRecordAfterSeek,
         AfterSilentMutation=tick=>SyncRecordBoardScores(),
-        AfterVisibleMutation=tick=>{if(tick.Count>1&&tick[0]=="duocai"&&tick[1]=="action")RefreshDuocaiRecordMelds();}
+        AfterVisibleMutation=tick=>{if(tick.Count>1&&tick[0]=="duocai"&&tick[1]=="action")RefreshDuocaiRecordMelds();},
+        IsRobKongWin=_=>recordDuocaiRobbed,
+        GetHuResultExtras=DuocaiRecordResultExtras,
+        GetCurrentDrawTile=DuocaiRecordCurrentDrawTile,
+        GetVisibleIndicators=()=>recordDuocaiInfo?.indicators??Array.Empty<int>(),
     };
     private void ResetDuocaiRecord() {
         recordDuocaiInfo=null;recordDuocaiRobbed=false;recordDuocaiResult=null;recordDuocaiDeclaredActor=-1;recordDuocaiHints.Clear();recordDuocaiWallIndices.Clear();

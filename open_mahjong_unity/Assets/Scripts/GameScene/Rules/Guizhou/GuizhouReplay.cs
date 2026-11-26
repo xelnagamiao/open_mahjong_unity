@@ -13,6 +13,7 @@ public partial class GameRecordManager {
             if (tick.Count > 1 && tick[1] == "reveal_kongs") RefreshGuizhouRecordMelds();
         },
         AnnounceAfterSilentAction = PlayGuizhouRecordAnnouncement,
+        IsRobKongWin = _ => recordGuizhouWinSource == "rob_kong",
     };
 
     private GuizhouInfo recordGuizhouInfo;

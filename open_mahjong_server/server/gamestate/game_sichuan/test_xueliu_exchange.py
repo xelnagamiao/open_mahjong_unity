@@ -57,7 +57,7 @@ def test_exchange_asks_distinct_action_and_records_post_exchange_hands():
             await current.action_queues[i].put({"action_type": "xueliu_exchange_three", "selected_tiles": [11, 12, 13], "_action_tick": current.server_action_tick})
             current.action_events[i].set()
 
-    with patch(__package__ + ".boardcast.broadcast_xueliu_throw_three_ask", respond):
+    with patch(__package__ + ".broadcast.broadcast_xueliu_throw_three_ask", respond):
         asyncio.run(state._opening_phase())
     assert [len(p.hand_tiles) for p in state.player_list] == [14, 13, 13, 13]
     assert state.xueliu_rule_profile["exchange_three"] is True

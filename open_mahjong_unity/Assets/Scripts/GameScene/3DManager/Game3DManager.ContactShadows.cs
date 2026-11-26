@@ -1,7 +1,7 @@
 using UnityEngine;
 
 public partial class Game3DManager {
-    private void OnEnable() {
+    private void OnContactShadowsEnabled() {
         RefreshTileLightingFrame();
         TileContactShadow.RegisterSurface(gameObject.scene, this, TryGetTileContactSurface);
     }
@@ -12,7 +12,7 @@ public partial class Game3DManager {
         return isActiveAndEnabled && (tileSurfacePlane != null || tableSurfaceMesh != null);
     }
 
-    private void OnDestroy() {
+    private void OnContactShadowsDestroyed() {
         TileContactShadow.UnregisterSurface(gameObject.scene, this);
     }
 }

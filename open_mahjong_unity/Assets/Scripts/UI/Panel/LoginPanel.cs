@@ -113,6 +113,7 @@ public class LoginPanel : MonoBehaviour {
     }
 
     private void SubmitUsername(string value) {
+        if (!InputFieldFeedback.IsDesktopKeyboardSubmit()) return;
         if (!isActiveAndEnabled || !inputUser.gameObject.activeInHierarchy || inputUser.wasCanceled) return;
         if (focusPasswordCoroutine != null) StopCoroutine(focusPasswordCoroutine);
         focusPasswordCoroutine = StartCoroutine(FocusPassword());
@@ -128,6 +129,7 @@ public class LoginPanel : MonoBehaviour {
     }
 
     private void SubmitPassword(string value) {
+        if (!InputFieldFeedback.IsDesktopKeyboardSubmit()) return;
         if (!isActiveAndEnabled || !inputPassword.gameObject.activeInHierarchy || inputPassword.wasCanceled) return;
         if (loginButton.isActiveAndEnabled && loginButton.IsInteractable()) loginButton.onClick.Invoke();
     }

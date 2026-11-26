@@ -11,6 +11,7 @@ internal static class NewChineseRuleBootstrap {
         const string rule = NewChineseGameState.RuleId, sub = NewChineseGameState.SubRule;
         RuleNameDictionary.WholeName[rule] = RuleNameDictionary.WholeName[sub] = "新中式麻将";
         RuleNameDictionary.ShortName[rule] = RuleNameDictionary.ShortName[sub] = "新中式";
+        RuleRecordCodecRegistry.RegisterRoundProperty("new_chinese", (round, token) => round.newChinese = (token as Newtonsoft.Json.Linq.JObject)?.ToObject<NewChineseInfo>());
         RuleRegistry.Register(new RuleManifest {
             RuleId=rule, DefaultSubRule=sub, DisplayName="新中式麻将", LobbyName="自定义规则", LobbyOrder=35,
             LobbySubRules=new[]{new RuleLobbySubRule(sub,"新中式麻将",Description), new RuleLobbySubRule(SanhuaGameState.SubRule,"散花天才麻将",SanhuaGameState.Description)}, OutboundChannel=rule,
@@ -35,14 +36,20 @@ internal static class NewChineseRuleBootstrap {
         });
         foreach (string chow in new[]{"chi_left", "chi_mid", "chi_right"}) {
             string word = chow + "_ting";
-            ActionWords.Register(new ActionWordSpec {Word=word, BlocksAutoCut=true, Label=_=>"吃听",
-                Expand=action=>ChowChoices(word)});
+            ActionWords.Register(new ActionWordSpec {Word=word, Kind=ActionWordKind.Chi, BlocksAutoCut=true, Label=_=>"吃听"});
         }
+        ActionWords.Register(new ActionWordSpec {Word=NewChineseGameState.ChiTingGroupWord, Kind=ActionWordKind.Chi,
+            BlocksAutoCut=true, Label=_=>"吃听", Expand=_=>ChowTingChoices()});
     }
-    private static IReadOnlyList<ActionCandidate> ChowChoices(string word) {
+    private static IReadOnlyList<ActionCandidate> ChowTingChoices() {
         int tile = TableMirror.Current.LastCutCardID;
-        int[] offsets = word=="chi_left_ting"?new[]{-2,-1}:word=="chi_mid_ting"?new[]{-1,1}:new[]{1,2};
-        return new[]{new ActionCandidate(word, offsets.Select(o=>o+tile).OrderBy(x=>x).ToArray(),0,"吃听")};
+        var words = NewChineseGameState.Active?.ChiTingWords ?? Array.Empty<string>();
+        var result = new List<ActionCandidate>(words.Length);
+        foreach (string word in words) {
+            int[] offsets = word=="chi_left_ting"?new[]{-2,-1}:word=="chi_mid_ting"?new[]{-1,1}:new[]{1,2};
+            result.Add(new ActionCandidate(word, offsets.Select(o=>o+tile).OrderBy(x=>x).ToArray()));
+        }
+        return result;
     }
 
     internal static string FanName(string label) {

@@ -148,19 +148,25 @@ public partial class GameCanvas {
 
     private void EnsureExchangeSixPanel() {
         if (exchangeSixPanel != null) return;
-        exchangeSixPanel = new GameObject("ChangshaExchangeSix", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-        exchangeSixPanel.transform.SetParent(transform, false);
+        exchangeSixPanel = new GameObject("ChangshaExchangeSix", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(CanvasGroup));
+        exchangeSixPanel.transform.SetParent(GetRuleHintOverlayRoot(), false);
         var rect = exchangeSixPanel.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(.5f, .82f);
         rect.pivot = new Vector2(.5f, 1);
         rect.sizeDelta = new Vector2(700, 0);
-        exchangeSixPanel.GetComponent<Image>().color = new Color(.96f, .97f, .98f, .96f);
+        var panelGroup = exchangeSixPanel.GetComponent<CanvasGroup>();
+        panelGroup.blocksRaycasts = false;
+        panelGroup.interactable = false;
+        var panelImage = exchangeSixPanel.GetComponent<Image>();
+        panelImage.color = new Color(.96f, .97f, .98f, .96f);
+        panelImage.raycastTarget = false;
         var layout = exchangeSixPanel.GetComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(16, 16, 12, 12);
         layout.spacing = 8;
         layout.childForceExpandHeight = false;
         exchangeSixPanel.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         exchangeSixStatus = ExchangeSixLabel("Status", exchangeSixPanel.transform);
+        exchangeSixStatus.raycastTarget = false;
         exchangeSixStatus.gameObject.AddComponent<LayoutElement>().preferredHeight = 76;
         var publicRow = new GameObject("PublicCards", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
         publicRow.transform.SetParent(exchangeSixPanel.transform, false);
@@ -178,7 +184,7 @@ public partial class GameCanvas {
             return;
         }
         if (!exchangeSixReceiptNotice) {
-            exchangeSixReceiptNotice = SbrNode(transform, "ChangshaTableNotice", new Vector2(747, 420));
+            exchangeSixReceiptNotice = SbrNode(GetRuleHintOverlayRoot(), "ChangshaTableNotice", new Vector2(747, 420));
             exchangeSixNoticeShade = SbrGraphic(exchangeSixReceiptNotice, "Shade", Vector2.zero, Vector2.zero,
                 SbrExchangeGraphic.Shape.Shade).rectTransform;
             exchangeSixNoticeTitle = SbrLabel(exchangeSixReceiptNotice, "Title", "", new Vector2(278, 27),
@@ -242,7 +248,11 @@ public partial class GameCanvas {
         SetChangshaNotice(null);
     }
 
-    private void LateUpdate() {
+    private void OnExchangeSixHostDisabled() {
+        if (exchangeSixState != null) HideExchangeSixState();
+    }
+
+    private void OnExchangeSixLateTick() {
         if (exchangeSixReceiptNotice && exchangeSixReceiptNotice.gameObject.activeSelf) {
             PlaceSbrReference(exchangeSixReceiptNotice, (RectTransform)transform);
             if (exchangeSixDice) exchangeSixDice.Pose(exchangeSixReceiptNotice, exchangeSixDiceFaces, exchangeSixDiceProgress);
@@ -266,6 +276,8 @@ public partial class GameCanvas {
             || exchangeSixState.phase == "claims_recheck") {
             if (ActionButtonHost != null && ActionButtonHost.gameObject.activeInHierarchy)
                 top = Mathf.Max(top, RectTransformUtility.CalculateRelativeRectTransformBounds(transform, ActionButtonHost).max.y);
+            if (ActionBlockContenter != null && ActionBlockContenter.gameObject.activeInHierarchy && ActionBlockContenter.childCount > 0)
+                top = Mathf.Max(top, RectTransformUtility.CalculateRelativeRectTransformBounds(transform, ActionBlockContenter).max.y);
             if (exchangeSixPrivateNotice != null && exchangeSixPrivateNotice.gameObject.activeInHierarchy)
                 top = Mathf.Max(top, RectTransformUtility.CalculateRelativeRectTransformBounds(transform, exchangeSixPrivateNotice.transform).max.y);
         }
@@ -405,7 +417,7 @@ public partial class GameCanvas {
         visible = visible && !NormalGameStateManager.Instance.IsRealtimeSpectator
             && !(GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf);
         if (exchangeSixPrivateNotice == null && visible) {
-            exchangeSixPrivateNotice = ExchangeSixLabel("ChangshaOpenHandPassNotice", transform);
+            exchangeSixPrivateNotice = ExchangeSixLabel("ChangshaOpenHandPassNotice", GetRuleHintOverlayRoot());
             exchangeSixPrivateNotice.fontSize = 24;
             exchangeSixPrivateNotice.color = Color.white;
             exchangeSixPrivateNotice.outlineWidth = .2f;
@@ -456,7 +468,7 @@ public partial class GameCanvas {
         if (!aboveHand) panelRect.anchoredPosition = Vector2.zero;
         var background = exchangeSixPanel.GetComponent<Image>();
         background.color = isExchange ? Color.clear : new Color(.96f, .97f, .98f, .96f);
-        background.raycastTarget = !isExchange;
+        background.raycastTarget = false;
         exchangeSixStatus.color = isExchange ? Color.white : Color.black;
         exchangeSixStatus.outlineWidth = isExchange ? .2f : 0;
         exchangeSixStatus.outlineColor = Color.black;
@@ -522,6 +534,7 @@ public partial class GameCanvas {
             var cardRect = (RectTransform)card.transform;
             cardRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 96);
             card.GetComponent<StaticCard>().SetTableFaceImage(tile);
+            foreach (var graphic in card.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
             var element = card.GetComponent<LayoutElement>() ?? card.AddComponent<LayoutElement>();
             element.preferredWidth = 96; element.preferredHeight = 140;
         }

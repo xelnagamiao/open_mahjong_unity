@@ -3,8 +3,10 @@ using UnityEngine;
 internal static class SichuanRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
+        SichuanRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
             ReplayFactory = record => record.CreateSichuanReplayModule(),
+            CreateSettlementCodec = () => new SichuanRecordSettlementCodec(isSichuanFamily: true),
             BuildRoom = SichuanRoomBuilder.Build,
             RuleId = SichuanGameState.RuleId,
             DefaultSubRule = "sichuan/standard",

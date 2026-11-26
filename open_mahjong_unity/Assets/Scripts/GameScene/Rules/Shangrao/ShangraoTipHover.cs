@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 
 public partial class TipsContainer {
     private Coroutine shangraoPointerExit;
-    private int shangraoTipOpeningVersion;
+    private int tipOpeningVersion;
 
     public void HideTipsAfterPointerExit(PointerEventData pointer) {
         if (!DeferShangraoPointerExit(pointer, false)) HideTips();
@@ -18,7 +18,7 @@ public partial class TipsContainer {
         if (pointer == null || !gameObject.activeInHierarchy
             || hintPopupLayout == null || !hintPopupLayout.HasMultiplePages) return false;
         if (shangraoPointerExit != null) StopCoroutine(shangraoPointerExit);
-        shangraoPointerExit = StartCoroutine(FinishShangraoPointerExit(pointer, cutPreview, shangraoTipOpeningVersion));
+        shangraoPointerExit = StartCoroutine(FinishShangraoPointerExit(pointer, cutPreview, tipOpeningVersion));
         return true;
     }
 
@@ -26,7 +26,7 @@ public partial class TipsContainer {
         yield return new WaitForSecondsRealtime(.15f);
         var canvas = GetComponentInParent<Canvas>().rootCanvas;
         Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-        while (openingVersion == shangraoTipOpeningVersion && gameObject.activeInHierarchy) {
+        while (openingVersion == tipOpeningVersion && gameObject.activeInHierarchy) {
             bool inside = RectTransformUtility.RectangleContainsScreenPoint((RectTransform)transform, pointer.position, camera);
             if (!inside) {
                 shangraoPointerExit = null;

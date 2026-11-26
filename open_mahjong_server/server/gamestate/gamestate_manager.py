@@ -342,7 +342,7 @@ class GameStateManager:
             )
             
             # 在响应中添加额外字段方便客户端处理逻辑
-            response_dict = reconnect_message.dict(exclude_none=True)
+            response_dict = reconnect_message.model_dump(exclude_none=True)
             
             if Connect_id in self.game_server.players:
                 await self.game_server.players[Connect_id].websocket.send_json(response_dict)

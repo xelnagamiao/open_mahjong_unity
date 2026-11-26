@@ -11,6 +11,13 @@ internal static class WuhanRuleBootstrap {
         RuleNameDictionary.WholeName[WuhanGameState.SubRule] = "武汉麻将（MIL 2025）";
         RuleNameDictionary.ShortName[WuhanGameState.RuleId] = "武汉";
         RuleNameDictionary.ShortName[WuhanGameState.SubRule] = "武汉";
+        RuleRecordCodecRegistry.RegisterTickScoreHandler("wuhan", (round, tick) => {
+            if (tick.Count >= 3 && tick[1] == "bonus") {
+                RuleRecordCodecRegistry.AddSeatScoreChanges(round, RuleRecordCodecRegistry.ParseScoreChangesArray(tick, 2));
+                return true;
+            }
+            return false;
+        });
         RuleRegistry.Register(new RuleManifest {
             RuleId = WuhanGameState.RuleId, DefaultSubRule = WuhanGameState.SubRule,
             DisplayName = "武汉麻将", LobbyName = "武汉麻将", LobbyOrder = 23,

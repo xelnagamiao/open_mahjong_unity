@@ -38,7 +38,7 @@ def test_screenshot_all_exposed_ron(sub_rule,multi):
 @pytest.mark.parametrize('multi',[False,True])
 @pytest.mark.parametrize('case',SEVEN_FAN_CASES+[(HONOR_WAIT,['s24'],45,'无番和')])
 def test_worker_uses_room_toggle_for_win_permission_and_snapshots(multi,case):
-    from .boardcast import _build_game_start_payload_for_viewer
+    from .broadcast import _build_game_start_payload_for_viewer
     from ..public.game_record_manager import build_game_title_data
     hand,melds,win,fan=case
     s=state(joker_multi_wait=multi);s.current_player_index=0;s.player_list[0].discard_tiles=[win]
@@ -121,7 +121,7 @@ def test_reject_red_kong_even_when_another_kong_is_allowed(api):
 
 
 def test_snapshots_keep_own_hand_without_server_hint_scoring():
-    from .boardcast import _build_game_start_payload_for_viewer
+    from .broadcast import _build_game_start_payload_for_viewer
     s=state();s.tips=True;s.player_list[0].hand_tiles=BASE[:-1]+[59]
     async def run():
         return _build_game_start_payload_for_viewer(s,0)

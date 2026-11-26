@@ -11,7 +11,9 @@ internal static class SingaporeRuleBootstrap {
         RuleNameDictionary.WholeName[SingaporeGameState.SubRule] = "新加坡 · SPGG 2024";
         RuleNameDictionary.ShortName[SingaporeGameState.RuleId] = "新加坡";
         RuleNameDictionary.ShortName[SingaporeGameState.SubRule] = "新加坡";
+        SingaporeRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new SingaporeRecordSettlementCodec(),
             RuleId=SingaporeGameState.RuleId,DefaultSubRule=SingaporeGameState.SubRule,
             DisplayName="新加坡四人麻将",LobbyName="新加坡四人麻将",LobbyOrder=30,OutboundChannel="singapore",
             BuildRoom=SingaporeRoomBuilder.Build,ReplayFactory=r=>r.CreateSingaporeReplayModule(),

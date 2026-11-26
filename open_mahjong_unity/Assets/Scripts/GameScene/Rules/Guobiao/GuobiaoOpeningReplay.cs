@@ -11,6 +11,16 @@ public partial class GameRecordManager {
             GameCanvas.Instance.ConsolidateHand(recordPlayer_to_info["self"].showHandDrawSlotActive);
             Game3DManager.Instance.ConsolidateAllHands();
         };
+        module.TryHandleCustomActionTick = tick => {
+            if (tick[0] == "blood" && IsBloodBattleRecord()) {
+                HandleSichuanLiujuStepReplay(tick);
+                return true;
+            }
+            return false;
+        };
+        module.PopulateRecordTipsContext = (ctx, selfPlayer, roundData) => {
+            if (roundData != null) ctx.GuobiaoTiming = BuildGuobiaoRecordTiming(selfPlayer, roundData, ctx);
+        };
         return module;
     }
 

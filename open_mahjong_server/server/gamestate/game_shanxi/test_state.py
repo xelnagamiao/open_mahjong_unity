@@ -8,7 +8,7 @@ import pytest
 from .ShanxiGameState import ShanxiGameState
 from ...game_calculation.shanxi import rules as sx
 from ..public.game_record_manager import init_game_record, init_game_round
-from ..game_taiwan.boardcast import _build_do_action_payload
+from ..game_taiwan.broadcast import _build_do_action_payload
 
 BASE=[11,12,13,21,22,23,31,32,33,17,18,19]
 
@@ -270,7 +270,7 @@ def test_settlement_records_full_zero_sum_payment_with_seat_remap(self_draw):
 
 
 def test_reconnect_snapshot_hides_ready_discard_and_preserves_locks():
-    from ..game_taiwan.boardcast import send_reconnect_game_state
+    from ..game_taiwan.broadcast import send_reconnect_game_state
     state=make_state()
     p=state.player_list[0]
     p.hand_tiles=BASE+[47,16]
@@ -281,7 +281,7 @@ def test_reconnect_snapshot_hides_ready_discard_and_preserves_locks():
         viewer=state.player_list[index]
         socket=SimpleNamespace(send_json=AsyncMock())
         state.game_server.user_id_to_connection[viewer.user_id]=SimpleNamespace(websocket=socket)
-        with patch("server.gamestate.game_taiwan.boardcast.reconnected_send_pending_ask",new_callable=AsyncMock):
+        with patch("server.gamestate.game_taiwan.broadcast.reconnected_send_pending_ask",new_callable=AsyncMock):
             asyncio.run(send_reconnect_game_state(state,viewer))
         info=socket.send_json.await_args.args[0]["game_info"]
         assert info["room_rule"]=="shanxi" and info["sub_rule"]==sx.SUB_RULE

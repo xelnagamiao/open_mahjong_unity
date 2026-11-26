@@ -10,7 +10,7 @@ import pytest
 from .test_protocol import connected
 from . import doubles
 from .init_tiles import init_riichi_tiles
-from .boardcast import broadcast_game_start, broadcast_game_end
+from .broadcast import broadcast_game_start, broadcast_game_end
 from .rule_logic import finalize_scores
 from .wait_action import _commit_pending_riichi, wait_action, _is_valid_cut_action
 from .action_check import _normalize, check_hepai

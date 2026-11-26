@@ -9,7 +9,9 @@ internal static class NanjingRuleBootstrap {
         foreach(string key in new[]{NanjingGameState.RuleId,NanjingGameState.SubRule}) {
             RuleNameDictionary.WholeName[key]="南京麻将";RuleNameDictionary.ShortName[key]="南京";
         }
+        NanjingRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new NanjingRecordSettlementCodec(),
             RuleId=NanjingGameState.RuleId,DefaultSubRule=NanjingGameState.SubRule,
             DisplayName="南京麻将",LobbyName="南京麻将",LobbyOrder=19,OutboundChannel="nanjing",
             LobbySubRules=new[]{new RuleLobbySubRule(NanjingGameState.SubRule,"MIL 2024",Description)},

@@ -34,6 +34,7 @@ public sealed class DynamicTextRow : MonoBehaviour
         var label = Instantiate(source, parent, false);
         label.name = name;
         label.gameObject.layer = parent.gameObject.layer;
+        label.raycastTarget = false;
         label.gameObject.SetActive(true);
         return label;
     }

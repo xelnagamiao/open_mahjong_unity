@@ -1,7 +1,7 @@
 from copy import deepcopy
 import math
 
-from ..game_zhongyong import boardcast as wire
+from ..game_zhongyong import broadcast as wire
 from ..public import game_record_manager as record
 from ..public.settlement_sync import send_game_packet
 from .actions import CHOWS, claim_tiles, kong_tiles, legal_cuts

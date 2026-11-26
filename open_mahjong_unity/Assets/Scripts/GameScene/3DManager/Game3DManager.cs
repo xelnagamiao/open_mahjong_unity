@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public partial class Game3DManager : MonoBehaviour {
+public partial class Game3DManager : MonoBehaviour, ITable3DHost {
     [SerializeField] private GameObject tile3DPrefab;    // 卡牌 3D预制体
     [SerializeField] private GameObject riichiTenbouPrefab; // 立直点棒（1000）3D预制体
     [SerializeField] private GameObject claimTileGlowPrefab; // 吃碰杠询问时对可操作牌底部生成的光圈（可空，空时走 Resources 兜底）
@@ -1036,7 +1036,7 @@ public partial class Game3DManager : MonoBehaviour {
     {
         if (parent == null) return;
 
-        // 使用倒序遍历，避免索引变化问题
+        // 倒序遍历，避免索引变化问题
         for (int i = parent.childCount - 1; i >= 0; i--)
         {
             Transform child = parent.GetChild(i);
@@ -1045,6 +1045,72 @@ public partial class Game3DManager : MonoBehaviour {
                 collection.Add(child.gameObject);
             }
         }
+    }
+
+    // ---- ITable3DHost 与统一生命周期调度 ----
+
+    private IRule3DExtension _active3DExtension;
+    private RuleManifest _active3DExtensionManifest;
+    private string _active3DExtensionSubRule;
+
+    public IRule3DExtension Active3DExtension => _active3DExtension;
+    Transform ITable3DHost.RootTransform => transform;
+    bool ITable3DHost.IsActiveAndEnabled => isActiveAndEnabled;
+    float ITable3DHost.CardWidth => cardWidth;
+    float ITable3DHost.ScaledTileSurfaceClearance => ScaledTileSurfaceClearance;
+    PosPanel3D ITable3DHost.GetPanel(string position) => GetPosPanel(position);
+    void ITable3DHost.InitializeTilePlacement() => InitializeTilePlacement();
+    void ITable3DHost.GetTileSurface(out Vector3 point, out Vector3 normal) => GetTileSurface(out point, out normal);
+    Vector3 ITable3DHost.PlaceTileOnTable(Vector3 candidate, Quaternion worldRotation) => PlaceTileOnTable(candidate, worldRotation);
+    Vector3 ITable3DHost.WallSlotPosition(string seat, float centeredStack) => WallSlotPosition(seat, centeredStack);
+    GameObject ITable3DHost.CreateWallTile(Transform root, string tileName, string seat, Vector3 candidate, bool upper, int publicFace)
+        => CreateWallTile(root, tileName, seat, candidate, upper, publicFace);
+    Quaternion ITable3DHost.RiverTileWorldRotation(string seat) => RiverTileWorldRotation(seat);
+    Quaternion ITable3DHost.SelfHandStandingRotation() => SelfHandStandingRotation();
+    float ITable3DHost.SbrWorldWidth(Camera camera, Vector2 screen, float pixels) => SbrWorldWidth(camera, screen, pixels);
+    void ITable3DHost.PlaceSbrPacket(Transform[] tiles, Camera camera, Vector2 screen, float width, float angle, float roll, bool viewerPacket, float stretch)
+        => PlaceSbrPacket(tiles, camera, screen, width, angle, roll, viewerPacket, stretch);
+
+    public void SyncRule3DExtension() {
+        RuleManifest manifest = RuleRegistry.Current;
+        string subRule = RuleRegistry.CurrentSubRule;
+        if (_active3DExtensionManifest == manifest && _active3DExtensionSubRule == subRule) return;
+        _active3DExtension?.Dispose();
+        _active3DExtension = null;
+        _active3DExtensionManifest = manifest;
+        _active3DExtensionSubRule = subRule;
+        if (manifest?.Create3DExtension != null) {
+            _active3DExtension = manifest.Create3DExtension(this);
+            _active3DExtension?.Attach(this);
+            if (isActiveAndEnabled) _active3DExtension?.OnHostEnabled();
+        }
+    }
+
+    private void OnEnable() {
+        RuleRegistry.CurrentChanged -= SyncRule3DExtension;
+        RuleRegistry.CurrentChanged += SyncRule3DExtension;
+        SyncRule3DExtension();
+        OnContactShadowsEnabled();
+        _active3DExtension?.OnHostEnabled();
+    }
+
+    private void LateUpdate() {
+        OnTilePlacementLateTick();
+        _active3DExtension?.OnLateTick();
+    }
+
+    private void OnDisable() {
+        OnTilePlacementDisabled();
+        _active3DExtension?.OnHostDisabled();
+    }
+
+    private void OnDestroy() {
+        RuleRegistry.CurrentChanged -= SyncRule3DExtension;
+        OnContactShadowsDestroyed();
+        _active3DExtension?.Dispose();
+        _active3DExtension = null;
+        _active3DExtensionManifest = null;
+        _active3DExtensionSubRule = null;
     }
 
 }

@@ -15,7 +15,7 @@ from .action_check import (check_action_after_cut, check_action_hand_action,
                            check_action_buhua, check_action_jiagang, check_hepai,
                            refresh_waiting_tiles)
 from .buhua_broadcast import perform_buhua_and_broadcast
-from .boardcast import _build_game_start_payload_for_viewer, _build_do_action_payload
+from .broadcast import _build_game_start_payload_for_viewer, _build_do_action_payload
 from .combination_mask_view import sanitize_angang_mask
 from .wait_action import wait_action
 from ..public.ai.get_action import get_ai_action

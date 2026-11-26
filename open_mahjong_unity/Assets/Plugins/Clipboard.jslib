@@ -1,7 +1,7 @@
 var ClipboardPlugin = {
     $MahjongClipboard: {
         copy: function(text, done) {
-            var fallback = function() {
+            var tryExecCopy = function() {
                 var input = document.createElement('textarea');
                 var active = document.activeElement;
                 input.value = text;
@@ -28,15 +28,21 @@ var ClipboardPlugin = {
                     input.remove();
                     if (active && active.focus) active.focus({ preventScroll: true });
                 }
-                done(ok);
+                return ok;
             };
+            // Try synchronous copy first while still inside the user gesture stack
+            // (Safari / iPadOS / in-app WebViews drop the gesture once a Promise rejects).
+            if (tryExecCopy()) {
+                done(true);
+                return;
+            }
             try {
                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text).then(function() { done(true); }, fallback);
+                    navigator.clipboard.writeText(text).then(function() { done(true); }, function() { done(false); });
                     return;
                 }
             } catch (_) { /* Some browsers throw before returning a promise. */ }
-            fallback();
+            done(false);
         }
     },
     CopyToClipboard__deps: ['$MahjongClipboard'],

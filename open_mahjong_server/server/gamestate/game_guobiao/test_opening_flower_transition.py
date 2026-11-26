@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from .test_sanma import sanma
-from .boardcast import _build_game_start_payload_for_viewer, reconnected_send_pending_ask_for_viewer
+from .broadcast import _build_game_start_payload_for_viewer, reconnected_send_pending_ask_for_viewer
 from ..public.outbound_pipe import drain_viewer
 from ..public.hand_slot_utils import resolve_timeout_cut
 

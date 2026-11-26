@@ -9,7 +9,7 @@ from .test_sanma import sanma
 from .test_double_riichi import make_game
 from .test_sanma_nuki_honba import connect_players
 from .init_tiles import init_riichi_tiles
-from .boardcast import broadcast_game_start
+from .broadcast import broadcast_game_start
 from ..public.spectator_manager import SpectatorManager
 
 

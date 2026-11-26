@@ -2,11 +2,21 @@ using System;
 using System.Collections.Generic;
 
 public partial class GameRecordManager {
+    private IRuleReplayHandler activeReplayHandler;
     private RuleReplayModule recordReplayModule;
     private RuleManifest recordReplayManifest;
     private string recordReplaySubRule;
     private int recordDeadWallCount;
     private string recordDeadWallMode;
+
+    private void DisposeActiveReplayHandler() {
+        recordReplayModule?.Clear?.Invoke();
+        activeReplayHandler?.Dispose();
+        activeReplayHandler = null;
+        recordReplayModule = null;
+        recordReplayManifest = null;
+        recordReplaySubRule = null;
+    }
 
     private RuleManifest RecordRuleManifest => RuleRegistry.Resolve(
         ReadGameTitleString(gameRecord?.gameTitle, "rule", ""),
@@ -20,9 +30,16 @@ public partial class GameRecordManager {
             string subRule = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "");
             if (recordReplayModule == null || recordReplayManifest != manifest || recordReplaySubRule != subRule) {
                 recordReplayModule?.Clear?.Invoke();
+                activeReplayHandler?.Dispose();
+                activeReplayHandler = null;
                 recordReplayManifest = manifest;
                 recordReplaySubRule = subRule;
-                recordReplayModule = manifest?.ReplayFactory?.Invoke(this) ?? CreateStandardReplayModule();
+                if (manifest?.CreateReplayHandler != null) {
+                    activeReplayHandler = manifest.CreateReplayHandler(this);
+                    recordReplayModule = activeReplayHandler?.BuildModule() ?? CreateStandardReplayModule();
+                } else {
+                    recordReplayModule = manifest?.ReplayFactory?.Invoke(this) ?? CreateStandardReplayModule();
+                }
             }
             return recordReplayModule;
         }

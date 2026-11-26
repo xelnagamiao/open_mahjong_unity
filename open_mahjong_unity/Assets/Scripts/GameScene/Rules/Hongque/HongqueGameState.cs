@@ -96,6 +96,21 @@ public sealed class HongqueGameState : GameStateBase {
         return true;
     }
 
+    private HongqueScoreHintInfo[] cachedWaitHints = Array.Empty<HongqueScoreHintInfo>();
+    private HongqueScoreHintInfo cachedWinHint;
+
+    public override bool HasProvidedTenpaiTips => cachedWaitHints.Length > 0 || cachedWinHint != null;
+
+    public override void RefreshProvidedTenpaiTips() {
+        if (!HasProvidedTenpaiTips || TipsContainer.Instance == null) return;
+        HongqueTipsRenderer.Render(TipsContainer.Instance, cachedWaitHints, cachedWinHint);
+    }
+
+    public override void ClearProvidedTenpaiTips() {
+        cachedWaitHints = Array.Empty<HongqueScoreHintInfo>();
+        cachedWinHint = null;
+    }
+
     /// <summary>切牌预览：按"打出该牌后的手牌"本地算虹雀听牌/番数提示。</summary>
     public override bool TryShowCutPreviewTips(int cutTileId, bool canShow) {
         if (!IsActive || TipsContainer.Instance == null) return false;
@@ -107,7 +122,7 @@ public sealed class HongqueGameState : GameStateBase {
             : Array.Empty<HongqueScoreHintInfo>();
         if (!canShow) return true;
         if (localHints.Length > 0) {
-            TipsContainer.Instance.SetHongqueCutPreviewHints(localHints, cutTileId);
+            HongqueTipsRenderer.RenderCutPreview(TipsContainer.Instance, localHints, cutTileId);
             TipsContainer.Instance.hasTips = true;
             TipsContainer.Instance.ShowTips();
         } else {
@@ -117,6 +132,7 @@ public sealed class HongqueGameState : GameStateBase {
     }
 
     public override void OnSessionReset() {
+        ClearProvidedTenpaiTips();
         StopResultSequence();
         state = null;
         gamestateId = null;
@@ -421,9 +437,14 @@ public sealed class HongqueGameState : GameStateBase {
                 lastDiscardPlayerIndex == state.you ? lastDiscardTileId : (int?)null);
         }
         if (winHint != null || waits.Length > 0) {
-            TipsBlock.Instance.ShowHongqueTips(waits, winHint);
+            cachedWaitHints = waits ?? Array.Empty<HongqueScoreHintInfo>();
+            cachedWinHint = winHint;
+            TipsContainer.Instance.SetCustomWaitingTiles(HongqueTipsRenderer.ExtractWaitingTileIds(cachedWaitHints, cachedWinHint));
+            HongqueTipsRenderer.Render(TipsContainer.Instance, cachedWaitHints, cachedWinHint);
+            TipsBlock.Instance.ShowProvidedTips();
             return;
         }
+        ClearProvidedTenpaiTips();
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
     }

@@ -28,6 +28,10 @@ public sealed class MatchRecordSession {
         public string Epoch;
         public long Sequence;
         public JObject Body;
+        public Dictionary<string, string> RoundIdToKey;
+        public string HeadKey;
+        public int HeadRoundIndex = int.MinValue;
+        public bool LastUpdateAppendOnly;
     }
     private readonly Dictionary<string, Stream> streams = new Dictionary<string, Stream>();
     private readonly Dictionary<string, Cursor> positions = new Dictionary<string, Cursor>();
@@ -87,6 +91,7 @@ public sealed class MatchRecordSession {
     }
     public void SelectInitialTable(string table) { if (table != "open" && table != "closed") throw new ArgumentException("Invalid table"); ActiveTable = table; }
     public string Epoch(string stream) => streams.TryGetValue(stream, out var value) ? value.Epoch : null;
+    public bool IsAppendOnlyUpdate(string stream) => streams.TryGetValue(stream, out var value) && value.LastUpdateAppendOnly;
     public bool Ready(string table) => Table(table)?["payload"] is JObject && Table(table)?["round_meta"] is JObject meta && meta.Count > 0;
     public JObject ResumeCursors() => new JObject(streams.Select(pair => new JProperty(pair.Key,
         new JObject { ["stream_epoch"] = pair.Value.Epoch, ["applied_seq"] = pair.Value.Sequence })));
@@ -99,6 +104,8 @@ public sealed class MatchRecordSession {
         streams.TryGetValue(id, out var previous);
         JObject body;
         long sequence;
+        bool appendOnly = false;
+        bool fullValidate = true;
         try {
             if (type == "spectator/stream_snapshot") {
                 sequence = RequiredSequence(packet["at_seq"]);
@@ -112,16 +119,27 @@ public sealed class MatchRecordSession {
                 if (events == null || first < 1 || last < first || last - first + 1 != events.Count) return "resync";
                 if (last <= previous.Sequence) return "duplicate";
                 if (first > previous.Sequence + 1) return "resync";
-                body = (JObject)previous.Body.DeepClone();
-                for (long i = Math.Max(0, previous.Sequence - first + 1); i < events.Count; i++)
-                    body = ApplyEvent(id, body, (JObject)events[(int)i]);
+                int startIndex = (int)Math.Max(0, previous.Sequence - first + 1);
+                if (id != "match" && ArePureAppendEvents(events, startIndex)) {
+                    // Two-phase O(1) incremental commit: validate all incoming events against the
+                    // live cache without cloning history, then mutate in place only after validation passes.
+                    EnsureTableIndex(previous);
+                    ValidateAppendBatch(previous, events, startIndex);
+                    body = ApplyAppendBatchInPlace(previous, events, startIndex);
+                    appendOnly = true;
+                    fullValidate = false;
+                } else {
+                    body = ApplyReplacementOrMixedDelta(id, previous.Body, events, startIndex);
+                }
                 sequence = last;
             } else return "resync";
-            if (id == "match") {
-                if ((string)body["match_id"] != MatchId) return "resync";
-            } else {
-                if ((string)body["table_id"] != id) return "resync";
-                if (body["table_record"] is JObject table) ValidateTable(table, id);
+            if (fullValidate) {
+                if (id == "match") {
+                    if ((string)body["match_id"] != MatchId) return "resync";
+                } else {
+                    if ((string)body["table_id"] != id) return "resync";
+                    if (body["table_record"] is JObject table) ValidateTable(table, id);
+                }
             }
         } catch (Exception e) when (e is FormatException || e is InvalidCastException || e is ArgumentException || e is NullReferenceException || e is OverflowException) {
             return "resync";
@@ -131,13 +149,195 @@ public sealed class MatchRecordSession {
             if (!retiredEpochs.TryGetValue(id, out var retired)) retiredEpochs[id] = retired = new HashSet<string>();
             retired.Add(previous.Epoch);
         }
-        streams[id] = new Stream { Epoch = epoch, Sequence = sequence, Body = body };
+        Stream next;
+        if (appendOnly && previous != null && ReferenceEquals(body, previous.Body)) {
+            previous.Sequence = sequence;
+            previous.LastUpdateAppendOnly = true;
+            next = previous;
+        } else {
+            next = new Stream { Epoch = epoch, Sequence = sequence, Body = body, LastUpdateAppendOnly = false };
+            if (id != "match") EnsureTableIndex(next);
+            streams[id] = next;
+        }
         if (id == "match") Manifest = body;
         else {
             tables[id] = body["table_record"] as JObject;
             if (changedEpoch) { positions.Remove(id); independentPositions.Remove(id); }
         }
         return "applied";
+    }
+
+    private static bool ArePureAppendEvents(JArray events, int startIndex) {
+        for (int i = startIndex; i < events.Count; i++) {
+            if (!(events[i] is JObject change)) return false;
+            string kind = (string)change["kind"];
+            if (kind != "round_opened" && kind != "actions_appended") return false;
+        }
+        return startIndex < events.Count;
+    }
+
+    private static void EnsureTableIndex(Stream stream) {
+        if (stream.RoundIdToKey != null) return;
+        stream.RoundIdToKey = new Dictionary<string, string>();
+        stream.HeadKey = null;
+        stream.HeadRoundIndex = int.MinValue;
+        var metadata = stream.Body?["table_record"]?["round_meta"] as JObject;
+        if (metadata == null) return;
+        foreach (var pair in metadata.Properties()) {
+            string roundId = (string)pair.Value["table_round_id"];
+            if (!string.IsNullOrEmpty(roundId)) stream.RoundIdToKey[roundId] = pair.Name;
+            int roundIndex = (int)pair.Value["round_index"];
+            if (roundIndex >= stream.HeadRoundIndex) {
+                stream.HeadRoundIndex = roundIndex;
+                stream.HeadKey = pair.Name;
+            }
+        }
+    }
+
+    private static void ValidateAppendBatch(Stream stream, JArray events, int startIndex) {
+        var table = (JObject)stream.Body["table_record"];
+        var rounds = (JObject)table["payload"]["game_round"];
+        var metadata = (JObject)table["round_meta"];
+        Dictionary<string, string> pendingRoundIds = null;
+        HashSet<string> pendingKeys = null;
+        Dictionary<string, int> pendingTickCounts = null;
+
+        for (int i = startIndex; i < events.Count; i++) {
+            var change = (JObject)events[i];
+            string kind = (string)change["kind"];
+            if (kind == "round_opened") {
+                string key = (string)change["round_key"];
+                if (string.IsNullOrEmpty(key) || rounds[key] != null || (pendingKeys != null && pendingKeys.Contains(key)))
+                    throw new FormatException("Round already exists");
+                if (!(change["round_header"] is JObject header) || !(change["round_meta"] is JObject meta))
+                    throw new FormatException("Invalid round_opened payload");
+                if (!(header["action_ticks"] is JArray ticks) || !(meta["action_meta"] is JArray actions) || ticks.Count != actions.Count)
+                    throw new FormatException("Action metadata mismatch");
+                string roundId = (string)meta["table_round_id"];
+                if (string.IsNullOrEmpty(roundId) || stream.RoundIdToKey.ContainsKey(roundId)
+                    || (pendingRoundIds != null && pendingRoundIds.ContainsKey(roundId)))
+                    throw new FormatException("Duplicate table_round_id");
+                _ = (int)meta["round_index"];
+                pendingKeys ??= new HashSet<string>();
+                pendingRoundIds ??= new Dictionary<string, string>();
+                pendingTickCounts ??= new Dictionary<string, int>();
+                pendingKeys.Add(key);
+                pendingRoundIds[roundId] = key;
+                pendingTickCounts[key] = ticks.Count;
+            } else if (kind == "actions_appended") {
+                string roundId = (string)change["table_round_id"];
+                if (string.IsNullOrEmpty(roundId)) throw new FormatException("Unbound round");
+                string key;
+                int expectedCount;
+                if (pendingRoundIds != null && pendingRoundIds.TryGetValue(roundId, out key)) {
+                    expectedCount = pendingTickCounts[key];
+                } else if (stream.RoundIdToKey.TryGetValue(roundId, out key)) {
+                    expectedCount = pendingTickCounts != null && pendingTickCounts.TryGetValue(key, out int projected)
+                        ? projected : ((JArray)rounds[key]["action_ticks"]).Count;
+                } else {
+                    throw new FormatException("Unbound round");
+                }
+                if (!(change["ticks"] is JArray appended) || !(change["action_meta"] is JArray origins))
+                    throw new FormatException("Invalid actions_appended payload");
+                if ((int?)change["start_node"] != expectedCount || appended.Count != origins.Count)
+                    throw new FormatException("Action prefix mismatch");
+                for (int j = 0; j < origins.Count; j++) {
+                    if (!(origins[j] is JObject)) throw new FormatException("Invalid action_meta entry");
+                }
+                pendingTickCounts ??= new Dictionary<string, int>();
+                pendingTickCounts[key] = expectedCount + appended.Count;
+            } else {
+                throw new FormatException("Unknown table event");
+            }
+        }
+    }
+
+    private static JObject ApplyAppendBatchInPlace(Stream stream, JArray events, int startIndex) {
+        var body = stream.Body;
+        var table = (JObject)body["table_record"];
+        var rounds = (JObject)table["payload"]["game_round"];
+        var metadata = (JObject)table["round_meta"];
+
+        for (int i = startIndex; i < events.Count; i++) {
+            var change = (JObject)events[i];
+            string kind = (string)change["kind"];
+            if (kind == "round_opened") {
+                string key = (string)change["round_key"];
+                var headerClone = (JObject)change["round_header"].DeepClone();
+                var metaClone = (JObject)change["round_meta"].DeepClone();
+                rounds[key] = headerClone;
+                metadata[key] = metaClone;
+                string roundId = (string)metaClone["table_round_id"];
+                stream.RoundIdToKey[roundId] = key;
+                int roundIndex = (int)metaClone["round_index"];
+                if (roundIndex >= stream.HeadRoundIndex) {
+                    stream.HeadRoundIndex = roundIndex;
+                    stream.HeadKey = key;
+                }
+            } else {
+                string key = stream.RoundIdToKey[(string)change["table_round_id"]];
+                var round = (JObject)rounds[key];
+                var meta = (JObject)metadata[key];
+                var ticks = (JArray)round["action_ticks"];
+                var actions = (JArray)meta["action_meta"];
+                var appended = (JArray)change["ticks"];
+                var origins = (JArray)change["action_meta"];
+                for (int j = 0; j < appended.Count; j++) ticks.Add(appended[j].DeepClone());
+                bool anyUnavailable = false;
+                for (int j = 0; j < origins.Count; j++) {
+                    var origin = origins[j];
+                    actions.Add(origin.DeepClone());
+                    if (!anyUnavailable && (string)origin["wall_ref_basis"] == "unavailable") anyUnavailable = true;
+                }
+                if (meta["legacy_node_map"] is JArray nodeMap)
+                    for (int n = nodeMap.Count; n <= ticks.Count; n++) nodeMap.Add(n);
+                if (anyUnavailable) {
+                    meta["alignment_status"] = "partial";
+                    meta["alignment_reason"] = "missing_draw_origin";
+                }
+                if (round["action_times_ms"] is JArray times)
+                    for (int j = 0; j < origins.Count; j++) times.Add(origins[j]["occurred_at_ms"]?.DeepClone() ?? JValue.CreateNull());
+            }
+        }
+        if (stream.HeadKey == null) {
+            body["released_head"] = null;
+            body["availability"] = "waiting";
+        } else {
+            var headMeta = metadata[stream.HeadKey];
+            body["released_head"] = new JObject {
+                ["table_round_id"] = headMeta["table_round_id"].DeepClone(),
+                ["node"] = ((JArray)headMeta["action_meta"]).Count
+            };
+            body["availability"] = "ready";
+        }
+        return body;
+    }
+
+    private static JObject ApplyReplacementOrMixedDelta(string id, JObject previousBody, JArray events, int startIndex) {
+        // Only clone previousBody if an event actually mutates it before a replacement event.
+        JObject body = previousBody;
+        bool cloned = false;
+        for (int i = startIndex; i < events.Count; i++) {
+            var change = (JObject)events[i];
+            string kind = (string)change["kind"];
+            if (id == "match") {
+                if (kind != "manifest_updated" && kind != "record_ready") throw new FormatException("Unknown match event");
+                body = (JObject)change["manifest"].DeepClone();
+                cloned = true;
+                continue;
+            }
+            if (kind == "table_available" || kind == "table_finalized") {
+                body = (JObject)change["body"].DeepClone();
+                cloned = true;
+                continue;
+            }
+            if (!cloned) {
+                body = (JObject)body.DeepClone();
+                cloned = true;
+            }
+            body = ApplyEvent(id, body, change);
+        }
+        return body;
     }
 
     private static long RequiredSequence(JToken value) {

@@ -243,7 +243,7 @@ public partial class CardBackConfigPanel : MonoBehaviour
 #else
         var extensions = new[]
         {
-            new SFB.ExtensionFilter("牌背图片", "zip", "png", "jpg", "jpeg", "bmp", "tga", "webp"),
+            new SFB.ExtensionFilter("牌背图片", "zip", "png", "jpg", "jpeg"),
         };
         string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel("选择 3D 牌背图片", "", extensions, false);
         if (paths == null || paths.Length == 0 || string.IsNullOrEmpty(paths[0])) return;
@@ -260,7 +260,7 @@ public partial class CardBackConfigPanel : MonoBehaviour
         }
         try
         {
-            ApplyBodyBytes(File.ReadAllBytes(sourcePath), Path.GetFileName(sourcePath));
+            ApplyBodyBytes(LocalAssetImportLimits.ReadValidated(sourcePath, true), Path.GetFileName(sourcePath));
         }
         catch (Exception e)
         {

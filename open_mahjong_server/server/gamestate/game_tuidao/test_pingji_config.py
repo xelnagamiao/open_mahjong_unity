@@ -6,7 +6,7 @@ import pytest
 
 from .test_state import make_state, hand, draw, HAND
 from .test_adapters import room_manager, Socket
-from ..game_taiwan.boardcast import send_reconnect_game_state
+from ..game_taiwan.broadcast import send_reconnect_game_state
 from ...room.tuidao_room import normalize_tuidao_config, PINGJI_ZIMO_NO_CHOW as KEY
 from ...room.guangdong_room import create_guangdong_room, GuangdongRoomValidator
 

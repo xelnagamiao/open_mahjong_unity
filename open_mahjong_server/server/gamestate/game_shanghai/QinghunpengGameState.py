@@ -8,7 +8,7 @@ from dataclasses import replace
 from ...game_calculation.shanghai import qinghunpeng as calculation
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as turn_actions
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_game_start, broadcast_do_action, broadcast_result,
     broadcast_game_end, broadcast_refresh_player_tag_list,
 )

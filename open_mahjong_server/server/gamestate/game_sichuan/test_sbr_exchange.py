@@ -7,7 +7,7 @@ import pytest
 
 from .SbrExchangeGameState import SbrExchangeGameState
 from .action_check import check_hepai, check_action_after_cut, check_action_after_peng, check_action_hand_action
-from .boardcast import _base_game_info, _build_players_info, reconnected_send_pending_ask
+from .broadcast import _base_game_info, _build_players_info, reconnected_send_pending_ask
 from .init_tiles import init_sichuan_tiles
 from .test_action_window import submit
 from .test_xueliu_doubles_full_match import play_match

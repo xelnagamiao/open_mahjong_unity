@@ -94,8 +94,8 @@ public sealed class TileCornerLabel : MonoBehaviour {
     }
 
     public static void RefreshAll() {
-        foreach (var card in Object.FindObjectsByType<TileCard>(UnityEngine.FindObjectsSortMode.None)) Apply(card.transform, card.tileId);
-        foreach (var card in Object.FindObjectsByType<StaticCard>(UnityEngine.FindObjectsSortMode.None)) Apply(card.transform, card.TileId);
-        foreach (var card in Object.FindObjectsByType<Tile3D>(UnityEngine.FindObjectsSortMode.None)) card.RefreshRuleBadge();
+        TileInstances<TileCard>.ForEach(card => Apply(card.transform, card.tileId));
+        TileInstances<StaticCard>.ForEach(card => Apply(card.transform, card.TileId));
+        TileInstances<Tile3D>.ForEach(card => card.RefreshRuleBadge());
     }
 }

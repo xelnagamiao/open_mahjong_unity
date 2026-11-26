@@ -8,6 +8,13 @@ public partial class GameRecordManager {
         Clear = () => recordShanxiTailSingle = false,
         ApplyBeforeMutation = tick => { RestoreShanxiRonDiscard(tick); return false; },
         ConsumeWallTile = action => { ConsumeShanxiRecordWallTile(action); return true; },
+        OnAfterCutMutation = (tick, cutTile, player, position) => {
+            if (tick.Count > 3 && tick[3] == "C") {
+                GameCanvas.Instance.ShowActionDisplay(position, "riichi", "shanxi");
+                SoundManager.Instance.PlayActionSound(position, "riichi", player.voice_used);
+                player.knownConcealedDiscards.Add(cutTile);
+            }
+        },
     };
 
     private bool recordShanxiTailSingle;

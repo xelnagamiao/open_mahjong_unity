@@ -1,7 +1,7 @@
 """Private indicator lifecycle and the final four no-discard draws."""
 import random
 
-from ..game_taiwan.boardcast import broadcast_do_action
+from ..game_taiwan.broadcast import broadcast_do_action
 from ..game_guobiao.combination_mask_view import get_combination_fields_for_viewer
 from ..public.game_record_manager import player_action_record_deal
 from ..public.hand_slot_utils import clear_draw_slot

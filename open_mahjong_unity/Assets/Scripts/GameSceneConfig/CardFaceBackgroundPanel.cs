@@ -187,7 +187,7 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
             return;
         }
         try {
-            ApplyBytes(File.ReadAllBytes(path), Path.GetFileName(path));
+            ApplyBytes(LocalAssetImportLimits.ReadValidated(path, true), Path.GetFileName(path));
         }
         catch (Exception e) {
             SceneConfigUi.ShowTip("读取失败: " + e.Message);
@@ -204,8 +204,8 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
             backPath = pathA;
         }
         try {
-            if (File.Exists(handPath)) QueueHandImage(File.ReadAllBytes(handPath), Path.GetFileName(handPath), false);
-            if (File.Exists(backPath)) QueueHandImage(File.ReadAllBytes(backPath), Path.GetFileName(backPath), true);
+            if (File.Exists(handPath)) QueueHandImage(LocalAssetImportLimits.ReadValidated(handPath, false), Path.GetFileName(handPath), false);
+            if (File.Exists(backPath)) QueueHandImage(LocalAssetImportLimits.ReadValidated(backPath, false), Path.GetFileName(backPath), true);
         }
         catch (Exception e) {
             SceneConfigUi.ShowTip("保存失败: " + e.Message);

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 /// <summary>
 /// 一族规则在客户端的 GameState（编排器）。与服务端 server/gamestate/game_xxx 的 *GameState 一一对应：
 /// 每局恰好一个实例（由 RuleRegistry 按 room_rule 创建），负责"接下来做什么"——收到什么消息、改哪些镜像、
@@ -99,6 +101,37 @@ public interface IGameState {
     /// 返回 true 表示族已接管本次预览（含无提示时的收起），核心不再走通用 TingpaiCheck 链。
     /// </summary>
     bool TryShowCutPreviewTips(int cutTileId, bool canShow);
+
+    /// <summary>族自绘提示当前是否有可重绘的缓存听牌提示。</summary>
+    bool HasProvidedTenpaiTips { get; }
+
+    /// <summary>牌桌可见信息变化后，由族重绘已缓存的稳定听牌提示。</summary>
+    void RefreshProvidedTenpaiTips();
+
+    /// <summary>清空族自绘的听牌提示缓存。</summary>
+    void ClearProvidedTenpaiTips();
+
+    /// <summary>当前用于听牌裁剪的实际摸牌张（0 表示无）。切牌预览时通常返回 0。</summary>
+    int GetCurrentHintDrawTile(int? pendingCutTileId);
+
+    /// <summary>向实时单张听牌查询补充规则专属状态（如国标时机、川麻换牌窗口与过水番）。</summary>
+    void PopulateLiveWaitHintQuery(WaitHintQuery query, int? pendingCutTileId);
+
+    /// <summary>
+    /// 除标准吃牌外的动作（如透明/鹫巢麻将的 peng）是否使用服务端下发的 chi_candidates 展开多种组合。
+    /// </summary>
+    bool UsesClaimCandidates(string actionType);
+
+    /// <summary>
+    /// 拦截操作按钮点击前的 UI 交互模式切换（如日麻立直选牌模式）。返回 true 表示族已接管本次按钮点击。
+    /// </summary>
+    bool TryHandleActionButtonClick(string actionType);
+
+    /// <summary>
+    /// 规则自定义暗杠/加杠/补张候选收集（如散花、武汉、温州、国标花混）。返回 true 表示已由族接管。
+    /// </summary>
+    bool TryCollectKongOptions(string actionType, List<int> handTiles, List<string> combinations,
+        out List<(int targetTile, List<int> displayTiles)> options);
 }
 
 /// <summary>
@@ -120,6 +153,18 @@ public abstract class GameStateBase : IGameState {
     public virtual int ExcludedSuit => 0;
     public virtual void OnAskWindowClosed(AskCloseReason reason) { }
     public virtual bool TryShowCutPreviewTips(int cutTileId, bool canShow) => false;
+    public virtual bool HasProvidedTenpaiTips => false;
+    public virtual void RefreshProvidedTenpaiTips() { }
+    public virtual void ClearProvidedTenpaiTips() { }
+    public virtual int GetCurrentHintDrawTile(int? pendingCutTileId) => 0;
+    public virtual void PopulateLiveWaitHintQuery(WaitHintQuery query, int? pendingCutTileId) { }
+    public virtual bool UsesClaimCandidates(string actionType) => false;
+    public virtual bool TryHandleActionButtonClick(string actionType) => false;
+    public virtual bool TryCollectKongOptions(string actionType, List<int> handTiles, List<string> combinations,
+        out List<(int targetTile, List<int> displayTiles)> options) {
+        options = null;
+        return false;
+    }
 }
 
 /// <summary>本家询问窗口关闭的原因，见 <see cref="IGameState.OnAskWindowClosed"/>。</summary>

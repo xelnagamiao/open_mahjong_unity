@@ -129,7 +129,7 @@ class SpectatorManager:
                 self._joining_tasks.pop(user_id, None)
 
     async def _send(self, connection, response):
-        await send_bounded(connection.websocket, response.dict(exclude_none=True), timeout=self.send_timeout)
+        await send_bounded(connection.websocket, response.model_dump(exclude_none=True), timeout=self.send_timeout)
 
     async def _initialize_spectator(self, user_id: int, connection: Any):
         from ...response import Response, MessageInfo

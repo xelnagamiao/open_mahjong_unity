@@ -9,7 +9,7 @@ import pytest
 from .test_lajihe_state import make_state, ticks
 from ...game_calculation.shanghai import lajihe as rule
 from ...game_calculation.shanghai.test_lajihe import PLAIN, HONORS
-from ..game_taiwan.boardcast import _combination_fields_for_rule
+from ..game_taiwan.broadcast import _combination_fields_for_rule
 from ..verifier.record_sim import RecordSim, stringify_tick
 from ..public.game_record_manager import init_game_round
 

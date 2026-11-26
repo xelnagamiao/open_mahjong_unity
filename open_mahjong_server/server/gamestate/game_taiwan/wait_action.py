@@ -9,7 +9,7 @@ from typing import Dict, Optional, Tuple
 from ..public.ask_timing import get_ask_elapsed
 from ..public.action_window import retain_current_tick_actions
 from .action_check import HU_ACTIONS, is_forced_ready_win
-from .boardcast import broadcast_ready_status
+from .broadcast import broadcast_ready_status
 
 
 logger = logging.getLogger(__name__)

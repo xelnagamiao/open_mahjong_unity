@@ -11,7 +11,9 @@ internal static class ShangraoRuleBootstrap {
         RuleNameDictionary.WholeName[ShangraoGameState.SubRule] = "上饶麻将（飞宝）";
         RuleNameDictionary.ShortName[ShangraoGameState.RuleId] = "上饶";
         RuleNameDictionary.ShortName[ShangraoGameState.SubRule] = "上饶";
+        ShangraoRecordSettlementCodec.RegisterRecordCodecs();
         RuleRegistry.Register(new RuleManifest {
+            CreateSettlementCodec=()=>new ShangraoRecordSettlementCodec(),
             RuleId=ShangraoGameState.RuleId, DefaultSubRule=ShangraoGameState.SubRule,
             DisplayName="上饶麻将", LobbyName="上饶麻将", LobbyOrder=25, LobbyHasDetailedConfig=true,
             LobbySubRules=new[]{new RuleLobbySubRule(ShangraoGameState.SubRule,"飞宝麻将",Description)},

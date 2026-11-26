@@ -4,7 +4,7 @@ import asyncio
 from ..public.lifecycle import start_owned_task
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
-from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
+from .broadcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -33,7 +33,7 @@ from ..public.tactical_claim import (
     tactical_mark_player_force_passed,
 )
 from ..public.ask_timing import get_ask_elapsed
-from .boardcast import _send_do_action_payload_to_viewer
+from .broadcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
 

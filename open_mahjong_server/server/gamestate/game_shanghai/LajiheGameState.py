@@ -5,7 +5,7 @@ from ...game_calculation.shanghai import lajihe as calculation
 from .QinghunpengGameState import QinghunpengGameState
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
-from ..game_taiwan.boardcast import broadcast_ask_hand_action, broadcast_result
+from ..game_taiwan.broadcast import broadcast_ask_hand_action, broadcast_result
 from ..game_taiwan.wait_action import _collect_responses
 from ..public.game_record_manager import append_action_tick
 from ..public.hand_slot_utils import has_draw_slot

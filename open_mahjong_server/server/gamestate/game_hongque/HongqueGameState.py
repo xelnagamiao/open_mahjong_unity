@@ -18,7 +18,7 @@ from .init_tiles import (
     draw_for_current_player as init_draw_for_current_player,
     init_hongque_tiles,
 )
-from .boardcast import (
+from .broadcast import (
     broadcast_state as hongque_broadcast_state,
     build_state as build_hongque_state,
     send_state_to as hongque_send_state_to,
@@ -595,7 +595,7 @@ class HongqueGameState:
         from ..public.settlement_sync import begin_ready, prepare_packet
         # Establish the result identity and the complete presentation deadline
         # before any recipient sees the round-end snapshot.
-        from .boardcast import state_packet
+        from .broadcast import state_packet
         prepare_packet(self, state_packet(self, 0), 0)
         duration = liuju_ready_wait_seconds()
         if winners:
@@ -636,7 +636,7 @@ class HongqueGameState:
         }
 
     async def send_ready_status_to(self, player_index: int) -> None:
-        from .boardcast import send_player_packet
+        from .broadcast import send_player_packet
         await send_player_packet(self, player_index, self._ready_status_packet())
 
     async def broadcast_ready_status(self) -> None:
@@ -836,7 +836,7 @@ class HongqueGameState:
         await self.spectator_manager.remove_spectator(user_id)
 
     async def send_realtime_spectator_snapshot(self, spectator_user_id: int, host_player_index: int) -> None:
-        from .boardcast import state_packet, send_to_connection
+        from .broadcast import state_packet, send_to_connection
         await send_to_connection(self, spectator_user_id, state_packet(self, host_player_index, sync_mode="reconnect"))
         if self._ready_phase_active:
             await send_to_connection(self, spectator_user_id, self._ready_status_packet())

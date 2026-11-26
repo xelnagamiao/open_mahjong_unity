@@ -34,7 +34,7 @@ def _build_admin_response(title: str, content: str) -> Response:
 
 async def _send_to_connection(websocket, response: Response) -> bool:
     try:
-        await websocket.send_json(response.dict(exclude_none=True))
+        await websocket.send_json(response.model_dump(exclude_none=True))
         return True
     except Exception as exc:
         logger.warning("向玩家推送管理消息失败: %s", exc)

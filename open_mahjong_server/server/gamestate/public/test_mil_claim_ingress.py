@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from ..gamestate_router import handle_gamestate_message
-from ..game_taiwan import boardcast
+from ..game_taiwan import broadcast
 from ..game_tuidao.test_state import make_state as tuidao_state
 from ..game_guangdong.test_state import make_state as guangdong_state
 from ..game_changchun.test_state import make_state as changchun_state
@@ -97,7 +97,7 @@ async def publish(state, rule):
     if rule in ("hangzhou", "guizhou"):
         await state.flush_outbound_payloads()
     else:
-        await boardcast.broadcast_ask_other_action(state)
+        await broadcast.broadcast_ask_other_action(state)
 
 
 async def resolve(state, rule):

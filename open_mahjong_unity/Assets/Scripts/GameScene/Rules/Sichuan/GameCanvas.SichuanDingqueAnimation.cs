@@ -113,11 +113,4 @@ public partial class GameCanvas {
         dingqueRevealSuits = null;
         dingqueRevealPositions = null;
     }
-
-    private void OnDisable() {
-        if (_retainClaimActionsAtZero || IsWaitingForDraw) StopTimeRunning();
-        CancelDingqueReveal(finish: true);
-        ClearXueliuExchangePresentation();
-        if (exchangeSixState != null) HideExchangeSixState();
-    }
 }

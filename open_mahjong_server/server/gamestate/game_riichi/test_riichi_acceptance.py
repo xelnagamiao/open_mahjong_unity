@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from .boardcast import broadcast_game_start
+from .broadcast import broadcast_game_start
 from .test_double_riichi import make_game
 from .test_execution_paths import result
 from .wait_action import _execute_cut, wait_action

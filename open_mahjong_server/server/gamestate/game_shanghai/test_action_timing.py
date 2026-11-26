@@ -8,7 +8,7 @@ import pytest
 from . import action_timing as timing
 from .test_shanghai_state import make_state, lock
 from ...game_calculation.shanghai.test_qiaoma import PLAIN
-from ..game_taiwan.boardcast import (
+from ..game_taiwan.broadcast import (
     broadcast_ask_hand_action, broadcast_ask_other_action,
     reconnected_send_pending_ask_for_viewer, send_realtime_spectator_snapshot,
 )

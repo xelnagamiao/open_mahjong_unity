@@ -23,7 +23,7 @@ from server.gamestate.game_changsha.action_check import (
     refresh_waiting_tiles,
     filter_open_kong_replacement_actions,
 )
-from server.gamestate.game_changsha.boardcast import _build_do_action_payload
+from server.gamestate.game_changsha.broadcast import _build_do_action_payload
 from server.gamestate.game_changsha.init_tiles import init_changsha_tiles
 from server.gamestate.public.next_game_round import next_game_round_random_switchseat
 from server.room.room_validators import ChangshaRoomValidator
@@ -31,7 +31,7 @@ from server.room.room_validators import ChangshaRoomValidator
 wait_action_module = importlib.import_module("server.gamestate.game_changsha.wait_action")
 changsha_state_module = importlib.import_module("server.gamestate.game_changsha.ChangshaGameState")
 changsha_get_action_module = importlib.import_module("server.gamestate.game_changsha.get_action")
-changsha_boardcast_module = importlib.import_module("server.gamestate.game_changsha.boardcast")
+changsha_boardcast_module = importlib.import_module("server.gamestate.game_changsha.broadcast")
 
 
 class DummyPlayer:

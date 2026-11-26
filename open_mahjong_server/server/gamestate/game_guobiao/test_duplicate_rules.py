@@ -248,7 +248,7 @@ def test_record_preserves_full_wall_config_and_seed_but_live_never_does(wall_typ
     assert title["duplicate_tiles"] == tiles
     assert title["use_flowers"] is use_flowers and title["duplicate_rules_version"] == 2
     assert title.get("duplicate_seed") == (None if wall_type == "manual" else wall["seed"])
-    from .boardcast import _build_game_start_payload_for_viewer
+    from .broadcast import _build_game_start_payload_for_viewer
     from ...response import GameInfo
     live = GameInfo(**_build_game_start_payload_for_viewer(state, 1)).model_dump(exclude_none=True)
     assert live["use_flowers"] is use_flowers

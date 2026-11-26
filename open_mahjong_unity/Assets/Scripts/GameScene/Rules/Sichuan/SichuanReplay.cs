@@ -12,6 +12,38 @@ public partial class GameRecordManager {
     internal RuleReplayModule CreateSichuanReplayModule() => new RuleReplayModule {
         Reset = () => sichuanRecordRevealHands = null,
         Clear = () => sichuanRecordRevealHands = null,
+        IsRobKongWin = huClass => IsXueliuRecord() && huClass != "hu_self" && lastJiagangPlayerIndex >= 0,
+        TryHandleCustomActionTick = tick => {
+            if (tick[0] == "sichuan_kong_reveal") {
+                ApplySichuanKongReveal(tick, true);
+                StartCoroutine(NextAfterSichuanKongReveal());
+                return true;
+            }
+            if (tick[0] == "blood" && IsBloodBattleRecord()) {
+                HandleSichuanLiujuStepReplay(tick);
+                return true;
+            }
+            return false;
+        },
+        PopulateRecordTipsContext = (ctx, selfPlayer, roundData) => {
+            // 自定义起和番上线前的川麻牌谱固定写 1，但实际允许 0 番和牌。
+            if (!gameRecord.gameTitle.ContainsKey("sichuan_hepai_limit_version"))
+                ctx.HepaiLimit = 0;
+            if (ctx.SubRule == SichuanLobby.SbrExchange) {
+                ctx.SbrPassedFan = SbrExchangeTips.RecordedPassedFan(roundData, selfPlayer.playerIndex, currentNode);
+                if (roundData != null) BuildGuobiaoRecordTiming(selfPlayer, roundData, ctx);
+            }
+        },
+        OverrideDetailedConfigSnapshot = () => {
+            // 旧换三张牌谱沿用旧番表，不能按当前规则重新解释听牌提示。
+            if (ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") != "sichuan/xueliu_exchange") return null;
+            int version = 0;
+            if (gameRecord.gameTitle.TryGetValue("xueliu_rule_profile", out object rawProfile) && rawProfile != null) {
+                var profile = rawProfile as JObject ?? JObject.FromObject(rawProfile);
+                version = profile["version"]?.Value<int>() ?? 0;
+            }
+            return new Dictionary<string, object> { { "xueliu_exchange_scoring", version >= 3 } };
+        },
     };
 
     private void RefreshDoublesRecordTeams() {

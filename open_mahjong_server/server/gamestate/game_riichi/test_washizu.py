@@ -10,7 +10,7 @@ from .test_protocol import connected
 from .test_rule_branches import game
 from .init_tiles import init_riichi_tiles
 from .washizu import public_hand, call_candidates, draw_indicator, prepare_ura
-from .boardcast import broadcast_game_start, broadcast_do_action
+from .broadcast import broadcast_game_start, broadcast_do_action
 from .action_check import check_hepai, _normalize
 from .wait_action import wait_action, _is_valid_cut_action
 from ..public.ai.get_action import get_action, get_ai_action
@@ -246,7 +246,7 @@ def test_added_kan_preserves_the_actual_fourth_copy():
 
 
 def test_final_result_reaches_human_after_rank_sort_with_bots():
-    from .boardcast import broadcast_game_end
+    from .broadcast import broadcast_game_end
     async def run():
         g,sockets=connected();g.sub_rule='riichi/washizu'
         human=g.player_list[0]

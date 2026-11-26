@@ -2,7 +2,7 @@
 
 import uuid
 from typing import Any, Dict, Optional
-from pydantic import StrictBool, validator
+from pydantic import StrictBool, field_validator, Field
 from .room_validators import GBRoomValidator
 from ..game_calculation.tuidao.rules import EDITION, SUB_RULE
 from ..response import Response
@@ -31,22 +31,25 @@ def normalize_tuidao_config(raw=None):
 class TuidaoRoomValidator(GBRoomValidator):
     tips: bool = True
     sub_rule: str = SUB_RULE
-    detailed_config: Optional[Dict[str, Any]] = None
+    detailed_config: Optional[Dict[str, Any]] = Field(default=None, validate_default=True)
     use_flowers: StrictBool = False
     claim_protection: StrictBool = False
     tactical_call: StrictBool = True
 
-    @validator("sub_rule")
+    @field_validator("sub_rule")
+    @classmethod
     def validate_profile(cls, value):
         if value != SUB_RULE:
             raise ValueError("不支持的推倒和子规则")
         return value
 
-    @validator("detailed_config", pre=True, always=True)
+    @field_validator("detailed_config", mode="before")
+    @classmethod
     def validate_config(cls, value):
         return normalize_tuidao_config(value)
 
-    @validator("open_cuohe", "use_flowers", "tian_di_ren_he", "claim_protection")
+    @field_validator("open_cuohe", "use_flowers", "tian_di_ren_he", "claim_protection")
+    @classmethod
     def fixed_standard(cls, value):
         if value:
             raise ValueError("MIL推倒和标准本不支持该规则覆盖")

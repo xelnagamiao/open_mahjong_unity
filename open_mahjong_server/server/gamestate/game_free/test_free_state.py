@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from server.gamestate.game_free import boardcast
+from server.gamestate.game_free import broadcast
 from server.gamestate.game_free.FreeGameState import FreeGameState
 from server.gamestate.game_free.init_tiles import build_wall_tiles
 from server.gamestate.game_free.player import VOTE_BLANK, VOTE_END_MATCH, VOTE_END_ROUND, VOTE_RESTART_ROUND
@@ -34,11 +34,11 @@ def test_hidden_transfer_masks_actions_snapshots_and_unrelated_broadcasts() -> N
             action = socket.messages[-1]["do_action_info"]
             assert action["cut_tile"] == (19 if index == 0 else 0)
             assert action["transfer_face_down"] is True
-            info = boardcast.game_info_payload(state, index)
+            info = broadcast.game_info_payload(state, index)
             assert info["detailed_config"]["transfer_tile"] == 0
             assert info["detailed_config"]["transfer_face_down"] is True
         await state.handle_command(102, {"action": "set_vote", "vote": VOTE_END_ROUND})
-        await boardcast.broadcast_game_start(state)
+        await broadcast.broadcast_game_start(state)
         for socket in sockets.values():
             for message in socket.messages:
                 assert message["free_table_info"]["transfer_tile"] == 0
@@ -65,7 +65,7 @@ def test_hidden_transfer_reveals_only_to_taker_and_stands_open_hand() -> None:
             assert message["free_table_info"]["transfer_tile"] is None
             assert message["free_table_info"]["transfer_face_down"] is False
             assert message["free_table_info"]["revealed"]["1"] is False
-            restored = boardcast.game_info_payload(state, index)
+            restored = broadcast.game_info_payload(state, index)
             assert restored["players_info"][1]["hand_tiles"] == ([22, 19] if index == 1 else None)
         # 已竖起的玩家再按一次立牌，不能通过 revealed_hand 字段泄露暗牌。
         await state.handle_command(102, {"action": "stand"})
@@ -368,7 +368,7 @@ def test_table_action_actor_is_event_scoped_and_preserves_existing_fields() -> N
                     assert table["revealed"]["1"] == (action == "reveal")
 
         # Plain snapshots retain the old fields without borrowing the last actor.
-        table = boardcast.free_table_payload(state)
+        table = broadcast.free_table_payload(state)
         assert table.pop("actor_player_index") is None
         assert set(table) == {
             "votes", "transfer_tile", "transfer_face_down", "score_revision", "scores", "revealed",

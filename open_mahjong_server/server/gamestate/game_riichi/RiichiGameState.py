@@ -28,7 +28,7 @@ from .wait_action import wait_action, _accept_pending_riichi
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from .init_tiles import init_riichi_tiles
-from .boardcast import (
+from .broadcast import (
     broadcast_game_start,
     broadcast_ask_hand_action,
     broadcast_ask_other_action,
@@ -358,7 +358,7 @@ class RiichiGameState:
                     await broadcast_refresh_player_tag_list(self)
                 if user_id in self.game_server.user_id_to_connection:
                     from ...response import Response, GameInfo
-                    from .boardcast import _build_base_game_info, _build_player_info
+                    from .broadcast import _build_base_game_info, _build_player_info
                     conn = self.game_server.user_id_to_connection[user_id]
                     viewer_pi = next((pp.player_index for pp in self.player_list if pp.user_id == user_id), 0)
                     base = _build_base_game_info(self, viewer_pi)
@@ -367,7 +367,7 @@ class RiichiGameState:
                     game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
                                            "washizu_layouts": layouts_for_viewer(self, viewer_pi)})
                     response = Response(type="gamestate/riichi/game_start", success=True, message="重连成功", game_info=game_info)
-                    await send_game_packet(self, conn.websocket, response.dict(exclude_none=True))
+                    await send_game_packet(self, conn.websocket, response.model_dump(exclude_none=True))
                     await reconnected_send_pending_ask(self, user_id)
                 break
 
@@ -941,7 +941,7 @@ class RiichiGameState:
 
     async def _settle_multi_ron_sequence(self, queue: list) -> None:
         """多家荣和：一起喊荣后按 hu_first → hu_second → hu_third 顺序依次结算，每家确认后再下一家。"""
-        from .boardcast import broadcast_do_action
+        from .broadcast import broadcast_do_action
 
         self._multi_ron_any_oya_win = any(player_index == 0 for player_index, _ in queue)
         simultaneous_hu_hands = {
@@ -1141,7 +1141,7 @@ class RiichiGameState:
             self,
             hepai_player_index=winner_index,
             # player_to_score 按当局座位 player_index 为键（与 hepai_player_index / 客户端 indexToPosition 一致）；
-            # score_changes 按 original_player_index 为键。与国标 boardcast 约定保持一致，避免过庄后座位错位。
+            # score_changes 按 original_player_index 为键。与国标 broadcast 约定保持一致，避免过庄后座位错位。
             player_to_score={p.player_index: p.score for p in self.player_list},
             hu_score=result.get("score", 0),
             hu_fan=yaku,
@@ -1411,7 +1411,7 @@ class RiichiGameState:
         if view_player_index < 0 or view_player_index >= len(self.player_list):
             return
         from ...response import Response, GameInfo
-        from .boardcast import _build_base_game_info, _build_player_info, reconnected_send_pending_ask_for_viewer
+        from .broadcast import _build_base_game_info, _build_player_info, reconnected_send_pending_ask_for_viewer
 
         from ..public.outbound_pipe import drain_viewer
         await drain_viewer(self, view_player_index)
@@ -1427,7 +1427,7 @@ class RiichiGameState:
             success=True,
             message="实时观战初始化",
             game_info=game_info,
-        ).dict(exclude_none=True))
+        ).model_dump(exclude_none=True))
         await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
     async def add_spectator(self, user_id: int, connection):

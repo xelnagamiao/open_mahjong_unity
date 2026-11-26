@@ -1,12 +1,17 @@
 import uuid
 from ..response import Response
 
+STANDARD_FORWARDED_KEYS = (
+    "use_flowers", "claim_protection", "open_cuohe", "tactical_call",
+    "tian_di_ren_he", "starting_score", "hepai_limit",
+)
+
 
 async def create_standard_room(manager, player_id, validator, rule_id, *, room_name, gameround=4, password="",
-                             roundTimerValue=20, stepTimerValue=5, tips=True, random_seed=0,
-                             sub_rule, detailed_config=None, tourist_limit=False,
-                             allow_spectator=True, event_id=None, count_tips=False, pointer_tips=True,
-                             **fixed_options):
+                               roundTimerValue=20, stepTimerValue=5, tips=True, random_seed=0,
+                               sub_rule, detailed_config=None, tourist_limit=False,
+                               allow_spectator=True, event_id=None, count_tips=False, pointer_tips=True,
+                               max_player=4, extra_room_fields=None, **fixed_options):
     connection = manager.game_server.players.get(player_id)
     if connection is None or not connection.user_id:
         return Response(type="tips", success=False, message="请先登录")
@@ -35,8 +40,14 @@ async def create_standard_room(manager, player_id, validator, rule_id, *, room_n
         ("character_id", 1), ("voice_id", 1), ("avatar_frame_id", 0))}
     profile["user_id"] = connection.user_id
     room = config.model_dump()
+    if extra_room_fields:
+        room.update(extra_room_fields)
+    room.setdefault("tourist_limit", bool(tourist_limit))
+    room.setdefault("allow_spectator", bool(allow_spectator))
+    room.setdefault("count_tips", bool(count_tips))
+    room.setdefault("pointer_tips", bool(pointer_tips))
     room.update(room_id=room_id, instance_id=str(uuid.uuid4()), room_type="custom", room_rule=rule_id,
-                max_player=4, player_list=[connection.user_id], player_settings={connection.user_id: profile},
+                max_player=max_player, player_list=[connection.user_id], player_settings={connection.user_id: profile},
                 has_password=bool(password), host_user_id=connection.user_id, host_name=connection.username,
                 is_game_running=False, is_player_set_random_seed=config.random_seed != 0)
     manager._apply_event_fields(room, event_id)
@@ -48,13 +59,15 @@ async def create_standard_room(manager, player_id, validator, rule_id, *, room_n
     return Response(type="room/create_room_done", success=True, message="房间创建成功", room_info=room)
 
 
-async def handle_create_standard_room(server, connection_id, message, websocket, creator, sub_rule):
+async def handle_create_standard_room(server, connection_id, message, websocket, creator, sub_rule, *,
+                                      default_gameround=4, forwarded_keys=STANDARD_FORWARDED_KEYS):
     response = await creator(server.room_manager, connection_id,
-        room_name=message.get("roomname", ""), gameround=message.get("gameround", 4), password=message.get("password", ""),
-        roundTimerValue=message.get("roundTimerValue", 20), stepTimerValue=message.get("stepTimerValue", 5),
-        tips=message.get("tips", True), random_seed=message.get("random_seed", 0),
-        sub_rule=message.get("sub_rule", sub_rule), detailed_config=message.get("detailed_config"),
-        tourist_limit=message.get("tourist_limit", False), allow_spectator=message.get("allow_spectator", True),
-        event_id=message.get("event_id"), count_tips=message.get("count_tips", False), pointer_tips=message.get("pointer_tips", True),
-        **{key: message[key] for key in ("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he", "starting_score", "hepai_limit") if key in message})
+        room_name=message.get("roomname", ""), gameround=message.get("gameround", default_gameround),
+        password=message.get("password", ""), roundTimerValue=message.get("roundTimerValue", 20),
+        stepTimerValue=message.get("stepTimerValue", 5), tips=message.get("tips", True),
+        random_seed=message.get("random_seed", 0), sub_rule=message.get("sub_rule", sub_rule),
+        detailed_config=message.get("detailed_config"), tourist_limit=message.get("tourist_limit", False),
+        allow_spectator=message.get("allow_spectator", True), event_id=message.get("event_id"),
+        count_tips=message.get("count_tips", False), pointer_tips=message.get("pointer_tips", True),
+        **{key: message[key] for key in forwarded_keys if key in message})
     await websocket.send_json(response.model_dump(exclude_none=True))

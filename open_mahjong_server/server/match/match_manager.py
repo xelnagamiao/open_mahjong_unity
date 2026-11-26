@@ -154,7 +154,7 @@ class MatchManager:
         if conn:
             from ..gamestate.public.connection_delivery import send_bounded
             response = self._reply('leave', user_id, True, RANKED_MESSAGE)
-            await send_bounded(conn.websocket, response.dict(exclude_none=True))
+            await send_bounded(conn.websocket, response.model_dump(exclude_none=True))
 
     def _remove_queues(self, user_id, queue_type=None):
         existing = self.user_to_queues.get(user_id, [])
@@ -295,7 +295,7 @@ class MatchManager:
             conn = self.game_server.user_id_to_connection.get(uid)
             if conn:
                 try:
-                    await conn.websocket.send_json(match_found_response.dict(exclude_none=True))
+                    await conn.websocket.send_json(match_found_response.model_dump(exclude_none=True))
                 except Exception as e:
                     logger.error(f"通知玩家 {uid} 匹配成功失败: {e}")
 
@@ -442,7 +442,7 @@ class MatchManager:
                 conn = self.game_server.user_id_to_connection.get(uid)
                 if conn:
                     try:
-                        await conn.websocket.send_json(fail_response.dict(exclude_none=True))
+                        await conn.websocket.send_json(fail_response.model_dump(exclude_none=True))
                     except Exception:
                         pass
         finally:

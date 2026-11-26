@@ -277,5 +277,5 @@ async def finish_round(state, scores_before):
     elif next_status == "match_end":
         await asyncio.sleep(sichuan_settle_hu_panel_wait_seconds(len(events[-1]["fan_list"]), is_final=True))
     else:
-        from .boardcast import broadcast_ready_status
+        from .broadcast import broadcast_ready_status
         await run_hu_result_ready_phase(state, len(events[-1]["fan_list"]), broadcast_ready_status, pre_panel_delay_sec=0)

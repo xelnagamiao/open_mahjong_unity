@@ -15,6 +15,8 @@ public partial class GameRecordManager {
         },
         AfterSilentMutation=tick=>SyncRecordBoardScores(),
         InitializePlayers=()=>{foreach(var player in recordPlayerList) player.showHandDrawSlotActive=player.tileList.Count==14;},
+        IsRobKongWin=_=>recordNanjingWinSource=="rob_kong",
+        IsForcedOrFlowerWin=()=>recordNanjingForced,
     };
     private NanjingInfo recordNanjingInfo;
     private string recordNanjingWinSource;

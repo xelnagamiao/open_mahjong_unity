@@ -58,9 +58,9 @@ internal static class ChangshaExchangeSixActions {
                 continue;
             }
             foreach (int tile in targets) {
-                int[] cards = tile == 0 ? Array.Empty<int>() : action == "chi_left" ? new[] {tile - 2, tile - 1, tile}
-                    : action == "chi_mid" ? new[] {tile - 1, tile, tile + 1}
-                    : action == "chi_right" ? new[] {tile, tile + 1, tile + 2}
+                int[] cards = tile == 0 ? Array.Empty<int>() : action == "chi_left" ? new[] {tile - 2, tile - 1}
+                    : action == "chi_mid" ? new[] {tile - 1, tile + 1}
+                    : action == "chi_right" ? new[] {tile + 1, tile + 2}
                     : Enumerable.Repeat(tile, action == "peng" ? 3
                         : action == "gang" || action == "angang" || action == "jiagang" || action == "buzhang"
                           || action == "changsha_four_joy" || action == "changsha_blind_kong" ? 4 : 1).ToArray();

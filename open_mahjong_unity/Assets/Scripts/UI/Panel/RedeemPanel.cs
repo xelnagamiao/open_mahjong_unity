@@ -20,7 +20,7 @@ public sealed class RedeemPanel : MonoBehaviour {
         submit.onClick.AddListener(Submit);
         close.onClick.AddListener(Close);
         changeCode.onClick.AddListener(ChangeCode);
-        codeInput.onSubmit.AddListener(_ => Submit());
+        codeInput.onSubmit.AddListener(_ => { if (InputFieldFeedback.IsDesktopKeyboardSubmit() && !codeInput.wasCanceled) Submit(); });
     }
     void OnEnable() {
         network = NetworkManager.Instance;

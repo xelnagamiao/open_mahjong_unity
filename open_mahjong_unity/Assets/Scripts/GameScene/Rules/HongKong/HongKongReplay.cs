@@ -19,6 +19,8 @@ public partial class GameRecordManager {
             }
         },
         AnnounceAfterSilentAction = PlayHongKongRecordAnnouncement,
+        IsRobKongWin = _ => recordHongKongWinSource == "rob_kong",
+        IsForcedOrFlowerWin = () => !string.IsNullOrEmpty(recordHongKongFlowerWin),
     };
 
     private HongKongInfo recordHongKongInfo;

@@ -5,7 +5,7 @@ from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock
 import pytest
 from .test_double_riichi import make_game
-from . import boardcast as b
+from . import broadcast as b
 from .wait_action import _execute_cut, wait_action
 from ..public.claim_protection import finalize_claim_protection,end_claim_protection_interval
 from ..public.outbound_pipe import drain_viewer,close_outbound_pipes

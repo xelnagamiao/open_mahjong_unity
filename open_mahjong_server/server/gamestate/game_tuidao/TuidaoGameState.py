@@ -9,7 +9,7 @@ from dataclasses import replace
 from ...game_calculation.tuidao import rules as book
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_do_action, broadcast_game_end
+from ..game_taiwan.broadcast import broadcast_game_start, broadcast_do_action, broadcast_game_end
 from .result import broadcast_result
 from .timing import ACTION_PHASES, TimedActionQueue, TuidaoActionClock, display_seconds
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
