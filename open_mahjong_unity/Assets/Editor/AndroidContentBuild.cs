@@ -146,7 +146,7 @@ public static class AndroidContentBuild {
     public static void BuildContent() => Run(false);
     [Serializable] sealed class UnpublishedApkReceipt {
         public string status, candidateApk, candidateSha256, publishedSha256;
-        public int releaseVersion, baseVersion, versionCode, publishedCode;
+        public int releaseVersion, baseVersion, versionCode, publishedCode, publishedReleaseVersion, publishedBaseVersion;
     }
     static int AllocateApkCode(int lastCode) {
         string receiptPath = Arg("-omUnpublishedApkReceipt");
@@ -176,8 +176,21 @@ public static class AndroidContentBuild {
         }
         var previous = Check(livePath, r.publishedSha256, r.publishedCode);
         var priorCandidate = Check(r.candidateApk, r.candidateSha256, r.versionCode);
+        bool baselineVerified = previous.baseVersion == r.baseVersion;
+        if (!baselineVerified && previous.baseVersion > 0 && previous.baseVersion == r.publishedBaseVersion && previous.releaseVersion == r.publishedReleaseVersion &&
+            (long)previous.baseVersion + 1 == r.baseVersion && (long)previous.releaseVersion + 1 == r.releaseVersion) {
+            var saved = JsonUtility.FromJson<Baseline>(File.ReadAllText(Path.Combine(Work, "baselines", r.baseVersion.ToString(), "baseline.json")));
+            using (var archive = ZipFile.OpenRead(r.candidateApk)) {
+                var entry = archive.GetEntry("assets/OmUpdate/boot.json");
+                if (entry != null && entry.Length > 0 && entry.Length <= 65536) using (var reader = new StreamReader(entry.Open())) {
+                    var boot = JsonUtility.FromJson<BootSettings>(reader.ReadToEnd());
+                    baselineVerified = saved != null && saved.baseVersion == r.baseVersion && saved.fingerprint == NativeFingerprint() && !string.IsNullOrEmpty(saved.publicKey) &&
+                        boot != null && boot.baseVersion == r.baseVersion && boot.releaseVersion == r.releaseVersion && boot.baseline == saved.fingerprint && boot.publicKey == saved.publicKey;
+                }
+            }
+        }
         if (priorCandidate.releaseVersion != r.releaseVersion || priorCandidate.baseVersion != r.baseVersion ||
-            previous.releaseVersion >= r.releaseVersion || previous.baseVersion != r.baseVersion || r.candidateSha256 == r.publishedSha256) {
+            previous.releaseVersion >= r.releaseVersion || !baselineVerified || r.candidateSha256 == r.publishedSha256) {
             throw new BuildFailedException("Only the newest private candidate for a release not yet published may reuse its code.");
         }
         return lastCode;

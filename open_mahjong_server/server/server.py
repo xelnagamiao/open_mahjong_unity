@@ -190,10 +190,7 @@ async def lifespan(app: FastAPI):
     from .gamestate.public.ai.bot_executor import warm_bot_executor, shutdown_bot_executor
     cpu_allocation = resolve_server_cpu_allocation(getattr(Config, "cpu_budget", None))
     logging.info(cpu_allocation.summary())
-    try:
-        await warm_calc_executor(cpu_allocation)
-    except Exception:
-        logging.exception("实时算牌执行器预热失败，服务将回退至 inline 模式继续启动")
+    await warm_calc_executor(cpu_allocation)
     try:
         await warm_bot_executor(cpu_allocation)
     except Exception:

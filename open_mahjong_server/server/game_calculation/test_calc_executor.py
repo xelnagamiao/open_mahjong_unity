@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import BrokenExecutor, Future
 from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
 
 from server.game_calculation import calc_executor
 from server.game_calculation.async_calculation_service import AsyncCalculationService
@@ -148,4 +152,121 @@ def test_calc_executor_lazy_init_when_unwarmed(monkeypatch):
         finally:
             await calc_executor.shutdown_calc_executor()
 
+    asyncio.run(scenario())
+
+
+class _StartupPool:
+    def __init__(self, submit):
+        self.submit = Mock(side_effect=submit)
+        self.shutdown = Mock()
+
+
+def _future(*, error=None, value=None):
+    result = Future()
+    if error is not None:
+        result.set_exception(error)
+    else:
+        result.set_result(value)
+    return result
+
+
+@pytest.mark.parametrize('point', ['construct', 'submit', 'future'])
+def test_broken_startup_only_degrades_once_and_keeps_budget(monkeypatch, caplog, point):
+    async def scenario():
+        await calc_executor.shutdown_calc_executor()
+        alloc = compute_pool_allocation(5, environ={})
+        broken = BrokenExecutor('test broken startup infrastructure')
+        pending = Future()
+        pool = _StartupPool([pending, broken] if point == 'submit' else [_future(error=broken), pending])
+        build = Mock(side_effect=broken) if point == 'construct' else Mock(return_value=(pool, 'interpreter'))
+        check = Mock(wraps=calc_executor._check_calc_worker)
+        monkeypatch.setattr(calc_executor, '_build_executor', build)
+        monkeypatch.setattr(calc_executor, '_check_calc_worker', check)
+        try:
+            with caplog.at_level('INFO'):
+                assert await calc_executor.warm_calc_executor(alloc) is alloc
+            assert calc_executor.current_calc_allocation() is alloc
+            assert calc_executor._ACTIVE_BACKEND == 'inline' and calc_executor._EXECUTOR is None
+            assert 'Calc pool broke during startup' in caplog.text and 'riichi score=7700' in caplog.text
+            for n in range(3):
+                assert await calc_executor.run_calc_cpu(_echo_sum, n, 1) == n + 1
+            assert build.call_count == check.call_count == 1
+            if point != 'construct':
+                assert pending.cancelled()
+                pool.shutdown.assert_called_once_with(wait=True, cancel_futures=True)
+        finally:
+            await calc_executor.shutdown_calc_executor()
+        assert pool.shutdown.call_count == (0 if point == 'construct' else 1)
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('error', [ValueError('invalid rule'), ModuleNotFoundError('missing module'), RuntimeError('bad result')])
+def test_worker_check_error_is_not_a_broken_pool(monkeypatch, caplog, error):
+    async def scenario():
+        await calc_executor.shutdown_calc_executor()
+        pool = _StartupPool([_future(error=error)])
+        monkeypatch.setattr(calc_executor, '_build_executor', lambda _: (pool, 'interpreter'))
+        try:
+            with caplog.at_level('INFO'), pytest.raises(type(error)) as actual:
+                await calc_executor.warm_calc_executor(compute_pool_allocation(2, environ={}))
+            assert actual.value is error and 'Calc executor is ready' not in caplog.text
+            assert 'verifying inline' not in caplog.text
+            pool.shutdown.assert_called_once_with(wait=True, cancel_futures=True)
+        finally:
+            await calc_executor.shutdown_calc_executor()
+    asyncio.run(scenario())
+
+
+def test_cancelled_startup_retires_candidate_without_fallback(monkeypatch, caplog):
+    async def scenario():
+        await calc_executor.shutdown_calc_executor()
+        pending = Future(); pool = _StartupPool([pending]); check = Mock()
+        monkeypatch.setattr(calc_executor, '_build_executor', lambda _: (pool, 'interpreter'))
+        monkeypatch.setattr(calc_executor, '_check_calc_worker', check)
+        try:
+            task = asyncio.create_task(calc_executor.warm_calc_executor(compute_pool_allocation(2, environ={})))
+            await asyncio.sleep(0)
+            assert pool.submit.called
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert pending.cancelled() and not check.called and 'verifying inline' not in caplog.text
+            pool.shutdown.assert_called_once_with(wait=True, cancel_futures=True)
+        finally:
+            await calc_executor.shutdown_calc_executor()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('fallback',[False,True])
+def test_incorrect_real_selfcheck_aborts_both_inline_paths(monkeypatch,caplog,fallback):
+    async def scenario():
+        await calc_executor.shutdown_calc_executor()
+        if fallback:
+            monkeypatch.setattr(calc_executor, '_build_executor', Mock(side_effect=BrokenExecutor('test failure')))
+        monkeypatch.setattr(calc_executor, 'tingpai_dispatch', lambda *args: (99,))
+        try:
+            with caplog.at_level('INFO'), pytest.raises(RuntimeError,match='guobiao waiting-tile startup check failed'):
+                await calc_executor.warm_calc_executor(compute_pool_allocation(2 if fallback else 1,environ={}))
+            assert 'Calc executor is ready' not in caplog.text
+        finally:
+            await calc_executor.shutdown_calc_executor()
+    asyncio.run(scenario())
+
+
+def test_no_runtime_recovery_or_replay_of_application_errors(monkeypatch):
+    async def scenario():
+        await calc_executor.shutdown_calc_executor()
+        errors = (ValueError('business error'), BrokenExecutor('after successful startup'))
+        pool = _StartupPool([_future(), *(_future(error=e) for e in errors)])
+        build = Mock(return_value=(pool,'interpreter'))
+        monkeypatch.setattr(calc_executor,'_build_executor',build)
+        caller = Mock(return_value=123)
+        try:
+            await calc_executor.warm_calc_executor(compute_pool_allocation(2,environ={}))
+            for error in errors:
+                with pytest.raises(type(error)) as actual:
+                    await calc_executor.run_calc_cpu(caller)
+                assert actual.value is error
+            assert build.call_count==1 and calc_executor._EXECUTOR is pool and not caller.called
+        finally:await calc_executor.shutdown_calc_executor()
     asyncio.run(scenario())

@@ -11,13 +11,14 @@ Modes (driven by server.runtime.cpu_allocation):
 from __future__ import annotations
 
 import asyncio
-from concurrent.futures import InterpreterPoolExecutor
+from concurrent.futures import BrokenExecutor, InterpreterPoolExecutor
 from functools import partial
+import json
 import logging
 from typing import Any, Callable, Optional, TypeVar
 
 from ..runtime.cpu_allocation import CpuAllocation, resolve_server_cpu_allocation
-from .registry import warm_calc_worker
+from .registry import hepai_dispatch, tingpai_dispatch, warm_calc_worker
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 _ALLOCATION: Optional[CpuAllocation] = None
 _EXECUTOR: Optional[InterpreterPoolExecutor] = None
 _ACTIVE_BACKEND: str = "inline"
+_CHECK_RECEIPT = "startup self-check passed: guobiao/riichi waits=41,42; guobiao fan=25; riichi score=7700"
 
 
 def current_calc_allocation() -> CpuAllocation:
@@ -73,25 +75,54 @@ async def run_room_calc_cpu(game_state: Any, func: Callable[..., T], /, *args, *
         return await run_calc_cpu(func, *args, **kwargs)
 
 
-async def warm_calc_executor(allocation: Optional[CpuAllocation] = None) -> CpuAllocation:
-    """Initialize and warm the real-time InterpreterPoolExecutor during server startup."""
-    global _ALLOCATION, _EXECUTOR, _ACTIVE_BACKEND
-    if allocation is not None:
-        if _EXECUTOR is not None:
-            await shutdown_calc_executor()
-        _ALLOCATION = allocation
-    alloc = current_calc_allocation()
-    _EXECUTOR, _ACTIVE_BACKEND = _build_executor(alloc)
-    if _EXECUTOR is None or _ACTIVE_BACKEND == "inline":
-        warm_calc_worker()
-        logger.info("Calc executor is ready (inline mode, cpu_budget=%s)", alloc.cpu_budget)
-        return alloc
+def _check_calc_worker() -> None:
+    """Small, deterministic hands exercise the same dispatchers used for real games."""
+    warm_calc_worker()
+    hand = (11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 41, 42, 42)
+    for rule in ('guobiao', 'riichi'):
+        if tingpai_dispatch(rule, hand, ()) != (41, 42):
+            raise RuntimeError(f'{rule} waiting-tile startup check failed')
+    exposed = (11, 12, 13, 14, 14, 15, 16, 17, 17, 17, 11)
+    fan, _ = json.loads(hepai_dispatch('guobiao', exposed, ('k19',), ('点和', '场风南', '自风西'), 11))
+    pinfu = (12, 13, 14, 22, 23, 24, 33, 34, 35, 36, 37, 38, 28, 28)
+    ctx = '{"context":{"player_wind":1,"round_wind":0,"is_riichi":true,"dora_indicators":[37]}}'
+    score = json.loads(hepai_dispatch('riichi', pinfu, (), (), 38, ctx))
+    if fan != 25 or score['score'] != 7700:
+        raise RuntimeError('winning-hand startup check failed')
 
-    loop = asyncio.get_running_loop()
-    await asyncio.gather(
-        *(loop.run_in_executor(_EXECUTOR, warm_calc_worker) for _ in range(alloc.calc_workers))
-    )
-    logger.info("Calc executor is ready (%s workers, backend=interpreter)", alloc.calc_workers)
+
+async def warm_calc_executor(allocation: Optional[CpuAllocation] = None) -> CpuAllocation:
+    """Only a broken startup pool may degrade; incorrect calculations must stop startup."""
+    global _ALLOCATION, _EXECUTOR, _ACTIVE_BACKEND
+    alloc = allocation or current_calc_allocation()
+    if _EXECUTOR is not None:
+        await shutdown_calc_executor()
+    _ALLOCATION = alloc
+    candidate = None
+    pending = []
+    try:
+        candidate, backend = _build_executor(alloc)
+        if candidate is not None:
+            loop = asyncio.get_running_loop()
+            for _ in range(alloc.calc_workers):
+                pending.append(loop.run_in_executor(candidate, _check_calc_worker))
+            await asyncio.gather(*pending)
+            _EXECUTOR, _ACTIVE_BACKEND = candidate, backend
+            candidate = None  # ownership transferred only after successful checks
+            logger.info("Calc executor is ready (%s workers, backend=interpreter); %s", alloc.calc_workers, _CHECK_RECEIPT)
+            return alloc
+    except BrokenExecutor:
+        logger.warning("Calc pool broke during startup; verifying inline backend", exc_info=True)
+    finally:
+        if candidate is not None:
+            for future in pending:
+                future.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            await asyncio.to_thread(candidate.shutdown, wait=True, cancel_futures=True)
+
+    _EXECUTOR, _ACTIVE_BACKEND = None, "inline"
+    _check_calc_worker()
+    logger.info("Calc executor is ready (inline mode, cpu_budget=%s); %s", alloc.cpu_budget, _CHECK_RECEIPT)
     return alloc
 
 
