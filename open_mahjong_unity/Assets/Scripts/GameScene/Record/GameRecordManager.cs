@@ -1244,7 +1244,7 @@ public partial class GameRecordManager : MonoBehaviour, IRecordReplayContext {
                 "exhaustive" => "流局",
                 "sifuuu" => "四风连打",
                 "suukaikan" => "四杠散了",
-                "suurichi" => "四人立直",
+                "suurichi" => "四家立直",
                 "sanchahou" => "三家和流局",
                 "nagashi_mangan" => "流局满贯",
                 _ => "流局",
@@ -1497,7 +1497,7 @@ public partial class GameRecordManager : MonoBehaviour, IRecordReplayContext {
             sb.AppendLine(IsDuplicateReplay ? "固定座位 (东、南、西、北):" : "随机座位分配 (original 0～3):");
             if (IsExternalRecord) {
                 for (int i = 0; i < 4; i++) {
-                    string name = ReadGameTitleString(gt, $"p{i}_name", $"玩家 {i + 1}");
+                    string name = ReadGameTitleString(gt, $"p{i}_name", PlatformText.Get($"玩家 {i + 1}"));
                     string id = ReadGameTitleString(gt, $"p{i}_external_id", ReadGameTitleString(gt, $"p{i}_tziakcha_id", ""));
                     sb.AppendLine($"玩家{i}: {name}" + (string.IsNullOrEmpty(id) ? "" : $" (原始 ID:{id})"));
                 }

@@ -41,7 +41,7 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
         if (!wired) {
             wired = true;
             categoryDropdown.ClearOptions();
-            categoryDropdown.AddOptions(new List<string>(CategoryNames));
+            categoryDropdown.AddOptions(LocalizedCategories());
             categoryDropdown.onValueChanged.AddListener(_ => RefreshRows(true));
             toggleButton.onClick.AddListener(() => SetExpanded(!expanded));
             latestButton.onClick.AddListener(ShowLatest);
@@ -57,6 +57,25 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
 
     private void OnDestroy() {
         if (log != null) log.Changed -= OnLogChanged;
+    }
+
+    private void OnEnable() { ConfigManager.OnLanguageChanged += OnLanguageChanged; }
+    private void OnDisable() { ConfigManager.OnLanguageChanged -= OnLanguageChanged; }
+
+    private static List<string> LocalizedCategories() {
+        var options = new List<string>();
+        foreach (string category in CategoryNames) options.Add(PlatformText.Get(category));
+        return options;
+    }
+
+    private void OnLanguageChanged() {
+        if (!wired) return;
+        int selected = categoryDropdown.value;
+        categoryDropdown.ClearOptions();
+        categoryDropdown.AddOptions(LocalizedCategories());
+        categoryDropdown.SetValueWithoutNotify(selected);
+        toggleLabel.text = PlatformText.Get("收起");
+        RefreshRows(IsAtLatest());
     }
 
     private void LateUpdate() {
@@ -102,7 +121,7 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
         dock.gameObject.SetActive(open);
         body.SetActive(open);
         dock.sizeDelta = new Vector2(360f, 300f);
-        toggleLabel.text = "收起";
+        toggleLabel.text = PlatformText.Get("收起");
         if (!open) categoryDropdown.Hide();
         OnRectTransformDimensionsChange();
         if (open) RefreshRows(true);
@@ -140,7 +159,14 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
                 row.root.gameObject.SetActive(true);
                 row.root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, laidOutWidth);
                 row.time.text = entry.ReceivedAt.ToLocalTime().ToString("HH:mm:ss");
-                row.message.text = entry.Message ?? "";
+                string message = entry.Message ?? "";
+                const string missingActor = "未知玩家（消息未提供操作者）";
+                // Only a missing actor uses this fallback; an actual player's
+                // identical name must remain literal.
+                if (!entry.ActorIndex.HasValue && entry.Category == FreeModeActivityCategory.Scores
+                    && message.StartsWith(missingActor + " 修改分数\n", StringComparison.Ordinal))
+                    message = PlatformText.Get(missingActor) + message.Substring(missingActor.Length);
+                row.message.text = PlatformText.Get(message);
                 row.message.richText = false;
                 row.message.color = entry.Category == FreeModeActivityCategory.Scores
                     ? new Color(.98f, .85f, .53f) : new Color(.87f, .91f, .95f);
@@ -159,8 +185,8 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
             content.anchoredPosition = new Vector2(0f, followLatest ? maximum : Mathf.Clamp(restoredY, 0f, maximum));
             if (followLatest && expanded) readId = NewestId();
             emptyLabel.gameObject.SetActive(visible.Count == 0);
-            emptyLabel.text = log == null || log.Entries.Count == 0
-                ? "还没有操作记录\n收到操作后会显示在这里" : "此分类暂无操作\n可切换为「全部操作」";
+            emptyLabel.text = PlatformText.Get(log == null || log.Entries.Count == 0
+                ? "还没有操作记录\n收到操作后会显示在这里" : "此分类暂无操作\n可切换为「全部操作」");
             RefreshStatus();
         } finally { refreshing = false; }
     }
@@ -198,11 +224,11 @@ public sealed class FreeModeActivityPanel : MonoBehaviour {
                 if (Matches(entry)) matchingUnread++;
             }
         }
-        title.text = !expanded && unread > 0 ? "记录 · " + unread + " 条新" : "记录";
+        title.text = PlatformText.Get(!expanded && unread > 0 ? "记录 · " + unread + " 条新" : "记录");
         latestButton.gameObject.SetActive(expanded && matchingUnread > 0);
-        latestLabel.text = matchingUnread + " 条新消息  ↓";
+        latestLabel.text = PlatformText.Get(matchingUnread + " 条新消息  ↓");
         countLabel.gameObject.SetActive(matchingUnread == 0);
-        countLabel.text = "最近 " + visible.Count + " 条 · 全部玩家";
+        countLabel.text = PlatformText.Get("最近 " + visible.Count + " 条 · 全部玩家");
         StateChanged?.Invoke();
     }
 }

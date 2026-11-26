@@ -46,8 +46,9 @@ function next() {
 
 <style scoped>
 .practice-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 16px; border-bottom: 1px solid #ddd; padding-bottom: 12px; }
-.practice-summary label { display: inline-flex; align-items: center; gap: 8px; }
+.practice-summary label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .practice-summary span { font-size: 14px; color: #555; }
 .practice-summary select, .practice-button { min-height: 40px; padding: 6px 12px; border: 1px solid #c8c8c8; background: white; color: #333; font: inherit; }
+.practice-summary select { box-sizing: border-box; min-width: 0; max-width: 100%; }
 .practice-button { cursor: pointer; }
 </style>

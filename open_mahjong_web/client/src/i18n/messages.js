@@ -1,5 +1,6 @@
 import { fr, frTextPatterns } from './fr.js'
-import { extendedMessages, extendedPatterns } from './extended-locales.js'
+import { extendedMessages, extendedPatterns, templates } from './extended-locales.js'
+import platformBaseMessages from './platform-base-messages.js'
 import { auditEnglish, auditShared } from './audit-messages.js'
 import { libraryAuditMessages } from './library-audit.js'
 import { game2dMessages, game2dTextPatterns } from './game2d-messages.js'
@@ -7,7 +8,7 @@ import { statisticsMessages } from './statistics-messages.js'
 import { guobiaoRulesMessages } from './guobiao-rules-messages.js'
 import { calculatorMessages, calculatorTextPatterns } from './calculator-messages.js'
 import { renameCardMessages, renameCardTextPatterns } from './rename-card-messages.js'
-import { menchinEnglish, menchinEnglishPatterns } from './menchin-messages.js'
+import { menchinEnglish, menchinEnglishPatterns, createMenchinPatterns } from './menchin-messages.js'
 
 const en = {
   '用户名 / 邮箱': 'Username / email',
@@ -1824,6 +1825,11 @@ for (const [language, target] of Object.entries({ en, fr, ja })) {
   Object.assign(target, renameCardMessages[language])
 }
 Object.assign(fr, extendedMessages.fr)
+for (const [language, target] of Object.entries({ en, ja })) {
+  for (const [source, translated] of Object.entries(platformBaseMessages[language])) {
+    if (target[source] == null) target[source] = translated
+  }
+}
 export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr, de: extendedMessages.de, ru: extendedMessages.ru, es: extendedMessages.es }
 
 export const textPatterns = {
@@ -1925,4 +1931,20 @@ export const textPatterns = {
   ],
   'zh-TW': [],
   'zh-HK': [],
+}
+
+// Keep established typed patterns first; shared catalog templates preserve
+// literal names and identifiers captured from new interface sentences.
+for (const language of ['en', 'ja']) textPatterns[language].push(...templates(platformBaseMessages[language]))
+for (const language of ['ja', 'fr', 'de', 'ru', 'es']) {
+  const existingPatterns = [...textPatterns[language]]
+  const translateGameValue = source => {
+    if (messages[language][source] != null) return messages[language][source]
+    for (const pattern of existingPatterns) {
+      const match = source.match(pattern.match)
+      if (match) return pattern.replace(...match.slice(1))
+    }
+    return source
+  }
+  textPatterns[language].unshift(...createMenchinPatterns(translateGameValue))
 }

@@ -1,7 +1,7 @@
 const RIICHI_ABORT_CAPTIONS = {
   four_wind_abort: '四风连打',
   four_kan_abort: '四杠散了',
-  four_riichi_abort: '四人立直',
+  four_riichi_abort: '四家立直',
   three_ron_abort: '三家和流局',
 }
 

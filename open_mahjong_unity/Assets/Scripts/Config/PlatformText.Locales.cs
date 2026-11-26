@@ -13,7 +13,7 @@ public static partial class PlatformText
     [Serializable] sealed class LocaleContext { public string name; public LocaleEntry[] entries; }
     [Serializable] sealed class LocaleUnit { public string key, one, few, many, other; public bool ordinal; }
     [Serializable] sealed class LocaleCatalog { public LocaleEntry[] entries; public LocaleContext[] contexts; public LocaleUnit[] units; }
-    sealed class LocaleTemplate { public Regex expression; public string text; public string[] tokens; public bool[] localizeValues; }
+    sealed class LocaleTemplate { public Regex expression; public string source, text; public string[] tokens; public bool[] localizeValues; }
     sealed class LocaleData
     {
         public readonly Dictionary<string,string> exact = new Dictionary<string,string>(StringComparer.Ordinal);
@@ -80,7 +80,7 @@ public static partial class PlatformText
                 offset = match.Index + match.Length;
             }
             pattern.Append(Regex.Escape(entry.Key.Substring(offset))).Append('$');
-            templates.Add(new LocaleTemplate { expression = new Regex(pattern.ToString(), RegexOptions.CultureInvariant | RegexOptions.Singleline), text = entry.Value, tokens = tokens, localizeValues = localizeValues });
+            templates.Add(new LocaleTemplate { expression = new Regex(pattern.ToString(), RegexOptions.CultureInvariant | RegexOptions.Singleline), source = entry.Key, text = entry.Value, tokens = tokens, localizeValues = localizeValues });
         }
         return templates;
     }
@@ -175,7 +175,7 @@ public static partial class PlatformText
             translated = Placeholders.Replace(template.text, token => {
                 int i = Array.IndexOf(template.tokens, token.Value);
                 if (i < 0) return token.Value;
-                string captured = match.Groups["v" + i].Value;
+                string captured = TranslateTemplateValue(template.source, i, match, language);
                 // Names and other literal captures remain untouched; only the existing tile/state whitelist is localized.
                 return template.localizeValues[i] ? TranslateLocale(captured, language, data, true, context) : captured;
             });

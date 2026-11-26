@@ -11,7 +11,7 @@
     </div>
     <div class="tile-palette" aria-label="可添加的麻将牌">
       <div v-for="(group, index) in tileGroups" :key="index" class="palette-row"><span class="palette-label">{{ ['万', '筒', '条', '字', '花'][index] }}</span><div class="palette-tiles">
-        <button v-for="tile in group" :key="tile.tile" type="button" :aria-label="`添加${tile.label}到${targetLabel}`" :disabled="disabled || targetFull || (counts[tile.tile] || 0) >= tile.count" @click="add(tile.tile)"><TileChip :tile-id="tile.tile" size="md" :disabled="disabled || targetFull || (counts[tile.tile] || 0) >= tile.count" /><small>{{ counts[tile.tile] || 0 }} / {{ tile.count }}</small></button>
+        <button v-for="tile in group" :key="tile.tile" type="button" :aria-label="`添加${tr(tile.label)}到${targetLabel}`" :disabled="disabled || targetFull || (counts[tile.tile] || 0) >= tile.count" @click="add(tile.tile)"><TileChip :tile-id="tile.tile" size="md" :disabled="disabled || targetFull || (counts[tile.tile] || 0) >= tile.count" /><small>{{ counts[tile.tile] || 0 }} / {{ tile.count }}</small></button>
       </div></div>
     </div>
     <div class="selection-actions"><span>{{ selectionLabel }}</span><el-button size="small" :disabled="disabled || !selected || targetFull || sameTarget" @click="moveToTarget">移至当前区域</el-button><el-button size="small" :disabled="disabled || !selected || selected.index === 0" @click="shift(-1)">前移</el-button><el-button size="small" :disabled="disabled || !selected || selected.index >= selectedLength - 1" @click="shift(1)">后移</el-button><el-button size="small" type="danger" :disabled="disabled || !selected" @click="remove">删除选中牌</el-button></div>
@@ -29,6 +29,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { tr } from '@/i18n'
 import TileChip from './TileChip.vue'
 import { createDuplicateDraft, duplicateRoundSeats, duplicateDealerSeat, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, tileCounts } from '@/utils/duplicateWalls'
 const props = defineProps({ modelValue: { type: Array, required: true }, rule: { type: Object, required: true }, round: { type: Number, default: 1 }, disabled: Boolean })
@@ -36,7 +37,7 @@ const emit = defineEmits(['update:modelValue'])
 const draft = computed(() => props.modelValue)
 const bloodflow = computed(() => props.rule.wall_layout === 'xueliu')
 const bloodbattle = computed(() => props.rule.wall_layout === 'sbr')
-const seatNames = computed(() => [...duplicateRoundSeats(props.round, props.rule.wall_layout).map(seat => ['东', '南', '西', '北'][seat]), ...(bloodflow.value ? ['公共牌墙'] : [])])
+const seatNames = computed(() => [...duplicateRoundSeats(props.round, props.rule.wall_layout).map(seat => tr(['东', '南', '西', '北'][seat])), ...(bloodflow.value ? [tr('公共牌墙')] : [])])
 const dealerSeat = computed(() => duplicateDealerSeat(props.round, props.rule.wall_layout))
 const targetSeat = ref(0)
 const targetZone = ref('hand')
@@ -47,13 +48,13 @@ const counts = computed(() => tileCounts(allTiles.value))
 const tileGroups = computed(() => [1, 2, 3, 4, 5].map(suit => props.rule.tiles.filter(tile => Math.floor(tile.tile / 10) === suit)).filter(group => group.length))
 const zoneLimit = (seat, zone) => duplicateZoneLimit(props.rule.tile_count, seat, zone, dealerSeat.value, props.rule.wall_layout)
 const wallLabel = seat => bloodflow.value ? (seat === 4 ? '公共牌墙' : '固定牌墙') : bloodbattle.value ? '个人牌墙' : '剩余牌山'
-const zoneName = (seat, zone) => seat === 4 ? '公共牌墙' : `${seatNames.value[seat]}位${zone === 'hand' ? '手牌' : '牌山'}`
-const targetLabel = computed(() => targetSeat.value === 4 ? '公共牌墙' : `${seatNames.value[targetSeat.value]}位${targetZone.value === 'hand' ? '手牌' : wallLabel(targetSeat.value)}`)
+const zoneName = (seat, zone) => seat === 4 ? tr('公共牌墙') : tr('{0}位{1}', { 0: seatNames.value[seat], 1: tr(zone === 'hand' ? '手牌' : '牌山') })
+const targetLabel = computed(() => targetSeat.value === 4 ? tr('公共牌墙') : tr('{0}位{1}', { 0: seatNames.value[targetSeat.value], 1: tr(targetZone.value === 'hand' ? '手牌' : wallLabel(targetSeat.value)) }))
 const targetFull = computed(() => draft.value[targetSeat.value][targetZone.value].length >= zoneLimit(targetSeat.value, targetZone.value))
 const sameTarget = computed(() => selected.value?.seat === targetSeat.value && selected.value?.zone === targetZone.value)
 const selectedLength = computed(() => selected.value ? draft.value[selected.value.seat][selected.value.zone].length : 0)
 const selectionLabel = computed(() => selected.value ? `已选${zoneName(selected.value.seat, selected.value.zone)}第 ${selected.value.index + 1} 张` : '点击已放置的牌可选择、移动或删除')
-const tileName = tile => props.rule.tiles.find(item => item.tile === tile)?.label || String(tile)
+const tileName = tile => tr(props.rule.tiles.find(item => item.tile === tile)?.label || String(tile))
 function change(edit) { const next = draft.value.map(seat => ({ hand: [...seat.hand], wall: [...seat.wall] })); edit(next); emit('update:modelValue', next) }
 function add(tile) { if (props.disabled || targetFull.value || counts.value[tile] >= props.rule.tiles.find(item => item.tile === tile)?.count) return; change(next => next[targetSeat.value][targetZone.value].push(tile)) }
 function clear() { selected.value = null; emit('update:modelValue', createDuplicateDraft(props.rule.wall_layout)) }

@@ -11,7 +11,7 @@ public static partial class PlatformText
 {
     [Serializable] public sealed class Entry { public string key, zh, tw, en; }
     [Serializable] sealed class Catalog { public Entry[] entries; public string traditionalCharacters; }
-    sealed class Template { public Regex expression; public string english; public string[] tokens; }
+    sealed class Template { public Regex expression; public string source, english; public string[] tokens; }
     static readonly Regex Spaces = new Regex(@"\s+", RegexOptions.CultureInvariant);
     static readonly Regex Placeholders = new Regex(@"\{(?:[A-Za-z_][^{}\r\n]*|\d+(?::[^{}\r\n]+)?)\}", RegexOptions.CultureInvariant);
     static readonly Regex Tags = new Regex(@"(<[^>]+>)", RegexOptions.CultureInvariant);
@@ -55,7 +55,7 @@ public static partial class PlatformText
                 pattern.Append("(?<v").Append(i).Append(numericSuffix?">[+−\\-]?[\\d,.]+)":">.+?)");tokens[i]=m.Value;offset=m.Index+m.Length;
             }
             pattern.Append(Regex.Escape(entry.key.Substring(offset))).Append('$');
-            templates.Add(new Template{expression=new Regex(pattern.ToString(),RegexOptions.CultureInvariant|RegexOptions.Singleline),english=entry.en,tokens=tokens});
+            templates.Add(new Template{expression=new Regex(pattern.ToString(),RegexOptions.CultureInvariant|RegexOptions.Singleline),source=entry.key,english=entry.en,tokens=tokens});
         }
     }
     static string Normalize(string text)=>Spaces.Replace(text??""," ").Trim();
@@ -65,6 +65,7 @@ public static partial class PlatformText
     public static string Get(string key,AppLanguage language)
     {
         if(string.IsNullOrEmpty(key))return key??"";
+        if(TryTranslateKnownComposite(key,language,out var composite))return composite;
         if(HasLocaleCatalog(language))return GetLocale(key,language);
         Load();
         if(entries.TryGetValue(key,out var entry)||normalized.TryGetValue(Normalize(key),out entry))
@@ -91,7 +92,10 @@ public static partial class PlatformText
         foreach(var template in templates){
             var match=template.expression.Match(source);if(!match.Success)continue;
             string value=template.english;
-            for(int i=0;i<template.tokens.Length;i++)value=value.Replace(template.tokens[i],match.Groups["v"+i].Value);
+            value=Placeholders.Replace(value, token => {
+                int index=Array.IndexOf(template.tokens,token.Value);
+                return index>=0?TranslateTemplateValue(template.source,index,match,AppLanguage.English):token.Value;
+            });
             return value;
         }
         var repeated=Multiplicity.Match(trimmed);
@@ -116,4 +120,41 @@ public static partial class PlatformText
         return source;
     }
     public static string Format(string key,params object[] values)=>string.Format(CultureInfo.InvariantCulture,Get(key),values);
+
+    // These captures are fixed game enums, never player names, IDs or file paths.
+    static string TranslateTemplateValue(string source,int index,Match match,AppLanguage language)
+    {
+        string value=match.Groups["v"+index].Value;
+        string token=Placeholders.Matches(source)[index].Value;
+        const string tilePattern=@"(?:一张牌|暗牌|赤五[万筒条]|[一二三四五六七八九][万筒饼条]|[东南西北春夏秋冬梅兰竹菊]|红中|白板|发财)";
+        if((token=="{tile}"||token=="{tiles}")&&Regex.IsMatch(value,"^"+tilePattern+(token=="{tiles}"?"(?:、"+tilePattern+")*":"")+"$"))
+            return string.Join(language==AppLanguage.Japanese?"、":", ",value.Split('、').Select(tile=>
+                Get(Regex.Replace(tile,@"^([一二三四五六七八九])筒$","$1饼"),language)));
+        if(token=="{wind}"&&Regex.IsMatch(value,@"^[东南西北]$"))return Get(value,language);
+        if(token=="{call}"&&Regex.IsMatch(value,@"^(吃|碰|杠|补花|和牌|自摸)$"))return Get(value,language);
+        if(source=="等待{0}家选牌"&&index==0&&Regex.IsMatch(value,@"^[东南西北](?:、[东南西北])*$"))
+            return string.Join(language==AppLanguage.Japanese?"、":", ",value.Split('、').Select(word=>Get(word,language)));
+        if(source=="队友传来三张{0}牌"&&index==0&&Regex.IsMatch(value,@"^[万筒条]$"))
+            return Get(value=="筒"?"饼":value,language);
+        if((source=="{0}{1}起"||source=="自摸{0}{1}起")&&index==1&&(value=="番"||value=="台")){
+            string number=match.Groups["v0"].Value;
+            if(Regex.IsMatch(number,@"^\d+(?:\.\d+)?$")){
+                string quantity=Get(number+value,language);
+                if(quantity.StartsWith(number,StringComparison.Ordinal))return quantity.Substring(number.Length).TrimStart();
+            }
+        }
+        return value;
+    }
+
+    static bool TryTranslateKnownComposite(string source,AppLanguage language,out string translated)
+    {
+        translated=null;
+        if(language==AppLanguage.SimplifiedChinese||language==AppLanguage.TraditionalChinese)return false;
+        if(!source.StartsWith("被锁清：",StringComparison.Ordinal))return false;
+        var locked=Regex.Match(source,@"^被锁清：([上下对](?:/[上下对])*)$");
+        if(!locked.Success)return false;
+        translated=Get("被锁清：",language)+string.Join("/",locked.Groups[1].Value.Split('/').Select(direction=>
+            Get(direction=="上"?"上家":direction=="下"?"下家":"对家",language)));
+        return true;
+    }
 }

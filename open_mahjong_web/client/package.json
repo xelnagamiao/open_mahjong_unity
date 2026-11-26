@@ -9,6 +9,8 @@
     "build:unity-hints": "node scripts/build-unity-local-hints.mjs",
     "preview": "vite preview",
     "test:seo": "node --test tests/mcrSeo.test.mjs",
+    "sync:localization": "node scripts/sync-platform-localization.mjs",
+    "test:localization": "node --test tests/additionalLanguages.test.mjs tests/spanishLocalization.test.mjs tests/game2dLocalization.test.mjs tests/calculatorLocaleContext.test.mjs tests/guobiaoRulesLocalization.test.mjs tests/unityLoading.test.mjs tests/localizationUpdates.test.mjs",
     "test:unified-calculator": "node --test tests/unifiedCalculator.test.mjs tests/calculatorMeldNotation.test.mjs",
     "test:hand-analysis": "node --test tests/handAnalysis.test.mjs tests/guobiaoCalculator.test.mjs tests/calculatorPresets.test.mjs tests/gbHepai.test.js src/utils/pailiShanten.test.mjs",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"

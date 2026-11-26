@@ -1,6 +1,6 @@
 # Entwicklungsdokumentation für open_mahjong_unity
 
-[简体中文](../../README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [English](README.en.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Русский](README.ru.md)
+[简体中文](../../README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [English](README.en.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Español](README.es.md)
 
 ## Überblick
 
@@ -146,7 +146,7 @@ open_mahjong_unity/
 ### Spielserver (open_mahjong_server, open_mahjong_chat_server)
 
 - **Framework**: FastAPI
-- **Sprachen**: Python 3.12, Golang
+- **Sprachen**: Python 3.14.2, Golang
 - **Netzwerk**: WebSocket, HTTP
 - **Datenbank**: PostgreSQL 18
 - **Betrieb**: supervisor oder ein Prozessmanager Ihrer Wahl

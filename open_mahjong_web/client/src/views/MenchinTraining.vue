@@ -222,8 +222,9 @@ a.action-card:hover, .pvp:hover { filter: brightness(1.05); }
 .instructions, .empty, .result, .notice { margin: 0 0 10px; }
 .panel > :last-child { margin-bottom: 0; }
 .start-row { margin: 16px 0; }
-.start-row label { display: inline-flex; align-items: center; gap: 8px; }
+.start-row label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 select { min-height: 42px; padding: 6px 10px; border: 1px solid #bbb; background: white; color: #333; font: inherit; }
+.start-row select { box-sizing: border-box; min-width: 0; max-width: 100%; }
 .run-summary { border-bottom: 1px solid #ddd; margin-bottom: 16px; padding-bottom: 12px; }
 .result { padding: 10px 12px; background: #f4f4f4; }
 .time { color: #a6302a; font-variant-numeric: tabular-nums; margin-left: auto; }

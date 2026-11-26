@@ -73,7 +73,12 @@ public static class IosResourceCache {
         EnsureLoaded();
         string key = path?.ToLowerInvariant();
         if (bundle && key != null && keys.Contains(key)) {
-            try { var asset = bundle.LoadAsset<T>(key); if (asset) return asset; }
+            try {
+                var asset = typeof(Component).IsAssignableFrom(typeof(T))
+                    ? bundle.LoadAsset<GameObject>(key)?.GetComponent(typeof(T)) as T
+                    : bundle.LoadAsset<T>(key);
+                if (asset) return asset;
+            }
             catch (Exception e) { Debug.LogWarning("[iOS resources] 资源回退：" + e.Message); }
         }
 #endif

@@ -80,10 +80,10 @@ public static class MatchReplayProjection {
     public static JObject Player(JObject table, int seat) => (table?["players"] as JArray)?.OfType<JObject>()
         .FirstOrDefault(p => (int?)p["original_player_index"] == seat);
 
-    public static string PlayerName(JObject table, int seat) {
+    public static string PlayerName(JObject table, int seat, string missingName = "未记录") {
         string name = (string)Player(table, seat)?["username"];
         if (string.IsNullOrWhiteSpace(name)) name = (string)(table?["payload"] as JObject)?["game_title"]?[$"p{seat}_name"];
-        return string.IsNullOrWhiteSpace(name) ? "未记录" : name;
+        return string.IsNullOrWhiteSpace(name) ? missingName : name;
     }
 
     public static int? Team(JObject table, int seat) {

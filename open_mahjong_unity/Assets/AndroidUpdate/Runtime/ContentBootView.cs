@@ -46,29 +46,28 @@ namespace OmUpdate {
             ((RectTransform)obj.transform).sizeDelta = new Vector2(320, 64);
             obj.GetComponent<Image>().color = new Color(.14f, .30f, .33f);
             obj.GetComponent<Button>().onClick.AddListener(click);
-            AddText(obj.transform, font, Localize(title), Vector2.zero, new Vector2(304, 64)).raycastTarget = false;
+            var label = AddText(obj.transform, font, Localize(title), Vector2.zero, new Vector2(304, 64));
+            label.raycastTarget = false;
+            label.resizeTextForBestFit = true; label.resizeTextMinSize = 16; label.resizeTextMaxSize = 25;
         }
         public void Set(string text, bool failure, bool codeLoaded) {
             canvas.enabled = true; message.text = Localize(text); actions.SetActive(failure);
         }
         // Recovery must also work before the hot game assembly/catalog can load.
         static string Localize(string text) {
-            int fallback = Application.systemLanguage == SystemLanguage.Chinese
-                || Application.systemLanguage == SystemLanguage.ChineseSimplified ? 0
-                : Application.systemLanguage == SystemLanguage.ChineseTraditional ? 1 : 2;
-            int language = PlayerPrefs.GetInt("AppLanguage", fallback);
-            if (language == 0) return text;
-            bool traditional = language == 1;
-            switch (text) {
-                case "正在准备游戏…": return traditional ? "正在準備遊戲…" : "Preparing the game…";
-                case "去官网下载": return traditional ? "去官網下載" : "Download from website";
-                case "关闭游戏": return traditional ? "關閉遊戲" : "Exit game";
-                case "游戏启动失败，请重新打开游戏；如仍失败，请重新安装。":
-                    return traditional ? "遊戲啟動失敗，請重新開啟遊戲；如仍失敗，請重新安裝。"
-                        : "Unable to start the game. Reopen it; if the problem persists, reinstall the app.";
-                default: return text;
-            }
+            int fallback = Application.systemLanguage switch {
+                SystemLanguage.Chinese or SystemLanguage.ChineseSimplified => 0,
+                SystemLanguage.ChineseTraditional => 1,
+                SystemLanguage.French => 3,
+                SystemLanguage.German => 4,
+                SystemLanguage.Russian => 5,
+                SystemLanguage.Japanese => 6,
+                SystemLanguage.Spanish => 7,
+                _ => 2
+            };
+            return ContentBootLocalization.Text(text, PlayerPrefs.GetInt("AppLanguage", fallback));
         }
+
         public void Hide() {
             canvas.enabled = false;
             if (ownedEvents) Destroy(ownedEvents);

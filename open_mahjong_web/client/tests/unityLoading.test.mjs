@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { unityEnginePercent, unityLoadingText, formatLoadingBytes, unityBundleProgress } from '../src/utils/unityLoading.js'
+import { SUPPORTED_LOCALES } from '../src/i18n/locale-utils.js'
 
 test('engine progress stays within the dedicated startup range until readiness is confirmed', () => {
   for (const [split, start, mid, end] of [[true, 40, 60, 81], [false, 0, 49, 98]]) {
@@ -37,7 +38,18 @@ test('checking, cache hit, startup and ready states do not claim to be downloads
 
 test('all supported locales cover every loading phase, accessibility and retry action', () => {
   const keys = Object.keys(unityLoadingText('zh-CN')).sort()
-  for (const locale of ['zh-TW', 'en']) assert.deepEqual(Object.keys(unityLoadingText(locale)).sort(), keys)
+  for (const locale of SUPPORTED_LOCALES) {
+    const text = unityLoadingText(locale)
+    assert.deepEqual(Object.keys(text).sort(), keys, locale)
+    for (const value of Object.values(text)) assert.ok(value.trim(), locale)
+    if (['ja', 'fr', 'de', 'ru', 'es'].includes(locale)) {
+      assert.notEqual(text, unityLoadingText('en'), locale)
+      assert.notEqual(text.error, unityLoadingText('en').error, locale)
+    }
+  }
   assert.equal(unityLoadingText('zh-HK'), unityLoadingText('zh-TW'))
-  assert.equal(unityLoadingText('ja'), unityLoadingText('en'))
+  assert.equal(unityLoadingText('ja-JP'), unityLoadingText('ja'))
+  assert.equal(unityLoadingText('es_MX'), unityLoadingText('es'))
+  assert.equal(unityLoadingText('fr-CA'), unityLoadingText('fr'))
+  assert.equal(unityLoadingText('unsupported'), unityLoadingText('en'))
 })

@@ -11,6 +11,7 @@ public partial class GameRecordManager {
     private string replayPresentationKey;
     private GameRecord presentedRecord;
     private JObject presentedManifest;
+    private AppLanguage presentedLanguage;
     private string gameInfoDocument;
     private MatchRecordSession.Location comparisonArrival;
     private string comparisonArrivalTable;
@@ -37,9 +38,11 @@ public partial class GameRecordManager {
         int count = gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out var activeRound) ? activeRound.actionTicks.Count : 0;
         string key = $"{currentRoundIndex}:{currentNode}:{selectedPlayerOriginalIndex}:{ReplayPlaybackState}:{MatchSession?.ActiveTable}:{MatchSession?.Mode}:{ComparisonPhase}:{gameRecord.gameRound.rounds.Count}:{count}";
         bool newDocument = presentedRecord != gameRecord || presentedManifest != MatchSession?.Manifest;
-        if (!force && !newDocument && key == replayPresentationKey) return;
+        bool languageChanged = presentedLanguage != ConfigManager.CurrentLanguage;
+        if (!force && !newDocument && !languageChanged && key == replayPresentationKey) return;
         replayPresentationKey = key; presentedRecord = gameRecord; presentedManifest = MatchSession?.Manifest;
-        if (newDocument) gameInfoDocument = null;
+        presentedLanguage = ConfigManager.CurrentLanguage;
+        if (newDocument || languageChanged) gameInfoDocument = null;
         if (MatchSession != null) {
             MatchSession.Remember(currentRoundIndex, currentNode, selectedPlayerOriginalIndex);
             UpdateMatchControls();
@@ -62,8 +65,8 @@ public partial class GameRecordManager {
 
     private string BuildReplayStatus() {
         if (gameRecord?.gameRound?.rounds == null || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out var round)) return "暂无阅览状态";
-        string fallbackName = userIdToUsername.TryGetValue(selectedPlayerUserid, out string value) ? value : "未记录";
-        string name = IsPairedMatchReplay ? MatchReplayProjection.PlayerName(MatchSession.Table(MatchSession.ActiveTable), selectedPlayerOriginalIndex)
+        string fallbackName = userIdToUsername.TryGetValue(selectedPlayerUserid, out string value) ? value : PlatformText.Get("未记录");
+        string name = IsPairedMatchReplay ? MatchReplayProjection.PlayerName(MatchSession.Table(MatchSession.ActiveTable), selectedPlayerOriginalIndex, PlatformText.Get("未记录"))
             : ReadGameTitleString(gameRecord.gameTitle, $"p{selectedPlayerOriginalIndex}_name", fallbackName);
         string seat = SeatName(selectedPlayerOriginalIndex);
         string table = !IsPairedMatchReplay ? "" : (MatchSession.ActiveTable == "closed" ? "闭室" : "开室") + " · ";
@@ -71,20 +74,20 @@ public partial class GameRecordManager {
         var sb = new StringBuilder();
         sb.AppendLine(table + ReplayPlaybackState);
         sb.AppendLine($"视角：{seat} · {name}");
-        string unit = ReadGameTitleString(gameRecord.gameTitle, "rule", "") == "sichuan" ? "副" : "局";
+        string unit = PlatformText.Get(ReadGameTitleString(gameRecord.gameTitle, "rule", "") == "sichuan" ? "副" : "局");
         sb.AppendLine($"第 {currentRoundIndex}/{gameRecord.gameRound.rounds.Count} {unit} · {turn} 巡 · {currentNode}/{round.actionTicks.Count} 步");
         sb.AppendLine($"剩余牌山：{GetRecordRemainTiles()} 张");
         var tick = currentNode > 0 && currentNode <= round.actionTicks.Count ? round.actionTicks[currentNode - 1] : null;
         var metadata = MatchSession?.Table(MatchSession.ActiveTable)?["round_meta"]?["round_index_" + currentRoundIndex]?["action_meta"] as JArray;
         int? actor = currentNode > 0 && currentNode <= metadata?.Count ? (int?)metadata[currentNode - 1]["actor_original_seat"] : null;
-        sb.AppendLine("最近动作：" + (actor.HasValue ? SeatName(actor.Value) + " · " : "") + (tick == null ? "起手" : ReplayActionName(tick.FirstOrDefault())));
+        sb.AppendLine("最近动作：" + (actor.HasValue ? SeatName(actor.Value) + " · " : "") + PlatformText.Get(tick == null ? "起手" : ReplayActionName(tick.FirstOrDefault())));
         if (IsPairedMatchReplay) {
             bool compare = MatchSession.Mode == MatchRecordSession.PlaybackMode.Compare;
             sb.AppendLine(compare ? "切换到同牌山位置 · " + (ComparisonPhase == "before_draw" ? "摸牌前" : "摸牌后") : "独立阅览进度");
             var origin = MatchSession.AnchorAt(currentRoundIndex, currentNode, ComparisonPhase, selectedPlayerOriginalIndex);
             if (origin == null) sb.Append("当前视角尚无可验证的摸牌位置");
             else {
-                string wall = (string)origin["zone"] == "common_wall" ? "公共牌山" : SeatName((int?)origin["source_original_seat"] ?? -1) + "牌山";
+                string wall = (string)origin["zone"] == "common_wall" ? PlatformText.Get("公共牌山") : PlatformText.Format("{0}牌山", SeatName((int?)origin["source_original_seat"] ?? -1));
                 sb.Append($"视角定位：{wall} · 第 {((int?)origin["offset"] ?? 0) + 1} 张");
             }
             if (comparisonArrival?.Exact == true && comparisonArrivalTable == MatchSession.ActiveTable
@@ -94,7 +97,7 @@ public partial class GameRecordManager {
         return sb.ToString().TrimEnd();
     }
 
-    private static string SeatName(int seat) => seat >= 0 && seat < 4 ? "东南西北"[seat] + "位" : "未选择";
+    private static string SeatName(int seat) => PlatformText.Get(seat >= 0 && seat < 4 ? "东南西北"[seat] + "位" : "未选择");
     private static string ReplayActionName(string action) {
         switch (action) {
             case "d": case "nd": case "gd": case "bd": return "摸牌";
@@ -119,7 +122,9 @@ public partial class GameRecordManager {
             for (int seat = 0; seat < 4; seat++) {
                 string uid = (string)MatchReplayProjection.Player(table, seat)?["user_id"];
                 if (string.IsNullOrWhiteSpace(uid)) uid = (string)(table?["payload"] as JObject)?["game_title"]?[$"p{seat}_uid"];
-                sb.AppendLine($"{"东南西北"[seat]}: {MatchReplayProjection.PlayerName(table, seat)} (UID:{(string.IsNullOrWhiteSpace(uid) ? "未记录" : uid)})");
+                string missing = PlatformText.Get("未记录");
+                string name = MatchReplayProjection.PlayerName(table, seat, missing);
+                sb.AppendLine($"{PlatformText.Get("东南西北"[seat].ToString())}: {name} (UID:{(string.IsNullOrWhiteSpace(uid) ? missing : uid)})");
             }
         }
     }

@@ -18,7 +18,7 @@ public static class SpecialLiujuCaptions {
         return huClass switch {
             "four_wind_abort" => "四风连打",
             "four_kan_abort" => "四杠散了",
-            "four_riichi_abort" => "四人立直",
+            "four_riichi_abort" => "四家立直",
             "three_ron_abort" => "三家和流局",
             _ => "流局",
         };

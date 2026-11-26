@@ -18,7 +18,7 @@ public sealed class HandFaceLayoutEditor : MonoBehaviour
     public static HandFaceLayoutEditor Open(Transform owner, TMP_FontAsset font, string path, string name)
     {
         if (!HandSurfaceLibrary.CanEditFaceLayout(path)) return null;
-        var prefab = Resources.Load<HandFaceLayoutEditor>(PrefabPath);
+        var prefab = Resources.Load<GameObject>(PrefabPath)?.GetComponent<HandFaceLayoutEditor>();
         if (prefab == null) { SceneConfigUi.ShowTip("缺少牌面位置窗口"); return null; }
         var canvas = owner.GetComponentInParent<Canvas>();
         var editor = Instantiate(prefab, canvas != null ? canvas.rootCanvas.transform : owner, false);

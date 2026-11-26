@@ -1,3 +1,5 @@
+import { normalizeLocale } from '../i18n/locale-utils.js'
+
 // The instance promise (and the split build's scene-ready event), not the loader
 // callback, decides when to show 100%.
 export function unityEnginePercent(previous, progress, splitContent) {
@@ -44,6 +46,66 @@ export const UNITY_LOADING_TEXT = {
     retry: '重新載入',
     progress: '遊戲載入進度',
   },
+  ja: {
+    "checking": "牌卓のアセットを準備中…",
+    "artDownload": "牌卓のアセットをダウンロード中",
+    "artReady": "牌卓のアセットの準備ができました。ゲームを起動中です。",
+    "starting": "ゲームを起動中です。",
+    "ready": "準備が完了しました。まもなくゲームに入ります。",
+    "notice": "プラットフォームの声明",
+    "dismissNotice": "声明を閉じてゲームに入る",
+    "error": "ゲームを読み込めません。再度お試しください。",
+    "retry": "再読み込み",
+    "progress": "ゲームの読み込み状況"
+  },
+  fr: {
+    "checking": "Préparation des ressources de la table…",
+    "artDownload": "Téléchargement des ressources de la table",
+    "artReady": "Ressources de la table prêtes. Démarrage du jeu.",
+    "starting": "Démarrage du jeu.",
+    "ready": "Prêt. Entrée dans le jeu.",
+    "notice": "Déclaration de la plateforme",
+    "dismissNotice": "Fermer la déclaration et entrer dans le jeu",
+    "error": "Échec du chargement du jeu. Veuillez réessayer.",
+    "retry": "Recharger",
+    "progress": "Progression du chargement du jeu"
+  },
+  de: {
+    "checking": "Tischressourcen werden vorbereitet…",
+    "artDownload": "Tischressourcen werden heruntergeladen",
+    "artReady": "Tischressourcen sind bereit. Spiel wird gestartet.",
+    "starting": "Spiel wird gestartet.",
+    "ready": "Bereit. Spiel wird betreten.",
+    "notice": "Plattformerklärung",
+    "dismissNotice": "Erklärung schließen und Spiel betreten",
+    "error": "Spiel konnte nicht geladen werden. Bitte erneut versuchen.",
+    "retry": "Neu laden",
+    "progress": "Ladefortschritt des Spiels"
+  },
+  ru: {
+    "checking": "Подготовка ресурсов стола…",
+    "artDownload": "Загрузка ресурсов стола",
+    "artReady": "Ресурсы стола готовы. Запуск игры.",
+    "starting": "Запуск игры.",
+    "ready": "Всё готово. Вход в игру.",
+    "notice": "Заявление платформы",
+    "dismissNotice": "Закрыть заявление и войти в игру",
+    "error": "Не удалось загрузить игру. Повторите попытку.",
+    "retry": "Загрузить заново",
+    "progress": "Ход загрузки игры"
+  },
+  es: {
+    "checking": "Preparando los recursos de la mesa…",
+    "artDownload": "Descargando los recursos de la mesa",
+    "artReady": "Recursos de la mesa listos. Iniciando el juego.",
+    "starting": "Iniciando el juego.",
+    "ready": "Todo listo. Entrando en el juego.",
+    "notice": "Declaración de la plataforma",
+    "dismissNotice": "Cerrar la declaración y entrar en el juego",
+    "error": "No se pudo cargar el juego. Inténtalo de nuevo.",
+    "retry": "Volver a cargar",
+    "progress": "Progreso de carga del juego"
+  },
   en: {
     checking: 'Preparing table assets…',
     artDownload: 'Downloading table assets',
@@ -59,6 +121,7 @@ export const UNITY_LOADING_TEXT = {
 }
 
 export function unityLoadingText(locale) {
-  if (locale === 'zh-HK') return UNITY_LOADING_TEXT['zh-TW']
-  return UNITY_LOADING_TEXT[locale] || UNITY_LOADING_TEXT.en
+  const language = normalizeLocale(locale)
+  if (language === 'zh-HK') return UNITY_LOADING_TEXT['zh-TW']
+  return UNITY_LOADING_TEXT[language] || UNITY_LOADING_TEXT.en
 }

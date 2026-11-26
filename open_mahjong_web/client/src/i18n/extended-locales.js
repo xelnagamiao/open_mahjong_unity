@@ -13,7 +13,7 @@ export const extendedMessages = Object.fromEntries(Object.entries(catalogs).map(
 const placeholders = /\{(?:[A-Za-z_][^{}\r\n]*|\d+(?::[^{}\r\n]+)?)\}/g
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-function templates(messages) {
+export function templates(messages) {
   return Object.entries(messages)
     .filter(([key]) => /[\u3400-\u9fff]/u.test(key) && [...key.matchAll(placeholders)].length)
     .sort(([a], [b]) => b.replace(placeholders, '').length - a.replace(placeholders, '').length || b.length - a.length)

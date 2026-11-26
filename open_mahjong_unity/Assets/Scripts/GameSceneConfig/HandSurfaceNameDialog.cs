@@ -20,7 +20,7 @@ public sealed class HandSurfaceNameDialog : MonoBehaviour
     public static HandSurfaceNameDialog Open(Transform owner, TMP_FontAsset font, string title, string initialName,
         Texture2D texture, Action<string, Action, Action<string>> save, Action cancelled = null)
     {
-        var prefab = Resources.Load<HandSurfaceNameDialog>(PrefabPath);
+        var prefab = Resources.Load<GameObject>(PrefabPath)?.GetComponent<HandSurfaceNameDialog>();
         if (prefab == null) { if (texture != null) Destroy(texture); SceneConfigUi.ShowTip("缺少图片命名窗口"); return null; }
         var canvas = owner.GetComponentInParent<Canvas>();
         var dialog = Instantiate(prefab, canvas != null ? canvas.rootCanvas.transform : owner, false);

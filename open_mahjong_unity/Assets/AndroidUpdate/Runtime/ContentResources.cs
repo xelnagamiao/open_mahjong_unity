@@ -17,15 +17,20 @@ namespace OmUpdate {
                 list.Add(entry);
             }
         }
-        static ResourceEntry Entry(string path, Type type) => entries.TryGetValue(path, out var list)
-            ? list.FirstOrDefault(e => type == typeof(UnityEngine.Object) || (e.sprites && type == typeof(Sprite))
-                || (Type.GetType(e.type, false) is Type actual && type.IsAssignableFrom(actual))) : null;
+        static bool IsComponent(Type type) => type != null && typeof(Component).IsAssignableFrom(type);
+        static ResourceEntry Entry(string path, Type type) {
+            Type lookup = IsComponent(type) ? typeof(GameObject) : type;
+            return entries.TryGetValue(path, out var list)
+                ? list.FirstOrDefault(e => lookup == typeof(UnityEngine.Object) || (e.sprites && lookup == typeof(Sprite))
+                    || (Type.GetType(e.type, false) is Type actual && lookup.IsAssignableFrom(actual))) : null;
+        }
         public static UnityEngine.Object Load(string path, Type type) {
 #if UNITY_EDITOR
             return UnityEngine.Resources.Load(path, type);
 #else
             var entry = Entry(path, type);
             if (entry == null) return null;
+            if (IsComponent(type)) return (bundles[entry.bundle].LoadAsset(entry.asset, typeof(GameObject)) as GameObject)?.GetComponent(type);
             return bundles[entry.bundle].LoadAsset(entry.asset, type);
 #endif
         }
@@ -38,10 +43,18 @@ namespace OmUpdate {
             return UnityEngine.Resources.LoadAll(path, type);
 #else
             var list = new List<UnityEngine.Object>();
+            bool component = IsComponent(type);
             foreach (var pair in entries) {
                 if (pair.Key.Equals(path, StringComparison.OrdinalIgnoreCase)
                     || pair.Key.StartsWith(path.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase)
-                    || path.Length == 0) foreach (var entry in pair.Value) list.AddRange(bundles[entry.bundle].LoadAssetWithSubAssets(entry.asset, type));
+                    || path.Length == 0)
+                    foreach (var entry in pair.Value) {
+                        if (component) {
+                            var go = bundles[entry.bundle].LoadAsset(entry.asset, typeof(GameObject)) as GameObject;
+                            var comp = go != null ? go.GetComponent(type) : null;
+                            if (comp != null) list.Add(comp);
+                        } else list.AddRange(bundles[entry.bundle].LoadAssetWithSubAssets(entry.asset, type));
+                    }
             }
             return list.ToArray();
 #endif
@@ -54,6 +67,7 @@ namespace OmUpdate {
         public static AsyncOperation UnloadUnusedAssets() => UnityEngine.Resources.UnloadUnusedAssets();
         public sealed class ContentRequest : CustomYieldInstruction {
             readonly AssetBundleRequest request;
+            readonly Type componentType;
             public event Action<ContentRequest> completed {
                 add {
                     if (value == null) return;
@@ -64,9 +78,13 @@ namespace OmUpdate {
             }
             public ContentRequest(string path, Type type) {
                 var entry = Entry(path, type);
-                if (entry != null) request = bundles[entry.bundle].LoadAssetAsync(entry.asset, type);
+                bool component = IsComponent(type);
+                componentType = component ? type : null;
+                if (entry != null) request = bundles[entry.bundle].LoadAssetAsync(entry.asset, component ? typeof(GameObject) : type);
             }
-            public UnityEngine.Object asset => request?.asset;
+            public UnityEngine.Object asset => componentType != null
+                ? (request?.asset as GameObject)?.GetComponent(componentType)
+                : request?.asset;
             public bool isDone => request == null || request.isDone;
             public float progress => request?.progress ?? 1;
             public override bool keepWaiting => !isDone;

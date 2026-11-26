@@ -1,6 +1,6 @@
 # open_mahjong_unity 开发文档
 
-[简体中文](README.md) | [繁體中文](other/readme/README.zh-TW.md) | [日本語](other/readme/README.ja.md) | [English](other/readme/README.en.md) | [Français](other/readme/README.fr.md) | [Deutsch](other/readme/README.de.md) | [Русский](other/readme/README.ru.md)
+[简体中文](README.md) | [繁體中文](other/readme/README.zh-TW.md) | [日本語](other/readme/README.ja.md) | [English](other/readme/README.en.md) | [Français](other/readme/README.fr.md) | [Deutsch](other/readme/README.de.md) | [Русский](other/readme/README.ru.md) | [Español](other/readme/README.es.md)
 
 ## 概述
 
@@ -137,7 +137,7 @@ open_mahjong_unity/
 
 ### 游戏客户端 (open_mahjong_unity)
 
-- **引擎**: Unity 6.4 (6000.3.28f1)
+- **引擎**: Unity 6.3 (6000.3.28f1)
 - **语言**: C#
 - **网络**: WebSocket (Nativewebsocket)
 - **平台**: PC/Web/Android/iOS
@@ -145,7 +145,7 @@ open_mahjong_unity/
 ### 游戏服务器 (open_mahjong_server、open_mahjong_chat_server)
 
 - **框架**: FastAPI
-- **语言**: Python 3.12 Golang
+- **语言**: Python 3.14.2 Golang
 - **网络**: WebSocket, HTTP
 - **数据库**: PostgreSQL 18
 - **部署**: supervisor 或 任意您喜欢的任务管理器
@@ -189,4 +189,4 @@ open_mahjong_unity/
 
 以及游玩salasasa平台的所有玩家！
 
-*最后更新：2026年11月25日 dev ver 0.5.92.0*
+*最后更新：2026年11月26日 dev ver 0.5.93.3*

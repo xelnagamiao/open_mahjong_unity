@@ -8,7 +8,7 @@ for (const [rule, subRule, action, expected] of [
   ['classical', 'classical/standard', 'jiuzhongjiupai', '九老峰回'],
   ['riichi', 'riichi/standard', 'four_wind_abort', '四风连打'],
   ['riichi', 'riichi/standard', 'four_kan_abort', '四杠散了'],
-  ['riichi', 'riichi/standard', 'four_riichi_abort', '四人立直'],
+  ['riichi', 'riichi/standard', 'four_riichi_abort', '四家立直'],
   ['riichi', 'riichi/standard', 'three_ron_abort', '三家和流局'],
 ]) {
   test(`${subRule}/${action}: replay step and seek retain the proper draw name`, () => {

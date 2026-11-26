@@ -16,7 +16,7 @@ for (const [rule, expected] of [
 test('other abortive draws have human-readable labels and ordinary actions are unchanged', () => {
   for (const [action, expected] of Object.entries({
     four_wind_abort: '四风连打', four_kan_abort: '四杠散了',
-    four_riichi_abort: '四人立直', three_ron_abort: '三家和流局',
+    four_riichi_abort: '四家立直', three_ron_abort: '三家和流局',
   })) assert.equal(specialDrawCaption(action, 'riichi'), expected)
   assert.equal(specialDrawCaption('hu_self', 'riichi'), null)
   assert.equal(actionText('peng', 'riichi'), '碰')

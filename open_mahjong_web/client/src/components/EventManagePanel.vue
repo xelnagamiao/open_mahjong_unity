@@ -629,6 +629,7 @@
 import { eventRoomRuleOptions } from "@/utils/eventRoomExtensions.js"
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { tr } from '@/i18n'
+import { localizeRoomSummary } from '@/i18n/room-summary'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
@@ -777,8 +778,8 @@ const matchingStatusLabel = computed(() => {
   return '自动匹配运行中，手动组桌已暂停'
 })
 const roomDialogTitle = computed(() => isBase.value ? '创建基地房间' : '创建赛事房间')
-const roomSettingsSummary = computed(() => eventRoomSettingsSummary(manualSettings.value, RULE_LABELS))
-const matchingSettingsSummary = computed(() => eventRoomSettingsSummary(settingsForChoice(matchingPresetChoice.value) || {}, RULE_LABELS))
+const roomSettingsSummary = computed(() => localizeRoomSummary(eventRoomSettingsSummary(manualSettings.value, RULE_LABELS)))
+const matchingSettingsSummary = computed(() => localizeRoomSummary(eventRoomSettingsSummary(settingsForChoice(matchingPresetChoice.value) || {}, RULE_LABELS)))
 const roomRuleOptions = eventRoomRuleOptions
 const roomForm = reactive(createEventRoomCreationForm())
 
@@ -844,7 +845,7 @@ const entryForm = reactive({
 
 const isOwner = computed(() => detail.value?.my_role === 'owner')
 const isBase = computed(() => detail.value?.kind === 'base')
-const venueNoun = computed(() => (isBase.value ? '基地' : '赛事'))
+const venueNoun = computed(() => tr(isBase.value ? '基地' : '赛事'))
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 
 const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))

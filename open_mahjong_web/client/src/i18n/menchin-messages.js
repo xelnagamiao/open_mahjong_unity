@@ -109,3 +109,28 @@ export const menchinEnglishPatterns = [
   { match: /^(我方|对方)(自摸|荣和|抢杠和|诈和) · (我方|对方) \+1 分$/, replace: (actor, reason, winner) =>
     `${side(actor)} · ${declarations[reason]} · ${side(winner)} +1 point` },
 ]
+
+// Only known game values are translated inside these messages. Room codes and
+// player-supplied strings must never pass through a general word replacement.
+export function createMenchinPatterns(translate) {
+  const render = (key, values) => translate(key).replace(/\{([a-z]+)\}/gi, (token, name) => values[name] ?? token)
+  const side = value => translate(`${value} ·`).replace(/\s*·\s*$/, '')
+  const tile = rank => translate(`${'一二三四五六七八九'.indexOf(rank) + 1}万`)
+  const actions = {
+    对方打出: '对方打出{tile}', 对方加杠: '对方加杠{tile}',
+    打出: '打出{tile}', 暗杠: '暗杠 {tile}', 加杠: '加杠 {tile}',
+  }
+  return [
+    { match: /^(\d+) 秒后开始下一局$/, replace: seconds => render('{seconds} 秒后开始下一局', { seconds }) },
+    { match: /^第 (\d+) \/ (\d+) 局$/, replace: (round, limit) => render('第 {round} / {limit} 局', { round, limit }) },
+    { match: /^我方 (\d+) ∶ (\d+) 对方$/, replace: (own, other) => render('我方 {own} ∶ {other} 对方', { own, other }) },
+    { match: /^牌山 (\d+) 张$/, replace: count => render('牌山 {count} 张', { count }) },
+    { match: /^对方暗手 (\d+) 张$/, replace: count => render('对方暗手 {count} 张', { count }) },
+    { match: /^我的 Elo (\d+)$/, replace: rating => render('我的 Elo {rating}', { rating }) },
+    { match: /^房间码 (\d{6})$/, replace: code => render('房间码 {code}', { code }) },
+    { match: /^吃 ([1-9]{3})万$/, replace: seq => render('吃 {tiles}万', { tiles: seq.split('').join('-') }) },
+    { match: /^(对方打出|对方加杠|打出|暗杠|加杠)\s*([一二三四五六七八九])万$/, replace: (action, rank) => render(actions[action], { tile: tile(rank) }) },
+    { match: /^(我方|对方)(自摸|荣和|抢杠和|诈和) · (我方|对方) \+1 分$/, replace: (actor, reason, winner) =>
+      render('{actor}{reason} · {winner} +1 分', { actor: side(actor), reason: translate(reason), winner: side(winner) }) },
+  ]
+}
