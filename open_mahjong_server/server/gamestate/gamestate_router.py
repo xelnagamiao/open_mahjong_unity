@@ -596,7 +596,7 @@ async def _handle_add_spectator_locked(game_server, Connect_id: str, message: di
         )
         try:
             await websocket.send_json(response.model_dump(exclude_none=True))
-        except:
+        except Exception:
             pass
 
 async def handle_remove_spectator(game_server, Connect_id: str, message: dict, websocket):
@@ -669,7 +669,7 @@ async def handle_remove_spectator(game_server, Connect_id: str, message: dict, w
         )
         try:
             await websocket.send_json(response.model_dump(exclude_none=True))
-        except:
+        except Exception:
             pass
 
 async def handle_get_spectator_list(game_server, Connect_id: str, message: dict, websocket):
@@ -693,7 +693,7 @@ async def handle_get_spectator_list(game_server, Connect_id: str, message: dict,
         )
         try:
             await websocket.send_json(response.model_dump(exclude_none=True))
-        except:
+        except Exception:
             pass
 
 

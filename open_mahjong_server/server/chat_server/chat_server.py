@@ -129,7 +129,7 @@ class ChatServer:
             if os.path.exists(temp_file_path):
                 try:
                     os.remove(temp_file_path)
-                except:
+                except OSError:
                     pass
             raise
             

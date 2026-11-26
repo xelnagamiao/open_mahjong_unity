@@ -1180,16 +1180,25 @@ public partial class NetworkManager : MonoBehaviour {
 
     // 4.13 放弃重连方法 GiveUpReconnect
     public async void ReconnectResponse(bool reconnect) {
-        var request = new ReconnectRequest {
-            type = "reconnect_response",
-            reconnect = reconnect
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
+        try {
+            if (websocket == null) return;
+            var request = new ReconnectRequest {
+                type = "reconnect_response",
+                reconnect = reconnect
+            };
+            await websocket.SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送重连响应失败: {e.Message}");
+        }
     }
 
     private async void OnApplicationQuit() {
-        if (websocket != null && websocket.State == WebSocketState.Open)
-            await websocket.Close();
+        try {
+            if (websocket != null && websocket.State == WebSocketState.Open)
+                await websocket.Close();
+        } catch (Exception e) {
+            Debug.LogWarning($"退出时关闭 WebSocket 失败: {e.Message}");
+        }
     }
     // 添加机器人方法已移至 RoomNetworkManager
 }

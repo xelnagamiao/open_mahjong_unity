@@ -945,24 +945,34 @@ public partial class RoomNetworkManager : MonoBehaviour {
     /// 开始游戏
     /// </summary>
     public async void StartGame(string roomId, int? rosterRevision = null) {
-        var request = new StartGameRequest {
-            type = "room/start_game",
-            roster_revision = rosterRevision,
-            room_id = roomId
-        };
-        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        try {
+            var request = new StartGameRequest {
+                type = "room/start_game",
+                roster_revision = rosterRevision,
+                room_id = roomId
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送开始游戏请求失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("start_game", false, "开始游戏请求失败，请检查连接后重试");
+        }
     }
 
     /// <summary>
     /// 添加机器人到房间
     /// </summary>
     public async void AddBotToRoom(string roomId, int? seatIndex = null) {
-        var request = new AddBotToRoomRequest {
-            type = "room/add_bot",
-            room_id = roomId,
-            seat_index = seatIndex
-        };
-        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        try {
+            var request = new AddBotToRoomRequest {
+                type = "room/add_bot",
+                room_id = roomId,
+                seat_index = seatIndex
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"添加机器人请求失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("add_bot", false, "添加机器人失败，请检查连接后重试");
+        }
     }
 
     public async void SetClaimProtection(string roomId, bool enabled) {
@@ -988,24 +998,34 @@ public partial class RoomNetworkManager : MonoBehaviour {
     /// 添加牌效机器人到房间
     /// </summary>
     public async void AddSmartBotToRoom(string roomId, int? seatIndex = null) {
-        var request = new AddBotToRoomRequest {
-            type = "room/add_smart_bot",
-            room_id = roomId,
-            seat_index = seatIndex
-        };
-        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        try {
+            var request = new AddBotToRoomRequest {
+                type = "room/add_smart_bot",
+                room_id = roomId,
+                seat_index = seatIndex
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"添加牌效机器人请求失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("add_smart_bot", false, "添加机器人失败，请检查连接后重试");
+        }
     }
 
     /// <summary>
     /// 添加高性能罗伯特（user_id=3）到国标标准、国标血战到底或虹雀房间
     /// </summary>
     public async void AddGuobiaoHeuristicBotToRoom(string roomId, int? seatIndex = null) {
-        var request = new AddBotToRoomRequest {
-            type = "room/add_guobiao_heuristic_bot",
-            room_id = roomId,
-            seat_index = seatIndex
-        };
-        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        try {
+            var request = new AddBotToRoomRequest {
+                type = "room/add_guobiao_heuristic_bot",
+                room_id = roomId,
+                seat_index = seatIndex
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"添加高性能机器人请求失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("add_guobiao_heuristic_bot", false, "添加机器人失败，请检查连接后重试");
+        }
     }
 
     /// <summary>
@@ -1080,12 +1100,17 @@ public partial class RoomNetworkManager : MonoBehaviour {
 
     public async void DuplicateLobbyAction(string roomId, int revision, string action,
         int? seatIndex = null, int? sourceSeat = null, int? userId = null, int? botKind = null) {
-        var request = new {
-            type = "room/duplicate_lobby_action", room_id = roomId, roster_revision = revision,
-            action, seat_index = seatIndex, source_seat = sourceSeat,
-            user_id = userId ?? UserDataManager.Instance.UserId, bot_kind = botKind
-        };
-        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        try {
+            var request = new {
+                type = "room/duplicate_lobby_action", room_id = roomId, roster_revision = revision,
+                action, seat_index = seatIndex, source_seat = sourceSeat,
+                user_id = userId ?? UserDataManager.Instance.UserId, bot_kind = botKind
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"复式大厅操作失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("duplicate_lobby_action", false, "操作失败，请检查连接后重试");
+        }
     }
 
     /// <summary>创建自由模式房间：独立请求，不把墙勾选带进国标建房。</summary>

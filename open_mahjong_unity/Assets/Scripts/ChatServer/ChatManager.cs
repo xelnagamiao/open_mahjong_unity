@@ -280,7 +280,11 @@ public partial class ChatManager : MonoBehaviour {
     }
 
     public async void SendChatMessage(string message, int targetChannelId) {
-        await SendChatMessageAsync(message, targetChannelId);
+        try {
+            await SendChatMessageAsync(message, targetChannelId);
+        } catch (Exception exception) {
+            Debug.LogWarning($"发送聊天消息异常: {exception.Message}");
+        }
     }
 
     public async Task<bool> SendChatMessageAsync(string message, int targetChannelId) {

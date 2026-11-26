@@ -82,7 +82,7 @@ def test_preset_bonus_scoring_and_revealed_indicators_agree(preset, tsumo, chomb
                       [] if preset == 'jpml_a' else [27, 33])
 
 
-@pytest.mark.parametrize('ura,kan,kan_ura,riichi', product([False, True], repeat=4))
+@pytest.mark.parametrize('ura,kan,kan_ura,riichi', list(product([False, True], repeat=4)))
 def test_independent_bonus_switches_are_respected_in_settlement(ura, kan, kan_ura, riichi):
     g, sockets = connected('tenhou')
     g.detailed_config.update(ura_dora=ura, kan_dora=kan, kan_ura_dora=kan_ura)

@@ -7,7 +7,7 @@ from .patterns import structural_waits
 PLAIN = [11,12,13,21,22,23,31,32,33,17,18,19,25,25]
 
 
-@pytest.mark.parametrize('self_draw,single,big',itertools.product((False,True),repeat=3))
+@pytest.mark.parametrize('self_draw,single,big',list(itertools.product((False,True),repeat=3)))
 def test_menqing_tsumo_single_wait_each_double_only_for_big_hu(self_draw,single,big):
     hand = [11,12,13,14,15,16,17,18,19,12,13,14,25,25] if big else PLAIN
     result = score(hand,winning_tile=25 if single else 19,self_draw=self_draw)
@@ -69,7 +69,7 @@ def test_rulebook_arrow_example_and_only_public_flowers_compensated():
     assert sum(v for _,v in flower_details(['G45','G46'],flowers=[47]*4))==14
 
 
-@pytest.mark.parametrize('draw,concealed',itertools.product((False,True),repeat=2))
+@pytest.mark.parametrize('draw,concealed',list(itertools.product((False,True),repeat=2)))
 def test_full_begging_includes_selfdraw_and_kongs(draw,concealed):
     melds=['G11','G22','G33','G45'] if concealed else ['s12','s22','s32','k45']
     result=score([25,25],melds,winning_tile=25,self_draw=draw)
@@ -91,7 +91,7 @@ def test_missing_winning_tile_does_not_invent_a_single_wait_bonus():
     assert not any(fan['name']=='独听' for fan in result['fan_details'])
 
 
-@pytest.mark.parametrize('winner,dealer,self_draw,is_ready,is_declared',itertools.product(range(4),range(4),(False,True),(False,True),(False,True)))
+@pytest.mark.parametrize('winner,dealer,self_draw,is_ready,is_declared',list(itertools.product(range(4),range(4),(False,True),(False,True),(False,True))))
 def test_each_payment_and_dealer_doubling(winner,dealer,self_draw,is_ready,is_declared):
     payer=(winner+1)%4
     flowers={0:0,1:1,2:4,3:5}

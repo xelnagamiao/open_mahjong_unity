@@ -170,7 +170,7 @@ def test_invalid_payments(points,winner,kwargs):
     with pytest.raises(ValueError): remix_payments(points,winner,**kwargs)
 
 
-@pytest.mark.parametrize("fan,points",enumerate((15,30,50,75,100,125,150,180,210,240,280,320,360,420,480,540),1))
+@pytest.mark.parametrize("fan,points",list(enumerate((15,30,50,75,100,125,150,180,210,240,280,320,360,420,480,540),1)))
 def test_each_document_fan_to_point_value(fan,points):
     assert FAN_POINTS[fan]==points
     # Sum one-fan awards to avoid mistaking a 14+ total for a limit pattern.
