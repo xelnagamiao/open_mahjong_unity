@@ -113,40 +113,39 @@ namespace Changsha {
             return CanFormSets(sequenceCounts, setsNeeded - 1, false);
         }
 
+        // 2/5/8 ranks -> bits 1, 4, 7 -> 0x92
+        private const int JiangSuitPairMask = (1 << 1) | (1 << 4) | (1 << 7);
+
         private static bool IsStandardShape(List<int> handList, List<string> tilesCombination, bool jiangPair = false) {
-            var combs = tilesCombination ?? new List<string>();
-            int setsNeeded = 4 - combs.Count;
+            int combCount = tilesCombination != null ? tilesCombination.Count : 0;
+            int setsNeeded = 4 - combCount;
             if (setsNeeded < 0 || handList == null || handList.Count != setsNeeded * 3 + 2) return false;
-
-            var counts = CountTiles(handList);
-            foreach (var kv in counts.ToList()) {
-                int tile = kv.Key;
-                if (kv.Value < 2) continue;
-                if (jiangPair && !IsJiang(tile)) continue;
-
-                var remaining = new Dictionary<int, int>(counts);
-                Decrement(remaining, tile, 2);
-                if (CanFormSets(remaining, setsNeeded)) return true;
-            }
-            return false;
+            return StandardMahjongSolver.CanStandardWin(
+                handList,
+                allowHonors: false,
+                suitPairMask: jiangPair ? JiangSuitPairMask : 0x1FF);
         }
 
         private static bool IsAllTriplets(List<int> handList, List<string> tilesCombination) {
-            var combs = tilesCombination ?? new List<string>();
-            if (combs.Any(c => !string.IsNullOrEmpty(c) && (c[0] == 's' || c[0] == 'S'))) return false;
-
-            int setsNeeded = 4 - combs.Count;
+            int combCount = tilesCombination != null ? tilesCombination.Count : 0;
+            if (tilesCombination != null) {
+                for (int i = 0; i < combCount; i++) {
+                    string c = tilesCombination[i];
+                    if (!string.IsNullOrEmpty(c) && (c[0] == 's' || c[0] == 'S')) return false;
+                }
+            }
+            int setsNeeded = 4 - combCount;
             if (setsNeeded < 0 || handList == null || handList.Count != setsNeeded * 3 + 2) return false;
 
             var counts = CountTiles(handList);
-            foreach (var kv in counts.ToList()) {
-                int tile = kv.Key;
-                if (kv.Value < 2) continue;
-                var remaining = new Dictionary<int, int>(counts);
-                Decrement(remaining, tile, 2);
-                if (CanFormSets(remaining, setsNeeded, true)) return true;
+            bool pairFound = false;
+            foreach (var kv in counts) {
+                int c = kv.Value;
+                if (c == 3) continue;
+                if (c == 2 && !pairFound) pairFound = true;
+                else return false;
             }
-            return false;
+            return pairFound;
         }
 
         private static string SevenPairsType(List<int> handList, List<string> tilesCombination) {
@@ -184,21 +183,25 @@ namespace Changsha {
                 && IsStandardShape(handList, tilesCombination, false);
         }
 
-        private static void AppendContextFans(List<string> names, bool hasShape, List<string> wayToHepai) {
-            if (!hasShape || wayToHepai == null) return;
-            var tokenToName = new List<Tuple<string[], string>> {
-                Tuple.Create(new[] { "天胡", "天和" }, "天胡"),
-                Tuple.Create(new[] { "地胡", "地和" }, "地胡"),
-                Tuple.Create(new[] { "海底", "海底捞月", "海底漫游" }, "海底"),
-                Tuple.Create(new[] { "杠上开花", "杠上花" }, "杠上开花"),
-                Tuple.Create(new[] { "杠上炮" }, "杠上炮"),
-                Tuple.Create(new[] { "抢杠胡", "抢杠和", "抢杠" }, "抢杠胡"),
-            };
+        private static readonly (string[] tokens, string fanName)[] ContextFanMap = {
+            (new[] { "天胡", "天和" }, "天胡"),
+            (new[] { "地胡", "地和" }, "地胡"),
+            (new[] { "海底", "海底捞月", "海底漫游" }, "海底"),
+            (new[] { "杠上开花", "杠上花" }, "杠上开花"),
+            (new[] { "杠上炮" }, "杠上炮"),
+            (new[] { "抢杠胡", "抢杠和", "抢杠" }, "抢杠胡"),
+        };
 
-            foreach (var pair in tokenToName) {
-                string fanName = pair.Item2;
-                if (!names.Contains(fanName) && pair.Item1.Any(wayToHepai.Contains)) {
-                    names.Add(fanName);
+        private static void AppendContextFans(List<string> names, bool hasShape, List<string> wayToHepai) {
+            if (!hasShape || wayToHepai == null || wayToHepai.Count == 0) return;
+            for (int i = 0; i < ContextFanMap.Length; i++) {
+                var entry = ContextFanMap[i];
+                if (names.Contains(entry.fanName)) continue;
+                for (int j = 0; j < entry.tokens.Length; j++) {
+                    if (wayToHepai.Contains(entry.tokens[j])) {
+                        names.Add(entry.fanName);
+                        break;
+                    }
                 }
             }
         }

@@ -39,7 +39,7 @@ public partial class GameCanvas {
         if (animate) _drawReflowAnimation = StartCoroutine(AnimateDrawReflow(_drawReflowTargets, _handLayoutAnimEpoch));
         else StopDrawReflowAnimation(finish: true);
         GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
-        if (NormalGameStateManager.Instance.IsSelfActionRequired) RefreshHandTileSelectability();
+        RefreshHandTileSelectability();
     }
 
     private IEnumerator AnimateDrawReflow(Dictionary<RectTransform, Vector2> targets, int epoch) {

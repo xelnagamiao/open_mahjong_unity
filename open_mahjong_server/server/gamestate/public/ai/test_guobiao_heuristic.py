@@ -493,6 +493,49 @@ class TestGuobiaoHeuristicGate(unittest.TestCase):
             )
         )
 
+    def test_hongque_w_rejected(self):
+        msg = guobiao_heuristic_bot_reject_reason(
+            {"room_rule": "hongque", "sub_rule": "hongque/w-v1.0"}
+        )
+        self.assertIsNotNone(msg)
+        self.assertIn("虹雀W", msg)
+
+    def test_opponent_concealed_kong_not_leaked_in_visible(self):
+        from types import SimpleNamespace
+        from .guobiao_heuristic_logic import count_visible_from_game
+
+        gs = SimpleNamespace(
+            sub_rule="guobiao/standard",
+            player_list=[
+                SimpleNamespace(player_index=0, hand_tiles=[11], discard_tiles=[], combination_tiles=["G12"]),
+                SimpleNamespace(player_index=1, hand_tiles=[21], discard_tiles=[], combination_tiles=["G35", "g29"]),
+            ],
+        )
+        vis = count_visible_from_game(gs, 0)
+        self.assertEqual(vis.get(12, 0), 4)
+        self.assertEqual(vis.get(29, 0), 4)
+        self.assertEqual(vis.get(35, 0), 0)
+
+    def test_blood_battle_tsumo_weight_scales_with_active_opponents(self):
+        from types import SimpleNamespace
+        from .guobiao_heuristic_logic import context_from_game
+
+        gs = SimpleNamespace(
+            sub_rule="guobiao/blood_battle",
+            dealer_index=0,
+            current_round=1,
+            tiles_list=[11] * 20,
+            hepai_limit=8,
+            player_list=[
+                SimpleNamespace(player_index=0, hand_tiles=[11], discard_tiles=[], combination_tiles=[], huapai_list=[], has_won=False),
+                SimpleNamespace(player_index=1, hand_tiles=[], discard_tiles=[], combination_tiles=[], huapai_list=[], has_won=True),
+                SimpleNamespace(player_index=2, hand_tiles=[], discard_tiles=[], combination_tiles=[], huapai_list=[], has_won=True),
+                SimpleNamespace(player_index=3, hand_tiles=[], discard_tiles=[], combination_tiles=[], huapai_list=[], has_won=False),
+            ],
+        )
+        ctx = context_from_game(gs, 0, scorer=lambda *a: (0, []))
+        self.assertAlmostEqual(ctx.tsumo_weight, 0.65)
+
     def test_variant_xiaolin_rejected(self):
         msg = guobiao_heuristic_bot_reject_reason(
             {"room_rule": "guobiao", "sub_rule": "guobiao/xiaolin"}
@@ -512,9 +555,82 @@ class TestGuobiaoHeuristicGate(unittest.TestCase):
         )
         self.assertEqual(msg, GUOBIAO_HEURISTIC_UNSUPPORTED_MSG)
 
+    def test_v2_opponent_snapshot_excludes_concealed_kong_and_scores_flush_danger(self):
+        from types import SimpleNamespace
+        from .guobiao_heuristic_logic import (
+            context_from_game,
+            opponent_threat,
+            tile_danger_for_opponent,
+        )
+
+        gs = SimpleNamespace(
+            sub_rule="guobiao/standard",
+            dealer_index=0,
+            current_round=1,
+            tiles_list=[11] * 14,
+            hepai_limit=8,
+            player_list=[
+                SimpleNamespace(player_index=0, hand_tiles=[11], discard_tiles=[], combination_tiles=[], huapai_list=[]),
+                SimpleNamespace(player_index=1, hand_tiles=[], discard_tiles=[21, 31, 39], combination_tiles=["s12", "k15", "G35"], huapai_list=[]),
+                SimpleNamespace(player_index=2, hand_tiles=[], discard_tiles=[], combination_tiles=[], huapai_list=[]),
+                SimpleNamespace(player_index=3, hand_tiles=[], discard_tiles=[], combination_tiles=[], huapai_list=[]),
+            ],
+        )
+        ctx = context_from_game(gs, 0, scorer=lambda *a: (0, []))
+        opp1 = ctx.opponents[0]
+        self.assertEqual(opp1.open_melds, ("s12", "k15"))
+        self.assertGreater(opponent_threat(opp1, wall_left=14), 0.78)
+        d_flush = tile_danger_for_opponent(16, opp1, {})
+        d_genbutsu = tile_danger_for_opponent(21, opp1, {})
+        d_offsuit = tile_danger_for_opponent(35, opp1, {})
+        self.assertGreater(d_flush, d_offsuit)
+        self.assertGreater(d_offsuit, d_genbutsu)
+
+    def test_v2_expected_fan_preferred_over_max_wait_fan(self):
+        from .guobiao_heuristic_logic import DiscardScore, is_better_discard
+
+        a = DiscardScore(shanten=0, max_wait_fan=14, ukeire=4.0, ron_ukeire=4.0, expected_fan=14.0)
+        b = DiscardScore(shanten=0, max_wait_fan=16, ukeire=4.0, ron_ukeire=4.0, expected_fan=11.0)
+        self.assertTrue(is_better_discard(a, b))
+
+    def test_v2_qualifying_wait_weight_prefers_thicker_higher_fan_tenpai(self):
+        from .guobiao_heuristic_logic import HeuristicContext, counts_from_tiles, qualifying_wait_weight
+
+        hand_wide = counts_from_tiles([13, 14, 21, 21])
+        hand_thin = counts_from_tiles([12, 14, 21, 21])
+        combos = ["k45", "k46", "k47"]
+        ctx_v2 = HeuristicContext(
+            hand=[],
+            combination_tiles=combos,
+            visible={13: 1, 14: 1, 21: 2},
+            wall_left=40,
+            scorer=lambda *a: (12, ["大三元"]),
+            enable_v2=True,
+        )
+        w_wide = qualifying_wait_weight(ctx_v2, hand_wide, combos, 3)
+        w_thin = qualifying_wait_weight(ctx_v2, hand_thin, combos, 3)
+        self.assertGreater(w_wide, w_thin)
+
+    def test_v2_endgame_surgical_fold_picks_genbutsu_on_hopeless_hand(self):
+        from .guobiao_heuristic_logic import HeuristicContext, OpponentSnapshot, choose_best_discard
+
+        hand = [15, 16, 22, 26, 29, 31, 34, 38, 41, 42, 43, 45, 46, 47]
+        opp = OpponentSnapshot(discards=(29, 31, 38), open_melds=("s12", "k14", "k18"))
+        ctx = HeuristicContext(
+            hand=hand,
+            combination_tiles=[],
+            visible={t: 1 for t in hand},
+            wall_left=10,
+            scorer=lambda *a: (0, []),
+            opponents=(opp,),
+            enable_v2=True,
+        )
+        chosen = choose_best_discard(ctx)
+        self.assertIn(chosen, (29, 31, 38))
+
     def test_non_guobiao_rejected(self):
         msg = guobiao_heuristic_bot_reject_reason(
-            {"room_rule": "riichi", "sub_rule": "riichi/standard"}
+            {"room_rule": "changsha", "sub_rule": "changsha/standard"}
         )
         self.assertEqual(msg, GUOBIAO_HEURISTIC_NON_GUOBIAO_MSG)
 

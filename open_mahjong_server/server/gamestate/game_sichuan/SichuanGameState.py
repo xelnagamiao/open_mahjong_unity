@@ -219,6 +219,8 @@ class SichuanGameState(RealTimeClaimMixin):
                 username = "麻雀罗伯特"
             elif user_id == 2:
                 username = "牌效罗伯特"
+            elif user_id == 3:
+                username = "高性能罗伯特"
             else:
                 username = ps.get("username", f"用户{user_id}")
             player = SichuanPlayer(user_id, username, [], room_data["round_timer"])

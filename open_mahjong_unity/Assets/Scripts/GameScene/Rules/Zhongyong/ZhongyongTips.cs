@@ -46,35 +46,18 @@ internal static class ZhongyongTips {
         }
         int needed = 4 - declared.Count;
         if (needed < 0 || hand.Count != needed * 3 + 2) return best;
-        var counts = hand.GroupBy(t => t).ToDictionary(g => g.Key, g => g.Count());
-        foreach (int pair in counts.Keys.ToArray()) {
-            if (counts[pair] < 2) continue;
-            counts[pair] -= 2;
-            Search(counts, needed, new List<Meld>(declared), melds =>
-                best = Math.Max(best, Score(physical, melds, pair, win, seatWind, hand, null, selfDraw)));
-            counts[pair] += 2;
+        var decomps = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int i = 0; i < decomps.Count; i++) {
+            var d = decomps[i];
+            var melds = new List<Meld>(4);
+            melds.AddRange(declared);
+            for (int j = 0; j < d.Melds.Length; j++) {
+                var u = d.Melds[j];
+                melds.Add(new Meld { Kind = u.Kind == 1 ? 's' : 'k', Head = u.Kind == 1 ? u.TileId - 1 : u.TileId, Concealed = true });
+            }
+            best = Math.Max(best, Score(physical, melds, d.PairTile, win, seatWind, hand, null, selfDraw));
         }
         return best;
-    }
-
-    private static void Search(Dictionary<int, int> counts, int needed, List<Meld> melds, Action<List<Meld>> accept) {
-        if (needed == 0) { if (counts.Values.All(n => n == 0)) accept(melds); return; }
-        int tile = counts.Where(p => p.Value > 0).Select(p => p.Key).DefaultIfEmpty(0).Min();
-        if (tile == 0) return;
-        if (counts[tile] >= 3) {
-            counts[tile] -= 3;
-            melds.Add(new Meld { Kind = 'k', Head = tile, Concealed = true });
-            Search(counts, needed - 1, melds, accept);
-            melds.RemoveAt(melds.Count - 1); counts[tile] += 3;
-        }
-        if (Suited(tile) && tile % 10 <= 7 && counts.TryGetValue(tile + 1, out int a) && a > 0
-            && counts.TryGetValue(tile + 2, out int b) && b > 0) {
-            counts[tile]--; counts[tile + 1]--; counts[tile + 2]--;
-            melds.Add(new Meld { Kind = 's', Head = tile, Concealed = true });
-            Search(counts, needed - 1, melds, accept);
-            melds.RemoveAt(melds.Count - 1);
-            counts[tile]++; counts[tile + 1]++; counts[tile + 2]++;
-        }
     }
 
     private static int Score(List<int> tiles, List<Meld> melds, int pair, int win, int seatWind, List<int> hand, string special, bool selfDraw) {

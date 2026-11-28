@@ -57,12 +57,30 @@ internal static class GuobiaoJokerLocal {
     internal static HashSet<int> Waiting(List<int> hand,List<string> melds,string sub) {
         melds=melds??new List<string>();var waits=new HashSet<int>();var h=Prepare(hand,melds,sub,false);
         if(h==null)return waits;
-        bool flower=melds.Contains("G51");
-        var domain=LocalJokerHand.Tiles.Concat(Huahun(sub)?Seasons:new[]{59});
-        foreach(int tile in domain) {
-            int normalized=Seasons.Contains(tile)?59:tile;
-            if(Huahun(sub)&&Seasons.Contains(tile)?hand.Contains(tile):h.Physical.GetValueOrDefault(normalized)>=h.Policy.Limit(normalized))continue;
-            if(Complete(Prepare(hand.Concat(new[]{tile}).ToList(),melds,sub),flower))waits.Add(tile);
+        bool flower=Huahun(sub)&&melds.Contains("G51");
+        bool isHuahun=Huahun(sub);
+        for(int i=0;i<LocalJokerHand.Tiles.Length;i++) {
+            int tile=LocalJokerHand.Tiles[i];
+            if(h.Physical.GetValueOrDefault(tile)>=h.Policy.Limit(tile))continue;
+            h.Counts[i]++;
+            if(Complete(h,flower))waits.Add(tile);
+            h.Counts[i]--;
+        }
+        if(isHuahun) {
+            if(!flower) {
+                bool anyMissing=false;
+                for(int i=0;i<Seasons.Length;i++)if(!hand.Contains(Seasons[i])){anyMissing=true;break;}
+                if(anyMissing && h.Physical.GetValueOrDefault(59)<h.Policy.Limit(59)) {
+                    h.Ghosts++;
+                    bool jokerWins=Complete(h,false);
+                    h.Ghosts--;
+                    if(jokerWins)for(int i=0;i<Seasons.Length;i++)if(!hand.Contains(Seasons[i]))waits.Add(Seasons[i]);
+                }
+            }
+        } else if(h.Physical.GetValueOrDefault(59)<h.Policy.Limit(59)) {
+            h.Ghosts++;
+            if(Complete(h,flower))waits.Add(59);
+            h.Ghosts--;
         }
         return waits;
     }
@@ -87,6 +105,9 @@ internal static class GuobiaoJokerLocal {
             p.fan_list.Add("huagang");var result=base.FanCountOutput(p,codes,zimo,way);result.Item2.Add("花杠");return result;
         }
     }
+    private static readonly Chinese_Hepai_Check SharedStandardChecker = new Chinese_Hepai_Check(false, null);
+    private static readonly FlowerScorer SharedFlowerScorer = new FlowerScorer();
+
     internal static (int score,int qualifying,List<string> fans) Score(List<int> hand,List<string> melds,List<string> way,int win,string sub,bool multi=false,string bonus="add8",bool progressive=true,bool allowSingle=true) {
         melds=melds??new List<string>();var h=Prepare(hand,melds,sub);bool flower=Huahun(sub)&&melds.Contains("G51");
         bool joker=Huahun(sub)?Seasons.Contains(win):win==59;
@@ -95,7 +116,7 @@ internal static class GuobiaoJokerLocal {
         if(Huahun(sub)&&(flowers>4 || !new[]{"add8","double","none"}.Contains(bonus)))return (0,0,new List<string>());
         var baseWay=way.Where(w=>w!="和单张" && !(joker&&w=="和绝张") && !(Huahun(sub)&&w=="花牌")).ToList();
         bool singleAllowed=allowSingle&&!way.Contains("天和")&&(!multi || h.Ghosts==0);
-        var checker=flower?(Chinese_Hepai_Check)new FlowerScorer():new Chinese_Hepai_Check(false,null);
+        var checker=flower?(Chinese_Hepai_Check)SharedFlowerScorer:SharedStandardChecker;
         int best=0;var fans=new List<string>();
         List<string> ResolvedWay(List<int> logical,int logicalWin) {
             var result=new List<string>(baseWay);

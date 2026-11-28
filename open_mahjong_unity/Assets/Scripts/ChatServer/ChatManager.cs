@@ -208,9 +208,10 @@ public partial class ChatManager : MonoBehaviour {
                 retryAttempt = 0;
                 heartbeatSupported = response.protocolVersion >= 2;
                 nextHeartbeat = lastResponse + HeartbeatInterval;
-                ChatMessageStore.Instance?.ShowChatMessage("LoginTime", 0, DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
+                // LoginTime 随 welcomeShown 每会话仅插一次，避免后台重连刷屏时间分割线。
                 if (!welcomeShown && ChatMessageStore.Instance != null) {
                     welcomeShown = true;
+                    ChatMessageStore.Instance.ShowChatMessage("LoginTime", 0, DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
                     ChatMessageStore.Instance.ShowChatMessage("serverMessage", 0,
                         "欢迎使用open_mahjong_unity，在聊天室请友善交流，切勿发送侮辱性用语或非法言论。");
                 }
@@ -241,6 +242,29 @@ public partial class ChatManager : MonoBehaviour {
             if (loginReady) ChatMessageStore.Instance?.ShowChatMessage(response.responseType, response.roomId, response.content,
                 response.senderUserId, response.profileImageId);
         } catch (Exception exception) { Debug.LogWarning($"处理聊天消息失败: {exception.Message}"); }
+    }
+
+    /// <summary>WebGL 后台 Web Worker 心跳回调：保活聊天连接，避免 45s 读超时反复重连。</summary>
+    public void SendBackgroundHeartbeat() {
+        if (!HasGameSession || !loginReady || !heartbeatSupported) return;
+        if (websocket == null || websocket.State != WebSocketState.Open) return;
+        nextHeartbeat = Time.realtimeSinceStartup + HeartbeatInterval;
+        SendControl(websocket, new ChatRequest { type = "ping" });
+    }
+
+    /// <summary>回到前台时给在途会话请求与聊天心跳留出追赶宽限，避免首帧误判超时/自杀重连。</summary>
+    public void OnEnterForeground() {
+        ExtendPendingConversationDeadlinesOnForeground();
+        if (websocket == null || websocket.State != WebSocketState.Open || !loginReady) return;
+        float now = Time.realtimeSinceStartup;
+        // 留出 10 秒探活宽限并立刻发一次 ping，确认真断线再重连。
+        if (now - lastResponse >= HeartbeatTimeout - 10f) {
+            lastResponse = now - (HeartbeatTimeout - 10f);
+        }
+        if (heartbeatSupported) {
+            nextHeartbeat = now + HeartbeatInterval;
+            SendControl(websocket, new ChatRequest { type = "ping" });
+        }
     }
 
     public void LoginChatServer(string newUsername, string newUserkey) {

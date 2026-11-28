@@ -18,6 +18,7 @@ internal static class QingqueRuleBootstrap {
             GameStateFactory = () => new QingqueGameState(),
             Tingpai = QingqueTips.Tingpai,
             DescribeWaitingTile = QingqueTips.Describe,
+            DeferWaitingTileHints = true,
             FanValueText = QingqueFanText.FanValue,
             PlaysGongHuSound = (rule, fans, score) => score > 18.5,
             SettlementTotal = QingqueFanText.SettlementTotal,

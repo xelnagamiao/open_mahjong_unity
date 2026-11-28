@@ -9,7 +9,8 @@ import asyncio
 from ..public.lifecycle import start_owned_task
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
-from ..public.ai.smart_bot_ai import smart_bot_action
+from .bot import qingque_smart_bot_action as smart_bot_action
+from .heuristic_bot import qingque_heuristic_bot_action as heuristic_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
@@ -195,6 +196,10 @@ async def broadcast_ask_hand_action(self):
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
+            elif current_player.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                continue
             elif current_player.user_id < 10:
                 continue
             
@@ -246,6 +251,10 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            elif current_player.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], self.game_status))
                 continue
             elif current_player.user_id < 10:
                 continue

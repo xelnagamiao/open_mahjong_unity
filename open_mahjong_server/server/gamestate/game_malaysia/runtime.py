@@ -53,19 +53,47 @@ class Runtime:
                     return dict(action_type=a, target_tile=A.kongs(self, i, a)[0])
             if "malaysia_fly" in actions and R.side_fan(p.hand_tiles, p.melds, p.huapai_list, i) < 5 and len(p.huapai_list) > 0:
                 return dict(action_type="malaysia_fly")
-            for a in actions:
-                if a == "malaysia_peng:0" or a == "gang":
-                    return dict(action_type=a)
+            claim_ops = [a for a in actions if a == "gang" or a.startswith("malaysia_peng:")]
+            if claim_ops:
+                from ..public.ai.guobiao_shanten import xiangting_yiban
+                def _my_score(hand, melds):
+                    waits = R.waits(hand, melds)
+                    if waits:
+                        qual = sum(1 for w in waits if R.score_hand(list(hand) + [w], melds, p.huapai_list, seat=i, winning_tile=w, self_draw=True) is not None)
+                        if qual > 0:
+                            return (0, qual)
+                    natural = [t for t in hand if t != R.FLY]
+                    return (min(-1, -(xiangting_yiban(Counter(natural), len(melds)) - hand.count(R.FLY))), 0)
+                baseline = _my_score(p.hand_tiles, p.melds)
+                if "gang" in claim_ops:
+                    return dict(action_type="gang")
+                if "malaysia_peng:0" in claim_ops:
+                    tile = (getattr(self, "live_pending_window", None) or {}).get("tile")
+                    if tile is not None and tile in R.TILES and p.hand_tiles.count(tile) >= 2:
+                        rest = list(p.hand_tiles)
+                        rest.remove(tile); rest.remove(tile)
+                        next_melds = list(p.melds) + [R.Meld("triplet", (tile, tile, tile), (tile, tile, tile))]
+                        if rest and max(_my_score(rest[:k] + rest[k + 1:], next_melds) for k in range(len(rest))) > baseline:
+                            return dict(action_type="malaysia_peng:0")
         if "pass" in actions:
             return dict(action_type="pass")
         if "cut" in actions:
             legal = A.cuts(p)
-            # Keep pairs and connected dots. The baseline bot is deterministic,
-            # never substitutes or exposes another seat's hidden tiles.
-            counts = Counter(p.hand_tiles)
-            def keep(t):
-                return counts[t] * 3 + sum(counts[t + d] for d in (-2, -1, 1, 2) if t in R.DOTS and t + d in R.DOTS)
-            tile = min(legal, key=lambda t: (keep(t), t)) if bot else next(t for t in reversed(p.hand_tiles) if t in legal)
+            if bot:
+                from ..public.ai.guobiao_shanten import xiangting_yiban
+                def _cut_rank(t):
+                    rest = list(p.hand_tiles)
+                    rest.remove(t)
+                    waits = R.waits(rest, p.melds)
+                    qual = sum(1 for w in waits if R.score_hand(rest + [w], p.melds, p.huapai_list, seat=i, winning_tile=w, self_draw=True) is not None) if waits else 0
+                    natural = [x for x in rest if x != R.FLY]
+                    dist = max(-1, xiangting_yiban(Counter(natural), len(p.melds)) - rest.count(R.FLY))
+                    counts = Counter(rest)
+                    conn = sum(counts[x] * 3 + sum(counts[x + d] for d in (-2, -1, 1, 2) if x in R.DOTS and x + d in R.DOTS) for x in counts)
+                    return (0 if qual else 1, -qual, dist, -conn, t)
+                tile = min(legal, key=_cut_rank)
+            else:
+                tile = next(t for t in reversed(p.hand_tiles) if t in legal)
             pos = len(p.hand_tiles) - 1 if p.has_draw_slot and p.hand_tiles[-1] == tile else p.hand_tiles.index(tile)
             return dict(action_type="cut", TileId=tile, cutIndex=pos, cutClass=p.has_draw_slot and pos == len(p.hand_tiles) - 1)
         # No optional decision remains (for example, a hand containing only

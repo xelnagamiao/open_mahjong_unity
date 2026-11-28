@@ -18,6 +18,8 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
         claimWords=Array.Empty<string>();
         Info=null; Hints.Reset(); Accept(info.malaysia_info,info.malaysia_hints);
         RefreshFlowers();
+        if (Manager?.tips == true && Mirror?.Self != null && TipsBlock.Instance != null && TipsContainer.Instance != null)
+            TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
     protected override void OnAskHandAction(Response r) {
         Accept(r.ask_hand_action_info?.malaysia_info,r.ask_hand_action_info?.malaysia_hints);
@@ -129,13 +131,12 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
             if(parts[0]!=group)continue;
             if(group=="malaysia_peng" && parts.Length==2 && int.TryParse(parts[1],out int flies) && flies>=0 && flies<=2) {
                 var tiles=Enumerable.Repeat(discard,3-flies).Concat(Enumerable.Repeat(81,flies)).ToArray();
-                choices.Add(new ActionCandidate(word,tiles,caption:flies==0?"碰 · 不用飞":"碰 · "+flies+"飞"));
+                choices.Add(new ActionCandidate(word,tiles));
             } else if(group=="malaysia_chi" && parts.Length==3 && int.TryParse(parts[1],out int middle) && int.TryParse(parts[2],out int wild)
                 && middle>=22 && middle<=28 && discard>=middle-1 && discard<=middle+1
                 && (wild==0 || wild!=discard && wild>=middle-1 && wild<=middle+1)) {
                 var tiles=Enumerable.Range(middle-1,3).Select(t=>t==wild?81:t).ToArray();
-                string caption="吃 "+(middle%10-1)+(middle%10)+(middle%10+1)+(wild==0?" · 不用飞":" · 飞代"+(wild%10)+"筒");
-                choices.Add(new ActionCandidate(word,tiles,caption:caption));
+                choices.Add(new ActionCandidate(word,tiles));
             }
         }
         return choices;

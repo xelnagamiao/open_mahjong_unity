@@ -61,14 +61,31 @@ internal static class SichuanTips {
 internal static class XueliuTips {
     public static HashSet<int> Tingpai(List<int> hand, List<string> melds, int meldCount = 3, bool modernExchange = false) {
         var waits = new HashSet<int>();
-        var candidate = new List<int>(hand);
-        for (int suit = 1; suit <= 3; suit++) {
-            for (int rank = 1; rank <= 9; rank++) {
-                int tile = suit * 10 + rank;
-                candidate.Add(tile);
-                if (EvaluateFan(candidate, melds, false, meldCount, modernExchange, false) > 0) waits.Add(tile);
-                candidate.RemoveAt(candidate.Count - 1);
+        melds = melds ?? new List<string>();
+        if (hand == null || (meldCount != 3 && meldCount != 4) || melds.Count > meldCount
+            || hand.Count != (meldCount - melds.Count) * 3 + 1) {
+            return waits;
+        }
+        var candidates = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: false, allowFifthCopy: false);
+        if (modernExchange && melds.Count == 0 && hand.Count == 13) {
+            var counts = new int[40];
+            for (int i = 0; i < hand.Count; i++) {
+                int t = hand[i];
+                if (t >= 11 && t <= 39) counts[t]++;
             }
+            int oddCount = 0, oddTile = -1;
+            for (int t = 11; t < 40; t++) {
+                if ((counts[t] & 1) == 1) { oddCount++; oddTile = t; }
+            }
+            if (oddCount == 1) candidates.Add(oddTile);
+        }
+        if (candidates.Count == 0) return waits;
+        var candidate = new List<int>(hand.Count + 1);
+        candidate.AddRange(hand);
+        candidate.Add(0);
+        foreach (int tile in candidates) {
+            candidate[candidate.Count - 1] = tile;
+            if (EvaluateFan(candidate, melds, false, meldCount, modernExchange, false) > 0) waits.Add(tile);
         }
         return waits;
     }

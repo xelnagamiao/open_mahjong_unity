@@ -15,6 +15,8 @@ namespace Riichi {
         public bool IsHoutei;
         public bool IsTenhou;
         public bool IsChiihou;
+        public bool IsRiichiDeclarationRon;
+        public bool IsPostKanDiscardRon;
         public bool IsSanma;
         public int NukiCount;
         public string SanmaTsumo = "loss";
@@ -38,6 +40,13 @@ namespace Riichi {
         public int DoubleWindPairFu = 4;
         public int MinimumYakuHan = 1;
         public int MinimumWinScore;
+        public bool LocalRiichiDiscardRon;
+        public bool LocalPostKanDiscardRon;
+        public bool LocalFourOpenMelds;
+        public bool LocalThreeConsecutiveTriplets;
+        public bool LocalFiveTileGroups;
+        public bool LocalThreeIdenticalSequences;
+        public bool LocalDaisharin;
         internal int WinningSetIndex = -1;
 
         public void ApplyRuleOptions(IDictionary<string, object> values) {
@@ -50,6 +59,13 @@ namespace Riichi {
             KiriageMangan = Flag("kiriage_mangan", false); YakumanLimit = Number("yakuman_limit", 6);
             DoubleWindPairFu = Number("double_wind_pair_fu", 4);
             MinimumWinScore = Number("minimum_win_score", 0);
+            LocalRiichiDiscardRon = Flag("local_riichi_discard_ron", false);
+            LocalPostKanDiscardRon = Flag("local_post_kan_discard_ron", false);
+            LocalFourOpenMelds = Flag("local_four_open_melds", false);
+            LocalThreeConsecutiveTriplets = Flag("local_three_consecutive_triplets", false);
+            LocalFiveTileGroups = Flag("local_five_tile_groups", false);
+            LocalThreeIdenticalSequences = Flag("local_three_identical_sequences", false);
+            LocalDaisharin = Flag("local_daisharin", false);
             KazoeLimit = values.TryGetValue("kazoe_limit", out var kazoe) ? kazoe.ToString() : "yakuman";
             SanmaTsumo = values.TryGetValue("sanma_tsumo", out var sanma) ? sanma.ToString() : "loss";
         }

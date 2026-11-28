@@ -23,14 +23,26 @@ public partial class ChatManager
     string latestConversationOpen;
     public bool CanSendConversations => HasGameSession;
 
+    static bool IsInteractiveConversationRequest(string type) =>
+        type == "chat/send" || type == "chat/open_direct" || type == "chat/open_venue" || type == "chat/remove";
+
     void FailConversationRequests()
     {
         var requests = new List<ConversationRequestState>(conversationRequests.Values);
         conversationRequests.Clear(); latestConversationOpen = null;
         foreach (var pending in requests)
-            if (pending.request.type == "chat/send" || pending.request.type == "chat/open_direct" ||
-                pending.request.type == "chat/open_venue" || pending.request.type == "chat/remove")
+            if (IsInteractiveConversationRequest(pending.request.type))
                 pending.Fail("连接已中断，请重新连接后核对聊天记录");
+    }
+
+    void ExtendPendingConversationDeadlinesOnForeground()
+    {
+        if (conversationRequests.Count == 0) return;
+        // 切回前台首帧给主连接 5 秒追赶已到达的队列回包，避免立刻误杀在途请求。
+        float graceStarted = Time.realtimeSinceStartup - 15f;
+        foreach (var pending in conversationRequests.Values)
+            if (pending.started < graceStarted)
+                pending.started = graceStarted;
     }
 
     void BindConversationUser(int userId)
@@ -57,12 +69,29 @@ public partial class ChatManager
         foreach (var id in expired)
         {
             var pending = conversationRequests[id]; conversationRequests.Remove(id);
-            pending.Fail("聊天请求超时，请重试");
+            if (pending.completed != null || IsInteractiveConversationRequest(pending.request.type))
+                pending.Fail("聊天请求超时，请重试");
         }
     }
 
-    public void RequestConversations() => SendConversation(new ChatConversationRequest { type = "chat/list" });
-    public void RequestChatVenues() => SendConversation(new ChatConversationRequest { type = "chat/venues" });
+    bool HasInFlightRequest(string type, string conversationKey = null)
+    {
+        foreach (var pending in conversationRequests.Values)
+            if (pending.request.type == type && (conversationKey == null || pending.request.conversation_key == conversationKey))
+                return true;
+        return false;
+    }
+
+    public void RequestConversations()
+    {
+        if (HasInFlightRequest("chat/list")) return;
+        SendConversation(new ChatConversationRequest { type = "chat/list" });
+    }
+    public void RequestChatVenues()
+    {
+        if (HasInFlightRequest("chat/venues")) return;
+        SendConversation(new ChatConversationRequest { type = "chat/venues" });
+    }
     public void OpenDirectConversation(int userId) => SendConversation(new ChatConversationRequest { type = "chat/open_direct", peer_user_id = userId });
     public void OpenVenueConversation(string eventId, Action<string> completed = null) => SendConversation(new ChatConversationRequest { type = "chat/open_venue", event_id = eventId }, completed);
     public void RequestConversationHistory(string key, long beforeId = 0)
@@ -76,6 +105,7 @@ public partial class ChatManager
     public void RemoveConversation(string key) => SendConversation(new ChatConversationRequest { type = "chat/remove", conversation_key = key });
     public void MarkConversationRead(string key)
     {
+        if (HasInFlightRequest("chat/read", key)) return;
         var messages = ChatMessageStore.Instance?.GetConversationMessages(key);
         long last = messages != null && messages.Count > 0 ? messages[messages.Count - 1].id : 0;
         SendConversation(new ChatConversationRequest { type = "chat/read", conversation_key = key, last_message_id = last });

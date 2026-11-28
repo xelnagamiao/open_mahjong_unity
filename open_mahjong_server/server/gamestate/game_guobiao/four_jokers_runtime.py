@@ -4,13 +4,29 @@ from ...game_calculation import guobiao_sixteen as sixteen
 from ...game_calculation import guobiao_four_jokers as rules
 from ...game_calculation.calc_executor import run_room_calc_cpu
 
+_WORKER_CALC_SERVICE = None
+
+
+def _get_worker_calc_service():
+    global _WORKER_CALC_SERVICE
+    if _WORKER_CALC_SERVICE is None:
+        from server.game_calculation.game_calculation_service import GameCalculationService
+        _WORKER_CALC_SERVICE = GameCalculationService()
+    return _WORKER_CALC_SERVICE
+
 
 def _calculate(snapshot, name, args, kwargs):
     from server.gamestate.game_guobiao import action_check
-    from server.game_calculation.game_calculation_service import GameCalculationService
-    snapshot.calculation_service = GameCalculationService()
+    snapshot.calculation_service = _get_worker_calc_service()
+    for p in snapshot.player_list:
+        if getattr(p, "_waiting_cache_sig", None) is not None:
+            p._waiting_cache_ref = p.waiting_tiles
     actions = getattr(action_check, name)(snapshot, *args, **kwargs)
-    return actions, snapshot.result_dict, [p.waiting_tiles for p in snapshot.player_list]
+    return (
+        actions,
+        snapshot.result_dict,
+        [(p.waiting_tiles, getattr(p, "_waiting_cache_sig", None)) for p in snapshot.player_list],
+    )
 
 
 async def evaluate_actions(state, check, *args, **kwargs):
@@ -38,11 +54,15 @@ async def evaluate_actions(state, check, *args, **kwargs):
         player_list=[SimpleNamespace(player_index=p.player_index,
             hand_tiles=list(p.hand_tiles), combination_tiles=list(p.combination_tiles),
             huapai_list=list(p.huapai_list), discard_tiles=list(p.discard_tiles),
-            tag_list=list(p.tag_list), waiting_tiles=set(p.waiting_tiles)) for p in state.player_list])
+            tag_list=list(p.tag_list), waiting_tiles=set(p.waiting_tiles),
+            _waiting_cache_sig=getattr(p, "_waiting_cache_sig", None)) for p in state.player_list])
     actions, results, waits = await run_room_calc_cpu(state, _calculate, snapshot, check.__name__, args, kwargs)
     state.result_dict.update(results)
-    for player, waiting in zip(state.player_list, waits):
+    for player, (waiting, sig) in zip(state.player_list, waits):
         player.waiting_tiles = waiting
+        if sig is not None:
+            player._waiting_cache_sig = sig
+            player._waiting_cache_ref = waiting
     return actions
 
 

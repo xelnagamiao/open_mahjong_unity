@@ -1,3 +1,6 @@
 {
-	"name": "QinqueAssembly"
+	"name": "QinqueAssembly",
+	"references": [
+		"GUID:00010ab933be488aba14856082065495"
+	]
 }

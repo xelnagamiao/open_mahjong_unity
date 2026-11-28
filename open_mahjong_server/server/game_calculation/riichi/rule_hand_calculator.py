@@ -6,7 +6,7 @@ simultaneous rooms may safely use different rules. Upstream yaku/divider/fu APIs
 remain pinned in requirements.txt.
 """
 from collections.abc import Collection
-from typing import TypedDict
+from typing import Mapping, TypedDict
 from mahjong.constants import AKA_DORAS, CHUN, HAKU, HATSU
 from mahjong.hand_calculating.divider import HandDivider
 from mahjong.hand_calculating.fu import FuCalculator, FuDetail
@@ -18,6 +18,7 @@ from mahjong.meld import Meld
 from mahjong.tile import TilesConverter
 from mahjong.utils import build_dora_count_map, classify_hand_suits, count_dora_for_hand, plus_dora
 from .win_requirements import standard_ron_score
+from .local_yaku import evaluate_local_yaku
 
 class _CalculatedHand(TypedDict):
     cost: ScoresResult | None
@@ -54,13 +55,15 @@ class HandCalculator:
     ERR_RENHOU_WITH_MELD = 'renhou_with_meld_not_allowed'
 
     @staticmethod
-    def estimate_hand_value(tiles: Collection[int], win_tile: int, melds: Collection[Meld] | None=None, dora_indicators: Collection[int] | None=None, config: HandConfig | None=None, scores_calculator_factory: type[ScoresCalculator]=ScoresCalculator, ura_dora_indicators: Collection[int] | None=None, minimum_yaku_han: int=1, minimum_win_score: int=0, extra_bonus_han: int=0) -> HandResponse:
+    def estimate_hand_value(tiles: Collection[int], win_tile: int, melds: Collection[Meld] | None=None, dora_indicators: Collection[int] | None=None, config: HandConfig | None=None, scores_calculator_factory: type[ScoresCalculator]=ScoresCalculator, ura_dora_indicators: Collection[int] | None=None, minimum_yaku_han: int=1, minimum_win_score: int=0, extra_bonus_han: int=0, local_rules: Mapping[str, object] | None=None, local_events: Mapping[str, object] | None=None) -> HandResponse:
         if not melds:
             melds = []
         if not dora_indicators:
             dora_indicators = []
         if not ura_dora_indicators:
             ura_dora_indicators = []
+        local_rules = local_rules or {}
+        local_events = local_events or {}
         config = config or _DEFAULT_CONFIG
         hand_yaku = []
         scores_calculator = scores_calculator_factory()
@@ -277,6 +280,17 @@ class HandCalculator:
                         hand_yaku.append(config.yaku.sankantsu)
                     if config.yaku.suukantsu.is_condition_met(hand, melds):
                         hand_yaku.append(config.yaku.suukantsu)
+                local_hand_yaku, suppress_identical_sequence_yaku = evaluate_local_yaku(
+                    hand,
+                    tiles_34,
+                    melds,
+                    local_rules,
+                    local_events,
+                    is_open_hand,
+                )
+                if suppress_identical_sequence_yaku:
+                    hand_yaku = [y for y in hand_yaku if y.name not in ("Iipeiko", "Ryanpeikou")]
+                hand_yaku.extend(local_hand_yaku)
                 if config.paarenchan > 0 and config.options.paarenchan_needs_yaku and (len(hand_yaku) > 0):
                     config.yaku.paarenchan.set_paarenchan_count(config.paarenchan)
                     hand_yaku.append(config.yaku.paarenchan)

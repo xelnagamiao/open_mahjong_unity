@@ -325,11 +325,134 @@ def _waits(hand, melds, policy):
     prepared = _prepare(hand, melds, policy)
     if prepared is None:
         return frozenset()
-    real, external, _, _, physical = prepared
+    real, external, counts, jokers, physical = prepared
     if len(real) != 3 * (policy.meld_count - len(external)) + 1:
         return frozenset()
-    return frozenset(t for t in policy.physical_tiles
-                     if physical[t] < policy.supply(t) and can_win(real + (t,), melds, policy))
+
+    g = len(jokers)
+    has_std = "standard" in policy.shapes
+    has_sp = (not external) and ("seven_pairs" in policy.shapes) and (len(real) == 13)
+    has_ep = (not external) and ("eight_pairs" in policy.shapes) and (len(real) == 16)
+    has_to = (not external) and ("thirteen_orphans" in policy.shapes) and (len(real) == 13)
+
+    is_simple_std = (
+        has_std
+        and policy.closed_cap is None
+        and not policy.closed_limits
+        and policy.logical_tiles == TILES
+        and policy.joker_targets is None
+        and policy.pair_tiles is None
+    )
+
+    if is_simple_std:
+        base_needs = [_minimum_group_jokers(counts[a:b], False, seq) for a, b, seq in GROUPS]
+        base_pair_needs = [_minimum_group_jokers(counts[a:b], True, seq) for a, b, seq in GROUPS]
+        base_total = sum(base_needs)
+    elif has_std:
+        base_inputs = tuple(_group_inputs(counts, g, policy))
+        base_profiles = tuple(_group_profile(*a) for a in base_inputs)
+
+    logical_set = set(policy.logical_tiles)
+    closed_limits = dict(policy.closed_limits) if policy.closed_limits else None
+
+    def _std_with_one_group(gi, new_slice):
+        if is_simple_std:
+            a, b, seq = GROUPS[gi]
+            n0 = _minimum_group_jokers(new_slice, False, seq)
+            n1 = _minimum_group_jokers(new_slice, True, seq)
+            total = base_total - base_needs[gi] + n0
+            # Pair in group gi
+            need = total - n0 + n1
+            if need <= g and (g - need) % 3 == 0:
+                return True
+            # Pair in another group
+            for idx in range(4):
+                if idx == gi:
+                    continue
+                need = total - base_needs[idx] + base_pair_needs[idx]
+                if need <= g and (g - need) % 3 == 0:
+                    return True
+            return False
+        # Exact-profile path: recompute only group gi
+        old_args = base_inputs[gi]
+        new_profile = _group_profile(new_slice, *old_args[1:])
+        states = {(0, 0)}
+        for idx in range(4):
+            profile = new_profile if idx == gi else base_profiles[idx]
+            following = set()
+            for used, eye in states:
+                for pair in range(2 - eye):
+                    options = profile[pair]
+                    for cost in range(g - used + 1):
+                        if (options >> cost) & 1:
+                            following.add((used + cost, eye + pair))
+            states = following
+            if not states:
+                return False
+        return (g, 1) in states
+
+    counts_list = list(counts)
+    waits = set()
+
+    for t in policy.physical_tiles:
+        if physical[t] >= policy.supply(t):
+            continue
+        if t in policy.joker_tiles:
+            g1 = g + 1
+            if (
+                (has_std and _standard(counts, g1, policy))
+                or (has_sp and _pairs(counts, g1, policy))
+                or (has_ep and _pairs(counts, g1, policy, True))
+                or (has_to and next(_orphan_templates(counts, g1, policy), None) is not None)
+            ):
+                waits.add(t)
+            continue
+
+        logical = policy.natural(t)
+        if logical not in logical_set:
+            continue
+        idx = INDEX[logical]
+        new_cnt = counts_list[idx] + 1
+        if policy.closed_cap is not None and new_cnt > policy.closed_cap:
+            continue
+        if closed_limits is not None and new_cnt > closed_limits.get(logical, 99):
+            continue
+
+        if has_std:
+            gi = 3 if idx >= 27 else idx // 9
+            a, b, _ = GROUPS[gi]
+            # Neighbor prune when g == 0 (no jokers): isolated tile cannot complete standard hand.
+            skip_std = False
+            if g == 0:
+                r = idx - a
+                if gi == 3:
+                    skip_std = counts_list[idx] == 0
+                else:
+                    skip_std = (
+                        counts_list[idx] == 0
+                        and (r == 0 or counts_list[idx - 1] == 0)
+                        and (r == 8 or counts_list[idx + 1] == 0)
+                    )
+            if not skip_std:
+                counts_list[idx] = new_cnt
+                new_slice = bytes(counts_list[a:b])
+                counts_list[idx] = new_cnt - 1
+                if _std_with_one_group(gi, new_slice):
+                    waits.add(t)
+                    continue
+
+        if has_sp or has_ep or has_to:
+            counts_list[idx] = new_cnt
+            new_counts = bytes(counts_list)
+            counts_list[idx] = new_cnt - 1
+            if (
+                (has_sp and _pairs(new_counts, g, policy))
+                or (has_ep and _pairs(new_counts, g, policy, True))
+                or (has_to and next(_orphan_templates(new_counts, g, policy), None) is not None)
+            ):
+                waits.add(t)
+
+    return frozenset(waits)
 
 
 def structural_waits(hand, melds=(), policy=None):

@@ -237,6 +237,7 @@ public static class CoreRuleIsolationValidation {
         RunOne("SbrExchangeValidation", () => SbrExchangeValidation.Run());
         RunOne("ScoreHistoryMainFanValidation", () => ScoreHistoryMainFanValidation.Run());
         RunOne("ScoreHistoryPresentationValidation", () => ScoreHistoryPresentationValidation.Run());
+        RunOne("BackgroundResyncValidation", () => BackgroundResyncValidation.Run());
         RunOne("SettlementSyncValidation", () => SettlementSyncValidation.Run());
         RunOne("ShanghaiBloodflowTipsValidation", () => ShanghaiBloodflowTipsValidation.Run());
         RunOne("ShanghaiTipsValidation", () => ShanghaiTipsValidation.Run());

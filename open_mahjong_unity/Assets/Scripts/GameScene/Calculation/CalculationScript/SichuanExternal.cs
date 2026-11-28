@@ -7,6 +7,9 @@ using Sichuan;
 /// 与服务端 game_calculation/sichuan 对齐，供 tips（听牌/番数提示）本地计算使用。
 /// </summary>
 public static class SichuanExternal {
+    private static readonly SichuanHepaiCheck SharedHepai = new SichuanHepaiCheck();
+    private static readonly SichuanTingpaiCheck SharedTingpai = new SichuanTingpaiCheck();
+
     /// <summary>
     /// 和牌检查。handList 含和牌张；返回 (总番数, 番名列表)。
     /// dingqueSuit ∈ {1:万,2:饼,3:条,0:不校验}；含定缺花色返回 (0, [])。
@@ -18,7 +21,7 @@ public static class SichuanExternal {
         int getTile,
         int dingqueSuit = 0,
         bool includeSituational = true) {
-        return new SichuanHepaiCheck().HepaiCheck(
+        return SharedHepai.HepaiCheck(
             handList, tilesCombination, wayToHepai, getTile, dingqueSuit, includeSituational);
     }
 
@@ -26,7 +29,7 @@ public static class SichuanExternal {
     public static HashSet<int> TingpaiCheck(
         List<int> handTileList,
         List<string> combinationList) {
-        return new SichuanTingpaiCheck().TingpaiCheck(handTileList, combinationList);
+        return SharedTingpai.TingpaiCheck(handTileList, combinationList);
     }
 
     /// <summary>基本分 = 2^min(番数,3)；仅平和(0番)时基本分为 1。</summary>

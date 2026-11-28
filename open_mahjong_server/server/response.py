@@ -359,6 +359,9 @@ class Show_result_info(BaseModel):
     # 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
     langyong_multiplier: Optional[int] = None
     langyong_scored_points: Optional[int] = None
+    # 立直责任支付说明：大明杠岭上包付时为责任者座位及原因。
+    pao_liable_player_index: Optional[int] = None
+    pao_type: Optional[str] = None
     # 四川麻将（血战到底）专用
     player_to_dingque: Optional[Dict[int, int]] = None  # 定缺完成广播：{player_index: suit(1万/2饼/3条)}
     round_continues: Optional[bool] = None  # 血战：本盘是否继续（True=还有玩家未和且牌墙未空）

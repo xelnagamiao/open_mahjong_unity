@@ -18,9 +18,33 @@ internal static class LajiheHandCalculator {
     public static HashSet<int> Waits(List<int> hand, List<string> melds) {
         var result = new HashSet<int>();
         melds = melds ?? new List<string>();
-        if (hand == null || hand.Count + 3 * melds.Count != 13) return result;
-        foreach (int tile in Tiles)
-            if (Score(new List<int>(hand) { tile }, melds, 0, true) > 0) result.Add(tile);
+        if (hand == null || hand.Count + 3 * melds.Count != 13 || melds.Count > 4) return result;
+        var counts = new int[48];
+        bool allHonors = true;
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (t < 11 || t > 47 || (t < 40 && t % 10 == 0) || ++counts[t] > 4) return result;
+            if (t < 41) allHonors = false;
+        }
+        var candidates = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: false);
+        if (melds.Count == 0 && hand.Count == 13) {
+            int oddCount = 0, oddTile = -1;
+            for (int i = 0; i < Tiles.Length; i++) {
+                int t = Tiles[i];
+                if ((counts[t] & 1) == 1) { oddCount++; oddTile = t; }
+            }
+            if (oddCount == 1) candidates.Add(oddTile);
+        }
+        if (allHonors) {
+            for (int t = 41; t <= 47; t++) candidates.Add(t);
+        }
+        var cand = new List<int>(hand.Count + 1);
+        cand.AddRange(hand);
+        cand.Add(0);
+        foreach (int tile in candidates) {
+            cand[cand.Count - 1] = tile;
+            if (Score(cand, melds, 0, true) > 0) result.Add(tile);
+        }
         return result;
     }
 

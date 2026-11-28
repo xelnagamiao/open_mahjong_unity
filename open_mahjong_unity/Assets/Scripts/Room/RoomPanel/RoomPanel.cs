@@ -62,7 +62,8 @@ public partial class RoomPanel : MonoBehaviour {
 
     private static bool SupportsHighPerformanceBot(RoomInfo roomInfo) {
         if (roomInfo == null) return false;
-        if (roomInfo.room_rule == "hongque") return true;
+        if (roomInfo.room_rule == "qingque" || roomInfo.room_rule == "sichuan" || roomInfo.room_rule == "riichi") return true;
+        if (roomInfo.room_rule == "hongque") return roomInfo.sub_rule != "hongque/w-v1.0";
         if (roomInfo.room_rule != "guobiao") return false;
         string sub = string.IsNullOrEmpty(roomInfo.sub_rule) ? GuobiaoStandardSubRule : roomInfo.sub_rule;
         return sub == GuobiaoStandardSubRule || sub == GuobiaoGameState.BloodBattleSubRule;

@@ -96,6 +96,11 @@ namespace Riichi {
         }
 
         private void DetectChiitoitsu(List<RiichiSet> sets, int winTile, DetectResult result) {
+            if (_ctx.LocalDaisharin && IsDaisharin(sets)) {
+                result.Yaku.Add(new YakuEntry { Name = "大车轮", IsYakuman = true, YakumanMultiplier = 1 });
+                result.YakumanMultiplier = 1;
+                return;
+            }
             if (CollectAllTiles(sets).All(RiichiTileUtil.IsHonor)) {
                 result.Yaku.Add(new YakuEntry { Name = "字一色", IsYakuman = true, YakumanMultiplier = 1 });
                 return;
@@ -112,13 +117,17 @@ namespace Riichi {
             var triplets = sets.Where(s => s.Type == RiichiSetType.Pon || s.Type == RiichiSetType.Kan).ToList();
             var pair = sets.FirstOrDefault(s => s.Type == RiichiSetType.Pair);
             var allTiles = CollectAllTiles(sets);
+            int mult = 0;
+
+            if (_ctx.LocalDaisharin && IsDaisharin(sets)) {
+                result.Yaku.Add(new YakuEntry { Name = "大车轮", IsYakuman = true, YakumanMultiplier = 1 });
+                mult = 1;
+            }
 
             int dragonTriplets = triplets.Count(s => RiichiTileUtil.IsDragon(s.Tile));
             int windTriplets = triplets.Count(s => RiichiTileUtil.IsWind(s.Tile));
             bool pairIsDragon = pair != null && RiichiTileUtil.IsDragon(pair.Tile);
             bool pairIsWind = pair != null && RiichiTileUtil.IsWind(pair.Tile);
-
-            int mult = 0;
 
             if (dragonTriplets == 3) {
                 result.Yaku.Add(new YakuEntry { Name = "大三元", IsYakuman = true, YakumanMultiplier = 1 });
@@ -207,11 +216,15 @@ namespace Riichi {
             // 一杯口 / 二杯口
             if (result.IsClosed && sequences.Count >= 2) {
                 int peikouCount = CountIdenticalSequencePairs(sequences);
-                if (peikouCount >= 2) {
+                if (peikouCount >= 2 && !(_ctx.LocalThreeIdenticalSequences && HasThreeIdenticalSequences(sequences))) {
                     result.Yaku.Add(new YakuEntry { Name = "二杯口", Han = 3 });
-                } else if (peikouCount == 1) {
+                } else if (peikouCount == 1 && !(_ctx.LocalThreeIdenticalSequences && HasThreeIdenticalSequences(sequences))) {
                     result.Yaku.Add(new YakuEntry { Name = "一杯口", Han = 1 });
                 }
+            }
+
+            if (_ctx.LocalThreeIdenticalSequences && HasThreeIdenticalSequences(sequences)) {
+                result.Yaku.Add(new YakuEntry { Name = "一色三同顺", Han = result.IsClosed ? 3 : 2 });
             }
 
             // 三色同顺
@@ -285,6 +298,8 @@ namespace Riichi {
             } else if (allTiles.All(RiichiTileUtil.IsHonor)) {
                 // 字一色已在役满中处理；这里不额外计。
             }
+
+            DetectLocalYaku(sets, result);
         }
 
         private void DetectContextYaku(DetectResult result) {
@@ -299,6 +314,67 @@ namespace Riichi {
             if (_ctx.IsHoutei) result.Yaku.Add(new YakuEntry { Name = "河底捞鱼", Han = 1 });
             if (_ctx.IsRinshan) result.Yaku.Add(new YakuEntry { Name = "岭上开花", Han = 1 });
             if (_ctx.IsChankan) result.Yaku.Add(new YakuEntry { Name = "抢杠", Han = 1 });
+            if (!_ctx.IsTsumo && _ctx.LocalRiichiDiscardRon && _ctx.IsRiichiDeclarationRon)
+                result.Yaku.Add(new YakuEntry { Name = "燕返", Han = 1 });
+            if (!_ctx.IsTsumo && _ctx.LocalPostKanDiscardRon && _ctx.IsPostKanDiscardRon)
+                result.Yaku.Add(new YakuEntry { Name = "杠振", Han = 1 });
+        }
+
+        private void DetectLocalYaku(List<RiichiSet> sets, DetectResult result) {
+            if (_ctx.LocalFourOpenMelds
+                && sets.Count(s => s.Opened) == 4
+                && sets.Count(s => s.Type == RiichiSetType.Pair) == 1) {
+                result.Yaku.Add(new YakuEntry { Name = "十二落抬", Han = 1 });
+            }
+            var triplets = sets.Where(s => s.Type == RiichiSetType.Pon || s.Type == RiichiSetType.Kan).ToList();
+            if (_ctx.LocalThreeConsecutiveTriplets && HasThreeConsecutiveTriplets(triplets))
+                result.Yaku.Add(new YakuEntry { Name = "三连刻", Han = 2 });
+            if (_ctx.LocalFiveTileGroups && HasFiveTileGroups(sets))
+                result.Yaku.Add(new YakuEntry { Name = "五门齐", Han = 2 });
+        }
+
+        private static bool HasThreeIdenticalSequences(List<RiichiSet> sequences) {
+            return sequences.GroupBy(s => s.Tile).Any(g => g.Count() >= 3);
+        }
+
+        private static bool HasThreeConsecutiveTriplets(List<RiichiSet> triplets) {
+            var bySuit = new Dictionary<int, HashSet<int>>();
+            foreach (var set in triplets) {
+                int tile = RiichiTileUtil.Normalize(set.Tile);
+                int suit = RiichiTileUtil.Suit(tile);
+                if (suit < 0) continue;
+                if (!bySuit.TryGetValue(suit, out var ranks)) {
+                    ranks = new HashSet<int>();
+                    bySuit[suit] = ranks;
+                }
+                ranks.Add(RiichiTileUtil.NumberInSuit(tile));
+            }
+            return bySuit.Values.Any(ranks => Enumerable.Range(1, 7).Any(start =>
+                ranks.Contains(start) && ranks.Contains(start + 1) && ranks.Contains(start + 2)));
+        }
+
+        private static bool HasFiveTileGroups(List<RiichiSet> sets) {
+            var categories = new HashSet<int>();
+            foreach (var set in sets) {
+                foreach (int tile in set.Tiles()) {
+                    int normalized = RiichiTileUtil.Normalize(tile);
+                    if (RiichiTileUtil.IsWind(normalized)) categories.Add(3);
+                    else if (RiichiTileUtil.IsDragon(normalized)) categories.Add(4);
+                    else if (RiichiTileUtil.Suit(normalized) >= 0) categories.Add(RiichiTileUtil.Suit(normalized));
+                    break;
+                }
+            }
+            return categories.Count == 5;
+        }
+
+        private bool IsDaisharin(List<RiichiSet> sets) {
+            if (sets.Any(s => s.Opened) || sets.Count != 7 || sets.Any(s => s.Type != RiichiSetType.Pair)) return false;
+            var counts = new Dictionary<int, int>();
+            foreach (int tile in CollectAllTiles(sets)) {
+                int normalized = RiichiTileUtil.Normalize(tile);
+                counts[normalized] = counts.TryGetValue(normalized, out int count) ? count + 1 : 1;
+            }
+            return counts.Count == 7 && counts.All(kv => kv.Key >= 22 && kv.Key <= 28 && kv.Value == 2);
         }
 
         private void DetectCommonOnFlatTiles(List<int> allTiles, int winTile, DetectResult result, bool isChiitoitsu) {

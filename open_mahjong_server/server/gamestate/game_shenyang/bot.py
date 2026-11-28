@@ -4,19 +4,62 @@ from collections import Counter
 from ...game_calculation.shenyang import rules as book
 from ..public.ai.pacing import paced_bot, submit_bot_action
 from ..public.ai.smart_bot_ai import _wait_until_actionable, _BOT_DELAY
-from ..public.ai.smart_bot_logic import evaluate_hand, tile_to_34
+from ..public.ai.guobiao_shanten import xiangting_yiban
+from ..public.ai.smart_bot_logic import tile_to_34
 from ..public.ai.bot_executor import run_room_bot_cpu, bot_action_is_current
 from ..public.ai.get_action import get_ai_action
 from ..public.hand_slot_utils import has_draw_slot, infer_bot_cut_class
 
 
+def _qualify_bonus(hand, melds):
+    all_tiles = list(hand) + [t for c in melds for t in book.parse_meld(c).tiles]
+    suits = {t // 10 for t in all_tiles if t in book.NUMBERS}
+    pure = len(suits) == 1 and all(t in book.NUMBERS for t in all_tiles)
+    suit_score = 3 if (len(suits) == 3 or pure) else len(suits)
+    has_orphan = 1 if (set(all_tiles) & book.ORPHANS) else 0
+    counts = Counter(hand)
+    has_trip = 1 if (
+        any(c[0] != "s" for c in melds)
+        or any(v >= 3 for v in counts.values())
+        or any(counts[d] >= 2 for d in book.DRAGONS)
+    ) else 0
+    return suit_score + has_orphan * 2 + has_trip
+
+
+def _candidate_tiles(held):
+    cands = set()
+    for t, c in held.items():
+        if c <= 0:
+            continue
+        if c < 4:
+            cands.add(t)
+        if t < 40:
+            suit, num = t // 10, t % 10
+            for d in (-2, -1, 1, 2):
+                n2 = num + d
+                if 1 <= n2 <= 9:
+                    nid = suit * 10 + n2
+                    if held[nid] < 4:
+                        cands.add(nid)
+    return cands
+
+
 def _score(hand, melds, visible):
-    waits = book.waits(hand, melds)
-    if waits:
-        held = Counter(hand)
-        return (0, sum(max(0, 4-held[t]-visible[tile_to_34(t)]) for t in waits))
-    distance, outs = evaluate_hand(hand, len(melds), visible)
-    return min(-1, distance), outs
+    hand = list(hand)
+    held = Counter(hand)
+    dist = xiangting_yiban(held, len(melds))
+    if not melds:
+        dist = min(dist, 6 - sum(n // 2 for n in held.values()))
+    if dist <= 0:
+        waits = book.waits(hand, melds)
+        if waits:
+            return (0, sum(max(0, 4-held[t]-visible[tile_to_34(t)]) for t in waits), _qualify_bonus(hand, melds))
+    outs = sum(
+        max(0, 4 - held[t] - visible[tile_to_34(t)])
+        for t in _candidate_tiles(held)
+        if held[t] < 4 and xiangting_yiban(Counter(hand + [t]), len(melds)) < dist
+    )
+    return (min(-1, -dist), _qualify_bonus(hand, melds), outs)
 
 
 def choose_cut(hand, melds, visible, legal):

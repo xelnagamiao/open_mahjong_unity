@@ -108,23 +108,17 @@ namespace Sichuan {
             }
         }
 
-        /// <summary>把闭门手牌(含和牌张)穷举为 4 面子 + 1 雀头的完整拆解，返回各拆解的组合列表。</summary>
+        /// <summary>把闭门手牌(含和牌张)穷举为 4 面子 + 1 雀头的完整拆解，返回去重后的各拆解组合列表。</summary>
         private List<List<string>> EnumerateNormal(List<int> handList, List<string> tilesCombination) {
-            var done = new List<List<string>>();
-            var start = new SichuanTingTiles(handList, tilesCombination, tilesCombination.Count * 3);
-            var allList = TraverseQuetou(start);
-            while (allList.Count > 0) {
-                var temp = allList[allList.Count - 1];
-                allList.RemoveAt(allList.Count - 1);
-                TraverseKezi(temp, allList);
-                TraverseDazi(temp, allList);
-                // 手牌全部消完即为合法完整拆解（牌数保证恰好一个雀头）
-                if (temp.handTiles.Count == 0) {
-                    bool hasPair = temp.combinationList.Any(c => c.Length > 0 && c[0] == 'q');
-                    if (hasPair) done.Add(new List<string>(temp.combinationList));
-                }
-            }
-            return done;
+            if (tilesCombination.Count * 3 + handList.Count != 14)
+                return new List<List<string>>();
+            return StandardMahjongSolver.StandardCombinationCodes(
+                handList,
+                tilesCombination,
+                allowHonors: false,
+                keziPrefix: 'K',
+                shunziPrefix: 'S',
+                quetouPrefix: 'q');
         }
 
         private List<SichuanTingTiles> TraverseQuetou(SichuanTingTiles playerTiles) {

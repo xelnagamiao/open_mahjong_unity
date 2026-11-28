@@ -81,14 +81,67 @@ public sealed class WaitTileHint {
 
 /// <summary>通过 RuleManifest 钩子做听牌/提示计算的入口；核心 UI 只调这里，不认识任何族。</summary>
 public static class RuleTips {
+    private const int WaitingCacheMaxEntries = 256;
+    private static readonly Dictionary<string, int[]> WaitingCache = new Dictionary<string, int[]>(128);
+    private static readonly Queue<string> WaitingCacheOrder = new Queue<string>(WaitingCacheMaxEntries + 1);
+
+    public static void ClearCache() {
+        WaitingCache.Clear();
+        WaitingCacheOrder.Clear();
+    }
+
+    private static string TryBuildWaitingCacheKey(RuleManifest manifest, TingpaiQuery query) {
+        if (manifest == null || query == null || query.Hand == null) return null;
+        // Skip caching for async background callbacks, record-player snapshots, or rule-specific dynamic configs.
+        if (query.OnReady != null || query.RecordPlayerIndex.HasValue || query.PlayerIndex.HasValue) return null;
+        if (query.DetailedConfig != null && query.DetailedConfig.Count > 0) return null;
+        if (query.MeldMasks != null && query.MeldMasks.Count > 0) return null;
+
+        var sortedHand = new List<int>(query.Hand);
+        sortedHand.Sort();
+        var sb = new System.Text.StringBuilder(96);
+        sb.Append(manifest.RuleId).Append('|').Append(query.SubRule ?? "").Append('|').Append(query.ExcludedSuit).Append('|');
+        for (int i = 0; i < sortedHand.Count; i++) {
+            if (i > 0) sb.Append(',');
+            sb.Append(sortedHand[i]);
+        }
+        sb.Append('|');
+        if (query.Melds != null && query.Melds.Count > 0) {
+            var sortedMelds = new List<string>(query.Melds);
+            sortedMelds.Sort(System.StringComparer.Ordinal);
+            for (int i = 0; i < sortedMelds.Count; i++) {
+                if (i > 0) sb.Append(',');
+                sb.Append(sortedMelds[i]);
+            }
+        }
+        return sb.ToString();
+    }
+
     /// <summary>按清单算听牌；清单为空或未声明 Tingpai 时返回空集并记警告。</summary>
     public static HashSet<int> ComputeWaiting(RuleManifest manifest, TingpaiQuery query) {
         if (manifest?.Tingpai == null) {
             Debug.LogWarning($"规则未提供听牌计算: {manifest?.RuleId ?? "(null)"}");
             return new HashSet<int>();
         }
+        string cacheKey = TryBuildWaitingCacheKey(manifest, query);
+        if (cacheKey != null && WaitingCache.TryGetValue(cacheKey, out int[] cached)) {
+            return new HashSet<int>(cached);
+        }
         try {
-            return manifest.Tingpai(query) ?? new HashSet<int>();
+            var result = manifest.Tingpai(query) ?? new HashSet<int>();
+            if (cacheKey != null) {
+                var arr = new int[result.Count];
+                result.CopyTo(arr);
+                if (!WaitingCache.ContainsKey(cacheKey)) {
+                    if (WaitingCacheOrder.Count >= WaitingCacheMaxEntries) {
+                        string oldest = WaitingCacheOrder.Dequeue();
+                        WaitingCache.Remove(oldest);
+                    }
+                    WaitingCacheOrder.Enqueue(cacheKey);
+                }
+                WaitingCache[cacheKey] = arr;
+            }
+            return result;
         } catch (System.Exception e) {
             Debug.LogError($"计算听牌列表时出错({manifest.RuleId}): {e.Message}");
             return new HashSet<int>();

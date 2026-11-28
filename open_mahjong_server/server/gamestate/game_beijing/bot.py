@@ -18,12 +18,31 @@ def distance(hand, meld_count, hun):
     return max(-1, value - wild)
 
 
+def _candidate_tiles(hand, hun):
+    counts = Counter(hand)
+    cands = {hun} if hun in book.TILES else set()
+    for t, c in counts.items():
+        if c <= 0:
+            continue
+        if c < 4:
+            cands.add(t)
+        if t < 40:
+            suit, num = t // 10, t % 10
+            for d in (-2, -1, 1, 2):
+                n2 = num + d
+                if 1 <= n2 <= 9:
+                    nid = suit * 10 + n2
+                    if counts[nid] < 4:
+                        cands.add(nid)
+    return cands
+
+
 def efficiency(hand, meld_count, hun, visible):
     hand = tuple(sorted(hand))
     level = distance(hand, meld_count, hun)
     copies = Counter(hand) + visible
-    outs = sum(max(0, 4 - copies[t]) for t in book.TILES
-               if distance(tuple(sorted((*hand, t))), meld_count, hun) < level)
+    outs = sum(max(0, 4 - copies[t]) for t in _candidate_tiles(hand, hun)
+               if copies[t] < 4 and distance(tuple(sorted((*hand, t))), meld_count, hun) < level)
     return -level, outs
 
 

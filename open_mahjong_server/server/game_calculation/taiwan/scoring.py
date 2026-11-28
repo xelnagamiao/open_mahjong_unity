@@ -488,17 +488,19 @@ class TaiwanScorer:
         if winning_tile not in context.hand_tiles:
             return ScoreResult(False, reason="最终手牌中缺少胡牌张")
 
+        decompositions = enumerate_decompositions(
+            context.hand_tiles,
+            context.meld_codes,
+            winning_tile,
+        )
+        if not decompositions:
+            return ScoreResult(False, reason="手牌不构成台湾麻将和牌形")
         pre_win = (
             list(context.pre_win_tiles)
             if context.pre_win_tiles is not None
             else derive_pre_win_tiles(context.hand_tiles, winning_tile)
         )
         waits = frozenset(structural_waits(pre_win, context.meld_codes, context.rules))
-        decompositions = enumerate_decompositions(
-            context.hand_tiles,
-            context.meld_codes,
-            winning_tile,
-        )
         (
             single_wait_eligible_keys,
             all_chows_eligible_keys,

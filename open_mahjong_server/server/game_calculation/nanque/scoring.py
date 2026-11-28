@@ -94,9 +94,18 @@ def score_hand(ctx: HandContext) -> ScoreResult:
     if not candidates:
         return ScoreResult(False, 0, (), (), 0, None)
 
-    best_occ, best_decomp = max(candidates, key=lambda item: _total_points(item[0]))
-    kept = _apply_row_rules(best_occ)
-    raw = sum(occ.value for occ in kept)
+    best_kept: list[FanOccurrence] = []
+    best_raw = -1
+    best_decomp: Decomposition | None = None
+    for occ_list, decomp in candidates:
+        kept = _apply_row_rules(occ_list)
+        raw = sum(occ.value for occ in kept)
+        if raw > best_raw:
+            best_raw = raw
+            best_kept = kept
+            best_decomp = decomp
+    kept = best_kept
+    raw = best_raw
     capped = min(raw, 20)
     fan_ids = tuple(_expand_ids(kept))
     return ScoreResult(

@@ -1,23 +1,95 @@
 package main
 
 import (
-	"github.com/gorilla/websocket"
+	"encoding/json"
+	"errors"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-// Client wraps a WebSocket connection and serializes all writes. Gorilla
-// WebSocket permits one concurrent reader and one concurrent writer, so every
-// server-side write must go through this type.
+const (
+	clientSendQueueSize = 64
+	clientWriteTimeout  = 5 * time.Second
+	clientMaxMessageBytes = 16 * 1024
+)
+
+var errClientClosed = errors.New("client closed")
+
+// Client wraps a WebSocket connection with a single writer goroutine so
+// broadcasts never block on slow or half-open recipients while preserving
+// per-connection FIFO message ordering.
 type Client struct {
-	conn      *websocket.Conn
-	writeMu   sync.Mutex
-	closeOnce sync.Once
+	conn       *websocket.Conn
+	sendCh     chan *websocket.PreparedMessage
+	done       chan struct{}
+	writeDone  chan struct{}
+	closeOnce  sync.Once
+	closeMu    sync.Mutex
+	closeCode  int
+	closeText  string
+	hasReason  bool
 }
 
 func NewClient(conn *websocket.Conn) *Client {
-	return &Client{conn: conn}
+	if conn != nil {
+		conn.SetReadLimit(clientMaxMessageBytes)
+	}
+	c := &Client{
+		conn:      conn,
+		sendCh:    make(chan *websocket.PreparedMessage, clientSendQueueSize),
+		done:      make(chan struct{}),
+		writeDone: make(chan struct{}),
+	}
+	if conn != nil {
+		go c.writePump()
+	} else {
+		close(c.writeDone)
+	}
+	return c
+}
+
+func (c *Client) writePump() {
+	defer close(c.writeDone)
+	for {
+		select {
+		case pm := <-c.sendCh:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(clientWriteTimeout))
+			if err := c.conn.WritePreparedMessage(pm); err != nil {
+				c.closeWithoutWait()
+				return
+			}
+		case <-c.done:
+			// Drain already-enqueued messages (e.g. login_kickout) before sending close control frame.
+			for {
+				select {
+				case pm := <-c.sendCh:
+					_ = c.conn.SetWriteDeadline(time.Now().Add(time.Second))
+					if err := c.conn.WritePreparedMessage(pm); err != nil {
+						_ = c.conn.Close()
+						return
+					}
+				default:
+					c.closeMu.Lock()
+					hasReason := c.hasReason
+					code := c.closeCode
+					reason := c.closeText
+					c.closeMu.Unlock()
+					if hasReason {
+						_ = c.conn.WriteControl(
+							websocket.CloseMessage,
+							websocket.FormatCloseMessage(code, reason),
+							time.Now().Add(time.Second),
+						)
+					}
+					_ = c.conn.Close()
+					return
+				}
+			}
+		}
+	}
 }
 
 func (c *Client) ReadMessage() (int, []byte, error) {
@@ -25,30 +97,64 @@ func (c *Client) ReadMessage() (int, []byte, error) {
 }
 
 func (c *Client) WriteJSON(value any) error {
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
-	// A half-open recipient must not block every later broadcast or login.
-	_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	return c.conn.WriteJSON(value)
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, payload)
+	if err != nil {
+		return err
+	}
+	select {
+	case <-c.done:
+		return errClientClosed
+	case c.sendCh <- pm:
+		return nil
+	case <-time.After(clientWriteTimeout):
+		c.Close()
+		return errors.New("client write queue timeout")
+	}
+}
+
+// TrySendPrepared enqueues a pre-serialized broadcast message without blocking.
+// If a slow client's send queue is full, it is disconnected so it cannot stall
+// other recipients in the room.
+func (c *Client) TrySendPrepared(pm *websocket.PreparedMessage) bool {
+	select {
+	case <-c.done:
+		return false
+	default:
+	}
+	select {
+	case c.sendCh <- pm:
+		return true
+	default:
+		c.Close()
+		return false
+	}
+}
+
+func (c *Client) closeWithoutWait() {
+	c.closeOnce.Do(func() {
+		if c.done != nil {
+			close(c.done)
+		} else if c.conn != nil {
+			_ = c.conn.Close()
+		}
+	})
 }
 
 func (c *Client) Close() {
-	c.closeOnce.Do(func() {
-		_ = c.conn.Close()
-	})
+	c.closeWithoutWait()
 }
 
 func (c *Client) CloseWithReason(code int, reason string) {
-	c.closeOnce.Do(func() {
-		c.writeMu.Lock()
-		_ = c.conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(code, reason),
-			time.Now().Add(time.Second),
-		)
-		c.writeMu.Unlock()
-		_ = c.conn.Close()
-	})
+	c.closeMu.Lock()
+	c.closeCode = code
+	c.closeText = reason
+	c.hasReason = true
+	c.closeMu.Unlock()
+	c.closeWithoutWait()
 }
 
 // ConnectionPool manages all WebSocket connections by connection ID.

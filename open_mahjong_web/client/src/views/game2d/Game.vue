@@ -977,7 +977,21 @@ function resetRoundAssistUi(targetScene = scene) {
   tileSkipOpen.value = false
 }
 
+let serverAuthoritativeTimeoutHosting = false
+
+function applyServerTimeoutAutoMoqie(active) {
+  serverAuthoritativeTimeoutHosting = true
+  resetTimeoutAutoDiscardTracking()
+  const next = Boolean(active)
+  if (Boolean(assistSettings.value.autoDiscard) !== next) {
+    assistSettings.value = normalizeAssistSettings({ ...assistSettings.value, autoDiscard: next })
+    saveStoredAssistSettings(assistSettings.value)
+    scene?.setAssistSettings(assistSettings.value)
+  }
+}
+
 function registerSelfCutResponse(response, targetAdapter) {
+  if (serverAuthoritativeTimeoutHosting) return
   const info = response?.do_action_info
   if (
     !Array.isArray(info?.action_list)
@@ -996,6 +1010,10 @@ function registerSelfCutResponse(response, targetAdapter) {
 
 function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
   if (!targetAdapter || !targetScene) return
+  if (response?.type === 'gamestate/timeout_auto_moqie') {
+    applyServerTimeoutAutoMoqie(response.timeout_auto_moqie ?? response.active ?? false)
+    return
+  }
   try {
     const update = targetAdapter.accept(response)
     if (!update) return
@@ -1015,6 +1033,9 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       if (roundKey !== lastAssistRoundKey) {
         lastAssistRoundKey = roundKey
         resetRoundAssistUi(targetScene)
+      }
+      if (typeof response?.timeout_auto_moqie === 'boolean') {
+        applyServerTimeoutAutoMoqie(response.timeout_auto_moqie)
       }
       if (!matchStartDefaultsApplied) {
         matchStartDefaultsApplied = true
@@ -1443,7 +1464,13 @@ function toggleGameSettingsPanel() {
 }
 
 function patchAssistSettings(partial) {
-  if (partial?.autoDiscard === false) resetTimeoutAutoDiscardTracking()
+  if (partial?.autoDiscard === false) {
+    resetTimeoutAutoDiscardTracking()
+    const gid = adapter?.snapshot?.session_id
+    if (gid && !props.demo) {
+      salasasaClient.send({ type: 'cancel_timeout_auto_moqie', gamestate_id: gid })
+    }
+  }
   assistSettings.value = normalizeAssistSettings({ ...assistSettings.value, ...partial })
   saveStoredAssistSettings(assistSettings.value)
   scene?.setAssistSettings(assistSettings.value)

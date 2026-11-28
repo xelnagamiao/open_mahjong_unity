@@ -152,19 +152,59 @@ internal sealed class NewChineseHand {
             foreach (int face in group.Tiles) physical[face]++;
         }
         if (physical.Any(n => n > 4)) return;
-        foreach (int win in Faces) {
+        var candidateWaits = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: true);
+        if (codes.Length == 0) {
+            int oddCount = 0, oddTile = -1;
+            for (int i = 0; i < Faces.Length; i++) {
+                int f = Faces[i];
+                if ((hidden[f] & 1) != 0) { oddCount++; oddTile = f; }
+            }
+            if (oddCount == 1) candidateWaits.Add(oddTile);
+
+            bool allTerm = true;
+            for (int i = 0; i < hand.Length; i++) if (!Terminal(hand[i])) { allTerm = false; break; }
+            if (allTerm) {
+                int missing = 0, missingTile = -1, pairCount = 0;
+                for (int i = 0; i < Faces.Length; i++) {
+                    int f = Faces[i];
+                    if (!Terminal(f)) continue;
+                    if (hidden[f] == 0) { missing++; missingTile = f; }
+                    else if (hidden[f] == 2) pairCount++;
+                    else if (hidden[f] > 2) { missing = 99; break; }
+                }
+                if (missing == 0) {
+                    for (int i = 0; i < Faces.Length; i++) if (Terminal(Faces[i])) candidateWaits.Add(Faces[i]);
+                } else if (missing == 1 && pairCount == 1) {
+                    candidateWaits.Add(missingTile);
+                }
+            }
+        }
+        var hand14 = new List<int>(hand.Length + 1);
+        for (int i = 0; i < hand.Length; i++) hand14.Add(hand[i]);
+        hand14.Add(0);
+        foreach (int win in candidateWaits) {
             hidden[win]++;
+            hand14[hand14.Count - 1] = win;
             var complete = new List<Shape>();
             if (codes.Length == 0) {
                 if (Faces.Where(Terminal).All(t => hidden[t] > 0) && Faces.Where(t => !Terminal(t)).All(t => hidden[t] == 0))
                     complete.Add(new Shape { Kind = "orphans" });
                 if (hidden.All(n => (n & 1) == 0)) complete.Add(new Shape { Kind = "seven_pairs" });
             }
-            foreach (int pair in Faces) {
-                if (hidden[pair] < 2) continue;
-                hidden[pair] -= 2;
-                Split(hidden, new List<Group>(exposed), pair, win, complete);
-                hidden[pair] += 2;
+            var decomps = StandardMahjongSolver.StandardDecompositions(hand14, allowHonors: true);
+            for (int d = 0; d < decomps.Count; d++) {
+                var dec = decomps[d];
+                var sets = new Group[4];
+                int idx = 0;
+                for (int e = 0; e < exposed.Count; e++) sets[idx++] = exposed[e];
+                for (int j = 0; j < dec.Melds.Length; j++) {
+                    var u = dec.Melds[j];
+                    sets[idx++] = new Group { Kind = u.Kind == 1 ? 's' : 'k', Face = u.TileId };
+                }
+                if (idx != 4) continue;
+                if (dec.PairTile == win) complete.Add(new Shape { Kind = "standard", Pair = dec.PairTile, Groups = sets });
+                for (int i = 0; i < sets.Length; i++) if (!sets[i].Open && sets[i].Has(win))
+                    complete.Add(new Shape { Kind = "standard", Pair = dec.PairTile, Groups = sets, Win = i });
             }
             hidden[win]--;
             if (complete.Count > 0) {

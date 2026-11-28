@@ -50,11 +50,26 @@ internal static class ShanghaiHandCalculator {
         var result = new HashSet<int>();
         melds = melds ?? new List<string>();
         if (hand == null || hand.Count + melds.Count * 3 != 13) return result;
-        foreach (int tile in Tiles) {
-            var candidate = new List<int>(hand) { tile };
-            if (Decompositions(candidate, melds).Count != 0) result.Add(tile);
+        int[] phys = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (!IsValidTile(t) || ++phys[t] > 4) return result;
+        }
+        for (int i = 0; i < melds.Count; i++) {
+            foreach (int t in MeldTiles(melds[i])) {
+                if (!IsValidTile(t) || ++phys[t] > 4) return result;
+            }
+        }
+        var raw = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: false);
+        foreach (int t in raw) {
+            if (IsValidTile(t) && phys[t] < 4) result.Add(t);
         }
         return result;
+    }
+
+    private static bool IsValidTile(int tile) {
+        int s = tile / 10, r = tile % 10;
+        return (s >= 1 && s <= 3 && r >= 1 && r <= 9) || (tile >= 41 && tile <= 44);
     }
 
     private static List<int> MeldTiles(string meld) {
@@ -65,36 +80,28 @@ internal static class ShanghaiHandCalculator {
 
     private static List<List<string>> Decompositions(List<int> hand, List<string> melds) {
         var result = new List<List<string>>();
-        if (hand.Count + melds.Count * 3 != 14 || hand.Any(tile => !Tiles.Contains(tile))) return result;
-        var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
-        if (all.Any(tile => !Tiles.Contains(tile)) || all.GroupBy(tile => tile).Any(group => group.Count() > 4)) return result;
-        foreach (int pair in hand.Distinct()) {
-            if (hand.Count(tile => tile == pair) < 2) continue;
-            var remaining = hand.OrderBy(tile => tile).ToList();
-            remaining.Remove(pair);
-            remaining.Remove(pair);
-            SplitSets(remaining, new List<string>(), result);
+        if (hand.Count + melds.Count * 3 != 14) return result;
+        int[] phys = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (!IsValidTile(t) || ++phys[t] > 4) return result;
+        }
+        for (int i = 0; i < melds.Count; i++) {
+            foreach (int t in MeldTiles(melds[i])) {
+                if (!IsValidTile(t) || ++phys[t] > 4) return result;
+            }
+        }
+        var raw = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int i = 0; i < raw.Count; i++) {
+            var d = raw[i];
+            var sets = new List<string>(d.Melds.Length);
+            for (int j = 0; j < d.Melds.Length; j++) {
+                var u = d.Melds[j];
+                sets.Add((u.Kind == 1 ? "s" : "k") + u.TileId);
+            }
+            result.Add(sets);
         }
         return result;
-    }
-
-    private static void SplitSets(List<int> hand, List<string> sets, List<List<string>> result) {
-        if (hand.Count == 0) { result.Add(new List<string>(sets)); return; }
-        int tile = hand[0];
-        if (hand.Count(value => value == tile) >= 3) {
-            var rest = new List<int>(hand);
-            for (int i = 0; i < 3; i++) rest.Remove(tile);
-            sets.Add("k" + tile);
-            SplitSets(rest, sets, result);
-            sets.RemoveAt(sets.Count - 1);
-        }
-        if (tile < 40 && tile % 10 <= 7 && hand.Contains(tile + 1) && hand.Contains(tile + 2)) {
-            var rest = new List<int>(hand);
-            rest.Remove(tile); rest.Remove(tile + 1); rest.Remove(tile + 2);
-            sets.Add("s" + (tile + 1));
-            SplitSets(rest, sets, result);
-            sets.RemoveAt(sets.Count - 1);
-        }
     }
 
     public static int Score(List<int> hand, List<string> melds, int flowerCount, bool selfDraw, int minFan = 0, bool qing3Hun2Peng2 = false, bool tianQiao = false, bool forbidLajiheDadiao = false) {

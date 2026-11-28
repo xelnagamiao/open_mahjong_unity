@@ -80,8 +80,23 @@ async function computeWeeklyScoreboard(now = new Date()) {
   };
 }
 
+let memoryCache = null;
+
 function readCachedScoreboard(now = new Date()) {
-  const cache = readJson(cachePath());
+  const file = cachePath();
+  let mtimeMs = 0;
+  try {
+    mtimeMs = fs.statSync(file).mtimeMs;
+  } catch {
+    return null;
+  }
+  let cache;
+  if (memoryCache && memoryCache.file === file && memoryCache.mtimeMs === mtimeMs) {
+    cache = memoryCache.data;
+  } else {
+    cache = readJson(file);
+    memoryCache = cache ? { file, mtimeMs, data: cache } : null;
+  }
   // 同一统计周的旧「终局得分」缓存也必须重新计算。
   if (cache?.metric !== METRIC) return null;
   if (!cacheMatchesWeek(cache, now)) return null;
@@ -91,7 +106,13 @@ function readCachedScoreboard(now = new Date()) {
 
 async function refreshWeeklyScoreboard(now = new Date()) {
   const data = await computeWeeklyScoreboard(now);
-  writeJsonAtomic(cachePath(), data);
+  const file = cachePath();
+  writeJsonAtomic(file, data);
+  try {
+    memoryCache = { file, mtimeMs: fs.statSync(file).mtimeMs, data };
+  } catch {
+    memoryCache = null;
+  }
   return data;
 }
 

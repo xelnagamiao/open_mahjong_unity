@@ -783,6 +783,36 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         )
                         await player.websocket.send_json(response.model_dump(exclude_none=True))
                         logging.info(f"玩家 {user_id} 放弃重连，对局占位保留至结束")
+
+            elif message["type"] == "resync_gamestate":
+                player = game_server.players.get(Connect_id)
+                if player and player.user_id:
+                    user_id = player.user_id
+                    req_gid = message.get("gamestate_id")
+                    restored = await game_server.gamestate_manager.player_reconnect(user_id, connection=player)
+                    if not restored and req_gid:
+                        await player.websocket.send_json({
+                            "type": "gamestate/closed",
+                            "success": False,
+                            "gamestate_id": str(req_gid),
+                            "reason": "unavailable",
+                            "message": "当前对局已结束",
+                        })
+                    elif restored:
+                        logging.info(f"玩家 {user_id} 完成无感快照对齐")
+
+            elif message["type"] == "cancel_timeout_auto_moqie":
+                player = game_server.players.get(Connect_id)
+                if player and player.user_id:
+                    user_id = player.user_id
+                    game_state = game_server.gamestate_manager.get_game_state_by_user_id(user_id)
+                    if game_state is not None:
+                        from .gamestate.public.timeout_hosting import (
+                            clear_timeout_hosting,
+                            notify_timeout_hosting_state,
+                        )
+                        clear_timeout_hosting(game_state, user_id)
+                        await notify_timeout_hosting_state(game_state, user_id, False)
     
     except Exception as e:
         # WebSocket 连接断开或其他异常

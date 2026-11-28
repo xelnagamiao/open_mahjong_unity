@@ -66,7 +66,6 @@ internal static class GuangdongBaseHints {
         private readonly int budget, mask;
         private readonly Dictionary<int, int> resources = new Dictionary<int, int>();
         private readonly Dictionary<int, List<Pattern>> patterns = new Dictionary<int, List<Pattern>>();
-        private struct Step { internal int pair, pung, sequence, cost; }
         internal sealed class Pattern {
             internal int[] logical;
             internal ulong triplets;
@@ -74,30 +73,29 @@ internal static class GuangdongBaseHints {
             internal bool sequence;
         }
         internal GroupEngine(int[] natural, int start, int length, int ghostCount) {
-            offset = start; counts = natural.Skip(start).Take(length).ToArray();
+            offset = start;
+            counts = new int[length];
+            Array.Copy(natural, start, counts, 0, length);
             sequences = length == 9; budget = ghostCount; mask = (1 << (budget + 1)) - 1;
         }
-        private IEnumerable<Step> Steps(int rank, int prev1, int prev2, int pairLeft) {
+        private int Resources(int rank, int prev1, int prev2, int pairLeft) {
+            if (rank == counts.Length) return prev1 == 0 && prev2 == 0 && pairLeft == 0 ? 1 : 0;
+            int key = (rank << 9) | (prev1 << 5) | (prev2 << 1) | pairLeft;
+            if (resources.TryGetValue(key, out int value)) return value;
             int minimum = counts[rank], pending = prev1 + prev2, maximum = Math.Min(minimum + budget, 4);
+            bool canSeq = sequences && rank < counts.Length - 2;
             for (int pair = 0; pair <= pairLeft; pair++) {
                 int room = maximum - pending - 2 * pair;
                 for (int pung = 0; pung <= room / 3 && room >= 0; pung++) {
                     int basis = pending + 2 * pair + 3 * pung;
-                    int maxSequence = sequences && rank < counts.Length - 2 ? maximum - basis : 0;
+                    int maxSequence = canSeq ? maximum - basis : 0;
                     for (int sequence = 0; sequence <= maxSequence; sequence++) {
                         int cost = basis + sequence - minimum;
                         if (cost >= 0 && cost <= budget)
-                            yield return new Step { pair = pair, pung = pung, sequence = sequence, cost = cost };
+                            value |= Resources(rank + 1, sequence, prev1, pairLeft - pair) << cost;
                     }
                 }
             }
-        }
-        private int Resources(int rank, int prev1, int prev2, int pairLeft) {
-            if (rank == counts.Length) return prev1 == 0 && prev2 == 0 && pairLeft == 0 ? 1 : 0;
-            int key = (((rank * 5 + prev1) * 5 + prev2) * 2) + pairLeft;
-            if (resources.TryGetValue(key, out int value)) return value;
-            foreach (var step in Steps(rank, prev1, prev2, pairLeft))
-                value |= Resources(rank + 1, step.sequence, prev1, pairLeft - step.pair) << step.cost;
             return resources[key] = value & mask;
         }
         internal int Profile(int pair) => Resources(0, 0, 0, pair);
@@ -114,13 +112,24 @@ internal static class GuangdongBaseHints {
                             pair = pairIndex, sequence = anySequence });
                     return;
                 }
-                foreach (var step in Steps(rank, prev1, prev2, pairLeft)) {
-                    int next = remaining - step.cost;
-                    if (next < 0 || (Resources(rank + 1, step.sequence, prev1, pairLeft - step.pair) & (1 << next)) == 0) continue;
-                    logical[rank] = counts[rank] + step.cost;
-                    Walk(rank + 1, step.sequence, prev1, pairLeft - step.pair, next,
-                        triplets | (step.pung > 0 ? 1UL << (offset + rank) : 0),
-                        step.pair > 0 ? offset + rank : pairIndex, anySequence || step.sequence > 0);
+                int minimum = counts[rank], pending = prev1 + prev2, maximum = Math.Min(minimum + budget, 4);
+                bool canSeq = sequences && rank < counts.Length - 2;
+                for (int p = 0; p <= pairLeft; p++) {
+                    int room = maximum - pending - 2 * p;
+                    for (int pung = 0; pung <= room / 3 && room >= 0; pung++) {
+                        int basis = pending + 2 * p + 3 * pung;
+                        int maxSequence = canSeq ? maximum - basis : 0;
+                        for (int sequence = 0; sequence <= maxSequence; sequence++) {
+                            int stepCost = basis + sequence - minimum;
+                            if (stepCost < 0 || stepCost > budget) continue;
+                            int next = remaining - stepCost;
+                            if (next < 0 || (Resources(rank + 1, sequence, prev1, pairLeft - p) & (1 << next)) == 0) continue;
+                            logical[rank] = minimum + stepCost;
+                            Walk(rank + 1, sequence, prev1, pairLeft - p, next,
+                                triplets | (pung > 0 ? 1UL << (offset + rank) : 0),
+                                p > 0 ? offset + rank : pairIndex, anySequence || sequence > 0);
+                        }
+                    }
                 }
             }
             if ((Profile(pair) & (1 << cost)) != 0) Walk(0, 0, 0, pair, cost, 0, -1, false);
@@ -132,17 +141,27 @@ internal static class GuangdongBaseHints {
         new GroupEngine(hand.counts, 18, 9, hand.ghosts), new GroupEngine(hand.counts, 27, 7, hand.ghosts)
     };
     private static bool Standard(Hand hand, GroupEngine[] groups) {
-        var states = new bool[hand.ghosts + 1, 2]; states[0, 0] = true;
-        foreach (var group in groups) {
-            var next = new bool[hand.ghosts + 1, 2];
-            for (int used = 0; used <= hand.ghosts; used++) for (int eye = 0; eye <= 1; eye++) {
-                if (!states[used, eye]) continue;
-                for (int pair = 0; pair <= 1 - eye; pair++) for (int cost = 0; cost <= hand.ghosts - used; cost++)
-                    if ((group.Profile(pair) & (1 << cost)) != 0) next[used + cost, eye + pair] = true;
+        int s0 = 1, s1 = 0;
+        int mask = (1 << (hand.ghosts + 1)) - 1;
+        for (int g = 0; g < groups.Length; g++) {
+            var group = groups[g];
+            int p0 = group.Profile(0);
+            int p1 = group.Profile(1);
+            int n0 = 0, n1 = 0;
+            for (int used = 0; used <= hand.ghosts; used++) {
+                if ((s0 & (1 << used)) != 0) {
+                    n0 |= p0 << used;
+                    n1 |= p1 << used;
+                }
+                if ((s1 & (1 << used)) != 0) {
+                    n1 |= p0 << used;
+                }
             }
-            states = next;
+            s0 = n0 & mask;
+            s1 = n1 & mask;
+            if (s0 == 0 && s1 == 0) return false;
         }
-        return states[hand.ghosts, 1];
+        return (s1 & (1 << hand.ghosts)) != 0;
     }
     private static int[] PairResources(Hand hand) {
         int mask = (1 << (hand.ghosts + 1)) - 1;

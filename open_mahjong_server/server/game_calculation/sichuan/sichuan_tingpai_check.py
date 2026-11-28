@@ -5,6 +5,7 @@
 """
 from typing import List, Set
 from ..physical_waits import exclude_fifth_copy_waits
+from ..standard_solver import standard_waiting_tiles
 
 
 class SichuanTingTiles:
@@ -24,33 +25,11 @@ class Sichuan_Tingpai_Check:
     # ------------------------------------------------------------------ 一般型
 
     def _normal_waits(self, player_tiles: SichuanTingTiles) -> Set[int]:
-        result: Set[int] = set()
-        if not self._block(player_tiles):
-            return result
-        all_list = self._traverse_quetou(player_tiles)
-        end_list = []
-        while all_list:
-            temp_list = all_list.pop()
-            self._traverse_kezi(temp_list, all_list)
-            self._traverse_dazi(temp_list, all_list)
-            if temp_list.complete_step >= 11:
-                end_list.append(temp_list)
-
-        for i in end_list:
-            if len(i.hand_tiles) == 1:
-                result.add(i.hand_tiles[0])
-            elif len(i.hand_tiles) == 2:
-                a, b = i.hand_tiles[0], i.hand_tiles[1]
-                if a == b:
-                    result.add(a)
-                elif a == b - 1:
-                    if a - 1 > a // 10 * 10:
-                        result.add(a - 1)
-                    if a + 2 < (a // 10 * 10) + 10:
-                        result.add(a + 2)
-                elif a == b - 2:
-                    result.add(a + 1)
-        return result
+        return standard_waiting_tiles(
+            player_tiles.hand_tiles,
+            allow_honors=False,
+            allow_fifth_copy=False,
+        )
 
     def _block(self, player_tiles: SichuanTingTiles) -> bool:
         if not player_tiles.hand_tiles:

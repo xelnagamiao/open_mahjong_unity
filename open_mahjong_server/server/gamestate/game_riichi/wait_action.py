@@ -584,7 +584,17 @@ async def _execute_cut(
         player.temp_furiten = False
     player.temp_furiten_drawn = False
     tags_changed = self.sync_furiten_tags()
-    self.action_dict = check_action_after_cut(self, tile_id)
+    is_post_kan_discard = getattr(self, "_post_kan_discard_player", None) == player_index
+    self.action_dict = check_action_after_cut(
+        self,
+        tile_id,
+        is_riichi_declaration=is_riichi,
+        is_post_kan_discard=is_post_kan_discard,
+    )
+    if is_post_kan_discard:
+        self._post_kan_discard_player = None
+    # 岭上包付只对大明杠后的第一张补牌自摸有效，摸后切牌即消费事件。
+    self._rinshan_daiminkan_liable = None
     if getattr(self, "_pending_four_kan_abort", False):
         self.action_dict = {i: [a for a in acts if a.startswith("hu") or a == "pass"]
                             for i, acts in self.action_dict.items()}

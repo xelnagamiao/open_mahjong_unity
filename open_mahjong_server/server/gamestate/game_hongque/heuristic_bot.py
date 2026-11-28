@@ -58,6 +58,7 @@ class V2Value:
     ukeire: int
     points: int
     style: int
+    avg_points: float = 0.0
 
 
 def _bit_for_code(code: str) -> int:
@@ -84,7 +85,7 @@ _STYLE_CAP = 64
 # active v2 uses tiebreak-only doing-direction + score-aware tenpai.
 
 
-def _style_utility(codes: Sequence[str]) -> int:
+def _style_utility(codes: Sequence[str], available_mask: Optional[int] = None) -> int:
     """Cheap doing-direction score for a hand (concealed + open meld tiles).
 
     Rewards:
@@ -92,6 +93,7 @@ def _style_utility(codes: Sequence[str]) -> int:
     - distinct numbers few (清一数/二数/三数/四数 potential)
     - terminal 1/9 count (全带幺 potential: every group must hold a 1 or 9)
     - one dominant number family (long triplet → 金龙/二金 potential)
+    - when available_mask is supplied, favours directions with healthy live pool
     """
     if not codes:
         return 0
@@ -109,7 +111,25 @@ def _style_utility(codes: Sequence[str]) -> int:
     from collections import Counter
 
     num_counts = Counter(t.number for t in tiles)
-    style += max(num_counts.values(), default=0) - 3
+    dom_num, dom_num_cnt = num_counts.most_common(1)[0]
+    style += dom_num_cnt - 3
+    if available_mask is not None and len(covered) <= 3:
+        # Check live tiles matching our dominant number or primary colours
+        live_codes = codes_from_mask(available_mask)
+        live_colour = sum(
+            1 for c in live_codes
+            if set(HongqueTile.parse(c).primary_colours) <= covered
+        )
+        if live_colour >= 12:
+            style += 4
+        elif live_colour <= 4:
+            style -= 4
+        if dom_num_cnt >= 3:
+            live_num = sum(1 for c in live_codes if HongqueTile.parse(c).number == dom_num)
+            if live_num >= 3:
+                style += 3
+            elif live_num == 0:
+                style -= 3
     return max(0, min(_STYLE_CAP, style))
 
 
@@ -171,7 +191,7 @@ def evaluate_hand(
     style = _style_utility(list(hand) + _meld_tiles(open_melds))
     if live_waits_mask:
         wait_codes = codes_from_mask(live_waits_mask)
-        best_points = max(
+        pts_list = [
             _hypothetical_points(
                 hand, open_melds, w,
                 self_draw=self_draw,
@@ -179,31 +199,34 @@ def evaluate_hand(
                 wall_empty=wall_empty,
             )
             for w in wait_codes
-        )
-        return V2Value(0, len(wait_codes), best_points, style)
+        ]
+        best_points = max(pts_list)
+        avg_points = sum(pts_list) / len(pts_list)
+        return V2Value(0, len(wait_codes), best_points, style, avg_points)
     return V2Value(max(1, distance), flexibility, 0, style)
 
 
 # ── Discard ──────────────────────────────────────────────────────────────────
 
 def _is_better_ready(a: V2Value, b: V2Value) -> bool:
-    """Rank tenpai discards: thickness first, then points within a slack.
+    """Rank tenpai discards: thickness first, with expected-value trade-offs.
 
-    Multi-wait tenpai is common (~40% of tenpai discards) and the point spread
-    among waits is material (10% of cases have >=6 point gaps, ~2.7x).  Within
-    a small live-wait slack, prefer the higher-scoring wait — the free value
-    that does not cost win rate.
+    Compares average live-wait points (falling back to ``points`` when not
+    populated) so a single high-point wait among weak waits does not skew
+    ranking.  Trades live waits only when total expected value
+    (``ukeire * avg_points``) clearly improves (by >= 15% for a 1-wait gap,
+    or >= 35% for larger gaps) alongside a meaningful point jump (>= 30).
     """
+    ea = a.avg_points if a.avg_points > 0 else float(a.points)
+    eb = b.avg_points if b.avg_points > 0 else float(b.points)
     if a.ukeire != b.ukeire:
-        # Fewer live waits is a real cost; only trade it for a big point gain.
+        gap = abs(a.ukeire - b.ukeire)
+        factor = 1.15 if gap == 1 else 1.35
         if a.ukeire < b.ukeire:
-            if a.points >= b.points + 30:
-                return True
-            return False
-        # More live waits: only lose on points when the gain is huge.
-        if b.points >= a.points + 30:
-            return False
-        return True
+            return ea >= eb + 30.0 and (a.ukeire * ea >= b.ukeire * eb * factor)
+        return not (eb >= ea + 30.0 and (b.ukeire * eb >= a.ukeire * ea * factor))
+    if ea != eb:
+        return ea > eb
     if a.points != b.points:
         return a.points > b.points
     return a.style > b.style
@@ -247,7 +270,7 @@ def _threat_level(opponents: Sequence[OpponentView], wall_count: int) -> float:
     return min(1.0, late * (avg_discards / 8.0))
 
 
-def _tile_danger(tile: str, opponents: Sequence[OpponentView]) -> float:
+def _tile_danger(tile: str, opponents: Sequence[OpponentView], enable_v2: bool = True) -> float:
     """Summed danger of discarding ``tile`` across opponents (0 = safe)."""
     t = HongqueTile.parse(tile)
     fams = set(t.primary_colours)
@@ -257,8 +280,11 @@ def _tile_danger(tile: str, opponents: Sequence[OpponentView]) -> float:
             continue  # genbutsu: this opponent cannot need it again
         meld_hits = 0
         adjacent_hits = 0
+        same_num_hits = 0
         for code in opp.meld_tiles:
             mt = HongqueTile.parse(code)
+            if mt.number == t.number:
+                same_num_hits += 1
             if not (set(mt.primary_colours) & fams):
                 continue
             meld_hits += 1
@@ -270,8 +296,47 @@ def _tile_danger(tile: str, opponents: Sequence[OpponentView]) -> float:
             if set(mt.primary_colours) & fams:
                 shed_hits += 1
         danger = meld_hits + 2.0 * adjacent_hits - 0.5 * shed_hits
+        if enable_v2:
+            danger += 1.2 * same_num_hits
+            # Closed-hand opponents still pose a late-round threat; middle
+            # numbers connect to far more sequences than terminals.
+            if not opp.meld_tiles and len(opp.discards) >= 4:
+                base_num = 0.85 if 3 <= t.number <= 7 else (0.5 if t.number in (2, 8) else 0.25)
+                danger += max(0.0, base_num - 0.2 * shed_hits)
         total += max(0.0, danger)
     return total
+
+
+def _one_draw_tenpai_outs(
+    remaining_mask: int,
+    available_mask: int,
+    has_open_group: bool,
+    visible_mask: int,
+) -> int:
+    """Count live draws (up to 18 most-relevant candidates) that make hand tenpai."""
+    # Only tiles sharing a legal group with >=2 tiles in hand (or 1 for 3-tile groups)
+    # can plausibly complete a one-draw tenpai; collect candidate bits quickly.
+    cand_mask = 0
+    for gmask in GROUP_MASKS:
+        if (gmask & remaining_mask).bit_count() >= 2:
+            cand_mask |= gmask & available_mask
+    if not cand_mask:
+        return 0
+    outs = 0
+    checked = 0
+    bits = cand_mask
+    while bits and checked < 12:
+        bit = bits & -bits
+        bits ^= bit
+        checked += 1
+        w = waiting_mask(
+            remaining_mask | bit,
+            used_mask=visible_mask | bit,
+            has_open_group=has_open_group,
+        )
+        if w & (available_mask ^ bit):
+            outs += 1
+    return outs
 
 
 def choose_discard(
@@ -285,6 +350,8 @@ def choose_discard(
     wall_empty: bool = False,
     opponents: Sequence[OpponentView] = (),
     wall_count: int = _WALL_START,
+    enable_v2: bool = True,
+    use_lookahead: bool = True,
 ) -> tuple[Optional[str], V2Value]:
     if not hand:
         return None, V2Value(99, 0, 0, 0)
@@ -324,17 +391,20 @@ def choose_discard(
         waits = waits_by_discard[_bit_for_code(tile)] & available
         if waits:
             wait_codes = codes_from_mask(waits)
-            best_points = max(
+            rem = [c for c in hand if c != tile]
+            pts_list = [
                 _hypothetical_points(
-                    [c for c in hand if c != tile], open_melds, w,
+                    rem, open_melds, w,
                     self_draw=self_draw,
                     before_first_discard=before_first_discard,
                     wall_empty=wall_empty,
                 )
                 for w in wait_codes
-            )
-            style = _style_utility([c for c in hand if c != tile] + meld_tiles)
-            ready.append((tile, V2Value(0, len(wait_codes), best_points, style)))
+            ]
+            best_points = max(pts_list)
+            avg_points = sum(pts_list) / len(pts_list)
+            style = _style_utility(rem + meld_tiles)
+            ready.append((tile, V2Value(0, len(wait_codes), best_points, style, avg_points)))
         else:
             non_ready.append(tile)
 
@@ -343,25 +413,57 @@ def choose_discard(
         for tile, value in ready[1:]:
             if _is_better_ready(value, best_value):
                 best_tile, best_value = tile, value
-        ties = [t for t, v in ready if (v.points, v.ukeire) == (best_value.points, best_value.ukeire)]
+        ties = [
+            t for t, v in ready
+            if (v.avg_points, v.points, v.ukeire) == (best_value.avg_points, best_value.points, best_value.ukeire)
+        ]
         if drawn_tile in ties:
             best_tile = drawn_tile
         return best_tile, best_value
 
     threat = _threat_level(opponents, wall_count)
     if threat < _DEFENSE_THREAT:
-        # Pure offense: identical ranking to the v2 heuristic.
-        shortlist = sorted(non_ready, key=lambda tile: (connectivity[tile], tile))[:6]
-        if drawn_tile in hand and drawn_tile not in shortlist:
-            shortlist.append(drawn_tile)
+        # Pure offense: evaluate all tiles for short hands; for larger hands
+        # combine lowest-connectivity candidates with top style-pivot cuts so
+        # redundant high-connectivity tiles are not prematurely pruned.
+        if len(non_ready) <= 10:
+            shortlist = list(non_ready)
+        else:
+            shortlist = sorted(non_ready, key=lambda tile: (connectivity[tile], tile))[:6]
+            style_pivots = sorted(
+                non_ready,
+                key=lambda tile: (-_style_utility([c for c in hand if c != tile] + meld_tiles), connectivity[tile], tile),
+            )[:3]
+            for tile in style_pivots:
+                if tile not in shortlist:
+                    shortlist.append(tile)
+            if drawn_tile in hand and drawn_tile not in shortlist:
+                shortlist.append(drawn_tile)
         best_tile: Optional[str] = None
         best_value: Optional[V2Value] = None
+        scored_shortlist: list[tuple[str, int, V2Value]] = []
+        pool_arg = available if enable_v2 else None
         for tile in shortlist:
             remaining_mask = hand_mask ^ _bit_for_code(tile)
             distance, flexibility = _structural_value(remaining_mask)
             remaining_codes = [c for c in hand if c != tile]
-            style = _style_utility(remaining_codes + meld_tiles)
+            style = _style_utility(remaining_codes + meld_tiles, pool_arg)
             value = V2Value(max(1, distance), flexibility, 0, style)
+            scored_shortlist.append((tile, remaining_mask, value))
+        if enable_v2 and use_lookahead and scored_shortlist and min(v.distance for _, _, v in scored_shortlist) == 1:
+            one_dist = [item for item in scored_shortlist if item[2].distance == 1]
+            one_dist.sort(key=lambda item: (-item[2].ukeire, -item[2].style, item[0]))
+            top_one = one_dist[:3]
+            best_look_key: Optional[tuple] = None
+            for tile, rem_mask, value in top_one:
+                outs1 = _one_draw_tenpai_outs(rem_mask, available, has_open_group, visible_mask)
+                key = (outs1, value.ukeire, value.style, tile == drawn_tile, tile)
+                if best_look_key is None or key > best_look_key:
+                    best_look_key = key
+                    best_tile, best_value = tile, value
+            if best_tile is not None and best_value is not None:
+                return best_tile, best_value
+        for tile, _, value in scored_shortlist:
             if best_value is None:
                 best_tile, best_value = tile, value
                 continue
@@ -387,18 +489,19 @@ def choose_discard(
     }
     min_distance = min(distances.values())
     if min_distance < 2:
-        # Close hand: safety is a tie-break after distance and flexibility.
-        shortlist = sorted(non_ready, key=lambda tile: (connectivity[tile], tile))[:6]
-        if drawn_tile in hand and drawn_tile not in shortlist:
-            shortlist.append(drawn_tile)
+        # Close hand: keep minimum distance (never fold a step) while picking
+        # the safest discard among minimum-distance options.
+        shortlist = [tile for tile in non_ready if distances[tile] == min_distance]
+        if not shortlist:
+            shortlist = sorted(non_ready, key=lambda tile: (connectivity[tile], tile))[:6]
         best_tile: Optional[str] = None
         best_key: Optional[tuple] = None
         for tile in shortlist:
             remaining_mask = hand_mask ^ _bit_for_code(tile)
             distance, flexibility = _structural_value(remaining_mask)
             style = _style_utility([c for c in hand if c != tile] + meld_tiles)
-            danger = _tile_danger(tile, opponents)
-            key = (-distance, flexibility, -danger, style, tile)
+            danger = _tile_danger(tile, opponents, enable_v2=enable_v2)
+            key = (-distance, -danger, flexibility, style, tile) if enable_v2 else (-distance, flexibility, -danger, style, tile)
             if best_key is None or key > best_key:
                 best_tile, best_key = tile, key
         if best_tile is None:
@@ -417,7 +520,7 @@ def choose_discard(
             continue
         remaining_mask = hand_mask ^ _bit_for_code(tile)
         _, flexibility = _structural_value(remaining_mask)
-        danger = _tile_danger(tile, opponents)
+        danger = _tile_danger(tile, opponents, enable_v2=enable_v2)
         style = _style_utility([c for c in hand if c != tile] + meld_tiles)
         key = (distance - min_distance, danger, -flexibility, -style, tile)
         if best_key is None or key < best_key:
@@ -457,6 +560,7 @@ def choose_turn_plan(
     drawn_tile: Optional[str],
     last_draw_was_supplement: bool = False,
     opponents: Sequence[OpponentView] = (),
+    enable_v2: bool = True,
 ) -> dict:
     """Choose win, supplement, kong extension, or a defensive discard."""
     # These scores describe waits after discarding, so they can never be 天和.
@@ -471,11 +575,17 @@ def choose_turn_plan(
     best_tile, baseline = choose_discard(
         hand, open_melds, visible_codes, drawn_tile,
         self_draw=True, before_first_discard=before_first_discard, wall_empty=wall_empty,
-        opponents=opponents, wall_count=wall_count,
+        opponents=opponents, wall_count=wall_count, enable_v2=enable_v2,
     )
 
+    # Preserve the second supplement charge for 1-distance or late game rather
+    # than burning both charges on early far-hand draws.
+    save_last_supplement = (
+        enable_v2 and supplements == 1 and wall_count > 30 and baseline.distance >= 2
+    )
     if (
         supplements < 2
+        and not save_last_supplement
         and wall_count > 0
         and drawn_tile is not None
         and best_tile == drawn_tile
@@ -497,7 +607,8 @@ def choose_turn_plan(
             _, value = choose_discard(
                 after, melds_after, visible_codes, None,
                 self_draw=True, before_first_discard=before_first_discard, wall_empty=wall_empty,
-                opponents=opponents, wall_count=wall_count,
+                opponents=opponents, wall_count=wall_count, enable_v2=enable_v2,
+                use_lookahead=False,
             )
             rank = (0, -value.distance, value.ukeire, value.points, value.style,
                     len(candidate.get("hand_tiles", ())))
@@ -532,13 +643,24 @@ def choose_claim_plan(
     open_melds: Sequence[dict],
     candidates: Sequence[dict],
     visible_codes: Sequence[str],
+    *,
+    wall_count: int = _WALL_START,
+    opponents: Sequence[OpponentView] = (),
+    enable_v2: bool = True,
 ) -> dict:
     """Choose an authoritative candidate id or pass after another discard."""
     for candidate in candidates:
         if candidate.get("kind") == "win":
             return {"action": "claim", "candidate_id": candidate.get("id")}
 
-    before = evaluate_hand(hand, open_melds, visible_codes)
+    wall_empty = wall_count == 0
+    before = evaluate_hand(hand, open_melds, visible_codes, wall_empty=wall_empty)
+    defensive_claim_gate = (
+        enable_v2
+        and bool(opponents)
+        and before.distance >= 2
+        and _threat_level(opponents, wall_count) >= _DEFENSE_THREAT
+    )
     best_candidate: Optional[dict] = None
     best_rank: Optional[tuple] = None
 
@@ -551,11 +673,15 @@ def choose_claim_plan(
         melds_after = list(open_melds) + [_meld_from_candidate(candidate)]
         priority = int(candidate.get("priority", 0) or 0)
         if is_winning_hand(after, melds_after):
-            value = V2Value(0, 126, 1_000_000, 1_000_000)
+            value = V2Value(0, 126, 1_000_000, 1_000_000, 1_000_000.0)
         elif after:
             _, value = choose_discard(after, melds_after, visible_codes, None,
-                                      opponents=(), wall_count=_WALL_START)
+                                      wall_empty=wall_empty, opponents=opponents,
+                                      wall_count=wall_count, enable_v2=enable_v2,
+                                      use_lookahead=False)
         else:
+            continue
+        if defensive_claim_gate and value.distance > 0:
             continue
         if not _claim_advances(before, value, priority):
             continue

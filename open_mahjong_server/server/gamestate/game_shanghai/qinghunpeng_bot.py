@@ -36,11 +36,32 @@ def shanten(hand, melds=()):
     return _shanten(tuple(sorted(hand)), tuple(sorted(melds)))
 
 
+def _candidate_tiles(counts, melds):
+    exposed_suits = {t // 10 for m in melds for t in meld_tiles(m) if t < 40}
+    cands = set()
+    for t, c in counts.items():
+        if c <= 0:
+            continue
+        if c < 4:
+            cands.add(t)
+        if t < 40:
+            suit, num = t // 10, t % 10
+            if len(exposed_suits) >= 1 and suit not in exposed_suits:
+                continue
+            for d in (-2, -1, 1, 2):
+                n2 = num + d
+                if 1 <= n2 <= 9:
+                    nid = suit * 10 + n2
+                    if counts[nid] < 4:
+                        cands.add(nid)
+    return cands
+
+
 def evaluate(hand, melds, visible):
     distance = shanten(hand, melds)
     counts = Counter(hand)
     acceptance = 0
-    for tile in TILES:
+    for tile in _candidate_tiles(counts, melds):
         remaining = 4 - counts[tile] - visible[tile_to_34(tile)]
         if remaining > 0 and shanten([*hand, tile], melds) < distance:
             acceptance += remaining

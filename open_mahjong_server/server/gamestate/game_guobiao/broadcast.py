@@ -15,7 +15,7 @@ from ...game_calculation import guobiao_huahun as huahun
 from .four_jokers_bot import bot_action as four_jokers_bot_action
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
-from ..public.ai.smart_bot_ai import smart_bot_action
+from .efficiency_bot import guobiao_efficiency_action as smart_bot_action
 from ..public.ai.guobiao_heuristic_ai import guobiao_heuristic_action
 from .combination_mask_view import (
     get_combination_fields_for_viewer,

@@ -3,12 +3,13 @@ from collections import Counter
 
 from ...game_calculation.changsha.exchange_six import waiting_tiles, VALID_TILES, TERMINALS, JIANG_TILES
 from ...game_calculation.changsha.changsha_hepai_check import _expand_meld
-from ..public.ai.smart_bot_logic import calc_shanten, tile_to_34
+from ..public.ai.guobiao_shanten import xiangting_yiban
+from ..public.ai.smart_bot_logic import tile_to_34
 
 
 def _distance(hand, melds):
-    value = calc_shanten(hand, len(melds))
     counts = Counter(hand)
+    value = xiangting_yiban(counts, len(melds))
     if not melds:
         value = min(value, 6-sum(n//2 for n in counts.values()))
         kept = len(set(hand) & TERMINALS)
@@ -21,6 +22,24 @@ def _distance(hand, melds):
     return value
 
 
+def _candidate_tiles(held):
+    cands = set()
+    for t, c in held.items():
+        if c <= 0:
+            continue
+        if c < 4:
+            cands.add(t)
+        suit, num = t // 10, t % 10
+        if suit in (1, 2, 3):
+            for d in (-2, -1, 1, 2):
+                n2 = num + d
+                if 1 <= n2 <= 9:
+                    nid = suit * 10 + n2
+                    if held[nid] < 4:
+                        cands.add(nid)
+    return cands
+
+
 def _score(hand, melds, visible, reported_ready):
     hand = list(hand)
     distance = _distance(hand, melds)
@@ -31,7 +50,7 @@ def _score(hand, melds, visible, reported_ready):
         held = Counter(hand)
         return (0, sum(max(0, 4-held[t]-visible[tile_to_34(t)]) for t in waits))
     held = Counter(hand)
-    outs = sum(max(0, 4-held[t]-visible[tile_to_34(t)]) for t in VALID_TILES
+    outs = sum(max(0, 4-held[t]-visible[tile_to_34(t)]) for t in _candidate_tiles(held)
                if held[t] < 4 and _distance(hand+[t], melds) < distance)
     # Ordinary structural tenpai may still lack the required 2/5/8 pair.
     return (min(-1, -distance), outs)

@@ -1,5 +1,7 @@
 from typing import Dict, List, Tuple
 
+from ..standard_solver import standard_combination_codes
+
 
 class PlayerTiles:
     def __init__(self, tiles_list, combination_list, complete_step):
@@ -72,29 +74,30 @@ class ClassicalCombinationSolver:
         if player_tiles.complete_step == 14:
             check_done_list.append(player_tiles)
             return
-        elif player_tiles.complete_step == 0:
-            if not self.normal_check_block(player_tiles):
-                return
+        if player_tiles.complete_step + len(player_tiles.hand_tiles) != 14:
+            return
 
-        all_list = self.normal_check_traverse_quetou(player_tiles)
-        end_list = []
+        comb_lists = standard_combination_codes(
+            player_tiles.hand_tiles,
+            player_tiles.combination_list,
+            kezi_prefix="K",
+            shunzi_prefix="S",
+            quetou_prefix="q",
+        )
+        if not comb_lists:
+            return
 
-        while all_list:
-            temp_list = all_list.pop()
-            self.normal_check_traverse_kezi(temp_list, all_list)
-            self.normal_check_traverse_dazi(temp_list, all_list)
-            if temp_list.complete_step == 14:
-                end_list.append(temp_list)
-
-        combination_class = None
-        temp_unique = []
-        for i in end_list:
-            i.combination_list.sort()
-            if i.combination_list != combination_class:
-                combination_class = i.combination_list
-                temp_unique.append(i)
-
-        check_done_list.extend(temp_unique)
+        seen = set()
+        base_fans = player_tiles.fan_list
+        for comb in comb_lists:
+            key = tuple(comb)
+            if key in seen:
+                continue
+            seen.add(key)
+            done = PlayerTiles([], comb, 14)
+            if base_fans:
+                done.fan_list = base_fans[:]
+            check_done_list.append(done)
 
     def normal_check_block(self, player_tiles: PlayerTiles):
         if not player_tiles.hand_tiles:

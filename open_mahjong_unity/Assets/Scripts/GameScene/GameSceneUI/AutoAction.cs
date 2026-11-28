@@ -279,6 +279,24 @@ public partial class AutoAction : MonoBehaviour{
             AutoActionPolicy.Current.Cancel("关闭自动出牌");
             AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
             DismissTimeoutReturnDialog();
+            NetworkManager.Instance?.SendCancelTimeoutAutoMoqie(GameSession.Current.GamestateId);
+        }
+    }
+
+    /// <summary>服务端权威状态投影：true 显示唯一回归弹窗并点亮自动切牌；false 收起弹窗。</summary>
+    public void SyncTimeoutAutoMoqieFromServer(bool active) {
+        if (active) {
+            if (!isAutoCutLocked) {
+                isAutoCut = true;
+                UpdateTextColor(autoCutCardText, true);
+            }
+            ShowTimeoutReturnDialog();
+            return;
+        }
+        DismissTimeoutReturnDialog();
+        if (!isAutoCutLocked && isAutoCut) {
+            isAutoCut = false;
+            UpdateTextColor(autoCutCardText, false);
         }
     }
 
@@ -293,7 +311,7 @@ public partial class AutoAction : MonoBehaviour{
         }
     }
 
-    /// <summary>玩家点「我已回归」：关掉超时摸切并恢复手动出牌。</summary>
+    /// <summary>玩家点「我已回归」：通知服务端解除超时托管并恢复手动出牌。</summary>
     public void RestoreManualPlayFromTimeout() {
         timeoutReturnDialog = null;
         if (isAutoCutLocked) return;
@@ -301,6 +319,7 @@ public partial class AutoAction : MonoBehaviour{
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
         isAutoCut = false;
         UpdateTextColor(autoCutCardText, false);
+        NetworkManager.Instance?.SendCancelTimeoutAutoMoqie(GameSession.Current.GamestateId);
     }
 
     private void ShowTimeoutReturnDialog() {

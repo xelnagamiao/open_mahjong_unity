@@ -68,30 +68,85 @@ def valid_hand(hand, melds=(), *, indicator=11, mode="up", complete=True):
         return False
 
 
+_ALL_GROUPS = tuple((t,) * 3 for t in TILES) + SEQUENCES
+
+
 @lru_cache(maxsize=50000)
-def _groups(counts, wild, remaining):
+def _groups(counts, wild, remaining, min_choice=0):
     if wild < 0 or remaining < 0 or sum(counts) + wild != 3 * remaining:
         return ()
     if remaining == 0:
         return ((),)
     first = next((i for i, n in enumerate(counts) if n), None)
+    result = set()
     if first is None:
-        choices = tuple((t,) * 3 for t in TILES) + SEQUENCES
+        for idx in range(min_choice, len(_ALL_GROUPS)):
+            group = _ALL_GROUPS[idx]
+            for tail in _groups(counts, wild - 3, remaining - 1, idx):
+                result.add(tuple(sorted((group,) + tail)))
     else:
         tile = TILES[first]
         choices = ((tile,) * 3,) + SEQUENCES_BY_TILE[tile]
-    result = set()
-    for group in choices:
+        for group in choices:
+            rest, missing = list(counts), 0
+            for t in group:
+                i = INDEX[t]
+                if rest[i]:
+                    rest[i] -= 1
+                else:
+                    missing += 1
+            for tail in _groups(tuple(rest), wild - missing, remaining - 1, 0):
+                result.add(tuple(sorted((group,) + tail)))
+    return tuple(sorted(result))
+
+
+@lru_cache(maxsize=32768)
+def _can_groups(counts, wild, remaining):
+    if wild < 0 or remaining < 0 or sum(counts) + wild != 3 * remaining:
+        return False
+    if remaining == 0:
+        return True
+    first = next((i for i, n in enumerate(counts) if n), None)
+    if first is None:
+        return wild == 3 * remaining
+    tile = TILES[first]
+    for group in ((tile,) * 3,) + SEQUENCES_BY_TILE[tile]:
         rest, missing = list(counts), 0
-        for tile in group:
-            i = INDEX[tile]
+        for t in group:
+            i = INDEX[t]
             if rest[i]:
                 rest[i] -= 1
             else:
                 missing += 1
-        for tail in _groups(tuple(rest), wild - missing, remaining - 1):
-            result.add(tuple(sorted((group,) + tail)))
-    return tuple(sorted(result))
+        if missing <= wild and _can_groups(tuple(rest), wild - missing, remaining - 1):
+            return True
+    return False
+
+
+def _can_win(hand, melds, hun, ron_hun=False):
+    if (len(hand) + len(melds) * 3 != 14 or len(melds) > 4 or hun not in TILES
+            or any(type(t) is not int or t not in TILES for t in hand)):
+        return False
+    counts = Counter(hand)
+    wild = counts[hun] - int(ron_hun)
+    counts[hun] = int(ron_hun)
+    natural = tuple(counts[t] for t in TILES)
+    need_melds = 4 - len(melds)
+    for pair in TILES:
+        used = min(2, natural[INDEX[pair]])
+        need_wild = 2 - used
+        if need_wild > wild:
+            continue
+        rest = list(natural)
+        rest[INDEX[pair]] -= used
+        if _can_groups(tuple(rest), wild - need_wild, need_melds):
+            return True
+    if not melds and len(hand) == 14:
+        odd = sum(1 for t in TILES if counts[t] % 2)
+        spare = wild - odd
+        if spare >= 0 and spare % 2 == 0:
+            return True
+    return False
 
 
 @lru_cache(maxsize=30000)
@@ -130,10 +185,14 @@ def shapes(hand, melds=(), *, hun, ron_hun=False):
 
 
 @lru_cache(maxsize=20000)
-def logical_waits(hand, melds, hun, ron=False):
+def _logical_waits_cached(hand, melds, hun, ron=False):
     if len(hand) + 3 * len(melds) != 13:
         return ()
-    return tuple(tile for tile in TILES if shapes((*hand, tile), melds, hun=hun, ron_hun=ron and tile == hun))
+    return tuple(tile for tile in TILES if _can_win((*hand, tile), melds, hun=hun, ron_hun=ron and tile == hun))
+
+
+def logical_waits(hand, melds, hun, ron=False):
+    return _logical_waits_cached(tuple(sorted(hand)), tuple(melds), hun, ron)
 
 
 def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None, source="self_draw",
@@ -161,8 +220,10 @@ def score_hand(hand, melds=(), *, indicator=11, winning_tile=None, config=None, 
         return None
     before = list(hand)
     before.remove(winning_tile)
-    waits = logical_waits(tuple(sorted(before)), tuple(melds), hun)
-    strict_five = winning_tile == 15 and logical_waits(tuple(sorted(before)), tuple(melds), hun, ron=True) == (15,)
+    before_sorted = tuple(sorted(before))
+    melds_tuple = tuple(melds)
+    waits = _logical_waits_cached(before_sorted, melds_tuple, hun) if config["fan_all_waits"] else ()
+    strict_five = winning_tile == 15 and _logical_waits_cached(before_sorted, melds_tuple, hun, ron=True) == (15,)
     common = {}
     for name, enabled, value in (("门清", closed, 1), ("杠上开花", not ron and after_kong, 1),
             ("海底捞月", last_tile, 1), ("抢杠和", source == "rob_kong", 1),

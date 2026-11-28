@@ -7,6 +7,8 @@ using Classical;
 /// 放在 CalculationScript 程序集内，由本程序集引用 ClassicalAssembly。
 /// </summary>
 public static class ClassicalExternal {
+    private static readonly ClassicalHepaiCheck SharedHepai = new ClassicalHepaiCheck();
+
     /// <summary>
     /// 和牌检查。hand_list 应包含和牌张（14张）。
     /// 返回 (基础副, 总副, 副番名列表, 番名列表)。
@@ -17,7 +19,7 @@ public static class ClassicalExternal {
         List<string> wayToHepai,
         int getTile,
         bool debug = false) {
-        return new ClassicalHepaiCheck().HepaiCheck(
+        return SharedHepai.HepaiCheck(
             handList, tilesCombination, wayToHepai, getTile);
     }
 
@@ -30,7 +32,7 @@ public static class ClassicalExternal {
         List<string> wayToHepai,
         int getTile,
         bool debug = false) {
-        return new ClassicalHepaiCheck().FushuCheck(
+        return SharedHepai.FushuCheck(
             handList, tilesCombination, wayToHepai, getTile);
     }
 

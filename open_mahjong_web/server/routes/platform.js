@@ -19,6 +19,16 @@ const { getPublicGameRecord } = require('../services/publicGameRecord');
 const activityStore = require('../services/activityStore');
 const classicRecordsStore = require('../services/classicRecordsStore');
 const { getWeeklyScoreboard } = require('../services/weeklyScoreboard');
+const { createTtlCache } = require('../utils/ttlCache');
+
+const platformCache = createTtlCache({ maxEntries: 256 });
+const AS_OF_TTL_MS = 60_000;
+const STATS_TTL_MS = 120_000;
+const RECENT_RECORDS_TTL_MS = 15_000;
+
+function cachedAsOfStatDate() {
+  return platformCache.getOrCompute('as_of_date', AS_OF_TTL_MS, getAsOfStatDate);
+}
 
 function defaultDateRange(asOfDate, days = 30) {
   const to = asOfDate ? new Date(`${asOfDate}T12:00:00`) : new Date();
@@ -65,7 +75,7 @@ router.get('/stats', async (req, res) => {
     if (!['match', 'custom', 'all'].includes(roomType)) {
       return res.status(400).json({ success: false, message: '无效的场次类型' });
     }
-    const asOfDate = await getAsOfStatDate();
+    const asOfDate = await cachedAsOfStatDate();
     const days = Math.min(365, Math.max(7, parseInt(req.query.days, 10) || 30));
     let dateFrom = typeof req.query.date_from === 'string' ? req.query.date_from.slice(0, 10) : null;
     let dateTo = typeof req.query.date_to === 'string' ? req.query.date_to.slice(0, 10) : null;
@@ -77,30 +87,35 @@ router.get('/stats', async (req, res) => {
     if (asOfDate && dateTo > asOfDate) dateTo = asOfDate;
 
     const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
-    const [totals, fans, daily, events] = await Promise.all([
-      querySceneTotals({ asOfDate, rule, eventId: eventId || null, roomType }),
-      querySceneTotalsFans({ asOfDate, rule, eventId: eventId || null, roomType }),
-      querySceneDailyGames({ dateFrom, dateTo, asOfDate, rule, eventId: eventId || null, roomType }),
-      listPlatformEvents(),
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        totals,
-        fans,
-        daily,
-        events,
-        fan_dict: def.fan_stats ? INFO_FAN_DICT[def.sub_rule] || {} : null,
-        supports_fan_stats: def.fan_stats,
-      },
-      meta: {
-        as_of_date: asOfDate,
-        date_from: dateFrom,
-        date_to: dateTo,
-        note: '统计日按北京时间 04:00 切日；平台数据截止至最近已完成聚合的统计日',
-      },
+    const cacheKey = `stats:${asOfDate || ''}:${rule}:${roomType}:${dateFrom}:${dateTo}:${eventId}`;
+    const payload = await platformCache.getOrCompute(cacheKey, STATS_TTL_MS, async () => {
+      const [totals, fans, daily, events] = await Promise.all([
+        querySceneTotals({ asOfDate, rule, eventId: eventId || null, roomType }),
+        querySceneTotalsFans({ asOfDate, rule, eventId: eventId || null, roomType }),
+        querySceneDailyGames({ dateFrom, dateTo, asOfDate, rule, eventId: eventId || null, roomType }),
+        listPlatformEvents(),
+      ]);
+      return {
+        success: true,
+        data: {
+          totals,
+          fans,
+          daily,
+          events,
+          fan_dict: def.fan_stats ? INFO_FAN_DICT[def.sub_rule] || {} : null,
+          supports_fan_stats: def.fan_stats,
+        },
+        meta: {
+          as_of_date: asOfDate,
+          date_from: dateFrom,
+          date_to: dateTo,
+          note: '统计日按北京时间 04:00 切日；平台数据截止至最近已完成聚合的统计日',
+        },
+      };
     });
+
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    res.json(payload);
   } catch (error) {
     console.error('platform stats error:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
@@ -110,16 +125,20 @@ router.get('/stats', async (req, res) => {
 /** 首页：规则 → 匹配/自定义 → 局制 → 等级场 */
 router.get('/home-stats', async (req, res) => {
   try {
-    const asOfDate = await getAsOfStatDate();
-    const data = await queryHomeHierarchyStats();
-    res.json({
-      success: true,
-      data,
-      meta: {
-        as_of_date: asOfDate,
-        ...(data.meta || {}),
-      },
+    const asOfDate = await cachedAsOfStatDate();
+    const payload = await platformCache.getOrCompute(`home-stats:${asOfDate || ''}`, STATS_TTL_MS, async () => {
+      const data = await queryHomeHierarchyStats();
+      return {
+        success: true,
+        data,
+        meta: {
+          as_of_date: asOfDate,
+          ...(data.meta || {}),
+        },
+      };
     });
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    res.json(payload);
   } catch (error) {
     console.error('platform home-stats error:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
@@ -135,16 +154,20 @@ router.get('/recent-records', async (req, res) => {
     if (!['match', 'custom', 'all'].includes(roomType)) {
       return res.status(400).json({ success: false, message: '无效的场次类型' });
     }
+    const rule = req.query.rule || "guobiao";
     const limit = parseInt(req.query.limit, 10) || 20;
     const offset = parseInt(req.query.offset, 10) || 0;
-    const data = await queryRecentLadderRecords({
-      rule: req.query.rule || "guobiao",
-      matchTier,
-      eventId: eventId || null,
-      roomType,
-      limit,
-      offset,
-    });
+    const cacheKey = `recent:${rule}:${matchTier || ''}:${eventId}:${roomType}:${limit}:${offset}`;
+    const data = await platformCache.getOrCompute(cacheKey, RECENT_RECORDS_TTL_MS, () =>
+      queryRecentLadderRecords({
+        rule,
+        matchTier,
+        eventId: eventId || null,
+        roomType,
+        limit,
+        offset,
+      })
+    );
     res.json({ success: true, data });
   } catch (error) {
     console.error('platform recent-records error:', error);

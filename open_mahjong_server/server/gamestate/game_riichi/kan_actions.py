@@ -7,6 +7,9 @@ from ..public.game_record_manager import player_action_record_angang, player_act
 
 async def begin_kan(game, kind, tile):
     player = game.player_list[game.current_player_index]
+    # 岭上事件必须来自当前这次杠，不能跨杠沿用上一张补牌上下文。
+    game._rinshan_daiminkan_liable = None
+    game._post_kan_discard_player = None
     normal = _normalize(tile)
     actual = next(t for t in reversed(player.hand_tiles) if _normalize(t) == normal)
     while getattr(game, '_pending_kan_dora_count', 0) > 0:

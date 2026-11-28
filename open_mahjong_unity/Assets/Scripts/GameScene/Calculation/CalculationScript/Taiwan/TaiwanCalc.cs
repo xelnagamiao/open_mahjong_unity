@@ -419,22 +419,20 @@ namespace Taiwan {
                 return FilterPhysicallyAvailableWaits(cachedWaits, physicalCounts);
             }
 
-            var meldShapeCache = new Dictionary<string, bool>();
-            foreach (int tile in StructureTiles) {
-                int count = counts.TryGetValue(tile, out int existingCount)
-                    ? existingCount
-                    : 0;
+            StandardMahjongSolver.CollectStandardWaitingTiles(
+                handTiles is IReadOnlyList<int> ro ? ro : new List<int>(handTiles),
+                waits,
+                allowHonors: true,
+                allowFifthCopy: true);
 
-                counts[tile] = count + 1;
-                bool isEightPairsHalfWait = rules.EightAndAHalfPairsEnabled
-                    && concealedNeeded == Structure.MeldCount
-                    && IsEightPairsHalfCounts(counts);
-                bool isStandardWait = isEightPairsHalfWait || HasStandardShape(
-                        counts,
-                        concealedNeeded,
-                        meldShapeCache);
-                RemoveCount(counts, tile, 1);
-                if (isStandardWait) waits.Add(tile);
+            if (rules.EightAndAHalfPairsEnabled && concealedNeeded == Structure.MeldCount) {
+                foreach (int tile in StructureTiles) {
+                    if (waits.Contains(tile)) continue;
+                    int count = counts.TryGetValue(tile, out int existingCount) ? existingCount : 0;
+                    counts[tile] = count + 1;
+                    if (IsEightPairsHalfCounts(counts)) waits.Add(tile);
+                    RemoveCount(counts, tile, 1);
+                }
             }
             CacheWaits(cacheKey, waits);
             return FilterPhysicallyAvailableWaits(waits, physicalCounts);
@@ -1239,6 +1237,9 @@ namespace Taiwan {
         public bool Concealed { get; }
         public bool External { get; }
 
+        public string PartitionKey { get; }
+        public string StableKey { get; }
+
         public TaiwanMeld(
             TaiwanMeldKind kind,
             int tile,
@@ -1248,6 +1249,8 @@ namespace Taiwan {
             Tile = tile;
             Concealed = concealed;
             External = external;
+            PartitionKey = ((int)kind) + ":" + tile;
+            StableKey = PartitionKey + ":" + (concealed ? "c" : "o") + (external ? "e" : "i");
         }
 
         public bool Contains(int tile) {
@@ -1256,9 +1259,6 @@ namespace Taiwan {
             }
             return tile == Tile;
         }
-
-        public string PartitionKey => ((int)Kind) + ":" + Tile;
-        public string StableKey => PartitionKey + ":" + (Concealed ? "c" : "o") + (External ? "e" : "i");
     }
 
     internal sealed class TaiwanDecomposition {
@@ -1266,6 +1266,7 @@ namespace Taiwan {
         public List<TaiwanMeld> Melds { get; }
         public string WinningKind { get; }
         public int WinningIndex { get; }
+        public string StableKey { get; }
 
         public TaiwanDecomposition(
             int pair,
@@ -1276,11 +1277,10 @@ namespace Taiwan {
             Melds = new List<TaiwanMeld>(melds);
             WinningKind = winningKind;
             WinningIndex = winningIndex;
+            StableKey = pair
+                + "|" + string.Join(",", Melds.Select(meld => meld.StableKey))
+                + "|" + winningKind + ":" + winningIndex;
         }
-
-        public string StableKey => Pair
-            + "|" + string.Join(",", Melds.Select(meld => meld.StableKey))
-            + "|" + WinningKind + ":" + WinningIndex;
     }
 
     internal sealed class TaiwanFan {

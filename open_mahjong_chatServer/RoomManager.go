@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type ChatResponse struct {
@@ -37,10 +40,13 @@ type LoginResult struct {
 // room membership so login/join operations are idempotent.
 type RoomManager struct {
 	lookupAccount  func(string, int64) (accountAccess, error)
+	accessCache    *accountAccessCache
 	secretKey      string
 	mu             sync.RWMutex
 	uuidToUsername map[string]string
 	usernameToUUID map[string]string
+	userIDToUUID   map[int64]string
+	uuidToUserID   map[string]int64
 	usernameRooms  map[string]map[int]struct{}
 	roomUsers      map[int]map[string]struct{}
 }
@@ -100,14 +106,30 @@ func (rm *RoomManager) loginChatHall(uuid string, username string, userKey strin
 
 	replacedUUID := rm.usernameToUUID[username]
 	replacedConnectionID := ""
+	if rm.userIDToUUID == nil {
+		rm.userIDToUUID = make(map[int64]string)
+	}
+	if rm.uuidToUserID == nil {
+		rm.uuidToUserID = make(map[string]int64)
+	}
 	if replacedUUID != "" && replacedUUID != uuid {
 		replacedConnectionID = replacedUUID
 		delete(rm.uuidToUsername, replacedUUID)
+		if oldUID, ok := rm.uuidToUserID[replacedUUID]; ok {
+			delete(rm.uuidToUserID, replacedUUID)
+			if rm.userIDToUUID[oldUID] == replacedUUID {
+				delete(rm.userIDToUUID, oldUID)
+			}
+		}
 		rm.removeUsernameRoomsLocked(username)
 	}
 
 	rm.uuidToUsername[uuid] = username
 	rm.usernameToUUID[username] = uuid
+	if access.UserID > 0 {
+		rm.userIDToUUID[access.UserID] = uuid
+		rm.uuidToUserID[uuid] = access.UserID
+	}
 	rm.addMembershipLocked(username, 0)
 
 	log.Printf("chat login succeeded: username=%q connection_id=%s replaced_connection_id=%s", username, uuid, replacedUUID)
@@ -186,20 +208,53 @@ func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int
 		SenderUserID:   sender.UserID,
 		ProfileImageID: sender.ProfileImageID,
 	}
+	payload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("failed to marshal chat message for room %d: %v", targetRoom, err)
+		return false
+	}
+	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, payload)
+	if err != nil {
+		log.Printf("failed to prepare chat message for room %d: %v", targetRoom, err)
+		return false
+	}
 	delivered := false
 	for _, recipientID := range recipientIDs {
 		client, exists := pool.Get(recipientID)
 		if !exists {
 			continue
 		}
-		if err := client.WriteJSON(response); err != nil {
-			log.Printf("failed to send chat message to connection %s: %v", recipientID, err)
-			client.Close()
+		if !client.TrySendPrepared(pm) {
+			log.Printf("dropped slow or closed chat recipient %s in room %d", recipientID, targetRoom)
 			continue
 		}
 		delivered = true
 	}
 	return delivered
+}
+
+func (rm *RoomManager) disconnectByUserID(userID int64, pool *ConnectionPool, reason string) bool {
+	if userID <= 0 {
+		return false
+	}
+	if rm.accessCache != nil {
+		rm.accessCache.Invalidate(userID)
+	}
+	rm.mu.RLock()
+	uuid := rm.userIDToUUID[userID]
+	rm.mu.RUnlock()
+	if uuid == "" {
+		return false
+	}
+	client, exists := pool.Get(uuid)
+	if !exists {
+		return false
+	}
+	if reason == "" {
+		reason = "account_banned"
+	}
+	client.CloseWithReason(websocket.ClosePolicyViolation, reason)
+	return true
 }
 
 // chatRecipients takes a consistent, unique snapshot without holding the room
@@ -271,6 +326,12 @@ func (rm *RoomManager) removeUsernameRoomsLocked(username string) {
 
 func (rm *RoomManager) removeSessionLocked(uuid string, username string) {
 	delete(rm.uuidToUsername, uuid)
+	if uid, ok := rm.uuidToUserID[uuid]; ok {
+		delete(rm.uuidToUserID, uuid)
+		if rm.userIDToUUID[uid] == uuid {
+			delete(rm.userIDToUUID, uid)
+		}
+	}
 	if rm.usernameToUUID[username] == uuid {
 		delete(rm.usernameToUUID, username)
 		rm.removeUsernameRoomsLocked(username)

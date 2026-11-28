@@ -33,34 +33,7 @@ namespace Classical {
         }
 
         private void NormalCheck(ClassicalPlayerTiles pt) {
-            if (!BlockCheck(pt)) return;
-
-            var allList = TraverseQuetou(pt);
-            var endList = new List<ClassicalPlayerTiles>();
-            while (allList.Count > 0) {
-                var cur = allList[allList.Count - 1];
-                allList.RemoveAt(allList.Count - 1);
-                TraverseKezi(cur, allList);
-                TraverseDazi(cur, allList);
-                if (cur.CompleteStep >= 11)
-                    endList.Add(cur);
-            }
-
-            foreach (var item in endList) {
-                if (item.HandTiles.Count == 1) {
-                    _waitingTiles.Add(item.HandTiles[0]);
-                } else if (item.HandTiles.Count == 2) {
-                    int a = item.HandTiles[0], b = item.HandTiles[1];
-                    if (a == b) {
-                        _waitingTiles.Add(a);
-                    } else if (a == b - 1) {
-                        if (a - 1 > 0 && a - 1 < 40) _waitingTiles.Add(a - 1);
-                        if (a + 2 > 0 && a + 2 < 40) _waitingTiles.Add(a + 2);
-                    } else if (a == b - 2) {
-                        if (a + 1 > 0 && a + 1 < 40) _waitingTiles.Add(a + 1);
-                    }
-                }
-            }
+            StandardMahjongSolver.CollectStandardWaitingTiles(pt.HandTiles, _waitingTiles, allowHonors: true, allowFifthCopy: false);
         }
 
         private static bool BlockCheck(ClassicalPlayerTiles pt) {

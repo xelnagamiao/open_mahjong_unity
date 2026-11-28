@@ -153,8 +153,58 @@ def _remove_one_normalized(hand: List[int], normal_target: int) -> bool:
     return False
 
 
+def _choose_riichi_cut(
+    hand: List[int],
+    combs: List[str],
+    meld_count: int,
+    visible,
+    forbidden: Set[int],
+    round_wind: int,
+    seat_wind: int,
+    open_tanyao: bool,
+):
+    """日麻切牌选择：统一遵循副露有役门控（已副露时避免落入无役听牌）与红5保牌偏好。"""
+    is_closed = all(c.startswith("G") for c in combs)
+    best_key = None
+    best_tile = None
+    best_index = -1
+    seen = set()
+    for i, tile in enumerate(hand):
+        if tile in seen:
+            continue
+        seen.add(tile)
+        if normalize_tile(tile) in forbidden:
+            continue
+        remaining = hand[:i] + hand[i + 1:]
+        score = evaluate_hand(remaining, meld_count, visible)
+        if not is_closed and score[0] == 0:
+            if not _has_credible_open_yaku(remaining, combs, round_wind, seat_wind, open_tanyao, shanten_after=0):
+                score = (-1, score[1])
+        # 同分优先切非红 5（保留 105/205/305）
+        red_penalty = 0 if tile in (105, 205, 305) else 1
+        key = (score, red_penalty)
+        if best_key is None or key > best_key:
+            best_key = key
+            best_tile = tile
+            best_index = i
+    if best_tile is None:
+        return find_best_cut(hand, meld_count, visible, forbidden)
+    return best_tile, best_index
+
+
 def _choose_riichi_hand_plan(
-    hand, combs, meld_count, visible, action_list, is_riichi, candidates, forbidden, kong_candidates
+    hand,
+    combs,
+    meld_count,
+    visible,
+    action_list,
+    is_riichi,
+    candidates,
+    forbidden,
+    kong_candidates,
+    round_wind: int = 41,
+    seat_wind: int = 41,
+    open_tanyao: bool = True,
 ):
     hand = list(hand)
     combs = list(combs)
@@ -194,49 +244,171 @@ def _choose_riichi_hand_plan(
     if is_riichi and "cut" in actions and hand:
         return "cut", hand[-1], len(hand) - 1
     if "cut" in actions and hand:
-        tile, index = find_best_cut(hand, meld_count, visible, set(forbidden))
+        tile, index = _choose_riichi_cut(
+            hand, combs, meld_count, visible, set(forbidden), round_wind, seat_wind, open_tanyao
+        )
         return "cut", tile, index
     return "pass", None, -1
 
 
-def _choose_riichi_claim_plan(hand, meld_count, visible, action_list, cut_tile):
+def _meld_tiles_normalized(code: str) -> List[int]:
+    if len(code) < 2:
+        return []
+    sign = code[0]
+    try:
+        mid = normalize_tile(int(code[1:]))
+    except ValueError:
+        return []
+    if sign in ("s", "S"):
+        return [mid - 1, mid, mid + 1]
+    if sign in ("k", "K"):
+        return [mid, mid, mid]
+    if sign in ("g", "G"):
+        return [mid, mid, mid, mid]
+    return []
+
+
+def _is_simple_tile(tile: int) -> bool:
+    t = normalize_tile(tile)
+    return 11 <= t <= 39 and 2 <= (t % 10) <= 8
+
+
+def _has_credible_open_yaku(
+    hand_after: List[int],
+    combs_after: List[str],
+    round_wind: int,
+    seat_wind: int,
+    open_tanyao: bool,
+    shanten_after: int,
+) -> bool:
+    """日麻副露有役门控（方案A轻量级）：避免无役吃碰把门清立直锁死成无役听牌。"""
+    norm_hand = [normalize_tile(t) for t in hand_after]
+    yakuhai = {45, 46, 47, round_wind, seat_wind}
+    meld_tiles = [t for code in combs_after for t in _meld_tiles_normalized(code)]
+
+    # 1. 已有役牌刻/杠，或未听时手牌已有役牌对子/刻子
+    for code in combs_after:
+        if len(code) >= 2 and code[0] in ("k", "K", "g", "G"):
+            try:
+                if normalize_tile(int(code[1:])) in yakuhai:
+                    return True
+            except ValueError:
+                pass
+    if any(norm_hand.count(y) >= 3 for y in yakuhai):
+        return True
+    if shanten_after > 0 and any(norm_hand.count(y) >= 2 for y in yakuhai):
+        return True
+
+    # 2. 食断（断幺九）
+    if open_tanyao and all(_is_simple_tile(t) for t in meld_tiles):
+        non_simples = sum(1 for t in norm_hand if not _is_simple_tile(t))
+        if shanten_after <= 0 and non_simples == 0:
+            return True
+        if shanten_after > 0 and non_simples <= 2:
+            return True
+
+    # 3. 混一色 / 清一色
+    meld_suits = {t // 10 for t in meld_tiles if t < 40}
+    if len(meld_suits) <= 1:
+        target_suits = meld_suits or {1, 2, 3}
+        for suit in target_suits:
+            off_suit = sum(1 for t in norm_hand if t < 40 and t // 10 != suit)
+            if (shanten_after <= 0 and off_suit == 0) or (shanten_after > 0 and off_suit <= 2):
+                return True
+
+    # 4. 对对和 / 混老头
+    if all(code and code[0] in ("k", "K", "g", "G") for code in combs_after):
+        pairs_or_trips = sum(1 for t in set(norm_hand) if norm_hand.count(t) >= 2)
+        if len(combs_after) + pairs_or_trips >= 4:
+            return True
+
+    return False
+
+
+def _riichi_visible_tiles(game_state, player_index: int) -> List[int]:
+    visible = count_visible_tiles(game_state, player_index)
+    # 三人立直无 2万-8万，标满 4 张避免 count_acceptance 误计不存在的牌
+    if getattr(game_state, "sub_rule", None) == "riichi/sanma" or len(getattr(game_state, "player_list", ())) == 3:
+        for idx in range(1, 8):
+            visible[idx] = 4
+    return visible
+
+
+def _riichi_winds(game_state, player_index: int) -> tuple[int, int]:
+    round_wind_idx = int(getattr(game_state, "round_wind", 0) or 0) % 4
+    round_wind = 41 + round_wind_idx
+    dealer_idx = int(getattr(game_state, "dealer_index", 0) or 0)
+    n_players = max(1, len(getattr(game_state, "player_list", ())) or 4)
+    seat_wind = 41 + ((player_index - dealer_idx) % n_players)
+    return round_wind, seat_wind
+
+
+def _choose_riichi_claim_plan(
+    hand,
+    meld_count,
+    visible,
+    action_list,
+    cut_tile,
+    combs=(),
+    round_wind: int = 41,
+    seat_wind: int = 41,
+    open_tanyao: bool = True,
+):
     hand = list(hand)
+    combs = list(combs)
     actions = set(action_list)
     normal_cut = normalize_tile(cut_tile)
     best_action = "pass"
     best_score = evaluate_hand(hand, meld_count, visible)
+    is_closed = all(c.startswith("G") for c in combs)
+
+    def _evaluate_candidate(action: str, test_hand: List[int], new_code: str, forbidden: Set[int], need_cut: bool):
+        next_combs = combs + [new_code]
+        if need_cut:
+            cut_t, cut_i = _choose_riichi_cut(
+                test_hand, next_combs, meld_count + 1, visible, forbidden, round_wind, seat_wind, open_tanyao
+            )
+            after_hand = test_hand[:cut_i] + test_hand[cut_i + 1:]
+            score = evaluate_hand(after_hand, meld_count + 1, visible)
+        else:
+            after_hand = test_hand
+            score = evaluate_hand(after_hand, meld_count + 1, visible)
+        shanten_after = -score[0]
+        if not _has_credible_open_yaku(after_hand, next_combs, round_wind, seat_wind, open_tanyao, shanten_after):
+            return None
+        return score
+
     if "peng" in actions and _count_normalized(hand, normal_cut) >= 2:
         test = hand[:]
         _remove_one_normalized(test, normal_cut)
         _remove_one_normalized(test, normal_cut)
-        score = find_best_cut_score(
-            test, meld_count + 1, visible, _kuikae_forbidden_for_peng(cut_tile)
-        )
-        if score > best_score:
+        score = _evaluate_candidate("peng", test, f"k{normal_cut}", _kuikae_forbidden_for_peng(cut_tile), True)
+        if score is not None and score > best_score:
             best_action, best_score = "peng", score
     for action in ("chi_left", "chi_mid", "chi_right"):
         if action not in actions:
             continue
         if action == "chi_left":
             need = (normal_cut - 2, normal_cut - 1)
+            mid = normal_cut - 1
         elif action == "chi_mid":
             need = (normal_cut - 1, normal_cut + 1)
+            mid = normal_cut
         else:
             need = (normal_cut + 1, normal_cut + 2)
+            mid = normal_cut + 1
         test = hand[:]
         if not all(_remove_one_normalized(test, n) for n in need):
             continue
-        score = find_best_cut_score(
-            test, meld_count + 1, visible, _kuikae_forbidden_for_chi(action, cut_tile)
-        )
-        if score > best_score:
+        score = _evaluate_candidate(action, test, f"s{mid}", _kuikae_forbidden_for_chi(action, cut_tile), True)
+        if score is not None and score > best_score:
             best_action, best_score = action, score
     if "gang" in actions and _count_normalized(hand, normal_cut) >= 3:
         test = hand[:]
         for _ in range(3):
             _remove_one_normalized(test, normal_cut)
-        score = evaluate_hand(test, meld_count + 1, visible)
-        if score > best_score:
+        score = _evaluate_candidate("gang", test, f"g{normal_cut}", set(), False)
+        if score is not None and score > best_score:
             best_action = "gang"
     return best_action
 
@@ -302,10 +474,12 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     hand = player.hand_tiles[:]
     combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state, player_index)
+    visible = _riichi_visible_tiles(game_state, player_index)
     forbidden = set(kuikae_forbidden or set())
     forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
     candidates = dict(getattr(player, "riichi_candidate_cuts", None) or {})
+    round_wind, seat_wind = _riichi_winds(game_state, player_index)
+    open_tanyao = bool((getattr(game_state, "detailed_config", None) or {}).get("open_tanyao", True))
     expected_tick = getattr(game_state, "server_action_tick", None)
     action, tile_id, cut_index = await run_room_bot_cpu(
         game_state,
@@ -319,6 +493,9 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         candidates,
         frozenset(forbidden),
         hand_kong_candidates(game_state, player_index),
+        round_wind,
+        seat_wind,
+        open_tanyao,
     )
     if not bot_action_is_current(game_state, player_index, expected_tick):
         return
@@ -387,9 +564,11 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         return
 
     hand = player.hand_tiles[:]
-    combs = getattr(player, 'combination_tiles', [])
+    combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state, player_index)
+    visible = _riichi_visible_tiles(game_state, player_index)
+    round_wind, seat_wind = _riichi_winds(game_state, player_index)
+    open_tanyao = bool((getattr(game_state, "detailed_config", None) or {}).get("open_tanyao", True))
     expected_tick = getattr(game_state, "server_action_tick", None)
     best_action = await run_room_bot_cpu(
         game_state,
@@ -399,6 +578,10 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         tuple(visible),
         tuple(action_list),
         cut_tile,
+        tuple(combs),
+        round_wind,
+        seat_wind,
+        open_tanyao,
     )
     if not bot_action_is_current(game_state, player_index, expected_tick):
         return

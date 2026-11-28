@@ -65,7 +65,7 @@ internal static partial class RegionalLocalCalculator {
         return Math.Min(4,fan);
     }
     private static int HongzhongScore(List<int> hand,List<string> melds,int win,JObject c) {
-        var h=Prepare("hongzhong",hand,melds,c);int best=-1;if(h==null)return best;
+        var h=Prepare("hongzhong",hand,melds,c);int best=-1;if(h==null||!LocalJokerHand.CanWin(h))return best;
         var external=melds.SelectMany(m=>LocalJokerHand.MeldTiles(m)).ToArray();
         foreach(var shape in LocalJokerHand.Shapes(h))foreach(int logicalWin in LocalJokerHand.WinningTiles(h,shape,win)) {
             int fan=hand.Contains(45)?0:1;var all=shape.Tiles.Concat(external).ToArray();

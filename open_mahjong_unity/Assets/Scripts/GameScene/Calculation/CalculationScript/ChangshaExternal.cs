@@ -3,20 +3,23 @@ using System.Collections.Generic;
 using Changsha;
 
 public static class ChangshaExternal {
+    private static readonly ChangshaHepaiCheck SharedHepai = new ChangshaHepaiCheck();
+    private static readonly ChangshaTingpaiCheck SharedTingpai = new ChangshaTingpaiCheck();
+
     public static Tuple<int, List<string>> HepaiCheck(
         List<int> handList,
         List<string> tilesCombination,
         List<string> wayToHepai,
         int getTile,
         bool includeSituational = true) {
-        return new ChangshaHepaiCheck().HepaiCheck(
+        return SharedHepai.HepaiCheck(
             handList, tilesCombination, wayToHepai, getTile, includeSituational);
     }
 
     public static HashSet<int> TingpaiCheck(
         List<int> handTileList,
         List<string> combinationList) {
-        return new ChangshaTingpaiCheck().TingpaiCheck(handTileList, combinationList);
+        return SharedTingpai.TingpaiCheck(handTileList, combinationList);
     }
 
     public static int BaseFromFans(

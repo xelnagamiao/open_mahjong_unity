@@ -62,6 +62,10 @@ def choose_action(state,index,actions):
     if candidates:
         tile = state.live_pending_window["tile"]
         before = distance(p.hand_tiles,len(p.combination_tiles),state.rules.structure.meld_count)
+        min_fan = int(getattr(state.rules, "min_fan", 0) or 0)
+        seat_wind = 41 + ((index - int(getattr(state, "dealer_index", 0) or 0)) % 4)
+        round_wind = 41 + (int(getattr(state, "round_wind", 0) or 0) % 4)
+        yakuhai = {45, 46, 47, seat_wind, round_wind}
         for action in candidates:
             if state.rules.is_old and action.startswith("chi"):
                 continue  # Preserve concealed-hand scoring in the no-flower default.
@@ -73,7 +77,19 @@ def choose_action(state,index,actions):
             cut = pick_cut(state,index,hand=remaining,meld_count=len(p.combination_tiles)+1,forbidden=forbidden_after_claim(action,tile))
             remaining.remove(cut)
             after = distance(remaining,len(p.combination_tiles)+1,state.rules.structure.meld_count)
-            if after<before:
+            if after < before:
+                if min_fan >= 3:
+                    # 3番起和以上时，门清开副露需具备役牌/混清一色/碰碰和方向，避免副露成鸡胡锁死
+                    next_melds = list(p.combination_tiles) + [f"{'k' if action == 'peng' else 's'}{tile}"]
+                    all_tiles = remaining + [t for c in next_melds for t in parse_meld(c).tiles]
+                    suits = {t // 10 for t in all_tiles if t in NUMBERS}
+                    has_yakuhai = any(c[0] in ("k", "K", "g", "G") and int(c[1:]) in yakuhai for c in next_melds)
+                    all_pungs = all(c[0] in ("k", "K", "g", "G") for c in next_melds)
+                    counts = Counter(remaining)
+                    pung_path = all_pungs and (len(next_melds) + sum(1 for v in counts.values() if v >= 2) >= state.rules.structure.meld_count)
+                    flush_path = len(suits) <= 1 or sum(1 for t in remaining if t in NUMBERS and t // 10 != max(suits, key=lambda s: sum(1 for x in all_tiles if x in NUMBERS and x // 10 == s))) <= 2
+                    if not (has_yakuhai or pung_path or flush_path or len(getattr(p, "huapai_list", ())) >= min_fan):
+                        continue
                 return dict(action_type=action)
     return dict(action_type="pass")
 

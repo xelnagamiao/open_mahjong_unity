@@ -56,7 +56,8 @@ def _score_cached(hand, melds, winning_tile, replacement):
             # 清一色分区已完整求解时，余下非清一色解释只能达到这个上界。
             if search_index and best is not None and best["raw_fan"] >= fixed + shape_bound:
                 break
-            for shape in iter_winning_shapes(hand, melds, search_policy, winning_tile=winning_tile):
+            for shape in iter_winning_shapes(hand, melds, search_policy, winning_tile=winning_tile,
+                                             equivalence="logical_structure"):
                 interpreted = Interpretation(shape.kind, shape.closed_logical_tiles,
                     tuple(group.logical for group in shape.melds), shape.winning_logical_tile,
                     tuple((use.index, use.physical, use.logical) for use in shape.joker_uses))
@@ -77,4 +78,4 @@ def score(hand, melds=(), *, winning_tile=None, replacement=False):
         winning_tile = hand[-1]
     if type(winning_tile) is not int or winning_tile not in hand:
         return None
-    return deepcopy(_score_cached(tuple(hand), tuple(melds), winning_tile, replacement))
+    return deepcopy(_score_cached(tuple(sorted(hand)), tuple(melds), winning_tile, replacement))

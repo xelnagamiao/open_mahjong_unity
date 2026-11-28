@@ -1,6 +1,8 @@
 using UnityEngine;
 
 internal static class ZhongyongRuleBootstrap {
+    private static readonly Nanque.NanqueTingpaiCheck SharedZhongyongTingpai = new Nanque.NanqueTingpaiCheck();
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         var defaults = ZhongyongLobby.Defaults();
@@ -20,8 +22,9 @@ internal static class ZhongyongRuleBootstrap {
             SubRuleGameStateFactory = rule => ZhongyongFanText.IsNanque(rule) ? (IGameState)new NanqueGameState() : new ZhongyongGameState(),
             OutboundChannel = "zhongyong",
             Tingpai = q => ZhongyongFanText.IsNanque(q.SubRule) ? NanqueTips.Tingpai(q)
-                : new Nanque.NanqueTingpaiCheck().TingpaiCheck(q.Hand, q.Melds, allowQuadSplit: true),
+                : SharedZhongyongTingpai.TingpaiCheck(q.Hand, q.Melds, allowQuadSplit: true),
             DescribeWaitingTile = q => ZhongyongFanText.IsNanque(q.SubRule) ? NanqueTips.Describe(q) : ZhongyongTips.Describe(q),
+            DeferWaitingTileHints = true,
             FanNameText = ZhongyongFanText.Name,
             FanValueText = ZhongyongFanText.Value,
             RoundName = RoundTextDictionary.WindNumberRoundName,

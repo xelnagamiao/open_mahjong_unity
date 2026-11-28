@@ -2,16 +2,21 @@
 牌效 AI 计算逻辑
 牌面编码转换、向听数计算、进张数计算、手牌评估函数。
 """
+from collections import Counter
 import logging
 from typing import List, Optional, Set, Tuple
 
-logger = logging.getLogger(__name__)
+from ....game_calculation.riichi.washizu_tiles import normalize as _washizu_normalize
+from .guobiao_shanten import (
+    SHISANYAO_IDS,
+    _yiban_candidate_tiles,
+    shanten_shisanyao,
+    xiangting_yiban,
+)
 
-try:
-    from mahjong.shanten import Shanten
-except ImportError:
-    Shanten = None
-    logger.warning("mahjong 库未安装，牌效 AI 使用通用面子向听计算。请执行 pip install mahjong 以启用日麻特殊牌型评估")
+logger = logging.getLogger(__name__)
+# 兼容旧测试对 smart_bot_logic.Shanten 的 monkeypatch（现统一走 guobiao_shanten 缓存引擎）
+Shanten = None
 
 # ─── 牌面编码转换 ───────────────────────────────────────────
 
@@ -44,9 +49,8 @@ def first_dingque_tile(hand_tiles: List[int], dingque_suit: int) -> Optional[int
 
 
 def normalize_tile(tile_id: int) -> int:
-    """红5归一化：105->15, 205->25, 305->35。其他牌原值返回。"""
-    from ....game_calculation.riichi.washizu_tiles import normalize
-    return normalize(tile_id)
+    """红5/透明牌归一化：105->15, 205->25, 305->35 等。其他牌原值返回。"""
+    return _washizu_normalize(tile_id)
 
 def tile_to_34(tile_id: int) -> int:
     tile_id = normalize_tile(tile_id)
@@ -104,20 +108,28 @@ def count_melds(combination_tiles: List[str]) -> int:
 
 # ─── 向听数计算 ────────────────────────────────────────────
 
+def _shanten_riichi_qidui(counts: Counter) -> int:
+    """日麻/标准七对向听（4同张仅计1对，需7种不同对子）。"""
+    pairs = sum(1 for c in counts.values() if c >= 2)
+    kinds = sum(1 for c in counts.values() if c >= 1)
+    return 6 - pairs + max(0, 7 - kinds)
+
+
 def calc_shanten(hand_tiles: List[int], meld_count: int = 0) -> int:
-    # The external library only accepts up to fourteen concealed tiles. Its
-    # implicit four-meld model also misidentifies an open 16-tile hand as closed.
+    # 统一复用 guobiao_shanten 的缓存一般型 DP（共享 yiban_general 48 MiB 预算），
+    # 16 张 5 面子规则走 structural_shanten。
     total_melds = len(hand_tiles) // 3 + meld_count
     if len(hand_tiles) > 17 or total_melds > 5:
         return 99  # Invalid snapshot; do not expand an unbounded structural search.
-    if total_melds > 4 or Shanten is None:
+    norm = [normalize_tile(t) for t in hand_tiles]
+    if total_melds > 4:
         from .structural_shanten import distance
-        return distance([normalize_tile(t) for t in hand_tiles], meld_count, total_melds)
-    arr = hand_to_34array(hand_tiles)
-    try:
-        return Shanten.calculate_shanten(arr)
-    except ValueError:
-        return 99
+        return distance(norm, meld_count, total_melds)
+    counts = Counter(t for t in norm if 11 <= t <= 47 and t // 10 != 5)
+    best = xiangting_yiban(counts, meld_count)
+    if meld_count == 0 and len(norm) >= 13:
+        best = min(best, _shanten_riichi_qidui(counts), shanten_shisanyao(counts))
+    return best
 
 # ─── 场上已见牌统计 ─────────────────────────────────────────
 
@@ -160,15 +172,37 @@ def count_acceptance(hand_tiles: List[int], meld_count: int, visible_34: List[in
     base_shanten = calc_shanten(hand_tiles, meld_count)
     if base_shanten <= -1:
         return 999  # 已和牌
-    hand_34 = hand_to_34array(hand_tiles)
+    norm = [normalize_tile(t) for t in hand_tiles]
+    counts = Counter(t for t in norm if 11 <= t <= 47 and t // 10 != 5)
+    # 候选牌剪枝：一般型仅已有牌及邻张 ±1/±2 可降向听；
+    # 门清接近国士或种类不足 7 种（七对需新牌种）时补全对应候选。
+    if meld_count == 0 and len(counts) < 7:
+        candidates = ALL_TILE_IDS
+    else:
+        cand_set = set(_yiban_candidate_tiles(counts))
+        if meld_count == 0 and len(norm) >= 13 and shanten_shisanyao(counts) <= base_shanten + 1:
+            cand_set.update(SHISANYAO_IDS)
+        candidates = cand_set
+    hand_34 = hand_to_34array(norm)
     total = 0
-    for tile_id in ALL_TILE_IDS:
+    total_melds = len(norm) // 3 + meld_count
+    use_unified = total_melds <= 4
+    n_len = len(norm)
+    for tile_id in candidates:
         idx = tile_to_34(tile_id)
         remaining = 4 - visible_34[idx] - hand_34[idx]
         if remaining <= 0:
             continue
-        test_hand = hand_tiles + [tile_id]
-        new_shanten = calc_shanten(test_hand, meld_count)
+        if use_unified:
+            counts[tile_id] += 1
+            new_shanten = xiangting_yiban(counts, meld_count)
+            if meld_count == 0 and n_len + 1 >= 13:
+                new_shanten = min(new_shanten, _shanten_riichi_qidui(counts), shanten_shisanyao(counts))
+            counts[tile_id] -= 1
+            if counts[tile_id] == 0:
+                del counts[tile_id]
+        else:
+            new_shanten = calc_shanten(norm + [tile_id], meld_count)
         if new_shanten < base_shanten:
             total += remaining
     return total

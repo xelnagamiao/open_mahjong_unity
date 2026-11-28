@@ -3,6 +3,8 @@
 from collections import Counter
 from functools import lru_cache
 
+from ..standard_solver import standard_decompositions, standard_waiting_tiles
+
 NUMBERS = tuple(suit * 10 + rank for suit in (1, 2, 3) for rank in range(1, 10))
 WINDS = (41, 42, 43, 44)
 DRAGONS = (45, 46, 47)
@@ -60,12 +62,9 @@ def decompositions(hand, melds=()):
     if valid_tiles(hand, melds) is None:
         return ()
     result = []
-    for pair, count in Counter(hand).items():
-        if count >= 2:
-            rest = sorted(hand)
-            rest.remove(pair)
-            rest.remove(pair)
-            result.extend((pair, sets) for sets in _sets(tuple(rest)))
+    for pair, melds_part in standard_decompositions(hand):
+        sets = tuple(f"{'s' if kind else 'k'}{tile}" for kind, tile in melds_part)
+        result.append((pair, sets))
     return tuple(result)
 
 
@@ -82,11 +81,34 @@ def starting_pattern(tiles, sets, *, unstructured=False):
     return ("碰碰和", 1) if all_pungs else (None, 0)
 
 
+@lru_cache(maxsize=16384)
+def _waits_cached(hand, melds):
+    if len(hand) + 3 * len(melds) != 13 or len(melds) > 4:
+        return frozenset()
+    if any(type(tile) is not int or tile not in TILES for tile in hand):
+        return frozenset()
+    try:
+        exposed = [tile for code in melds for tile in meld_tiles(code)]
+    except (ValueError, TypeError):
+        return frozenset()
+    counts = Counter(hand)
+    counts.update(exposed)
+    if any(c > 4 for c in counts.values()):
+        return frozenset()
+    candidates = standard_waiting_tiles(hand, allow_fifth_copy=False)
+    if all(tile in HONORS for tile in counts):
+        candidates.update(HONORS)
+    return frozenset(
+        tile for tile in candidates
+        if counts[tile] < 4 and score(list(hand) + [tile], melds, self_draw=True)
+    )
+
+
 def waits(hand, melds=()):
     """只返回具备起和番的听牌；1花牌保留为仅自摸候选。"""
     if len(hand) + 3 * len(melds) != 13:
         return set()
-    return {tile for tile in TILES if score(list(hand) + [tile], melds, self_draw=True)}
+    return set(_waits_cached(tuple(sorted(hand)), tuple(melds)))
 
 
 def melds_allow_starting_pattern(melds):

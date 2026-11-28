@@ -151,7 +151,7 @@ class SalasasaClient {
         message.received_monotonic_ms = performance.now()
         const loginKickedOut = message.type === 'message' && message.message === 'login_kickout'
         if (message.type.startsWith('gamestate/guobiao/')
-          || ['gamestate/closed', 'gamestate/vote_end', 'gamestate/vote_update',
+          || ['gamestate/closed', 'gamestate/timeout_auto_moqie', 'gamestate/vote_end', 'gamestate/vote_update',
             'switch_seat', 'refresh_player_tag_list'].includes(message.type)) {
           const activeId = this.lastGameStartValue?.game_info?.gamestate_id
           const originId = message.gamestate_id ?? message.game_info?.gamestate_id

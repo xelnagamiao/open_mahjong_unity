@@ -263,125 +263,49 @@ public class Chinese_Tingpai_Check
 
     private void normal_check(PlayerTilesTingpai player_tiles)
     {
-        // 为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
-        if (!normal_check_block(player_tiles))
+        bool hasZuhelong = false;
+        for (int i = 0; i < player_tiles.combination_list.Count; i++)
         {
+            if (player_tiles.combination_list[i] != null && player_tiles.combination_list[i].Contains("z"))
+            {
+                hasZuhelong = true;
+                break;
+            }
+        }
+
+        if (hasZuhelong && temp_waiting_tiles.Count > 0)
+        {
+            if (StandardMahjongSolver.CanStandardWin(player_tiles.hand_tiles))
+            {
+                waiting_tiles = new HashSet<int>(temp_waiting_tiles);
+            }
             return;
         }
-        // 获取所有的雀头可能以及没有雀头的情况
 
-        DebugPrint("手牌: {0}", string.Join(", ", player_tiles.hand_tiles));
-
-        List<PlayerTilesTingpai> all_list = normal_check_traverse_quetou(player_tiles);
-        List<PlayerTilesTingpai> end_list = new List<PlayerTilesTingpai>();
-        DebugPrint("所有列表: {0}", string.Join(" | ", all_list.Select(x => $"[{string.Join(",", x.hand_tiles)}]")));
-        // 345567
-        int count_count = 0;
-        while (all_list.Count > 0)
+        var hand = player_tiles.hand_tiles;
+        if (hand.Count == 2 && player_tiles.complete_step >= 11)
         {
-            count_count++;
-            PlayerTilesTingpai temp_list = all_list[all_list.Count - 1];
-            all_list.RemoveAt(all_list.Count - 1);
-            // 使用temp_list而不是player_tiles
-            normal_check_traverse_kezi(temp_list, all_list);
-            normal_check_traverse_dazi(temp_list, all_list);
-            if (temp_list.complete_step >= 11)
+            int tile1 = hand[0], tile2 = hand[1];
+            if (tile1 == tile2)
             {
-                end_list.Add(temp_list);
+                waiting_tiles.Add(tile1);
             }
-        }
-        DebugPrint("计算次数：{0}", count_count);
-        foreach (var i in end_list)
-        {
-            DebugPrint("手牌: {0}, 胡牌步数: {1}, 胡牌组合: {2}",
-                string.Join(", ", i.hand_tiles),
-                i.complete_step,
-                string.Join(", ", i.combination_list));
-        }
-
-        // 只保留complete_step大于等于11的列表
-        end_list = end_list.Where(i => i.complete_step >= 11).ToList();
-        DebugPrint("处理后的列表: {0}", string.Join(" | ", end_list.Select(x => $"[{string.Join(",", x.hand_tiles)}]")));
-        DebugPrint("列表长度: {0}", end_list.Count);
-
-        // 剩余的手牌有五种组成方式
-        // 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2] 5.无效型[n,m] 特殊情况:组合龙型 complete_step == 14 [temp_waiting_tiles]
-        if (end_list.Count > 0)
-        {
-            List<int> waiting_tiles_list = new List<int>();
-            foreach (var i in end_list)
+            else if (tile1 <= 39 && tile2 <= 39 && tile1 / 10 == tile2 / 10)
             {
-                DebugPrint("手牌: {0}, 步数: {1}, 组合: {2}",
-                    string.Join(", ", i.hand_tiles),
-                    i.complete_step,
-                    string.Join(", ", i.combination_list));
-
-                // 如果有组合龙
-                if (i.combination_list.Any(comb => comb.Contains("z")))
+                if (tile1 == tile2 - 1)
                 {
-                    DebugPrint("组合龙型");
-                    // 不完整组合龙：步数14且手牌空 → 只听缺张
-                    if (i.complete_step == 14 && i.hand_tiles.Count == 0 && temp_waiting_tiles.Count > 0)
-                    {
-                        waiting_tiles = new HashSet<int>(temp_waiting_tiles);
-                        return;
-                    }
-                    // 不完整组合龙未听：不把剥剩手牌当一般型进张
-                    if (temp_waiting_tiles.Count > 0)
-                    {
-                        continue;
-                    }
+                    waiting_tiles.Add(tile1 - 1);
+                    waiting_tiles.Add(tile1 + 2);
                 }
-
-                if (i.hand_tiles.Count == 1)
+                else if (tile1 == tile2 - 2)
                 {
-                    waiting_tiles_list.Add(i.hand_tiles[0]); // 单吊型
-                }
-                else if (i.hand_tiles.Count == 2)
-                {
-                    int tile1 = i.hand_tiles[0];
-                    int tile2 = i.hand_tiles[1];
-
-                    if (tile1 == tile2)
-                    {
-                        waiting_tiles_list.Add(tile1); // 对碰型
-                    }
-                    // Only suit tiles can form sequences (11-39), not honor tiles (41-47)
-                    else if (tile1 <= 39 && tile2 <= 39)
-                    {
-                        if (tile1 == tile2 - 1)
-                        {
-                            // 两面型 - but check boundaries
-                            int suit1 = tile1 / 10;
-                            int suit2 = tile2 / 10;
-                            if (suit1 == suit2) // Same suit
-                            {
-                                waiting_tiles_list.Add(tile1 - 1);
-                                waiting_tiles_list.Add(tile1 + 2);
-                            }
-                        }
-                        else if (tile1 == tile2 - 2)
-                        {
-                            // 坎张型 - but check they're in same suit
-                            int suit1 = tile1 / 10;
-                            int suit2 = tile2 / 10;
-                            if (suit1 == suit2) // Same suit
-                            {
-                                waiting_tiles_list.Add(tile1 + 1);
-                            }
-                        }
-                    }
+                    waiting_tiles.Add(tile1 + 1);
                 }
             }
-            // 去重
-            if (waiting_tiles_list.Count > 0)
-            {
-                foreach (int i in waiting_tiles_list)
-                {
-                    waiting_tiles.Add(i);
-                }
-            }
+            return;
         }
+
+        StandardMahjongSolver.CollectStandardWaitingTiles(hand, waiting_tiles, allowHonors: true, allowFifthCopy: true);
     }
 
     private bool normal_check_block(PlayerTilesTingpai player_tiles)
@@ -518,7 +442,7 @@ public static class GBtingpai
     public static HashSet<int> TingpaiCheck(
         List<int> hand_tile_list,
         List<string> combination_list,
-        bool debug = true)
+        bool debug = false)
     {
         var checker = new Chinese_Tingpai_Check(debug);
         return checker.TingpaiCheck(hand_tile_list, combination_list);

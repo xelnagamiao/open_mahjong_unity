@@ -53,6 +53,14 @@
 !/open_mahjong_server/server/
 !/open_mahjong_server/tests/
 !/open_mahjong_server/docs/
+!/open_mahjong_server/ops/
+/open_mahjong_server/ops/*
+!/open_mahjong_server/ops/postgresql/
+/open_mahjong_server/ops/postgresql/*
+!/open_mahjong_server/ops/postgresql/prune_pg_logs.py
+!/open_mahjong_server/ops/postgresql/install.sh
+!/open_mahjong_server/ops/postgresql/open-mahjong-pg-log-retention.service
+!/open_mahjong_server/ops/postgresql/open-mahjong-pg-log-retention.timer
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py

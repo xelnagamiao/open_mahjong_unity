@@ -97,30 +97,10 @@ internal static class ChangshaExchangeSixShape {
     }
 
     private static bool StandardShape(List<int> hand, int meldCount, bool jiangPair) {
-        foreach (int pair in hand.Distinct()) {
-            if (jiangPair && !Jiang(pair)) continue;
-            if (hand.Count(tile => tile == pair) < 2) continue;
-            var remaining = new List<int>(hand);
-            remaining.Remove(pair); remaining.Remove(pair);
-            if (Sets(remaining.OrderBy(tile => tile).ToList(), 4 - meldCount)) return true;
-        }
-        return false;
-    }
-
-    private static bool Sets(List<int> hand, int count) {
-        if (count == 0) return hand.Count == 0;
-        if (hand.Count == 0) return false;
-        int tile = hand[0];
-        if (hand.Count(value => value == tile) >= 3) {
-            var remaining = new List<int>(hand);
-            for (int i = 0; i < 3; i++) remaining.Remove(tile);
-            if (Sets(remaining, count - 1)) return true;
-        }
-        if (tile % 10 <= 7 && hand.Contains(tile + 1) && hand.Contains(tile + 2)) {
-            var remaining = new List<int>(hand);
-            remaining.Remove(tile); remaining.Remove(tile + 1); remaining.Remove(tile + 2);
-            if (Sets(remaining, count - 1)) return true;
-        }
-        return false;
+        if (hand == null || hand.Count != (4 - meldCount) * 3 + 2) return false;
+        return StandardMahjongSolver.CanStandardWin(
+            hand,
+            allowHonors: false,
+            suitPairMask: jiangPair ? 0x92 : 0x1FF);
     }
 }

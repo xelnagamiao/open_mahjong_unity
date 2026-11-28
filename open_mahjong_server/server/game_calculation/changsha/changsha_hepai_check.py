@@ -203,21 +203,23 @@ def _can_form_sets(counts: Dict[int, int], sets_needed: int, triplets_only: bool
     return False
 
 
+_JIANG_PAIR_TILES = frozenset(tile for suit in (1, 2, 3) for tile in (suit * 10 + 2, suit * 10 + 5, suit * 10 + 8))
+
+try:
+    from ..standard_solver import can_standard_win as _can_standard_win
+except ImportError:
+    from standard_solver import can_standard_win as _can_standard_win  # type: ignore
+
+
 def _is_standard_shape(hand_list: List[int], tiles_combination: List[str], *, jiang_pair: bool = False) -> bool:
     sets_needed = 4 - len(tiles_combination)
     if sets_needed < 0 or len(hand_list) != sets_needed * 3 + 2:
         return False
-    counts = _count_tiles(hand_list)
-    for tile, count in list(counts.items()):
-        if count < 2:
-            continue
-        if jiang_pair and not _is_jiang(tile):
-            continue
-        remaining = dict(counts)
-        _decrement(remaining, tile, 2)
-        if _can_form_sets(remaining, sets_needed):
-            return True
-    return False
+    return _can_standard_win(
+        hand_list,
+        allow_honors=False,
+        pair_tiles=_JIANG_PAIR_TILES if jiang_pair else None,
+    )
 
 
 def _is_all_triplets(hand_list: List[int], tiles_combination: List[str]) -> bool:
@@ -227,14 +229,15 @@ def _is_all_triplets(hand_list: List[int], tiles_combination: List[str]) -> bool
     if sets_needed < 0 or len(hand_list) != sets_needed * 3 + 2:
         return False
     counts = _count_tiles(hand_list)
-    for tile, count in list(counts.items()):
-        if count < 2:
+    pair_found = False
+    for c in counts.values():
+        if c == 3:
             continue
-        remaining = dict(counts)
-        _decrement(remaining, tile, 2)
-        if _can_form_sets(remaining, sets_needed, triplets_only=True):
-            return True
-    return False
+        if c == 2 and not pair_found:
+            pair_found = True
+        else:
+            return False
+    return pair_found
 
 
 def _seven_pairs_type(hand_list: List[int], tiles_combination: List[str]) -> str:
@@ -341,9 +344,11 @@ class Changsha_Hepai_Check:
         if any(tile not in VALID_TILES for tile in all_tiles):
             return 0, []
 
-        small_hu = _is_standard_shape(concealed, melds, jiang_pair=True)
+        std_shape = _is_standard_shape(concealed, melds, jiang_pair=False)
+        small_hu = _is_standard_shape(concealed, melds, jiang_pair=True) if std_shape else False
         jiangjiang_hu = _all_jiang_tiles(all_tiles)
-        has_shape = _has_winning_shape(concealed, melds) or jiangjiang_hu
+        seven_pairs = _seven_pairs_type(concealed, melds)
+        has_shape = std_shape or seven_pairs != "none" or jiangjiang_hu
         big_names: List[str] = []
 
         if has_shape and _is_all_triplets(concealed, melds):
@@ -352,10 +357,9 @@ class Changsha_Hepai_Check:
             big_names.append("将将胡")
         if has_shape and _is_flush(all_tiles):
             big_names.append("清一色")
-        if has_shape and _is_quanqiuren(concealed, melds):
+        if std_shape and len(melds) == 4:
             big_names.append("全求人")
 
-        seven_pairs = _seven_pairs_type(concealed, melds)
         if seven_pairs == "normal":
             big_names.append("七小对")
         elif seven_pairs == "luxury":

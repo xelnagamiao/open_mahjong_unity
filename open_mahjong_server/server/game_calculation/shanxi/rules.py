@@ -43,26 +43,6 @@ def _physical(hand, melds, complete):
 
 
 @lru_cache(maxsize=32768)
-def _sets(hand):
-    if not hand:
-        return ((),)
-    first = hand[0]
-    count = Counter(hand)
-    choices = []
-    if count[first] >= 3:
-        choices.append((f"k{first}", (first,) * 3))
-    if first in NUMBERS and first % 10 <= 7 and count[first + 1] and count[first + 2]:
-        choices.append((f"s{first + 1}", (first, first + 1, first + 2)))
-    result = []
-    for code, tiles in choices:
-        rest = list(hand)
-        for tile in tiles:
-            rest.remove(tile)
-        result.extend((code,) + tail for tail in _sets(tuple(rest)))
-    return tuple(result)
-
-
-@lru_cache(maxsize=32768)
 def _shapes(hand, melds):
     count = _physical(hand, melds, True)
     if count is None:
@@ -74,13 +54,10 @@ def _shapes(hand, melds):
             result.append(("seven_pairs", ()))
         if set(concealed) == ORPHANS and sorted(concealed.values()) == [1] * 12 + [2]:
             result.append(("orphans", ()))
-    for pair, number in concealed.items():
-        if number < 2:
-            continue
-        rest = list(hand)
-        rest.remove(pair)
-        rest.remove(pair)
-        result.extend(("standard", sets) for sets in _sets(tuple(rest)))
+    from ..standard_solver import standard_decompositions
+    for _, melds_part in standard_decompositions(hand):
+        sets = tuple(f"{'s' if kind else 'k'}{tile}" for kind, tile in melds_part)
+        result.append(("standard", sets))
     return tuple(result)
 
 
@@ -93,7 +70,19 @@ def _waits(hand, melds):
     count = _physical(hand, melds, False)
     if count is None:
         return frozenset()
-    return frozenset(t for t in TILES if count[t] < 4 and shapes(hand + (t,), melds))
+    from ..standard_solver import standard_waiting_tiles
+    waits_set = standard_waiting_tiles(hand, allow_fifth_copy=False)
+    if not melds and len(hand) == 13:
+        concealed = Counter(hand)
+        odds = [t for t, c in concealed.items() if c % 2 == 1]
+        if len(odds) == 1:
+            waits_set.add(odds[0])
+        if all(t in ORPHANS for t in concealed):
+            if len(concealed) == 13:
+                waits_set.update(ORPHANS)
+            elif len(concealed) == 12:
+                waits_set.update(ORPHANS - set(concealed))
+    return frozenset(t for t in waits_set if count[t] < 4)
 
 
 def waits(hand, melds=()):

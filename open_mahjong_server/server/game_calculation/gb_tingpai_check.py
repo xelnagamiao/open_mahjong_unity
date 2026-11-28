@@ -3,6 +3,11 @@ import random
 from time import time
 import logging
 
+try:
+    from .standard_solver import can_standard_win, standard_waiting_tiles
+except ImportError:
+    from standard_solver import can_standard_win, standard_waiting_tiles  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 class PlayerTiles:
@@ -159,72 +164,31 @@ class Chinese_Tingpai_Check:
 
 
     def normal_check(self, player_tiles: PlayerTiles):
-        # 为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
-        if not self.normal_check_block(player_tiles):
-            return False
-        # 获取所有的雀头可能以及没有雀头的情况
-        
-        self.debug_print(player_tiles.hand_tiles)
-        
-        all_list = self.normal_check_traverse_quetou(player_tiles)
-        end_list = []
-        self.debug_print([i.hand_tiles for i in all_list])
-        # 345567
-        count_count = 0
-        while all_list:
-            count_count += 1
-            temp_list = all_list.pop()
-            # 使用temp_list而不是player_tiles
-            self.normal_check_traverse_kezi(temp_list, all_list)
-            self.normal_check_traverse_dazi(temp_list, all_list)
-            if temp_list.complete_step >= 11:
-                end_list.append(temp_list)
-        self.debug_print("计算次数：",count_count)
-        for i in end_list:
-            self.debug_print("手牌",i.hand_tiles, "胡牌步数",i.complete_step, "胡牌组合",i.combination_list)
+        has_zuhelong = any('z' in str(comb) for comb in player_tiles.combination_list)
+        if has_zuhelong and self.zuhelong_lack_tiles:
+            # 不完整组合龙：剩余暗手必须直接组成标准和牌（步数达到14且手牌空）→ 只听缺张
+            if can_standard_win(player_tiles.hand_tiles):
+                self.waiting_tiles = set(self.zuhelong_lack_tiles)
+            return
 
-        # 只保留complete_step大于等于11的列表
-        end_list = [i for i in end_list if i.complete_step >= 11]
-        self.debug_print("处理后的列表:", [i.hand_tiles for i in end_list])
-        self.debug_print("列表长度:", len(end_list))
+        hand = player_tiles.hand_tiles
+        if len(hand) == 2 and player_tiles.complete_step >= 11:
+            a, b = hand[0], hand[1]
+            if a == b:
+                self.waiting_tiles.add(a)
+            elif a == b - 1 and a < 40 and b < 40:
+                if a - 1 < 40:
+                    self.waiting_tiles.add(a - 1)
+                if a + 2 < 40:
+                    self.waiting_tiles.add(a + 2)
+            elif a == b - 2 and a < 40 and b < 40:
+                if a + 1 < 40:
+                    self.waiting_tiles.add(a + 1)
+            return
 
-        # 剩余的手牌有五种组成方式 
-        # 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)2[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2] 5.无效型[n,m] 特殊情况:组合龙型 complete_step == 14 [zuhelong_lack_tiles]
-        if end_list:
-            waiting_tiles = []
-            for i in end_list:
-                self.debug_print(i.hand_tiles, i.complete_step,i.combination_list,self.zuhelong_lack_tiles)
-
-                # 如果有组合龙
-                if any('z' in str(comb) for comb in i.combination_list):
-                    self.debug_print("组合龙型")
-                    # 不完整组合龙：步数14且手牌空 → 只听缺张
-                    if i.complete_step == 14 and i.hand_tiles == [] and self.zuhelong_lack_tiles:
-                        self.waiting_tiles = set(self.zuhelong_lack_tiles)
-                        return
-                    # 不完整组合龙未听：不把剥剩手牌当一般型进张
-                    if self.zuhelong_lack_tiles:
-                        continue
-
-                if len(i.hand_tiles) == 1:
-                    waiting_tiles.append(i.hand_tiles[0]) # 单吊型
-                elif len(i.hand_tiles) == 2:
-                    if i.hand_tiles[0] == i.hand_tiles[1]:
-                        waiting_tiles.append(i.hand_tiles[0]) # 对碰型
-                    elif i.hand_tiles[0] == i.hand_tiles[1] - 1:
-                        # 两面型：只有非字牌（<40）才能组成顺子
-                        if i.hand_tiles[0] - 1 < 40:
-                            waiting_tiles.append(i.hand_tiles[0] - 1)
-                        if i.hand_tiles[0] + 2 < 40:
-                            waiting_tiles.append(i.hand_tiles[0] + 2)
-                    elif i.hand_tiles[0] == i.hand_tiles[1] - 2:
-                        # 坎张型：只有非字牌（<40）才能组成顺子
-                        if i.hand_tiles[0] + 1 < 40:
-                            waiting_tiles.append(i.hand_tiles[0] + 1)
-            # 去重
-            if waiting_tiles:
-                for i in waiting_tiles:
-                    self.waiting_tiles.add(i)
+        waits = standard_waiting_tiles(hand, allow_fifth_copy=True)
+        if waits:
+            self.waiting_tiles.update(waits)
         
     def normal_check_block(self,player_tiles: PlayerTiles):
         block_count = len(player_tiles.combination_list)

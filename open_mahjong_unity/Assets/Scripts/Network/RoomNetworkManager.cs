@@ -181,13 +181,16 @@ public partial class RoomNetworkManager : MonoBehaviour {
     }
 
     private bool ShouldNavigateToRoomOnRefresh(string roomId) {
-        if (AutoReconnect.IsActive && AutoReconnect.ExpectGameRestore) return false;
+        if (AutoReconnect.IsActive) {
+            if (AutoReconnect.ExpectGameRestore) return false;
+            return AutoReconnect.OriginalWindow == "room";
+        }
         string current = WindowsManager.Instance.GetCurrentWindow();
         if (current == "game") return false;
         if (current == "room") return true;
         if (_pendingEnterRoomId == "*") return true;
         if (!string.IsNullOrEmpty(_pendingEnterRoomId) && _pendingEnterRoomId == roomId) return true;
-        return AutoReconnect.IsActive && !AutoReconnect.ExpectGameRestore;
+        return false;
     }
 
     /// <summary>加入/创建失败（error_message）时取消待进入状态，避免后续滞后广播误跳转。</summary>

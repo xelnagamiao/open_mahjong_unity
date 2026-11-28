@@ -23,18 +23,72 @@ namespace Nanque {
         public HashSet<int> TingpaiCheck(
             List<int> handTileList,
             List<string> combinationList, bool allowQuadSplit = false) {
-            var concealed = new List<int>(handTileList ?? new List<int>());
-            var combinations = combinationList ?? new List<string>();
-            var physicalCounts = BuildPhysicalCounts(concealed, combinations);
             var waits = new HashSet<int>();
+            if (handTileList == null) return waits;
+            var combinations = combinationList ?? new List<string>();
+            int declaredSetCount = 0;
+            for (int i = 0; i < combinations.Count; i++) {
+                if (IsSetCode(combinations[i])) declaredSetCount++;
+            }
+            int neededMelds = 4 - declaredSetCount;
+            if (neededMelds < 0 || handTileList.Count != neededMelds * 3 + 1) return waits;
 
-            foreach (int tile in ValidTiles) {
-                if (physicalCounts.TryGetValue(tile, out int count) && count >= 4) {
-                    continue;
+            var physicalCounts = new int[48];
+            var concealedCounts = new int[48];
+            bool hasExistingQuad = false;
+            for (int i = 0; i < handTileList.Count; i++) {
+                int t = handTileList[i];
+                if (t < 11 || t > 47) return waits;
+                concealedCounts[t]++;
+                physicalCounts[t]++;
+                if (concealedCounts[t] == 4) hasExistingQuad = true;
+            }
+            for (int i = 0; i < combinations.Count; i++) {
+                foreach (int t in ExpandMeld(combinations[i])) {
+                    if (t >= 11 && t <= 47) physicalCounts[t]++;
                 }
+            }
+            for (int i = 0; i < ValidTiles.Length; i++) {
+                if (physicalCounts[ValidTiles[i]] > 4) return waits;
+            }
 
-                var candidate = new List<int>(concealed) { tile };
-                if (IsWinningShape(candidate, combinations, allowQuadSplit)) {
+            var candidates = StandardMahjongSolver.StandardWaitingTiles(
+                handTileList, allowHonors: true, allowFifthCopy: false);
+
+            if (declaredSetCount == 0 && handTileList.Count == 13) {
+                int oddCount = 0, oddTile = -1;
+                bool allOrphans = true;
+                int orphanDistinct = 0;
+                for (int i = 0; i < ValidTiles.Length; i++) {
+                    int t = ValidTiles[i];
+                    int c = concealedCounts[t];
+                    if (c == 0) continue;
+                    if ((c & 1) == 1) { oddCount++; oddTile = t; }
+                    if (Orphans.Contains(t)) orphanDistinct++;
+                    else allOrphans = false;
+                }
+                if (oddCount == 1) candidates.Add(oddTile);
+                if (allOrphans) {
+                    if (orphanDistinct == 13) {
+                        foreach (int o in Orphans) candidates.Add(o);
+                    } else if (orphanDistinct == 12) {
+                        foreach (int o in Orphans) {
+                            if (concealedCounts[o] == 0) candidates.Add(o);
+                        }
+                    }
+                }
+            }
+
+            foreach (int tile in candidates) {
+                if (tile < 11 || tile > 47 || physicalCounts[tile] >= 4) continue;
+                if (!allowQuadSplit && (hasExistingQuad || concealedCounts[tile] == 3)) {
+                    var cand = new List<int>(handTileList.Count + 1);
+                    cand.AddRange(handTileList);
+                    cand.Add(tile);
+                    if (IsWinningShape(cand, combinations, false)) {
+                        waits.Add(tile);
+                    }
+                } else {
                     waits.Add(tile);
                 }
             }

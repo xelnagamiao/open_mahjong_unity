@@ -38,27 +38,21 @@ internal static class ChangchunHandCalculator {
         if(requireConditions && (logical.Where(t=>t<40).Select(t=>t/10).Distinct().Count()!=3
             || !logical.Any(t=>t>=41 || t%10==1 || t%10==9))) return result;
         if(codes.Count==0 && hand.GroupBy(t=>t).All(g=>g.Count()%2==0)) result.Add(new Shape{Seven=true});
-        foreach(int pair in hand.Distinct().Where(t=>hand.Count(x=>x==t)>=2)) {
-            var rest=hand.OrderBy(t=>t).ToList();rest.Remove(pair);rest.Remove(pair);
-            Split(rest,new Shape{Pair=pair},result,codes.Any(c=>c[0]!='s'),requireConditions);
+        bool externalPung = codes.Any(c=>c[0]!='s');
+        var decomps = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int i = 0; i < decomps.Count; i++) {
+            var d = decomps[i];
+            int pungs = 0;
+            var seqs = new List<int>();
+            for (int j = 0; j < d.Melds.Length; j++) {
+                var u = d.Melds[j];
+                if (u.Kind == 0) pungs++;
+                else seqs.Add(u.TileId);
+            }
+            if (!requireConditions || externalPung || pungs > 0 || d.PairTile >= 45)
+                result.Add(new Shape { Pair = d.PairTile, Pungs = pungs, Sequences = seqs });
         }
         return result;
-    }
-    private static void Split(List<int> rest,Shape shape,List<Shape> result,bool externalPung,bool requireConditions) {
-        if(rest.Count==0) {
-            if(!requireConditions || externalPung || shape.Pungs>0 || shape.Pair>=45)
-                result.Add(new Shape{Pair=shape.Pair,Pungs=shape.Pungs,Sequences=new List<int>(shape.Sequences)});
-            return;
-        }
-        int tile=rest[0];
-        if(rest.Count(t=>t==tile)>=3) {
-            var next=new List<int>(rest);for(int i=0;i<3;i++) next.Remove(tile);
-            shape.Pungs++;Split(next,shape,result,externalPung,requireConditions);shape.Pungs--;
-        }
-        if(tile<40 && tile%10<=7 && rest.Contains(tile+1) && rest.Contains(tile+2)) {
-            var next=new List<int>(rest);next.Remove(tile);next.Remove(tile+1);next.Remove(tile+2);
-            shape.Sequences.Add(tile+1);Split(next,shape,result,externalPung,requireConditions);shape.Sequences.RemoveAt(shape.Sequences.Count-1);
-        }
     }
     private static readonly Dictionary<string,HashSet<int>> Cache=new Dictionary<string,HashSet<int>>();
     /// <summary>Show structural waits even when three suits, yaojiu or the pung requirement is unmet.</summary>
@@ -66,11 +60,44 @@ internal static class ChangchunHandCalculator {
     public static bool IsQualified(List<int> hand,List<string> codes) => Shapes(hand,codes??new List<string>()).Count>0;
     public static HashSet<int> Waits(List<int> hand,List<string> codes,bool requireConditions=true) {
         codes=codes??new List<string>();
-        if(hand==null || hand.Count+codes.Count*3!=13) return new HashSet<int>();
+        if(hand==null || codes.Count>4 || hand.Count+codes.Count*3!=13) return new HashSet<int>();
         string key=(requireConditions?"Q|":"B|")+string.Join(",",hand.OrderBy(t=>t))+"|"+string.Join("|",codes);
         if(Cache.TryGetValue(key,out var cached)) return new HashSet<int>(cached);
         var result=new HashSet<int>();
-        foreach(int tile in Tiles) if(Shapes(new List<int>(hand){tile},codes,requireConditions).Count>0) result.Add(tile);
+        if(!codes.Where(c=>c!=null && c.StartsWith("C")).GroupBy(c=>c.Split(':')[0]).Any(g=>g.Count()>1)) {
+            int[] phys = new int[48];
+            bool valid = true;
+            for(int i=0;i<hand.Count;i++){ int t=hand[i]; if((uint)t>=48 || !Tiles.Contains(t) || ++phys[t]>4){ valid=false; break; } }
+            if(valid) {
+                foreach(string c in codes) {
+                    var p=MeldTiles(c); var l=MeldTiles(c,true);
+                    if(p==null || l==null){ valid=false; break; }
+                    foreach(int t in p) if(++phys[t]>4){ valid=false; break; }
+                    if(!valid) break;
+                }
+            }
+            if(valid) {
+                var candidates = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: false);
+                candidates.RemoveWhere(t => (uint)t >= 48 || phys[t] >= 4);
+                if(codes.Count==0) {
+                    int[] hc = new int[48];
+                    for(int i=0;i<hand.Count;i++) hc[hand[i]]++;
+                    int oddCount = 0, oddTile = -1;
+                    for(int i=0;i<Tiles.Length;i++){ int t=Tiles[i]; if((hc[t]&1)!=0){ oddCount++; oddTile=t; } }
+                    if(oddCount==1 && phys[oddTile]<4) candidates.Add(oddTile);
+                }
+                if(!requireConditions) {
+                    foreach(int tile in candidates) result.Add(tile);
+                } else {
+                    foreach(int tile in candidates) {
+                        var candidate = new List<int>(hand.Count + 1);
+                        candidate.AddRange(hand);
+                        candidate.Add(tile);
+                        if(Shapes(candidate,codes,true).Count>0) result.Add(tile);
+                    }
+                }
+            }
+        }
         if(Cache.Count>=2048) Cache.Clear();
         Cache[key]=result;return new HashSet<int>(result);
     }

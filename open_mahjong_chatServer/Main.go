@@ -1,12 +1,15 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // 全局连接池实例
@@ -255,19 +258,63 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleInternalRevoke(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	secret := r.Header.Get("X-Chat-Secret")
+	if roomManager.secretKey == "" || subtle.ConstantTimeCompare([]byte(secret), []byte(roomManager.secretKey)) != 1 {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	var payload struct {
+		UserID int64  `json:"user_id"`
+		Kick   bool   `json:"kick"`
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil || payload.UserID <= 0 {
+		http.Error(w, "invalid payload", http.StatusBadRequest)
+		return
+	}
+	if roomManager.accessCache != nil {
+		roomManager.accessCache.Invalidate(payload.UserID)
+	}
+	kicked := false
+	if payload.Kick {
+		kicked = roomManager.disconnectByUserID(payload.UserID, &Pool, payload.Reason)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"kicked":  kicked,
+	})
+}
+
 func main() {
 	roomManager.secretKey = GetSecretKey()
-	roomManager.lookupAccount = gameAccountLookup(roomManager.secretKey)
+	cacheTTL := envDurationSeconds("MAHJONG_CHAT_ACCESS_CACHE_TTL_SEC", 60)
+	roomManager.accessCache = newAccountAccessCache(gameAccountLookup(roomManager.secretKey), cacheTTL)
+	roomManager.lookupAccount = roomManager.accessCache.Lookup
 
-	// 设置路由处理函数
-	http.HandleFunc("/chat/", handleWebSocket) // 匹配所有 /chat/ 开头的路径
+	mux := http.NewServeMux()
+	mux.HandleFunc("/chat/", handleWebSocket) // 匹配所有 /chat/ 开头的路径
+	mux.HandleFunc("/internal/chat/revoke", handleInternalRevoke)
 
-	port := "8083"
-	log.Printf("WebSocket server starting on ws://localhost:%s", port)
+	port := os.Getenv("MAHJONG_CHAT_PORT")
+	if port == "" {
+		port = "8083"
+	}
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Printf("WebSocket server starting on ws://localhost:%s (access cache TTL=%s)", port, cacheTTL)
 	log.Printf("Expecting connections on paths like: ws://localhost:%s/chat/<playerId>", port)
 
-	// 启动 HTTP 服务器
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("ListenAndServe error:", err)
 	}
 

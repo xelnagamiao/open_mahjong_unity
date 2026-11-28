@@ -80,7 +80,8 @@ public partial class CreatePanel {
         _lastDefaultRoomName = GetDefaultRoomName();
         roomNameInput.text = _lastDefaultRoomName;
         ApplyRuleDefaults(_ruleState);
-        if (_ruleState == "taiwan") ResetDetailedConfig(GetDetailedConfigState("taiwan"));
+        if (_ruleState != "riichi" && DetailedConfigButton && DetailedConfigButton.gameObject.activeSelf)
+            ResetDetailedConfig(GetDetailedConfigState(_ruleState));
         ApplyDefaultRoomPreset();
         SubRuleDropdown.SetValueWithoutNotify(subRule);
         OnSubRuleChanged(subRule);

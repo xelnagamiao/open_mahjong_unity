@@ -724,6 +724,126 @@
         "开启"
       ],
       "help": "仅三人日麻生效。开启时拔北补牌自摸计岭上开花；关闭时只按普通自摸计役。拔北始终中断一发、地和、双立直和九种九牌。"
+    },
+    {
+      "section": "古役",
+      "key": "local_riichi_discard_ron",
+      "label": "燕返",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "荣和另一家宣告立直时的宣言弃牌，计1番。"
+    },
+    {
+      "section": "古役",
+      "key": "local_post_kan_discard_ron",
+      "label": "杠振",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "荣和开杠后杠家打出的第一张弃牌，计1番。暗杠、加杠只触发古役，不触发大明杠岭上包付。"
+    },
+    {
+      "section": "古役",
+      "key": "local_four_open_melds",
+      "label": "十二落抬",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "四组副露后以单骑听牌和牌，计1番。"
+    },
+    {
+      "section": "古役",
+      "key": "local_three_consecutive_triplets",
+      "label": "三连刻",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "同一门的三个连续数牌刻子或杠子，计2番。"
+    },
+    {
+      "section": "古役",
+      "key": "local_five_tile_groups",
+      "label": "五门齐",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "牌型同时包含万子、筒子、索子、风牌和三元牌，计2番。"
+    },
+    {
+      "section": "古役",
+      "key": "local_three_identical_sequences",
+      "label": "一色三同顺",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "同一门同一数字的三组顺子，门清3番、食下2番；不与由同组三顺产生的一杯口重复计番。"
+    },
+    {
+      "section": "古役",
+      "key": "local_daisharin",
+      "label": "大车轮",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "门清筒子二至八各两张的七对子，计单倍役满。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "pao_daiminkan_rinshan",
+      "label": "大明杠岭上包付",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "大明杠后，杠家立即岭上自摸时，由提供大明杠牌的玩家承担本次自摸分担；本场只支付一次。"
     }
   ],
   "presets": [
@@ -786,7 +906,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     },
     {
@@ -848,7 +976,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     },
     {
@@ -910,7 +1046,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     },
     {
@@ -972,7 +1116,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "all",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     },
     {
@@ -1034,7 +1186,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1097,7 +1257,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1160,7 +1328,15 @@
         "nuki_ron": "all",
         "nuki_rinshan": true,
         "show_teammate_hand": false,
-        "honba_enabled": true
+        "honba_enabled": true,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     },
     {
@@ -1222,7 +1398,15 @@
         "minimum_win_score": 0,
         "tenpai_owned_tiles": "concealed",
         "show_teammate_hand": false,
-        "honba_enabled": false
+        "honba_enabled": false,
+        "local_riichi_discard_ron": false,
+        "local_post_kan_discard_ron": false,
+        "local_four_open_melds": false,
+        "local_three_consecutive_triplets": false,
+        "local_five_tile_groups": false,
+        "local_three_identical_sequences": false,
+        "local_daisharin": false,
+        "pao_daiminkan_rinshan": false
       }
     }
   ]

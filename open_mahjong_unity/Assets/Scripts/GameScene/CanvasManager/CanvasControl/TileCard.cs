@@ -45,6 +45,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void Awake() {
         TileInstances<TileCard>.Register(this);
+        // 花纹图层仅用于显示，关闭射线拦截，避免缩放/偏移超出 Button 底边后挡住下层 fill 原槽位点击区。
+        if (tileImage != null) {
+            tileImage.raycastTarget = false;
+        }
         if (tileButton != null) {
             TileCardDragRelay relay = tileButton.GetComponent<TileCardDragRelay>();
             if (relay == null) {
@@ -95,6 +99,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
         slotImage.raycastTarget = true;
         slotHitRect = slotGo.GetComponent<RectTransform>();
+        if (slotHitRect != null) {
+            slotHitRect.anchorMin = new Vector2(0.5f, 0.5f);
+            slotHitRect.anchorMax = new Vector2(0.5f, 0.5f);
+            slotHitRect.pivot = new Vector2(0.5f, 0.5f);
+            slotHitRect.anchoredPosition = Vector2.zero;
+        }
         TileCardSlotClickRelay slotRelay = slotGo.GetComponent<TileCardSlotClickRelay>();
         if (slotRelay == null) {
             slotRelay = slotGo.AddComponent<TileCardSlotClickRelay>();

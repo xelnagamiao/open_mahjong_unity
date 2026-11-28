@@ -7,6 +7,7 @@ namespace Riichi {
         public int CompleteStep;
         public List<int> HandTilesMapped;
         public string CombinationStr;
+        public List<string> FanList;
 
         public RiichiPlayerTiles(List<int> tilesList, List<string> combinationList, int completeStep) {
             HandTiles = new List<int>(tilesList);
@@ -15,12 +16,14 @@ namespace Riichi {
             CompleteStep = completeStep;
             HandTilesMapped = new List<int>();
             CombinationStr = "";
+            FanList = new List<string>();
         }
 
         public RiichiPlayerTiles DeepCopy() {
             var copy = new RiichiPlayerTiles(HandTiles, CombinationList, CompleteStep);
             copy.HandTilesMapped = new List<int>(HandTilesMapped);
             copy.CombinationStr = CombinationStr;
+            copy.FanList = new List<string>(FanList);
             return copy;
         }
     }

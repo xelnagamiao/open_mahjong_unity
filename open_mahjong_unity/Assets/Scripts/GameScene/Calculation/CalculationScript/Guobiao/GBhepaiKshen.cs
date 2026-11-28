@@ -5,6 +5,8 @@ using UnityEngine;
 
 // 国标麻将 - K神规则和牌检查（独立脚本，完整复制国标逻辑并改为 K神 番表/计分，与 guobiao_hepai_check-kshen.py 一致）
 public static class GBhepaiKshen {
+    private static readonly Kshen_Hepai_Check SharedChecker = new Kshen_Hepai_Check(false);
+
     /// <summary>K神规则和牌检查</summary>
     public static Tuple<int, List<string>> HepaiCheck(
         List<int> hand_list,
@@ -12,7 +14,8 @@ public static class GBhepaiKshen {
         List<string> way_to_hepai,
         int get_tile,
         bool debug = false) {
-        var checker = new Kshen_Hepai_Check(debug);
+        if (!debug) return SharedChecker.HepaiCheck(hand_list, tiles_combination, way_to_hepai, get_tile);
+        var checker = new Kshen_Hepai_Check(true);
         return checker.HepaiCheck(hand_list, tiles_combination, way_to_hepai, get_tile);
     }
 }
@@ -405,22 +408,32 @@ public class Kshen_Hepai_Check {
             return false;
         }
 
+        private static readonly HashSet<int>[] QBK_CaseList = new[] {
+            new HashSet<int> { 11, 14, 17, 22, 25, 28, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
+            new HashSet<int> { 11, 14, 17, 32, 35, 38, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 },
+            new HashSet<int> { 21, 24, 27, 12, 15, 18, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
+            new HashSet<int> { 21, 24, 27, 32, 35, 38, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
+            new HashSet<int> { 31, 34, 37, 22, 25, 28, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
+            new HashSet<int> { 31, 34, 37, 12, 15, 18, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 }
+        };
+
+        private static readonly HashSet<int>[] ZHL_CaseList = new[] {
+            new HashSet<int> { 11, 14, 17, 22, 25, 28, 33, 36, 39 },
+            new HashSet<int> { 11, 14, 17, 32, 35, 38, 23, 26, 29 },
+            new HashSet<int> { 21, 24, 27, 12, 15, 18, 33, 36, 39 },
+            new HashSet<int> { 21, 24, 27, 32, 35, 38, 13, 16, 19 },
+            new HashSet<int> { 31, 34, 37, 22, 25, 28, 13, 16, 19 },
+            new HashSet<int> { 31, 34, 37, 12, 15, 18, 23, 26, 29 }
+        };
+
         // 全不靠检查
         private bool QBK_check(PlayerTiles player_tiles, List<PlayerTiles> player_tiles_list) {
             int hand_kind_set = player_tiles.hand_tiles.Distinct().Count();
             // 如果手牌种类为14种 则可能全不靠
             if (hand_kind_set == 14) {
-                var QBK_case_list = new List<HashSet<int>>() {
-                    new HashSet<int> { 11, 14, 17, 22, 25, 28, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
-                    new HashSet<int> { 11, 14, 17, 32, 35, 38, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 },
-                    new HashSet<int> { 21, 24, 27, 12, 15, 18, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
-                    new HashSet<int> { 21, 24, 27, 32, 35, 38, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
-                    new HashSet<int> { 31, 34, 37, 22, 25, 28, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
-                    new HashSet<int> { 31, 34, 37, 12, 15, 18, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 }
-                };
-                for (int idx = 0; idx < QBK_case_list.Count; idx++)
+                for (int idx = 0; idx < QBK_CaseList.Length; idx++)
                 {
-                    var case_set = QBK_case_list[idx];
+                    var case_set = QBK_CaseList[idx];
                     var QBK_set = new HashSet<int>();
                     foreach (var i in player_tiles.hand_tiles) {
                         if (case_set.Contains(i)) {
@@ -456,17 +469,9 @@ public class Kshen_Hepai_Check {
             }
             // 如果手牌种类为9种 则可能组合龙
             else if (hand_kind_set >= 9) {
-                var ZHL_case_list = new List<HashSet<int>>() {
-                    new HashSet<int> { 11, 14, 17, 22, 25, 28, 33, 36, 39 },
-                    new HashSet<int> { 11, 14, 17, 32, 35, 38, 23, 26, 29 },
-                    new HashSet<int> { 21, 24, 27, 12, 15, 18, 33, 36, 39 },
-                    new HashSet<int> { 21, 24, 27, 32, 35, 38, 13, 16, 19 },
-                    new HashSet<int> { 31, 34, 37, 22, 25, 28, 13, 16, 19 },
-                    new HashSet<int> { 31, 34, 37, 12, 15, 18, 23, 26, 29 }
-                };
-                for (int index = 0; index < ZHL_case_list.Count; index++)
+                for (int index = 0; index < ZHL_CaseList.Length; index++)
                 {
-                    var case_set = ZHL_case_list[index];
+                    var case_set = ZHL_CaseList[index];
                     var ZHL_set = new HashSet<int>();
                     foreach (var i in player_tiles.hand_tiles) {
                         if (case_set.Contains(i)) {
@@ -501,49 +506,35 @@ public class Kshen_Hepai_Check {
                 check_done_list.Add(player_tiles);
                 return;
             }
-            // 如果牌型没有组合,为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
-            else if (player_tiles.complete_step == 0) {
-                if (!Normal_check_block(player_tiles))
-                    return;
+            if (player_tiles.complete_step + player_tiles.hand_tiles.Count != 14) {
+                return;
             }
 
-            // 获取所有的雀头可能以及没有雀头的情况
-            var all_list = Normal_check_traverse_quetou(player_tiles);
-            var end_list = new List<PlayerTiles>();
-            if (debug) DebugPrint("所有雀头可能", string.Join(";", all_list.Select(x => string.Join(",", x.hand_tiles))));
-            int count_count = 0;
-            while (all_list.Count > 0) {
-                count_count++;
-                var temp_list = all_list[all_list.Count - 1];
-                all_list.RemoveAt(all_list.Count - 1);
-                if (debug) DebugPrint($"Normal_check: 处理分支, 手牌={string.Join(",", temp_list.hand_tiles)}, 组合={string.Join(",", temp_list.combination_list)}, complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
-                // 使用temp_list而不是player_tiles
-                Normal_check_traverse_kezi(temp_list, all_list);
-                Normal_check_traverse_dazi(temp_list, all_list);
-                if (debug) DebugPrint($"Normal_check: 处理分支后, temp_list.complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
-                if (temp_list.complete_step == 14) {
-                    end_list.Add(temp_list);
-                    if (debug) DebugPrint($"Normal_check: 找到和牌组合! 组合={string.Join(",", temp_list.combination_list)}");
-                }
+            var combLists = StandardMahjongSolver.StandardCombinationCodes(
+                player_tiles.hand_tiles,
+                player_tiles.combination_list,
+                allowHonors: true,
+                keziPrefix: 'K',
+                shunziPrefix: 'S',
+                quetouPrefix: 'q');
+            if (combLists.Count == 0) {
+                return;
             }
 
-            if (debug) DebugPrint("计算次数：", count_count);
-            List<string> combination_class = null;
-            var temp_list2 = new List<PlayerTiles>();
-            foreach (var i in end_list) {
-                i.combination_list.Sort();
-                if (!i.combination_list.SequenceEqual(combination_class ?? new List<string>())) {
-                    combination_class = new List<string>(i.combination_list);
-                    temp_list2.Add(i);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var end_list = new List<PlayerTiles>(combLists.Count);
+            for (int idx = 0; idx < combLists.Count; idx++) {
+                var comb = combLists[idx];
+                string key = string.Join("|", comb);
+                if (!seen.Add(key)) continue;
+                var done = new PlayerTiles(new List<int>(), comb, 14);
+                if (player_tiles.fan_list != null && player_tiles.fan_list.Count > 0) {
+                    done.fan_list.AddRange(player_tiles.fan_list);
                 }
+                end_list.Add(done);
             }
-            end_list = temp_list2;
 
             if (debug) DebugPrint("和牌类型的数量:", end_list.Count);
-            foreach (var i in end_list) {
-                if (debug) DebugPrint("手牌", string.Join(",", i.hand_tiles), "胡牌步数", i.complete_step, "胡牌组合", string.Join(",", i.combination_list));
-            }
-
             check_done_list.AddRange(end_list);
         }
 

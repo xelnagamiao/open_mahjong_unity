@@ -89,8 +89,15 @@ function loadCatalog() {
   return data;
 }
 
+let publicIndexCache = null;
+
+function invalidatePublicIndexCache() {
+  publicIndexCache = null;
+}
+
 function saveCatalog(catalog) {
   writeJsonAtomic(catalogPath(), catalog);
+  invalidatePublicIndexCache();
   rebuildPublicIndex(catalog);
 }
 
@@ -163,11 +170,23 @@ function publishedItems(catalog) {
 }
 
 function getPublicIndex() {
+  const file = catalogPath();
+  let mtimeMs = 0;
+  try {
+    mtimeMs = fs.statSync(file).mtimeMs;
+  } catch {
+    mtimeMs = 0;
+  }
+  if (publicIndexCache && publicIndexCache.file === file && publicIndexCache.mtimeMs === mtimeMs) {
+    return publicIndexCache.payload;
+  }
   const items = publishedItems(loadCatalog()).map(toPublicIndexItem);
-  return {
+  const payload = {
     updated_at: nowIso(),
     items,
   };
+  publicIndexCache = { file, mtimeMs, payload };
+  return payload;
 }
 
 function rebuildPublicIndex(catalog) {

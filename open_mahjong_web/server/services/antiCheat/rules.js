@@ -3,6 +3,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { selectPython } = require('./python');
+const { getSharedWorkerPool } = require('./pythonWorkerPool');
 
 function meldOnly(decision) {
   if (decision.kind !== 'discard') return { id: decision.id, status: 'unavailable', reason: 'special_action_opportunities_not_implemented' };
@@ -28,9 +29,40 @@ function meldOnly(decision) {
   return { id: decision.id, status: 'partial', recipients, reason: 'qualifying_mcr_calculator_unavailable' };
 }
 
-function runPython(decisions, options = {}) {
+function usePersistentWorkers(options = {}) {
+  if (options.persistent === false) return false;
+  if (process.env.ANTI_CHEAT_PERSISTENT_WORKERS === '0') return false;
+  return true;
+}
+
+async function runPython(decisions, options = {}) {
+  const pythonBinary = selectPython(options);
+  if (usePersistentWorkers(options)) {
+    const maxWorkers = Math.max(
+      1,
+      Math.min(8, Number(options.concurrency || process.env.ANTI_CHEAT_ANALYSIS_CONCURRENCY) || 4),
+    );
+    const pool = getSharedWorkerPool(`analysis:${pythonBinary}`, {
+      scriptPath: path.join(__dirname, 'center', 'analysisWorker.py'),
+      pythonBinary,
+      args: [],
+      maxWorkers,
+      maxJobsPerWorker: 300,
+      idleTimeoutMs: 60_000,
+      maxLineBytes: 64 * 1024 * 1024,
+      errorPrefix: 'mcr_calculator',
+    });
+    const output = await pool.exec(
+      { op: 'decisions', decisions },
+      { timeoutMs: options.calculator_timeout_ms || 60000 },
+    );
+    if (!output || !Array.isArray(output.results)) {
+      throw new Error('mcr_calculator_invalid_json');
+    }
+    return output;
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn(selectPython(options),
+    const child = spawn(pythonBinary,
       [path.join(__dirname, 'ruleBridge.py')], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     let stdout = '';
     let stderr = '';

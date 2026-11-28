@@ -14,11 +14,18 @@ public static class HongKongShape {
     public static HashSet<int> Waiting(IList<int> hand, IList<string> melds, string profile) {
         var result = new HashSet<int>();
         melds = melds ?? Array.Empty<string>();
-        if (!ValidatePhysical(hand,melds,profile,false,out _,out var physical)) return result;
-        foreach (int tile in Tiles) {
-            if (physical[tile]>=4) continue;
-            var complete = hand.Concat(new[] {tile}).ToArray();
-            if (IsComplete(complete, melds, profile)) result.Add(tile);
+        if (!ValidatePhysical(hand,melds,profile,false,out var counts,out var physical)) return result;
+        var roHand = hand as IReadOnlyList<int> ?? new List<int>(hand);
+        var std = StandardMahjongSolver.StandardWaitingTiles(roHand, allowHonors: true, allowFifthCopy: false);
+        foreach (int t in std) if ((uint)t < 48 && physical[t] < 4) result.Add(t);
+        bool canSpecial = melds.Count == 0 || (profile == HongKongGameState.New16 && melds.Count == 1 && (melds[0].StartsWith("g") || melds[0].StartsWith("G")));
+        if (canSpecial) {
+            foreach (int tile in Tiles) {
+                if (physical[tile]>=4 || result.Contains(tile)) continue;
+                counts[tile]++;
+                if (IsSpecialComplete(counts, melds, profile)) result.Add(tile);
+                counts[tile]--;
+            }
         }
         return result;
     }
@@ -27,7 +34,12 @@ public static class HongKongShape {
         melds = melds ?? Array.Empty<string>();
         int groups = profile==HongKongGameState.New16 ? 5 : 4;
         if (!ValidatePhysical(hand,melds,profile,true,out var counts,out _)) return false;
-        if (Standard((int[])counts.Clone(), groups-melds.Count)) return true;
+        var roHand = hand as IReadOnlyList<int> ?? new List<int>(hand);
+        if (StandardMahjongSolver.CanStandardWin(roHand, allowHonors: true)) return true;
+        return IsSpecialComplete(counts, melds, profile);
+    }
+
+    private static bool IsSpecialComplete(int[] counts, IList<string> melds, string profile) {
         if (profile==HongKongGameState.Qingzhang)
             return melds.Count==0 && IsOrphans(counts);
         if (profile==HongKongGameState.New13 || profile==HongKongGameState.New13Gametower)

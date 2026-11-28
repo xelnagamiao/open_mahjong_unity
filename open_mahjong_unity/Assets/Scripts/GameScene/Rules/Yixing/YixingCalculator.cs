@@ -36,34 +36,26 @@ public static class YixingCalculator {
         }
         return true;
     }
-    private static void Decompose(int[] counts, int needed, List<Group> groups, int pair, List<Shape> result) {
-        int tile = Array.FindIndex(counts, n => n > 0);
-        if (tile < 0) {
-            if (needed == 0) result.Add(new Shape {Pair=pair, Groups=new List<Group>(groups)});
-            return;
-        }
-        if (needed <= 0) return;
-        if (counts[tile] >= 3) {
-            counts[tile] -= 3; groups.Add(new Group { Tile=tile, Size=3, Closed=true });
-            Decompose(counts,needed-1,groups,pair,result);
-            groups.RemoveAt(groups.Count-1); counts[tile] += 3;
-        }
-        if (tile < 40 && tile%10 <= 7 && counts[tile+1] > 0 && counts[tile+2] > 0) {
-            counts[tile]--; counts[tile+1]--; counts[tile+2]--;
-            groups.Add(new Group {Tile=tile, Size=3, Sequence=true, Closed=true});
-            Decompose(counts,needed-1,groups,pair,result);
-            groups.RemoveAt(groups.Count-1); counts[tile]++; counts[tile+1]++; counts[tile+2]++;
-        }
-    }
     private static List<Shape> Shapes(int[] counts, List<Group> melds, bool sevenPairs) {
         var result = new List<Shape>();
         if (sevenPairs && melds.Count == 0 && counts.All(n => n%2 == 0))
             result.Add(new Shape {Seven=true, Groups=new List<Group>()});
-        foreach (int tile in Tiles) {
-            if (counts[tile] < 2) continue;
-            counts[tile] -= 2;
-            Decompose(counts,4-melds.Count,new List<Group>(melds),tile,result);
-            counts[tile] += 2;
+        var handList = new List<int>(14);
+        for (int i = 0; i < Tiles.Length; i++) {
+            int t = Tiles[i];
+            for (int k = 0; k < counts[t]; k++) handList.Add(t);
+        }
+        var decomps = StandardMahjongSolver.StandardDecompositions(handList, allowHonors: true);
+        for (int i = 0; i < decomps.Count; i++) {
+            var d = decomps[i];
+            var groups = new List<Group>(4);
+            groups.AddRange(melds);
+            for (int j = 0; j < d.Melds.Length; j++) {
+                var u = d.Melds[j];
+                if (u.Kind == 0) groups.Add(new Group { Tile = u.TileId, Size = 3, Closed = true });
+                else groups.Add(new Group { Tile = u.TileId - 1, Size = 3, Sequence = true, Closed = true });
+            }
+            result.Add(new Shape { Pair = d.PairTile, Groups = groups });
         }
         return result;
     }
@@ -71,11 +63,16 @@ public static class YixingCalculator {
         var result = new HashSet<int>();
         codes = codes ?? Array.Empty<string>();
         if (!Read(hand,codes,false,out var counts,out var physical,out var melds)) return result;
-        foreach (int tile in Tiles) {
-            if (physical[tile] >= 4) continue;
-            counts[tile]++;
-            if (Shapes(counts,melds,sevenPairs).Count > 0) result.Add(tile);
-            counts[tile]--;
+        var roHand = hand as IReadOnlyList<int> ?? new List<int>(hand);
+        var std = StandardMahjongSolver.StandardWaitingTiles(roHand, allowHonors: true, allowFifthCopy: false);
+        foreach (int t in std) if ((uint)t < 48 && physical[t] < 4) result.Add(t);
+        if (sevenPairs && melds.Count == 0) {
+            int oddCount = 0, oddTile = -1;
+            for (int i = 0; i < Tiles.Length; i++) {
+                int t = Tiles[i];
+                if ((counts[t] & 1) != 0) { oddCount++; oddTile = t; }
+            }
+            if (oddCount == 1 && physical[oddTile] < 4) result.Add(oddTile);
         }
         return result;
     }

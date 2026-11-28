@@ -62,12 +62,14 @@ public sealed class ActionPlayback {
     /// </summary>
     public void AnnounceClaim(TableAction action) {
         if (action.HasWord("jiagang") || action.HasWord("angang")) Clock.PendingAskFromJiagang = true;
-        foreach (string word in action.Words) {
-            SoundManager.Instance?.TraceAudioAction(action.ActionTick, word, action.Seat, action.Silent, action.IsClaim);
-            SoundManager.Instance.PlayActionSound(action.Seat, word);
-            SoundManager.Instance.PlayPhysicsSound(word);
-            // 和牌飘字文案由 ShowActionDisplay 按当前 RuleManifest 解析
-            GameCanvas.Instance.ShowActionDisplay(action.Seat, word, Session.RoomRule);
+        if (!TableCatchupMode.IsFastForwarding) {
+            foreach (string word in action.Words) {
+                SoundManager.Instance?.TraceAudioAction(action.ActionTick, word, action.Seat, action.Silent, action.IsClaim);
+                SoundManager.Instance.PlayActionSound(action.Seat, word);
+                SoundManager.Instance.PlayPhysicsSound(word);
+                // 和牌飘字文案由 ShowActionDisplay 按当前 RuleManifest 解析
+                GameCanvas.Instance.ShowActionDisplay(action.Seat, word, Session.RoomRule);
+            }
         }
         // 申请-停顿期间隐藏本家操作按钮；可抢断玩家会在 ask_other 再次询问时重新弹出按钮。
         GameCanvas.Instance.ClearActionButton();
@@ -82,10 +84,11 @@ public sealed class ActionPlayback {
             Debug.LogError($"ActionPlayback: 行动者 {action.PlayerIndex} 无座位映射，忽略 {string.Join(",", action.Words)}");
             return;
         }
+        bool fastForward = TableCatchupMode.IsFastForwarding;
         foreach (string word in action.Words) {
             SoundManager.Instance?.TraceAudioAction(action.ActionTick, word, action.Seat, action.Silent, action.IsClaim);
-            Debug.Log($"执行DoAction操作: {word} (silent={action.Silent})");
-            if (!action.Silent) {
+            Debug.Log($"执行DoAction操作: {word} (silent={action.Silent}, ff={fastForward})");
+            if (!action.Silent && !fastForward) {
                 Announce(action, word);
             }
             ApplyWord(action, word, intercept);
@@ -96,9 +99,15 @@ public sealed class ActionPlayback {
         if (action.Words.Any(IsTransferMeldWord)) {
             Clock.ApplyCurrentPlayerIndicator(action.Seat);
         }
-        Clock.ShowActing(action.Seat);
-        RefreshTableTipsAfterAction(action);
+        bool preserveCutConstraints = action.Words.Any() && action.Words.All(IsSameTurnConstraintPreservingWord);
+        Clock.ShowActing(action.Seat, preserveCutConstraints);
+        if (!fastForward) {
+            RefreshTableTipsAfterAction(action);
+        }
     }
+
+    private static bool IsSameTurnConstraintPreservingWord(string word) =>
+        word == "buhua" || word == "deal_buhua_tile" || word == "deal_tile" || word == "deal_gang_tile";
 
     /// <summary>发声与动作字。补张按其实际形态（G 暗杠 / k 加杠）取音效。</summary>
     private static void Announce(TableAction action, string word) {

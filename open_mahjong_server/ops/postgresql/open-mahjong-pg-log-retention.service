@@ -1,0 +1,21 @@
+[Unit]
+Description=Prune closed Open Mahjong PostgreSQL logs older than seven days
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/python3 -IB /usr/local/libexec/open-mahjong/prune_pg_logs.py --log-dir /www/server/pgsql/logs --data-dir /www/server/pgsql/data --apply
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadOnlyPaths=/proc /sys
+ReadWritePaths=/www/server/pgsql/logs
+UMask=0077

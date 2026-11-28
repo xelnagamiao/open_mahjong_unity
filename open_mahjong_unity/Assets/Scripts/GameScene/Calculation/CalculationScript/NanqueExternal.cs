@@ -7,6 +7,9 @@ using Nanque;
 /// authoritative; this facade follows the same shape as other rule adapters.
 /// </summary>
 public static class NanqueExternal {
+    private static readonly NanqueFanCalculator SharedHepai = new NanqueFanCalculator();
+    private static readonly NanqueTingpaiCheck SharedTingpai = new NanqueTingpaiCheck();
+
     /// <summary>
     /// Static discard-win fan count for tingpai tips. Situational fans are
     /// intentionally absent; the server remains authoritative at settlement.
@@ -15,7 +18,7 @@ public static class NanqueExternal {
         List<int> handList,
         List<string> combinationList,
         int winningTile) {
-        return new NanqueFanCalculator().HepaiCheck(
+        return SharedHepai.HepaiCheck(
             handList,
             combinationList,
             winningTile);
@@ -24,7 +27,7 @@ public static class NanqueExternal {
     public static HashSet<int> TingpaiCheck(
         List<int> handTileList,
         List<string> combinationList) {
-        return new NanqueTingpaiCheck().TingpaiCheck(
+        return SharedTingpai.TingpaiCheck(
             handTileList,
             combinationList);
     }

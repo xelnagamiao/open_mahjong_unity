@@ -76,54 +76,79 @@ public static class LocalJokerHand {
         public readonly int Offset;
         private readonly int[] counts, caps;
         private readonly int budget, mask;
-        private readonly Dictionary<(int,int,int,int),int> memo = new Dictionary<(int,int,int,int),int>();
-        private readonly Dictionary<(int,int),List<Shape>> patterns = new Dictionary<(int,int),List<Shape>>();
+        private readonly Dictionary<int,int> memo = new Dictionary<int,int>(32);
+        private readonly Dictionary<int,List<Shape>> patterns = new Dictionary<int,List<Shape>>();
         public Suit(Hand h, int offset, int length) {
-            Offset=offset; counts=h.Counts.Skip(offset).Take(length).ToArray(); caps=h.Caps.Skip(offset).Take(length).ToArray();
-            budget=h.Ghosts; mask=(1 << (budget+1))-1;
+            Offset = offset;
+            counts = new int[length];
+            caps = new int[length];
+            Array.Copy(h.Counts, offset, counts, 0, length);
+            Array.Copy(h.Caps, offset, caps, 0, length);
+            budget = h.Ghosts;
+            mask = (1 << (budget + 1)) - 1;
         }
-        private IEnumerable<(int pair,int pung,int sequence,int cost)> Steps(int rank,int a,int b,int pairLeft) {
-            int max=Math.Min(caps[rank],counts[rank]+budget);
-            for(int pair=0;pair<=pairLeft;pair++) {
-                int room=max-a-b-pair*2;
-                for(int pung=0;pung*3<=room;pung++) {
-                    int basis=a+b+pair*2+pung*3;
-                    int sequences=counts.Length==9 && rank<7 ? max-basis : 0;
-                    for(int seq=0;seq<=sequences;seq++) {
-                        int cost=basis+seq-counts[rank];
-                        if(cost>=0 && cost<=budget) yield return (pair,pung,seq,cost);
+        private int Resources(int rank, int a, int b, int pairLeft) {
+            if (rank == counts.Length) return a == 0 && b == 0 && pairLeft == 0 ? 1 : 0;
+            int key = (rank << 9) | (a << 5) | (b << 1) | pairLeft;
+            if (memo.TryGetValue(key, out int value)) return value;
+            int max = Math.Min(caps[rank], counts[rank] + budget);
+            int curCount = counts[rank];
+            bool canSeq = counts.Length == 9 && rank < 7;
+            for (int pair = 0; pair <= pairLeft; pair++) {
+                int room = max - a - b - pair * 2;
+                for (int pung = 0; pung * 3 <= room; pung++) {
+                    int basis = a + b + pair * 2 + pung * 3;
+                    int sequences = canSeq ? max - basis : 0;
+                    for (int seq = 0; seq <= sequences; seq++) {
+                        int cost = basis + seq - curCount;
+                        if (cost >= 0 && cost <= budget)
+                            value |= Resources(rank + 1, seq, a, pairLeft - pair) << cost;
                     }
                 }
             }
+            return memo[key] = value & mask;
         }
-        private int Resources(int rank,int a,int b,int pair) {
-            if(rank==counts.Length) return a==0 && b==0 && pair==0 ? 1 : 0;
-            var key=(rank,a,b,pair); if(memo.TryGetValue(key,out int value))return value;
-            foreach(var s in Steps(rank,a,b,pair)) value |= Resources(rank+1,s.sequence,a,pair-s.pair)<<s.cost;
-            return memo[key]=value & mask;
-        }
-        public int Profile(int pair)=>Resources(0,0,0,pair);
-        public List<Shape> Patterns(int pair,int cost) {
-            if(patterns.TryGetValue((pair,cost),out var found))return found;
-            found=new List<Shape>(); var logical=new int[counts.Length]; var codes=new List<string>();
-            void Walk(int rank,int a,int b,int eye,int remaining) {
-                if(rank==counts.Length) {
-                    if(remaining==0 && a==0 && b==0 && eye==0) found.Add(new Shape{Logical=(int[])logical.Clone(),Closed=codes.ToArray()});
+        public int Profile(int pair) => Resources(0, 0, 0, pair);
+        public List<Shape> Patterns(int pair, int cost) {
+            int pkey = (pair << 4) | cost;
+            if (patterns.TryGetValue(pkey, out var found)) return found;
+            found = new List<Shape>();
+            var logical = new int[counts.Length];
+            var codes = new List<string>();
+            bool isSuit = counts.Length == 9;
+            void Walk(int rank, int a, int b, int eye, int remaining) {
+                if (rank == counts.Length) {
+                    if (remaining == 0 && a == 0 && b == 0 && eye == 0)
+                        found.Add(new Shape { Logical = (int[])logical.Clone(), Closed = codes.ToArray() });
                     return;
                 }
-                foreach(var s in Steps(rank,a,b,eye)) {
-                    int next=remaining-s.cost;
-                    if(next<0 || (Resources(rank+1,s.sequence,a,eye-s.pair)&(1<<next))==0)continue;
-                    logical[rank]=counts[rank]+s.cost; int start=codes.Count;
-                    if(s.pair>0) codes.Add("q"+Tiles[Offset+rank]);
-                    for(int n=0;n<s.pung;n++)codes.Add("K"+Tiles[Offset+rank]);
-                    for(int n=0;n<s.sequence;n++)codes.Add("S"+(Tiles[Offset+rank]+1));
-                    Walk(rank+1,s.sequence,a,eye-s.pair,next);
-                    codes.RemoveRange(start,codes.Count-start);
+                int max = Math.Min(caps[rank], counts[rank] + budget);
+                int curCount = counts[rank];
+                bool canSeq = isSuit && rank < 7;
+                int tileVal = Tiles[Offset + rank];
+                for (int p = 0; p <= eye; p++) {
+                    int room = max - a - b - p * 2;
+                    for (int pung = 0; pung * 3 <= room; pung++) {
+                        int basis = a + b + p * 2 + pung * 3;
+                        int sequences = canSeq ? max - basis : 0;
+                        for (int seq = 0; seq <= sequences; seq++) {
+                            int stepCost = basis + seq - curCount;
+                            if (stepCost < 0 || stepCost > budget) continue;
+                            int next = remaining - stepCost;
+                            if (next < 0 || (Resources(rank + 1, seq, a, eye - p) & (1 << next)) == 0) continue;
+                            logical[rank] = curCount + stepCost;
+                            int start = codes.Count;
+                            if (p > 0) codes.Add("q" + tileVal);
+                            for (int n = 0; n < pung; n++) codes.Add("K" + tileVal);
+                            for (int n = 0; n < seq; n++) codes.Add("S" + (tileVal + 1));
+                            Walk(rank + 1, seq, a, eye - p, next);
+                            codes.RemoveRange(start, codes.Count - start);
+                        }
+                    }
                 }
             }
-            if((Profile(pair)&(1<<cost))!=0)Walk(0,0,0,pair,cost);
-            return patterns[(pair,cost)]=found;
+            if ((Profile(pair) & (1 << cost)) != 0) Walk(0, 0, 0, pair, cost);
+            return patterns[pkey] = found;
         }
     }
     private static Suit[] Suits(Hand h)=>new[]{new Suit(h,0,9),new Suit(h,9,9),new Suit(h,18,9),new Suit(h,27,7)};

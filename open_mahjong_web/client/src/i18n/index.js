@@ -1,29 +1,31 @@
 import { computed, ref, watch } from 'vue'
 import { messages, textPatterns } from './messages.js'
 import { formatLocaleQuantity } from './extended-locales.js'
-import { SUPPORTED_LOCALES, normalizeLocale, requestedGameLocale } from './locale-utils.js'
+import { SUPPORTED_LOCALES, detectBrowserLocale, normalizeLocale, requestedGameLocale } from './locale-utils.js'
 import { staticPageForPath } from '../seo/pages.js'
 
 export { SUPPORTED_LOCALES }
 export const LOCALE_STORAGE_KEY = 'salasasa.language'
 
-function detectLocale() {
-  const requested = requestedGameLocale(window.location.pathname, window.location.search)
-  if (requested) return requested
+let hasTemporaryLocaleOverride = false
+
+function readSavedOrBrowserLocale() {
   try {
     const saved = normalizeLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY))
     if (saved) return saved
   } catch {
     // Storage may be unavailable in privacy modes.
   }
-  const candidates = typeof navigator === 'undefined'
-    ? []
-    : [...(navigator.languages || []), navigator.language]
-  for (const candidate of candidates) {
-    const locale = normalizeLocale(candidate)
-    if (locale) return locale
+  return detectBrowserLocale()
+}
+
+function detectLocale() {
+  const requested = requestedGameLocale(window.location.pathname, window.location.search)
+  if (requested) {
+    hasTemporaryLocaleOverride = true
+    return requested
   }
-  return 'zh-CN'
+  return readSavedOrBrowserLocale()
 }
 
 export const locale = ref(typeof window === 'undefined' ? 'zh-CN' : detectLocale())
@@ -46,15 +48,24 @@ export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale =
     : `${prevailingWind}风${ROUND_WINDS[handIndex]}`
 }
 
-export function setLocale(value) {
+export function setLocale(value, { persist = true } = {}) {
   const next = normalizeLocale(value) || 'zh-CN'
+  hasTemporaryLocaleOverride = !persist
   locale.value = next
   if (typeof document !== 'undefined') syncDocumentLanguage()
+  if (!persist) return
   try {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, next)
   } catch {
     // Keep the in-memory selection when storage is unavailable.
   }
+}
+
+export function restorePersistentLocale() {
+  if (!hasTemporaryLocaleOverride || typeof window === 'undefined') return
+  hasTemporaryLocaleOverride = false
+  locale.value = readSavedOrBrowserLocale()
+  if (typeof document !== 'undefined') syncDocumentLanguage()
 }
 
 export function tr(source, params = {}, targetLocale = locale.value) {

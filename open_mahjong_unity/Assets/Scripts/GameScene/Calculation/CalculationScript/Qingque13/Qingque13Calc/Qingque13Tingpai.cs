@@ -195,108 +195,15 @@ namespace Qingque13
 
         private void normal_check(PlayerTilesTingpai player_tiles)
         {
-            // 为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
-            if (!normal_check_block(player_tiles))
+            if (player_tiles.complete_step + player_tiles.hand_tiles.Count != 13)
             {
                 return;
             }
-            // 获取所有的雀头可能以及没有雀头的情况
-
-            DebugPrint("手牌: {0}", string.Join(", ", player_tiles.hand_tiles));
-
-            List<PlayerTilesTingpai> all_list = normal_check_traverse_quetou(player_tiles);
-            List<PlayerTilesTingpai> end_list = new List<PlayerTilesTingpai>();
-            DebugPrint("所有列表: {0}", string.Join(" | ", all_list.Select(x => $"[{string.Join(",", x.hand_tiles)}]")));
-            // 345567
-            int count_count = 0;
-            while (all_list.Count > 0)
-            {
-                count_count++;
-                PlayerTilesTingpai temp_list = all_list[all_list.Count - 1];
-                all_list.RemoveAt(all_list.Count - 1);
-                // 使用temp_list而不是player_tiles
-                normal_check_traverse_kezi(temp_list, all_list);
-                normal_check_traverse_dazi(temp_list, all_list);
-                if (temp_list.complete_step >= 11)
-                {
-                    end_list.Add(temp_list);
-                }
-            }
-            DebugPrint("计算次数：{0}", count_count);
-            foreach (var i in end_list)
-            {
-                DebugPrint("手牌: {0}, 胡牌步数: {1}, 胡牌组合: {2}",
-                    string.Join(", ", i.hand_tiles),
-                    i.complete_step,
-                    string.Join(", ", i.combination_list));
-            }
-
-            // 只保留complete_step大于等于11的列表
-            end_list = end_list.Where(i => i.complete_step >= 11).ToList();
-            DebugPrint("处理后的列表: {0}", string.Join(" | ", end_list.Select(x => $"[{string.Join(",", x.hand_tiles)}]")));
-            DebugPrint("列表长度: {0}", end_list.Count);
-
-            // 剩余的手牌有四种组成方式
-            // 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2]
-            if (end_list.Count > 0)
-            {
-                List<int> waiting_tiles_list = new List<int>();
-                foreach (var i in end_list)
-                {
-                    DebugPrint("手牌: {0}, 步数: {1}, 组合: {2}",
-                        string.Join(", ", i.hand_tiles),
-                        i.complete_step,
-                        string.Join(", ", i.combination_list));
-
-                    if (i.hand_tiles.Count == 1)
-                    {
-                        waiting_tiles_list.Add(i.hand_tiles[0]); // 单吊型
-                    }
-                    else if (i.hand_tiles.Count == 2)
-                    {
-                        int tile1 = i.hand_tiles[0];
-                        int tile2 = i.hand_tiles[1];
-
-                        if (tile1 == tile2)
-                        {
-                            waiting_tiles_list.Add(tile1); // 对碰型
-                        }
-                        // Only suit tiles can form sequences (11-39), not honor tiles (41-47)
-                        else if (tile1 <= 39 && tile2 <= 39)
-                        {
-                            if (tile1 == tile2 - 1)
-                            {
-                                // 两面型 - but check boundaries
-                                int suit1 = tile1 / 10;
-                                int suit2 = tile2 / 10;
-                                if (suit1 == suit2) // Same suit
-                                {
-                                    waiting_tiles_list.Add(tile1 - 1);
-                                    waiting_tiles_list.Add(tile1 + 2);
-                                }
-                            }
-                            else if (tile1 == tile2 - 2)
-                            {
-                                // 坎张型 - but check they're in same suit
-                                int suit1 = tile1 / 10;
-                                int suit2 = tile2 / 10;
-                                if (suit1 == suit2) // Same suit
-                                {
-                                    waiting_tiles_list.Add(tile1 + 1);
-                                }
-                            }
-                        }
-                    }
-                }
-                // 去重
-                if (waiting_tiles_list.Count > 0)
-                {
-                    foreach (int i in waiting_tiles_list)
-                    {
-                        waiting_tiles.Add(i);
-                    }
-                }
-            }
+            StandardMahjongSolver.CollectStandardWaitingTiles(
+                player_tiles.hand_tiles,
+                waiting_tiles,
+                allowHonors: true,
+                allowFifthCopy: false);
         }
 
         private bool normal_check_block(PlayerTilesTingpai player_tiles)
@@ -419,7 +326,7 @@ namespace Qingque13
         public static HashSet<int> TingpaiCheck(
             List<int> hand_tile_list,
             List<string> combination_list,
-            bool debug = true)
+            bool debug = false)
         {
             var checker = new Qingque_Tingpai_Check(debug);
             return checker.TingpaiCheck(hand_tile_list, combination_list);

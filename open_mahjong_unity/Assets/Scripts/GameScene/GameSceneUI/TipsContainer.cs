@@ -138,6 +138,10 @@ public partial class TipsContainer : MonoBehaviour
         _cachedHandTiles.Clear();
         _cachedWaitingTiles.Clear();
         waitingTiles.Clear();
+        visibleHintSubRule = null;
+        if (TileContainer != null && FanContainer != null && Destroyer.Instance != null) {
+            ClearHintRows();
+        }
         RuleRegistry.ActiveGameState?.ClearProvidedTenpaiTips();
     }
 
@@ -178,7 +182,7 @@ public partial class TipsContainer : MonoBehaviour
 
     /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
     /// <param name="syncHandFromLiveState">为 true 时用当前 selfHandTiles 覆盖缓存，避免鸣牌后余张多算。</param>
-    public void RefreshTenpaiTipsIfCached(bool syncHandFromLiveState = false) {
+    public void RefreshTenpaiTipsIfCached(bool syncHandFromLiveState = false, bool forceWhenHidden = false) {
         if (!HasCachedTenpaiTips) return;
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
@@ -191,13 +195,14 @@ public partial class TipsContainer : MonoBehaviour
             _cachedHandTiles.Clear();
             _cachedHandTiles.AddRange(gameManager.selfHandTiles);
         }
+        if (!forceWhenHidden && !gameObject.activeInHierarchy) return;
         SetTipsWithHand(_cachedHandTiles, _cachedWaitingTiles);
     }
 
     /// <summary>听牌菱形展开：用缓存完整手牌重算后再显示，避免切牌预览状态泄漏。</summary>
     public void ShowCachedTenpaiTipsFromBlock() {
         if (!HasCachedTenpaiTips) return;
-        RefreshTenpaiTipsIfCached();
+        RefreshTenpaiTipsIfCached(forceWhenHidden: true);
         ShowTips();
     }
 

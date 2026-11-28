@@ -8,11 +8,14 @@ All mahjong rules use this single interface for tingpai / hepai checks so that:
 """
 from __future__ import annotations
 
+from collections import OrderedDict
 import json
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from .calc_executor import run_calc_cpu, run_room_calc_cpu
-from .registry import hepai_dispatch, invoke_callable_json, tingpai_dispatch
+from .registry import discard_waits_dispatch, hepai_dispatch, invoke_callable_json, tingpai_dispatch
+
+DEFAULT_L2_TINGPAI_MAXSIZE = 16384
 
 
 def _hand_signature(
@@ -32,8 +35,46 @@ def _hand_signature(
 class AsyncCalculationService:
     """Unified coroutine facade for all rule tingpai / hepai calculations."""
 
-    def __init__(self, sync_service: Any = None):
+    def __init__(self, sync_service: Any = None, *, l2_maxsize: int = DEFAULT_L2_TINGPAI_MAXSIZE):
         self.sync_service = sync_service
+        self._l2_maxsize = max(0, int(l2_maxsize))
+        self._l2_tingpai: OrderedDict[
+            Tuple[str, Tuple[int, ...], Tuple[str, ...], str], Tuple[int, ...]
+        ] = OrderedDict()
+        self._l2_hits = 0
+        self._l2_misses = 0
+
+    def _l2_get(self, sig: Tuple[str, Tuple[int, ...], Tuple[str, ...], str]) -> Optional[Tuple[int, ...]]:
+        if self._l2_maxsize <= 0:
+            return None
+        cached = self._l2_tingpai.get(sig)
+        if cached is not None:
+            self._l2_tingpai.move_to_end(sig)
+            self._l2_hits += 1
+            return cached
+        self._l2_misses += 1
+        return None
+
+    def _l2_put(self, sig: Tuple[str, Tuple[int, ...], Tuple[str, ...], str], waits: Tuple[int, ...]) -> None:
+        if self._l2_maxsize <= 0:
+            return
+        self._l2_tingpai[sig] = waits
+        self._l2_tingpai.move_to_end(sig)
+        if len(self._l2_tingpai) > self._l2_maxsize:
+            self._l2_tingpai.popitem(last=False)
+
+    def l2_cache_info(self) -> Dict[str, int]:
+        return {
+            "hits": self._l2_hits,
+            "misses": self._l2_misses,
+            "maxsize": self._l2_maxsize,
+            "currsize": len(self._l2_tingpai),
+        }
+
+    def clear_l2_cache(self) -> None:
+        self._l2_tingpai.clear()
+        self._l2_hits = 0
+        self._l2_misses = 0
 
     async def tingpai(
         self,
@@ -42,12 +83,30 @@ class AsyncCalculationService:
         combination_tiles: Iterable[str],
         extra: Any = None,
     ) -> Set[int]:
-        """Compute waiting tiles off-loop via the unified CalcExecutor."""
+        """Compute waiting tiles off-loop via main-process L2 cache + unified CalcExecutor."""
+        extra_json = json.dumps(extra, ensure_ascii=False, sort_keys=True) if extra is not None else ""
+        sig = _hand_signature(rule_key, hand_tiles, combination_tiles, extra_json)
+        cached = self._l2_get(sig)
+        if cached is not None:
+            return set(cached)
+        waits_tuple = await run_calc_cpu(tingpai_dispatch, rule_key, sig[1], sig[2], extra_json)
+        self._l2_put(sig, waits_tuple)
+        return set(waits_tuple)
+
+    async def discard_waits(
+        self,
+        rule_key: str,
+        hand_tiles: Iterable[int],
+        combination_tiles: Iterable[str],
+        extra: Any = None,
+    ) -> Dict[int, Set[int]]:
+        """Compute ``{discard_tile: waiting_tiles}`` in one batched CalcExecutor call."""
         hand_tuple = tuple(int(t) for t in hand_tiles)
         combo_tuple = tuple(str(c) for c in combination_tiles)
         extra_json = json.dumps(extra, ensure_ascii=False, sort_keys=True) if extra is not None else ""
-        waits_tuple = await run_calc_cpu(tingpai_dispatch, rule_key, hand_tuple, combo_tuple, extra_json)
-        return set(waits_tuple)
+        raw = await run_calc_cpu(discard_waits_dispatch, rule_key, hand_tuple, combo_tuple, extra_json)
+        parsed = json.loads(raw)
+        return {int(k): set(v) for k, v in parsed.items()}
 
     async def refresh_player_waiting_tiles(
         self,
@@ -60,7 +119,7 @@ class AsyncCalculationService:
         extra: Any = None,
         tile_filter: Optional[Callable[[Set[int]], Set[int]]] = None,
     ) -> Set[int]:
-        """Refresh player.waiting_tiles with L1 hand-dirty caching and race guard."""
+        """Refresh player.waiting_tiles with L1 hand-dirty + L2 global caching and race guard."""
         extra_json = json.dumps(extra, ensure_ascii=False, sort_keys=True) if extra is not None else ""
         sig = _hand_signature(rule_key, hand_tiles, combination_tiles, extra_json)
         if (
@@ -70,9 +129,10 @@ class AsyncCalculationService:
             return player.waiting_tiles
 
         expected_tick = getattr(game_state, "server_action_tick", None)
-        hand_tuple = tuple(int(t) for t in hand_tiles)
-        combo_tuple = tuple(str(c) for c in combination_tiles)
-        waits_tuple = await run_calc_cpu(tingpai_dispatch, rule_key, hand_tuple, combo_tuple, extra_json)
+        waits_tuple = self._l2_get(sig)
+        if waits_tuple is None:
+            waits_tuple = await run_calc_cpu(tingpai_dispatch, rule_key, sig[1], sig[2], extra_json)
+            self._l2_put(sig, waits_tuple)
         waiting = set(waits_tuple)
         if tile_filter is not None:
             waiting = set(tile_filter(waiting))

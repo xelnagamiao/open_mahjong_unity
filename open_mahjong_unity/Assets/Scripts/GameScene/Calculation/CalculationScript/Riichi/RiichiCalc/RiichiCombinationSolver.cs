@@ -53,25 +53,25 @@ namespace Riichi {
                 doneList.Add(pt);
                 return;
             }
-            if (pt.CompleteStep == 0 && !BlockCheck(pt)) return;
+            if (pt.CompleteStep + pt.HandTiles.Count != 14) return;
 
-            var allList = TraverseQuetou(pt);
-            var endList = new List<RiichiPlayerTiles>();
-            while (allList.Count > 0) {
-                var cur = allList[allList.Count - 1];
-                allList.RemoveAt(allList.Count - 1);
-                TraverseKezi(cur, allList);
-                TraverseDazi(cur, allList);
-                if (cur.CompleteStep == 14) endList.Add(cur);
-            }
+            var combLists = StandardMahjongSolver.StandardCombinationCodes(
+                pt.HandTiles,
+                pt.CombinationList,
+                allowHonors: true,
+                keziPrefix: 'K',
+                shunziPrefix: 'S',
+                quetouPrefix: 'q');
+            if (combLists.Count == 0) return;
 
-            List<string> prevComb = null;
-            foreach (var item in endList) {
-                item.CombinationList.Sort();
-                if (prevComb == null || !ListEqual(item.CombinationList, prevComb)) {
-                    prevComb = item.CombinationList;
-                    doneList.Add(item);
-                }
+            var seen = new HashSet<string>(System.StringComparer.Ordinal);
+            for (int i = 0; i < combLists.Count; i++) {
+                var comb = combLists[i];
+                if (!seen.Add(string.Join("|", comb))) continue;
+                var done = new RiichiPlayerTiles(new List<int>(), comb, 14);
+                if (pt.FanList != null && pt.FanList.Count > 0)
+                    done.FanList.AddRange(pt.FanList);
+                doneList.Add(done);
             }
         }
 

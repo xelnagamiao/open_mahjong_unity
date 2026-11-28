@@ -398,8 +398,13 @@ public partial class CreatePanel {
         state.HasFanEditorSnapshot = false;
     }
 
+    private int DefaultDetailedPresetIndex(DetailedConfigState state) {
+        return state.Definition.RuleKey == "riichi" && GetSelectedRiichiSubRule() == "riichi/sanma"
+            ? DefaultSanmaPresetIndex : state.Definition.DefaultPresetIndex;
+    }
+
     private void ResetDetailedConfig(DetailedConfigState state) {
-        ApplyDetailedConfigPreset(state, state.Definition.DefaultPresetIndex);
+        ApplyDetailedConfigPreset(state, DefaultDetailedPresetIndex(state));
     }
 
     private void ApplyDetailedConfigPreset(DetailedConfigState state, int presetIndex) {
@@ -642,6 +647,26 @@ public partial class CreatePanel {
         ClearDetailedConfigFanEditorSnapshot(state);
         if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
         HideSettingsDialog(state.Panel);
+    }
+
+    private ColorBlock? detailedConfigDefaultColors;
+
+    private void RefreshDetailedConfigButtonLabel() {
+        if (!DetailedConfigButton || !DetailedConfigButton.gameObject.activeSelf) return;
+        var state = GetDetailedConfigState(_ruleState);
+        if (state == null) return;
+        var defaultPreset = state.Definition.Presets[DefaultDetailedPresetIndex(state)];
+        bool changed = !DetailedConfigPresetMatches(state, defaultPreset);
+        var label = DetailedConfigButton.GetComponentInChildren<TMP_Text>(true);
+        TableText.Set(label, changed ? "高级设置（已修改）" : _ruleState == "riichi" ? "高级设置" : "馆规设置", _ruleState);
+
+        detailedConfigDefaultColors ??= DetailedConfigButton.colors;
+        var colors = detailedConfigDefaultColors.Value;
+        if (changed) {
+            var cyan = addRuleButton.colors.highlightedColor;
+            colors.normalColor = colors.highlightedColor = colors.selectedColor = cyan;
+        }
+        DetailedConfigButton.colors = colors;
     }
 
     private void RefreshDetailedConfigEntry() {

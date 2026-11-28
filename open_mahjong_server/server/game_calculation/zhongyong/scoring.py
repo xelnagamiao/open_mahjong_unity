@@ -118,8 +118,20 @@ def score_hand(ctx):
     if not declared:
         for key, check in (("seven_pairs", is_seven_pairs), ("thirteen_orphans", is_thirteen_orphans)):
             if check(concealed): candidates.append(_finish(_composition(ctx, physical, key) + [key]))
+    base_comp = _composition(ctx, physical)
+    kong_count = sum(m.kind == "kong" for m in declared)
+    kong_fan = {1:"one_kong",2:"two_kongs",3:"three_kongs",4:"four_kongs"}.get(kong_count)
+    is_nine_gates = False
+    if not declared and ctx.winning_tile is not None:
+        before = list(ctx.pre_win_tiles) if ctx.pre_win_tiles is not None else list(concealed)
+        if ctx.pre_win_tiles is None and ctx.winning_tile in before:
+            before.remove(ctx.winning_tile)
+        if len(before) == 13:
+            suit = ctx.winning_tile // 10
+            if suit in (1,2,3) and sorted(before) == [suit * 10 + n for n in (1,1,1,2,3,4,5,6,7,8,9,9,9)]:
+                is_nine_gates = True
     for decomp in find_standard_decompositions(concealed, declared, allow_quad_split=True):
-        ids = _composition(ctx, physical)
+        ids = list(base_comp)
         melds, pair = decomp.melds, decomp.pair
         if all(not m.declared or (m.kind == "kong" and m.concealed) for m in melds): ids.append("closed_hand")
         sequences = [m for m in melds if m.kind == "sequence"]
@@ -136,18 +148,18 @@ def score_hand(ctx):
         elif len(winds) == 2 and 41 <= pair.head <= 44: ids.append("small_three_winds")
         n = _concealed_counts(ctx, melds, pair)
         if n >= 2: ids.append({2:"two_concealed_triplets",3:"three_concealed_triplets",4:"four_concealed_triplets"}[n])
-        n = sum(m.kind == "kong" for m in declared)
-        if n: ids.append({1:"one_kong",2:"two_kongs",3:"three_kongs",4:"four_kongs"}[n])
+        if kong_fan: ids.append(kong_fan)
         identical = Counter(m.head for m in sequences)
         maximum = max(identical.values(), default=0)
         if maximum == 4: ids.append("pure_quadruple_chow")
         elif maximum == 3: ids.append("pure_triple_chow")
         elif list(identical.values()).count(2) == 2: ids.append("twice_pure_double_chow")
         elif maximum == 2: ids.append("pure_double_chow")
+        seq_heads = set(identical)
+        pung_heads = {m.head for m in pungs}
         for rank in range(1, 10):
-            if all(s * 10 + rank in {m.head for m in sequences} for s in (1,2,3)): ids.append("mixed_triple_chow")
-            heads = {m.head for m in pungs}
-            matches = [s for s in (1,2,3) if s * 10 + rank in heads]
+            if all(s * 10 + rank in seq_heads for s in (1,2,3)): ids.append("mixed_triple_chow")
+            matches = [s for s in (1,2,3) if s * 10 + rank in pung_heads]
             if len(matches) == 3: ids.append("three_suit_triplets")
             elif len(matches) == 2 and pair.head % 10 == rank and pair.head // 10 in {1,2,3} - set(matches):
                 ids.append("small_three_suit_triplets")
@@ -161,26 +173,31 @@ def score_hand(ctx):
             ids.append("mixed_outside_hand")
         if all(any(is_terminal(t) for t in unit.tiles) for unit in decomp.all_units):
             ids.append("pure_outside_hand")
-        before = list(ctx.pre_win_tiles) if ctx.pre_win_tiles is not None else list(concealed)
-        if ctx.pre_win_tiles is None and ctx.winning_tile in before: before.remove(ctx.winning_tile)
-        if not declared and len(before) == 13 and ctx.winning_tile is not None:
-            suit = ctx.winning_tile // 10
-            if suit in (1,2,3) and sorted(before) == [suit * 10 + n for n in (1,1,1,2,3,4,5,6,7,8,9,9,9)]:
-                ids.append("nine_gates")
+        if is_nine_gates:
+            ids.append("nine_gates")
         candidates.append(_finish(ids, decomp))
     return max(candidates, key=lambda r: (r.points, r.raw_points), default=ScoreResult(False))
 
 def tingpai_check(hand_tiles, meld_codes=()):
-    # Shape only: no minimum score, so avoid scoring 34 full candidates per draw.
+    # Shape only: no minimum score, so use suit-independent structural waits.
+    from ..standard_solver import standard_waiting_tiles
     tiles = list(hand_tiles)
     declared = parse_melds(meld_codes or ())
+    if len(declared) > 4 or len(tiles) != (4 - len(declared)) * 3 + 1:
+        return set()
     counts = Counter(tiles)
     counts.update(t for m in declared for t in m.tiles)
-    if any(n > 4 for n in counts.values()): return set()
-    result = set()
-    for tile in ALL_TILES:
-        if counts[tile] >= 4: continue
-        hand = tiles + [tile]
-        if (not declared and (is_seven_pairs(hand) or is_thirteen_orphans(hand))) or find_standard_decompositions(hand, declared, allow_quad_split=True):
-            result.add(tile)
-    return result
+    if any(n > 4 for n in counts.values()):
+        return set()
+    result = standard_waiting_tiles(tiles, allow_fifth_copy=False)
+    if not declared and len(tiles) == 13:
+        odds = [t for t, c in counts.items() if c % 2 == 1]
+        if len(odds) == 1:
+            result.add(odds[0])
+        orphans = {11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47}
+        if all(t in orphans for t in counts):
+            if len(counts) == 13:
+                result.update(orphans)
+            elif len(counts) == 12:
+                result.update(orphans - set(counts))
+    return {t for t in result if counts[t] < 4}

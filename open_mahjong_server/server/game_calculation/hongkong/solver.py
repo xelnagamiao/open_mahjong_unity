@@ -142,7 +142,22 @@ def _waits(hand, codes, rules):
         return frozenset()
     counts = Counter(hand)
     counts.update(t for m in external for t in m.tiles)
-    return frozenset(t for t in TILES if counts[t] < 4 and decompositions(hand + (t,), codes, rules, t))
+    from ..standard_solver import standard_waiting_tiles
+    waits = standard_waiting_tiles(hand, allow_fifth_copy=False)
+    waits = {t for t in waits if counts[t] < 4}
+    # Check profile-specific special shapes only when external melds permit them.
+    check_special = (
+        (len(external) <= 1 and all(m.kind == "kong" for m in external))
+        if rules.is_sixteen
+        else not external
+    )
+    if check_special:
+        for t in TILES:
+            if t in waits or counts[t] >= 4:
+                continue
+            if next(_special_shapes(hand + (t,), external, rules), None) is not None:
+                waits.add(t)
+    return frozenset(waits)
 
 
 def structural_waits(hand, codes=(), rules=None):

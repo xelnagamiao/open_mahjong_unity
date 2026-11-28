@@ -17,6 +17,7 @@ import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from .xueliu_bot import xueliu_smart_bot_action as smart_bot_action
+from .heuristic_bot import sichuan_heuristic_bot_action as heuristic_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
@@ -287,12 +288,17 @@ async def broadcast_dingque_ask(self):
 
 
 async def _auto_dingque(self, player_index):
-    """AI/掉线托管自动定缺：选数量最少的花色。"""
+    """AI/掉线托管自动定缺：高性能罗伯特按向听与大番势能定缺，其余选数量最少的花色。"""
     player = self.player_list[player_index]
-    counts = {1: 0, 2: 0, 3: 0}
-    for t in player.hand_tiles:
-        counts[t // 10] = counts.get(t // 10, 0) + 1
-    suit = min(counts, key=lambda s: counts[s])
+    if getattr(player, "user_id", None) == 3:
+        from .heuristic_bot import choose_dingque_suit
+        meld_count = int(getattr(self, "xueliu_meld_count", 3) if getattr(self, "is_xueliu", False) else 4)
+        suit = choose_dingque_suit(player.hand_tiles, meld_count=meld_count)
+    else:
+        counts = {1: 0, 2: 0, 3: 0}
+        for t in player.hand_tiles:
+            counts[t // 10] = counts.get(t // 10, 0) + 1
+        suit = min(counts, key=lambda s: counts[s])
     await self.action_queues[player_index].put({"action_type": "dingque", "target_tile": suit})
     self.action_events[player_index].set()
 
@@ -347,6 +353,10 @@ async def broadcast_ask_hand_action(self):
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                continue
+            elif current_player.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             elif current_player.user_id < 10:
                 if self.action_dict.get(i, []):
@@ -487,6 +497,10 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            elif current_player.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], self.game_status))
                 continue
             elif current_player.user_id < 10:
                 if self.action_dict.get(i, []):

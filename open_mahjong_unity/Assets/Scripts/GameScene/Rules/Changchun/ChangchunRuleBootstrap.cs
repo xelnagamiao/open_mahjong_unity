@@ -52,7 +52,7 @@ internal static class ChangchunRuleBootstrap {
         var active=RuleRegistry.ActiveGameState as ChangchunGameState;
         var options=added ? active?.Info?.added_candidates : active?.Info?.special_candidates;
         return (options ?? Array.Empty<ChangchunCandidate>()).Select(c=>new ActionCandidate(added?"cc_added":"cc_special",
-            c.physical,c.token,c.label+"："+string.Join("",(c.logical??Array.Empty<int>()).Select(TileName)))).ToArray();
+            c.physical,c.token)).ToArray();
     }
     private static IEnumerable<int> VisibleBaoTiles() {
         var info=(RuleRegistry.ActiveGameState as ChangchunGameState)?.Info;

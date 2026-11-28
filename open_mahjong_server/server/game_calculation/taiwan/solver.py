@@ -166,21 +166,17 @@ def _structural_waits_cached(
     allow_eight_pairs_half: bool,
 ) -> Tuple[int, ...]:
     counter = unpack_counter(counter_key)
-    waits = set()
-    for tile in STRUCTURE_TILES:
-        if counter[tile] >= 4:
-            continue
-        candidate = counter.copy()
-        candidate[tile] += 1
-        if (
-            allow_eight_pairs_half
-            and concealed_needed == HAND_STRUCTURE.meld_count
-            and _counter_is_eight_pairs_half(candidate)
-        ):
-            waits.add(tile)
-            continue
-        if _has_standard_shape(_counter_key(candidate), concealed_needed):
-            waits.add(tile)
+    from ..standard_solver import standard_waiting_tiles
+    hand_tiles = tuple(t for t, c in counter.items() for _ in range(c))
+    waits = standard_waiting_tiles(hand_tiles, allow_fifth_copy=False)
+    if allow_eight_pairs_half and concealed_needed == HAND_STRUCTURE.meld_count:
+        for tile in STRUCTURE_TILES:
+            if tile in waits or counter[tile] >= 4:
+                continue
+            candidate = counter.copy()
+            candidate[tile] += 1
+            if _counter_is_eight_pairs_half(candidate):
+                waits.add(tile)
     return tuple(sorted(waits))
 
 

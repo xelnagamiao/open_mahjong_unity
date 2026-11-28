@@ -15,9 +15,11 @@ public partial class RoundEndPresentation : MonoBehaviour {
     [SerializeField] private float handRevealHoldSeconds = RoundEndTiming.RoundEndHandRevealSeconds;
 
     private Coroutine activeRoundEndCoroutine;
+    private int presentationEpoch;
 
     public float FadeInSeconds => fadeInSeconds;
     public float HandRevealHoldSeconds => handRevealHoldSeconds;
+    public int PresentationEpoch => presentationEpoch;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -47,6 +49,7 @@ public partial class RoundEndPresentation : MonoBehaviour {
 
     /// <summary>显示自身操作区；清空局终 3D 明牌，对局手牌仍由 2D 操作区展示。</summary>
     public void ShowSelfGameplayControlAndResyncHand3D() {
+        presentationEpoch++;
         if (selfGameplayControlRoot != null) {
             selfGameplayControlRoot.SetActive(true);
         }
@@ -56,6 +59,7 @@ public partial class RoundEndPresentation : MonoBehaviour {
 
     /// <summary>停止当前局终流程。</summary>
     public void StopActiveSequence() {
+        presentationEpoch++;
         if (activeRoundEndCoroutine != null) {
             StopCoroutine(activeRoundEndCoroutine);
             activeRoundEndCoroutine = null;
@@ -72,7 +76,23 @@ public partial class RoundEndPresentation : MonoBehaviour {
 
     private void StartSequence(IEnumerator routine) {
         StopActiveSequence();
-        activeRoundEndCoroutine = StartCoroutine(SettlementSync.PreserveContext(routine));
+        int epoch = presentationEpoch;
+        activeRoundEndCoroutine = StartCoroutine(RunWithEpoch(SettlementSync.PreserveContext(routine), epoch));
+    }
+
+    private IEnumerator RunWithEpoch(IEnumerator routine, int epoch) {
+        try {
+            while (presentationEpoch == epoch) {
+                if (!routine.MoveNext()) yield break;
+                if (presentationEpoch != epoch) yield break;
+                yield return routine.Current;
+            }
+        } finally {
+            (routine as IDisposable)?.Dispose();
+            if (presentationEpoch == epoch) {
+                activeRoundEndCoroutine = null;
+            }
+        }
     }
 
     private void PreparePresentationRoot(bool playPresentationEffects) {

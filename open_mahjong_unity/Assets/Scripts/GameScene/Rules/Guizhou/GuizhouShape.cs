@@ -10,7 +10,7 @@ public static class GuizhouShape {
         melds = melds ?? Array.Empty<string>();
         if (hand == null || melds.Count > 4 || hand.Count != (4 - melds.Count) * 3 + 1) return result;
         var hidden = new int[40];
-        var physical = new int[40];
+        var physical = new int[48];
         foreach (int tile in hand) {
             if (!Valid(tile) || ++physical[tile] > 4) return result;
             hidden[tile]++;
@@ -21,41 +21,26 @@ public static class GuizhouShape {
             physical[tile] += code[0] == 'k' ? 3 : 4;
             if (physical[tile] > 4) return result;
         }
-        for (int tile = 11; tile <= 39; tile++) {
-            if (!Valid(tile) || physical[tile] >= 4) continue;
-            hidden[tile]++;
-            if ((melds.Count == 0 && hidden.All(n => n % 2 == 0)) || Standard(hidden, 4 - melds.Count)) result.Add(tile);
-            hidden[tile]--;
+        var roHand = hand as IReadOnlyList<int> ?? new List<int>(hand);
+        var std = StandardMahjongSolver.StandardWaitingTiles(roHand, allowHonors: false, allowFifthCopy: false);
+        foreach (int tile in std) if (Valid(tile) && physical[tile] < 4) result.Add(tile);
+        if (melds.Count == 0) {
+            int oddCount = 0, oddTile = -1;
+            for (int tile = 11; tile <= 39; tile++) {
+                if (Valid(tile) && (hidden[tile] & 1) != 0) { oddCount++; oddTile = tile; }
+            }
+            if (oddCount == 1 && physical[oddTile] < 4) result.Add(oddTile);
         }
         return result;
     }
     private static bool Valid(int tile) => tile >= 11 && tile <= 39 && tile % 10 >= 1 && tile % 10 <= 9;
     internal static bool Standard(int[] counts, int groups) {
+        var hand = new List<int>(groups * 3 + 2);
         for (int tile = 11; tile <= 39; tile++) {
-            if (counts[tile] < 2) continue;
-            counts[tile] -= 2;
-            bool complete = Groups(counts, groups);
-            counts[tile] += 2;
-            if (complete) return true;
+            if (!Valid(tile)) continue;
+            for (int k = 0; k < counts[tile]; k++) hand.Add(tile);
         }
-        return false;
-    }
-    private static bool Groups(int[] counts, int groups) {
-        int tile = Array.FindIndex(counts, n => n > 0);
-        if (tile < 0) return groups == 0;
-        if (groups <= 0) return false;
-        if (counts[tile] >= 3) {
-            counts[tile] -= 3;
-            bool complete = Groups(counts, groups - 1);
-            counts[tile] += 3;
-            if (complete) return true;
-        }
-        if (tile % 10 <= 7 && counts[tile + 1] > 0 && counts[tile + 2] > 0) {
-            counts[tile]--; counts[tile + 1]--; counts[tile + 2]--;
-            bool complete = Groups(counts, groups - 1);
-            counts[tile]++; counts[tile + 1]++; counts[tile + 2]++;
-            if (complete) return true;
-        }
-        return false;
+        if (hand.Count != groups * 3 + 2) return false;
+        return StandardMahjongSolver.CanStandardWin(hand, allowHonors: false);
     }
 }

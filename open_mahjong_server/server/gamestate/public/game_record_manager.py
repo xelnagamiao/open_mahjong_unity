@@ -563,7 +563,7 @@ def player_action_record_new_dora(self, tile_id: int):
 def player_action_record_ryuukyoku(self, tenpai_flags: List[int], score_changes: List[int], reason: str = "exhaustive"):
     append_action_tick(self, ["ryuukyoku", list(tenpai_flags), list(score_changes), reason])
 
-# 立直麻将 - 记录和牌细节 ["hu_riichi", hepai_player_index, hu_class, han, fu, yaku[], score_changes[], dora_indicators[], ura_dora_indicators[], aka_count]
+# 立直麻将 - 记录和牌细节；责任支付存在时在 scored_points 后追加责任者与原因。
 def player_action_record_hu_riichi(
     self,
     hepai_player_index: int,
@@ -578,8 +578,10 @@ def player_action_record_hu_riichi(
     honba: int,
     riichi_sticks_collected: int,
     scored_points: int | None = None,
+    liability_player_index: int | None = None,
+    liability_type: str | None = None,
 ):
-    append_action_tick(self, [
+    tick = [
         "hu_riichi",
         hepai_player_index,
         hu_class,
@@ -593,7 +595,10 @@ def player_action_record_hu_riichi(
         honba,
         riichi_sticks_collected,
         scored_points,
-    ])
+    ]
+    if liability_player_index is not None:
+        tick.extend([liability_player_index, liability_type])
+    append_action_tick(self, tick)
 
 # 牌谱记录回合结束标记 ["end"]
 def player_action_record_round_end(self):

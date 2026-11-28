@@ -23,8 +23,8 @@ public static class MalaysiaClaimOptionsValidation {
         Check(chow.Select(c=>c.ActionType).SequenceEqual(offered.Take(9)),"exact server action is submitted");
         Check(chow[1].TileIds.SequenceEqual(new[]{81,24,25}),"fly in lower chow position");
         Check(chow[2].TileIds.SequenceEqual(new[]{23,81,25}),"fly in middle chow position");
-        Check(chow[1].Caption!=chow[2].Caption,"same chow with different fly use is distinguishable");
-        Check(chow.All(c=>c.TileIds.Contains(25) && !string.IsNullOrEmpty(c.Caption)),"claimed tile and pager captions retained");
+        Check(!chow[1].TileIds.SequenceEqual(chow[2].TileIds),"same chow with different fly use is distinguishable by physical tiles");
+        Check(chow.All(c=>c.TileIds.Contains(25) && string.IsNullOrEmpty(c.Caption)),"claimed tile retained without caption text");
         var pung=MalaysiaGameState.ClaimChoices("malaysia_peng",offered,25);
         Check(pung.Count==3,"all three pung choices retained");
         for(int i=0;i<3;i++)Check(pung[i].TileIds.Count(t=>t==81)==i && pung[i].TileIds.Length==3,"physical pung "+i);

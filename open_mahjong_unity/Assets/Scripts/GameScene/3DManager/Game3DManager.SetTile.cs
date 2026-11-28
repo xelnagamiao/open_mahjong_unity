@@ -184,6 +184,12 @@ public partial class Game3DManager : MonoBehaviour {
             Card3DHoverManager.Instance.SetCardGrayOverlay(cardObj, Card3DHoverManager.Instance.MoqieOverlayColor, Card3DHoverManager.Instance.MoqieOverlayIntensity);
         }
 
+        if (IsFastForwardHandAnimActive()) {
+            StopDiscardMoveCoroutine(PlayerPosition);
+            cardObj.transform.position = currentPosition;
+            yield break;
+        }
+
         Vector3 startPosition = GetLastRemovePos(PlayerPosition);
         if (PlayerPosition == "self") {
             startPosition = selfPosPanel.outputPos != null ? selfPosPanel.outputPos.position : selfPosPanel.cardsPosition.position;

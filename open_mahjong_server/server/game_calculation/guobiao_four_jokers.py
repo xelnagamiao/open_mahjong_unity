@@ -140,6 +140,10 @@ def _code(group):
             else ("q" if group.kind == "pair" else "K") + str(group.logical[0]))
 
 
+_TINGPAI_CHECKER = Chinese_Tingpai_Check()
+_HEPAI_CHECKER = Chinese_Hepai_Check()
+
+
 @lru_cache(maxsize=8192)
 def _resolved_single_wait(before, melds, winning_tile):
     """One ordinary wait decomposition per resolved pre-win hand, not 34 scores.
@@ -147,7 +151,7 @@ def _resolved_single_wait(before, melds, winning_tile):
     Red flowers have already acquired fixed identities. Count all legal waits
     of this hand (across decompositions), excluding an impossible fifth copy.
     """
-    waits = Chinese_Tingpai_Check().tingpai_check(list(before), list(melds))
+    waits = _TINGPAI_CHECKER.tingpai_check(list(before), list(melds))
     caps = dict(policy_for(melds).closed_limits)
     counts = Counter(before)
     return {t for t in waits if counts[t] < caps.get(t, 4)} == {winning_tile}
@@ -159,7 +163,7 @@ def _score(hand, melds, way, winning_tile, joker_multi_wait, allow_single_wait):
         return 0, ()
     if winning_tile == JOKER and not any(x in way for x in ("自摸", "杠上开花", "last_deal", "妙手回春")):
         return 0, ()
-    checker = Chinese_Hepai_Check()
+    checker = _HEPAI_CHECKER
 
     # Physical draw candidates still include 59, even when no joker is held.
     # They cannot determine the wait fan of a resolved ordinary hand. Ignore

@@ -6,7 +6,7 @@ const {MODEL_VERSION:VERSION,inventoryPredicate,synchronizeScopeInventory}=requi
 const ALL_RULES = "__ALL__";
 const key = (rule, uid) => JSON.stringify([rule, String(uid)]);
 const iso = value => new Date(value).toISOString();
-async function refreshStatistics(pool, generation, config, { cancelled, progress, asOf,scopeScanned=false }) {
+async function refreshStatistics(pool, generation, config, { cancelled, progress, asOf, scopeScanned = false, pacer } = {}) {
   if(!scopeScanned)await synchronizeScopeInventory(pool);
   const meta = (await pool.query(`SELECT * FROM ${S}.meta WHERE id=1`)).rows[0];
   const dirty = (await pool.query(`SELECT * FROM ${S}.dirty_games`)).rows;
@@ -65,6 +65,7 @@ async function refreshStatistics(pool, generation, config, { cancelled, progress
   const flushPairs=async()=>{
     if (!pending.length) return;
     await pool.query(`INSERT INTO ${S}.pair_statistics(generation,window_days,pair_id,pair_key,donor_id,recipient_id,donor_name,recipient_name,rule_key,shared_games,score,flag_all,flag_meld,flag_ron,payload) SELECT $1,x.window_days,x.pair_id,x.pair_key,x.donor_id,x.recipient_id,x.donor_name,x.recipient_name,x.rule_key,x.shared_games,x.score,x.flag_all,x.flag_meld,x.flag_ron,x.payload FROM jsonb_to_recordset($2::jsonb) x(window_days integer,pair_id text,pair_key text,donor_id text,recipient_id text,donor_name text,recipient_name text,rule_key text,shared_games integer,score float,flag_all boolean,flag_meld boolean,flag_ron boolean,payload jsonb)`,[generation,JSON.stringify(pending.splice(0))]);
+    if (pacer) await pacer.paceDbBatch();
   };
   for (const days of config.windows_days) {
     await cancelled();
@@ -107,7 +108,10 @@ async function refreshStatistics(pool, generation, config, { cancelled, progress
         relations:perUser.get(k)||[],model_version:VERSION,as_of:asOf});
       playerRows.push({user_id:uid,rule_key:rule,score:payload.rank_rate,payload});
     }
-    for (let n=0;n<playerRows.length;n+=250) await pool.query(`INSERT INTO ${S}.player_pool_statistics(generation,window_days,user_id,rule_key,score,payload) SELECT $1,$2,x.user_id,x.rule_key,x.score,x.payload FROM jsonb_to_recordset($3::jsonb) x(user_id text,rule_key text,score float,payload jsonb)`,[generation,days,JSON.stringify(playerRows.slice(n,n+250))]);
+    for (let n=0;n<playerRows.length;n+=250) {
+      await pool.query(`INSERT INTO ${S}.player_pool_statistics(generation,window_days,user_id,rule_key,score,payload) SELECT $1,$2,x.user_id,x.rule_key,x.score,x.payload FROM jsonb_to_recordset($3::jsonb) x(user_id text,rule_key text,score float,payload jsonb)`,[generation,days,JSON.stringify(playerRows.slice(n,n+250))]);
+      if (pacer) await pacer.paceDbBatch();
+    }
   }
   await cancelled();
   await publish(pool,{scopeGames:games,generation,full,pairIds:[...targetIds],playerIds:[...affectedPlayers],predictionGameIds:[],modelId:null,config,version:VERSION,asOf,

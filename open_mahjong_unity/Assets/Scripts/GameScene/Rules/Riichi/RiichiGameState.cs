@@ -231,6 +231,7 @@ public class RiichiGameState : TurnBasedGameState {
             TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
             TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         }
+        GameCanvas.Instance?.RefreshHandTileSelectability();
     }
 
     /// <summary>振听标记（服务端只向本人同步 furiten）；浪涌子规则下任一家带 langyong_wave 即亮浪潮标记。</summary>
@@ -261,7 +262,8 @@ public class RiichiGameState : TurnBasedGameState {
 
     /// <summary>从 show_result_info 提取立直扩展信息（han/fu/dora/里宝牌/本场/场供/赤宝牌数）；未携带相关字段时返回 null。</summary>
     public static RiichiEndResultExtras BuildExtras(ShowResultInfo info) {
-        bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null;
+        bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null
+            || info.pao_liable_player_index != null || info.pao_type != null;
         bool hasRyuuExtras = (info.tenpai_tiles != null && info.tenpai_tiles.Count > 0) || info.exhaustive_penalty != null;
         if (!hasHuExtras && !hasRyuuExtras && info.score_history_changes == null) return null;
         return new RiichiEndResultExtras {
@@ -282,6 +284,8 @@ public class RiichiGameState : TurnBasedGameState {
             NagashiManganWinners = info.nagashi_mangan_winners,
             LangyongScoredPoints = info.langyong_scored_points ?? 0,
             LangyongMultiplier = info.langyong_multiplier ?? 0,
+            PaoLiablePlayerIndex = info.pao_liable_player_index,
+            PaoType = info.pao_type,
         };
     }
 

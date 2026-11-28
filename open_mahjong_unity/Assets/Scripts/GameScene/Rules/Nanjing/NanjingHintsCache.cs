@@ -6,19 +6,16 @@ public sealed class NanjingHintsCache {
     private NanjingHints hints;
     private System.Action onLocalReady;
     private bool RememberReady(TingpaiQuery q) { onLocalReady=q.OnReady; return true; }
-    public void Reset() { hints=null; }
+    public void Reset() { hints=null; onLocalReady=null; }
     public void Accept(NanjingHints value) { if(value?.source_hand_tiles!=null) hints=value; }
-    private static bool Same(IEnumerable<int> a,IEnumerable<int> b) => a!=null && b!=null && a.OrderBy(t=>t).SequenceEqual(b.OrderBy(t=>t));
     private bool Rows(List<int> hand,List<string> melds,out int[] waits,out Dictionary<int,NanjingWaitDetail> details) {
         waits=null;details=null;
         if(hints?.local_request!=null) { var local=LocalHintSnapshots.Read<NanjingHints>(hints.local_request,onLocalReady); if(local==null)return false; hints=local; }
-        if(hints==null || hand==null || !(hints.source_melds??Array.Empty<string>()).OrderBy(x=>x).SequenceEqual((melds??new List<string>()).OrderBy(x=>x))) return false;
-        if(Same(hand,hints.source_hand_tiles)) { waits=hints.waiting_tiles;details=hints.waiting_details;return true; }
-        if(hand.Count+1!=hints.source_hand_tiles.Length || hints.waiting_by_discard==null) return false;
-        foreach(var row in hints.waiting_by_discard) {
-            var remaining=new List<int>(hints.source_hand_tiles);
-            if(!remaining.Remove(row.Key) || !Same(remaining,hand)) continue;
-            waits=row.Value;hints.waiting_details_by_discard?.TryGetValue(row.Key,out details);return true;
+        if(hints==null || hand==null || !LocalHintSnapshots.SameMelds(hints.source_melds,melds)) return false;
+        if(LocalHintSnapshots.SameTiles(hand,hints.source_hand_tiles)) { waits=hints.waiting_tiles;details=hints.waiting_details;return true; }
+        if(hints.waiting_by_discard!=null && LocalHintSnapshots.TryFindSingleCut(hints.source_hand_tiles,hand,out int cut) && hints.waiting_by_discard.TryGetValue(cut,out waits)) {
+            hints.waiting_details_by_discard?.TryGetValue(cut,out details);
+            return true;
         }
         return false;
     }

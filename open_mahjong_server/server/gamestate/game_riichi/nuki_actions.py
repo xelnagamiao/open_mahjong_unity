@@ -38,6 +38,8 @@ async def begin_nuki(game):
     from .kan_actions import commit_kan
     if not can_nuki(game, game.current_player_index):
         raise ValueError('当前状态不能拔北')
+    # 拔北后的补牌不再是大明杠后直接岭上牌，包付事件在此消费。
+    game._rinshan_daiminkan_liable = None
     p = game.player_list[game.current_player_index]
     game._pending_kan = dict(kind='nuki', normal=44, actual=44,
                              is_mo_gang=p.hand_tiles[-1] == 44)

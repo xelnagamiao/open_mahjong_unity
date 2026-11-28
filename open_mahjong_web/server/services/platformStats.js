@@ -5,6 +5,10 @@ const pool = require('../config/database');
 const { GUOBIAO_FAN_KEYS } = require('../constants/guobiaoFanDict');
 const { queryRiichiHomeStats } = require('./riichiHomeStats');
 const { queryRecordHomeStats } = require('./recordHomeStats');
+const { createTtlCache } = require('../utils/ttlCache');
+
+const recentCountCache = createTtlCache({ maxEntries: 128 });
+const RECENT_COUNT_TTL_MS = 30_000;
 
 const LADDER_TIERS = ['beginner', 'intermediate', 'advanced', 'mcrpl', 'elo'];
 const EVENT_ALL = 'all';
@@ -443,15 +447,19 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
     );
 
     const countParams = params.slice(0, -2);
-    const countRes = await db.query(
-      `SELECT COUNT(*)::int AS cnt
-       FROM game_replays gr
-       WHERE EXISTS (
-         SELECT 1 FROM game_record_tables t JOIN game_player_records gpr USING(game_id)
-         WHERE t.replay_id = gr.game_id AND ${whereSql}
-       )`,
-      countParams
-    );
+    const countCacheKey = `cnt:${rule}:${matchTier || ''}:${eventId || ''}:${roomType}`;
+    const totalCount = await recentCountCache.getOrCompute(countCacheKey, RECENT_COUNT_TTL_MS, async () => {
+      const countRes = await db.query(
+        `SELECT COUNT(*)::int AS cnt
+         FROM game_replays gr
+         WHERE EXISTS (
+           SELECT 1 FROM game_record_tables t JOIN game_player_records gpr USING(game_id)
+           WHERE t.replay_id = gr.game_id AND ${whereSql}
+         )`,
+        countParams
+      );
+      return countRes.rows[0]?.cnt || 0;
+    });
 
     const gameIds = listRes.rows.map((r) => r.game_id);
     const playersByGame = new Map();
@@ -487,7 +495,7 @@ async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, ev
 
     return {
       items,
-      total: countRes.rows[0]?.cnt || 0,
+      total: totalCount,
       limit: lim,
       offset: off,
     };

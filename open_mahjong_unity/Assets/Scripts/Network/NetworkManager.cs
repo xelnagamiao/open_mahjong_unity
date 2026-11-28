@@ -8,6 +8,9 @@ using Newtonsoft.Json;
 using System.Collections;
 using System.Net;
 using System.Net.Sockets;
+#if UNITY_WEBGL && !UNITY_EDITOR
+using System.Runtime.InteropServices;
+#endif
 
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
@@ -15,6 +18,10 @@ public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
 public partial class NetworkManager : MonoBehaviour {
 
     public static NetworkManager Instance { get; private set; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void InstallWebGLPageVisibility(string gameObjectName);
+#endif
     private WebSocket websocket; // 定义websocket
 
     /// <summary>
@@ -40,6 +47,13 @@ public partial class NetworkManager : MonoBehaviour {
     private Queue<IncomingMessage> messageQueue = new Queue<IncomingMessage>();
     private readonly Queue<IncomingMessage> priorityMessageQueue = new Queue<IncomingMessage>();
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
+    private const int StaleBacklogCountThreshold = 25;
+    private const int StaleBacklogAgeMinCount = 6;
+    private const double StaleBacklogAgeSeconds = 10.0d;
+    private const double SilentResyncCooldownSeconds = 1.5d;
+    private const int MaxMessagesPerFrame = 8;
+    private const double MaxFrameDispatchBudgetSeconds = 0.004d;
+    private double _lastSilentResyncRequestedAt = -100d;
 
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
 
@@ -75,6 +89,9 @@ public partial class NetworkManager : MonoBehaviour {
     private MessagePrefab disconnectDialog;
     private bool connectionAvailable;
     private bool sessionRevoked;
+    private string _sessionLoginPassword;
+    public string SessionLoginPassword => _sessionLoginPassword;
+    public void ClearSessionCredentials() { _sessionLoginPassword = null; }
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -197,6 +214,7 @@ public partial class NetworkManager : MonoBehaviour {
 #endif
                 GameSceneUIManager.ResetRealtimeSpectatorUi();
                 PartyNetworkManager.Instance?.ResetState();
+                MatchNetworkManager.Instance?.ClearLocalMatchState();
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ShowConnectionError("连接已关闭");
@@ -260,25 +278,29 @@ public partial class NetworkManager : MonoBehaviour {
     }
 
     private void OnApplicationPause(bool pause) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        return;
+#else
         if (pause) {
             AutoReconnect.OnEnterBackground();
             return;
         }
         // 先派发积压消息让 OnClose 尽早触发，再交 AutoReconnect 处理
-#if !UNITY_WEBGL || UNITY_EDITOR
         websocket?.DispatchMessageQueue();
-#endif
         AutoReconnect.OnEnterForeground();
         if (!AutoReconnect.IsActive) {
             CheckDisconnectOnForeground();
         }
+#endif
     }
 
     private void OnApplicationFocus(bool hasFocus) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // WebGL 下点输入框/地址栏会频繁触发 canvas 失焦；仅由 JS visibilitychange 驱动前后台切换。
+        return;
+#else
         if (hasFocus) {
-#if !UNITY_WEBGL || UNITY_EDITOR
             websocket?.DispatchMessageQueue();
-#endif
             AutoReconnect.OnEnterForeground();
             if (!AutoReconnect.IsActive) {
                 CheckDisconnectOnForeground();
@@ -286,6 +308,7 @@ public partial class NetworkManager : MonoBehaviour {
         } else {
             AutoReconnect.OnEnterBackground();
         }
+#endif
     }
 
     private void CheckDisconnectOnForeground() {
@@ -502,9 +525,150 @@ public partial class NetworkManager : MonoBehaviour {
         if (Instance == this && !isConnecting) {
 #if !UNITY_WEBGL || UNITY_EDITOR
             LocalRecordStore.EnsureReady(null);
+#else
+            InstallWebGLPageVisibility(gameObject.name);
 #endif
             initialConnectCoroutine = StartCoroutine(InitialConnectRoutine());
         }
+    }
+
+    private static double MonotonicNow() =>
+        System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
+
+    private static bool IsGameStateQueueJson(string json) {
+        if (string.IsNullOrEmpty(json)) return false;
+        return json.Contains("\"type\":\"gamestate/")
+            || json.Contains("\"type\":\"switch_seat\"")
+            || json.Contains("\"type\":\"refresh_player_tag_list\"");
+    }
+
+    private static bool IsSnapshotQueueJson(string json) {
+        if (string.IsNullOrEmpty(json)) return false;
+        return json.Contains("/game_start\"") || json.Contains("/reconnect\"");
+    }
+
+    /// <summary>WebGL JS visibilitychange 回调：0 表示进入后台，正数表示离开前台的毫秒数。</summary>
+    public void OnWebGLVisibilityChanged(string payload) {
+        if (string.IsNullOrEmpty(payload) || payload == "0") {
+            AutoReconnect.OnEnterBackground();
+            return;
+        }
+        double awaySeconds = 0d;
+        if (double.TryParse(payload, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double awayMs) && awayMs > 0d) {
+            awaySeconds = awayMs / 1000d;
+        }
+        AutoReconnect.OnEnterForeground(awaySeconds);
+        if (!AutoReconnect.IsActive) {
+            CheckDisconnectOnForeground();
+        }
+    }
+
+    /// <summary>WebGL 后台 Web Worker 心跳回调：仅发送轻量 ping 保活主连接与聊天连接。</summary>
+    public void OnWebGLBackgroundHeartbeat() {
+        if (IsWebSocketOpen) {
+            _pingTimer = 0f;
+            SendPing();
+        }
+        ChatManager.Instance?.SendBackgroundHeartbeat();
+    }
+
+    private static bool IsRoundBoundaryQueueJson(string json) {
+        if (string.IsNullOrEmpty(json)) return false;
+        return json.Contains("/show_result\"")
+            || json.Contains("/show_shuhewei\"")
+            || json.Contains("/game_start\"")
+            || json.Contains("/reconnect\"")
+            || json.Contains("/game_end\"");
+    }
+
+    public bool HasStaleGameBacklog() {
+        double now = MonotonicNow();
+        int gameMsgCount = 0;
+        double oldestGameAt = double.PositiveInfinity;
+        bool hasRoundBoundary = false;
+        lock (messageQueue) {
+            foreach (var item in messageQueue) {
+                if (!IsGameStateQueueJson(item.Json)) continue;
+                gameMsgCount++;
+                if (item.ReceivedAt < oldestGameAt) oldestGameAt = item.ReceivedAt;
+                if (!hasRoundBoundary && IsRoundBoundaryQueueJson(item.Json)) {
+                    hasRoundBoundary = true;
+                }
+            }
+        }
+        if (gameMsgCount == 0) return false;
+        // 1. 积压消息数量达到阈值（大量动作堆积）→ 直接快照对齐
+        if (gameMsgCount >= StaleBacklogCountThreshold) return true;
+        // 2. 队列中出现跨局/结算边界且仍有积压（>=2 条）→ 直接快照对齐，避免旧结算协程与新局竞态
+        if (hasRoundBoundary && gameMsgCount >= 2 && (now - oldestGameAt) >= 1.5d) return true;
+        // 3. 长时间滞后且积压了一定数量的消息 → 快照对齐；少量消息（<6 条）直接快速消化不重刷牌桌
+        return gameMsgCount >= StaleBacklogAgeMinCount && (now - oldestGameAt) >= StaleBacklogAgeSeconds;
+    }
+
+    public int DropQueuedGameStateMessages() {
+        int dropped = 0;
+        lock (messageQueue) {
+            if (messageQueue.Count == 0) return 0;
+            var retained = new Queue<IncomingMessage>(messageQueue.Count);
+            while (messageQueue.Count > 0) {
+                var item = messageQueue.Dequeue();
+                if (IsGameStateQueueJson(item.Json)) {
+                    dropped++;
+                } else {
+                    retained.Enqueue(item);
+                }
+            }
+            messageQueue = retained;
+        }
+        return dropped;
+    }
+
+    public bool RequestSilentGameResync(string reason) {
+        if (!IsWebSocketOpen) return false;
+        if (!GameSession.Current.IsGameActive || GameSession.Current.IsRealtimeSpectator) return false;
+        string gid = GameSession.Current.GamestateId;
+        if (string.IsNullOrEmpty(gid)) return false;
+        double now = MonotonicNow();
+        if (now - _lastSilentResyncRequestedAt < SilentResyncCooldownSeconds) return false;
+        _lastSilentResyncRequestedAt = now;
+
+        int dropped = DropQueuedGameStateMessages();
+        Debug.Log($"[NetworkManager] 触发无感快照对齐 reason={reason} gid={gid} dropped={dropped}");
+        try {
+            var payload = new Dictionary<string, object> {
+                ["type"] = "resync_gamestate",
+                ["gamestate_id"] = gid,
+            };
+            _ = websocket.SendText(JsonConvert.SerializeObject(payload));
+            return true;
+        } catch (Exception e) {
+            Debug.LogWarning($"[NetworkManager] 发送 resync_gamestate 失败: {e.Message}");
+            return false;
+        }
+    }
+
+    public void SendCancelTimeoutAutoMoqie(string gamestateId) {
+        if (!IsWebSocketOpen || string.IsNullOrEmpty(gamestateId)) return;
+        try {
+            var payload = new Dictionary<string, object> {
+                ["type"] = "cancel_timeout_auto_moqie",
+                ["gamestate_id"] = gamestateId,
+            };
+            _ = websocket.SendText(JsonConvert.SerializeObject(payload));
+        } catch (Exception e) {
+            Debug.LogWarning($"[NetworkManager] 发送 cancel_timeout_auto_moqie 失败: {e.Message}");
+        }
+    }
+
+    private int CountQueuedGameStateMessages() {
+        int count = 0;
+        lock (messageQueue) {
+            foreach (var item in messageQueue) {
+                if (IsGameStateQueueJson(item.Json)) count++;
+            }
+        }
+        return count;
     }
 
     // 网络管理器实例在 Update 中处理消息队列
@@ -514,9 +678,35 @@ public partial class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
 
-        // 处理消息队列（match/match_found 等优先消息先于普通队列）
-        if (TryDequeueNextMessage(out IncomingMessage message)) {
-            Get_Message(message.Json, message.ReceivedAt);
+        if (!AutoReconnect.IsActive && HasStaleGameBacklog()) {
+            RequestSilentGameResync("queue_backlog");
+        }
+
+        // 处理消息队列（match/match_found 等优先消息先于普通队列；
+        // 中短时同局积压开启静默快进模式，跳过历史音效/飞行动画，最后 1 条恢复正常反馈）
+        bool canFastForward = !AutoReconnect.IsActive
+            && GameSession.Current.IsGameActive
+            && !GameSession.Current.IsRealtimeSpectator;
+        int queuedGameCount = canFastForward ? CountQueuedGameStateMessages() : 0;
+        bool useFastForwardBudget = queuedGameCount >= 2;
+        int frameLimit = useFastForwardBudget ? TableCatchupMode.FastForwardMaxMessagesPerFrame : MaxMessagesPerFrame;
+        double frameBudget = useFastForwardBudget ? TableCatchupMode.FastForwardFrameBudgetSeconds : MaxFrameDispatchBudgetSeconds;
+
+        double dispatchStart = MonotonicNow();
+        try {
+            for (int processed = 0; processed < frameLimit; processed++) {
+                if (!TryDequeueNextMessage(out IncomingMessage message)) break;
+                bool isGameMsg = IsGameStateQueueJson(message.Json);
+                bool isSnapshot = IsSnapshotQueueJson(message.Json);
+                bool fastForwardThis = canFastForward && isGameMsg && !isSnapshot && CountQueuedGameStateMessages() > 0;
+                TableCatchupMode.SetFastForwarding(fastForwardThis);
+                Get_Message(message.Json, message.ReceivedAt);
+                if (isSnapshot || (MonotonicNow() - dispatchStart) >= frameBudget) {
+                    break;
+                }
+            }
+        } finally {
+            TableCatchupMode.SetFastForwarding(false);
         }
 
         // 处理主线程调度器
@@ -605,7 +795,14 @@ public partial class NetworkManager : MonoBehaviour {
             if (UserDataManager.Instance.UserId != response.login_info.user_id) {
                 MatchNetworkManager.Instance?.ClearLocalMatchState();
             }
-            WindowsManager.Instance.SwitchWindow("menu");
+            // AutoReconnect 期间若原本就在大厅子页/房间页/牌谱页，不强行跳回 menu；
+            // 仅在登录页或普通手动登录时切换至 menu。
+            bool preserveWindowOnAutoReconnect = AutoReconnect.IsActive
+                && WindowsManager.Instance != null
+                && WindowsManager.Instance.GetCurrentWindow() != "login";
+            if (!preserveWindowOnAutoReconnect) {
+                WindowsManager.Instance.SwitchWindow("menu");
+            }
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -1106,6 +1303,8 @@ public partial class NetworkManager : MonoBehaviour {
                 LoginPanel.Instance.ResetLoginButton();
                 return;
             }
+            // 仅在内存记录本次会话凭证供 AutoReconnect 使用（不写磁盘，登出/被顶号时清空）
+            _sessionLoginPassword = is_tourist ? null : password;
             // 如果网络连接成功，则发送登录消息
             var request = new LoginRequest {
                 type = "login",

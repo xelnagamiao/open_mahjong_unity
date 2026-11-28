@@ -11,13 +11,16 @@ using Riichi;
 /// 实际服务端对局仍以服务端 mahjong 库结果为准；本地完整计算用于 tips 分数预测 / 离线测试。
 /// </summary>
 public static class RiichiExternal {
+    private static readonly RiichiHepaiCheck SharedHepai = new RiichiHepaiCheck();
+    private static readonly RiichiHandCalculator SharedFullCalc = new RiichiHandCalculator();
+
     public static Tuple<int, List<string>> HepaiCheck(
         List<int> handList,
         List<string> tilesCombination,
         List<string> wayToHepai,
         int getTile,
         bool debug = false) {
-        return new RiichiHepaiCheck().HepaiCheck(
+        return SharedHepai.HepaiCheck(
             handList, tilesCombination, wayToHepai, getTile);
     }
 
@@ -29,7 +32,7 @@ public static class RiichiExternal {
         List<string> tilesCombination,
         int winTile,
         RiichiHandContext context) {
-        return new RiichiHandCalculator().Calculate(handList, tilesCombination, winTile, context);
+        return SharedFullCalc.Calculate(handList, tilesCombination, winTile, context);
     }
 
     /// <summary>听牌提示专用试算；牌张是否剩余由提示栏的枚数和底色表达。</summary>
@@ -38,7 +41,7 @@ public static class RiichiExternal {
         List<string> tilesCombination,
         int winTile,
         RiichiHandContext context) {
-        return new RiichiHandCalculator().CalculateWaitHint(handList, tilesCombination, winTile, context);
+        return SharedFullCalc.CalculateWaitHint(handList, tilesCombination, winTile, context);
     }
 
     public static HashSet<int> TingpaiCheck(

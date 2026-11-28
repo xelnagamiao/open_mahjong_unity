@@ -27,4 +27,8 @@ public class RiichiEndResultExtras {
     public int LangyongScoredPoints;
     /// <summary>浪涌展示倍数（含浪潮 +1；自摸时为各支付方倍数最大值）。</summary>
     public int LangyongMultiplier;
+    /// <summary>责任支付者座位；大明杠岭上包付时有值。</summary>
+    public int? PaoLiablePlayerIndex;
+    /// <summary>责任支付原因，例如“大明杠岭上包付”。</summary>
+    public string PaoType;
 }

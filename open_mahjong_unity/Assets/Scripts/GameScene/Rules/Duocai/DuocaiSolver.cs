@@ -50,8 +50,12 @@ internal static class DuocaiSolver {
             }
             return false;
         }
-        foreach(int slot in Enumerable.Range(0,slots.Length).OrderBy(s=>choices[s].Length))
-            if(slot!=winningSlot&&!Assign(slot,new bool[hand.Length]))return null;
+        var visited=new bool[hand.Length];
+        foreach(int slot in Enumerable.Range(0,slots.Length).OrderBy(s=>choices[s].Length)) {
+            if(slot==winningSlot)continue;
+            Array.Clear(visited,0,visited.Length);
+            if(!Assign(slot,visited))return null;
+        }
         return owners;
     }
     private static LocalJokerHand.Hand Generic(int[] hand,int groups,bool pairs=false) {

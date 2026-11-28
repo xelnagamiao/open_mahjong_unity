@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from ..nanque.decompose import Meld, find_standard_decompositions
+from ..standard_solver import standard_waiting_tiles
 
 RULE_VERSION = "mil-guizhou-2023-om1"
 SUB_RULE = "guizhou/standard"
@@ -152,8 +153,16 @@ def _waits(hand, melds, theoretical):
     counts = Counter(hand)
     if not theoretical:
         counts.update(t for code in melds for t in meld_tiles(code))
-    return frozenset(t for t in TILES if counts[t] < 4 and
-                     score_hand(hand + (t,), melds, theoretical=theoretical) is not None)
+    candidates = standard_waiting_tiles(
+        hand,
+        allow_honors=False,
+        allow_fifth_copy=False,
+    )
+    if not melds and len(hand) == 13:
+        odds = [t for t, c in Counter(hand).items() if c % 2 == 1]
+        if len(odds) == 1:
+            candidates.add(odds[0])
+    return frozenset(t for t in candidates if counts[t] < 4)
 
 
 def waiting_tiles(hand, melds=(), *, theoretical=True):

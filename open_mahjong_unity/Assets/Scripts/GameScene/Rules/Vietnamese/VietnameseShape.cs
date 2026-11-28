@@ -46,22 +46,48 @@ public static class VietnameseShape {
         }
         return false;
     }
-    private static bool Groups(int[] c,int left,HashSet<string> dead) {
-        if(left==0) return c.All(n=>n==0);
-        string key=left+":"+string.Join(",",c);if(dead.Contains(key))return false;
-        int anchor=Tiles.FirstOrDefault(t=>c[t]>0),before=c[anchor];
-        foreach(int face in Tiles) {
-            if((anchor==0 || anchor==face) && Use(c,new[]{face,face,face},0,()=> (anchor==0 || c[anchor]<before) && Groups(c,left-1,dead)))return true;
-            if(face>=40 || face%10>7 || anchor!=0 && (anchor<face || anchor>face+2))continue;
-            if(Use(c,new[]{face,face+1,face+2},0,()=> (anchor==0 || c[anchor]<before) && Groups(c,left-1,dead)))return true;
+    private static bool Groups(int[] c, int left, HashSet<string> dead, int minIdx = 0) {
+        if (left == 0) {
+            for (int i = 0; i < c.Length; i++) if (c[i] != 0) return false;
+            return true;
         }
-        dead.Add(key);return false;
+        string key = left + ":" + minIdx + ":" + string.Join(",", c);
+        if (dead.Contains(key)) return false;
+        int anchor = 0;
+        for (int i = 0; i < Tiles.Length; i++) {
+            if (c[Tiles[i]] > 0) { anchor = Tiles[i]; break; }
+        }
+        int before = anchor > 0 ? c[anchor] : 0;
+        int startIdx = anchor == 0 ? minIdx : 0;
+        for (int idx = startIdx; idx < Tiles.Length; idx++) {
+            int face = Tiles[idx];
+            if ((anchor == 0 || anchor == face) && Use(c, new[] { face, face, face }, 0,
+                () => (anchor == 0 || c[anchor] < before) && Groups(c, left - 1, dead, anchor == 0 ? idx : 0)))
+                return true;
+            if (face >= 40 || face % 10 > 7 || anchor != 0 && (anchor < face || anchor > face + 2)) continue;
+            if (Use(c, new[] { face, face + 1, face + 2 }, 0,
+                () => (anchor == 0 || c[anchor] < before) && Groups(c, left - 1, dead, anchor == 0 ? idx : 0)))
+                return true;
+        }
+        dead.Add(key);
+        return false;
     }
-    private static bool Pairs(int[] c) {
-        if(c.All(n=>n==0))return true;
-        int anchor=Tiles.FirstOrDefault(t=>c[t]>0),before=c[anchor];
-        foreach(int t in anchor==0?Tiles:new[]{anchor})
-            if(Use(c,new[]{t,t},0,()=> (anchor==0 || c[anchor]<before) && Pairs(c)))return true;
+    private static bool Pairs(int[] c, int minIdx = 0) {
+        bool empty = true;
+        for (int i = 0; i < c.Length; i++) if (c[i] != 0) { empty = false; break; }
+        if (empty) return true;
+        int anchor = 0;
+        for (int i = 0; i < Tiles.Length; i++) {
+            if (c[Tiles[i]] > 0) { anchor = Tiles[i]; break; }
+        }
+        if (anchor > 0) {
+            int before = c[anchor];
+            return Use(c, new[] { anchor, anchor }, 0, () => c[anchor] < before && Pairs(c, 0));
+        }
+        for (int idx = minIdx; idx < Tiles.Length; idx++) {
+            int t = Tiles[idx];
+            if (Use(c, new[] { t, t }, 0, () => Pairs(c, idx))) return true;
+        }
         return false;
     }
 }

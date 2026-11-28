@@ -27649,10 +27649,10 @@
       "en": "No fixed duration: there is no match-length limit; hand and turn timers still apply. Any player may choose End Game at the upper right, settling the match after the current hand. Returning before the hand ends cancels that player's request. The match still ends if another player's request remains."
     },
     {
-      "key": "高级设置 <color=#00AFC1>（已更改）</color>",
-      "zh": "高级设置 <color=#00AFC1>（已更改）</color>",
-      "tw": "高級設定 <color=#00AFC1>（已更改）</color>",
-      "en": "Advanced settings <color=#00AFC1>(Changed)</color>"
+      "key": "高级设置（已修改）",
+      "zh": "高级设置（已修改）",
+      "tw": "高級設定（已修改）",
+      "en": "Advanced settings (modified)"
     },
     {
       "key": "高级设置",

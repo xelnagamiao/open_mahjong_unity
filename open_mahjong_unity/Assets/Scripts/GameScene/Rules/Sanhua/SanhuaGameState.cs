@@ -48,6 +48,9 @@ public sealed class SanhuaGameState : TurnBasedGameState {
             HasFlowerReplacement=false,DefaultHepaiLimit=4,FaceDownAnkan=true,RecordDangerUsesWaitHint=true,
             RonWinTileTravelsFromRiver=true,SupportsRobbedAddedKongSource=true,
             Tingpai=SanhuaHand.Waiting,DescribeWaitingTile=SanhuaHand.Describe,
+            DeferWaitingTileHints=true,DeferInvisibleHintCells=_=>true,
+            TryDescribeWaitingTileCached=q=>SanhuaHand.TryDescribeCached(q,out WaitTileHint hint)?hint:null,
+            DescribeWaitingTileAsync=SanhuaHand.ResolveAsync,
             TileBadgeText=t=>Display?.joker==t?"癞":Display?.skin==t?"皮":null,
             HandJokerTiles=_=>Display==null?Array.Empty<int>():new[]{Display.joker},
             RecordHandJokerTiles=r=>r?.sanhua==null?Array.Empty<int>():new[]{r.sanhua.joker},
@@ -108,6 +111,8 @@ public sealed class SanhuaGameState : TurnBasedGameState {
     protected override void OnRoundStarted(GameInfo info) {
         Info = info.sanhua;
         RefreshLiveWall(info);
+        if (Manager?.tips == true && Mirror?.Self != null && TipsBlock.Instance != null && TipsContainer.Instance != null)
+            TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
 
     private void RefreshLiveWall(GameInfo info) {

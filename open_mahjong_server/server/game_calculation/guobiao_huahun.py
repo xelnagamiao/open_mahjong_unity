@@ -125,6 +125,9 @@ class _FlowerKongScorer(Chinese_Hepai_Check):
         return super().fan_count_output(player, combination_str, zimo, way)
 
 
+_FLOWER_KONG_SCORER = _FlowerKongScorer()
+
+
 @lru_cache(maxsize=1024)
 def _base_score(hand, melds, way, tile, multi_wait, allow_single_wait):
     if tile not in hand or not _can_win(hand, melds):
@@ -139,7 +142,7 @@ def _base_score(hand, melds, way, tile, multi_wait, allow_single_wait):
     if allow_single_wait and waiting_tiles(before, melds) == {tile}:
         way.append("和单张")
     best = (0, ())
-    scorer = _FlowerKongScorer()
+    scorer = _FLOWER_KONG_SCORER
     for shape in iter_winning_shapes(hand, ordinary, _kong_policy(ordinary), tile,
                                      equivalence="logical_structure"):
         closed = [shared._code(g) for g in shape.groups if not g.external]

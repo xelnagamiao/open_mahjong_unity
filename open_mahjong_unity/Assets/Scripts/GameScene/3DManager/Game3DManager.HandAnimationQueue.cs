@@ -46,6 +46,7 @@ public partial class Game3DManager {
         public WashizuHandLayout WashizuLayout;
         public System.Action AfterWork;
         public int[] DuocaiPostBacks;
+        public bool FastForward;
     }
 
     private static readonly string[] HandAnimPlayerPositions = { "self", "left", "top", "right" };
@@ -59,6 +60,10 @@ public partial class Game3DManager {
 
     private readonly Dictionary<string, Coroutine> _handAnimProcessors = new Dictionary<string, Coroutine>();
     private int _handAnimationGeneration;
+    private bool _activeFastForwardHandAnim;
+
+    private bool IsFastForwardHandAnimActive() =>
+        _activeFastForwardHandAnim || TableCatchupMode.IsFastForwarding;
 
     private int _recordHandAnimationCount;
     private int _recordHandAnimationGeneration;
@@ -183,6 +188,9 @@ public partial class Game3DManager {
             return;
         }
         op.PlayerPosition = playerPosition;
+        if (TableCatchupMode.IsFastForwarding) {
+            op.FastForward = true;
+        }
         op.AfterWork = DuocaiTableIndicators.CaptureHandBacks(playerPosition);
         if(op.Kind==HandAnimOpKind.DrawCard)op.AfterWork+=DuocaiTableIndicators.CaptureVisibleDraw(playerPosition);
         op.DuocaiPostBacks = DuocaiTableIndicators.CaptureHandBackState(playerPosition);
@@ -212,7 +220,16 @@ public partial class Game3DManager {
         Queue<HandAnimOp> queue = _handAnimQueues[playerPosition];
         while (generation == _handAnimationGeneration && queue.Count > 0) {
             HandAnimOp op = queue.Dequeue();
-            yield return ExecuteHandAnimOp(op);
+            bool fastForward = op.FastForward
+                || (!IsRecordShowCardsModeActive() && GameSession.Current.IsGameActive
+                    && !GameSession.Current.IsRealtimeSpectator && queue.Count >= 2);
+            bool prevFastForward = _activeFastForwardHandAnim;
+            _activeFastForwardHandAnim = fastForward;
+            try {
+                yield return ExecuteHandAnimOp(op);
+            } finally {
+                _activeFastForwardHandAnim = prevFastForward;
+            }
             if (generation == _handAnimationGeneration) op.AfterWork?.Invoke();
         }
         if (generation == _handAnimationGeneration) _handAnimProcessors[playerPosition] = null;
@@ -397,9 +414,10 @@ public partial class Game3DManager {
             yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, op.CutClass, op.TileId, null, skipRearrange: true, op.PlayerPosition, op.DuocaiPostBacks);
         }
         bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(op.CutClass);
-        if (op.PlayCutPhysicsSound) PlayDiscardSound(op.PlayerPosition, op.IsRiichi);
+        bool fastForward = IsFastForwardHandAnimActive();
+        if (op.PlayCutPhysicsSound && !fastForward) PlayDiscardSound(op.PlayerPosition, op.IsRiichi);
         yield return Set3DTileCoroutine(op.ConcealedDiscard ? 0 : op.TileId, panel.discardsPosition, "Discard", op.PlayerPosition, moqieGrayOnDiscard, isRiichi: op.IsRiichi);
-        if (op.PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
+        if (!fastForward && op.PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
             yield return new WaitForSeconds(DiscardSettlePauseSec);
         }
         yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);

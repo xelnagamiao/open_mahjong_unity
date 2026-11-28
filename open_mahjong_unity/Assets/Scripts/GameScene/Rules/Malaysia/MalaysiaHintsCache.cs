@@ -5,26 +5,21 @@ using System.Linq;
 /// <summary>Matches local calculations or saved legacy rows to the exact physical hand.</summary>
 public sealed class MalaysiaHintsCache {
     private MalaysiaHints hints;
-    private System.Action onLocalReady;
-    private bool RememberReady(TingpaiQuery q) { onLocalReady=q.OnReady; return true; }
     public void Reset() { hints = null; }
     public void Accept(MalaysiaHints value) { if (value?.source_hand_tiles != null) hints = value; }
-    private static bool Same(IEnumerable<int> a, IEnumerable<int> b) => a != null && b != null && a.OrderBy(x=>x).SequenceEqual(b.OrderBy(x=>x));
     public HashSet<int> Waiting(TingpaiQuery q) {
         if(hints?.local_request!=null) { var local=LocalHintSnapshots.Read<MalaysiaHints>(hints.local_request,q?.OnReady); if(local==null)return new HashSet<int>(); hints=local; }
-        if (q?.Hand == null || hints == null || !(q.Melds ?? new List<string>()).OrderBy(x=>x).SequenceEqual((hints.source_melds ?? Array.Empty<string>()).OrderBy(x=>x))) return new HashSet<int>();
-        if (Same(q.Hand,hints.source_hand_tiles)) return new HashSet<int>(hints.waiting_tiles ?? Array.Empty<int>());
-        if (q.Hand.Count + 1 == hints.source_hand_tiles.Length && hints.waiting_by_discard != null)
-            foreach (var row in hints.waiting_by_discard) {
-                var remaining = new List<int>(hints.source_hand_tiles);
-                if (remaining.Remove(row.Key) && Same(q.Hand,remaining)) return new HashSet<int>(row.Value);
-            }
+        if (q?.Hand == null || hints == null || !LocalHintSnapshots.SameMelds(hints.source_melds, q.Melds)) return new HashSet<int>();
+        if (LocalHintSnapshots.SameTiles(q.Hand, hints.source_hand_tiles)) return new HashSet<int>(hints.waiting_tiles ?? Array.Empty<int>());
+        if (hints.waiting_by_discard != null && LocalHintSnapshots.TryFindSingleCut(hints.source_hand_tiles, q.Hand, out int cut)
+            && hints.waiting_by_discard.TryGetValue(cut, out var waits))
+            return new HashSet<int>(waits ?? Array.Empty<int>());
         return new HashSet<int>();
     }
     public WaitTileHint Describe(WaitHintQuery q) {
         if (q?.HandWithWin == null) return null;
         var hand = new List<int>(q.HandWithWin);
         if (!hand.Remove(q.HepaiTile) || !Waiting(new TingpaiQuery { Hand=hand, Melds=q.Melds }).Contains(q.HepaiTile)) return null;
-        return WaitTileHint.None("结构听牌 · 须满5番或满番");
+        return WaitTileHint.None("牌形听牌");
     }
 }

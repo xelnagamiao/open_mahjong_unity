@@ -56,26 +56,6 @@ def meld_tiles(code):
     return (tile,) * (4 if code[0] in "gG" else 3)
 
 
-@lru_cache(maxsize=32768)
-def _sets(tiles):
-    if not tiles:
-        return ((),)
-    first = tiles[0]
-    count = Counter(tiles)
-    result = []
-    if count[first] >= 3:
-        rest = list(tiles)
-        for _ in range(3):
-            rest.remove(first)
-        result.extend((f"k{first}",) + tail for tail in _sets(tuple(rest)))
-    if first in NUMBERS and first % 10 <= 7 and count[first + 1] and count[first + 2]:
-        rest = list(tiles)
-        for tile in (first, first + 1, first + 2):
-            rest.remove(tile)
-        result.extend((f"s{first + 1}",) + tail for tail in _sets(tuple(rest)))
-    return tuple(result)
-
-
 def decompositions(hand, melds=()):
     """返回 (雀头, 暗手面子)；拒绝花牌、第五张牌与特殊牌型。"""
     if len(hand) + 3 * len(melds) != 14 or len(melds) > 4:
@@ -88,21 +68,39 @@ def decompositions(hand, melds=()):
         return ()
     if any(count > 4 for count in Counter(all_tiles).values()):
         return ()
+    from ..standard_solver import standard_decompositions
     result = []
-    for pair, count in sorted(Counter(hand).items()):
-        if count < 2:
-            continue
-        rest = sorted(hand)
-        rest.remove(pair)
-        rest.remove(pair)
-        result.extend((pair, sets) for sets in _sets(tuple(rest)))
+    for pair, melds_part in standard_decompositions(hand):
+        sets = tuple(f"{'s' if kind else 'k'}{tile}" for kind, tile in melds_part)
+        result.append((pair, sets))
     return tuple(result)
+
+
+@lru_cache(maxsize=16384)
+def _waits_cached(hand, melds):
+    if len(hand) + 3 * len(melds) != 13 or len(melds) > 4:
+        return frozenset()
+    if any(type(tile) is not int or tile not in TILES for tile in hand):
+        return frozenset()
+    try:
+        all_tiles = list(hand) + [t for code in melds for t in meld_tiles(code)]
+    except (ValueError, TypeError):
+        return frozenset()
+    counts = Counter(all_tiles)
+    if any(count > 4 for count in counts.values()):
+        return frozenset()
+    from ..standard_solver import standard_waiting_tiles
+    valid_set = set(TILES)
+    return frozenset(
+        tile for tile in standard_waiting_tiles(hand, allow_fifth_copy=False)
+        if tile in valid_set and counts[tile] < 4
+    )
 
 
 def waits(hand, melds=()):
     if len(hand) + 3 * len(melds) != 13:
         return set()
-    return {tile for tile in TILES if decompositions(list(hand) + [tile], melds)}
+    return set(_waits_cached(tuple(sorted(hand)), tuple(melds)))
 
 
 def physical_flower_count(flowers, melds=(), concealed_sets=()):

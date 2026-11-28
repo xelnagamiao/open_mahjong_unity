@@ -137,29 +137,35 @@ async function sourceBatch(db, key, single) {
   }
   return rows;
 }
-async function scanSources(pool) {
-  const c=await pool.connect(), rows=[];
-  try {
-    await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    // Select only keys once. Sorting/walking large JSON bodies at every page
-    // would repeatedly spill the whole catalogue to PostgreSQL temp files.
-    const {tableTitles}=require('../../replayTables');
-    const ids=(await c.query(`SELECT gr.game_id FROM ${tableTitles} gr
-      WHERE ${require('./rankedScope').sourcePredicate('gr')} ORDER BY gr.created_at,gr.game_id`)).rows.map(r=>r.game_id);
-    for (let i=0;i<ids.length;i+=32) {
-      const batch=ids.slice(i,i+32);
-      const page=new Map((await sourceBatch(c,batch,false)).map(r=>[r.game_id,r]));
-      if (page.size!==batch.length) throw new Error('Incomplete ranked replay snapshot');
-      rows.push(...batch.map(id=>page.get(id)));
+async function scanSources(pool, { paceBatch } = {}) {
+  const { tableTitles } = require('../../replayTables');
+  // Avoid holding a single long REPEATABLE READ transaction across the entire
+  // replay catalogue, which blocks PostgreSQL autovacuum during live play.
+  // Instead, read the ordered ID list once and fetch fingerprints in short
+  // independent batches.
+  const ids = (
+    await pool.query(
+      `SELECT gr.game_id FROM ${tableTitles} gr
+       WHERE ${require('./rankedScope').sourcePredicate('gr')} ORDER BY gr.created_at,gr.game_id`,
+    )
+  ).rows.map((r) => r.game_id);
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 32) {
+    const batch = ids.slice(i, i + 32);
+    const page = new Map(
+      (await sourceBatch(pool, batch, false)).map((r) => [r.game_id, r]),
+    );
+    for (const id of batch) {
+      const row = page.get(id);
+      if (row) rows.push(row);
     }
-    await c.query('COMMIT');
-  } catch (err) { await c.query('ROLLBACK'); throw err; }
-  finally { c.release(); }
+    if (paceBatch && i + 32 < ids.length) await paceBatch();
+  }
   return rows;
 }
-async function scan(pool) {
-  const rows=await scanSources(pool);
-  await require('./rankedScope').saveScopeInventory(pool,rows.map(r=>r.game_id));
+async function scan(pool, options = {}) {
+  const rows = await scanSources(pool, options);
+  await require('./rankedScope').saveScopeInventory(pool, rows.map(r => r.game_id));
   return rows;
 }
 
@@ -184,6 +190,9 @@ async function commitFacts(pool, fact, sourceHash) {
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
+    // Derived anti-cheat cache rows can be recomputed; async WAL commit avoids
+    // contending with live game record fsyncs on single-host deployments.
+    await c.query("SET LOCAL synchronous_commit = off");
     await c.query(`DELETE FROM ${SCHEMA}.games WHERE game_id=$1`, [
       fact.game_id,
     ]);

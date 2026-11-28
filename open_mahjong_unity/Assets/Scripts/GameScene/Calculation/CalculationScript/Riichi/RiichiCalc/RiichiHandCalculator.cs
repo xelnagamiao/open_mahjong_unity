@@ -95,12 +95,12 @@ namespace Riichi {
                 return score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)));
             }
 
-            var detectorCtx = context;
+            var detector = new RiichiYakuDetector(context);
 
             // 国士无双：直接在计算器内判定十三面，不借助 YakuDetector 的 set 展开
             if (tilesCombination.Count == 0 && CheckKokushi(normalizedHand, winNorm, out int pairTileForKokushi)) {
                 var kokushiSets = new List<RiichiSet> { new RiichiSet { Type = RiichiSetType.Pair, Tile = pairTileForKokushi } };
-                var det = new RiichiYakuDetector(context).Detect(kokushiSets,
+                var det = detector.Detect(kokushiSets,
                     context.IsTenhou && context.DoubleYakuman ? pairTileForKokushi : winNorm, HandShape.Kokushi);
                 int mult = det.YakumanMultiplier;
                 int han = mult * 13;
@@ -115,7 +115,7 @@ namespace Riichi {
 
             // 七对子
             if (tilesCombination.Count == 0 && CheckChiitoitsu(normalizedHand, out var chiitoiSets)) {
-                var det = new RiichiYakuDetector(detectorCtx).Detect(chiitoiSets, winTile, HandShape.Chiitoitsu);
+                var det = detector.Detect(chiitoiSets, winTile, HandShape.Chiitoitsu);
                 if (det.HasYaku) {
                     int han = det.Yaku.Sum(y => y.Han);
                     int fu = RiichiFuCalc.Calculate(chiitoiSets, winTile, RiichiWaitType.Tanki, context, det, HandShape.Chiitoitsu);
@@ -130,22 +130,26 @@ namespace Riichi {
 
             // 一般型：使用 RiichiCombinationSolver 求所有拆解
             var allDecompositions = SolveNormal(normalizedHand, tilesCombination);
+            List<int> tenhouWinningTiles = context.IsTenhou && context.DoubleYakuman ? normalizedHand.Distinct().ToList() : null;
             foreach (var decomp in allDecompositions) {
-                var winningTiles = context.IsTenhou && context.DoubleYakuman ? normalizedHand.Distinct().ToList() : new List<int> { winNorm };
-                foreach (int winningTile in winningTiles) for (int setIndex = 0; setIndex < decomp.Count; setIndex++) {
-                var winningSet = decomp[setIndex];
-                if (winningSet.Opened || winningSet.Type == RiichiSetType.Kan || !winningSet.Tiles().Contains(winningTile)) continue;
-                context.WinningSetIndex = setIndex;
-                var det = new RiichiYakuDetector(detectorCtx).Detect(decomp, winningTile, HandShape.Normal);
-                if (!det.HasYaku) continue;
-                int han = det.Yaku.Sum(y => y.Han);
-                int fu = RiichiFuCalc.Calculate(decomp, winningTile, det.WaitType, context, det, HandShape.Normal);
-                int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
-                if (Prefer(det, han, fu, score)) {
-                    bestScore = score; bestDetect = det;
-                    bestHan = han; bestFu = fu;
-                }
+                int winCount = tenhouWinningTiles != null ? tenhouWinningTiles.Count : 1;
+                for (int wi = 0; wi < winCount; wi++) {
+                    int winningTile = tenhouWinningTiles != null ? tenhouWinningTiles[wi] : winNorm;
+                    for (int setIndex = 0; setIndex < decomp.Count; setIndex++) {
+                        var winningSet = decomp[setIndex];
+                        if (winningSet.Opened || winningSet.Type == RiichiSetType.Kan || !winningSet.Tiles().Contains(winningTile)) continue;
+                        context.WinningSetIndex = setIndex;
+                        var det = detector.Detect(decomp, winningTile, HandShape.Normal);
+                        if (!det.HasYaku) continue;
+                        int han = det.Yaku.Sum(y => y.Han);
+                        int fu = RiichiFuCalc.Calculate(decomp, winningTile, det.WaitType, context, det, HandShape.Normal);
+                        int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
+                            context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
+                        if (Prefer(det, han, fu, score)) {
+                            bestScore = score; bestDetect = det;
+                            bestHan = han; bestFu = fu;
+                        }
+                    }
                 }
             }
             context.WinningSetIndex = -1;
@@ -177,13 +181,14 @@ namespace Riichi {
 
         // ---------- 拆解：调用现有 solver ----------
 
+        private static readonly RiichiCombinationSolver SharedSolver = new RiichiCombinationSolver();
+
         private List<List<RiichiSet>> SolveNormal(List<int> normalizedHand, List<string> tilesCombination) {
             var decompositions = new List<List<RiichiSet>>();
             int completeStep = tilesCombination.Count * 3;
             var pt = new RiichiPlayerTiles(normalizedHand, tilesCombination, completeStep);
-            var solver = new RiichiCombinationSolver();
             var doneList = new List<RiichiPlayerTiles>();
-            solver.NormalCheck(pt, doneList);
+            SharedSolver.NormalCheck(pt, doneList);
 
             foreach (var item in doneList) {
                 decompositions.Add(RiichiSet.ParseCombinationList(item.CombinationList));

@@ -343,6 +343,9 @@ public class ShowResultInfo {
     // 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
     public int? langyong_multiplier;
     public int? langyong_scored_points;
+    // 立直责任支付说明：大明杠岭上包付时为责任者座位及原因。
+    public int? pao_liable_player_index;
+    public string pao_type;
     // 四川麻将：定缺完成广播携带的各家定缺花色 {player_index: suit(1万/2饼/3条)}
     public Dictionary<int, int> player_to_dingque;
     // 四川麻将·血战到底：本盘是否继续（多家和牌逐次结算）、本次和牌玩家、是否自摸
@@ -1260,6 +1263,8 @@ public sealed class SettlementSyncInfo {
 public class Response {
     public LobbyParty party;
     public LobbyFriendInvite party_invite; // 所有后端的返回数据都由Response类接收
+    public bool? timeout_auto_moqie;
+    public bool? active;
     public SettlementSyncInfo settlement_sync;
     public Response[] settlement_restore;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;

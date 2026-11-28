@@ -1,7 +1,9 @@
 {
     "name": "NanqueAssembly",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "GUID:00010ab933be488aba14856082065495"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

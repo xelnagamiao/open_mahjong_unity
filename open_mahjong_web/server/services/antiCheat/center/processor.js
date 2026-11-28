@@ -12,6 +12,10 @@ const {
   VERSION: MODEL_VERSION,
   refreshStatistics,
 } = require("./populationPipeline");
+const {
+  resolveAnalysisConcurrency,
+  createLoadPacer,
+} = require("./loadPacer");
 const INPUT_ERRORS = new Set([
   "metadata_conflict",
   "invalid_json",
@@ -60,7 +64,13 @@ async function runUpdate(pool, id, options = {}) {
       `UPDATE ${S}.updates SET status='scanning',started_at=now(),heartbeat=now() WHERE id=$1`,
       [id],
     );
-    const source = await scan(pool),
+    const pacer = options.pacer || createLoadPacer();
+    const source = await scan(pool, {
+        paceBatch: async () => {
+          await cancelled();
+          await pacer.paceDbBatch();
+        },
+      }),
       cached = (
         await pool.query(
           `SELECT game_id,source_hash,feature_version,status FROM ${S}.games`,
@@ -79,9 +89,13 @@ async function runUpdate(pool, id, options = {}) {
       );
     });
     // Out-of-scope caches remain available as historical evidence; only genuinely
-    // deleted source records follow the existing deletion path.
-    const allSourceIds=new Set((await pool.query("SELECT game_id FROM public.game_record_tables")).rows.map(r=>r.game_id));
-    const deleted = cached.filter((r) => !allSourceIds.has(r.game_id));
+    // deleted source records follow the existing deletion path. Use SQL NOT EXISTS
+    // instead of loading every game_id in public.game_record_tables into Node memory.
+    const deleted = (
+      await pool.query(
+        `SELECT g.game_id FROM ${S}.games g WHERE NOT EXISTS (SELECT 1 FROM public.game_record_tables t WHERE t.game_id = g.game_id)`,
+      )
+    ).rows;
     const previousScope=(await pool.query(`SELECT game_id FROM ${S}.scope_game_versions WHERE valid_to IS NULL`)).rows;
     const priorScopeIds=new Set(previousScope.map(r=>r.game_id));
     const scopeChanged=previousScope.some(r=>!sourceIds.has(r.game_id))||source.some(r=>["ready","unsupported"].includes(known.get(r.game_id)?.status)&&!priorScopeIds.has(r.game_id));
@@ -126,15 +140,7 @@ async function runUpdate(pool, id, options = {}) {
       calculations = 0,
       next = 0;
     const extractor = options.extractor || require("./facts").extractGameFacts;
-    const concurrency = Math.max(
-      1,
-      Math.min(
-        8,
-        Number(
-          options.concurrency || process.env.ANTI_CHEAT_ANALYSIS_CONCURRENCY,
-        ) || 4,
-      ),
-    );
+    const concurrency = resolveAnalysisConcurrency(options.concurrency);
     await progress("analyzing", {
       processed,
       total: work.length,
@@ -143,15 +149,38 @@ async function runUpdate(pool, id, options = {}) {
         : "牌谱内容未变化，无需重复计算",
     });
     const workers = await Promise.allSettled(
-      Array.from({ length: Math.min(concurrency, work.length) }, async () => {
+      Array.from({ length: Math.min(concurrency, work.length) }, async (_v, workerIndex) => {
         while (next < work.length) {
           await cancelled();
+          await pacer.waitBeforeItem({
+            activeIndex: workerIndex,
+            onYield: async (state) => {
+              await cancelled();
+              if (state.gear === "yield") {
+                await pool.query(
+                  `UPDATE ${S}.updates SET heartbeat=now(), progress=$2 WHERE id=$1`,
+                  [
+                    id,
+                    JSON.stringify({
+                      processed,
+                      total: work.length,
+                      invalid_games: invalid,
+                      message: `在线负载较高，反作弊自动让路中（已完成 ${processed} / ${work.length} 场）`,
+                    }),
+                  ],
+                );
+              }
+            },
+          });
           if (next >= work.length) break;
           const item = work[next++];
           const row = await readGame(pool, item.game_id);
           if (!row) continue;
           try {
-            const fact = await extractor(row, options.factOptions || {});
+            const fact = await extractor(row, {
+              concurrency,
+              ...(options.factOptions || {}),
+            });
             if (
               fact.quality?.calculator_errors?.length ||
               fact.quality?.feature_calculator_errors?.length
@@ -228,7 +257,7 @@ async function runUpdate(pool, id, options = {}) {
         total: work.length,
         message: "正在更新递送统计与排名",
       });
-      await refreshStatistics(pool, id, config, { cancelled, progress, asOf,scopeScanned:true });
+      await refreshStatistics(pool, id, config, { cancelled, progress, asOf, scopeScanned: true, pacer });
       statisticsRefreshed=true;
     }
     await cancelled();

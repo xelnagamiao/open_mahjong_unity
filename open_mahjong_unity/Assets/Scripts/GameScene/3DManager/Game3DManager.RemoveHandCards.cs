@@ -296,6 +296,12 @@ public partial class Game3DManager : MonoBehaviour {
             Debug.Log($"3D手牌位置无需调整，跳过动画");
             yield break;
         }
+        if (IsFastForwardHandAnimActive()) {
+            foreach (var kvp in targetPositions) {
+                if (kvp.Key != null) kvp.Key.position = kvp.Value;
+            }
+            yield break;
+        }
         else {
             // 执行动画
             List<Transform> cardList = new List<Transform>(currentPositions.Keys);

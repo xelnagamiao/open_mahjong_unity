@@ -72,8 +72,12 @@ class ThreeTileOpening:
         return chosen
 
     def _default_xueliu_throw_tiles(self, player_index: int) -> List[int]:
+        player = self.player_list[player_index]
+        if getattr(player, "user_id", None) == 3:
+            from .heuristic_bot import choose_opening_tiles
+            return choose_opening_tiles(player.hand_tiles, exchange=self.xueliu_exchange)
         from .xueliu_bot import choose_opening
-        return choose_opening(self.player_list[player_index].hand_tiles, self.xueliu_exchange)
+        return choose_opening(player.hand_tiles, self.xueliu_exchange)
 
     def _consume_xueliu_throw_tiles(self, player_index: int, chosen: List[int]) -> None:
         player = self.player_list[player_index]

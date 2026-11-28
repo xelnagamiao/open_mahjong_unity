@@ -1,26 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public partial class CreatePanel {
-    // Keep the chosen baseline when its individual options are customized.
+    // Keep the chosen sidebar preset selected when its options are customized.
     private int selectedRiichiPresetIndex;
 
-    private void RefreshDetailedConfigButtonLabel() {
-        if (!DetailedConfigButton) return;
-        var label = DetailedConfigButton.GetComponentInChildren<TMP_Text>(true);
-        if (!label) return;
-        if (_ruleState != "riichi") { label.text = "馆规设置"; return; }
-        var state = GetDetailedConfigState("riichi");
-        int baseline = state != null && state.PendingRoomPreset >= 0
-            ? state.PendingRoomPreset : selectedRiichiPresetIndex;
-        bool changed = state != null
-            && !DetailedConfigPresetMatches(state, state.Definition.Presets[baseline]);
-        label.text = changed ? "高级设置 <color=#00AFC1>（已更改）</color>" : "高级设置";
-    }
+    private static int DefaultSanmaPresetIndex =>
+        Array.FindIndex(RiichiRoomRules.Presets, preset => preset.Id == "sanma_majsoul");
 
     public void ApplyRiichiPreset(int index) {
         if (_ruleState != "riichi" || index < 0 || index >= RiichiRoomRules.Presets.Length) return;

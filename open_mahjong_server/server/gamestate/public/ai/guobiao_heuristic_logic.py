@@ -52,6 +52,13 @@ _SHARED_TINGPAI = None
 FanScorer = Callable[[List[int], List[str], List[str], int], Tuple[int, List[str]]]
 
 
+@dataclass(frozen=True)
+class OpponentSnapshot:
+    """单个对手的公开牌面快照（仅牌河与明副露，绝不含暗手/暗杠）。"""
+    discards: Tuple[int, ...] = ()
+    open_melds: Tuple[str, ...] = ()
+
+
 @dataclass
 class HeuristicContext:
     """决策上下文（红acted 可见信息）。"""
@@ -66,6 +73,11 @@ class HeuristicContext:
     scorer: Optional[FanScorer] = None
     # 假想番缓存：concealed+combos+win_tile+way 相关 → 非花番（未过 min_fan 门闩）
     fan_memo: Optional[Dict[Tuple, int]] = None
+    # 仅自摸听进张权重（标准四人局 0.35；血战残局人数减少时适当抬高）
+    tsumo_weight: float = TSUMO_ONLY_UKEIRE_WEIGHT
+    opponents: Tuple[OpponentSnapshot, ...] = ()
+    defense_weight: float = 0.6
+    enable_v2: bool = True
 
 
 def counts_key(counts: Counts) -> bytes:
@@ -82,6 +94,8 @@ class DiscardScore:
     tsumo_only_kinds: int = 0
     ron_wait_kinds: int = 0
     shed_priority: float = 0.0
+    expected_fan: float = 0.0
+    danger: float = 0.0
 
 
 @dataclass
@@ -159,6 +173,117 @@ def shed_priority(tile_id: int, counts: Counts) -> float:
     return base + flush_lean_shed_bonus(tid, counts)
 
 
+def _open_meld_tiles(code: str) -> Tuple[int, ...]:
+    if len(code) < 2 or code[0] == "G":
+        return ()
+    try:
+        base = normalize_tile(int(code[1:]))
+    except ValueError:
+        return ()
+    sign = code[0]
+    if sign in ("s", "S"):
+        return (base - 1, base, base + 1)
+    if sign in ("k", "K"):
+        return (base, base, base)
+    if sign == "g":
+        return (base, base, base, base)
+    return ()
+
+
+def _opponent_flush_suit(opp: OpponentSnapshot) -> Optional[int]:
+    if len(opp.open_melds) < 2:
+        return None
+    meld_suits = set()
+    for code in opp.open_melds:
+        for t in _open_meld_tiles(code):
+            if 11 <= t <= 39:
+                meld_suits.add(t // 10)
+    if len(meld_suits) != 1:
+        return None
+    suit = next(iter(meld_suits))
+    same_discards = sum(1 for t in opp.discards if 11 <= t <= 39 and t // 10 == suit)
+    return suit if same_discards <= 2 else None
+
+
+def opponent_threat(opp: OpponentSnapshot, wall_left: int) -> float:
+    """第一层：对手威胁度 [0.0, 1.0]。"""
+    m = len(opp.open_melds)
+    if wall_left > 68 and m == 0:
+        return 0.0
+    progress = max(0.0, min(1.0, (84 - wall_left) / 72.0))
+    base = 0.35 * (progress ** 1.4) + 0.22 * min(3, m)
+    mult = 1.0
+    if _opponent_flush_suit(opp) is not None:
+        mult *= 1.35
+    if m >= 2 and all(c and c[0] in ("k", "K", "g") for c in opp.open_melds):
+        mult *= 1.25
+    honor_melds = sum(
+        1 for c in opp.open_melds
+        if len(c) >= 2 and c[0] in ("k", "K", "g") and normalize_tile(int(c[1:])) >= 41
+    )
+    if honor_melds >= 2:
+        mult *= 1.4
+    return min(1.0, base * mult)
+
+
+def tile_danger_for_opponent(tile_id: int, opp: OpponentSnapshot, visible: Counts) -> float:
+    """第二层：单张切牌对指定对手的相对危险度。"""
+    tid = normalize_tile(tile_id)
+    if tid in opp.discards:
+        return 0.15
+    suit = tid // 10
+    if suit == 4:
+        seen = visible.get(tid, 0)
+        if seen >= 3:
+            return 0.25
+        if seen == 2:
+            return 0.55
+        if seen == 1:
+            return 0.95
+        honor_melds = sum(
+            1 for c in opp.open_melds
+            if len(c) >= 2 and c[0] in ("k", "K", "g") and normalize_tile(int(c[1:])) >= 41
+        )
+        return 2.2 if honor_melds >= 1 else 1.5
+    num = tid % 10
+    if num in (4, 5, 6):
+        danger = 1.8
+    elif num in (3, 7):
+        danger = 1.45
+    elif num in (2, 8):
+        danger = 1.1
+    else:
+        danger = 0.75
+    if num in (1, 2) and visible.get(suit * 10 + 3, 0) >= 4:
+        danger *= 0.45
+    elif num in (8, 9) and visible.get(suit * 10 + 7, 0) >= 4:
+        danger *= 0.45
+    disc_set = set(opp.discards)
+    if (num >= 4 and (suit * 10 + num - 3) in disc_set) or (num <= 6 and (suit * 10 + num + 3) in disc_set):
+        danger *= 0.72
+    flush_suit = _opponent_flush_suit(opp)
+    if flush_suit is not None:
+        danger *= 2.4 if suit == flush_suit else 0.35
+    return danger
+
+
+def total_tile_danger(tile_id: int, ctx: HeuristicContext) -> float:
+    if not ctx.enable_v2 or not ctx.opponents or ctx.defense_weight <= 0:
+        return 0.0
+    total = 0.0
+    for opp in ctx.opponents:
+        t = opponent_threat(opp, ctx.wall_left)
+        if t > 0.0:
+            total += t * tile_danger_for_opponent(tile_id, opp, ctx.visible)
+    return total
+
+
+def max_opponent_threat(ctx: HeuristicContext) -> float:
+    if not ctx.enable_v2 or not ctx.opponents or ctx.defense_weight <= 0:
+        return 0.0
+    return max((opponent_threat(opp, ctx.wall_left) for opp in ctx.opponents), default=0.0)
+
+
 def is_better_discard(a: DiscardScore, b: DiscardScore, near_exhaust: bool = False) -> bool:
     aw, bw = winning_shanten(a), winning_shanten(b)
     if aw != bw:
@@ -174,6 +299,8 @@ def is_better_discard(a: DiscardScore, b: DiscardScore, near_exhaust: bool = Fal
     slack = 0 if (both_legal and (near_exhaust or min(a.ukeire, b.ukeire) <= THIN_LEGAL_UKEIRE)) else FAN_UKEIRE_SLACK
     if ukeire_gap > slack:
         return a.ukeire > b.ukeire
+    if both_legal and abs(a.expected_fan - b.expected_fan) >= 1.0:
+        return a.expected_fan > b.expected_fan
     if a.max_wait_fan != b.max_wait_fan:
         return a.max_wait_fan > b.max_wait_fan
     if a.ukeire != b.ukeire:
@@ -184,6 +311,8 @@ def is_better_discard(a: DiscardScore, b: DiscardScore, near_exhaust: bool = Fal
         return a.tsumo_only_kinds < b.tsumo_only_kinds
     if both_legal and a.ron_wait_kinds != b.ron_wait_kinds:
         return a.ron_wait_kinds > b.ron_wait_kinds
+    if abs(a.danger - b.danger) >= 0.35:
+        return a.danger < b.danger
     return a.shed_priority > b.shed_priority
 
 
@@ -351,6 +480,7 @@ def analyze_live_waits(
     single_wait = len(waits) == 1
     max_fan = 0
     qualifying = 0.0
+    weighted_fan_sum = 0.0
     ron_ukeire = 0.0
     tsumo_only_kinds = 0
     ron_wait_kinds = 0
@@ -371,13 +501,18 @@ def analyze_live_waits(
             max_fan = v
         if ron > 0:
             qualifying += live
+            weighted_fan_sum += live * ron
             ron_ukeire += live
             ron_wait_kinds += 1
         elif tsumo > 0:
-            qualifying += live * TSUMO_ONLY_UKEIRE_WEIGHT
+            w_live = live * ctx.tsumo_weight
+            qualifying += w_live
+            weighted_fan_sum += w_live * tsumo
             tsumo_only_kinds += 1
+    expected_fan = (weighted_fan_sum / qualifying) if qualifying > 0 else 0.0
     return {
         "max_fan": float(max_fan),
+        "expected_fan": expected_fan,
         "qualifying_ukeire": qualifying,
         "ron_ukeire": ron_ukeire,
         "tsumo_only_kinds": float(tsumo_only_kinds),
@@ -390,6 +525,8 @@ def score_discard(ctx: HeuristicContext, discard_tile: int) -> DiscardScore:
     n_melds = _meld_count(ctx.combination_tiles)
     remaining = remove_tile(hand_counts, discard_tile)
     shanten = guobiao_shanten(remaining, n_melds)
+    danger = total_tile_danger(discard_tile, ctx)
+    shed = shed_priority(discard_tile, hand_counts)
     if shanten == 0:
         waits = analyze_live_waits(ctx, remaining, list(ctx.combination_tiles), n_melds)
         return DiscardScore(
@@ -399,14 +536,17 @@ def score_discard(ctx: HeuristicContext, discard_tile: int) -> DiscardScore:
             ron_ukeire=waits["ron_ukeire"],
             tsumo_only_kinds=int(waits["tsumo_only_kinds"]),
             ron_wait_kinds=int(waits["ron_wait_kinds"]),
-            shed_priority=shed_priority(discard_tile, hand_counts),
+            shed_priority=shed,
+            expected_fan=waits["expected_fan"] if ctx.enable_v2 else 0.0,
+            danger=danger,
         )
     return DiscardScore(
         shanten=shanten,
         max_wait_fan=0,
         ukeire=float(live_copies(effective_tiles(remaining, n_melds), remaining, ctx.visible)),
         ron_ukeire=0.0,
-        shed_priority=shed_priority(discard_tile, hand_counts),
+        shed_priority=shed,
+        danger=danger,
     )
 
 
@@ -418,28 +558,59 @@ def qualifying_wait_weight(
 ) -> float:
     waits = tenpai_wait_tiles(remaining, combos, n_melds)
     single_wait = len(waits) == 1
-    best = 0.0
+    if not ctx.enable_v2:
+        best = 0.0
+        for w in waits:
+            live = max(0, 4 - ctx.visible.get(w, remaining.get(w, 0)))
+            if live <= 0:
+                continue
+            visible_outside = ctx.visible.get(w, 0) - remaining.get(w, 0)
+            juezhang = visible_outside == 3
+            if (
+                hypothetical_fan(
+                    ctx, remaining, combos, w, "ron", juezhang, single_wait=single_wait
+                )
+                >= ctx.min_fan
+            ):
+                return 1.0
+            if (
+                hypothetical_fan(
+                    ctx, remaining, combos, w, "tsumo", juezhang, single_wait=single_wait
+                )
+                >= ctx.min_fan
+            ):
+                best = TSUMO_ONLY_UKEIRE_WEIGHT
+        return best
+
+    ron_live = 0.0
+    tsumo_live = 0.0
+    best_fan = 0
     for w in waits:
         live = max(0, 4 - ctx.visible.get(w, remaining.get(w, 0)))
         if live <= 0:
             continue
         visible_outside = ctx.visible.get(w, 0) - remaining.get(w, 0)
         juezhang = visible_outside == 3
-        if (
-            hypothetical_fan(
-                ctx, remaining, combos, w, "ron", juezhang, single_wait=single_wait
-            )
-            >= ctx.min_fan
-        ):
-            return 1.0
-        if (
-            hypothetical_fan(
-                ctx, remaining, combos, w, "tsumo", juezhang, single_wait=single_wait
-            )
-            >= ctx.min_fan
-        ):
-            best = TSUMO_ONLY_UKEIRE_WEIGHT
-    return best
+        ron = hypothetical_fan(
+            ctx, remaining, combos, w, "ron", juezhang, single_wait=single_wait
+        )
+        if ron >= ctx.min_fan:
+            ron_live += live
+            if ron > best_fan:
+                best_fan = ron
+            continue
+        tsumo = hypothetical_fan(
+            ctx, remaining, combos, w, "tsumo", juezhang, single_wait=single_wait
+        )
+        if tsumo >= ctx.min_fan:
+            tsumo_live += live
+            if tsumo > best_fan:
+                best_fan = tsumo
+    if ron_live > 0.0:
+        return 0.65 + 0.12 * min(8.0, ron_live + tsumo_live * ctx.tsumo_weight) + 0.012 * min(24, best_fan)
+    if tsumo_live > 0.0:
+        return TSUMO_ONLY_UKEIRE_WEIGHT * (0.7 + 0.10 * min(6.0, tsumo_live) + 0.01 * min(24, best_fan))
+    return 0.0
 
 
 def qualifying_tenpai_ukeire_one_draw(
@@ -472,8 +643,10 @@ def qualifying_tenpai_ukeire_one_draw(
             round_wind=ctx.round_wind,
             seat_wind=ctx.seat_wind,
             flower_count=ctx.flower_count,
+            tsumo_weight=ctx.tsumo_weight,
             scorer=ctx.scorer,
             fan_memo=ctx.fan_memo,
+            enable_v2=ctx.enable_v2,
         )
         best_w = 0.0
         for disc, cnt in after_draw.items():
@@ -499,7 +672,7 @@ def qualifying_tenpai_ukeire_one_draw(
                     qualifies_memo[qkey] = w
             if w > best_w:
                 best_w = w
-            if best_w >= 1.0:
+            if (not ctx.enable_v2 and best_w >= 1.0) or (ctx.enable_v2 and best_w >= 1.75):
                 break
         ukeire += live * best_w
     return ukeire
@@ -906,6 +1079,18 @@ def _choose_discard_plan(
             if best_reshape is not None:
                 best = best_reshape
 
+    if max_shanten is None and ctx.enable_v2 and ctx.opponents and ctx.defense_weight > 0:
+        threat = max_opponent_threat(ctx)
+        w_shanten = winning_shanten(best[2])
+        # 外科式尾巡弃和：在最后 5~6 巡（wall < 22）且自身仍 >=2 向听或死一向听、
+        # 且对手高危（>=0.72，如多副露/清混色）时纯弃和，避免中盘牺牲己方和牌速度。
+        if ctx.wall_left < 16 and threat >= 0.78 and (w_shanten >= 2 or (w_shanten == 1 and (best_legal or 0.0) <= 0.0)):
+            safest = min(
+                structures,
+                key=lambda item: (total_tile_danger(item[0], ctx), item[2], -shed_priority(item[0], hand_counts)),
+            )
+            best = (safest[0], safest[1], score_discard(ctx, safest[0]))
+
     if max_shanten is not None and best[2].shanten > max_shanten:
         return None
     return _DiscardPlan(
@@ -937,11 +1122,19 @@ def choose_claim(
     hand_counts = counts_from_tiles(ctx.hand)
     n_melds = _meld_count(ctx.combination_tiles)
     shanten_before = guobiao_shanten(hand_counts, n_melds)
+    endgame_defensive = (
+        ctx.enable_v2
+        and ctx.wall_left < 16
+        and shanten_before >= 2
+        and max_opponent_threat(ctx) >= 0.78
+    )
 
     best: Optional[ClaimPlan] = None
     for action in claim_actions:
         plan = evaluate_claim(ctx, action, cut_tile, shanten_before)
         if plan is None:
+            continue
+        if endgame_defensive and plan.shanten_after > 0:
             continue
         if best is None or is_better_claim(plan, best):
             best = plan
@@ -1072,7 +1265,10 @@ def count_visible_from_game(game_state, player_index: int) -> Counts:
                     visible[tid] = visible.get(tid, 0) + 1
             elif sign in ("k", "K"):
                 visible[base] = visible.get(base, 0) + 3
-            elif sign in ("g", "G"):
+            elif sign == "g":
+                visible[base] = visible.get(base, 0) + 4
+            elif sign == "G" and p.player_index == player_index:
+                # 暗杠仅自家可见，不窥视他家暗杠牌面
                 visible[base] = visible.get(base, 0) + 4
             elif sign == "q":
                 visible[base] = visible.get(base, 0) + 2
@@ -1138,6 +1334,30 @@ def context_from_game(game_state, player_index: int, scorer: Optional[FanScorer]
         round_wind = 2
     else:
         round_wind = 3
+    is_blood = getattr(game_state, "sub_rule", None) == "guobiao/blood_battle"
+    tsumo_weight = TSUMO_ONLY_UKEIRE_WEIGHT
+    opponents_list: List[OpponentSnapshot] = []
+    for p in game_state.player_list:
+        if p.player_index == player_index:
+            continue
+        if is_blood and getattr(p, "has_won", False):
+            continue
+        discards = tuple(
+            normalize_tile(t)
+            for t in getattr(p, "discard_tiles", [])
+            if 11 <= normalize_tile(t) <= 47 and normalize_tile(t) // 10 != 5
+        )
+        open_melds = tuple(
+            c for c in getattr(p, "combination_tiles", [])
+            if c and c[0] != "G"
+        )
+        opponents_list.append(OpponentSnapshot(discards=discards, open_melds=open_melds))
+    if is_blood:
+        active_opponents = len(opponents_list)
+        if active_opponents <= 1:
+            tsumo_weight = 0.65
+        elif active_opponents == 2:
+            tsumo_weight = 0.48
     return HeuristicContext(
         hand=list(player.hand_tiles),
         combination_tiles=list(getattr(player, "combination_tiles", [])),
@@ -1149,4 +1369,8 @@ def context_from_game(game_state, player_index: int, scorer: Optional[FanScorer]
         flower_count=len(getattr(player, "huapai_list", [])),
         scorer=scorer or make_default_scorer(),
         fan_memo={},
+        tsumo_weight=tsumo_weight,
+        opponents=tuple(opponents_list),
+        defense_weight=0.3 if is_blood else 0.6,
+        enable_v2=True,
     )

@@ -1,6 +1,8 @@
 from typing import List, Set
 from time import time
 
+from ..standard_solver import standard_waiting_tiles
+
 
 class PlayerTiles:
     def __init__(self, tiles_list: List[int], combination_list: List[str], complete_step: int):
@@ -22,32 +24,9 @@ class Classical_Tingpai_Check:
         return self.waiting_tiles
 
     def normal_check(self, player_tiles: PlayerTiles):
-        if not self.normal_check_block(player_tiles):
-            return
-
-        all_list = self.normal_check_traverse_quetou(player_tiles)
-        end_list = []
-        while all_list:
-            temp_list = all_list.pop()
-            self.normal_check_traverse_kezi(temp_list, all_list)
-            self.normal_check_traverse_dazi(temp_list, all_list)
-            if temp_list.complete_step >= 11:
-                end_list.append(temp_list)
-
-        for i in end_list:
-            if len(i.hand_tiles) == 1:
-                self.waiting_tiles.add(i.hand_tiles[0])
-            elif len(i.hand_tiles) == 2:
-                if i.hand_tiles[0] == i.hand_tiles[1]:
-                    self.waiting_tiles.add(i.hand_tiles[0])
-                elif i.hand_tiles[0] == i.hand_tiles[1] - 1:
-                    if i.hand_tiles[0] - 1 < 40:
-                        self.waiting_tiles.add(i.hand_tiles[0] - 1)
-                    if i.hand_tiles[0] + 2 < 40:
-                        self.waiting_tiles.add(i.hand_tiles[0] + 2)
-                elif i.hand_tiles[0] == i.hand_tiles[1] - 2:
-                    if i.hand_tiles[0] + 1 < 40:
-                        self.waiting_tiles.add(i.hand_tiles[0] + 1)
+        waits = standard_waiting_tiles(player_tiles.hand_tiles, allow_fifth_copy=False)
+        if waits:
+            self.waiting_tiles.update(waits)
 
     def normal_check_block(self, player_tiles: PlayerTiles):
         if not player_tiles.hand_tiles:

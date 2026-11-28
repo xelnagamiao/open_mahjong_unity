@@ -62,7 +62,7 @@ internal static class FuzhouRuleBootstrap {
     internal static IReadOnlyList<ActionCandidate> Candidates(string word) {
         var options=FuzhouGameState.Active?.DeclarationCandidates;
         if(options!=null && options.TryGetValue(word,out int[] tiles))
-            return tiles.Select(tile=>new ActionCandidate(word,new[]{tile},tile,$"{Caption(word)}：打{TileText(tile)}")).ToArray();
+            return tiles.Select(tile=>new ActionCandidate(word,new[]{tile},tile)).ToArray();
         return word=="qiangjin"?new[]{new ActionCandidate(word,Array.Empty<int>(),0,"抢金")}:Array.Empty<ActionCandidate>();
     }
     public static string RoundName(int round)=>$"第{round}局";

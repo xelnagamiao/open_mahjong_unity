@@ -39,13 +39,18 @@ public partial class GameRecordManager {
         currentDangerTileIds.Clear();
         Dictionary<string, RecordPlayer> hintPlayers = GetRecordPlayersForChongHint();
         Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
-        foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(hintPlayers, roomRule, detailedConfig, subRule, BuildRecordTipsContext)) {
-            currentDangerTileIds.Add(tileId);
-        }
+        RecordChongHintCalculator.BeginStepCache();
+        try {
+            foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(hintPlayers, roomRule, detailedConfig, subRule, BuildRecordTipsContext)) {
+                currentDangerTileIds.Add(tileId);
+            }
 
-        var hiddenHands = GetChongHintHiddenHandPositions();
-        Game3DManager.Instance.ApplyRecordChongHintToShowHands(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule, BuildRecordTipsContext);
-        ApplyChongToSelf2DHand(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule);
+            var hiddenHands = GetChongHintHiddenHandPositions();
+            Game3DManager.Instance.ApplyRecordChongHintToShowHands(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule, BuildRecordTipsContext);
+            ApplyChongToSelf2DHand(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule);
+        } finally {
+            RecordChongHintCalculator.EndStepCache();
+        }
         UpdateTileListOpacity();
     }
 

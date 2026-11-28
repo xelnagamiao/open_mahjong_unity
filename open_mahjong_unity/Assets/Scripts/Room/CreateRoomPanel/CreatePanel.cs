@@ -526,7 +526,7 @@ public partial class CreatePanel : MonoBehaviour {
         ApplySichuanSubRuleDefaults();
         if (_ruleState == "riichi" && RiichiStartingScoreInput != null) {
             string selectedSubRule = GetSelectedRiichiSubRule();
-            if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(Array.FindIndex(RiichiRoomRules.Presets, p => p.Id == "sanma_majsoul"));
+            if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(DefaultSanmaPresetIndex);
             else if (RiichiRoomRules.Presets[selectedRiichiPresetIndex].SubRule == "riichi/sanma") {
                 ApplyRiichiPreset(Array.FindIndex(RiichiRoomRules.Presets, p => p.Id == "majsoul"));
                 SubRuleDropdown.SetValueWithoutNotify(index);

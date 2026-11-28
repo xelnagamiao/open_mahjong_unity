@@ -26,6 +26,7 @@ public sealed class AutoActionPolicy {
     private const int TimeoutCutsBeforeAutoMoqie = 3;
     private int consecutiveSelfTimeoutCuts;
     private bool timeoutAutoMoqieActive;
+    private bool serverAuthoritativeTimeoutHosting;
 
     /// <summary>
     /// 有各自独立自动设置、词表里归为 Other 的手牌动作；出现任一即不自动摸切。
@@ -38,12 +39,28 @@ public sealed class AutoActionPolicy {
     // ---- 超时自动摸切 ----
 
     /// <summary>
-    /// 只统计服务端明确标记的自家超时切牌。达到阈值后锁存自动摸切，
-    /// 此后普通切牌回包不再清零，直到玩家主动关闭自动摸切。
+    /// 服务端权威同步超时托管态（快照与 gamestate/timeout_auto_moqie 均走此入口）。
+    /// 一旦收到服务端权威字段，客户端不再自行本地计数，完全以服务端状态为投影真相。
+    /// </summary>
+    public void ApplyServerTimeoutAutoMoqie(bool active) {
+        if (Session.IsRealtimeSpectator) {
+            return;
+        }
+        serverAuthoritativeTimeoutHosting = true;
+        timeoutAutoMoqieActive = active;
+        if (!active) {
+            consecutiveSelfTimeoutCuts = 0;
+        }
+        AutoAction.Instance?.SyncTimeoutAutoMoqieFromServer(active);
+    }
+
+    /// <summary>
+    /// 仅在旧版服务端未下发权威 timeout_auto_moqie 字段时的兼容兜底；
+    /// 现代服务端由 ApplyServerTimeoutAutoMoqie 接管。
     /// </summary>
     public void RegisterSelfTimeoutCut(string[] actions, int actionPlayer, bool isTimeoutAction) {
-        if (Session.IsRealtimeSpectator || timeoutAutoMoqieActive || actionPlayer != Session.SelfIndex ||
-            actions == null || !actions.Contains("cut")) {
+        if (serverAuthoritativeTimeoutHosting || Session.IsRealtimeSpectator || timeoutAutoMoqieActive
+            || actionPlayer != Session.SelfIndex || actions == null || !actions.Contains("cut")) {
             return;
         }
 

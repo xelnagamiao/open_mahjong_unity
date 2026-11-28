@@ -4,6 +4,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { replayRecord } = require("../replay");
 const { selectPython } = require("../python");
+const { getSharedWorkerPool } = require("../pythonWorkerPool");
 
 const ROBERT_VERSION = "robert-visible-discard-v1";
 const DEFAULT_THRESHOLDS = Object.freeze({
@@ -80,15 +81,46 @@ function visibleContext(decision) {
   };
 }
 
-function runRobertBridge(decisions, options = {}) {
+async function runRobertBridge(decisions, options = {}) {
   if (!decisions.length)
-    return Promise.resolve({
+    return {
       results: [],
       thresholds: { ...DEFAULT_THRESHOLDS, ...options.thresholds },
+    };
+  const pythonBinary = selectPython(options);
+  if (
+    options.persistent !== false &&
+    process.env.ANTI_CHEAT_PERSISTENT_WORKERS !== "0"
+  ) {
+    const pool = getSharedWorkerPool(`robert:${pythonBinary}`, {
+      scriptPath: path.join(__dirname, "robertBridge.py"),
+      pythonBinary,
+      args: ["--worker"],
+      maxWorkers: 1,
+      maxJobsPerWorker: 200,
+      idleTimeoutMs: 60_000,
+      maxLineBytes: 32 * 1024 * 1024,
+      errorPrefix: "robert_policy",
     });
+    const result = await pool.exec(
+      {
+        decisions,
+        thresholds: { ...DEFAULT_THRESHOLDS, ...options.thresholds },
+      },
+      {
+        timeoutMs: options.timeout_ms || 120000,
+        signal: options.signal,
+        abortMessage: "罗伯特对比已取消",
+      },
+    );
+    if (!result || !Array.isArray(result.results)) {
+      throw new Error("robert_policy_invalid_output");
+    }
+    return result;
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(
-      selectPython(options),
+      pythonBinary,
       [path.join(__dirname, "robertBridge.py")],
       { stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
     );

@@ -5,6 +5,7 @@ const { spawn } = require("node:child_process");
 const { replayRecord, hash, relation } = require("../replay");
 const { evaluateDecisions } = require("../rules");
 const { selectPython } = require("../python");
+const { getSharedWorkerPool } = require("../pythonWorkerPool");
 const { parseTimestamp } = require("../time");
 const {
   createWindowState,
@@ -68,12 +69,43 @@ function inputFingerprint(row) {
   });
 }
 
-function runFeatureBridge(payload, options = {}) {
+async function runFeatureBridge(payload, options = {}) {
   if (!payload.melds.length && !payload.donors.length)
-    return Promise.resolve({ melds: {}, donors: {} });
+    return { melds: {}, donors: {} };
+  const pythonBinary = selectPython(options);
+  if (
+    options.persistent !== false &&
+    process.env.ANTI_CHEAT_PERSISTENT_WORKERS !== "0"
+  ) {
+    const maxWorkers = Math.max(
+      1,
+      Math.min(
+        8,
+        Number(options.concurrency || process.env.ANTI_CHEAT_ANALYSIS_CONCURRENCY) || 4,
+      ),
+    );
+    const pool = getSharedWorkerPool(`analysis:${pythonBinary}`, {
+      scriptPath: path.join(__dirname, "analysisWorker.py"),
+      pythonBinary,
+      args: [],
+      maxWorkers,
+      maxJobsPerWorker: 300,
+      idleTimeoutMs: 60_000,
+      maxLineBytes: 64 * 1024 * 1024,
+      errorPrefix: "feature_calculator",
+    });
+    const result = await pool.exec(
+      { op: "features", payload },
+      { timeoutMs: options.calculator_timeout_ms || 60000 },
+    );
+    if (!result || !result.melds || !result.donors) {
+      throw new Error("feature_calculator_invalid_output");
+    }
+    return result;
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(
-      selectPython(options),
+      pythonBinary,
       [path.join(__dirname, "featureBridge.py")],
       { stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
     );

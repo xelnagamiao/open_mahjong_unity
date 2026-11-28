@@ -1,3 +1,6 @@
 {
-	"name": "RiichiAssembly"
+	"name": "RiichiAssembly",
+	"references": [
+		"GUID:00010ab933be488aba14856082065495"
+	]
 }

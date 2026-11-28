@@ -1,0 +1,10 @@
+[Unit]
+Description=Run PostgreSQL log retention daily at 00:20 Beijing time
+
+[Timer]
+OnCalendar=*-*-* 00:20:00 Asia/Shanghai
+AccuracySec=1s
+Persistent=yes
+
+[Install]
+WantedBy=timers.target

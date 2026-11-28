@@ -17,12 +17,15 @@ public static class AutoReconnect {
         public bool IsTourist;
         public bool WasLoggedIn;
         public bool WasInGame;
+        public bool WasMatchCommitted;
         public bool WasSpectating;
+        public string OriginalWindow;
         public string Username;
         public string Password;
     }
 
     private class WaitState {
+        public bool AwaitingLogin;
         public bool LoginDone;
         public bool LoginSuccess;
         public bool RoomSyncDone;
@@ -35,15 +38,52 @@ public static class AutoReconnect {
     private static WaitState _waitState;
     private static bool _backgroundDisconnectDetected;
     private static int _retryCycle;
+    private static double _backgroundEnteredAt = -1d;
+    private static double _pendingForegroundAwaySeconds = 0d;
+    private const double SilentResyncAwayThresholdSeconds = 10.0d;
+    private static string _preservedHistoryGamestateId;
+    private static System.Collections.Generic.List<RoundSettlementSnapshot> _preservedSettlementHistory;
     /// <summary>本次重连已在确认断线后丢掉本地观战会话；成功后提示「观战已中断」而非「已恢复连接」。</summary>
     private static bool _abandonedSpectatorSession;
 
+    /// <summary>同场自动重连恢复对局时取回拆桌前暂存的计分板主番历史；换场或非同场则直接丢弃。</summary>
+    public static System.Collections.Generic.List<RoundSettlementSnapshot> ConsumePreservedSettlementHistory(string gamestateId) {
+        if (string.IsNullOrEmpty(_preservedHistoryGamestateId) || _preservedSettlementHistory == null) {
+            return null;
+        }
+        bool matched = !string.IsNullOrEmpty(gamestateId) && _preservedHistoryGamestateId == gamestateId;
+        var result = matched ? new System.Collections.Generic.List<RoundSettlementSnapshot>(_preservedSettlementHistory) : null;
+        _preservedHistoryGamestateId = null;
+        _preservedSettlementHistory = null;
+        return result;
+    }
+
+    private static void ClearPreservedSettlementHistory() {
+        _preservedHistoryGamestateId = null;
+        _preservedSettlementHistory = null;
+    }
+
+    private static void PreserveCurrentSettlementHistory() {
+        var mgr = NormalGameStateManager.Instance;
+        if (mgr == null || string.IsNullOrEmpty(mgr.gamestateId)
+            || mgr.roundSettlementHistory == null || mgr.roundSettlementHistory.Count == 0) {
+            ClearPreservedSettlementHistory();
+            return;
+        }
+        _preservedHistoryGamestateId = mgr.gamestateId;
+        _preservedSettlementHistory = new System.Collections.Generic.List<RoundSettlementSnapshot>(mgr.roundSettlementHistory);
+    }
+
     public static bool IsActive => _state == State.Reconnecting;
     public static bool ExpectGameRestore { get; private set; }
+    public static string OriginalWindow => _snapshot.OriginalWindow;
+
+    private static double MonotonicNow() =>
+        System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
 
     public static bool IsEnabled {
         get {
-#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
             return true;
 #else
             return false;
@@ -53,27 +93,38 @@ public static class AutoReconnect {
 
     public static void OnEnterBackground() {
         if (!IsEnabled) return;
+        if (_backgroundEnteredAt < 0d) {
+            _backgroundEnteredAt = MonotonicNow();
+        }
         if (_state != State.Idle) return;
         CaptureSnapshot();
-        if (_snapshot.WasLoggedIn && !_snapshot.IsTourist) {
+        if (_snapshot.WasLoggedIn && (!_snapshot.IsTourist || _snapshot.WasInGame)) {
             _state = State.Background;
             Debug.Log(
                 "[AutoReconnect] 进入后台，已保存会话快照"
-                + $" (userId={_snapshot.UserId}, wasInGame={_snapshot.WasInGame}"
+                + $" (userId={_snapshot.UserId}, isTourist={_snapshot.IsTourist}, wasInGame={_snapshot.WasInGame}"
                 + $", wasSpectating={_snapshot.WasSpectating})");
         }
     }
 
-    public static void OnEnterForeground() {
+    public static void OnEnterForeground(double? explicitAwaySeconds = null) {
         if (!IsEnabled) return;
+        double awaySeconds = explicitAwaySeconds.HasValue
+            ? Math.Max(0d, explicitAwaySeconds.Value)
+            : (_backgroundEnteredAt >= 0d ? Math.Max(0d, MonotonicNow() - _backgroundEnteredAt) : 0d);
+        _backgroundEnteredAt = -1d;
+        _pendingForegroundAwaySeconds = Math.Max(_pendingForegroundAwaySeconds, awaySeconds);
+
         Debug.Log(
             $"[AutoReconnect] 回到前台"
-            + $" (state={_state}, onCloseFlag={_backgroundDisconnectDetected})"
+            + $" (state={_state}, away={awaySeconds:F2}s, onCloseFlag={_backgroundDisconnectDetected})"
         );
         _backgroundDisconnectDetected = false;
+        ChatManager.Instance?.OnEnterForeground();
         if (_state != State.Background) return;
-        if (!_snapshot.WasLoggedIn || _snapshot.IsTourist) {
+        if (!_snapshot.WasLoggedIn) {
             _state = State.Idle;
+            _pendingForegroundAwaySeconds = 0d;
             return;
         }
         StartAutoReconnect();
@@ -104,6 +155,8 @@ public static class AutoReconnect {
 
     public static void OnLoginResponse(bool success) {
         if (_state != State.Reconnecting || _waitState == null) return;
+        if (!_waitState.AwaitingLogin || _waitState.LoginDone) return;
+        _waitState.AwaitingLogin = false;
         _waitState.LoginDone = true;
         _waitState.LoginSuccess = success;
         Debug.Log("[AutoReconnect] 登录" + (success ? "成功" : "失败"));
@@ -138,13 +191,17 @@ public static class AutoReconnect {
     public static void CancelForSessionReset() {
         CoroutineManager.Ensure();
         CoroutineManager.Instance?.StopNamed(CoroutineKeys.NetworkAutoReconnect);
+        NetworkManager.Instance?.ClearSessionCredentials();
         _state = State.Idle;
         _snapshot = default;
         _waitState = null;
         _backgroundDisconnectDetected = false;
         _retryCycle = 0;
+        _backgroundEnteredAt = -1d;
+        _pendingForegroundAwaySeconds = 0d;
         ExpectGameRestore = false;
         _abandonedSpectatorSession = false;
+        ClearPreservedSettlementHistory();
     }
 
     private static void CaptureSnapshot() {
@@ -154,28 +211,35 @@ public static class AutoReconnect {
         // 观战占用 game 窗且实时观战会写入 GamestateId，不能当成座位对局去等 reconnect_ask。
         bool isInGame = !wasSpectating
             && (!string.IsNullOrEmpty(udm.GamestateId) || currentWindow == "game");
+        bool isMatchCommitted = !isInGame && !wasSpectating
+            && ((MatchNetworkManager.Instance != null && MatchNetworkManager.Instance.IsMatchCommitted)
+                || MatchStateManager.Instance.IsMatchFound);
+        string sessionPwd = NetworkManager.Instance?.SessionLoginPassword;
 
         _snapshot = new SessionSnapshot {
             UserId = udm.UserId,
             IsTourist = udm.IsTourist,
             WasLoggedIn = udm.UserId != 0,
             WasInGame = isInGame,
+            WasMatchCommitted = isMatchCommitted,
             WasSpectating = wasSpectating,
+            OriginalWindow = currentWindow,
             // 邮箱只用于首次定位账户；重连固定使用服务端返回的真实用户名。
             Username = udm.Username ?? udm.SavedLoginUsername ?? "",
-            Password = udm.SavedLoginPassword ?? "",
+            Password = !string.IsNullOrEmpty(sessionPwd) ? sessionPwd : (udm.SavedLoginPassword ?? ""),
         };
     }
 
     private static void StartAutoReconnect() {
         if (_state == State.Reconnecting) return;
-        if (!_snapshot.WasLoggedIn || _snapshot.IsTourist) {
+        if (!_snapshot.WasLoggedIn || (_snapshot.IsTourist && !_snapshot.WasInGame)) {
             _state = State.Idle;
+            _pendingForegroundAwaySeconds = 0d;
             return;
         }
 
         _state = State.Reconnecting;
-        ExpectGameRestore = _snapshot.WasInGame;
+        ExpectGameRestore = _snapshot.WasInGame || _snapshot.WasMatchCommitted;
 
         // 注意：此处不做任何 UI 变更（不拆对局、不切窗口、不弹 tip）。
         // 只有在 Phase 0 探活确认旧连接确实已断开后，才进入恢复流程并调整 UI，
@@ -213,8 +277,22 @@ public static class AutoReconnect {
                 if (_state != State.Reconnecting) yield break;
                 if (nm.ProbePongReceived)
                 {
-                    Debug.Log("[AutoReconnect] 旧连接存活，无需重连");
-                    OnSucceeded(skipAllTips: true);
+                    double away = _pendingForegroundAwaySeconds;
+                    _pendingForegroundAwaySeconds = 0d;
+                    // 保守策略：连接仍存活时，仅当消息队列确实达到积压/跨局滞后阈值才拉全量快照；
+                    // 若期间没人出牌或仅积压了少量动作，直接留在原牌桌快速消化，不重建牌桌、不丢计分板主番。
+                    bool shouldSilentResync = _snapshot.WasInGame && nm.HasStaleGameBacklog();
+                    if (shouldSilentResync) {
+                        Debug.Log($"[AutoReconnect] 旧连接存活，队列已积压/跨局，触发无感快照对齐 (away={away:F2}s)");
+                        nm.RequestSilentGameResync("foreground_alive");
+                    } else {
+                        Debug.Log($"[AutoReconnect] 旧连接存活且无明显积压，直接平滑追帧 (away={away:F2}s)");
+                        if (!_snapshot.WasInGame && away >= SilentResyncAwayThresholdSeconds
+                            && (MatchStateManager.Instance.IsQueueing || MatchStateManager.Instance.IsMatchFound)) {
+                            MatchNetworkManager.Instance?.RequestQueueStatusForMatchPanel();
+                        }
+                    }
+                    OnSucceeded(skipAllTips: true, didReconnect: false);
                     yield break;
                 }
                 if (_backgroundDisconnectDetected)
@@ -225,6 +303,16 @@ public static class AutoReconnect {
                 }
                 probeElapsed += Time.unscaledDeltaTime;
             }
+        }
+
+        _pendingForegroundAwaySeconds = 0d;
+        // 游客或无可用内存/磁盘密码时无法自动重新登录；确认真断线后直接退回常规断线提示，避免空转重试。
+        if (_snapshot.IsTourist || string.IsNullOrEmpty(_snapshot.Username) || string.IsNullOrEmpty(_snapshot.Password)) {
+            _state = State.Idle;
+            ExpectGameRestore = false;
+            _waitState = null;
+            nm.ForceShowDisconnectDialog();
+            yield break;
         }
 
         // 走到这里说明已确认断线，正式进入恢复流程。此时才提示并离开可能失效的对局界面。
@@ -239,6 +327,10 @@ public static class AutoReconnect {
         }
         if (ExpectGameRestore || _snapshot.WasSpectating)
         {
+            // 自动重连拆桌前暂存本场计分板主番数据，Phase 4 回到同一场对局时自动还原。
+            if (_snapshot.WasInGame) {
+                PreserveCurrentSettlementHistory();
+            }
             // 离开可能已失效的对局/观战界面。座位玩家重回对局须等到收到 game_start；观战不恢复。
             GameSceneTeardown.ResetToIdle();
             WindowsManager.Instance.SwitchWindow("menu");
@@ -303,6 +395,7 @@ public static class AutoReconnect {
 
         // Phase 2: 重新登录
         Debug.Log("[AutoReconnect] [2/4] 尝试重新登录");
+        _waitState.AwaitingLogin = true;
         nm.Login(_snapshot.Username, _snapshot.Password);
         const float loginTimeout = 12f;
         float loginElapsed = 0f;
@@ -312,6 +405,7 @@ public static class AutoReconnect {
             loginElapsed += Time.unscaledDeltaTime;
             yield return null;
         }
+        _waitState.AwaitingLogin = false;
         if (!_waitState.LoginSuccess)
         {
             OnFailed("登录失败");
@@ -359,11 +453,16 @@ public static class AutoReconnect {
             {
                 Debug.LogWarning("[AutoReconnect] 未收到 reconnect_ask，对局已不存在");
                 UserDataManager.Instance.SetGamestateId("");
-                GameSceneTeardown.ResetToIdle();
-                // 对局结束不代表退出房间，保留 Phase 3 已确认的成员身份。
-                WindowsManager.Instance.SwitchWindow(LobbyStateGuard.IsInRoom ? "room" : "menu");
-                NotificationManager.Instance.ShowTip("重连", false, "对局已结束");
-                OnSucceeded(skipAllTips: true);
+                if (_snapshot.WasInGame) {
+                    GameSceneTeardown.ResetToIdle();
+                    // 对局结束不代表退出房间，保留 Phase 3 已确认的成员身份。
+                    WindowsManager.Instance.SwitchWindow(LobbyStateGuard.IsInRoom ? "room" : "menu");
+                    NotificationManager.Instance.ShowTip("重连", false, "对局已结束");
+                    OnSucceeded(skipAllTips: true, didReconnect: true);
+                } else {
+                    // 仅处于匹配锁定倒计时、服务端未成局时静默完成恢复。
+                    OnSucceeded(skipAllTips: false, didReconnect: true);
+                }
                 yield break;
             }
             // Phase 4b: 等待 game_start
@@ -390,8 +489,10 @@ public static class AutoReconnect {
         OnSucceeded();
     }
 
-    private static void OnSucceeded(bool skipAllTips = false) {
-        NetworkManager.Instance?.ResumeMatchSpectator();
+    private static void OnSucceeded(bool skipAllTips = false, bool didReconnect = true) {
+        if (didReconnect) {
+            NetworkManager.Instance?.ResumeMatchSpectator();
+        }
         bool abandonedSpectator = _abandonedSpectatorSession;
         _state = State.Idle;
         ExpectGameRestore = false;

@@ -53,8 +53,7 @@ public sealed class VietnameseGameState : TurnBasedGameState {
     static string ClaimKind(string word)=>word=="vn_chi"?"s":word=="vn_peng"?"k":word=="vn_gang"?"g":null;
     public static IReadOnlyList<ActionCandidate> ClaimChoices(string word) => ClaimChoices(word,Active?.Info);
     public static IReadOnlyList<ActionCandidate> ClaimChoices(string word,VietnameseInfo info) =>
-        (info?.claim_options??Array.Empty<VietnameseClaimOption>()).Where(o=>word=="vn_claim" || o.kind==ClaimKind(word)).Select(o=>new ActionCandidate("vn_claim",o.tiles,o.id,
-            (o.kind=="s"?"吃":o.kind=="k"?"碰":"杠")+" · "+VietnameseTileVisual.Name(o.face))).ToArray();
+        (info?.claim_options??Array.Empty<VietnameseClaimOption>()).Where(o=>word=="vn_claim" || o.kind==ClaimKind(word)).Select(o=>new ActionCandidate("vn_claim",o.tiles,o.id)).ToArray();
     public static IReadOnlyList<ActionCandidate> BounceChoices(string word) =>
         (Active?.Info?.bounce_candidates??Array.Empty<int>()).Select(t=>new ActionCandidate("vn_bounce",new[]{t},t,"弹"+VietnameseTileVisual.Name(t))).ToArray();
     public static IReadOnlyList<ActionCandidate> ReplacementChoices(string word) {

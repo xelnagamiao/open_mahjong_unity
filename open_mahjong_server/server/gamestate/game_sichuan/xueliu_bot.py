@@ -35,11 +35,34 @@ def shanten(hand, melds=(), meld_count=3, dingque=0):
     return _shanten(tuple(sorted(hand)), tuple(sorted(melds)), meld_count, dingque)
 
 
+def _candidate_tiles(counts, melds, dingque):
+    exposed_suits = {int(m[1:]) // 10 for m in melds}
+    cands = set()
+    for tid, c in counts.items():
+        if c <= 0:
+            continue
+        suit = tid // 10
+        if suit == dingque:
+            continue
+        if len(exposed_suits) >= 2 and suit not in exposed_suits:
+            continue
+        if c < 4:
+            cands.add(tid)
+        num = tid % 10
+        for d in (-2, -1, 1, 2):
+            n2 = num + d
+            if 1 <= n2 <= 9:
+                nid = suit * 10 + n2
+                if counts.get(nid, 0) < 4:
+                    cands.add(nid)
+    return cands
+
+
 def evaluate(hand, melds, visible, meld_count, dingque):
     distance = shanten(hand, melds, meld_count, dingque)
     counts = Counter(hand)
     acceptance = 0
-    for tile in TILES:
+    for tile in _candidate_tiles(counts, melds, dingque):
         remaining = 4 - counts[tile] - visible[tile_to_34(tile)]
         if remaining > 0 and shanten([*hand, tile], melds, meld_count, dingque) < distance:
             acceptance += remaining
@@ -75,11 +98,14 @@ def choose_opening(hand, exchange=False):
 
 def choose_hand(hand, melds, visible, actions, meld_count, dingque, locked=False):
     hand, melds = list(hand), list(melds)
+    exposed_suits = {int(m[1:]) // 10 for m in melds}
     before = evaluate(hand, melds, visible, meld_count, dingque)
     for tile in ([hand[-1]] if locked else sorted(set(hand))):
         if tile // 10 == dingque:
             continue
         if 'angang' in actions and hand.count(tile) == 4:
+            if len(exposed_suits | {tile // 10}) == 3:
+                continue
             after = [t for t in hand if t != tile]
             if evaluate(after, melds + [f'G{tile}'], visible, meld_count, dingque) >= before:
                 return 'angang', tile, 0
@@ -116,8 +142,6 @@ def choose_claim(hand, melds, visible, actions, tile, meld_count=3, dingque=0):
 
 @paced_bot(lambda: _BOT_DELAY)
 async def xueliu_smart_bot_action(state, index, actions, status):
-    if not (getattr(state, 'is_xueliu', False) or getattr(state, 'is_doubles', False) or getattr(state, 'is_sbr_exchange', False)):
-        return await smart_bot_action(state, index, actions, status)
     meld_count = state.xueliu_meld_count if getattr(state, 'is_xueliu', False) else 4
     tick = state.server_action_tick
     if not await _wait_until_actionable(state, index) or not bot_action_is_current(state, index, tick):
@@ -135,19 +159,19 @@ async def xueliu_smart_bot_action(state, index, actions, status):
         visible = count_visible_tiles(state)
         # 连胡区中的牌已移出牌墙，也属于公开的不可再摸牌。
         for p in state.player_list:
-            for t in p.huapai_list:
+            for t in getattr(p, 'huapai_list', ()):
                 visible[tile_to_34(t)] += 1
             if not getattr(state, 'xueliu_exchange', False):
-                for t in p.xueliu_throw_tiles:
+                for t in getattr(p, 'xueliu_throw_tiles', ()):
                     visible[tile_to_34(t)] += 1
         args = (list(player.hand_tiles), list(player.combination_tiles), visible, tuple(actions))
         if status in ('waiting_hand_action', 'onlycut_after_action'):
             choice, tile, cut_index = await run_room_bot_cpu(state, choose_hand, *args,
-                meld_count, player.dingque_suit, player.post_hu_lock)
+                meld_count, getattr(player, 'dingque_suit', 0), getattr(player, 'post_hu_lock', False))
         elif status == 'waiting_action_after_cut':
             cut_tile = state.player_list[state.current_player_index].discard_tiles[-1]
             choice = await run_room_bot_cpu(state, choose_claim, *args, cut_tile,
-                meld_count, player.dingque_suit)
+                meld_count, getattr(player, 'dingque_suit', 0))
         else:
             choice = 'pass'
     if bot_action_is_current(state, index, tick):

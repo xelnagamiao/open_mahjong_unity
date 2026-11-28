@@ -349,8 +349,33 @@ def invoke_callable_json(mod_path: str, func_name: str, payload_json: str) -> st
     return json.dumps(result, ensure_ascii=False)
 
 
+def discard_waits_dispatch(
+    rule_key: str,
+    hand: Tuple[int, ...],
+    combos: Tuple[str, ...],
+    extra_json: str = "",
+) -> str:
+    """Compute ``{discard_tile: [wait_tiles...]}`` for all unique tiles in a single worker call.
+
+    Avoids up to 14 separate cross-interpreter round-trips for discard-hint UIs.
+    """
+    hand_list = list(hand)
+    result: Dict[str, list[int]] = {}
+    seen = set()
+    for idx, tile in enumerate(hand_list):
+        if tile in seen:
+            continue
+        seen.add(tile)
+        sub_hand = tuple(hand_list[:idx] + hand_list[idx + 1:])
+        waits = tingpai_dispatch(rule_key, sub_hand, combos, extra_json)
+        if waits:
+            result[str(tile)] = list(waits)
+    return json.dumps(result, ensure_ascii=False)
+
+
 def warm_calc_worker() -> int:
     """Warm up a calc worker interpreter/process by importing common pure-Python modules."""
+    from . import standard_solver  # noqa: F401
     from .gb_tingpai_check import Chinese_Tingpai_Check
     from .guobiao_hepai_check import Chinese_Hepai_Check
 

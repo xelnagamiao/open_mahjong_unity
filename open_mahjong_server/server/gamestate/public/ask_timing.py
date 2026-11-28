@@ -30,6 +30,8 @@ def note_ask_delivered(game_state, viewer_index: int) -> None:
         hook = getattr(game_state, "on_action_window_delivered", None)
         if callable(hook):
             hook(viewer_index)
+        from .timeout_hosting import schedule_timeout_hosted_action
+        schedule_timeout_hosted_action(game_state, viewer_index)
 
 
 def get_ask_elapsed(game_state, viewer_index: int) -> float:

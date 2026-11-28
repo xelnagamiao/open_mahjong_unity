@@ -8,7 +8,7 @@ import logging
 import asyncio
 from ..public.lifecycle import start_owned_task
 from ..public.ai.auto_cut_ai import auto_cut_action
-from ..public.ai.smart_bot_ai import smart_bot_action
+from .bot import changsha_smart_bot_action as smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status, has_draw_slot
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source

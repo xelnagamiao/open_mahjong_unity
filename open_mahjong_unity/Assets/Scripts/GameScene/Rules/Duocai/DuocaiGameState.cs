@@ -99,7 +99,7 @@ public sealed class DuocaiGameState : TurnBasedGameState {
     }
     private static string[] ChoiceWords(string[] words) => (words ?? Array.Empty<string>()).Select(w=>new[]{"chi_left","peng","gang","angang","jiagang"}.Contains(w)?"duocai_group:"+w:w).Distinct().ToArray();
     public IReadOnlyList<ActionCandidate> Candidates(string group) => choices.Where(c=>c.action==group.Substring("duocai_group:".Length))
-        .Select(c=>new ActionCandidate("duocai_choice:"+c.id,c.take,caption:c.meld_index>=0?$"扩杠 · 第{c.meld_index+1}组":null)).ToArray();
+        .Select(c=>new ActionCandidate("duocai_choice:"+c.id,c.take)).ToArray();
     public override bool TryChooseAction(string action) {
         if(!action.StartsWith("duocai_choice:"))return false;
         var choice=choices.FirstOrDefault(c=>c.id==action.Substring("duocai_choice:".Length));

@@ -6,6 +6,17 @@ using UnityEngine;
 /// 牌谱铳牌/自摸提示：听牌计算、放铳危险牌、下一摸预测。
 /// </summary>
 public static class RecordChongHintCalculator {
+  private static Dictionary<GameRecordManager.RecordPlayer, HashSet<int>> _stepRonWaitsCache;
+
+  /// <summary>开启单步牌谱铳牌提示缓存，避免同一回放步内对每名玩家重复计算 4 次。</summary>
+  public static void BeginStepCache() {
+    _stepRonWaitsCache = new Dictionary<GameRecordManager.RecordPlayer, HashSet<int>>(4);
+  }
+
+  public static void EndStepCache() {
+    _stepRonWaitsCache = null;
+  }
+
   /// <summary>合并所有未退场玩家的普通点和待牌（用于牌山铳牌标红）。</summary>
   public static HashSet<int> ComputeDangerTiles(
     Dictionary<string, GameRecordManager.RecordPlayer> players,
@@ -54,9 +65,15 @@ public static class RecordChongHintCalculator {
     GameRecordManager.RecordPlayer player, string roomRule,
     IDictionary<string, object> detailedConfig, string subRule,
     Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext) {
+    if (_stepRonWaitsCache != null && player != null && _stepRonWaitsCache.TryGetValue(player, out var cached)) {
+      return cached;
+    }
     var waiting = ComputeWaitingTilesForPlayer(player, roomRule, detailedConfig, subRule);
     RuleManifest manifest = RuleRegistry.Resolve(roomRule, subRule);
-    if (waiting.Count == 0 || manifest?.RecordDangerUsesWaitHint != true) return waiting;
+    if (waiting.Count == 0 || manifest?.RecordDangerUsesWaitHint != true) {
+      if (_stepRonWaitsCache != null && player != null) _stepRonWaitsCache[player] = waiting;
+      return waiting;
+    }
 
     RecordTipsContext ctx = tipsContext?.Invoke(player) ?? new RecordTipsContext {
       RoomRule = roomRule, SubRule = subRule ?? manifest.DefaultSubRule,
@@ -78,6 +95,7 @@ public static class RecordChongHintCalculator {
         result.Add(TileIdOrder.Normalize(query.HepaiTile));
       }
     }
+    if (_stepRonWaitsCache != null && player != null) _stepRonWaitsCache[player] = result;
     return result;
   }
 

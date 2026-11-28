@@ -32,6 +32,7 @@ from ..public.ask_timing import reconnect_clock
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
+from ..public.ai.riichi_heuristic_bot import riichi_heuristic_bot_action as heuristic_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 
@@ -217,6 +218,10 @@ async def broadcast_ask_hand_action(self):
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
+            if cp.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                continue
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             player_conn = self.game_server.user_id_to_connection[cp.user_id]
@@ -265,6 +270,10 @@ async def broadcast_ask_other_action(self):
             if cp.user_id == 2:
                 if self.action_dict.get(i, []):
                     start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            if cp.user_id == 3:
+                if self.action_dict.get(i, []):
+                    start_owned_task(self, heuristic_bot_action(self, i, self.action_dict[i], self.game_status))
                 continue
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
@@ -408,6 +417,8 @@ async def broadcast_result(
     nagashi_mangan_winners: Optional[List[int]] = None,
     langyong_multiplier: Optional[int] = None,
     langyong_scored_points: Optional[int] = None,
+    pao_liable_player_index: Optional[int] = None,
+    pao_type: Optional[str] = None,
     simultaneous_hu_hands: Optional[Dict[int, List[int]]] = None,
     skip_hand_reveal: Optional[bool] = None,
     silent: bool = False,
@@ -464,6 +475,8 @@ async def broadcast_result(
                     nagashi_mangan_winners=nagashi_mangan_winners,
                     langyong_multiplier=langyong_multiplier,
                     langyong_scored_points=langyong_scored_points,
+                    pao_liable_player_index=pao_liable_player_index,
+                    pao_type=pao_type,
                     simultaneous_hu_hands=simultaneous_hu_hands,
                     skip_hand_reveal=skip_hand_reveal,
                     silent=True if silent else None,

@@ -215,8 +215,7 @@ def compare_one(item, thresholds):
             "information_scope": "own_hand_and_public_information_only"}
 
 
-def main():
-    request = json.load(sys.stdin)
+def handle_request(request):
     thresholds = dict(DEFAULT_THRESHOLDS)
     for k, value in request.get("thresholds", {}).items():
         if k not in thresholds or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
@@ -228,10 +227,34 @@ def main():
             results.append(compare_one(item, thresholds))
         except Exception as exc:
             results.append({"id": item.get("id"), "status": "unavailable", "reason": str(exc)[:160]})
-    json.dump({"results": results, "thresholds": thresholds,
-               "policy_source_sha256": POLICY_SOURCE_SHA256,
-               "utility_note": "The repository uses a multi-stage policy, not a continuous score. Gaps retain their native units."},
-              sys.stdout, ensure_ascii=False, separators=(",", ":"))
+    return {
+        "results": results,
+        "thresholds": thresholds,
+        "policy_source_sha256": POLICY_SOURCE_SHA256,
+        "utility_note": "The repository uses a multi-stage policy, not a continuous score. Gaps retain their native units.",
+    }
+
+
+def main():
+    if "--worker" in sys.argv[1:]:
+        for raw_line in sys.stdin:
+            line = raw_line.strip()
+            if not line:
+                continue
+            req_id = None
+            try:
+                msg = json.loads(line)
+                req_id = msg.get("id")
+                result = handle_request(msg)
+                response = {"id": req_id, "ok": True, "result": result}
+            except Exception as exc:
+                response = {"id": req_id, "ok": False, "error": str(exc)[:200]}
+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+            sys.stdout.flush()
+        return
+
+    request = json.load(sys.stdin)
+    json.dump(handle_request(request), sys.stdout, ensure_ascii=False, separators=(",", ":"))
 
 
 if __name__ == "__main__":

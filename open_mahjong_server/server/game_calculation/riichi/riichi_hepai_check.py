@@ -143,6 +143,12 @@ YAKU_NAME_MAP = {
     "Double Open Riichi": "双倍开立直",
     "Daichisei": "大七星",
     "Daisharin": "大车轮",
+    "燕返": "燕返",
+    "杠振": "杠振",
+    "十二落抬": "十二落抬",
+    "三连刻": "三连刻",
+    "五门齐": "五门齐",
+    "一色三同顺": "一色三同顺",
     "Paarenchan": "八连庄",
     "Sashikomi": "包牌",
 }
@@ -353,6 +359,8 @@ class Riichi_Hepai_Check:
             minimum_yaku_han=int(context.get('hepai_limit', 1)),
             minimum_win_score=int(context.get('minimum_win_score', 0)),
             extra_bonus_han=nuki_count + nuki_dora + nuki_ura,
+            local_rules=context,
+            local_events=context,
         )
 
         # 牌型成立但无役（如吃了牌却没有任何役、单纯宝牌无役）：日麻规则下不能正常和牌。
@@ -408,7 +416,6 @@ class Riichi_Hepai_Check:
                 continue
             yaku_names.append(_localize_yaku_display(y.name, context, is_open))
 
-        all_tile_ids = self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)
         is_yakuman = any(y.is_yakuman for y in result.yaku)
         aka_count = 0 if is_yakuman else lib_aka_han
         dora_count = 0 if is_yakuman else lib_dora_han
@@ -431,14 +438,17 @@ class Riichi_Hepai_Check:
         # 库对国士等例外牌型返回 fu=0；展示与七对子一致，役满统一记 25 符（不影响役满固定点数）
         if is_yakuman:
             fu = 25
-        score_info = ScoresCalculator.calculate_scores(han, fu, config, is_yakuman)
+        if nuki_han == 0 and not is_yakuman and getattr(result, "cost", None):
+            score_info = result.cost
+        else:
+            score_info = ScoresCalculator.calculate_scores(han, fu, config, is_yakuman)
         if not context.get("is_tsumo", False):
             score = int(score_info.get("main", 0))
         else:
             score = sum(tsumo_payments(score_info, int(context.get('player_wind', 0)),
                         3 if is_sanma else 4, context.get('sanma_tsumo', 'loss')).values())
 
-        return {
+        output = {
             "is_valid": True,
             "han": int(han),
             "yaku_han": int(result.han) - lib_dora_han - lib_aka_han - lib_ura_han,
@@ -454,6 +464,9 @@ class Riichi_Hepai_Check:
                 for y in result.yaku if y.is_yakuman},
             "error": None,
         }
+        if context.get("daiminkan_pao_liable") is not None:
+            output["daiminkan_pao_liable"] = int(context["daiminkan_pao_liable"])
+        return output
 
 
 if __name__ == "__main__":

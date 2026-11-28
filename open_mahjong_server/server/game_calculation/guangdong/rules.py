@@ -110,7 +110,7 @@ def score(hand, melds=(), *, winning_tile=None, context=None):
 
 
 @lru_cache(maxsize=8192)
-def _waiting_scores(hand, melds, context, passed_base_score):
+def _waiting_scores(hand, melds, context):
     result = []
     for tile in sorted(_structural_waits(hand, melds)):
         complete = tuple(sorted(hand + (tile,)))
@@ -137,7 +137,7 @@ def _waiting_scores(hand, melds, context, passed_base_score):
 def waiting_scores(hand, melds=(), *, context=None, passed_base_score=-1):
     if not valid_inventory(hand, melds, 13):
         return []
-    return deepcopy(list(_waiting_scores(tuple(sorted(hand)), tuple(melds), context or Context(), passed_base_score)))
+    return deepcopy(list(_waiting_scores(tuple(sorted(hand)), tuple(melds), context or Context())))
 
 
 def clear_caches():

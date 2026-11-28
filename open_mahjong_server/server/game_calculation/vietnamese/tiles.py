@@ -70,22 +70,63 @@ def fits(hand, targets, discard_bonus=False):
 
 
 @lru_cache(maxsize=65536)
-def groups(hand, left, discard_bonus=False):
+def groups(hand, left, discard_bonus=False, min_idx=0):
     if not hand:
         return ((),) if left == 0 else ()
     if len(hand) != left*3 or left <= 0:
         return ()
     anchor = next((t for t in hand if t in TILES), None)
     result = set()
-    for kind, targets in GROUPS:
-        if anchor is not None and anchor not in targets:
+    if anchor is None:
+        for idx in range(min_idx, len(GROUPS)):
+            kind, targets = GROUPS[idx]
+            for remaining, used in consume(hand, targets, discard_bonus):
+                for tail in groups(remaining, left-1, discard_bonus, idx):
+                    result.add(tuple(sorted(((kind, targets[1]),) + tail)))
+    else:
+        for kind, targets in GROUPS:
+            if anchor not in targets:
+                continue
+            for remaining, used in consume(hand, targets, discard_bonus):
+                if anchor not in used:
+                    continue
+                for tail in groups(remaining, left-1, discard_bonus, 0):
+                    result.add(tuple(sorted(((kind, targets[1]),) + tail)))
+    return tuple(sorted(result))
+
+
+@lru_cache(maxsize=65536)
+def _has_groups(hand, left, discard_bonus=False, min_idx=0):
+    if not hand:
+        return left == 0
+    if len(hand) != left * 3 or left <= 0:
+        return False
+    anchor = next((t for t in hand if t in TILES), None)
+    if anchor is None:
+        for idx in range(min_idx, len(GROUPS)):
+            _, targets = GROUPS[idx]
+            for remaining, _ in consume(hand, targets, discard_bonus):
+                if _has_groups(remaining, left - 1, discard_bonus, idx):
+                    return True
+        return False
+    for _, targets in GROUPS:
+        if anchor not in targets:
             continue
         for remaining, used in consume(hand, targets, discard_bonus):
-            if anchor is not None and anchor not in used:
-                continue
-            for tail in groups(remaining, left-1, discard_bonus):
-                result.add(tuple(sorted(((kind, targets[1]),) + tail)))
-    return tuple(sorted(result))
+            if anchor in used and _has_groups(remaining, left - 1, discard_bonus, 0):
+                return True
+    return False
+
+
+@lru_cache(maxsize=32768)
+def _has_standard(hand, meld_count=0, discard_bonus=False):
+    if len(hand) != (4 - meld_count) * 3 + 2:
+        return False
+    for tile in TILES:
+        for rest, _ in consume(hand, (tile, tile), discard_bonus):
+            if _has_groups(rest, 4 - meld_count, discard_bonus):
+                return True
+    return False
 
 
 @lru_cache(maxsize=32768)
@@ -113,15 +154,20 @@ def seven_pairs(hand, discard_bonus=False):
 
 
 @lru_cache(maxsize=8192)
-def pair_faces(hand):
+def pair_faces(hand, min_idx=0):
     if not hand:
         return ((),)
     result=set()
     anchor=next((t for t in hand if t in TILES),None)
-    for tile in (anchor,) if anchor is not None else TILES:
-        for rest,used in consume(hand,(tile,tile)):
-            if anchor is None or anchor in used:
-                result.update(tuple(sorted((tile,)+tail)) for tail in pair_faces(rest))
+    if anchor is None:
+        for idx in range(min_idx, len(TILES)):
+            tile = TILES[idx]
+            for rest, _ in consume(hand, (tile, tile)):
+                result.update(tuple(sorted((tile,) + tail)) for tail in pair_faces(rest, idx))
+    else:
+        for rest, used in consume(hand, (anchor, anchor)):
+            if anchor in used:
+                result.update(tuple(sorted((anchor,) + tail)) for tail in pair_faces(rest, 0))
     return tuple(sorted(result))
 
 
@@ -129,7 +175,7 @@ def shape(hand, melds=(), *, pairs=False, self_draw=False, discard_bonus=False):
     hand = tuple(sorted(hand))
     if len(hand) != (4-len(melds))*3+2 or any(t not in TILES+JOKERS+(BONUS if discard_bonus else ()) for t in hand):
         return False
-    if standard(hand, len(melds), discard_bonus):
+    if _has_standard(hand, len(melds), discard_bonus):
         return True
     if melds:
         return False
@@ -137,8 +183,12 @@ def shape(hand, melds=(), *, pairs=False, self_draw=False, discard_bonus=False):
 
 
 @lru_cache(maxsize=8192)
+def _natural_waits_cached(hand, meld_count=0):
+    return tuple(t for t in TILES if hand.count(t)<4 and _has_standard(tuple(sorted(hand+(t,))), meld_count))
+
+
 def natural_waits(hand, meld_count=0):
-    return tuple(t for t in TILES if hand.count(t)<4 and standard(tuple(sorted(hand+(t,))), meld_count))
+    return _natural_waits_cached(tuple(sorted(hand)), meld_count)
 
 
 def meld_tiles(code):

@@ -156,7 +156,7 @@ public sealed class TurnClock {
     // ---- 关闭 ----
 
     /// <summary>某家已执行动作：本家时关闭询问窗口并在需要时显示听牌提示。</summary>
-    public void ShowActing(string seat) {
+    public void ShowActing(string seat, bool preserveCutConstraints = false) {
         if (seat == "self") {
             AutoActionPolicy.Current.Cancel("doAction");
         }
@@ -169,10 +169,13 @@ public sealed class TurnClock {
         GameCanvas.Instance.StopTimeRunning();
         AllowActionList.Clear();
         GameCanvas.Instance.ClearActionButton();
-        // 切牌后清切牌约束并退出族的询问期临时状态（立直选牌……；超时被迫切牌时同样会走到这里）
-        ClearCutConstraints(AskCloseReason.Acted);
-        State?.OnAskWindowClosed(AskCloseReason.Acted);
-        // 立刻恢复手牌正常颜色，避免用户看到禁切灰色滞留到下一轮询问
+        // 补花/摸牌期间行动权未离开本家，保留既有禁切约束避免手牌移动动画瞬间闪烁变亮；
+        // 其余动作（切牌/鸣牌等）清切牌约束并退出族的询问期临时状态。
+        if (!preserveCutConstraints) {
+            ClearCutConstraints(AskCloseReason.Acted);
+            State?.OnAskWindowClosed(AskCloseReason.Acted);
+        }
+        // 立刻同步手牌可选状态与遮罩，避免禁切灰色滞留或移动期间丢失
         GameCanvas.Instance.RefreshHandTileSelectability();
         // 在自己执行操作以后计算听牌提示，如果有提示就显示右侧提示块
         if (Session.Tips) {

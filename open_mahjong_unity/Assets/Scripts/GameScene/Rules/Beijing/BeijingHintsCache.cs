@@ -15,10 +15,15 @@ public sealed class BeijingHintsCache {
         if(rest.Count==1)cut=rest[0];
         return true;
     }
-    private JObject Request(string scope,List<int> hand,List<string> melds,int? cut=null,int? win=null)=>new JObject {
-        ["rule"]="beijing",["scope"]=scope,["hand"]=new JArray(hand),["melds"]=new JArray(melds??new List<string>()),
-        ["context"]=hints.local_request["context"].DeepClone(),["cut"]=cut,["win"]=win
-    };
+    private JObject Request(string scope,List<int> hand,List<string> melds,int? cut=null,int? win=null) {
+        var sortedHand = new List<int>(hand); sortedHand.Sort();
+        var sortedMelds = melds != null && melds.Count > 0 ? new List<string>(melds) : new List<string>();
+        sortedMelds.Sort(StringComparer.Ordinal);
+        return new JObject {
+            ["rule"]="beijing",["scope"]=scope,["hand"]=new JArray(sortedHand),["melds"]=new JArray(sortedMelds),
+            ["context"]=hints.local_request["context"].DeepClone(),["cut"]=cut,["win"]=win
+        };
+    }
     public HashSet<int> Waiting(TingpaiQuery q) {
         if(q==null||!Resolve(q.Hand,q.Melds,out var cut))return new HashSet<int>();
         var result=LocalHintSnapshots.Read<JObject>(Request("waiting",q.Hand,q.Melds,cut),q.OnReady);

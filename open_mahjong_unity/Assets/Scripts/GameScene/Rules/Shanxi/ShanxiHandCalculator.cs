@@ -32,11 +32,15 @@ internal static class ShanxiHandCalculator {
             if (hand.GroupBy(t => t).All(g => g.Count() % 2 == 0)) result.Add(new List<string> { "seven" });
             if (hand.Distinct().Count() == 13 && Orphans.All(hand.Contains)) result.Add(new List<string> { "orphans" });
         }
-        foreach (int pair in hand.Distinct()) {
-            if (hand.Count(t => t == pair) < 2) continue;
-            var rest = hand.OrderBy(t => t).ToList();
-            rest.Remove(pair); rest.Remove(pair);
-            SplitSets(rest, new List<string>(), result);
+        var decomps = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int i = 0; i < decomps.Count; i++) {
+            var d = decomps[i];
+            var sets = new List<string>(d.Melds.Length);
+            for (int j = 0; j < d.Melds.Length; j++) {
+                var u = d.Melds[j];
+                sets.Add((u.Kind == 1 ? "s" : "k") + u.TileId);
+            }
+            result.Add(sets);
         }
         return result;
     }
@@ -44,27 +48,52 @@ internal static class ShanxiHandCalculator {
     public static HashSet<int> Waits(List<int> hand, List<string> melds) {
         var result = new HashSet<int>();
         melds = melds ?? new List<string>();
-        if (hand == null || hand.Count + 3 * melds.Count != 13) return result;
-        foreach (int tile in Tiles) if (Shapes(new List<int>(hand) { tile }, melds).Count > 0) result.Add(tile);
+        if (hand == null || melds.Count > 4 || hand.Count + 3 * melds.Count != 13) return result;
+        int[] phys = new int[48];
+        int[] hc = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if ((uint)t >= 48 || !Tiles.Contains(t) || ++phys[t] > 4) return result;
+            hc[t]++;
+        }
+        for (int i = 0; i < melds.Count; i++) {
+            var mt = MeldTiles(melds[i]);
+            if (mt == null) return result;
+            for (int j = 0; j < mt.Count; j++) {
+                if (++phys[mt[j]] > 4) return result;
+            }
+        }
+        var std = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: false);
+        foreach (int t in std) if ((uint)t < 48 && phys[t] < 4) result.Add(t);
+        if (melds.Count == 0) {
+            int oddCount = 0, oddTile = -1;
+            for (int i = 0; i < Tiles.Length; i++) {
+                int t = Tiles[i];
+                if ((hc[t] & 1) != 0) { oddCount++; oddTile = t; }
+            }
+            if (oddCount == 1 && phys[oddTile] < 4) result.Add(oddTile);
+
+            bool allOrphans = true;
+            for (int i = 0; i < hand.Count; i++) {
+                int t = hand[i];
+                if (t < 41 && t % 10 != 1 && t % 10 != 9) { allOrphans = false; break; }
+            }
+            if (allOrphans) {
+                int missing = 0, missingTile = -1, pairCount = 0;
+                for (int i = 0; i < Orphans.Length; i++) {
+                    int o = Orphans[i];
+                    if (hc[o] == 0) { missing++; missingTile = o; }
+                    else if (hc[o] == 2) pairCount++;
+                    else if (hc[o] > 2) { missing = 99; break; }
+                }
+                if (missing == 0) {
+                    for (int i = 0; i < Orphans.Length; i++) if (phys[Orphans[i]] < 4) result.Add(Orphans[i]);
+                } else if (missing == 1 && pairCount == 1 && phys[missingTile] < 4) {
+                    result.Add(missingTile);
+                }
+            }
+        }
         return result;
-    }
-    private static void SplitSets(List<int> hand, List<string> sets, List<List<string>> result) {
-        if (hand.Count == 0) { result.Add(new List<string>(sets)); return; }
-        int tile = hand[0];
-        if (hand.Count(value => value == tile) >= 3) {
-            var rest = new List<int>(hand);
-            for (int i = 0; i < 3; i++) rest.Remove(tile);
-            sets.Add("k" + tile);
-            SplitSets(rest, sets, result);
-            sets.RemoveAt(sets.Count - 1);
-        }
-        if (tile < 40 && tile % 10 <= 7 && hand.Contains(tile + 1) && hand.Contains(tile + 2)) {
-            var rest = new List<int>(hand);
-            rest.Remove(tile); rest.Remove(tile + 1); rest.Remove(tile + 2);
-            sets.Add("s" + (tile + 1));
-            SplitSets(rest, sets, result);
-            sets.RemoveAt(sets.Count - 1);
-        }
     }
 
     public static int Score(List<int> hand, List<string> melds, int winningTile, bool selfDraw) {

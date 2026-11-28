@@ -25,7 +25,6 @@ internal static class MalaysiaRuleBootstrap {
             },
             HandJokerTiles=_=>new[]{81}, RecordHandJokerTiles=_=>new[]{81},
             OpeningHandHasDrawSlot=info=>info.malaysia_info?.self_has_draw_slot == true,
-            TipsProvidedByGameState=true,
             Tingpai=q=>MalaysiaGameState.Active?.Hints.Waiting(q) ?? new HashSet<int>(),
             DescribeWaitingTile=q=>MalaysiaGameState.Active?.Hints.Describe(q),
             FanNameText=(rule,label)=>MalaysiaFanText.Name(label), FanValueText=(rule,label)=>MalaysiaFanText.Value(label),

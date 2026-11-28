@@ -46,6 +46,16 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 处理游戏状态相关的服务器响应消息。
     /// </summary>
     public void HandleGameStateMessage(Response response) {
+        if (response.type == "gamestate/timeout_auto_moqie") {
+            if (!string.IsNullOrEmpty(response.gamestate_id)
+                && !string.IsNullOrEmpty(GameSession.Current.GamestateId)
+                && response.gamestate_id != GameSession.Current.GamestateId) {
+                return;
+            }
+            bool active = response.timeout_auto_moqie ?? response.active ?? false;
+            AutoActionPolicy.Current.ApplyServerTimeoutAutoMoqie(active);
+            return;
+        }
         if (response.type == "gamestate/closed") {
             if (!string.IsNullOrEmpty(response.gamestate_id)
                 && response.gamestate_id == UserDataManager.Instance.GamestateId) {
@@ -94,6 +104,9 @@ public class GameStateNetworkManager : MonoBehaviour {
                 if (!state.HandleMessage(suffix, response))
                     Debug.LogWarning($"族 {state.StateId} 未处理的游戏状态消息: {response.type}");
             });
+            if (snapshot && response.timeout_auto_moqie.HasValue) {
+                AutoActionPolicy.Current.ApplyServerTimeoutAutoMoqie(response.timeout_auto_moqie.Value);
+            }
             if (snapshot && response.settlement_restore != null) {
                 foreach (Response restored in response.settlement_restore) HandleGameStateMessage(restored);
             }

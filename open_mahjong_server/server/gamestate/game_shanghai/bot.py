@@ -37,6 +37,13 @@ async def shanghai_smart_bot_action(state, index, actions, status):
             await submit_bot_action(get_ai_action, state, index, choice, None, None, None, None)
         return
     if status not in ("waiting_hand_action", "onlycut_after_action"):
+        if status == "waiting_action_after_cut" and not is_qinghunpeng:
+            # 上海敲麻开启禁止垃圾和大吊（min_fan==1）时，避免吃碰落入被禁的大吊车（余2张切1张剩单钓）
+            cfg = getattr(state, "detailed_config", None) or {}
+            if cfg.get("forbid_lajihe_dadiao") and int(getattr(state, "hepai_limit", 0) or 0) == 1:
+                p = state.player_list[index]
+                if len(p.combination_tiles) == 3 and not any(a.startswith("hu") for a in actions):
+                    actions = [a for a in actions if a not in ("peng", "chi_left", "chi_mid", "chi_right")]
         return await smart_bot_action(state, index, actions, status)
     tick = state.server_action_tick
     if not await _wait_until_actionable(state, index) or not bot_action_is_current(state, index, tick):

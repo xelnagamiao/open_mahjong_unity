@@ -73,11 +73,32 @@ def is_seven_pairs(hand, melds=()):
 
 
 @lru_cache(maxsize=16384)
-def structural_waits(hand, melds=()):
+def _structural_waits_cached(hand, melds):
     if len(hand) + 3 * len(melds) != 13:
         return ()
-    return tuple(tile for tile in TILES if decompositions(hand + (tile,), melds)
-                 or is_seven_pairs(hand + (tile,), melds))
+    from ..standard_solver import standard_waiting_tiles
+    valid_set = set(TILES)
+    if any(t not in valid_set for t in hand):
+        return ()
+    waits = standard_waiting_tiles(hand, allow_honors=True, allow_fifth_copy=False)
+    waits &= valid_set
+    if not melds and len(hand) == 13:
+        odds = [t for t, c in Counter(hand).items() if c % 2 == 1]
+        if len(odds) == 1 and odds[0] in valid_set:
+            waits.add(odds[0])
+    counts = Counter(hand)
+    for code in melds:
+        try:
+            counts.update(meld_tiles(code))
+        except (ValueError, TypeError):
+            return ()
+    if any(c > 4 for c in counts.values()):
+        return ()
+    return tuple(tile for tile in TILES if tile in waits and counts[tile] < 4)
+
+
+def structural_waits(hand, melds=()):
+    return _structural_waits_cached(tuple(sorted(hand)), tuple(melds))
 
 
 @lru_cache(maxsize=8192)

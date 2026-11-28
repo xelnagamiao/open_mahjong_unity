@@ -248,3 +248,46 @@ def _structural_value_ref(hand, tile) -> int:
 
     remaining = [c for c in hand if c != tile]
     return _structural_value(mask_from_codes(remaining))[0]
+
+
+def test_v2_closed_hand_danger_and_same_number_pressure() -> None:
+    opp_closed = OpponentView(
+        discards=("AX1", "BX9", "CX1", "DX9", "EX2"),
+        meld_tiles=(),
+    )
+    # Middle tile has higher closed-hand baseline danger than terminal
+    assert _tile_danger("FY5", (opp_closed,), enable_v2=True) > _tile_danger("FY1", (opp_closed,), enable_v2=True)
+    # Genbutsu remains 0
+    assert _tile_danger("AX1", (opp_closed,), enable_v2=True) == 0.0
+    # Same-number meld increases danger for other tiles of that number
+    opp_num5 = OpponentView(discards=(), meld_tiles=("AX5", "BX5", "CX5"))
+    assert _tile_danger("DY5", (opp_num5,), enable_v2=True) > _tile_danger("DY5", (opp_num5,), enable_v2=False)
+
+
+def test_v2_preserves_second_supplement_on_early_far_hand() -> None:
+    hand = "AX1 BX3 CX5 DX7 EX9 FX2 GY4 AY6 BY8 CY1 DY3 EY5 FY7 GX9".split()
+    plan_v2 = choose_turn_plan(
+        hand, [], hand, [],
+        supplements=1, wall_count=60, drawn_tile="GX9",
+        enable_v2=True,
+    )
+    assert plan_v2["action"] == "discard"
+
+
+def test_v2_defensive_claim_gate_blocks_late_non_tenpai_claim() -> None:
+    hand = "AX8 GX9 DY2 BY1 AX5 AY3 DX2 CY9 AX9 BY4 DY8 DX1 FY7".split()
+    opponents = (
+        OpponentView(discards=("AX2", "BX3", "CX4", "DX5", "EX6", "FX7", "GX8"), meld_tiles=("AY5", "AY6", "AY7")),
+        OpponentView(discards=("AX3", "BX4", "CX5", "DX6", "EX7", "FX8", "GX9"), meld_tiles=("BY2", "BY3", "BY4")),
+        OpponentView(discards=("AX7", "BX8", "CX9", "DX1", "EX2", "FX3", "GX4"), meld_tiles=("CY1", "CY2", "CY3")),
+    )
+    cand = {
+        "id": "c1",
+        "kind": "sequence",
+        "tile": "AX7",
+        "tiles": ["AX7", "AX8", "AX9"],
+        "hand_tiles": ["AX8", "AX9"],
+        "priority": 1,
+    }
+    plan = choose_claim_plan(hand, [], [cand], hand, wall_count=15, opponents=opponents, enable_v2=True)
+    assert plan["action"] == "pass"

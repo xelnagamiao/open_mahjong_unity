@@ -3,8 +3,10 @@
 四张相同牌可作两对，大吊车包含暗杠；自摸默认 +5/+10，可选再加一底（5分）。
 """
 from collections import Counter
+from functools import lru_cache
 
 from .qinghunpeng import NUMBERS, HONORS, TILES, FLOWERS, valid_tiles, decompositions
+from ..standard_solver import standard_waiting_tiles
 
 SUB_RULE = "shanghai/lajihe"
 SELF_DRAW_EXTRA_BASE = "self_draw_extra_base"
@@ -88,10 +90,38 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob
     return max(results, key=lambda item: (item["base_score"], item["basic_points"] * (1 << item["fan"])), default=None)
 
 
+@lru_cache(maxsize=16384)
+def _waits_cached(hand, melds):
+    if len(hand) + 3 * len(melds) != 13 or len(melds) > 4:
+        return frozenset()
+    if any(type(tile) is not int or tile not in TILES for tile in hand):
+        return frozenset()
+    from .qinghunpeng import meld_tiles
+    try:
+        exposed = [tile for code in melds for tile in meld_tiles(code)]
+    except (ValueError, TypeError):
+        return frozenset()
+    counts = Counter(hand)
+    counts.update(exposed)
+    if any(c > 4 for c in counts.values()):
+        return frozenset()
+    candidates = standard_waiting_tiles(hand, allow_fifth_copy=False)
+    if not melds:
+        odds = [t for t, c in Counter(hand).items() if c % 2 == 1]
+        if len(odds) == 1:
+            candidates.add(odds[0])
+    if all(tile in HONORS for tile in counts):
+        candidates.update(HONORS)
+    return frozenset(
+        tile for tile in candidates
+        if counts[tile] < 4 and score(list(hand) + [tile], melds, self_draw=True)
+    )
+
+
 def waits(hand, melds=()):
     if len(hand) + 3 * len(melds) != 13:
         return set()
-    return {tile for tile in TILES if score(list(hand) + [tile], melds, self_draw=True)}
+    return set(_waits_cached(tuple(sorted(hand)), tuple(melds)))
 
 
 def payments(winner, points, *, discarder=None, rob_kong=False):

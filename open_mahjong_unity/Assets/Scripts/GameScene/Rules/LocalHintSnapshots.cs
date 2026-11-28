@@ -21,12 +21,119 @@ internal static class LocalHintSnapshots {
     private static readonly Dictionary<string,Entry> Cache=new Dictionary<string,Entry>();
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     internal static void Reset()=>Cache.Clear();
+    internal static bool SameTiles(IList<int> a, IList<int> b) {
+        if (a == null || b == null || a.Count != b.Count) return false;
+        int n = a.Count;
+        if (n == 0) return true;
+        Span<int> counts = stackalloc int[128];
+        for (int i = 0; i < n; i++) {
+            int t = a[i];
+            if ((uint)t >= 128u) return SameTilesFallback(a, b);
+            counts[t]++;
+        }
+        for (int i = 0; i < n; i++) {
+            int t = b[i];
+            if ((uint)t >= 128u) return SameTilesFallback(a, b);
+            if (--counts[t] < 0) return false;
+        }
+        return true;
+    }
+
+    private static bool SameTilesFallback(IList<int> a, IList<int> b) {
+        int n = a.Count;
+        var sa = new int[n];
+        var sb = new int[n];
+        for (int i = 0; i < n; i++) { sa[i] = a[i]; sb[i] = b[i]; }
+        Array.Sort(sa);
+        Array.Sort(sb);
+        for (int i = 0; i < n; i++) if (sa[i] != sb[i]) return false;
+        return true;
+    }
+
+    internal static bool SameMelds(IList<string> a, IList<string> b) {
+        int ca = a?.Count ?? 0;
+        int cb = b?.Count ?? 0;
+        if (ca != cb) return false;
+        if (ca == 0) return true;
+        if (ca == 1) return string.Equals(a[0], b[0], StringComparison.Ordinal);
+        bool sameOrder = true;
+        for (int i = 0; i < ca; i++) {
+            if (!string.Equals(a[i], b[i], StringComparison.Ordinal)) { sameOrder = false; break; }
+        }
+        if (sameOrder) return true;
+        var sa = new string[ca];
+        var sb = new string[ca];
+        for (int i = 0; i < ca; i++) { sa[i] = a[i]; sb[i] = b[i]; }
+        Array.Sort(sa, StringComparer.Ordinal);
+        Array.Sort(sb, StringComparer.Ordinal);
+        for (int i = 0; i < ca; i++) if (!string.Equals(sa[i], sb[i], StringComparison.Ordinal)) return false;
+        return true;
+    }
+
+    internal static bool TryFindSingleCut(IList<int> sourceHand, IList<int> currentHand, out int cutTile) {
+        cutTile = 0;
+        if (sourceHand == null || currentHand == null || currentHand.Count + 1 != sourceHand.Count) return false;
+        int sn = sourceHand.Count;
+        int cn = currentHand.Count;
+        Span<int> counts = stackalloc int[128];
+        for (int i = 0; i < sn; i++) {
+            int t = sourceHand[i];
+            if ((uint)t >= 128u) return TryFindSingleCutFallback(sourceHand, currentHand, out cutTile);
+            counts[t]++;
+        }
+        for (int i = 0; i < cn; i++) {
+            int t = currentHand[i];
+            if ((uint)t >= 128u) return TryFindSingleCutFallback(sourceHand, currentHand, out cutTile);
+            if (--counts[t] < 0) return false;
+        }
+        int found = -1;
+        for (int i = 0; i < sn; i++) {
+            int t = sourceHand[i];
+            if (counts[t] == 0) continue;
+            if (counts[t] != 1) return false;
+            if (found >= 0 && found != t) return false;
+            found = t;
+        }
+        if (found < 0) return false;
+        cutTile = found;
+        return true;
+    }
+
+    private static bool TryFindSingleCutFallback(IList<int> sourceHand, IList<int> currentHand, out int cutTile) {
+        cutTile = 0;
+        var sa = new int[sourceHand.Count];
+        var sb = new int[currentHand.Count];
+        for (int i = 0; i < sa.Length; i++) sa[i] = sourceHand[i];
+        for (int i = 0; i < sb.Length; i++) sb[i] = currentHand[i];
+        Array.Sort(sa);
+        Array.Sort(sb);
+        int ia = 0, ib = 0, diffCount = 0;
+        while (ia < sa.Length && ib < sb.Length) {
+            if (sa[ia] == sb[ib]) { ia++; ib++; }
+            else {
+                if (++diffCount > 1) return false;
+                cutTile = sa[ia++];
+            }
+        }
+        if (ib != sb.Length) return false;
+        if (ia < sa.Length) {
+            if (diffCount > 0 || ia + 1 != sa.Length) return false;
+            cutTile = sa[ia];
+            diffCount = 1;
+        }
+        return diffCount == 1;
+    }
+
     internal static JObject Rows(JObject request,IEnumerable<int> hand,Action ready=null) {
         var value=Read<JObject>(request,ready);if(value==null)return null;
-        var before=(hand??Enumerable.Empty<int>()).OrderBy(t=>t).ToArray();var source=value["source_hand_tiles"].ToObject<List<int>>();
-        if(source.OrderBy(t=>t).SequenceEqual(before))return (JObject)value["waiting_details"];
-        if(source.Count==before.Length+1)foreach(var pair in ((JObject)value["waiting_by_discard"]).Properties()) {
-            var rest=new List<int>(source);if(rest.Remove(int.Parse(pair.Name))&&rest.OrderBy(t=>t).SequenceEqual(before))return (JObject)value["waiting_details_by_discard"][pair.Name];
+        var before = hand as IList<int> ?? (hand?.ToList() ?? new List<int>());
+        var source=value["source_hand_tiles"]?.ToObject<List<int>>();
+        if(source==null)return null;
+        if(SameTiles(source,before))return (JObject)value["waiting_details"];
+        if(TryFindSingleCut(source,before,out int cut)) {
+            string key = cut.ToString();
+            var byDiscard = value["waiting_details_by_discard"] as JObject;
+            if (byDiscard != null && byDiscard[key] is JObject row) return row;
         }
         return null;
     }

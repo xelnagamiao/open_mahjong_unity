@@ -6,6 +6,7 @@ from .changsha_hepai_check import (
     _is_standard_shape, _is_all_triplets, _seven_pairs_type,
     _is_flush, _is_quanqiuren, _append_context_fans,
 )
+from ..standard_solver import standard_waiting_tiles
 
 
 TERMINALS = frozenset((11, 19, 21, 29, 31, 39))
@@ -70,12 +71,11 @@ def evaluate(hand, melds, ways=(), *, reported_ready=False):
     if any(tile not in VALID_TILES or count > 4 for tile, count in Counter(all_tiles).items()):
         return 0, []
     fans = hand_fans(hand, melds)
-    shape = _is_standard_shape(hand, melds)
-    # 地胡、海底等只加大胡数，不能让非二五八将的小胡变得可胡。
-    if not fans and not _is_standard_shape(hand, melds, jiang_pair=True):
-        if not (reported_ready and shape):
-            return 0, []
     if not fans:
+        shape = _is_standard_shape(hand, melds)
+        # 地胡、海底等只加大胡数，不能让非二五八将的小胡变得可胡。
+        if not shape or (not reported_ready and not _is_standard_shape(hand, melds, jiang_pair=True)):
+            return 0, []
         fans = ["小胡"]
     _append_context_fans(fans, True, list(ways))
     if len(fans) > 1 and "小胡" in fans:
@@ -87,7 +87,22 @@ def waiting_tiles(hand, melds, *, reported_ready=False):
     if len(hand) != 13 - 3 * len(melds):
         return set()
     counts = Counter(_expand_all(hand, melds))
-    return {tile for tile in VALID_TILES if counts[tile] < 4
+    if any(tile not in VALID_TILES or count > 4 for tile, count in counts.items()):
+        return set()
+    candidates = standard_waiting_tiles(hand, allow_honors=False, allow_fifth_copy=True)
+    if not melds and len(hand) == 13:
+        hand_counts = Counter(hand)
+        odds = [t for t, c in hand_counts.items() if c % 2 == 1]
+        if len(odds) == 1:
+            candidates.add(odds[0])
+        if all(tile in TERMINALS or tile in JIANG_TILES for tile in hand_counts):
+            candidates.update(TERMINALS)
+            candidates.update(JIANG_TILES)
+    if counts and all(tile in JIANG_TILES for tile in counts):
+        candidates.update(JIANG_TILES)
+    if counts and all(tile in TERMINALS for tile in counts):
+        candidates.update(TERMINALS)
+    return {tile for tile in candidates if counts[tile] < 4
             and evaluate(hand + [tile], melds, reported_ready=reported_ready)[0] > 0}
 
 

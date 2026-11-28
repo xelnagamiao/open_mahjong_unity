@@ -10,9 +10,16 @@ public partial class NormalGameStateManager {
         // 否则会抹掉已累积的主番快照（国标每局都会广播 game_start），导致计分板主番列整列变 —。
         // 重连时若本地快照行数与服务端 score_history 不一致，仍清空以免与分值行错位。
         bool isNewMatch = string.IsNullOrEmpty(gamestateId) || gamestateId != gameInfo.gamestate_id;
+        List<RoundSettlementSnapshot> preservedHistory = !IsRealtimeSpectator
+            ? AutoReconnect.ConsumePreservedSettlementHistory(gameInfo.gamestate_id)
+            : null;
+        bool hasRestoredHistory = preservedHistory != null && preservedHistory.Count > 0;
         if (isNewMatch) {
             GameSceneUIManager.ResetRealtimeSpectatorUi();
             ClearRoundSettlementHistory();
+            if (hasRestoredHistory) {
+                roundSettlementHistory.AddRange(preservedHistory);
+            }
             ClearStickerMutes();
         }
         if (!IsRealtimeSpectator) {
@@ -34,7 +41,7 @@ public partial class NormalGameStateManager {
         Game3DManager.Instance.StopAllRunningAnimations();
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
-        InitializeSetInfo(gameInfo, isNewMatch); // 初始化对局数据
+        InitializeSetInfo(gameInfo, isNewMatch, hasRestoredHistory); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
 
@@ -153,7 +160,7 @@ public partial class NormalGameStateManager {
     }
 
     // 设置游戏信息
-    private void InitializeSetInfo(GameInfo gameInfo, bool isNewMatch){
+    private void InitializeSetInfo(GameInfo gameInfo, bool isNewMatch, bool hasRestoredHistory = false){
         // 清空操作列表与切牌约束
         allowActionList = new List<string>();
         TurnClock.Current.SetCutConstraints(null, null, null);
@@ -381,15 +388,20 @@ public partial class NormalGameStateManager {
                 : new List<int>();
         }
 
-        // 重连兜底：同一对局重连时，若本地快照行数与服务端恢复的 score_history 不一致，清空以免错位。
-        // 正常下一局 game_start 时两者同步增长，不会进入此分支，主番快照得以保留。
-        if (!isNewMatch) {
+        // 同一对局恢复/跨局无感对齐时，尽量保留已有局的主番记录：
+        // 若后台漏掉了部分局（roundSettlementHistory.Count < scoreRows），仅对漏掉的局补 null 占位，
+        // 不再整表清空已有局的主番；仅当本地行数异常超过服务端（越界）时才清空。
+        if (!isNewMatch || hasRestoredHistory) {
             int scoreRows = 0;
             foreach (var info in player_to_info.Values) {
                 if (info.score_history != null) scoreRows = Mathf.Max(scoreRows, info.score_history.Count);
             }
-            if (roundSettlementHistory.Count != scoreRows) {
+            if (roundSettlementHistory.Count > scoreRows) {
                 ClearRoundSettlementHistory();
+            } else {
+                while (roundSettlementHistory.Count < scoreRows) {
+                    roundSettlementHistory.Add(null);
+                }
             }
         }
     }

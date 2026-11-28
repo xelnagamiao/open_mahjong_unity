@@ -7,7 +7,6 @@ public sealed class ShangraoHintsCache {
     private Action onReady;
     public void Reset() { hints = null; onReady = null; }
     public void Accept(ShangraoHints value) { if (value?.source_hand_tiles != null) hints = value; }
-    private static bool Same(IEnumerable<int> a, IEnumerable<int> b) => a != null && b != null && a.OrderBy(t => t).SequenceEqual(b.OrderBy(t => t));
     private bool TryRows(List<int> hand, List<string> melds, out int[] waits, out Dictionary<int, ShangraoWait> details) {
         waits = null; details = null;
         if (hints?.local_request != null) {
@@ -15,14 +14,12 @@ public sealed class ShangraoHintsCache {
             if (local == null) return false;
             hints = local;
         }
-        if (hints == null || hand == null || !(hints.source_melds ?? Array.Empty<string>()).OrderBy(t => t)
-            .SequenceEqual((melds ?? new List<string>()).OrderBy(t => t))) return false;
-        if (Same(hand, hints.source_hand_tiles)) { waits = hints.waiting_tiles; details = hints.waiting_details; return true; }
-        if (hand.Count + 1 != hints.source_hand_tiles.Length || hints.waiting_by_discard == null) return false;
-        foreach (var entry in hints.waiting_by_discard) {
-            var rest = new List<int>(hints.source_hand_tiles);
-            if (!rest.Remove(entry.Key) || !Same(rest, hand)) continue;
-            waits = entry.Value; hints.waiting_details_by_discard?.TryGetValue(entry.Key, out details); return true;
+        if (hints == null || hand == null || !LocalHintSnapshots.SameMelds(hints.source_melds, melds)) return false;
+        if (LocalHintSnapshots.SameTiles(hand, hints.source_hand_tiles)) { waits = hints.waiting_tiles; details = hints.waiting_details; return true; }
+        if (hints.waiting_by_discard != null && LocalHintSnapshots.TryFindSingleCut(hints.source_hand_tiles, hand, out int cut)
+            && hints.waiting_by_discard.TryGetValue(cut, out waits)) {
+            hints.waiting_details_by_discard?.TryGetValue(cut, out details);
+            return true;
         }
         return false;
     }

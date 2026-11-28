@@ -1,8 +1,7 @@
 from collections import Counter
-from copy import deepcopy
 from functools import lru_cache
 
-from ..jokers import TILES, NUMBERS, JokerPolicy, iter_winning_shapes
+from ..jokers import TILES, NUMBERS, JokerPolicy, iter_winning_shapes, structural_waits as _joker_waits
 
 VERSION = "mil2025"
 SUB_RULE = "wuhan/mil2025"
@@ -116,17 +115,32 @@ def _shapes(hand, melds, indicator):
 
 
 def shapes(hand, melds, indicator):
-    return deepcopy(_shapes(tuple(sorted(hand)), tuple(melds), indicator))
+    return tuple(
+        {**d, "fan_names": list(d["fan_names"]), "logical_hand": list(d["logical_hand"])}
+        for d in _shapes(tuple(sorted(hand)), tuple(melds), indicator)
+    )
 
 
 @lru_cache(maxsize=8192)
 def _waits(hand, melds, indicator):
     if not valid_hand(hand, melds, indicator, complete=False):
         return ()
+    joker, skins = special_tiles(indicator)
+    if any(t in skins for t in hand):
+        return ()
     counts = Counter(hand)
-    for code in melds:
-        counts.update(meld_tiles(code))
-    return tuple(tile for tile in TILES if counts[tile] < 4 and _shapes(tuple(sorted(hand + (tile,))), melds, indicator))
+    exposed = [t for code in melds for t in meld_tiles(code)]
+    counts.update(exposed)
+    waits_set = set(_joker_waits(hand, melds, policy(indicator)))
+    # Also include special-shape waits (风一色 / 将一色) that do not require standard 4+1 shape.
+    ordinary = [t for t in hand if t != joker] + exposed
+    for domain in (FENG, JIANG):
+        targets = [t for t in domain if t not in skins]
+        if targets and all(t in targets for t in ordinary):
+            waits_set.update(targets)
+            if joker not in skins:
+                waits_set.add(joker)
+    return tuple(tile for tile in TILES if tile in waits_set and tile not in skins and counts[tile] < 4)
 
 
 def waits(hand, melds, indicator):

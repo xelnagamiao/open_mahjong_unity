@@ -135,6 +135,7 @@ public partial class GameCanvas{
                 tileCard.handSortIndex = i;
             }
             LayoutHandCardsFromCurrentOrder();
+            RefreshHandTileSelectability();
             if (WashizuTile.IsRealtimeHandOrder && TryApplyWashizuSelfLayout()) {
                 washizuApplySelfLayout = false;
                 yield break;
@@ -143,6 +144,7 @@ public partial class GameCanvas{
                 // 独立摸牌区在首次建手牌时就确定，不先整手排序再删牌/重建。
                 if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
                 isArranged = true;
+                RefreshHandTileSelectability();
                 yield break;
             }
         }
@@ -154,6 +156,7 @@ public partial class GameCanvas{
             tileCard.SetTile(tileId, false);
             tileCard.handSortIndex = handCardsContainer.childCount - 1;
             LayoutHandCardsFromCurrentOrder();
+            RefreshHandTileSelectability();
             if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
             isArranged = true;
             RefreshHandTileSelectability();
@@ -169,7 +172,8 @@ public partial class GameCanvas{
             tileCard.SetTile(tileId, true);
             int handCardCount = handCardsContainer.childCount - 1;
             tileCard.handSortIndex = handCardCount;
-            // 新张创建后立即补涂铳张遮罩，避免 AnimateGetCard 动画期间提示缺失
+            // 新张创建后立即同步可点遮罩与铳张遮罩，避免 AnimateGetCard 动画期间遮罩缺失
+            RefreshHandTileSelectability();
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
             List<TileCard> main = GetMainHandCardsOrdered(tileCard);
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
@@ -178,9 +182,7 @@ public partial class GameCanvas{
             // 这样松手复位/换位时仍会保留这张摸牌及其独立摸牌区位置。
             handCardDragController?.RegisterIncomingDrawDuringActivePress(tileCard, targetPosition.x);
             yield return StartCoroutine(AnimateGetCard(cardRect, targetPosition));
-            if (NormalGameStateManager.Instance.IsSelfActionRequired) {
-                RefreshHandTileSelectability();
-            }
+            RefreshHandTileSelectability();
         }
 
             // 摸牌 添加摸牌区手牌
@@ -193,9 +195,7 @@ public partial class GameCanvas{
             tileCard.handSortIndex = handCardCount;
             LayoutHandCardsFromCurrentOrder();
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
-            if (NormalGameStateManager.Instance.IsSelfActionRequired) {
-                RefreshHandTileSelectability();
-            }
+            RefreshHandTileSelectability();
         }
 
         else if (ChangeType == "GetGangReplacementCardNoLayout"){
@@ -218,6 +218,7 @@ public partial class GameCanvas{
             }
             cardRect.anchoredPosition = GetHandCardPosition(cardRect, rightEdge);
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
+            RefreshHandTileSelectability();
         }
 
         // 摸切 删除摸牌区手牌
@@ -443,6 +444,8 @@ public partial class GameCanvas{
                 tileCard.isDrawSlotPinned = false;
             }
         }
+        // 清除摸牌标记后立即同步可点遮罩，避免重排移动动画期间（如立直加杠/暗杠/收拢）遮罩丢失
+        RefreshHandTileSelectability();
 
         // 创建字典：手牌物体 -> 当前位置
         Dictionary<RectTransform, Vector2> currentPositions = new Dictionary<RectTransform, Vector2>();

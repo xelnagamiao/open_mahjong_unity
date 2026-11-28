@@ -119,7 +119,7 @@ function botsDisabled(group) {
     (room.duplicate_match_id && !['waiting', 'ready'].includes(room.duplicate_status)))
 }
 function supportsHeuristic(room) {
-  return room.room_rule === 'hongque' || (room.room_rule === 'guobiao' &&
+  return ['qingque', 'sichuan', 'riichi'].includes(room.room_rule) || (room.room_rule === 'hongque' && room.sub_rule !== 'hongque/w-v1.0') || (room.room_rule === 'guobiao' &&
     ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/four_jokers', 'guobiao/huahun', 'guobiao/sixteen'].includes(room.sub_rule))
 }
 

@@ -115,7 +115,13 @@ def _maybe_add_chi_action(
     player.chi_candidates[chi_type] = valid_pairs
 
 
-def check_action_after_cut(self, cut_tile: int):
+def check_action_after_cut(
+    self,
+    cut_tile: int,
+    *,
+    is_riichi_declaration: bool = False,
+    is_post_kan_discard: bool = False,
+):
     temp_action_dict: Dict[int, list] = {i: [] for i in range(len(self.player_list))}
     self._ron_shape_waiters = []
     normal_cut = _normalize(cut_tile)
@@ -167,7 +173,15 @@ def check_action_after_cut(self, cut_tile: int):
         refresh_waiting_tiles(self, item.player_index)
         if normal_cut in item.waiting_tiles:
             self._ron_shape_waiters.append(item.player_index)
-            check_hepai(self, temp_action_dict, cut_tile, item.player_index, "ron")
+            check_hepai(
+                self,
+                temp_action_dict,
+                cut_tile,
+                item.player_index,
+                "ron",
+                is_riichi_declaration_ron=is_riichi_declaration,
+                is_post_kan_discard_ron=is_post_kan_discard,
+            )
 
     for i in temp_action_dict:
         if temp_action_dict[i]:
@@ -421,7 +435,19 @@ def compute_kuikae_forbidden(player) -> List[int]:
     return sorted(forbidden)
 
 
-def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepai_type: str, is_first_action: bool = False, is_get_gang_tile: bool = False, is_nuki_tile: bool = False):
+def check_hepai(
+    self,
+    temp_action_dict,
+    hepai_tile: int,
+    player_index: int,
+    hepai_type: str,
+    is_first_action: bool = False,
+    is_get_gang_tile: bool = False,
+    is_nuki_tile: bool = False,
+    *,
+    is_riichi_declaration_ron: bool = False,
+    is_post_kan_discard_ron: bool = False,
+):
     """调用服务端 mahjong 库进行和牌判定；成功则记入 temp_action_dict。"""
     player = self.player_list[player_index]
 
@@ -456,6 +482,12 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "is_daburu_riichi": "daburu_riichi" in player.tag_list,
         "is_ippatsu": "ippatsu" in player.tag_list,
         "is_rinshan": is_get_gang_tile and hepai_type == "tsumo",
+        "is_rinshan_from_daiminkan": (
+            is_get_gang_tile and hepai_type == "tsumo"
+            and getattr(self, "_rinshan_daiminkan_liable", None) is not None
+        ),
+        "is_riichi_declaration_ron": bool(is_riichi_declaration_ron and hepai_type == "ron"),
+        "is_post_kan_discard_ron": bool(is_post_kan_discard_ron and hepai_type == "ron"),
         "is_chankan": hepai_type == "chankan",
         "is_haitei": is_haitei,
         "is_houtei": is_houtei,
@@ -476,6 +508,8 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "hepai_limit": getattr(self, "hepai_limit", 1),
     }
     ctx.update(getattr(self, 'detailed_config', {}))
+    if ctx.get("is_rinshan_from_daiminkan"):
+        ctx["daiminkan_pao_liable"] = self._rinshan_daiminkan_liable
 
     result = self.calculation_service.Riichi_hepai_check(
         tiles_list, player.combination_tiles, [], hepai_tile, ctx,

@@ -174,6 +174,8 @@ public class GameSceneUIManager : MonoBehaviour
     /// 初始化游戏开始（清空临时面板并显示自动行为组件）
     /// </summary>
     public void InitGameStart(bool isNewMatch = false, bool hasFlowers = true) {
+        RoundEndPresentation.Instance?.StopActiveSequence();
+        RoundEndPresentation.Instance?.ResetSichuanEndgameQueue();
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
@@ -198,6 +200,8 @@ public class GameSceneUIManager : MonoBehaviour
 
     /// <summary>实时观战进入对局：清空临时面板，仅显示自动排列手牌。</summary>
     public void InitRealtimeSpectatorStart(bool isNewMatch = false) {
+        RoundEndPresentation.Instance?.StopActiveSequence();
+        RoundEndPresentation.Instance?.ResetSichuanEndgameQueue();
         ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel();
         EndGamePanel.Instance.ClearEndGamePanel();

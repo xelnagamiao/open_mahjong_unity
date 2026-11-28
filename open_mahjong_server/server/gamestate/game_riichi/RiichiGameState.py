@@ -163,7 +163,16 @@ class RiichiPlayer:
         gamestate.rinshan_count += 1
 
 
-from .rule_logic import option, match_should_end, draw_payments, apply_pao, finalize_scores, honba_count, next_honba
+from .rule_logic import (
+    option,
+    match_should_end,
+    draw_payments,
+    apply_pao,
+    apply_daiminkan_pao,
+    finalize_scores,
+    honba_count,
+    next_honba,
+)
 
 
 class RiichiGameState:
@@ -185,6 +194,8 @@ class RiichiGameState:
                 username = "麻雀罗伯特"
             elif user_id == 2:
                 username = "牌效罗伯特"
+            elif user_id == 3:
+                username = "高性能罗伯特"
             else:
                 username = setting.get("username", f"用户{user_id}")
             p = RiichiPlayer(user_id, username, [], room_data["round_timer"])
@@ -304,6 +315,10 @@ class RiichiGameState:
         self._pending_kan_dora_count: int = 0
         # 刚刚完成的杠的类型："ankan" 立翻；"daiminkan"/"shouminkan" 延后到下张弃牌后翻。
         self._last_kan_type: Optional[str] = None
+        # 大明杠来源与古役事件只在紧接着的岭上摸牌/第一张弃牌窗口内有效。
+        self._pending_daiminkan_pao_liable: Optional[int] = None
+        self._rinshan_daiminkan_liable: Optional[int] = None
+        self._post_kan_discard_player: Optional[int] = None
         # 四杠散了：4 杠且由 ≥2 家开出 → 下一张弃牌无人和牌则流局。
         self._pending_four_kan_abort: bool = False
         self._pending_kan = None
@@ -438,6 +453,9 @@ class RiichiGameState:
             self.total_kans = 0
             self._pending_kan_dora_count = 0
             self._last_kan_type = None
+            self._pending_daiminkan_pao_liable = None
+            self._rinshan_daiminkan_liable = None
+            self._post_kan_discard_player = None
             self._pending_four_kan_abort = False
             self._pending_kan = None
             self._pending_cuohe_queue = None
@@ -544,6 +562,16 @@ class RiichiGameState:
                             await self._reveal_kan_dora()
                         elif not is_nuki:
                             self._pending_kan_dora_count += 1
+                        if not is_nuki:
+                            self._rinshan_daiminkan_liable = (
+                                self._pending_daiminkan_pao_liable
+                                if self._last_kan_type == "daiminkan" else None
+                            )
+                            self._post_kan_discard_player = self.current_player_index
+                        else:
+                            self._rinshan_daiminkan_liable = None
+                            self._post_kan_discard_player = None
+                        self._pending_daiminkan_pao_liable = None
                         self._last_kan_type = None
                         self.action_dict = check_action_hand_action(self, self.current_player_index,
                             is_get_gang_tile=not is_nuki or option(self, 'nuki_rinshan'), is_nuki_tile=is_nuki)
@@ -1073,6 +1101,9 @@ class RiichiGameState:
                 langyong_scored_points = scored
 
         apply_pao(self, score_changes, winner_index, result, apply_honba)
+        apply_daiminkan_pao(self, score_changes, winner_index, result)
+        pao_liable_player_index = result.get("daiminkan_pao_liable")
+        pao_type = "大明杠岭上包付" if pao_liable_player_index is not None else None
         if langyong:
             langyong_scored_points = score_changes[winner_index] - (self.honba * honba_total(len(self.player_list)) if apply_honba else 0)
 
@@ -1131,6 +1162,8 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=collected,
             scored_points=result.get("score", 0),
+            liability_player_index=pao_liable_player_index,
+            liability_type=pao_type,
         )
 
         from .dealer_choice import prepare as prepare_dealer_choice
@@ -1160,6 +1193,8 @@ class RiichiGameState:
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
             langyong_multiplier=langyong_multiplier,
             langyong_scored_points=langyong_scored_points,
+            pao_liable_player_index=pao_liable_player_index,
+            pao_type=pao_type,
             simultaneous_hu_hands=simultaneous_hu_hands,
             skip_hand_reveal=True if skip_hand_reveal else None,
             silent=True,

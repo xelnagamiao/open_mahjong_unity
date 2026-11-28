@@ -263,10 +263,23 @@ async def send_game_packet(state, websocket, payload, viewer_index=None):
     if origin and origin.get("round_id") != _scope(state):
         return
     kind = packet.get("type", "").rsplit("/", 1)[-1]
+    if same_table and kind == "do_action" and packet.get("do_action_info"):
+        from .timeout_hosting import notify_timeout_hosting_state, record_do_action_from_packet
+        transition = record_do_action_from_packet(state, packet)
+        if transition is not None:
+            uid, active = transition
+            from .lifecycle import start_owned_task
+            start_owned_task(state, notify_timeout_hosting_state(state, uid, active))
     if same_table and (kind in (*RESULT_FIELDS, "ready_status", "game_start", "reconnect") or "hongque_state" in packet):
         if viewer_index is None:
             viewer_index = _viewer(state, websocket)
         packet = prepare_packet(state, packet, viewer_index)
+        if kind in ("game_start", "reconnect") or "hongque_state" in packet:
+            from .timeout_hosting import is_timeout_hosted
+            players = getattr(state, "player_list", None) or ()
+            if viewer_index is not None and 0 <= viewer_index < len(players):
+                viewer_uid = getattr(players[viewer_index], "user_id", None)
+                packet = {**packet, "timeout_auto_moqie": is_timeout_hosted(state, viewer_uid)}
     try:
         await send_bounded(websocket, packet)
     except TimeoutError:

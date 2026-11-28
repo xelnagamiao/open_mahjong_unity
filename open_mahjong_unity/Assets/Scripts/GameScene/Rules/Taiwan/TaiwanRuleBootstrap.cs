@@ -17,6 +17,7 @@ internal static class TaiwanRuleBootstrap {
             GameStateFactory = () => new TaiwanGameState(),
             Tingpai = TaiwanTips.Tingpai,
             DescribeWaitingTile = TaiwanTips.Describe,
+            DeferWaitingTileHints = true,
             FanValueText = TaiwanFanText.FanValue,
             RoundName = RoundTextDictionary.WindNumberRoundName,
             ScoreboardFanText = TaiwanFanText.ScoreboardFanText,

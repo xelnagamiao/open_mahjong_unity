@@ -46,34 +46,10 @@ namespace Sichuan {
         }
 
         private HashSet<int> NormalWaits(SichuanTingTiles playerTiles) {
-            var result = new HashSet<int>();
-            if (!Block(playerTiles)) return result;
-            var allList = TraverseQuetou(playerTiles);
-            var endList = new List<SichuanTingTiles>();
-            while (allList.Count > 0) {
-                var temp = allList[allList.Count - 1];
-                allList.RemoveAt(allList.Count - 1);
-                TraverseKezi(temp, allList);
-                TraverseDazi(temp, allList);
-                if (temp.completeStep >= 11) endList.Add(temp);
-            }
-
-            foreach (var i in endList) {
-                if (i.handTiles.Count == 1) {
-                    result.Add(i.handTiles[0]);
-                } else if (i.handTiles.Count == 2) {
-                    int a = i.handTiles[0], b = i.handTiles[1];
-                    if (a == b) {
-                        result.Add(a);
-                    } else if (a == b - 1) {
-                        if (a - 1 > a / 10 * 10) result.Add(a - 1);
-                        if (a + 2 < (a / 10 * 10) + 10) result.Add(a + 2);
-                    } else if (a == b - 2) {
-                        result.Add(a + 1);
-                    }
-                }
-            }
-            return result;
+            return StandardMahjongSolver.StandardWaitingTiles(
+                playerTiles.handTiles,
+                allowHonors: false,
+                allowFifthCopy: false);
         }
 
         private bool Block(SichuanTingTiles playerTiles) {

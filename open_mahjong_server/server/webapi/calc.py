@@ -73,49 +73,128 @@ def _augment_way_with_he_dan_zhang(
     return augmented
 
 
+async def _augment_way_with_he_dan_zhang_async(
+    way_to_hepai: List[str],
+    hand_tiles: List[int],
+    get_tile: int,
+    tiles_combination: List[str],
+    async_calc,
+) -> List[str]:
+    """前 13 张听牌检测（异步走 CalcExecutor + L2 缓存）：待牌唯一时自动追加和单张。"""
+    augmented = list(way_to_hepai)
+    if "和单张" in augmented:
+        return augmented
+    hand_13 = list(hand_tiles)
+    if get_tile in hand_13:
+        hand_13.remove(get_tile)
+    elif len(hand_13) > 13:
+        hand_13 = hand_13[:13]
+    try:
+        waiting = await async_calc.tingpai("guobiao", hand_13, list(tiles_combination))
+        if len(waiting) == 1:
+            augmented.append("和单张")
+    except Exception:
+        logging.debug("和单张自动判定跳过", exc_info=True)
+    return augmented
+
+
 def register_calc_routes(app: FastAPI, game_server) -> None:
     """将 /calc/* 路由挂到已创建的 FastAPI app 上。"""
-    calc = game_server.calculation_service
+    import asyncio
+    from collections import OrderedDict
+    import copy
+    from ..game_calculation.async_calculation_service import AsyncCalculationService
+    from ..game_calculation.calc_executor import current_calc_allocation, run_calc_cpu
+
+    async_calc = getattr(game_server, "async_calculation_service", None)
+    if async_calc is None:
+        async_calc = AsyncCalculationService(getattr(game_server, "calculation_service", None))
+
+    # Cap concurrent Web calculator jobs to at most half of CalcExecutor workers
+    # so Web requests never starve live human tables, while avoiding the old
+    # single global lock on game_server.
+    calc_workers = max(1, current_calc_allocation().calc_workers)
+    web_calc_sem = asyncio.Semaphore(max(1, calc_workers // 2))
+    web_calc_cache: OrderedDict[tuple, object] = OrderedDict()
+    WEB_CALC_CACHE_MAX = 512
+
+    def _cache_get(key: tuple):
+        if key in web_calc_cache:
+            web_calc_cache.move_to_end(key)
+            return copy.deepcopy(web_calc_cache[key])
+        return None
+
+    def _cache_put(key: tuple, value: object) -> None:
+        web_calc_cache[key] = copy.deepcopy(value)
+        web_calc_cache.move_to_end(key)
+        while len(web_calc_cache) > WEB_CALC_CACHE_MAX:
+            web_calc_cache.popitem(last=False)
 
     @app.post('/calc/gb/sixteen/waits')
     @app.post('/calc/gb/four-jokers/waits')
     async def four_jokers_waits(req: FourJokersWaitRequest):
+        cache_key = ("waits", req.sub_rule, tuple(sorted(req.hand_tiles)), tuple(req.tiles_combination))
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         from ..game_calculation.guobiao_four_jokers import hint_snapshot
         if req.sub_rule == "guobiao/huahun":
             from ..game_calculation.guobiao_huahun import hint_snapshot
         if req.sub_rule == "guobiao/sixteen":
             from ..game_calculation.guobiao_sixteen import hint_snapshot
-        from ..gamestate.public.ai.bot_executor import run_room_bot_cpu
-        result = await run_room_bot_cpu(game_server, hint_snapshot, req.hand_tiles, req.tiles_combination)
+        async with web_calc_sem:
+            result = await run_calc_cpu(hint_snapshot, req.hand_tiles, req.tiles_combination)
         result["sub_rule"] = req.sub_rule
+        _cache_put(cache_key, result)
         return result
 
     @app.post('/calc/gb/sixteen/hint')
     @app.post('/calc/gb/four-jokers/hint')
     async def four_jokers_hint(req: FourJokersHintRequest):
+        cache_key = (
+            "hint",
+            req.sub_rule,
+            tuple(sorted(req.hand_tiles)),
+            tuple(req.tiles_combination),
+            tuple(req.ron_way),
+            tuple(req.self_way),
+            req.get_tile,
+            req.hepai_limit,
+            req.joker_multi_wait,
+            req.allow_single_wait,
+            req.no_joker_bonus,
+            req.black_flower_progressive,
+        )
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         from ..game_calculation.guobiao_four_jokers import calculate_hint
-        from ..gamestate.public.ai.bot_executor import run_room_bot_cpu
-        if req.sub_rule == "guobiao/sixteen":
-            from ..game_calculation.guobiao_sixteen import calculate_hint
-            return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
-                req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.allow_single_wait)
-        if req.sub_rule == "guobiao/huahun":
-            from ..game_calculation.guobiao_huahun import calculate_hint
-            return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
-                req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.joker_multi_wait,
-                req.allow_single_wait, req.no_joker_bonus, req.black_flower_progressive)
-        return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
-                                     req.ron_way, req.self_way, req.get_tile, req.hepai_limit,
-                                     req.joker_multi_wait, req.allow_single_wait)
+        async with web_calc_sem:
+            if req.sub_rule == "guobiao/sixteen":
+                from ..game_calculation.guobiao_sixteen import calculate_hint
+                result = await run_calc_cpu(calculate_hint, req.hand_tiles, req.tiles_combination,
+                    req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.allow_single_wait)
+            elif req.sub_rule == "guobiao/huahun":
+                from ..game_calculation.guobiao_huahun import calculate_hint
+                result = await run_calc_cpu(calculate_hint, req.hand_tiles, req.tiles_combination,
+                    req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.joker_multi_wait,
+                    req.allow_single_wait, req.no_joker_bonus, req.black_flower_progressive)
+            else:
+                result = await run_calc_cpu(calculate_hint, req.hand_tiles, req.tiles_combination,
+                    req.ron_way, req.self_way, req.get_tile, req.hepai_limit,
+                    req.joker_multi_wait, req.allow_single_wait)
+        _cache_put(cache_key, result)
+        return result
 
     @app.post("/calc/gb/score")
     async def calc_gb_score(req: GBCalcRequest):
         try:
             way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
-            way = _augment_way_with_he_dan_zhang(
-                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, calc
+            way = await _augment_way_with_he_dan_zhang_async(
+                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, async_calc
             )
-            score, fan_list = calc.GB_hepai_check(
+            score, fan_list = await async_calc.hepai(
+                "guobiao",
                 list(req.hand_tiles),
                 list(req.tiles_combination),
                 way,
@@ -143,10 +222,11 @@ def register_calc_routes(app: FastAPI, game_server) -> None:
     async def calc_gb_decompose(req: GBCalcRequest):
         try:
             way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
-            way = _augment_way_with_he_dan_zhang(
-                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, calc
+            way = await _augment_way_with_he_dan_zhang_async(
+                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, async_calc
             )
-            decompositions = calc.GB_hepai_decompose(
+            decompositions = await async_calc.hepai(
+                "guobiao/decompose",
                 list(req.hand_tiles),
                 list(req.tiles_combination),
                 way,
@@ -164,7 +244,8 @@ def register_calc_routes(app: FastAPI, game_server) -> None:
     @app.post("/calc/gb/tingpai")
     async def calc_gb_tingpai(req: GBTingpaiRequest):
         try:
-            waiting = calc.GB_tingpai_check(
+            waiting = await async_calc.tingpai(
+                "guobiao",
                 list(req.hand_tiles),
                 list(req.tiles_combination),
             )

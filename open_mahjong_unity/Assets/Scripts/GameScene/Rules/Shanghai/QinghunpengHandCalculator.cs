@@ -11,12 +11,28 @@ internal static class QinghunpengHandCalculator {
     public static HashSet<int> Waits(List<int> hand, List<string> melds) {
         var result = new HashSet<int>();
         melds = melds ?? new List<string>();
-        if (hand == null || hand.Count + melds.Count * 3 != 13) return result;
-        foreach (int tile in Tiles) {
-            var candidate = new List<int>(hand) { tile };
-            // Keep structural waits visible even before a starting pattern is satisfied.
-            if (Decompositions(candidate, melds).Count > 0 || Score(candidate, melds, 0, true) > 0) result.Add(tile);
+        if (hand == null || hand.Count + melds.Count * 3 != 13 || melds.Count > 4) return result;
+        var counts = new int[48];
+        bool allHonors = true;
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (t < 11 || t > 47 || (t < 40 && t % 10 == 0)) return result;
+            if (++counts[t] > 4) return result;
+            if (t < 41) allHonors = false;
         }
+        for (int i = 0; i < melds.Count; i++) {
+            var mt = MeldTiles(melds[i]);
+            for (int j = 0; j < mt.Count; j++) {
+                int t = mt[j];
+                if (t < 11 || t > 47 || ++counts[t] > 4) return result;
+                if (t < 41) allHonors = false;
+            }
+        }
+        StandardMahjongSolver.CollectStandardWaitingTiles(hand, result, allowHonors: true, allowFifthCopy: false);
+        if (allHonors) {
+            for (int t = 41; t <= 47; t++) result.Add(t);
+        }
+        result.RemoveWhere(t => t < 11 || t > 47 || counts[t] >= 4);
         return result;
     }
 
@@ -28,15 +44,28 @@ internal static class QinghunpengHandCalculator {
 
     internal static List<List<string>> Decompositions(List<int> hand, List<string> melds) {
         var result = new List<List<string>>();
-        if (hand.Count + melds.Count * 3 != 14 || hand.Any(tile => !Tiles.Contains(tile))) return result;
-        var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
-        if (all.Any(tile => !Tiles.Contains(tile)) || all.GroupBy(tile => tile).Any(group => group.Count() > 4)) return result;
-        foreach (int pair in hand.Distinct()) {
-            if (hand.Count(tile => tile == pair) < 2) continue;
-            var remaining = hand.OrderBy(tile => tile).ToList();
-            remaining.Remove(pair);
-            remaining.Remove(pair);
-            SplitSets(remaining, new List<string>(), result);
+        if (hand == null || hand.Count + melds.Count * 3 != 14) return result;
+        var counts = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (t < 11 || t > 47 || (t < 40 && t % 10 == 0) || ++counts[t] > 4) return result;
+        }
+        for (int i = 0; i < melds.Count; i++) {
+            var mt = MeldTiles(melds[i]);
+            for (int j = 0; j < mt.Count; j++) {
+                int t = mt[j];
+                if (t < 11 || t > 47 || ++counts[t] > 4) return result;
+            }
+        }
+        var decomps = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int i = 0; i < decomps.Count; i++) {
+            var meldsArr = decomps[i].Melds;
+            var sets = new List<string>(meldsArr.Length);
+            for (int j = 0; j < meldsArr.Length; j++) {
+                var u = meldsArr[j];
+                sets.Add((u.Kind == 1 ? "s" : "k") + u.TileId.ToString());
+            }
+            result.Add(sets);
         }
         return result;
     }

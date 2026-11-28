@@ -19,15 +19,24 @@ internal static partial class RegionalLocalCalculator {
         var ordinary=hand.Where(t=>t!=special.joker).Concat(exposed).ToArray();
         foreach(var domain in new[]{WuhanWinds,WuhanJiang})if(ordinary.All(domain.Contains))yield return new WuhanShape{Names=1,Gold=domain==WuhanWinds,Hard=domain.Contains(special.joker)||!hand.Contains(special.joker),Seed=true};
         var physicalCounts=LocalJokerHand.Tiles.Select(t=>hand.Count(x=>x==t)).ToArray();
+        if(!LocalJokerHand.CanWin(h))yield break;
         foreach(var shape in LocalJokerHand.Shapes(h)) {
             var all=shape.Tiles.Concat(exposed).ToArray();int pair=int.Parse(shape.Closed.First(m=>m[0]=='q').Substring(1));
             bool gold=all.All(WuhanWinds.Contains);
             yield return new WuhanShape{Names=(shape.Closed.Concat(melds).All(m=>m[0]!='S'&&m[0]!='s')?1:0)+(all.All(t=>t<40)&&all.Select(t=>t/10).Distinct().Count()==1?1:0)+(all.All(WuhanJiang.Contains)?1:0)+(gold?1:0),Gold=gold,Hard=shape.Logical.SequenceEqual(physicalCounts),Seed=WuhanJiang.Contains(pair)&&hand.Contains(pair)};
         }
     }
+    private static bool WuhanCanWin(List<int> hand,List<string> melds,JObject c) {
+        if(!LocalJokerHand.Tiles.Contains(Int(c,"indicator")))return false;
+        var special=WuhanSpecial(Int(c,"indicator"));var h=Prepare("wuhan",hand,melds,c);if(h==null||hand.Any(special.skins.Contains))return false;
+        var exposed=melds.SelectMany(LocalJokerHand.MeldTiles).ToArray();if(exposed.Any(t=>special.skins.Contains(t)||t==special.joker))return false;
+        var ordinary=hand.Where(t=>t!=special.joker).Concat(exposed).ToArray();
+        if(ordinary.All(WuhanWinds.Contains)||ordinary.All(WuhanJiang.Contains))return true;
+        return LocalJokerHand.CanWin(h);
+    }
     private static int[] WuhanWaiting(List<int> hand,List<string> melds,JObject c) {
         if(!LocalJokerHand.Tiles.Contains(Int(c,"indicator")))return System.Array.Empty<int>();
-        return LocalJokerHand.Tiles.Where(tile=>WuhanShapes(hand.Concat(new[]{tile}).ToList(),melds,c).Any()).ToArray();
+        return LocalJokerHand.Tiles.Where(tile=>WuhanCanWin(hand.Concat(new[]{tile}).ToList(),melds,c)).ToArray();
     }
     private static int WuhanTableFan(JToken row,int joker) {
         var melds=row["melds"].ToObject<string[]>();var added=row["added"]?.ToObject<int[]>()??System.Array.Empty<int>();

@@ -3,13 +3,18 @@
 // Explicit, CPU-serialized Robert review jobs. GETs never launch calculations.
 const crypto = require("node:crypto"),
   fs = require("node:fs"),
-  path = require("node:path");
+  path = require("node:path"),
+  { fork } = require("node:child_process");
 const {
   analyzeRobertDiscards,
   DEFAULT_THRESHOLDS,
   THRESHOLD_LIMITS,
   ROBERT_VERSION,
 } = require("./robert");
+const { lowerPriority } = require("../pythonWorkerPool");
+const { createLoadPacer } = require("./loadPacer");
+const ROBERT_LOCK = 170114079;
+let cachedPolicyVersion = null;
 let running = false;
 const workQueue = [];
 function drain() {
@@ -33,6 +38,7 @@ function fail(message, status = 400) {
   throw Object.assign(new Error(message), { status });
 }
 function policyVersion() {
+  if (cachedPolicyVersion) return cachedPolicyVersion;
   const ai = path.resolve(
     __dirname,
     "../../../../../open_mahjong_server/server/gamestate/public/ai",
@@ -57,7 +63,54 @@ function policyVersion() {
     digest.update(path.basename(file));
     digest.update(fs.readFileSync(file));
   }
-  return `${ROBERT_VERSION}:${digest.digest("hex").slice(0, 24)}`;
+  cachedPolicyVersion = `${ROBERT_VERSION}:${digest.digest("hex").slice(0, 24)}`;
+  return cachedPolicyVersion;
+}
+
+async function ensureRobertReviewTables(pool) {
+  await pool.query(
+    `CREATE SCHEMA IF NOT EXISTS anti_cheat_center;
+     CREATE TABLE IF NOT EXISTS anti_cheat_center.robert_discard_cache (
+       cache_key text PRIMARY KEY,game_id text NOT NULL,source_hash text NOT NULL,donor_id text NOT NULL,
+       policy_version text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+     CREATE TABLE IF NOT EXISTS anti_cheat_center.robert_reviews (
+       id uuid PRIMARY KEY,
+       signature text NOT NULL,
+       status text NOT NULL,
+       created_at timestamptz NOT NULL DEFAULT now(),
+       started_at timestamptz,
+       finished_at timestamptz,
+       heartbeat timestamptz,
+       cancel_requested boolean NOT NULL DEFAULT false,
+       request jsonb NOT NULL,
+       snapshot jsonb NOT NULL,
+       policy_version text NOT NULL,
+       games jsonb NOT NULL DEFAULT '[]',
+       progress jsonb NOT NULL DEFAULT '{"done":0,"total":0}',
+       result jsonb,
+       error text
+     );
+     CREATE INDEX IF NOT EXISTS ac_robert_reviews_active ON anti_cheat_center.robert_reviews(status, created_at DESC);`,
+  );
+}
+
+function formatDbReview(row) {
+  return {
+    id: row.id,
+    status: row.status,
+    created_at:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
+    finished_at:
+      row.finished_at instanceof Date
+        ? row.finished_at.toISOString()
+        : row.finished_at ?? undefined,
+    request: row.request,
+    progress: row.progress,
+    result: row.result ?? undefined,
+    error: row.error ?? undefined,
+  };
 }
 function validate(body) {
   if (!body || typeof body !== "object" || Array.isArray(body))
@@ -176,6 +229,8 @@ function createRobertReviews({
   version = policyVersion,
   maxQueued = 8,
   maxTasks = 100,
+  background,
+  launch,
 } = {}) {
   if (
     typeof meta !== "function" ||
@@ -183,6 +238,10 @@ function createRobertReviews({
     typeof readRecord !== "function"
   )
     throw new TypeError("Robert review requires local source callbacks");
+  const useBackgroundWorker =
+    background !== undefined
+      ? Boolean(background)
+      : Boolean(pool && analyzer === analyzeRobertDiscards && !cache);
   const tasks = new Map();
   let planning = Promise.resolve(),
     closed = false,
@@ -190,16 +249,10 @@ function createRobertReviews({
   const persistent = cache || {
     async ready() {
       if (!pool) throw new Error("缺少本地基准缓存连接");
-      return (cacheReady ||= pool
-        .query(
-          `CREATE TABLE IF NOT EXISTS anti_cheat_center.robert_discard_cache (
-        cache_key text PRIMARY KEY,game_id text NOT NULL,source_hash text NOT NULL,donor_id text NOT NULL,
-        policy_version text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now())`,
-        )
-        .catch((e) => {
-          cacheReady = null;
-          throw e;
-        }));
+      return (cacheReady ||= ensureRobertReviewTables(pool).catch((e) => {
+        cacheReady = null;
+        throw e;
+      }));
     },
     async get(key) {
       await this.ready();
@@ -228,6 +281,45 @@ function createRobertReviews({
       );
     },
   };
+
+  function spawnBackgroundWorker() {
+    if (launch) {
+      launch();
+      return;
+    }
+    const child = fork(path.join(__dirname, "robertReviewWorker.js"), [], {
+      stdio: "ignore",
+      detached: true,
+      windowsHide: true,
+      env: process.env,
+    });
+    lowerPriority(child.pid);
+    child.unref();
+  }
+
+  async function reconcilePersistent() {
+    await persistent.ready();
+    const c = await pool.connect();
+    let free = false;
+    try {
+      free = (
+        await c.query("SELECT pg_try_advisory_lock($1) AS free", [ROBERT_LOCK])
+      ).rows[0].free;
+      if (free) {
+        await c.query(
+          `UPDATE anti_cheat_center.robert_reviews
+             SET status = CASE WHEN cancel_requested THEN 'cancelled' ELSE 'failed' END,
+                 finished_at = now(),
+                 error = CASE WHEN cancel_requested THEN '复核已取消' ELSE '后台复核进程已中断，请重新发起复核' END
+           WHERE status = 'running'
+             AND COALESCE(heartbeat, started_at, created_at) < now() - interval '60 seconds'`,
+        );
+      }
+    } finally {
+      if (free) await c.query("SELECT pg_advisory_unlock($1)", [ROBERT_LOCK]);
+      c.release();
+    }
+  }
   const publicTask = (t) =>
     JSON.parse(
       JSON.stringify({
@@ -407,17 +499,40 @@ function createRobertReviews({
       snapshot?.as_of ?? null,
       policy,
     ]);
-    const duplicate = [...tasks.values()].find(
-      (t) =>
-        t.signature === signature && ["queued", "running"].includes(t.status),
-    );
-    if (duplicate) return publicTask(duplicate);
-    if (
-      [...tasks.values()].filter((t) =>
-        ["queued", "running"].includes(t.status),
-      ).length >= maxQueued
-    )
-      fail("已有多项复核等待处理，请稍后再试", 429);
+    if (useBackgroundWorker) {
+      await reconcilePersistent();
+      const dupRes = await pool.query(
+        `SELECT * FROM anti_cheat_center.robert_reviews
+          WHERE signature=$1 AND status IN ('queued','running')
+          ORDER BY created_at DESC LIMIT 1`,
+        [signature],
+      );
+      if (dupRes.rowCount) {
+        spawnBackgroundWorker();
+        return formatDbReview(dupRes.rows[0]);
+      }
+      const activeCount = Number(
+        (
+          await pool.query(
+            `SELECT count(*)::int AS n FROM anti_cheat_center.robert_reviews WHERE status IN ('queued','running')`,
+          )
+        ).rows[0].n,
+      );
+      if (activeCount >= maxQueued)
+        fail("已有多项复核等待处理，请稍后再试", 429);
+    } else {
+      const duplicate = [...tasks.values()].find(
+        (t) =>
+          t.signature === signature && ["queued", "running"].includes(t.status),
+      );
+      if (duplicate) return publicTask(duplicate);
+      if (
+        [...tasks.values()].filter((t) =>
+          ["queued", "running"].includes(t.status),
+        ).length >= maxQueued
+      )
+        fail("已有多项复核等待处理，请稍后再试", 429);
+    }
     const selected = await findGames(
       {
         donor_id: request.donor_id,
@@ -448,6 +563,28 @@ function createRobertReviews({
         games.push({ game_id: entry.game_id, source_hash: entry.source_hash });
       }
     }
+    if (useBackgroundWorker) {
+      const id = crypto.randomUUID();
+      const progress = { done: 0, total: games.length };
+      const inserted = (
+        await pool.query(
+          `INSERT INTO anti_cheat_center.robert_reviews(id,signature,status,created_at,request,snapshot,policy_version,games,progress)
+           VALUES($1,$2,'queued',$3,$4,$5,$6,$7,$8) RETURNING *`,
+          [
+            id,
+            signature,
+            clock().toISOString(),
+            JSON.stringify(request),
+            JSON.stringify(snapshot || {}),
+            policy,
+            JSON.stringify(games),
+            JSON.stringify(progress),
+          ],
+        )
+      ).rows[0];
+      spawnBackgroundWorker();
+      return formatDbReview(inserted);
+    }
     while (tasks.size >= maxTasks) {
       const old = [...tasks.values()].find(
         (t) => !["queued", "running"].includes(t.status),
@@ -477,11 +614,48 @@ function createRobertReviews({
     return result;
   }
   async function get(id) {
+    if (useBackgroundWorker) {
+      await reconcilePersistent();
+      const row = (
+        await pool.query(
+          `SELECT * FROM anti_cheat_center.robert_reviews WHERE id=$1`,
+          [id],
+        )
+      ).rows[0];
+      if (!row) fail("复核任务不存在，请重新复核", 404);
+      if (row.status === "queued") spawnBackgroundWorker();
+      return formatDbReview(row);
+    }
     const task = tasks.get(id);
     if (!task) fail("复核任务不存在或进程已重启，请重新复核", 404);
     return publicTask(task);
   }
   async function cancel(id) {
+    if (useBackgroundWorker) {
+      await reconcilePersistent();
+      const row = (
+        await pool.query(
+          `SELECT * FROM anti_cheat_center.robert_reviews WHERE id=$1`,
+          [id],
+        )
+      ).rows[0];
+      if (!row) fail("复核任务不存在，请重新复核", 404);
+      if (!["queued", "running"].includes(row.status))
+        return formatDbReview(row);
+      const updated = (
+        await pool.query(
+          `UPDATE anti_cheat_center.robert_reviews
+              SET cancel_requested = true,
+                  status = CASE WHEN status = 'queued' THEN 'cancelled' ELSE status END,
+                  finished_at = CASE WHEN status = 'queued' THEN now() ELSE finished_at END,
+                  error = CASE WHEN status = 'queued' THEN '复核已取消' ELSE error END
+            WHERE id = $1
+            RETURNING *`,
+          [id],
+        )
+      ).rows[0];
+      return formatDbReview(updated);
+    }
     const task = tasks.get(id);
     if (!task) fail("复核任务不存在或进程已重启，请重新复核", 404);
     if (!["queued", "running"].includes(task.status)) return publicTask(task);
@@ -500,8 +674,283 @@ function createRobertReviews({
   return { start, get, cancel, close };
 }
 
+async function drainPersistentRobertReviews(
+  pool,
+  { readRecord, analyzer = analyzeRobertDiscards, clock = () => new Date() } = {},
+) {
+  await ensureRobertReviewTables(pool);
+  const source = readRecord
+    ? { readRecord }
+    : require("./robertSource").createRobertSource(pool);
+  const lease = await pool.connect();
+  let ownsLock = false;
+  try {
+    ownsLock = (
+      await lease.query("SELECT pg_try_advisory_lock($1) AS acquired", [
+        ROBERT_LOCK,
+      ])
+    ).rows[0].acquired;
+    if (!ownsLock) return 0;
+
+    let processedJobs = 0;
+    while (true) {
+      const next = (
+        await pool.query(
+          `SELECT * FROM anti_cheat_center.robert_reviews
+            WHERE status = 'queued' AND NOT cancel_requested
+            ORDER BY created_at ASC LIMIT 1`,
+        )
+      ).rows[0];
+      if (!next) break;
+      processedJobs += 1;
+
+      await pool.query(
+        `UPDATE anti_cheat_center.robert_reviews
+            SET status = 'running', started_at = now(), heartbeat = now()
+          WHERE id = $1`,
+        [next.id],
+      );
+
+      const controller = new AbortController();
+      const cancelPoll = setInterval(async () => {
+        try {
+          const row = (
+            await pool.query(
+              `SELECT cancel_requested FROM anti_cheat_center.robert_reviews WHERE id=$1`,
+              [next.id],
+            )
+          ).rows[0];
+          if (row?.cancel_requested) controller.abort();
+          else
+            await pool.query(
+              `UPDATE anti_cheat_center.robert_reviews SET heartbeat = now() WHERE id=$1`,
+              [next.id],
+            );
+        } catch {
+          // ignore transient poll errors
+        }
+      }, 2000);
+      cancelPoll.unref();
+
+      const task = {
+        id: next.id,
+        request: next.request,
+        snapshot: next.snapshot,
+        policy: next.policy_version,
+        games: Array.isArray(next.games) ? next.games : [],
+        status: "running",
+        controller,
+        progress: { done: 0, total: Array.isArray(next.games) ? next.games.length : 0 },
+        result: null,
+        error: null,
+      };
+
+      const checkCancelled = () => {
+        if (controller.signal.aborted)
+          throw Object.assign(new Error("复核已取消"), { name: "AbortError" });
+      };
+
+      const result = {
+        feeding: { numerator: 0, denominator: 0, rate: null },
+        normal: { numerator: 0, denominator: 0, rate: null },
+        unavailable_decisions: 0,
+        unavailable_games: 0,
+        partial_games: 0,
+        skipped_unreconstructed_hands: 0,
+        cache_hits: 0,
+        computed_games: 0,
+        channel: task.request.channel,
+        policy_version: task.policy,
+        feeding_definition:
+          "目标伙伴指定口径中明显差于罗伯特推荐的实际弃牌 / 目标伙伴该口径全部可比弃牌",
+        normal_definition:
+          "未向目标伙伴实际递送的其余可比弃牌中，无明显差距的次数 / 该组全部可比弃牌",
+      };
+      let validGames = 0;
+
+      const pacer = createLoadPacer();
+      try {
+        for (const entry of task.games) {
+          checkCancelled();
+          await pacer.waitBeforeItem({
+            activeIndex: 0,
+            signal: controller.signal,
+            onYield: async () => {
+              checkCancelled();
+              await pool.query(
+                `UPDATE anti_cheat_center.robert_reviews SET heartbeat=now() WHERE id=$1`,
+                [next.id],
+              );
+            },
+          });
+          const record = await source.readRecord(entry, task.snapshot);
+          checkCancelled();
+          if (
+            !record ||
+            (record.source_hash != null &&
+              record.source_hash !== entry.source_hash)
+          )
+            throw new Error("本地牌谱已变化，请重新发起复核");
+          const key = crypto
+            .createHash("sha256")
+            .update(
+              JSON.stringify([
+                entry.game_id,
+                entry.source_hash,
+                task.request.donor_id,
+                task.policy,
+              ]),
+            )
+            .digest("hex");
+          let comparison =
+            (
+              await pool.query(
+                "SELECT payload FROM anti_cheat_center.robert_discard_cache WHERE cache_key=$1",
+                [key],
+              )
+            ).rows[0]?.payload || null;
+          checkCancelled();
+          if (comparison) result.cache_hits++;
+          else {
+            try {
+              comparison = compact(
+                await analyzer(record, {
+                  donor_id: task.request.donor_id,
+                  thresholds: DEFAULT_THRESHOLDS,
+                  signal: controller.signal,
+                }),
+              );
+            } catch (error) {
+              if (error.name === "AbortError") throw error;
+              comparison = {
+                status: "unavailable",
+                reason: "机器人基准计算失败",
+                decisions: [],
+                unavailable_decisions: 0,
+              };
+            }
+            result.computed_games++;
+            checkCancelled();
+            if (
+              comparison.status === "available" &&
+              (comparison.policy_evaluated_decisions ??
+                comparison.analyzed_decisions) > 0 &&
+              !comparison.truncated &&
+              !(
+                comparison.calculator_unavailable_decisions ??
+                comparison.unavailable_decisions
+              ) &&
+              !comparison.skipped_unreconstructed_hands
+            ) {
+              await pool.query(
+                `INSERT INTO anti_cheat_center.robert_discard_cache(cache_key,game_id,source_hash,donor_id,policy_version,payload)
+                 VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(cache_key) DO UPDATE SET payload=excluded.payload`,
+                [
+                  key,
+                  entry.game_id,
+                  entry.source_hash,
+                  task.request.donor_id,
+                  task.policy,
+                  JSON.stringify(comparison),
+                ],
+              );
+            }
+          }
+          checkCancelled();
+          result.unavailable_decisions += comparison.unavailable_decisions || 0;
+          result.skipped_unreconstructed_hands +=
+            comparison.skipped_unreconstructed_hands || 0;
+          if (
+            comparison.unavailable_decisions ||
+            comparison.skipped_unreconstructed_hands ||
+            comparison.truncated
+          )
+            result.partial_games++;
+          const rows = (comparison.decisions || []).filter(
+            (d) => d.status === "available" && d.rate_comparable !== false,
+          );
+          if (comparison.status !== "available" || !rows.length) {
+            result.unavailable_games++;
+          } else {
+            validGames++;
+            for (const row of rows) {
+              const events = row.events || [],
+                toTarget = events.filter(
+                  (e) => String(e.recipient_id) === task.request.recipient_id,
+                ),
+                channelTarget = toTarget.some((e) =>
+                  task.request.channel === "ALL"
+                    ? ["MELD", "RON"].includes(e.family)
+                    : e.family === task.request.channel,
+                );
+              const worse = classify(row, task.request.thresholds);
+              if (channelTarget) {
+                result.feeding.denominator++;
+                if (worse) result.feeding.numerator++;
+              }
+              if (!toTarget.length) {
+                result.normal.denominator++;
+                if (!worse) result.normal.numerator++;
+              }
+            }
+          }
+          task.progress.done++;
+          await pool.query(
+            `UPDATE anti_cheat_center.robert_reviews SET progress=$2, heartbeat=now() WHERE id=$1`,
+            [next.id, JSON.stringify(task.progress)],
+          );
+        }
+        checkCancelled();
+        for (const group of [result.feeding, result.normal])
+          group.rate = group.denominator
+            ? group.numerator / group.denominator
+            : null;
+        if (task.games.length && !validGames) {
+          task.status = "failed";
+          task.error = "本批牌谱没有可比的罗伯特弃牌基准，未生成正常率。";
+        } else {
+          task.status = "completed";
+        }
+        task.result = result;
+      } catch (error) {
+        task.status = error.name === "AbortError" ? "cancelled" : "failed";
+        task.error =
+          error.name === "AbortError"
+            ? "复核已取消"
+            : String(error.message || "复核失败").slice(0, 300);
+      } finally {
+        clearInterval(cancelPoll);
+      }
+
+      await pool.query(
+        `UPDATE anti_cheat_center.robert_reviews
+            SET status=$2, finished_at=$3, heartbeat=now(), progress=$4, result=$5, error=$6
+          WHERE id=$1`,
+        [
+          next.id,
+          task.status,
+          clock().toISOString(),
+          JSON.stringify(task.progress),
+          task.result ? JSON.stringify(task.result) : null,
+          task.error,
+        ],
+      );
+    }
+    return processedJobs;
+  } finally {
+    if (ownsLock)
+      await lease
+        .query("SELECT pg_advisory_unlock($1)", [ROBERT_LOCK])
+        .catch(() => {});
+    lease.release();
+  }
+}
+
 module.exports = {
   createRobertReviews,
+  drainPersistentRobertReviews,
+  ensureRobertReviewTables,
+  ROBERT_LOCK,
   policyVersion,
   validate,
   compact,

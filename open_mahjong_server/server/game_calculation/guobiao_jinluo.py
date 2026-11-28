@@ -125,8 +125,18 @@ def allows_state_win(state, result, hand, melds, player_index):
                       seat_wind=41 + player_index, round_wind=41 + (state.current_round - 1) // 4)
 
 
+_GB_HEPAI_CHECKER = None
+
+
+def _get_gb_hepai_checker():
+    global _GB_HEPAI_CHECKER
+    if _GB_HEPAI_CHECKER is None:
+        _GB_HEPAI_CHECKER = Chinese_Hepai_Check()
+    return _GB_HEPAI_CHECKER
+
+
 def hepai_check(state, hand, melds, way, tile, player_index):
-    candidates = Chinese_Hepai_Check().hepai_decompose(hand, melds, way, tile)
+    candidates = _get_gb_hepai_checker().hepai_decompose(hand, melds, way, tile)
     for item in candidates:
         result = (item["score"], item["fan_list"])
         if allows_state_win(state, result, hand, melds, player_index):

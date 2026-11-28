@@ -20,6 +20,17 @@ public static class GBhepaiXiaolin {
         { "qianzhang", 1 }, { "dandiaojiang", 1 }, { "zimo", 0 }, { "huapai", 1 }, { "mingangang", 5 }
     };
 
+    private static readonly Chinese_Hepai_Check SharedChecker = new Chinese_Hepai_Check(false, CountModelDictXiaolin);
+    private static readonly Dictionary<string, int> CnToValueXiaolin = BuildCnToValue();
+
+    private static Dictionary<string, int> BuildCnToValue() {
+        var map = new Dictionary<string, int>(Chinese_Hepai_Check.EngToChineseDict.Count);
+        foreach (var kv in Chinese_Hepai_Check.EngToChineseDict)
+            if (CountModelDictXiaolin.TryGetValue(kv.Key, out var v))
+                map[kv.Value] = v;
+        return map;
+    }
+
     /// <summary>
     /// 小林规和牌检查
     /// </summary>
@@ -29,7 +40,8 @@ public static class GBhepaiXiaolin {
         List<string> way_to_hepai,
         int get_tile,
         bool debug = false) {
-        var checker = new Chinese_Hepai_Check(debug, CountModelDictXiaolin);
+        if (!debug) return SharedChecker.HepaiCheck(hand_list, tiles_combination, way_to_hepai, get_tile);
+        var checker = new Chinese_Hepai_Check(true, CountModelDictXiaolin);
         return checker.HepaiCheck(hand_list, tiles_combination, way_to_hepai, get_tile);
     }
 
@@ -37,10 +49,7 @@ public static class GBhepaiXiaolin {
     /// 剔除番值=0 的番种后再返回；若无番或剩余番值全为 0 则返回无番和。获取结果后由调用处调用。
     /// </summary>
     public static Tuple<int, List<string>> FilterZeroValueFans(int fanScore, List<string> fanCountList) {
-        var cnToValue = new Dictionary<string, int>();
-        foreach (var kv in Chinese_Hepai_Check.EngToChineseDict)
-            if (CountModelDictXiaolin.TryGetValue(kv.Key, out var v))
-                cnToValue[kv.Value] = v;
+        var cnToValue = CnToValueXiaolin;
         int wufanheValue = cnToValue.TryGetValue("无番和", out var wv) ? wv : 8;
         var filtered = new List<string>();
         int effective = 0;

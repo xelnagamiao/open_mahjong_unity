@@ -169,13 +169,17 @@ def score_hand(hand, melds=(), bonuses=(), *, seat=0, winning_tile=None,
     if winning_tile is not None and winning_tile not in hand:
         return None
     best = None
+    base_bonus_items = bonus_items(bonuses, seat)
+    total_flies = fly_count(hand, melds, bonuses)
+    has_no_bonuses = not bonuses
+    has_all_bonuses = set(BONUS) <= set(bonuses)
     # Scoring uses logical groups and self-draw status; it never depends on the
     # chosen winning component. Full witnesses retain the <=2 fly group rule.
     for shape in iter_winning_shapes(hand, [m.external() for m in melds], policy=POLICY, winning_tile=winning_tile):
         if any(g.kind == "triplet" and g.physical.count(FLY) == 3 for g in shape.groups):
             continue
         pungs = {g.tile for g in shape.melds if g.kind in ("triplet", "kong")}
-        items = bonus_items(bonuses, seat) + honor_items([g.tile for g in shape.melds if g.kind in ("triplet", "kong")], seat)
+        items = base_bonus_items + honor_items([g.tile for g in shape.melds if g.kind in ("triplet", "kong")], seat)
         logical = shape.logical_tiles
         dots = any(t in DOTS for t in logical)
         honors = any(t in WINDS + DRAGONS for t in logical)
@@ -198,7 +202,7 @@ def score_hand(hand, melds=(), bonuses=(), *, seat=0, winning_tile=None,
             items.append(Item("rob_kong", "抢杠", 1))
         fan = sum(x.fan for x in items)
         maximums = []
-        if not bonuses:
+        if has_no_bonuses:
             maximums.append("无花")
         if len(pungs & set(WINDS)) == 4:
             maximums.append("大四喜")
@@ -212,11 +216,11 @@ def score_hand(hand, melds=(), bonuses=(), *, seat=0, winning_tile=None,
             maximums.append("连杠和")
         if self_draw and len(shape.concealed_pungs(True)) == 4:
             maximums.append("四暗刻")
-        if fly_count(hand, melds, bonuses) == 4:
+        if total_flies == 4:
             maximums.append("四飞")
         if not dots:
             maximums.append("字一色")
-        if set(BONUS) <= set(bonuses):
+        if has_all_bonuses:
             maximums.append("十六花")
         if first_tile:
             maximums.append("首张和")
@@ -238,8 +242,12 @@ def score_hand(hand, melds=(), bonuses=(), *, seat=0, winning_tile=None,
 
 
 @lru_cache(maxsize=4096)
-def waits(hand, melds=()):
+def _waits_cached(hand, melds):
     return structural_waits(hand, [m.external() for m in melds], policy=POLICY)
+
+
+def waits(hand, melds=()):
+    return _waits_cached(tuple(sorted(hand)), tuple(melds))
 
 
 def transfer(changes, payer, receiver, amount):

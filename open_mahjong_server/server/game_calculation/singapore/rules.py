@@ -54,8 +54,12 @@ def automatic_meld_win(melds):
 
 
 @lru_cache(maxsize=16384)
-def structural_waits(hand, melds=()):
+def _structural_waits_cached(hand, melds):
     return solve_waits(hand, melds, POLICY)
+
+
+def structural_waits(hand, melds=()):
+    return _structural_waits_cached(tuple(sorted(hand)), tuple(melds))
 
 
 def _nine_gates(hand, melds):

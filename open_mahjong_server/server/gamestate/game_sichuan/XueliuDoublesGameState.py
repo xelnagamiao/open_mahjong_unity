@@ -114,9 +114,15 @@ class XueliuDoublesGameState(XueliuGameState):
         }
 
     def _default_xueliu_throw_tiles(self, player_index):
-        from .xueliu_bot import choose_opening
-        hand = self.player_list[player_index].hand_tiles
+        player = self.player_list[player_index]
+        hand = player.hand_tiles
         incoming_suit = self.exchange_view(player_index)["teammate_suit"]
+        if getattr(player, "user_id", None) == 3:
+            from .heuristic_bot import choose_opening_tiles
+            return choose_opening_tiles(
+                hand, exchange=True, is_team_exchange=True, teammate_suit=incoming_suit
+            )
+        from .xueliu_bot import choose_opening
         alternatives = [tile for tile in hand if tile // 10 != incoming_suit]
         if incoming_suit and any(sum(t // 10 == suit for t in alternatives) >= 3 for suit in (1, 2, 3)):
             return choose_opening(alternatives, exchange=True)

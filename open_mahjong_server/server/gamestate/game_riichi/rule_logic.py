@@ -158,7 +158,13 @@ def draw_payments(game, tenpai):
 
 
 def record_pao_call(game, caller, discarder, action, tile):
-    if not option(game, 'pao') or action not in ('peng', 'gang'):
+    if action not in ('peng', 'gang'):
+        return
+    if action == 'gang' and option(game, 'pao_daiminkan_rinshan'):
+        # 仅把本次大明杠的提供者挂到岭上摸牌上下文，是否真的包付要等
+        # 杠家紧接着岭上自摸时再确认。暗杠、加杠不会经过这里。
+        game._pending_daiminkan_pao_liable = discarder
+    if not option(game, 'pao'):
         return
     player = game.player_list[caller]
     if not hasattr(player, 'pao_liability'):
@@ -170,6 +176,27 @@ def record_pao_call(game, caller, discarder, action, tile):
         player.pao_liability.setdefault('大四喜', discarder)
     if action == 'gang' and option(game, 'pao_suukantsu') and sum(c[0] in ('g','G') for c in player.combination_tiles) == 4:
         player.pao_liability.setdefault('四杠子', discarder)
+
+
+def apply_daiminkan_pao(game, changes, winner, result):
+    """将大明杠后立即岭上自摸的其他分担转给大明杠提供者。
+
+    先执行既有役满包牌，再把仍由其他玩家承担的实际扣分逐笔转移，
+    因而与大三元/大四喜/四杠子包牌重叠时不会重复收取已经转移的分担。
+    """
+    if not option(game, 'pao_daiminkan_rinshan') or game.hu_class != 'hu_self':
+        return
+    liable = result.get('daiminkan_pao_liable')
+    if liable is None or liable == winner or liable not in changes:
+        return
+    for seat in range(len(game.player_list)):
+        if seat == winner or seat == liable:
+            continue
+        loss = -changes.get(seat, 0)
+        if loss <= 0:
+            continue
+        changes[seat] += loss
+        changes[liable] -= loss
 
 
 def apply_pao(game, changes, winner, result, apply_honba):

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections import Counter
 from functools import lru_cache
 from itertools import combinations, permutations, product
 
@@ -129,12 +130,19 @@ def _closed_shapes(hand, mask, groups_left, pair_left, *, seven=False, distinct_
     by_anchor = _group_options(hand, seven)
     dead = set()
 
-    @lru_cache(maxsize=2048)
+    options_memo = {}
+
     def options(remaining, pair):
+        mkey = (remaining, pair)
+        cached = options_memo.get(mkey)
+        if cached is not None:
+            return cached
         ids = [i for i in range(len(hand)) if remaining >> i & 1]
         anchor = min(ids, key=lambda i: (t.joker(hand[i]), len(t.DOMAIN[hand[i]]), hand[i], i))
-        return tuple((bits, group) for bits, group in by_anchor[anchor]
-                     if bits & remaining == bits and (pair or group.kind != 'pair'))
+        res = tuple((bits, group) for bits, group in by_anchor[anchor]
+                    if bits & remaining == bits and (pair or group.kind != 'pair'))
+        options_memo[mkey] = res
+        return res
 
     def visit(remaining, groups, pair, pair_faces):
         if not remaining:
@@ -311,7 +319,7 @@ def iter_shapes(hand, melds=(), variant='guobiao'):
 
 
 @lru_cache(maxsize=4096)
-def structural_win(hand, melds=(), variant='guobiao'):
+def _structural_win_sorted(hand, melds=(), variant='guobiao'):
     if variant == 'riichi':
         if not t.valid_physical((*hand, *(v for m in melds for v in m.physical))):
             return False
@@ -328,6 +336,25 @@ def structural_win(hand, melds=(), variant='guobiao'):
     return next(iter_shapes(hand, melds, variant), None) is not None
 
 
+def structural_win(hand, melds=(), variant='guobiao'):
+    return _structural_win_sorted(tuple(sorted(hand)), tuple(melds), variant)
+
+
 def waits(hand, melds=(), variant='guobiao', candidates=t.PHYSICAL):
-    hand, melds = tuple(hand), tuple(Meld.read(m) for m in melds)
-    return [value for value in candidates if structural_win(hand + (value,), melds, variant)]
+    hand_sorted = tuple(sorted(hand))
+    melds = tuple(Meld.read(m) for m in melds)
+    out = []
+    normal_cache = {}
+    for value in candidates:
+        if t.joker(value):
+            if _structural_win_sorted(tuple(sorted(hand_sorted + (value,))), melds, variant):
+                out.append(value)
+        elif not t.bonus(value):
+            face = t.face(value)
+            ok = normal_cache.get(face)
+            if ok is None:
+                ok = _structural_win_sorted(tuple(sorted(hand_sorted + (value,))), melds, variant)
+                normal_cache[face] = ok
+            if ok and t.valid_physical((*hand_sorted, value, *(v for m in melds for v in m.physical))):
+                out.append(value)
+    return out

@@ -21,7 +21,44 @@ internal sealed class DuocaiLocal {
     private bool Structural(int[] hand)=>DuocaiSolver.Shapes(hand,melds,variant).Any();
     internal int[] Waiting(List<int> hand) {
         string key=Key(hand);if(waits.TryGetValue(key,out var found))return found;
-        return waits[key]=DuocaiTiles.Physical.Where(t=>Structural(hand.Concat(new[]{t}).ToArray())).ToArray();
+        var physCounts = new Dictionary<int, int>(hand.Count + melds.Length * 4);
+        int jokerCount = 0;
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (DuocaiTiles.Joker(t)) jokerCount++;
+            physCounts[t] = physCounts.TryGetValue(t, out int c) ? c + 1 : 1;
+        }
+        for (int i = 0; i < melds.Length; i++) {
+            var p = melds[i].physical;
+            for (int j = 0; j < p.Length; j++) {
+                int t = p[j];
+                if (DuocaiTiles.Joker(t)) jokerCount++;
+                physCounts[t] = physCounts.TryGetValue(t, out int c) ? c + 1 : 1;
+            }
+        }
+        var faceMemo = new Dictionary<int, bool>(34);
+        var buf = new int[hand.Count + 1];
+        for (int i = 0; i < hand.Count; i++) buf[i] = hand[i];
+        var result = new List<int>();
+        for (int i = 0; i < DuocaiTiles.Physical.Length; i++) {
+            int t = DuocaiTiles.Physical[i];
+            int have = physCounts.TryGetValue(t, out int c) ? c : 0;
+            if (have >= DuocaiTiles.Supply(t)) continue;
+            if (DuocaiTiles.Joker(t)) {
+                if (jokerCount >= 8) continue;
+                buf[hand.Count] = t;
+                if (Structural(buf)) result.Add(t);
+            } else {
+                int face = DuocaiTiles.Face(t);
+                if (!faceMemo.TryGetValue(face, out bool ok)) {
+                    buf[hand.Count] = t;
+                    ok = Structural(buf);
+                    faceMemo[face] = ok;
+                }
+                if (ok) result.Add(t);
+            }
+        }
+        return waits[key] = result.ToArray();
     }
     internal int[] LogicalWaits(int[] hand) {
         string key=Key(hand);if(logicalWaits.TryGetValue(key,out var found))return found;

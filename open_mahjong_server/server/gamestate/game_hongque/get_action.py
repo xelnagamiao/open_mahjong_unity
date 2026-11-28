@@ -182,11 +182,22 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
             melds = tuple(dict(meld) for meld in player.melds)
             candidates = tuple(dict(item) for item in candidates)
             visible = visible_codes_for(game_state, player_index)
+            wall_count = len(game_state.wall)
+            opponents = tuple(
+                OpponentView.from_player(item)
+                for item in game_state.players
+                if item.index != player_index
+            ) if player.user_id == 3 and not is_w(game_state) else ()
         if player.user_id not in (2, 3):
             plan = {"action": "pass"}
         else:
             claim_fn = w_bot.choose_claim_plan if is_w(game_state) else choose_claim_plan_v3 if player.user_id == 3 else choose_claim_plan
-            extra = {"include_colourless": game_state.hongque_colourless} if is_w(game_state) else {}
+            if is_w(game_state):
+                extra = {"include_colourless": game_state.hongque_colourless}
+            elif player.user_id == 3:
+                extra = {"wall_count": wall_count, "opponents": opponents}
+            else:
+                extra = {}
             plan = await run_room_bot_cpu(game_state, claim_fn, hand, melds, candidates, visible, **extra)
         await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
         if game_state.phase != "claim" or game_state.action_tick != tick:

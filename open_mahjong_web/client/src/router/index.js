@@ -3,7 +3,7 @@ import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { watch } from 'vue'
-import { locale, tr, setLocale } from '@/i18n'
+import { locale, tr, setLocale, restorePersistentLocale } from '@/i18n'
 import { requestedGameLocale } from '@/i18n/locale-utils.js'
 import { mobileDownloadRedirect } from '@/utils/iosDownload.js'
 import { seoEntryFor, noindexEntryFor } from '@/seo'
@@ -540,7 +540,8 @@ router.beforeEach(async (to, from, next) => {
   const gameLocale = requestedGameLocale(to.path, new URLSearchParams(
     typeof to.query.lang === 'string' ? { lang: to.query.lang } : {}
   ).toString())
-  if (gameLocale) setLocale(gameLocale)
+  if (gameLocale) setLocale(gameLocale, { persist: false })
+  else if (!/^\/2d(?:\/|$)/.test(to.path)) restorePersistentLocale()
   if (to.path.startsWith('/admin')) {
     const auth = useAdminAuthStore()
     if (to.meta.publicAdmin) {

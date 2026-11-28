@@ -30,7 +30,8 @@ class DatabaseManager:
 
     LOGIN_IP_KEEP_LIMIT = 20
     
-    def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432, minconn: int = 2, maxconn: int = 10):
+    def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432, minconn: int = 2, maxconn: int = 20):
+        import os
         self.config = {
             'host': host,
             'user': user,
@@ -38,6 +39,16 @@ class DatabaseManager:
             'database': database,
             'port': port
         }
+        try:
+            env_min = int(os.environ.get('MAHJONG_DB_POOL_MIN', '').strip() or minconn)
+        except ValueError:
+            env_min = minconn
+        try:
+            env_max = int(os.environ.get('MAHJONG_DB_POOL_MAX', '').strip() or maxconn)
+        except ValueError:
+            env_max = maxconn
+        self.minconn = max(1, env_min)
+        self.maxconn = max(self.minconn, env_max)
         # 连接池（延迟初始化，在 init_database 之后创建）
         self.pool: Optional[ThreadedConnectionPool] = None
         self.pool_lock = threading.Lock()
@@ -48,8 +59,8 @@ class DatabaseManager:
             with self.pool_lock:
                 if self.pool is None:
                     self.pool = ThreadedConnectionPool(
-                        minconn=2,
-                        maxconn=10,
+                        minconn=self.minconn,
+                        maxconn=self.maxconn,
                         **self.config
                     )
         return self.pool

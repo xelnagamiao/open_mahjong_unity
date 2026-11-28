@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+from ..standard_solver import standard_waiting_tiles
+
 _YAOJIU: frozenset[int] = frozenset(
     (11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47)
 )
@@ -65,70 +67,11 @@ def _normal_check(
     complete_step: int,
     waiting_tiles: Set[int],
 ) -> None:
-    if not _normal_check_block(sorted_hand, len(combination_list)):
+    if complete_step + len(sorted_hand) != 13:
         return
-
-    # State: (hand_tiles, complete_step)
-    stack: List[Tuple[List[int], int]] = []
-    quetou_pointer = 0
-    for tile_id in sorted_hand:
-        if tile_id != quetou_pointer and sorted_hand.count(tile_id) >= 2:
-            rem = sorted_hand.copy()
-            rem.remove(tile_id)
-            rem.remove(tile_id)
-            stack.append((rem, complete_step + 2))
-            quetou_pointer = tile_id
-    stack.append((sorted_hand.copy(), complete_step))
-
-    end_list: List[Tuple[List[int], int]] = []
-    while stack:
-        cur_hand, cur_step = stack.pop()
-
-        # Traverse kezi (triplets)
-        same_id = 0
-        for tile_id in cur_hand:
-            if tile_id != same_id and cur_hand.count(tile_id) >= 3:
-                rem = cur_hand.copy()
-                rem.remove(tile_id)
-                rem.remove(tile_id)
-                rem.remove(tile_id)
-                stack.append((rem, cur_step + 3))
-                same_id = tile_id
-
-        # Traverse dazi (sequences)
-        same_id = 0
-        for tile_id in cur_hand:
-            if tile_id <= 37 and (tile_id % 10) <= 7:
-                if (
-                    tile_id != same_id
-                    and (tile_id + 1) in cur_hand
-                    and (tile_id + 2) in cur_hand
-                ):
-                    rem = cur_hand.copy()
-                    rem.remove(tile_id)
-                    rem.remove(tile_id + 1)
-                    rem.remove(tile_id + 2)
-                    stack.append((rem, cur_step + 3))
-                    same_id = tile_id
-
-        if cur_step >= 11:
-            end_list.append((cur_hand, cur_step))
-
-    for rem_hand, _ in end_list:
-        if len(rem_hand) == 1:
-            waiting_tiles.add(rem_hand[0])
-        elif len(rem_hand) == 2:
-            tile1, tile2 = rem_hand[0], rem_hand[1]
-            if tile1 == tile2:
-                waiting_tiles.add(tile1)
-            elif tile1 <= 39 and tile2 <= 39:
-                if tile1 == tile2 - 1:
-                    if tile1 // 10 == tile2 // 10:
-                        waiting_tiles.add(tile1 - 1)
-                        waiting_tiles.add(tile1 + 2)
-                elif tile1 == tile2 - 2:
-                    if tile1 // 10 == tile2 // 10:
-                        waiting_tiles.add(tile1 + 1)
+    waits = standard_waiting_tiles(sorted_hand, allow_fifth_copy=False)
+    if waits:
+        waiting_tiles.update(waits)
 
 
 def qingque_tingpai_check(

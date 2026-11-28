@@ -21,6 +21,10 @@ async def enforce_online_bans(server):
                         await server.match_manager.cancel_banned_queue(uid)
                 else:
                     await server.kick_user_by_id(uid, server.db_manager.build_login_ban_message(ban))
+                    secret = getattr(getattr(server, 'chat_server', None), 'secret_key', '')
+                    if secret:
+                        from ..chat_server.access import notify_chat_revoke
+                        asyncio.create_task(asyncio.to_thread(notify_chat_revoke, secret, uid, True, 'account_banned'))
         except Exception:
             logging.exception('同步在线账号封禁状态失败')
         await asyncio.sleep(3)

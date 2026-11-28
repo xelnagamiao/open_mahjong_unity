@@ -377,6 +377,8 @@ class QingqueDecomposition:
         "remaining_counter",
         "is_seven_pairs",
         "seven_pair_tiles",
+        "_cached_counter_open",
+        "_cached_counter_closed",
     )
 
     def __init__(
@@ -437,24 +439,35 @@ class QingqueDecomposition:
         )
 
     def counter(self, include_open_melds: bool = True) -> QingqueTileCounter:
+        if include_open_melds:
+            cached = getattr(self, "_cached_counter_open", None)
+            if cached is not None:
+                return cached
+        else:
+            cached = getattr(self, "_cached_counter_closed", None)
+            if cached is not None:
+                return cached
+
         if self.is_seven_pairs and self.seven_pair_tiles is not None:
             c = QingqueTileCounter(0, 0)
             for t in self.seven_pair_tiles:
                 c.add_tile(t, 2)
-            return c
-
-        if not self.remaining_counter.is_empty:
+        elif not self.remaining_counter.is_empty:
             return self.remaining_counter
-
-        if self.pair != 0:
+        elif self.pair != 0:
             c = QingqueTileCounter(0, 0)
             c.add_tile(self.pair, 2)
             for m in self.melds:
                 if include_open_melds or not m.fixed:
                     c.add_meld(m)
-            return c
+        else:
+            c = self.original_hand.counter(include_open_melds)
 
-        return self.original_hand.counter(include_open_melds)
+        if include_open_melds:
+            self._cached_counter_open = c
+        else:
+            self._cached_counter_closed = c
+        return c
 
     @property
     def winning_type(self) -> QingqueWinType:

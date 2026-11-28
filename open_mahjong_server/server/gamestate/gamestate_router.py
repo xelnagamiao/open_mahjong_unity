@@ -41,6 +41,28 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
             return
 
     message_type = message.get("type", "").strip("/")
+
+    if gid and state is not None and message_type not in {
+        "gamestate/get_spectator_list",
+        "gamestate/broadcast_sticker",
+        "gamestate/vote/propose",
+        "gamestate/vote/cast",
+    }:
+        conn = game_server.players.get(Connect_id)
+        if conn is not None and conn.user_id:
+            from .public.timeout_hosting import clear_timeout_hosting, notify_timeout_hosting_state
+            if clear_timeout_hosting(state, conn.user_id):
+                await notify_timeout_hosting_state(state, conn.user_id, False)
+
+    if message_type == "gamestate/cancel_timeout_auto_moqie":
+        conn = game_server.players.get(Connect_id)
+        if conn is not None and conn.user_id:
+            target_state = state if gid else game_server.gamestate_manager.get_game_state_by_user_id(conn.user_id)
+            if target_state is not None:
+                from .public.timeout_hosting import clear_timeout_hosting, notify_timeout_hosting_state
+                clear_timeout_hosting(target_state, conn.user_id)
+                await notify_timeout_hosting_state(target_state, conn.user_id, False)
+        return
     
     # 根据完整路径分发
     if message_type == "gamestate/GB/cut_tile":

@@ -27,6 +27,7 @@ internal static class RiichiRuleBootstrap {
             GameStateFactory = () => new RiichiGameState(),
             Tingpai = RiichiTips.Tingpai,
             DescribeWaitingTile = RiichiTips.Describe,
+            DeferWaitingTileHints = true,
             LiveVisibleIndicators = () => RiichiGameState.Active != null ? RiichiGameState.Active.LiveVisibleIndicatorTiles() : System.Array.Empty<int>(),
             CollectLivePlayerVisibleTiles = (p, isSelf, add) => {
                 if (GameSession.Current.SubRule == "riichi/sanma" && p.huapai_list != null)

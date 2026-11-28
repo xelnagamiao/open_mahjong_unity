@@ -279,7 +279,7 @@ class Chinese_Hepai_Check:
         complete_step = len(tiles_combination) * 3
         player_tiles = PlayerTiles(hand_list,tiles_combination,complete_step)
 
-        print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
+        self.debug_print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
         
         player_tiles_list = []
         if len(player_tiles.hand_tiles) == 14:
@@ -419,31 +419,39 @@ class Chinese_Hepai_Check:
         if player_tiles.complete_step == 14:
             check_done_list.append(player_tiles)
             return
-        elif player_tiles.complete_step == 0:
-            if not self.normal_check_block(player_tiles):
-                return
+        if player_tiles.complete_step + len(player_tiles.hand_tiles) != 14:
+            return
 
-        all_list = self.normal_check_traverse_quetou(player_tiles)
+        try:
+            from server.game_calculation.standard_solver import standard_combination_codes
+        except ImportError:
+            from standard_solver import standard_combination_codes  # type: ignore
+
+        comb_lists = standard_combination_codes(
+            player_tiles.hand_tiles,
+            player_tiles.combination_list,
+            kezi_prefix="K",
+            shunzi_prefix="S",
+            quetou_prefix="q",
+        )
+        if not comb_lists:
+            return
+
+        seen = set()
         end_list = []
-        self.debug_print("所有雀头可能",[i.hand_tiles for i in all_list])
-        count_count = 0
-        while all_list:
-            count_count += 1
-            temp_list = all_list.pop()
-            self.normal_check_traverse_kezi(temp_list, all_list)
-            self.normal_check_traverse_dazi(temp_list, all_list)
-            if temp_list.complete_step == 14:
-                end_list.append(temp_list)
-        
-        self.debug_print("计算次数：",count_count)
-        combination_class = None
-        temp_list = []
-        for i in end_list:
-            i.combination_list.sort()
-            if i.combination_list != combination_class:
-                combination_class = i.combination_list
-                temp_list.append(i)
-        end_list = temp_list
+        base_fans = player_tiles.fan_list
+        init_comb_count = getattr(player_tiles, "initial_combination_count", len(player_tiles.combination_list))
+        for comb in comb_lists:
+            key = tuple(comb)
+            if key in seen:
+                continue
+            seen.add(key)
+            done = PlayerTiles([], comb, 14)
+            if hasattr(done, "initial_combination_count"):
+                done.initial_combination_count = init_comb_count
+            if base_fans:
+                done.fan_list = base_fans[:]
+            end_list.append(done)
 
         self.debug_print("和牌类型的数量:", len(end_list))
         for i in end_list:
@@ -1376,7 +1384,7 @@ class Chinese_Hepai_Check:
             for i in player_tiles.combination_list:
                 if i in self.combination_to_tiles_dict:
                     hand_tiles_list.extend(self.combination_to_tiles_dict[i])
-                hand_tiles_list.sort()
+            hand_tiles_list.sort()
         for i in player_tiles.combination_list:
             combination_str += i
         self.debug_print("组合映射：",combination_str)

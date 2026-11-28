@@ -24,10 +24,67 @@ internal static class TuidaoHandCalculator {
     public static HashSet<int> Waits(List<int> hand, List<string> melds) {
         var waits = new HashSet<int>();
         melds = melds ?? new List<string>();
-        if (hand == null || hand.Count + melds.Count * 3 != 13) return waits;
-        foreach (int tile in Tiles) {
-            var completed = new List<int>(hand) { tile };
-            if (IsComplete(completed, melds)) waits.Add(tile);
+        if (hand == null || melds.Count > 4 || hand.Count + melds.Count * 3 != 13) return waits;
+        int[] phys = new int[48];
+        int[] hc = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (!TileSet.Contains(t) || ++phys[t] > 4) return waits;
+            hc[t]++;
+        }
+        for (int i = 0; i < melds.Count; i++) {
+            string code = melds[i];
+            if (string.IsNullOrEmpty(code) || code.Length < 2 || !int.TryParse(code.Substring(1), out int tile)) return waits;
+            if (code[0] == 's') {
+                if (tile >= 40 || tile % 10 < 2 || tile % 10 > 8) return waits;
+                if (++phys[tile - 1] > 4 || ++phys[tile] > 4 || ++phys[tile + 1] > 4) return waits;
+            } else if (code[0] == 'k' || code[0] == 'g' || code[0] == 'G') {
+                if (!TileSet.Contains(tile)) return waits;
+                phys[tile] += code[0] == 'k' ? 3 : 4;
+                if (phys[tile] > 4) return waits;
+            } else return waits;
+        }
+        var std = StandardMahjongSolver.StandardWaitingTiles(hand, allowHonors: true, allowFifthCopy: false);
+        foreach (int t in std) if ((uint)t < 48 && phys[t] < 4) waits.Add(t);
+        if (melds.Count == 0) {
+            int oddCount = 0, oddTile = -1;
+            for (int i = 0; i < Tiles.Length; i++) {
+                int t = Tiles[i];
+                if ((hc[t] & 1) != 0) { oddCount++; oddTile = t; }
+            }
+            if (oddCount == 1 && phys[oddTile] < 4) waits.Add(oddTile);
+
+            bool allOrphans = true;
+            for (int i = 0; i < hand.Count; i++) {
+                if (!Orphans.Contains(hand[i])) { allOrphans = false; break; }
+            }
+            if (allOrphans) {
+                int missing = 0, missingTile = -1, pairCount = 0;
+                foreach (int o in Orphans) {
+                    if (hc[o] == 0) { missing++; missingTile = o; }
+                    else if (hc[o] == 2) pairCount++;
+                    else if (hc[o] > 2) { missing = 99; break; }
+                }
+                if (missing == 0) {
+                    foreach (int o in Orphans) if (phys[o] < 4) waits.Add(o);
+                } else if (missing == 1 && pairCount == 1 && phys[missingTile] < 4) {
+                    waits.Add(missingTile);
+                }
+            }
+
+            if (oddCount == 13) {
+                for (int i = 0; i < KnittedPools.Length; i++) {
+                    var pool = KnittedPools[i];
+                    bool subset = true;
+                    for (int j = 0; j < hand.Count; j++) {
+                        if (!pool.Contains(hand[j])) { subset = false; break; }
+                    }
+                    if (!subset) continue;
+                    foreach (int t in pool) {
+                        if (hc[t] == 0 && phys[t] < 4) waits.Add(t);
+                    }
+                }
+            }
         }
         return waits;
     }
@@ -35,68 +92,50 @@ internal static class TuidaoHandCalculator {
     public static bool IsComplete(List<int> hand, List<string> melds) {
         melds = melds ?? new List<string>();
         if (hand == null || melds.Count > 4 || hand.Count + 3 * melds.Count != 14) return false;
-        var all = new List<int>(hand);
+        int[] phys = new int[48];
+        for (int i = 0; i < hand.Count; i++) {
+            int t = hand[i];
+            if (!TileSet.Contains(t) || ++phys[t] > 4) return false;
+        }
         foreach (string code in melds) {
             if (string.IsNullOrEmpty(code) || code.Length < 2 || !int.TryParse(code.Substring(1), out int tile)) return false;
             if (code[0] == 's') {
                 if (tile >= 40 || tile % 10 < 2 || tile % 10 > 8) return false;
-                all.Add(tile - 1); all.Add(tile); all.Add(tile + 1);
+                if (++phys[tile - 1] > 4 || ++phys[tile] > 4 || ++phys[tile + 1] > 4) return false;
             } else if (code[0] == 'k' || code[0] == 'g' || code[0] == 'G') {
-                for (int i = 0; i < (code[0] == 'k' ? 3 : 4); i++) all.Add(tile);
+                if (!TileSet.Contains(tile)) return false;
+                phys[tile] += code[0] == 'k' ? 3 : 4;
+                if (phys[tile] > 4) return false;
             } else return false;
         }
-        if (all.Any(tile => !TileSet.Contains(tile)) || all.GroupBy(tile => tile).Any(group => group.Count() > 4)) return false;
         if (melds.Count == 0) {
             var groups = hand.GroupBy(tile => tile).ToList();
             // 四张相同牌可作两对。
             if (groups.All(group => group.Count() % 2 == 0)) return true;
             if (Orphans.IsSubsetOf(hand) && hand.All(Orphans.Contains)) return true;
-            if (hand.Distinct().Count() == 14 && IsKnitted(hand)) return true;
+            if (groups.Count == 14 && IsKnitted(hand)) return true;
         }
-        var counts = new int[48];
-        foreach (int tile in hand) counts[tile]++;
-        foreach (int pair in hand.Distinct()) {
-            if (counts[pair] < 2) continue;
-            counts[pair] -= 2;
-            bool complete = SplitSets(counts, hand.Count - 2);
-            counts[pair] += 2;
-            if (complete) return true;
-        }
-        return false;
+        return StandardMahjongSolver.CanStandardWin(hand, allowHonors: true);
     }
 
-    private static bool SplitSets(int[] counts, int remaining) {
-        if (remaining == 0) return true;
-        int tile = 11;
-        while (tile < counts.Length && counts[tile] == 0) tile++;
-        if (tile == counts.Length) return false;
-        if (counts[tile] >= 3) {
-            counts[tile] -= 3;
-            bool complete = SplitSets(counts, remaining - 3);
-            counts[tile] += 3;
-            if (complete) return true;
-        }
-        if (tile < 40 && tile % 10 <= 7 && counts[tile + 1] > 0 && counts[tile + 2] > 0) {
-            counts[tile]--; counts[tile + 1]--; counts[tile + 2]--;
-            bool complete = SplitSets(counts, remaining - 3);
-            counts[tile]++; counts[tile + 1]++; counts[tile + 2]++;
-            if (complete) return true;
-        }
-        return false;
-    }
+    private static readonly HashSet<int>[] KnittedPools = new[] {
+        new HashSet<int> { 11, 14, 17, 22, 25, 28, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
+        new HashSet<int> { 11, 14, 17, 32, 35, 38, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 },
+        new HashSet<int> { 21, 24, 27, 12, 15, 18, 33, 36, 39, 41, 42, 43, 44, 45, 46, 47 },
+        new HashSet<int> { 21, 24, 27, 32, 35, 38, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
+        new HashSet<int> { 31, 34, 37, 22, 25, 28, 13, 16, 19, 41, 42, 43, 44, 45, 46, 47 },
+        new HashSet<int> { 31, 34, 37, 12, 15, 18, 23, 26, 29, 41, 42, 43, 44, 45, 46, 47 }
+    };
 
     private static bool IsKnitted(List<int> hand) {
         // 147/258/369 三组分别归属三门；九张数牌与七张字牌的任意14张不重复牌。
-        foreach (int first in new[] { 1, 2, 3 }) {
-            foreach (int second in new[] { 1, 2, 3 }) {
-                if (first == second) continue;
-                int third = 6 - first - second;
-                var pool = new HashSet<int>(Enumerable.Range(41, 7));
-                foreach (int rank in new[] { 1, 4, 7 }) pool.Add(first * 10 + rank);
-                foreach (int rank in new[] { 2, 5, 8 }) pool.Add(second * 10 + rank);
-                foreach (int rank in new[] { 3, 6, 9 }) pool.Add(third * 10 + rank);
-                if (hand.All(pool.Contains)) return true;
+        for (int i = 0; i < KnittedPools.Length; i++) {
+            var pool = KnittedPools[i];
+            bool ok = true;
+            for (int j = 0; j < hand.Count; j++) {
+                if (!pool.Contains(hand[j])) { ok = false; break; }
             }
+            if (ok) return true;
         }
         return false;
     }
@@ -157,37 +196,38 @@ internal static class TuidaoHandCalculator {
             }
         }
 
-        var counts = new int[48];
-        foreach (int tile in hand) counts[tile]++;
-        foreach (int pair in hand.Distinct().OrderBy(tile => tile)) {
-            if (counts[pair] < 2) continue;
-            counts[pair] -= 2;
-            EnumerateSets(counts, hand.Count - 2, new List<Meld>(), sets => {
-                var allSets = calls.Concat(sets).ToList();
-                var fans = new HashSet<string>(basis);
-                bool allPungs = allSets.All(meld => meld.Kind == 'k');
-                if (allPungs) fans.Add("碰碰和");
-                if (allSets.All(meld => meld.Kind == 's') && pair < 40) fans.Add("平和");
-                if (Orphans.Contains(pair) && allSets.All(meld => meld.PhysicalTiles.Any(Orphans.Contains))) fans.Add("全带幺");
-                if (hand.Count == 2) fans.Add("大吊车");
-                var sequences = new HashSet<int>(allSets.Where(meld => meld.Kind == 's').Select(meld => meld.Tile));
-                if (Enumerable.Range(1, 3).Any(suit => new[] { suit * 10 + 2, suit * 10 + 5, suit * 10 + 8 }.All(sequences.Contains)))
-                    fans.Add("清龙");
-                var pungs = new HashSet<int>(allSets.Where(meld => meld.Kind == 'k').Select(meld => meld.Tile));
-                if (new[] { 45, 46, 47 }.All(pungs.Contains)) fans.Add("大三元");
-                if (new[] { 41, 42, 43, 44 }.All(pungs.Contains)) {
-                    fans.Add("大四喜");
-                    fans.Remove("碰碰和");
-                }
-                // 点和补成的刻子不能算暗刻；四暗刻点和只能完成将牌。
-                if (allPungs && allSets.All(meld => !meld.Open) && (selfDraw || pair == winningTile)) {
-                    fans.Add("四暗刻");
-                    fans.ExceptWith(new[] { "门清", "碰碰和" });
-                }
-                if (fans.Contains("字一色")) fans.Remove("全带幺");
-                Consider(fans);
-            });
-            counts[pair] += 2;
+        var decomps = StandardMahjongSolver.StandardDecompositions(hand, allowHonors: true);
+        for (int d = 0; d < decomps.Count; d++) {
+            var dec = decomps[d];
+            int pair = dec.PairTile;
+            var allSets = new List<Meld>(4);
+            allSets.AddRange(calls);
+            for (int j = 0; j < dec.Melds.Length; j++) {
+                var u = dec.Melds[j];
+                allSets.Add(new Meld { Kind = u.Kind == 1 ? 's' : 'k', Tile = u.TileId, Count = 3 });
+            }
+            var fans = new HashSet<string>(basis);
+            bool allPungs = allSets.All(meld => meld.Kind == 'k');
+            if (allPungs) fans.Add("碰碰和");
+            if (allSets.All(meld => meld.Kind == 's') && pair < 40) fans.Add("平和");
+            if (Orphans.Contains(pair) && allSets.All(meld => meld.PhysicalTiles.Any(Orphans.Contains))) fans.Add("全带幺");
+            if (hand.Count == 2) fans.Add("大吊车");
+            var sequences = new HashSet<int>(allSets.Where(meld => meld.Kind == 's').Select(meld => meld.Tile));
+            if (Enumerable.Range(1, 3).Any(suit => new[] { suit * 10 + 2, suit * 10 + 5, suit * 10 + 8 }.All(sequences.Contains)))
+                fans.Add("清龙");
+            var pungs = new HashSet<int>(allSets.Where(meld => meld.Kind == 'k').Select(meld => meld.Tile));
+            if (new[] { 45, 46, 47 }.All(pungs.Contains)) fans.Add("大三元");
+            if (new[] { 41, 42, 43, 44 }.All(pungs.Contains)) {
+                fans.Add("大四喜");
+                fans.Remove("碰碰和");
+            }
+            // 点和补成的刻子不能算暗刻；四暗刻点和只能完成将牌。
+            if (allPungs && allSets.All(meld => !meld.Open) && (selfDraw || pair == winningTile)) {
+                fans.Add("四暗刻");
+                fans.ExceptWith(new[] { "门清", "碰碰和" });
+            }
+            if (fans.Contains("字一色")) fans.Remove("全带幺");
+            Consider(fans);
         }
         return best;
     }
